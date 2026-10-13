@@ -23,8 +23,10 @@ with the bounded experiment in this document before expanding the implementation
 
 ## Image style
 
-Use a low internal resolution. Enlarge the completed image with nearest-neighbour
-sampling. Make the internal resolution independent of the window size.
+Make the internal resolution configurable, including native output resolution.
+Keep it independent of the window size. The rendering style must work at high
+resolutions. When image scaling is required, use nearest-neighbour sampling to
+preserve the palette and dithering.
 
 Use small indexed textures, discrete light levels, and visible dithering. Keep
 depth calculations accurate. Colour precision must not reduce visibility accuracy.
@@ -59,9 +61,10 @@ colour distance. Build colour and light lookup tables from the palette colours.
 
 ### Dithering contract
 
-Apply dithering on the internal pixel grid, before enlargement. Use final screen
-coordinates for the pattern. Do not restart the pattern at tile or portal
-boundaries. Keep the pattern stable across frames for unchanged inputs.
+Apply dithering on the internal pixel grid, before any image scaling. Use image
+coordinates shared by all views for the pattern. Do not restart the pattern at
+tile or portal boundaries. Keep the pattern stable across frames for unchanged
+inputs. Dithering must work at every supported resolution.
 
 Use a deterministic spatial pattern to choose between valid palette entries.
 The choice can represent an intermediate colour or light level. Each selected
@@ -210,7 +213,8 @@ before selecting a more complex assignment algorithm.
 7. Create child views from the remaining visible portal pixels.
 8. Repeat the view passes until all pixels have a surface or terminal result.
 9. Render UI in compute with the same palette and image ownership rules.
-10. Enlarge and expand palette indices into the presentation image.
+10. Expand palette indices into the presentation image. Scale only when
+    resolutions differ.
 
 Use GPU work counts and indirect dispatch where work depends on visibility. Put
 explicit memory dependencies between producers, indirect command reads, and
@@ -267,11 +271,13 @@ path. Use a tight interior with a doorway onto outdoor terrain. Add two portals
 that show the same destination with different transforms. Include a moving opaque
 mesh, cutout foliage, a crossing object, and a recursive portal path.
 
-Use a proposed internal resolution of 640 by 360 pixels. The proposed frame
-production target is 16.67 milliseconds at the 99th percentile. Include CPU frame
-preparation and all GPU work through the final image transfer. Measure intentional
-display pacing waits separately. Confirm this target against the minimum device
-list before measuring. This is an experiment target, not a performance claim.
+Use 640 by 360 pixels as an initial benchmark case. Also measure native output
+resolutions from the target device and display list. Benchmark resolutions do not
+set renderer limits. The proposed frame production target is 16.67 milliseconds
+at the 99th percentile. Include CPU frame preparation and all GPU work through
+the final image transfer. Measure intentional display pacing waits separately.
+Confirm the target for each device and resolution before measuring. This is an
+experiment target, not a performance claim.
 
 Capture a fixed camera and animation sequence. Record scene hashes, geometry
 counts, portal crossings, visible view counts, resolution, device, driver, and
