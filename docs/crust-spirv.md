@@ -2,9 +2,9 @@
 
 ## Current status: 2026-10-14
 
-Crust commit `483730792cd3646dc965c2782be6ef52c7ee91a4` implements the first
-Vulkan compute stage. The submodule also contains a test-runner correction:
-requesting one physical device permits `VK_INCOMPLETE` when more devices exist.
+Crust is pinned to `46b201c23c7b77d9719eccaee2947d2b514428d1`. It includes the
+first Vulkan compute stage and a Vulkan dispatch harness written in Crust.
+The upstream history also includes the device enumeration correction.
 
 - The seed, C backend, and LLVM host backend support shared `f32` semantics.
 - LLVM field and element access uses typed addressing.
@@ -26,9 +26,13 @@ failure propagation, bounds, images, float conversions, and zero initialization.
 Failed-tool output preservation and allocation-failure checks also passed.
 Compilation used LLVM 23.1.3 and SPIRV-Tools 2025.1.
 
-The dispatch harness is C. These results do not complete the Crust host program,
-visible-image, or multiple-workgroup experiment below. Windows and NVIDIA were
-not tested. The nine dispatch cases each use one four-invocation workgroup.
+The Crust dispatch harness passed 1,025 ABI checks across 42 records against
+the Vulkan C headers. Four injected enumeration and setup cases and three
+malformed-input checks also passed. Its bindings use the Linux x86-64 ABI.
+These results establish Crust host dispatch. They do not complete the generated
+host/shader interface, visible-image, or multiple-workgroup experiment below.
+Windows and NVIDIA were not tested. The nine dispatch cases each use one
+four-invocation workgroup.
 
 ## Initial investigation: 2026-10-13
 
