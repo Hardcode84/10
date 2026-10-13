@@ -1,0 +1,308 @@
+// SPDX-License-Identifier: Apache-2.0
+
+fn commands_create(v: *Vulkan) -> bool {
+    var pool: VkCommandPoolCreateInfo = uninit;
+    zero(&pool as *u8, sizeof(VkCommandPoolCreateInfo));
+    pool.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool.queueFamilyIndex = v -> family;
+    pool.flags = 2u32;
+    if !vk_ok(
+        vkCreateCommandPool(v -> device, &pool, null(*u8), &v -> command_pool),
+        "vkCreateCommandPool"
+    ) {
+        return false;
+    }
+    var info: VkCommandBufferAllocateInfo = uninit;
+    zero(&info as *u8, sizeof(VkCommandBufferAllocateInfo));
+    info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    info.commandPool = v -> command_pool;
+    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    info.commandBufferCount = 1u32;
+    return vk_ok(
+        vkAllocateCommandBuffers(v -> device, &info, &v -> commands),
+        "vkAllocateCommandBuffers"
+    );
+}
+
+fn commands_record(v: *Vulkan) -> bool {
+    var begin: VkCommandBufferBeginInfo = uninit;
+    zero(&begin as *u8, sizeof(VkCommandBufferBeginInfo));
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    if !vk_ok(vkBeginCommandBuffer(v -> commands, &begin), "vkBeginCommandBuffer") {
+        return false;
+    }
+    vkCmdResetQueryPool(v -> commands, v -> query_pool, 0u32, 20u32);
+    vkCmdWriteTimestamp(v -> commands, 1u32, v -> query_pool, 0u32);
+    upload_scene(v);
+    vkCmdFillBuffer(
+        v -> commands,
+        v -> buffer,
+        (WORDS_LENGTH as u64 + FLOATS_LENGTH as u64) * 4u64,
+        MAX_INVOCATIONS as u64 * 4u64,
+        0u32
+    );
+    frame_barrier(v, 4096u32, 0x1000u32, 2048u32, 96u32);
+    vkCmdBindDescriptorSets(
+        v -> commands,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        v -> pipeline_layout,
+        0u32,
+        1u32,
+        &v -> set,
+        0u32,
+        null(*u32)
+    );
+    vkCmdBindPipeline(v -> commands, VK_PIPELINE_BIND_POINT_COMPUTE, v -> pipelines[0usize]);
+    vkCmdDispatch(
+        v -> commands,
+        ((v -> mapped as *u32)[0usize] * (v -> mapped as *u32)[1usize] + 63u32) / 64u32,
+        1u32,
+        1u32
+    );
+    frame_barrier(v, 2048u32, 64u32, 2048u32 | 2u32, 96u32 | 1u32);
+    vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 1u32);
+    var depth: u32 = 0u32;
+    while depth < 4u32 {
+        vkCmdBindPipeline(
+            v -> commands,
+            VK_PIPELINE_BIND_POINT_COMPUTE,
+            v -> pipelines[1usize]
+        );
+        vkCmdDispatchIndirect(v -> commands, v -> buffer, 64u64);
+        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+        vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 2u32 + depth * 4u32);
+        vkCmdBindPipeline(
+            v -> commands,
+            VK_PIPELINE_BIND_POINT_COMPUTE,
+            v -> pipelines[5usize]
+        );
+        vkCmdDispatch(v -> commands, 1u32, 1u32, 1u32);
+        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+        vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 3u32 + depth * 4u32);
+        vkCmdBindPipeline(
+            v -> commands,
+            VK_PIPELINE_BIND_POINT_COMPUTE,
+            v -> pipelines[2usize]
+        );
+        vkCmdDispatchIndirect(v -> commands, v -> buffer, 52u64);
+        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+        vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 4u32 + depth * 4u32);
+        vkCmdBindPipeline(
+            v -> commands,
+            VK_PIPELINE_BIND_POINT_COMPUTE,
+            v -> pipelines[6usize]
+        );
+        vkCmdDispatch(v -> commands, MAX_TASKS / 64u32, 1u32, 1u32);
+        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+        vkCmdBindPipeline(
+            v -> commands,
+            VK_PIPELINE_BIND_POINT_COMPUTE,
+            v -> pipelines[3usize]
+        );
+        vkCmdDispatch(v -> commands, 1u32, 1u32, 1u32);
+        frame_barrier(v, 2048u32, 64u32, 2048u32 | 2u32, 96u32 | 1u32);
+        vkCmdBindPipeline(
+            v -> commands,
+            VK_PIPELINE_BIND_POINT_COMPUTE,
+            v -> pipelines[7usize]
+        );
+        vkCmdDispatchIndirect(v -> commands, v -> buffer, 112u64);
+        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+        vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 5u32 + depth * 4u32);
+        depth = depth + 1u32;
+    }
+    vkCmdBindPipeline(v -> commands, VK_PIPELINE_BIND_POINT_COMPUTE, v -> pipelines[4usize]);
+    vkCmdDispatch(
+        v -> commands,
+        ((v -> mapped as *u32)[22usize] * (v -> mapped as *u32)[23usize] + 63u32) / 64u32,
+        1u32,
+        1u32
+    );
+    var barrier: VkMemoryBarrier = uninit;
+    zero(&barrier as *u8, sizeof(VkMemoryBarrier));
+    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier.dstAccessMask = 2048u32;
+    vkCmdPipelineBarrier(
+        v -> commands,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_HOST_BIT | 4096u32,
+        0u32,
+        1u32,
+        &barrier,
+        0u32,
+        null(*u8),
+        0u32,
+        null(*VkImageMemoryBarrier)
+    );
+    vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 18u32);
+    readback(v);
+    vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 19u32);
+    return vk_ok(vkEndCommandBuffer(v -> commands), "vkEndCommandBuffer");
+}
+fn dispatch(v: *Vulkan) -> bool {
+    var submit: VkSubmitInfo = uninit;
+    zero(&submit as *u8, sizeof(VkSubmitInfo));
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.commandBufferCount = 1u32;
+    submit.pCommandBuffers = &v -> commands;
+    if !vk_ok(vkQueueSubmit(v -> queue, 1u32, &submit, null(*u8)), "vkQueueSubmit") {
+        return false;
+    }
+    if !vk_ok(vkQueueWaitIdle(v -> queue), "vkQueueWaitIdle") {
+        exit(1i32);
+        return false;
+    }
+    return true;
+}
+fn device_close(v: *Vulkan) -> unit {
+    if v -> device != null(*u8) {
+        if v -> query_pool != null(*u8) {
+            vkDestroyQueryPool(v -> device, v -> query_pool, null(*u8));
+        }
+        if v -> acquired != null(*u8) {
+            vkDestroyFence(v -> device, v -> acquired, null(*u8));
+        }
+        if v -> swapchain != null(*u8) {
+            vkDestroySwapchainKHR(v -> device, v -> swapchain, null(*u8));
+        }
+        if v -> command_pool != null(*u8) {
+            vkDestroyCommandPool(v -> device, v -> command_pool, null(*u8));
+        }
+        if v -> pool != null(*u8) {
+            vkDestroyDescriptorPool(v -> device, v -> pool, null(*u8));
+        }
+        var i: usize = 0usize;
+        while i < 8usize {
+            if v -> pipelines[i] != null(*u8) {
+                vkDestroyPipeline(v -> device, v -> pipelines[i], null(*u8));
+            }
+            if v -> modules[i] != null(*u8) {
+                vkDestroyShaderModule(v -> device, v -> modules[i], null(*u8));
+            }
+            i = i + 1usize;
+        }
+        if v -> pipeline_layout != null(*u8) {
+            vkDestroyPipelineLayout(v -> device, v -> pipeline_layout, null(*u8));
+        }
+        if v -> layout != null(*u8) {
+            vkDestroyDescriptorSetLayout(v -> device, v -> layout, null(*u8));
+        }
+        if v -> mapped != null(*u8) {
+            vkUnmapMemory(v -> device, v -> staging_memory);
+        }
+        if v -> staging != null(*u8) {
+            vkDestroyBuffer(v -> device, v -> staging, null(*u8));
+        }
+        if v -> staging_memory != null(*u8) {
+            vkFreeMemory(v -> device, v -> staging_memory, null(*u8));
+        }
+        if v -> buffer != null(*u8) {
+            vkDestroyBuffer(v -> device, v -> buffer, null(*u8));
+        }
+        if v -> memory != null(*u8) {
+            vkFreeMemory(v -> device, v -> memory, null(*u8));
+        }
+        vkDestroyDevice(v -> device, null(*u8));
+    }
+    if v -> surface != null(*u8) {
+        vkDestroySurfaceKHR(v -> instance, v -> surface, null(*u8));
+    }
+    if v -> window != null(*u8) {
+        SDL_DestroyWindow(v -> window);
+        SDL_Quit();
+    }
+    if v -> instance != null(*u8) {
+        vkDestroyInstance(v -> instance, null(*u8));
+    }
+}
+
+fn frame_barrier(
+    v: *Vulkan,
+    source_stage: u32,
+    source_access: u32,
+    dest_stage: u32,
+    dest_access: u32
+) -> unit {
+    var b: VkMemoryBarrier = uninit;
+    zero(&b as *u8, sizeof(VkMemoryBarrier));
+    b.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    b.srcAccessMask = source_access;
+    b.dstAccessMask = dest_access;
+    vkCmdPipelineBarrier(
+        v -> commands,
+        source_stage,
+        dest_stage,
+        0u32,
+        1u32,
+        &b,
+        0u32,
+        null(*u8),
+        0u32,
+        null(*VkImageMemoryBarrier)
+    );
+}
+
+fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
+    var copy: VkBufferCopy = make VkBufferCopy {
+        srcOffset: offset,
+        dstOffset: offset,
+        size: size
+    };
+    vkCmdCopyBuffer(v -> commands, src, dst, 1u32, &copy);
+}
+fn upload_scene(v: *Vulkan) -> unit {
+    copy_region(v, v -> staging, v -> buffer, 0u64, 8192u64 * 4u64);
+    copy_region(v, v -> staging, v -> buffer, META as u64 * 4u64, MAX_TRIS as u64 * 16u64);
+    copy_region(v, v -> staging, v -> buffer, (MATERIAL_STYLE as u64) * 4u64, 16u64 * 4u64);
+    copy_region(
+        v,
+        v -> staging,
+        v -> buffer,
+        PORTAL_META as u64 * 4u64,
+        MAX_PORTALS as u64 * 16u64
+    );
+    copy_region(
+        v,
+        v -> staging,
+        v -> buffer,
+        WORDS_LENGTH as u64 * 4u64,
+        (GEOMETRY as u64 + MAX_TRIS as u64 * 15u64) * 4u64
+    );
+}
+fn readback(v: *Vulkan) -> unit {
+    copy_region(v, v -> buffer, v -> staging, 0u64, 64u64 * 4u64);
+    copy_region(
+        v,
+        v -> buffer,
+        v -> staging,
+        (WORDS_LENGTH as u64 + FLOATS_LENGTH as u64) * 4u64,
+        MAX_INVOCATIONS as u64 * 4u64
+    );
+    if v -> capture {
+        copy_region(
+            v,
+            v -> buffer,
+            v -> staging,
+            PIXELS as u64 * 4u64,
+            MAX_INVOCATIONS as u64 * 4u64
+        );
+        copy_region(
+            v,
+            v -> buffer,
+            v -> staging,
+            (PRESENT_PIXELS as u64) * 4u64,
+            MAX_INVOCATIONS as u64 * 4u64
+        );
+    }
+    if (v -> mapped as *u32)[26usize] != 0u32 {
+        copy_region(
+            v,
+            v -> buffer,
+            v -> staging,
+            (DEBUG_VALUES as u64) * 4u64,
+            (v -> mapped as *u32)[0usize] as u64 * (v -> mapped as *u32)[1usize] as u64 * 16u64
+        );
+    }
+    frame_barrier(v, 4096u32, 4096u32, 16384u32, 8192u32);
+}

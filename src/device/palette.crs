@@ -1,0 +1,19 @@
+fn compute() -> unit {
+    var i: u32 = shader_global_x();
+    var width: u32 = words_load(0u32);
+    var height: u32 = words_load(1u32);
+    shared_store(shader_local_x(), 1f32);
+    shader_barrier();
+    if i < width * height {
+        var x: u32 = i % width;
+        var y: u32 = i / width;
+        var index: u32 = words_load(TEXTURE + (x % 8u32) + (y % 8u32) * 8u32);
+        var light: u32 = (x * 1023u32) / width;
+        var level: u32 = light / 16u32;
+        if light % 16u32 > threshold(x, y, words_load(2u32)) && level < 63u32 {
+            level = level + 1u32;
+        }
+        shader_require(shared_load(shader_local_x() ^ 1u32) == 1f32);
+        words_store(PIXELS + i, words_load(PALETTE + index * 64u32 + level));
+    }
+}

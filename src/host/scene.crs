@@ -1,0 +1,580 @@
+fn terrain_height(x: f32, z: f32) -> f32 {
+    var distance: f32 = z - 8f32;
+    if distance < 0f32 {
+        distance = 0f32;
+    }
+    return -2f32 + distance * 0.04f32 + sinf(x * 0.22f32) * cosf(z * 0.14f32) * distance * 0.05f32;
+}
+extern fn sinf(x: f32) -> f32 = "sinf";
+extern fn cosf(x: f32) -> f32 = "cosf";
+fn triangle(
+    v: *Vulkan,
+    space: u32,
+    mat: u32,
+    portal: u32,
+    cutout: u32,
+    ax: f32,
+    ay: f32,
+    az: f32,
+    bx: f32,
+    by: f32,
+    bz: f32,
+    cx: f32,
+    cy: f32,
+    cz: f32
+) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var n: u32 = w[3usize];
+    if n >= MAX_TRIS {
+        puts("scene exceeds triangle budget");
+        exit(1i32);
+        return;
+    }
+    var m: usize = (META + n * 4u32) as usize;
+    w[m] = space;
+    w[m + 1usize] = mat;
+    w[m + 2usize] = portal;
+    w[m + 3usize] = cutout;
+    var p: usize = (GEOMETRY + n * 15u32) as usize;
+    f[p] = ax;
+    f[p + 1usize] = ay;
+    f[p + 2usize] = az;
+    f[p + 3usize] = 0f32;
+    f[p + 4usize] = 0f32;
+    f[p + 5usize] = bx;
+    f[p + 6usize] = by;
+    f[p + 7usize] = bz;
+    f[p + 8usize] = 1f32;
+    f[p + 9usize] = 0f32;
+    f[p + 10usize] = cx;
+    f[p + 11usize] = cy;
+    f[p + 12usize] = cz;
+    f[p + 13usize] = 1f32;
+    f[p + 14usize] = 1f32;
+    w[3usize] = n + 1u32;
+}
+fn quad(
+    v: *Vulkan,
+    space: u32,
+    mat: u32,
+    portal: u32,
+    cutout: u32,
+    ax: f32,
+    ay: f32,
+    az: f32,
+    bx: f32,
+    by: f32,
+    bz: f32,
+    cx: f32,
+    cy: f32,
+    cz: f32,
+    dx: f32,
+    dy: f32,
+    dz: f32
+) -> unit {
+    triangle(v, space, mat, portal, cutout, ax, ay, az, bx, by, bz, cx, cy, cz);
+    triangle(v, space, mat, portal, cutout, ax, ay, az, cx, cy, cz, dx, dy, dz);
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var p: usize = (GEOMETRY + (w[3usize] - 1u32) * 15u32) as usize;
+    f[p + 9usize] = 1f32;
+    f[p + 13usize] = 0f32;
+}
+fn box(v: *Vulkan, space: u32, mat: u32, x: f32, y: f32, z: f32, s: f32) -> unit {
+    quad(
+        v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x - s,
+        y - s,
+        z - s,
+        x + s,
+        y - s,
+        z - s,
+        x + s,
+        y + s,
+        z - s,
+        x - s,
+        y + s,
+        z - s
+    );
+    quad(
+        v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x - s,
+        y - s,
+        z + s,
+        x + s,
+        y - s,
+        z + s,
+        x + s,
+        y + s,
+        z + s,
+        x - s,
+        y + s,
+        z + s
+    );
+    quad(
+        v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x - s,
+        y - s,
+        z - s,
+        x - s,
+        y - s,
+        z + s,
+        x - s,
+        y + s,
+        z + s,
+        x - s,
+        y + s,
+        z - s
+    );
+    quad(
+        v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x + s,
+        y - s,
+        z - s,
+        x + s,
+        y - s,
+        z + s,
+        x + s,
+        y + s,
+        z + s,
+        x + s,
+        y + s,
+        z - s
+    );
+    quad(
+        v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x - s,
+        y + s,
+        z - s,
+        x + s,
+        y + s,
+        z - s,
+        x + s,
+        y + s,
+        z + s,
+        x - s,
+        y + s,
+        z + s
+    );
+    quad(
+        v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x - s,
+        y - s,
+        z - s,
+        x + s,
+        y - s,
+        z - s,
+        x + s,
+        y - s,
+        z + s,
+        x - s,
+        y - s,
+        z + s
+    );
+}
+fn palettes(v: *Vulkan) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var i: u32 = 0u32;
+    while i < 64u32 {
+        w[(TEXTURE + i) as usize] = ((i % 8u32) / 2u32 + (i / 8u32) / 2u32) % 4u32;
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 64u32 {
+        var mat: u32 = i / 4u32;
+        var tex: u32 = i % 4u32;
+        var r: u32 = 65u32 + mat * 11u32 + tex * 13u32;
+        var g: u32 = 100u32 + tex * 20u32;
+        var b: u32 = 120u32 + tex * 17u32;
+        if mat == 1u32 {
+            r = 65u32 + tex * 14u32;
+            g = 90u32 + tex * 15u32;
+            b = 50u32 + tex * 9u32;
+        }
+        if mat == 2u32 {
+            r = 170u32 + tex * 20u32;
+            g = 90u32 + tex * 16u32;
+            b = 40u32 + tex * 10u32;
+        }
+        if mat == 3u32 {
+            r = 40u32 + tex * 10u32;
+            g = 120u32 + tex * 25u32;
+            b = 90u32 + tex * 13u32;
+        }
+        if mat == 4u32 {
+            r = 170u32 + tex * 18u32;
+            g = 40u32 + tex * 14u32;
+            b = 60u32 + tex * 18u32;
+        }
+        if r > 255u32 {
+            r = 255u32;
+        }
+        var light: u32 = 0u32;
+        while light < 64u32 {
+            w[(PALETTE + i * 64u32 + light) as usize] = (r * light / 63u32) | (
+                (g * light / 63u32) << 8u32
+            ) | ((b * light / 63u32) << 16u32) | 0xff000000u32;
+            light = light + 1u32;
+        }
+        i = i + 1u32;
+    }
+}
+fn portal_setup(v: *Vulkan) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var i: u32 = 0u32;
+    while i < MAX_PORTALS {
+        var p: usize = (PORTAL_FLOAT + i * 16u32) as usize;
+        f[p] = 1f32;
+        f[p + 5usize] = 1f32;
+        f[p + 10usize] = 1f32;
+        f[p + 14usize] = 1f32;
+        w[(PORTAL_META + i * 4u32 + 1u32) as usize] = 1u32;
+        i = i + 1u32;
+    }
+    f[(PORTAL_FLOAT + 11u32) as usize] = 9f32;
+    f[(PORTAL_FLOAT + 15u32) as usize] = -0.001f32;
+    var p: usize = (PORTAL_FLOAT + 16u32) as usize;
+    f[p] = 0f32;
+    f[p + 2usize] = 1f32;
+    f[p + 3usize] = 4f32;
+    f[p + 8usize] = -1f32;
+    f[p + 10usize] = 0f32;
+    f[p + 11usize] = 9f32;
+    f[p + 12usize] = -1f32;
+    f[p + 14usize] = 0f32;
+    f[p + 15usize] = -0.001f32;
+    p = (PORTAL_FLOAT + 32u32) as usize;
+    f[p + 11usize] = 9f32;
+    f[p + 14usize] = 1f32;
+    f[p + 15usize] = -8.001f32;
+    w[(PORTAL_META + 2u32 * 4u32) as usize] = 1u32;
+    w[(PORTAL_META + 2u32 * 4u32 + 1u32) as usize] = 0u32;
+}
+fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    w[0usize] = width;
+    w[1usize] = height;
+    w[2usize] = mode;
+    w[3usize] = 0u32;
+    w[4usize] = 3u32;
+    var t: f32 = frame as f32 / 60f32;
+    var yaw: f32 = sinf(t * 0.25f32) * 0.12f32;
+    var c: f32 = cosf(yaw);
+    var s: f32 = sinf(yaw);
+    var cx: f32 = sinf(t * 0.35f32) * 0.3f32;
+    var phase: u32 = frame % 600u32;
+    var cz: f32 = 2f32 + phase as f32 / 240f32 * 5f32;
+    if phase >= 240u32 {
+        cz = 7f32 + (phase - 240u32) as f32 / 180f32 * 8f32;
+    }
+    if phase >= 420u32 {
+        cz = 15f32 - (phase - 420u32) as f32 / 180f32 * 13f32;
+    }
+    w[20usize] = 0u32;
+    if cz >= 9f32 {
+        w[20usize] = 1u32;
+        cz = cz - 9f32;
+    }
+    f[0usize] = c;
+    f[1usize] = 0f32;
+    f[2usize] = -s;
+    f[3usize] = -c * cx + s * cz;
+    f[4usize] = 0f32;
+    f[5usize] = 1f32;
+    f[6usize] = 0f32;
+    f[7usize] = -0.5f32;
+    f[8usize] = s;
+    f[9usize] = 0f32;
+    f[10usize] = c;
+    f[11usize] = -s * cx - c * cz;
+    quad(
+        v,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        -6f32,
+        -2f32,
+        -8f32,
+        6f32,
+        -2f32,
+        -8f32,
+        6f32,
+        -2f32,
+        9f32,
+        -6f32,
+        -2f32,
+        9f32
+    );
+    quad(
+        v,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        -6f32,
+        4f32,
+        -8f32,
+        6f32,
+        4f32,
+        -8f32,
+        6f32,
+        4f32,
+        9f32,
+        -6f32,
+        4f32,
+        9f32
+    );
+    quad(
+        v,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        -6f32,
+        -2f32,
+        -8f32,
+        -6f32,
+        -2f32,
+        9f32,
+        -6f32,
+        4f32,
+        9f32,
+        -6f32,
+        4f32,
+        -8f32
+    );
+    quad(
+        v,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        6f32,
+        -2f32,
+        -8f32,
+        6f32,
+        -2f32,
+        9f32,
+        6f32,
+        4f32,
+        9f32,
+        6f32,
+        4f32,
+        -8f32
+    );
+    quad(
+        v,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        -6f32,
+        -2f32,
+        9f32,
+        -2f32,
+        -2f32,
+        9f32,
+        -2f32,
+        4f32,
+        9f32,
+        -6f32,
+        4f32,
+        9f32
+    );
+    quad(
+        v,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        2f32,
+        -2f32,
+        9f32,
+        3f32,
+        -2f32,
+        9f32,
+        3f32,
+        3f32,
+        9f32,
+        2f32,
+        3f32,
+        9f32
+    );
+    quad(
+        v,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        5f32,
+        -2f32,
+        9f32,
+        6f32,
+        -2f32,
+        9f32,
+        6f32,
+        4f32,
+        9f32,
+        5f32,
+        4f32,
+        9f32
+    );
+    quad(
+        v,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        -2f32,
+        3f32,
+        9f32,
+        5f32,
+        3f32,
+        9f32,
+        5f32,
+        4f32,
+        9f32,
+        -2f32,
+        4f32,
+        9f32
+    );
+    quad(
+        v,
+        0u32,
+        2u32,
+        1u32,
+        0u32,
+        -2f32,
+        -2f32,
+        9f32,
+        2f32,
+        -2f32,
+        9f32,
+        2f32,
+        3f32,
+        9f32,
+        -2f32,
+        3f32,
+        9f32
+    );
+    quad(
+        v,
+        0u32,
+        4u32,
+        2u32,
+        0u32,
+        3f32,
+        -2f32,
+        9f32,
+        5f32,
+        -2f32,
+        9f32,
+        5f32,
+        3f32,
+        9f32,
+        3f32,
+        3f32,
+        9f32
+    );
+    var row: u32 = 0u32;
+    while row < 5u32 {
+        var col: u32 = 0u32;
+        while col < 6u32 {
+            var x: f32 = col as f32 * 8f32 - 24f32;
+            var z: f32 = row as f32 * 8f32;
+            quad(
+                v,
+                1u32,
+                1u32,
+                0u32,
+                0u32,
+                x,
+                terrain_height(x, z),
+                z,
+                x + 8f32,
+                terrain_height(x + 8f32, z),
+                z,
+                x + 8f32,
+                terrain_height(x + 8f32, z + 8f32),
+                z + 8f32,
+                x,
+                terrain_height(x, z + 8f32),
+                z + 8f32
+            );
+            col = col + 1u32;
+        }
+        row = row + 1u32;
+    }
+    box(v, 1u32, 2u32, 0f32, 1f32, 24f32, 3f32);
+    box(v, 1u32, 0u32, -10f32, 3f32, 12f32, 4f32);
+    quad(
+        v,
+        1u32,
+        4u32,
+        3u32,
+        0u32,
+        -1.5f32,
+        -2f32,
+        18f32,
+        1.5f32,
+        -2f32,
+        18f32,
+        1.5f32,
+        2f32,
+        18f32,
+        -1.5f32,
+        2f32,
+        18f32
+    );
+    quad(
+        v,
+        1u32,
+        3u32,
+        0u32,
+        1u32,
+        -4f32,
+        -2f32,
+        6f32,
+        -1f32,
+        -2f32,
+        6f32,
+        -1f32,
+        2f32,
+        6f32,
+        -4f32,
+        2f32,
+        6f32
+    );
+    var z: f32 = 8.5f32 + 2f32 * sinf(t);
+    box(v, 0u32, 2u32, -0.8f32, -0.5f32, z, 0.8f32);
+    box(v, 1u32, 2u32, -0.8f32, -0.5f32, z - 9f32, 0.8f32);
+    box(v, 0u32, 4u32, 2.3f32, -1f32, 5f32, 0.6f32);
+}

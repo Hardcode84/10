@@ -1,0 +1,358 @@
+extern fn reference_check(mapped: *u8) -> bool = "reference_check";
+extern fn strtoul(text: *u8, end: **u8, base: i32) -> u64 = "strtoul";
+extern fn fwrite(bytes: *u8, size: usize, count: usize, file: *u8) -> usize = "fwrite";
+extern fn snprintf(bytes: *u8, size: usize, format: *u8, width: u32, height: u32) -> i32 = "snprintf";
+
+fn capture(v: *Vulkan, path: *u8, width: u32, height: u32) -> bool {
+    var file: *u8 = fopen(path, "wb");
+    if file == null(*u8) {
+        return error("cannot open capture");
+    }
+    var header: [u8; 64] = uninit;
+    var n: i32 = snprintf(&header[0usize], 64usize, "P6\n%u %u\n255\n", width, height);
+    var good: bool = n > 0i32 && n < 64i32;
+    if good {
+        good = fwrite(&header[0usize], 1usize, n as usize, file) == n as usize;
+    }
+    var bytes: *u8 = v -> mapped + (PRESENT_PIXELS as isize) * 4isize;
+    var i: usize = 0usize;
+    while good && i < (width * height) as usize {
+        good = fwrite(bytes + i as isize * 4isize, 1usize, 3usize, file) == 3usize;
+        i = i + 1usize;
+    }
+    if fclose(file) != 0i32 {
+        good = false;
+    }
+    if !good {
+        return error("cannot write capture");
+    }
+    return true;
+}
+fn load_pipeline(v: *Vulkan, path: *u8, slot: usize) -> bool {
+    var code: Input = make Input {
+        bytes: null(*u8),
+        size: 0usize
+    };
+    var good: bool = read_input(path, &code);
+    if good && (code.size < 20usize || (code.bytes as *u32)[0usize] != 0x07230203u32) {
+        good = error("invalid SPIR-V module");
+    }
+    if good {
+        good = pipeline_create(v, &code, slot);
+    }
+    free(code.bytes);
+    return good;
+}
+record Options {
+    capture: *u8;
+    width: u32;
+    height: u32;
+    frame: u32;
+    frames: u32;
+    dither: u32;
+    verify: u32;
+    baseline: u32;
+    view_budget: u32;
+    fault: u32;
+    test: u32;
+    mapping: u32;
+    snap: u32;
+    window_width: u32;
+    window_height: u32;
+}
+extern fn strcmp(a: *u8, b: *u8) -> i32 = "strcmp";
+fn parse_number(text: *u8, result: *u32) -> bool {
+    var i: usize = 0usize;
+    var value: u32 = 0u32;
+    while text[i] != 0u8 {
+        if text[i] < 48u8 || text[i] > 57u8 || value > 100000u32 {
+            return error("invalid numeric argument");
+        }
+        value = value * 10u32 + (text[i] - 48u8) as u32;
+        i = i + 1usize;
+    }
+    if i == 0usize {
+        return error("empty numeric argument");
+    }
+    * result = value;
+    return true;
+}
+fn options(argc: i32, argv: **u8, o: *Options) -> bool {
+    *o = make Options {
+        capture: null(*u8),
+        width: 640u32,
+        height: 360u32,
+        frame: 0u32,
+        frames: 600u32,
+        dither: 0u32,
+        verify: 0u32,
+        baseline: 0u32,
+        view_budget: MAX_VIEWS,
+        fault: 0u32,
+        test: 0u32,
+        mapping: 0u32,
+        snap: 0u32,
+        window_width: 0u32,
+        window_height: 0u32
+    };
+    var specified: bool = false;
+    var i: usize = 1usize;
+    while i < argc as usize {
+        if i + 1usize >= argc as usize {
+            return error("options require a value");
+        }
+        var key: *u8 = argv[i];
+        var value: *u8 = argv[i + 1usize];
+        var good: bool = true;
+        if strcmp(key, "--window-width") == 0i32 {
+            good = parse_number(value, &o -> window_width);
+        } else if strcmp(key, "--window-height") == 0i32 {
+            good = parse_number(value, &o -> window_height);
+        } else if strcmp(key, "--mapping") == 0i32 {
+            good = parse_number(value, &o -> mapping);
+        } else if strcmp(key, "--snap") == 0i32 {
+            good = parse_number(value, &o -> snap);
+        } else if strcmp(key, "--test") == 0i32 {
+            good = parse_number(value, &o -> test);
+        } else if strcmp(key, "--view-budget") == 0i32 {
+            good = parse_number(value, &o -> view_budget);
+        } else if strcmp(key, "--fault") == 0i32 {
+            good = parse_number(value, &o -> fault);
+        } else if strcmp(key, "--baseline") == 0i32 {
+            good = parse_number(value, &o -> baseline);
+        } else if strcmp(key, "--verify") == 0i32 {
+            good = parse_number(value, &o -> verify);
+        } else if strcmp(key, "--capture") == 0i32 {
+            o -> capture = value;
+        } else {
+            if strcmp(key, "--width") == 0i32 {
+                good = parse_number(value, &o -> width);
+            } else {
+                if strcmp(key, "--height") == 0i32 {
+                    good = parse_number(value, &o -> height);
+                } else {
+                    if strcmp(key, "--frame") == 0i32 {
+                        good = parse_number(value, &o -> frame);
+                    } else {
+                        if strcmp(key, "--frames") == 0i32 {
+                            good = parse_number(value, &o -> frames);
+                            specified = true;
+                        } else {
+                            if strcmp(key, "--dither") == 0i32 {
+                                good = parse_number(value, &o -> dither);
+                            } else {
+                                return error(
+                                    "unknown option: use --capture, --width, --height, --frame, --frames, --dither"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if !good {
+            return false;
+        }
+        i = i + 2usize;
+    }
+    if o -> capture != null(*u8) && !specified {
+        o -> frames = 1u32;
+    }
+    if o -> window_width == 0u32 {
+        o -> window_width = o -> width;
+    }
+    if o -> window_height == 0u32 {
+        o -> window_height = o -> height;
+    }
+    if o -> width == 0u32 || o -> height == 0u32 || o -> width > 1920u32 || o -> height > 1080u32 || o -> window_width > 1920u32 || o -> window_height > 1080u32 || o -> frames == 0u32 || o -> frames > 4096u32 || o -> dither > 1u32 || o -> view_budget == 0u32 || o -> view_budget > MAX_VIEWS || o -> fault > 1u32 || o -> test > 2u32 || o -> mapping > 2u32 || o -> snap > 1u32 || (
+        o -> verify != 0u32 && (o -> mapping != 0u32 || o -> snap != 0u32)
+    ) {
+        return error("dimensions, frame count, or dither mode outside demo budget");
+    }
+    return true;
+}
+fn frame_valid(v: *Vulkan) -> bool {
+    var status: *u32 = (v -> mapped + (WORDS_LENGTH as isize + FLOATS_LENGTH as isize) * 4isize) as *u32;
+    var i: usize = 0usize;
+    while i < MAX_INVOCATIONS as usize {
+        if status[i] != 0u32 {
+            print_number(i as i64);
+            return error("device invocation failed");
+        }
+        i = i + 1usize;
+    }
+    if (v -> mapped as *u32)[5usize] != 0u32 {
+        return error("frame work budget exceeded; output rejected");
+    }
+    return true;
+}
+fn main(argc: i32, argv: **u8) -> i32 {
+    if argc == 2i32 && strcmp(argv[1usize], "--help") == 0i32 {
+        puts("SPINWARD automatic compute demo");
+        puts("--capture FILE --width N --height N --window-width N --window-height N");
+        puts("--frame N --frames N --dither 0|1 --mapping 0|1|2 --snap 0|1");
+        puts("--test 1 (exact palette/presentation) or 2 (scene reference)");
+        puts("--verify 1 --baseline 1 --view-budget N --fault 1");
+        return 0i32;
+    }
+    var o: Options = uninit;
+    if !options(argc, argv, &o) {
+        return 2i32;
+    }
+    if o.test == 1u32 {
+        return (!palette_test()) as i32;
+    }
+    if o.test == 2u32 {
+        o.capture = "build/test-scene.ppm";
+        o.width = 161u32;
+        o.height = 93u32;
+        o.window_width = 322u32;
+        o.window_height = 186u32;
+        o.frames = 8u32;
+        o.verify = 1u32;
+    }
+    var v: Vulkan = uninit;
+    zero(&v as *u8, sizeof(Vulkan));
+    v.capture = o.capture != null(*u8) || o.verify != 0u32;
+    var good: bool = true;
+    if o.capture == null(*u8) {
+        good = window_open(&v, o.window_width, o.window_height);
+    }
+    good = good && device_open(&v) && buffer_create(&v) && layout_create(&v) && load_pipeline(
+        &v,
+        "build/init.spv",
+        0usize
+    ) && load_pipeline(&v, "build/transform.spv", 1usize) && load_pipeline(
+        &v,
+        "build/raster.spv",
+        2usize
+    ) && load_pipeline(&v, "build/advance.spv", 3usize) && load_pipeline(
+        &v,
+        "build/compose.spv",
+        4usize
+    ) && load_pipeline(&v, "build/compact.spv", 5usize) && load_pipeline(
+        &v,
+        "build/scan.spv",
+        6usize
+    ) && load_pipeline(&v, "build/fill.spv", 7usize) && descriptors_create(&v) && commands_create(
+        &v
+    ) && queries_create(&v);
+    if good {
+        scene(&v, o.width, o.height, o.frame, o.dither);
+        (v.mapped as *u32)[26usize] = o.verify;
+        (v.mapped as *u32)[22usize] = o.window_width;
+        (v.mapped as *u32)[23usize] = o.window_height;
+        good = commands_record(&v);
+    }
+    if good && v.window != null(*u8) {
+        good = swapchain_open(&v, o.window_width, o.window_height);
+    }
+    if good {
+        palettes(&v);
+        portal_setup(&v);
+        (v.mapped as *u32)[25usize] = o.baseline;
+        (v.mapped as *u32)[31usize] = o.view_budget;
+        (v.mapped as *u32)[33usize] = o.fault;
+    }
+    if good {
+        var material: usize = 0usize;
+        while material < 16usize {
+            (v.mapped as *u32)[(MATERIAL_STYLE as usize) + material] = o.mapping | (
+                o.snap * 4u32
+            );
+            material = material + 1usize;
+        }
+    }
+    var samples: [u64; 4096] = uninit;
+    var measured: u32 = 0u32;
+    var index: u32 = 0u32;
+    var running: bool = true;
+    while good && running && index < o.frames {
+        var start: u64 = now();
+        var frame: u32 = o.frame + index;
+        if o.test == 2u32 {
+            frame = index * 60u32;
+            if index == 7u32 {
+                frame = 0u32;
+            }
+        }
+        scene(&v, o.width, o.height, frame, o.dither);
+        if o.test == 2u32 && index == 6u32 {
+            quad(
+                &v,
+                1u32,
+                4u32,
+                0u32,
+                0u32,
+                -100f32,
+                -100f32,
+                -0.25f32,
+                100f32,
+                -100f32,
+                -0.25f32,
+                100f32,
+                100f32,
+                -0.25f32,
+                -100f32,
+                100f32,
+                -0.25f32
+            );
+        }
+        if o.test == 2u32 && index == 7u32 {
+            quad(
+                &v,
+                0u32,
+                4u32,
+                0u32,
+                0u32,
+                -8f32,
+                -8f32,
+                7f32,
+                8f32,
+                -8f32,
+                7f32,
+                8f32,
+                8f32,
+                7f32,
+                -8f32,
+                8f32,
+                7f32
+            );
+        }
+        good = dispatch(&v) && frame_valid(&v);
+        if good && o.test == 2u32 && index == 0u32 && (v.mapped as *u32)[11usize] < 3u32 {
+            good = error("two transformed portal views were not created");
+        }
+        if good && o.test == 2u32 && index == 7u32 && (v.mapped as *u32)[11usize] != 1u32 {
+            good = error("hidden portal created child work");
+        }
+
+        var elapsed: u64 = now() - start;
+        if index > 0u32 {
+            samples[measured as usize] = elapsed;
+            measured = measured + 1u32;
+        }
+        if good && o.verify != 0u32 {
+            good = reference_check(v.mapped) && presentation_check(&v);
+        }
+        if good {
+            if o.capture != null(*u8) {
+                if index + 1u32 == o.frames {
+                    good = capture(&v, o.capture, o.window_width, o.window_height);
+                }
+            } else {
+                good = present(&v, o.window_width, o.window_height);
+                running = window_events();
+            }
+        }
+        index = index + 1u32;
+    }
+    if good {
+        good = queries_report(&v);
+    }
+    if measured > 0u32 {
+        report(&samples[0usize], measured);
+    }
+    device_close(&v);
+    return (!good) as i32;
+}

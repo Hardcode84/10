@@ -1,0 +1,16 @@
+fn compute() -> unit {
+    var index: u32 = shader_global_x();
+    if index < words_load(10u32) && words_load(5u32) == 0u32 {
+        var view: u32 = words_load(9u32) + index;
+        var count: u32 = 0u32;
+        var i: u32 = 0u32;
+        while i < words_load(3u32) * MAX_FAN {
+            if floats_load(PROJECTED + (view * MAX_TRIS * MAX_FAN + i) * 20u32 + 18u32) > 0f32 {
+                words_store(COMPACT_LIST + view * MAX_TRIS * MAX_FAN + count, i);
+                count = count + 1u32;
+            }
+            i = i + 1u32;
+        }
+        words_store(COMPACT_COUNT + view, count);
+    }
+}

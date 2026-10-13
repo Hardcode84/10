@@ -1,0 +1,186 @@
+fn palette_record(v: *Vulkan) -> bool {
+    var begin: VkCommandBufferBeginInfo = uninit;
+    zero(&begin as *u8, sizeof(VkCommandBufferBeginInfo));
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    if !vk_ok(vkBeginCommandBuffer(v -> commands, &begin), "vkBeginCommandBuffer palette") {
+        return false;
+    }
+    upload_scene(v);
+    vkCmdFillBuffer(
+        v -> commands,
+        v -> buffer,
+        (WORDS_LENGTH as u64 + FLOATS_LENGTH as u64) * 4u64,
+        MAX_INVOCATIONS as u64 * 4u64,
+        0u32
+    );
+    frame_barrier(v, 4096u32, 4096u32, 2048u32, 96u32);
+    vkCmdBindDescriptorSets(
+        v -> commands,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        v -> pipeline_layout,
+        0u32,
+        1u32,
+        &v -> set,
+        0u32,
+        null(*u32)
+    );
+    vkCmdBindPipeline(v -> commands, VK_PIPELINE_BIND_POINT_COMPUTE, v -> pipelines[0usize]);
+    vkCmdDispatch(v -> commands, 3636u32, 1u32, 1u32);
+    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+    vkCmdBindPipeline(v -> commands, VK_PIPELINE_BIND_POINT_COMPUTE, v -> pipelines[1usize]);
+    vkCmdDispatch(v -> commands, 14543u32, 1u32, 1u32);
+    frame_barrier(v, 2048u32, 64u32, 4096u32, 2048u32);
+    readback(v);
+    return vk_ok(vkEndCommandBuffer(v -> commands), "vkEndCommandBuffer palette");
+}
+fn palette_expected(x: u32, y: u32, mode: u32) -> u32 {
+    var color: u32 = x % 8u32 + (y % 8u32) * 8u32;
+    var value: u32 = x * 1023u32 / 641u32;
+    var light: u32 = value / 16u32;
+    var table: [u32; 16] = make [u32; 16] {
+        0u32,
+        8u32,
+        2u32,
+        10u32,
+        12u32,
+        4u32,
+        14u32,
+        6u32,
+        3u32,
+        11u32,
+        1u32,
+        9u32,
+        15u32,
+        7u32,
+        13u32,
+        5u32
+    };
+    var threshold: u32 = 4u32 + 8u32 * ((x + y) % 2u32);
+    if mode != 0u32 {
+        threshold = table[((y % 4u32) * 4u32 + x % 4u32) as usize];
+    }
+    if value % 16u32 > threshold && light < 63u32 {
+        light = light + 1u32;
+    }
+    return (((24u32 + 3u32 * color) % 256u32) * light / 63u32) | (
+        (((24u32 + 5u32 * color) % 256u32) * light / 63u32) << 8u32
+    ) | ((((24u32 + 7u32 * color) % 256u32) * light / 63u32) << 16u32) | 0xff000000u32;
+}
+fn palette_test() -> bool {
+    var v: Vulkan = uninit;
+    zero(&v as *u8, sizeof(Vulkan));
+    v.capture = true;
+    var good: bool = device_open(&v) && buffer_create(&v) && layout_create(&v) && load_pipeline(
+        &v,
+        "build/palette.spv",
+        0usize
+    ) && load_pipeline(&v, "build/compose.spv", 1usize) && descriptors_create(&v) && commands_create(
+        &v
+    );
+    if good {
+        var w: *u32 = v.mapped as *u32;
+        w[0usize] = 641u32;
+        w[1usize] = 363u32;
+        w[22usize] = 1282u32;
+        w[23usize] = 726u32;
+        var i: u32 = 0u32;
+        while i < 64u32 {
+            w[(TEXTURE + i) as usize] = i;
+            i = i + 1u32;
+        }
+        i = 0u32;
+        while i < 4096u32 {
+            var c: u32 = i / 64u32;
+            var l: u32 = i % 64u32;
+            w[(PALETTE + i) as usize] = (((24u32 + c * 3u32) % 256u32) * l / 63u32) | (
+                (((24u32 + c * 5u32) % 256u32) * l / 63u32) << 8u32
+            ) | ((((24u32 + c * 7u32) % 256u32) * l / 63u32) << 16u32) | 0xff000000u32;
+            i = i + 1u32;
+        }
+        good = palette_record(&v);
+        var mode: u32 = 0u32;
+        while good && mode < 2u32 {
+            w[2usize] = mode;
+            w[21usize] = 37u32;
+            if mode == 1u32 {
+                w[21usize] = 44u32;
+            }
+            good = dispatch(&v) && frame_valid(&v) && presentation_check(&v);
+            i = 0u32;
+            while good && i < 641u32 * 363u32 {
+                if w[(PIXELS + i) as usize] != palette_expected(i % 641u32, i / 641u32, mode) {
+                    print_number(i as i64);
+                    good = error("palette reference mismatch");
+                }
+                i = i + 1u32;
+            }
+            if good && mode == 0u32 {
+                good = palette_color_count(&v);
+            }
+            if good && mode == 1u32 {
+                w[21usize] = 37u32;
+                good = dispatch(&v) && frame_valid(&v) && presentation_check(&v);
+            }
+            if good {
+                if mode == 0u32 {
+                    good = capture(&v, "build/checker.ppm", 1282u32, 726u32);
+                } else {
+                    good = capture(&v, "build/ordered.ppm", 1282u32, 726u32);
+                }
+            }
+            mode = mode + 1u32;
+        }
+    }
+    device_close(&v);
+    if good {
+        puts(
+            "Palette gate: 465366 exact pixels, two dither patterns, multiple workgroups and edge dimensions passed"
+        );
+    }
+    return good;
+}
+
+fn presentation_check(v: *Vulkan) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var width: u32 = w[22usize];
+    var height: u32 = w[23usize];
+    var i: u32 = 0u32;
+    while i < width * height {
+        var x: u32 = (i % width) * w[0usize] / width;
+        var y: u32 = (i / width) * w[1usize] / height;
+        var expected: u32 = w[(PIXELS + y * w[0usize] + x) as usize];
+        if w[21usize] == 44u32 {
+            expected = (expected & 0xff00ff00u32) | ((expected & 255u32) << 16u32) | (
+                (expected >> 16u32) & 255u32
+            );
+        }
+        if w[(PRESENT_PIXELS + i) as usize] != expected {
+            return error("presentation conversion or nearest-neighbour scaling mismatch");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn palette_color_count(v: *Vulkan) -> bool {
+    var seen: *u8 = malloc(16777216usize);
+    if seen == null(*u8) {
+        return error("palette test allocation failed");
+    }
+    zero(seen, 16777216usize);
+    var w: *u32 = v -> mapped as *u32;
+    var i: u32 = 0u32;
+    var count: u32 = 0u32;
+    while i < 641u32 * 363u32 {
+        var color: u32 = w[(PIXELS + i) as usize] & 0xffffffu32;
+        if seen[color as usize] == 0u8 {
+            count = count + 1u32;
+            seen[color as usize] = 1u8;
+        }
+        i = i + 1u32;
+    }
+    free(seen);
+    puts("distinct resolved colours:");
+    print_number(count as i64);
+    return count > 256u32;
+}

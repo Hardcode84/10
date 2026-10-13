@@ -1,0 +1,94 @@
+host_source(run, "crust/stages/build/load.crs");
+if !stage_setup(run, "crust") {
+    return 1i32;
+};
+var stages: *StageSession = stage_open(run, "crust", "build/stage-cache");
+if stages == null(*StageSession) || !stage_load(stages, "stages/c/tool.crs") || !stage_load(
+    stages,
+    "stages/shader/package.crs"
+) || !stage_load(stages, host_path(run, "tools/reference-compiler.crs")) {
+    return 1i32;
+};
+host_source(run, "crust/stages/shader/model.crs");
+host_source(run, "crust/stages/shader/api.crs");
+host_source(run, "src/interface.crs");
+host_source(run, "tools/build.crs");
+var llvm: *u8 = build_getenv("LLVM_DIRECTORY");
+var validator: *u8 = build_getenv("SPIRV_VAL");
+if llvm == null(*u8) {
+    llvm = host_path(run, "build/toolchain/llvm");
+};
+if validator == null(*u8) {
+    validator = host_path(run, "build/toolchain/spirv-val");
+};
+if build_access(stage_path(run, llvm, "bin/llc"), 1i32) != 0i32 || build_access(
+    stage_path(run, llvm, "bin/opt"),
+    1i32
+) != 0i32 || build_access(validator, 1i32) != 0i32 {
+    native_error(
+        run -> context,
+        "set LLVM_DIRECTORY and SPIRV_VAL, or provide build/toolchain/llvm and build/toolchain/spirv-val"
+    );
+    return 1i32;
+};
+if !cache_directory(run -> context, host_path(run, "build")) {
+    return 1i32;
+};
+if !build_reference(run) || !build_host(run) || !build_shader(
+    run,
+    "palette.crs",
+    "build/palette.spv",
+    llvm,
+    validator
+) || !build_shader(run, "init.crs", "build/init.spv", llvm, validator) || !build_shader(
+    run,
+    "transform.crs",
+    "build/transform.spv",
+    llvm,
+    validator
+) || !build_shader(run, "raster.crs", "build/raster.spv", llvm, validator) || !build_shader(
+    run,
+    "advance.crs",
+    "build/advance.spv",
+    llvm,
+    validator
+) || !build_shader(run, "compose.crs", "build/compose.spv", llvm, validator) || !build_shader(
+    run,
+    "compact.crs",
+    "build/compact.spv",
+    llvm,
+    validator
+) || !build_shader(run, "scan.crs", "build/scan.spv", llvm, validator) || !build_shader(
+    run,
+    "fill.crs",
+    "build/fill.spv",
+    llvm,
+    validator
+) {
+    return 1i32;
+};
+if run -> argc == 1i32 && cache_strcmp(run -> argv[0usize], "--build-only") == 0i32 {
+    return 0i32;
+};
+var args: **u8 = crust_try_alloc(
+    run -> context,
+    (run -> argc as usize + 2usize) * sizeof(*u8),
+    alignof(*u8)
+) as **u8;
+if args == null(**u8) {
+    return 1i32;
+};
+args[0usize] = host_path(run, "build/spinward");
+var i: usize = 0usize;
+while i < run -> argc as usize {
+    args[i + 1usize] = run -> argv[i];
+    i = i + 1usize;
+};
+args[i + 1usize] = null(*u8);
+if build_chdir(host_path(run, ".")) != 0i32 {
+    native_error(run -> context, "cannot enter the project directory");
+    return 1i32;
+};
+build_execv(args[0usize], args);
+native_error(run -> context, "cannot launch demo");
+return 1i32;

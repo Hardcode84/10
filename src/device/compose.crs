@@ -1,0 +1,12 @@
+fn compute() -> unit {
+    var i: u32 = shader_global_x();
+    if i < words_load(22u32) * words_load(23u32) && words_load(5u32) == 0u32 {
+        var x: u32 = (i % words_load(22u32)) * words_load(0u32) / words_load(22u32);
+        var y: u32 = (i / words_load(22u32)) * words_load(1u32) / words_load(23u32);
+        var c: u32 = words_load(PIXELS + y * words_load(0u32) + x);
+        if words_load(21u32) == 44u32 {
+            c = (c & 0xff00ff00u32) | ((c & 255u32) << 16u32) | ((c >> 16u32) & 255u32);
+        }
+        words_store(PRESENT_PIXELS + i, c);
+    }
+}

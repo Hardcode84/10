@@ -2,7 +2,7 @@
 
 ## Current status: 2026-10-14
 
-Crust is pinned to `46b201c23c7b77d9719eccaee2947d2b514428d1`. It includes the
+Crust is pinned to `d5cf303`. It includes the
 first Vulkan compute stage and a Vulkan dispatch harness written in Crust.
 The upstream history also includes the device enumeration correction.
 
@@ -13,26 +13,41 @@ The upstream history also includes the device enumeration correction.
 - Device errors use invocation status. The stage rejects raw pointers, `usize`,
   recursion, `trap`, and barrier placements that violate its device contract.
 - Shader publication requires successful Vulkan 1.2 SPIR-V validation.
+- LLVM functions use one return block. The shader stage runs `mem2reg` and
+  `structurizecfg` before SPIR-V emission. This permits clipped-geometry helpers
+  with returns inside nested control flow.
+- Invocation status accumulates failure across ordered dispatches. Clear it
+  before each frame. The caller must keep dispatch counts within the configured
+  maximum and provide storage memory dependencies between dispatches.
 
 See the [shader tutorial](../crust/examples/shader/README.md) for the implemented
 profile and commands. It currently requires `shaderInt8` and specified float
 controls. Resource-name byte arrays still cause the `Int8` requirement; removing
 it requires LLVM emission to discard those values before capability collection.
 
-The shader suite passed nine dispatch cases and ten source-rejection checks on
+The shader suite passed eleven dispatch cases and ten source-rejection checks on
 both an AMD Radeon PRO W7900 Dual Slot and an Intel Arc Pro B60. Both used Mesa
 25.2.8 on Linux. The tests cover buffer exchange, workgroup synchronization,
-failure propagation, bounds, images, float conversions, and zero initialization.
+failure propagation, helper exits, repeated dispatch status, bounds, images,
+float conversions, and zero initialization.
 Failed-tool output preservation and allocation-failure checks also passed.
 Compilation used LLVM 23.1.3 and SPIRV-Tools 2025.1.
 
 The Crust dispatch harness passed 1,025 ABI checks across 42 records against
 the Vulkan C headers. Four injected enumeration and setup cases and three
 malformed-input checks also passed. Its bindings use the Linux x86-64 ABI.
-These results establish Crust host dispatch. They do not complete the generated
-host/shader interface, visible-image, or multiple-workgroup experiment below.
-Windows and NVIDIA were not tested. The nine dispatch cases each use one
-four-invocation workgroup.
+The game now compiles host and shader inputs from shared Crust buffer constants.
+Its [renderer tests](renderer-build.md) complete the visible-image and
+multiple-workgroup gates. The game bindings passed 1,177 checks across 53 Vulkan
+records. The compiler's eleven dispatch cases each use one four-invocation
+workgroup. Windows and NVIDIA were not tested.
+
+The repeated-dispatch test exposed a status loss on Intel with Mesa 25.2.8.
+Generated machine code reused the dispatch-bound predicate register for mutable
+failure state, then tested that changed register before the status write. The
+shader entry now writes status unconditionally under the caller's dispatch-bound
+precondition. This removes the redundant predicate from the compiler output.
+The conditional-failure test passes on both tested devices.
 
 ## Initial investigation: 2026-10-13
 

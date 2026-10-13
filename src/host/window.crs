@@ -1,0 +1,302 @@
+extern fn SDL_Init(flags: u32) -> i32 = "SDL_Init";
+extern fn SDL_Quit() -> unit = "SDL_Quit";
+extern fn SDL_GetError() -> *u8 = "SDL_GetError";
+extern fn SDL_CreateWindow(
+    title: *u8,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    flags: u32
+) -> *u8 = "SDL_CreateWindow";
+extern fn SDL_DestroyWindow(window: *u8) -> unit = "SDL_DestroyWindow";
+extern fn SDL_Vulkan_GetInstanceExtensions(window: *u8, count: *u32, names: **u8) -> i32 = "SDL_Vulkan_GetInstanceExtensions";
+extern fn SDL_Vulkan_CreateSurface(window: *u8, instance: *u8, surface: **u8) -> i32 = "SDL_Vulkan_CreateSurface";
+extern fn SDL_PollEvent(event: *u8) -> i32 = "SDL_PollEvent";
+fn window_open(v: *Vulkan, width: u32, height: u32) -> bool {
+    if SDL_Init(32u32) != 0i32 {
+        error(SDL_GetError());
+        SDL_Quit();
+        return false;
+    }
+    v -> window = SDL_CreateWindow(
+        "SPINWARD | compute portal renderer",
+        805240832i32,
+        805240832i32,
+        width as i32,
+        height as i32,
+        268435460u32
+    );
+    if v -> window == null(*u8) {
+        error(SDL_GetError());
+        SDL_Quit();
+        return false;
+    }
+    return true;
+}
+fn window_events() -> bool {
+    var event: [u64; 8] = uninit;
+    var running: bool = true;
+    while SDL_PollEvent(&event as *u8) != 0i32 {
+        if ((&event as *u32)[0usize]) == 256u32 {
+            running = false;
+        }
+    }
+    return running;
+}
+fn surface_format(v: *Vulkan, format: *VkSurfaceFormatKHR) -> bool {
+    var count: u32 = 0u32;
+    if !vk_ok(
+        vkGetPhysicalDeviceSurfaceFormatsKHR(
+            v -> physical,
+            v -> surface,
+            &count,
+            null(*VkSurfaceFormatKHR)
+        ),
+        "vkGetPhysicalDeviceSurfaceFormatsKHR"
+    ) {
+        return false;
+    }
+    var formats: *VkSurfaceFormatKHR = malloc(count as usize * sizeof(VkSurfaceFormatKHR)) as *VkSurfaceFormatKHR;
+    if formats == null(*VkSurfaceFormatKHR) {
+        return error("surface format allocation failed");
+    }
+    var good: bool = vk_ok(
+        vkGetPhysicalDeviceSurfaceFormatsKHR(v -> physical, v -> surface, &count, formats),
+        "vkGetPhysicalDeviceSurfaceFormatsKHR"
+    );
+    var found: bool = false;
+    var i: usize = 0usize;
+    while good && i < count as usize {
+        if (formats[i].format == 37u32 || formats[i].format == 44u32) && formats[i].colorSpace == 0u32 {
+            *format = formats[i];
+            found = true;
+        }
+        i = i + 1usize;
+    }
+    free(formats as *u8);
+    if !good || !found {
+        return error("surface requires RGBA8 or BGRA8 UNORM with SRGB nonlinear colour space");
+    }
+    return true;
+}
+fn swapchain_open(v: *Vulkan, width: u32, height: u32) -> bool {
+    var caps: VkSurfaceCapabilitiesKHR = uninit;
+    var format: VkSurfaceFormatKHR = uninit;
+    if !vk_ok(
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(v -> physical, v -> surface, &caps),
+        "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"
+    ) || !surface_format(v, &format) {
+        return false;
+    }
+    if (caps.supportedUsageFlags & 2u32) == 0u32 || (caps.supportedCompositeAlpha & 1u32) == 0u32 {
+        return error("surface requires transfer destination and opaque alpha support");
+    }
+    var extent: VkExtent2D = make VkExtent2D {
+        width: width,
+        height: height
+    };
+    if caps.currentExtent.width != 0xffffffffu32 {
+        extent = caps.currentExtent;
+    }
+    if extent.width != width || extent.height != height {
+        return error("surface extent differs from requested demo extent");
+    }
+    if width < caps.minImageExtent.width || width > caps.maxImageExtent.width || height < caps.minImageExtent.height || height > caps.maxImageExtent.height {
+        return error("requested demo extent exceeds surface limits");
+    }
+    var info: VkSwapchainCreateInfoKHR = uninit;
+    zero(&info as *u8, sizeof(VkSwapchainCreateInfoKHR));
+    info.sType = 1000001000u32;
+    info.surface = v -> surface;
+    info.minImageCount = caps.minImageCount + 1u32;
+    if caps.maxImageCount != 0u32 && info.minImageCount > caps.maxImageCount {
+        info.minImageCount = caps.maxImageCount;
+    }
+    info.imageFormat = format.format;
+    info.imageColorSpace = format.colorSpace;
+    info.imageExtent = extent;
+    info.imageArrayLayers = 1u32;
+    info.imageUsage = 2u32;
+    info.preTransform = caps.currentTransform;
+    info.compositeAlpha = 1u32;
+    info.presentMode = 2u32;
+    info.clipped = 1u32;
+    if !vk_ok(
+        vkCreateSwapchainKHR(v -> device, &info, null(*u8), &v -> swapchain),
+        "vkCreateSwapchainKHR"
+    ) {
+        return false;
+    }
+    var count: u32 = 0u32;
+    if !vk_ok(
+        vkGetSwapchainImagesKHR(v -> device, v -> swapchain, &count, null(**u8)),
+        "vkGetSwapchainImagesKHR"
+    ) {
+        return false;
+    }
+    if count > 8u32 {
+        return error("swapchain image budget exceeded");
+    }
+    if !vk_ok(
+        vkGetSwapchainImagesKHR(v -> device, v -> swapchain, &count, &v -> images[0usize]),
+        "vkGetSwapchainImagesKHR"
+    ) {
+        return false;
+    }
+    var fence: VkFenceCreateInfo = uninit;
+    zero(&fence as *u8, sizeof(VkFenceCreateInfo));
+    fence.sType = 8u32;
+    if !vk_ok(
+        vkCreateFence(v -> device, &fence, null(*u8), &v -> acquired),
+        "vkCreateFence"
+    ) {
+        return false;
+    }
+    var allocation: VkCommandBufferAllocateInfo = uninit;
+    zero(&allocation as *u8, sizeof(VkCommandBufferAllocateInfo));
+    allocation.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocation.commandPool = v -> command_pool;
+    allocation.commandBufferCount = 1u32;
+    if !vk_ok(
+        vkAllocateCommandBuffers(v -> device, &allocation, &v -> present_commands),
+        "vkAllocateCommandBuffers"
+    ) {
+        return false;
+    }
+    (v -> mapped as *u32)[21usize] = format.format;
+    return true;
+}
+fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
+    if !vk_ok(vkResetCommandBuffer(v -> present_commands, 0u32), "vkResetCommandBuffer") {
+        return false;
+    }
+    var begin: VkCommandBufferBeginInfo = uninit;
+    zero(&begin as *u8, sizeof(VkCommandBufferBeginInfo));
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    if !vk_ok(vkBeginCommandBuffer(v -> present_commands, &begin), "vkBeginCommandBuffer") {
+        return false;
+    }
+    var b: VkImageMemoryBarrier = uninit;
+    zero(&b as *u8, sizeof(VkImageMemoryBarrier));
+    b.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    b.oldLayout = 0u32;
+    b.newLayout = 7u32;
+    b.dstAccessMask = 4096u32;
+    b.srcQueueFamilyIndex = 0xffffffffu32;
+    b.dstQueueFamilyIndex = 0xffffffffu32;
+    b.image = v -> images[index as usize];
+    b.subresourceRange = make VkImageSubresourceRange {
+        aspectMask: 1u32,
+        baseMipLevel: 0u32,
+        levelCount: 1u32,
+        baseArrayLayer: 0u32,
+        layerCount: 1u32
+    };
+    vkCmdPipelineBarrier(
+        v -> present_commands,
+        1u32,
+        4096u32,
+        0u32,
+        0u32,
+        null(*VkMemoryBarrier),
+        0u32,
+        null(*u8),
+        1u32,
+        &b
+    );
+    var region: VkBufferImageCopy = uninit;
+    zero(&region as *u8, sizeof(VkBufferImageCopy));
+    region.bufferOffset = (PRESENT_PIXELS as u64) * 4u64;
+    region.imageSubresource = make VkImageSubresourceLayers {
+        aspectMask: 1u32,
+        mipLevel: 0u32,
+        baseArrayLayer: 0u32,
+        layerCount: 1u32
+    };
+    region.imageExtent = make VkExtent3D {
+        width: width,
+        height: height,
+        depth: 1u32
+    };
+    vkCmdCopyBufferToImage(
+        v -> present_commands,
+        v -> buffer,
+        v -> images[index as usize],
+        7u32,
+        1u32,
+        &region
+    );
+    b.oldLayout = 7u32;
+    b.newLayout = 1000001002u32;
+    b.srcAccessMask = 4096u32;
+    b.dstAccessMask = 0u32;
+    vkCmdPipelineBarrier(
+        v -> present_commands,
+        4096u32,
+        8192u32,
+        0u32,
+        0u32,
+        null(*VkMemoryBarrier),
+        0u32,
+        null(*u8),
+        1u32,
+        &b
+    );
+    return vk_ok(vkEndCommandBuffer(v -> present_commands), "vkEndCommandBuffer");
+}
+fn present(v: *Vulkan, width: u32, height: u32) -> bool {
+    var index: u32 = 0u32;
+    var result: i32 = vkAcquireNextImageKHR(
+        v -> device,
+        v -> swapchain,
+        ~0u64,
+        null(*u8),
+        v -> acquired,
+        &index
+    );
+    if result != 0i32 && result != 1000001003i32 {
+        return vk_ok(result, "vkAcquireNextImageKHR");
+    }
+    if !vk_ok(
+        vkWaitForFences(v -> device, 1u32, &v -> acquired, 1u32, ~0u64),
+        "vkWaitForFences"
+    ) || !vk_ok(vkResetFences(v -> device, 1u32, &v -> acquired), "vkResetFences") || !present_record(
+        v,
+        index,
+        width,
+        height
+    ) {
+        return false;
+    }
+    var submit: VkSubmitInfo = uninit;
+    zero(&submit as *u8, sizeof(VkSubmitInfo));
+    submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit.commandBufferCount = 1u32;
+    submit.pCommandBuffers = &v -> present_commands;
+    if !vk_ok(
+        vkQueueSubmit(v -> queue, 1u32, &submit, null(*u8)),
+        "vkQueueSubmit presentation"
+    ) {
+        return false;
+    }
+    if !vk_ok(vkQueueWaitIdle(v -> queue), "vkQueueWaitIdle presentation") {
+        exit(1i32);
+        return false;
+    }
+    var info: VkPresentInfoKHR = uninit;
+    zero(&info as *u8, sizeof(VkPresentInfoKHR));
+    info.sType = 1000001001u32;
+    info.swapchainCount = 1u32;
+    info.pSwapchains = &v -> swapchain;
+    info.pImageIndices = &index;
+    result = vkQueuePresentKHR(v -> queue, &info);
+    if result != 0i32 && result != 1000001003i32 {
+        return vk_ok(result, "vkQueuePresentKHR");
+    }
+    if !vk_ok(vkQueueWaitIdle(v -> queue), "vkQueueWaitIdle present release") {
+        exit(1i32);
+        return false;
+    }
+    return true;
+}

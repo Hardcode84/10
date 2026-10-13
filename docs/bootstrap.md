@@ -21,6 +21,20 @@ Set `CC` to the host C compiler. The result is `crust/build/crust`.
 This command builds only the seed. Crust compilation programs prepare their
 selected stages. See the [Crust build documentation](../crust/docs/bootstrap.md).
 
+## Build the game
+
+Add the seed directory to `PATH` and run the application root:
+
+```sh
+export PATH="$PWD/crust/build:$PATH"
+crust main.crs
+```
+
+The root builds host code, device code, and test code, then starts the automatic
+demo. It generates palettes in Crust. Python is not part of the application
+build. See [renderer build](renderer-build.md) for LLVM, SPIRV-Tools, SDL2, and
+Vulkan requirements, capture commands, and checks.
+
 ## Check the compiler
 
 ```sh

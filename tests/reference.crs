@@ -1,0 +1,417 @@
+extern fn puts(text: *u8) -> i32 = "puts";
+extern fn malloc(size: usize) -> *u8 = "malloc";
+extern fn free(bytes: *u8) -> unit = "free";
+extern fn ref_print(format: *u8, value: u32) -> i32 = "printf";
+record Vec {
+    x: f32;
+    y: f32;
+    z: f32;
+}
+record Ray {
+    origin: Vec;
+    direction: Vec;
+}
+record Hit {
+    distance: f32;
+    u: f32;
+    v: f32;
+    triangle: u32;
+    edge: f32;
+}
+unsafe fn sub(a: Vec, b: Vec) -> Vec {
+    return make Vec {
+        x: a.x - b.x,
+        y: a.y - b.y,
+        z: a.z - b.z
+    };
+}
+unsafe fn cross(a: Vec, b: Vec) -> Vec {
+    return make Vec {
+        x: a.y * b.z - a.z * b.y,
+        y: a.z * b.x - a.x * b.z,
+        z: a.x * b.y - a.y * b.x
+    };
+}
+unsafe fn dot(a: Vec, b: Vec) -> f32 {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+unsafe fn vertex(f: *f32, index: usize) -> Vec {
+    return make Vec {
+        x: f[index],
+        y: f[index + 1usize],
+        z: f[index + 2usize]
+    };
+}
+unsafe fn intersect(f: *f32, tri: u32, ray: Ray, hit: *Hit) -> bool {
+    var p: usize = (GEOMETRY + tri * 15u32) as usize;
+    var a: Vec = vertex(f, p);
+    var b: Vec = vertex(f, p + 5usize);
+    var c: Vec = vertex(f, p + 10usize);
+    var ab: Vec = sub(b, a);
+    var ac: Vec = sub(c, a);
+    var q: Vec = cross(ray.direction, ac);
+    var determinant: f32 = dot(ab, q);
+    if determinant > -0.000001f32 && determinant < 0.000001f32 {
+        return false;
+    }
+    var offset: Vec = sub(ray.origin, a);
+    var u: f32 = dot(offset, q) / determinant;
+    if u < 0f32 || u > 1f32 {
+        return false;
+    }
+    var r: Vec = cross(offset, ab);
+    var vv: f32 = dot(ray.direction, r) / determinant;
+    if vv < 0f32 || u + vv > 1f32 {
+        return false;
+    }
+    var distance: f32 = dot(ac, r) / determinant;
+    if distance < 0.125f32 || distance >= hit -> distance {
+        return false;
+    }
+    hit -> edge = u;
+    if vv < hit -> edge {
+        hit -> edge = vv;
+    }
+    if 1f32 - u - vv < hit -> edge {
+        hit -> edge = 1f32 - u - vv;
+    }
+    hit -> distance = distance;
+    hit -> u = (1f32 - u - vv) * f[p + 3usize] + u * f[p + 8usize] + vv * f[p + 13usize];
+    hit -> v = (1f32 - u - vv) * f[p + 4usize] + u * f[p + 9usize] + vv * f[p + 14usize];
+    hit -> triangle = tri;
+    return true;
+}
+unsafe fn through(ray: Ray, f: *f32, portal: u32) -> Ray {
+    var p: usize = (PORTAL_FLOAT + portal * 16u32) as usize;
+    var o: Vec = sub(
+        ray.origin,
+        make Vec {
+            x: f[p + 3usize],
+            y: f[p + 7usize],
+            z: f[p + 11usize]
+        }
+    );
+    var x: Vec = make Vec {
+        x: f[p],
+        y: f[p + 4usize],
+        z: f[p + 8usize]
+    };
+    var y: Vec = make Vec {
+        x: f[p + 1usize],
+        y: f[p + 5usize],
+        z: f[p + 9usize]
+    };
+    var z: Vec = make Vec {
+        x: f[p + 2usize],
+        y: f[p + 6usize],
+        z: f[p + 10usize]
+    };
+    return make Ray {
+        origin: make Vec {
+            x: dot(o, x),
+            y: dot(o, y),
+            z: dot(o, z)
+        },
+        direction: make Vec {
+            x: dot(ray.direction, x),
+            y: dot(ray.direction, y),
+            z: dot(ray.direction, z)
+        }
+    };
+}
+unsafe fn reference_threshold(x: u32, y: u32, mode: u32) -> u32 {
+    if mode == 0u32 {
+        if (x + y) % 2u32 == 0u32 {
+            return 4u32;
+        }
+        return 12u32;
+    }
+    var table: [u32; 16] = make [u32; 16] {
+        0u32,
+        8u32,
+        2u32,
+        10u32,
+        12u32,
+        4u32,
+        14u32,
+        6u32,
+        3u32,
+        11u32,
+        1u32,
+        9u32,
+        15u32,
+        7u32,
+        13u32,
+        5u32
+    };
+    return table[((y % 4u32) * 4u32 + x % 4u32) as usize];
+}
+unsafe fn reference_color(w: *u32, hit: Hit, x: u32, y: u32) -> u32 {
+    var tx: u32 = ((hit.u * 8f32) as i32 as u32) & 7u32;
+    var ty: u32 = ((hit.v * 8f32) as i32 as u32) & 7u32;
+    var tex: u32 = w[(TEXTURE + tx + 8u32 * ty) as usize];
+    var mat: u32 = w[(META + hit.triangle * 4u32 + 1u32) as usize];
+    var level: f32 = 52f32 - 0.65f32 * hit.distance;
+    if level < 6f32 {
+        level = 6f32;
+    }
+    var light: u32 = level as u32;
+    if (level - light as f32) * 16f32 > reference_threshold(x, y, w[2usize]) as f32 {
+        light = light + 1u32;
+    }
+    return w[(PALETTE + (mat * 4u32 + tex) * 64u32 + light) as usize];
+}
+unsafe fn trace(
+    mapped: *u8,
+    x: u32,
+    y: u32,
+    boundary: *bool,
+    debug: bool,
+    final: *Hit
+) -> u32 {
+    var w: *u32 = mapped as *u32;
+    var f: *f32 = (mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var d: Vec = make Vec {
+        x: (2f32 * (x as f32 + 0.5f32) - w[0usize] as f32) / w[1usize] as f32,
+        y: 1f32 - 2f32 * (y as f32 + 0.5f32) / w[1usize] as f32,
+        z: 1f32
+    };
+    var ray: Ray = make Ray {
+        origin: make Vec {
+            x: -(
+                f[0usize] * f[3usize] + f[4usize] * f[7usize] + f[8usize] * f[11usize]
+            ),
+            y: -(
+                f[1usize] * f[3usize] + f[5usize] * f[7usize] + f[9usize] * f[11usize]
+            ),
+            z: -(
+                f[2usize] * f[3usize] + f[6usize] * f[7usize] + f[10usize] * f[11usize]
+            )
+        },
+        direction: make Vec {
+            x: f[0usize] * d.x + f[4usize] * d.y + f[8usize] * d.z,
+            y: f[1usize] * d.x + f[5usize] * d.y + f[9usize] * d.z,
+            z: f[2usize] * d.x + f[6usize] * d.y + f[10usize] * d.z
+        }
+    };
+    var space: u32 = w[20usize];
+    var depth: u32 = 0u32;
+    var clip: u32 = 0xffffffffu32;
+    while depth <= w[4usize] {
+        var hit: Hit = make Hit {
+            distance: 1000000f32,
+            u: 0f32,
+            v: 0f32,
+            triangle: 0xffffffffu32,
+            edge: 1f32
+        };
+        var tri: u32 = 0u32;
+        while tri < w[3usize] {
+            if w[(META + tri * 4u32) as usize] == space {
+                var next: Hit = hit;
+                if intersect(f, tri, ray, &next) {
+                    var accept: bool = true;
+                    if clip != 0xffffffffu32 {
+                        var p: usize = (PORTAL_FLOAT + clip * 16u32 + 12u32) as usize;
+                        var point: Vec = make Vec {
+                            x: ray.origin.x + next.distance * ray.direction.x,
+                            y: ray.origin.y + next.distance * ray.direction.y,
+                            z: ray.origin.z + next.distance * ray.direction.z
+                        };
+                        accept = f[p] * point.x + f[p + 1usize] * point.y + f[p + 2usize] * point.z + f[
+                            p + 3usize
+                        ] >= 0f32;
+                    }
+                    if w[(META + tri * 4u32 + 3u32) as usize] != 0u32 {
+                        var tx: u32 = ((next.u * 8f32) as i32 as u32) & 7u32;
+                        var ty: u32 = ((next.v * 8f32) as i32 as u32) & 7u32;
+                        accept = accept && w[(TEXTURE + tx + ty * 8u32) as usize] != 0u32;
+                    }
+                    if accept {
+                        hit = next;
+                    }
+                }
+            }
+            tri = tri + 1u32;
+        }
+        if hit.triangle == 0xffffffffu32 {
+            *final = hit;
+            return 0xff463026u32;
+        }
+        if debug {
+            ref_print("ref triangle=%u ", hit.triangle);
+            ref_print("u=%u ", (hit.u * 10000f32) as u32);
+            ref_print("v=%u ", (hit.v * 10000f32) as u32);
+            ref_print("z=%u\n", (hit.distance * 10000f32) as u32);
+        }
+        if hit.edge < 0.00001f32 {
+            *boundary = true;
+        }
+        var portal: u32 = w[(META + hit.triangle * 4u32 + 2u32) as usize];
+        if portal == 0u32 || depth == w[4usize] {
+            *final = hit;
+            return reference_color(w, hit, x, y);
+        }
+        portal = portal - 1u32;
+        ray = through(ray, f, portal);
+        space = w[(PORTAL_META + portal * 4u32 + 1u32) as usize];
+        clip = portal;
+        depth = depth + 1u32;
+    }
+    return 0u32;
+}
+unsafe fn color_distance(a: u32, b: u32) -> u32 {
+    var result: u32 = 0u32;
+    var shift: u32 = 0u32;
+    while shift < 24u32 {
+        var x: i32 = ((a >> shift) & 255u32) as i32 - ((b >> shift) & 255u32) as i32;
+        if x < 0i32 {
+            x = -x;
+        }
+        if x as u32 > result {
+            result = x as u32;
+        }
+        shift = shift + 8u32;
+    }
+    return result;
+}
+unsafe fn reference_check(mapped: *u8) -> bool {
+    var w: *u32 = mapped as *u32;
+    var width: u32 = w[0usize];
+    var height: u32 = w[1usize];
+    var expected: *u32 = malloc((width * height) as usize * 4usize) as *u32;
+    if expected == null(*u32) {
+        puts("reference allocation failed");
+        return false;
+    }
+    var hits: *Hit = malloc((width * height) as usize * sizeof(Hit)) as *Hit;
+    if hits == null(*Hit) {
+        puts("reference allocation failed");
+        free(expected as *u8);
+        return false;
+    }
+    var edges: *u8 = malloc((width * height) as usize);
+    if edges == null(*u8) {
+        puts("reference allocation failed");
+        free(hits as *u8);
+        free(expected as *u8);
+        return false;
+    }
+    var y: u32 = 0u32;
+    while y < height {
+        var x: u32 = 0u32;
+        while x < width {
+            var boundary: bool = false;
+            expected[(y * width + x) as usize] = trace(
+                mapped,
+                x,
+                y,
+                &boundary,
+                false,
+                &hits[(y * width + x) as usize]
+            );
+            edges[(y * width + x) as usize] = boundary as u8;
+            x = x + 1u32;
+        }
+        y = y + 1u32;
+    }
+    var errors: u32 = 0u32;
+    var exact: u32 = 0u32;
+    y = 1u32;
+    while y + 1u32 < height {
+        var x: u32 = 1u32;
+        while x + 1u32 < width {
+            var actual: u32 = w[(PIXELS + y * width + x) as usize];
+            var target: u32 = expected[(y * width + x) as usize];
+            if actual == target {
+                exact = exact + 1u32;
+            } else {
+                var match: bool = false;
+                var dy: i32 = -1i32;
+                while dy <= 1i32 {
+                    var dx: i32 = -1i32;
+                    while dx <= 1i32 {
+                        var other: u32 = expected[
+                            ((y as i32 + dy) * width as i32 + x as i32 + dx) as usize
+                        ];
+                        if color_distance(actual, other) <= 3u32 {
+                            match = true;
+                        }
+                        dx = dx + 1i32;
+                    }
+                    dy = dy + 1i32;
+                }
+                if !match && edges[(y * width + x) as usize] == 0u8 && !reference_alternate(
+                    w,
+                    hits[(y * width + x) as usize],
+                    x,
+                    y,
+                    actual
+                ) {
+                    errors = errors + 1u32;
+                    ref_print("x=%u ", x);
+                    ref_print("y=%u ", y);
+                    ref_print("actual=%u ", actual);
+                    ref_print("expected=%u\n", target);
+                    var j: usize = (DEBUG_VALUES + (y * width + x) * 4u32) as usize;
+                    ref_print("gpu tri/view=%u ", w[j]);
+                    ref_print("u=%u ", w[j + 1usize]);
+                    ref_print("v=%u ", w[j + 2usize]);
+                    ref_print("z=%u\n", w[j + 3usize]);
+                    var boundary: bool = false;
+                    trace(
+                        mapped,
+                        x,
+                        y,
+                        &boundary,
+                        true,
+                        &hits[(y * width + x) as usize]
+                    );
+                }
+            }
+            x = x + 1u32;
+        }
+        y = y + 1u32;
+    }
+    free(hits as *u8);
+    free(edges);
+    free(expected as *u8);
+    puts("reference exact pixels / unexpected pixels:");
+    ref_print("%u\n", exact);
+    ref_print("%u\n", errors);
+    return errors == 0u32;
+}
+
+unsafe fn reference_alternate(w: *u32, hit: Hit, x: u32, y: u32, actual: u32) -> bool {
+    if hit.triangle == 0xffffffffu32 {
+        return false;
+    }
+    var u: f32 = hit.u * 8f32;
+    var v: f32 = hit.v * 8f32;
+    var iu: i32 = (u + 0.5f32) as i32;
+    var iv: i32 = (v + 0.5f32) as i32;
+    var near_u: bool = u - iu as f32 < 0.0001f32 && u - iu as f32 > -0.0001f32;
+    var near_v: bool = v - iv as f32 < 0.0001f32 && v - iv as f32 > -0.0001f32;
+    if !near_u && !near_v {
+        return false;
+    }
+    var a: u32 = 0u32;
+    while a < 2u32 {
+        var b: u32 = 0u32;
+        while b < 2u32 {
+            var sample: Hit = hit;
+            if near_u {
+                sample.u = hit.u + (a as f32 * 2f32 - 1f32) * 0.0001f32;
+            }
+            if near_v {
+                sample.v = hit.v + (b as f32 * 2f32 - 1f32) * 0.0001f32;
+            }
+            if reference_color(w, sample, x, y) == actual {
+                return true;
+            }
+            b = b + 1u32;
+        }
+        a = a + 1u32;
+    }
+    return false;
+}

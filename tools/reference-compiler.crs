@@ -1,0 +1,3 @@
+stage_include(stage, "../crust/stages/resources/sources.crs");
+stage_source(stage, "../crust/stages/resources/main.crs");
+stage_export_as(stage, "main", "reference_compiler_main");

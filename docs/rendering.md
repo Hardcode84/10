@@ -2,8 +2,11 @@
 
 ## Status and decisions
 
-This document defines the rendering direction. It does not report an implemented
-renderer or measured performance. The reference project is
+This document defines the rendering direction. A bounded compute renderer and
+automatic demo now implement the core frame path. See the
+[implementation and checks](renderer-build.md) for commands, allocation bounds,
+and tested scope. The large-scene and playable-game gates below remain acceptance
+requirements. The reference project is
 [ship3d at commit fff58ad70d101859e3498b2ed0d910cd9f5721a5](https://github.com/hardcode84/ship3d/tree/fff58ad70d101859e3498b2ed0d910cd9f5721a5).
 
 The following decisions are fixed:
@@ -19,8 +22,8 @@ The following decisions are fixed:
 - Preserve ship3d-style indexed textures, palette-based lighting, and dithering.
 - Keep the final output colour count unrestricted by a frame palette.
 
-The tiled rasterizer and frame sequence below are proposed designs. Prove them
-with the bounded experiment in this document before expanding the implementation.
+The tiled rasterizer and frame sequence below define the target design. Keep
+expansion subject to the bounded experiments and measurement gates in this document.
 
 ## Image style
 
