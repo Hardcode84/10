@@ -1,0 +1,41 @@
+# Bootstrap
+
+Crust is a Git submodule in `crust/`. The game repository pins its commit.
+Build the Crust seed from source with the host C compiler. A preinstalled Crust
+compiler is not required.
+
+## Build the seed
+
+The pinned Crust version supports Linux x86-64. It requires a C99 compiler,
+GNU Make, Python 3, and the libffi development headers and library. Its C backend
+also requires GCC and GNU binutils.
+
+Run these commands from the game repository root:
+
+```sh
+git submodule update --init --recursive
+make -C crust all CC=cc
+```
+
+Set `CC` to the host C compiler. The result is `crust/build/crust`.
+This command builds only the seed. Crust compilation programs prepare their
+selected stages. See the [Crust build documentation](../crust/docs/bootstrap.md).
+
+## Check the compiler
+
+```sh
+crust/build/crust crust/examples/hello/main.crs
+crust/build/hello
+```
+
+The program must print `Hello, world!` and exit with status zero.
+
+## Develop Crust
+
+Implement required language features and fixes in the submodule. Commit and test
+the Crust change, then update the submodule commit in the game repository.
+Do not add game code to work around missing language features.
+
+Windows host support requires a Crust platform profile, Windows implementations
+of its host operations and native ABI bridge, and support in its build stages.
+Implement these changes in Crust before using Windows as a build host.
