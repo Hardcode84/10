@@ -11,7 +11,7 @@ The following decisions are fixed:
 - Use Vulkan compute for all image generation.
 - Use Crust for host and device code. Compile device code to Vulkan Shader SPIR-V
   outside the renderer. See the [compiler investigation](crust-spirv.md) for the
-  proposed LLVM path and the required Crust changes.
+  LLVM shader stage, tested scope, and required Crust changes.
 - Target Windows and Linux on AMD, Intel, and NVIDIA GPUs.
 - Support large outdoor spaces and tight interiors in full 3D.
 - Preserve translated and rotated portals as a gameplay feature.

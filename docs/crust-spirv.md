@@ -1,6 +1,42 @@
 # Crust to Vulkan Shader SPIR-V
 
-## Result
+## Current status: 2026-10-14
+
+Crust commit `483730792cd3646dc965c2782be6ef52c7ee91a4` implements the first
+Vulkan compute stage. The submodule also contains a test-runner correction:
+requesting one physical device permits `VK_INCOMPLETE` when more devices exist.
+
+- The seed, C backend, and LLVM host backend support shared `f32` semantics.
+- LLVM field and element access uses typed addressing.
+- The external shader stage generates compute entries, buffer and R32f image
+  bindings, workgroup storage, invocation IDs, and barriers.
+- Device errors use invocation status. The stage rejects raw pointers, `usize`,
+  recursion, `trap`, and barrier placements that violate its device contract.
+- Shader publication requires successful Vulkan 1.2 SPIR-V validation.
+
+See the [shader tutorial](../crust/examples/shader/README.md) for the implemented
+profile and commands. It currently requires `shaderInt8` and specified float
+controls. Resource-name byte arrays still cause the `Int8` requirement; removing
+it requires LLVM emission to discard those values before capability collection.
+
+The shader suite passed nine dispatch cases and ten source-rejection checks on
+both an AMD Radeon PRO W7900 Dual Slot and an Intel Arc Pro B60. Both used Mesa
+25.2.8 on Linux. The tests cover buffer exchange, workgroup synchronization,
+failure propagation, bounds, images, float conversions, and zero initialization.
+Failed-tool output preservation and allocation-failure checks also passed.
+Compilation used LLVM 23.1.3 and SPIRV-Tools 2025.1.
+
+The dispatch harness is C. These results do not complete the Crust host program,
+visible-image, or multiple-workgroup experiment below. Windows and NVIDIA were
+not tested. The nine dispatch cases each use one four-invocation workgroup.
+
+## Initial investigation: 2026-10-13
+
+The remaining sections preserve the initial investigation at `408f466`. Its
+missing-feature statements and estimates describe that revision. Use the current
+status above and Crust's shader tutorial for implemented behaviour.
+
+### Result
 
 Use Crust for host and device code. The recommended device path is a Crust shader
 stage that emits LLVM IR for the LLVM SPIR-V backend. Keep this stage in Crust.
