@@ -15,8 +15,8 @@ The following decisions are fixed:
 - Support large outdoor spaces and tight interiors in full 3D.
 - Preserve translated and rotated portals as a gameplay feature.
 - Permit spaces that cannot fit into one global coordinate system.
-- Use at most 256 colours in the final application image.
-- Preserve the palette and dithering character of ship3d.
+- Preserve ship3d-style indexed textures, palette-based lighting, and dithering.
+- Keep the final output colour count unrestricted by a frame palette.
 
 The tiled rasterizer and frame sequence below are proposed designs. Prove them
 with the bounded experiment in this document before expanding the implementation.
@@ -39,22 +39,25 @@ enabled. Shared edges must use the same snapping rule.
 
 ### Palette contract
 
-Use one active palette for the complete frame. It contains 256 RGB entries.
-Each final pixel contains an index in the range 0 through 255. Output alpha is
-opaque. Portal views, sky, fog, effects, UI, and border pixels use this palette.
+Use indexed source textures and discrete light states. Combine a texture colour
+index with a light state to select a lit colour from a material lookup table.
+Materials can share tables or use separate tables. Preserve these associations
+through portal rendering and image composition.
 
-Source textures can have their own import palettes. Convert their colours to the
-active rendering palette or to material lookup tables before use. A texture
-palette must not introduce extra colours into the final image.
+Resolve the selected colours into an RGB colour image. Do not require one palette
+for the complete frame or quantize the final image to a fixed colour count.
+Lighting, fog, effects, UI, and borders can contribute additional colours. Keep
+their appearance consistent with the palette and dithering style. Output alpha
+is opaque.
 
-The logical pixel index is eight bits. Its GPU storage format is an implementation
-choice. Do not require optional eight-bit shader arithmetic to preserve this
-colour contract. A prototype can use one 32-bit word per pixel. Measure bandwidth
-before choosing a packed format. Packed writes must have one owner per word.
+Palette sizes, light-state counts, and index widths are asset and shader-interface
+choices. Do not impose a fixed eight-bit width on all indices. Select GPU storage
+formats from the required range and measured bandwidth. Packed writes must have
+one owner per word.
 
-Lighting and fog can use higher precision for intermediate calculations. Their
-result must select a palette entry. Any enabled blending operation must also
-produce a palette index before presentation.
+Lighting and fog can use higher precision for intermediate calculations. Preserve
+discrete light levels in scene shading. Any enabled blending operation can work
+on resolved colours without conversion to a final frame palette.
 
 Do not interpolate palette indices as colour values. Index order does not define
 colour distance. Build colour and light lookup tables from the palette colours.
@@ -66,9 +69,9 @@ coordinates shared by all views for the pattern. Do not restart the pattern at
 tile or portal boundaries. Keep the pattern stable across frames for unchanged
 inputs. Dithering must work at every supported resolution.
 
-Use a deterministic spatial pattern to choose between valid palette entries.
-The choice can represent an intermediate colour or light level. Each selected
-entry remains one of the 256 colours. Do not smooth the pattern during enlargement.
+Use a deterministic spatial pattern to choose between discrete light samples or
+palette-derived colours. The choice can represent an intermediate colour or light
+level. Do not smooth the pattern during enlargement.
 
 The first style comparison must include the checkerboard light pattern from
 ship3d and a small ordered threshold pattern. Compare dark gradients, coloured
@@ -76,11 +79,11 @@ lights, moving surfaces, and portal edges. Select the default from those images.
 
 ### Relation to ship3d
 
-The inspected ship3d revision is a style reference, not a strict 256-colour output
-reference. Its active configuration uses six bits for base colour and six bits
-for light state. Its combined table can contain 4096 entries, and it writes BGRA
-pixels. It also samples lighting on a coarse grid and alternates nearby samples.
-The new final palette limit is an explicit design decision.
+The inspected ship3d revision uses six bits for base colour and six bits for light
+state. Its combined table can contain 4096 entries, and it writes BGRA pixels.
+Table entries can contain duplicate colours. It also samples lighting on a coarse
+grid and alternates nearby samples. Use this shading model as the reference.
+Its table sizes are reference values, not required limits for the new renderer.
 
 Sources: [colour types](https://github.com/hardcode84/ship3d/blob/fff58ad70d101859e3498b2ed0d910cd9f5721a5/ship3d/ship3d/game/units.d#L22-L34),
 [combined palette](https://github.com/hardcode84/ship3d/blob/fff58ad70d101859e3498b2ed0d910cd9f5721a5/ship3d/ship3d/game/renderer/palette.d#L95-L132),
@@ -209,11 +212,11 @@ before selecting a more complex assignment algorithm.
 3. Transform vertices, clip triangles, and calculate interpolation data.
 4. Assign opaque surfaces, cutout surfaces, and portal surfaces to tiles.
 5. Resolve coverage and depth. Test cutout coverage before committing a winner.
-6. Shade visible solid surfaces and produce palette indices with dithering.
+6. Shade visible solid surfaces with material colour tables and dithering.
 7. Create child views from the remaining visible portal pixels.
 8. Repeat the view passes until all pixels have a surface or terminal result.
-9. Render UI in compute with the same palette and image ownership rules.
-10. Expand palette indices into the presentation image. Scale only when
+9. Render UI in compute with the same image ownership and style rules.
+10. Encode the completed colour image for presentation. Scale only when
     resolutions differ.
 
 Use GPU work counts and indirect dispatch where work depends on visibility. Put
@@ -222,7 +225,8 @@ consumers. A workgroup barrier does not synchronize separate workgroups.
 
 Keep opaque and cutout materials in the first experiment. Reject blended materials
 at import for that experiment. Before accepting blended content, define and test
-its ordering through portal views and its final palette conversion.
+its ordering through portal views and its interaction with discrete lighting
+and dithering.
 
 ### Memory and work ownership
 
@@ -255,10 +259,10 @@ Only colour-attachment usage is universally required for ordinary Vulkan swapcha
 images. Direct storage writes and transfer destinations must be checked.
 [Vulkan surface capabilities](https://docs.vulkan.org/refpages/latest/refpages/source/VkSurfaceCapabilitiesKHR.html)
 
-Preserve the 256-colour contract through application-controlled colour conversion.
-Each palette entry must map to one encoded output colour. Enlargement, borders,
-and UI must not add colours. The operating system compositor and display hardware
-are outside this image contract.
+Preserve the selected colours through application-controlled colour conversion.
+Do not add a mandatory final palette reduction. Use nearest-neighbour sampling
+when scaling, so the dither pattern remains visible. The operating system
+compositor and display hardware are outside this image contract.
 
 Windows and Linux support on AMD, Intel, and NVIDIA is a target, not a test result.
 Before implementation, name the oldest supported device and driver for each target
@@ -295,7 +299,10 @@ The correctness checks must cover:
 - Portal termination writes the declared terminal material.
 - Work overflow reports an error without memory corruption or a partial frame.
 - Repeated static frames keep the same dither phase.
-- Palette expansion, UI, and enlargement produce at most 256 distinct RGB values.
+- Material colour and light lookups match the declared reference tables.
+- Different material palettes remain correct when portal views and UI are combined.
+- A reference image with more than 256 colours survives presentation without
+  palette reduction.
 
 Use reference coverage, depth, and palette images for correctness. ship3d alone is
 not a correctness oracle. Its active path has no general depth test. Its generated
