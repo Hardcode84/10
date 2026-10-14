@@ -1,0 +1,30 @@
+minimum_pre_commit_version: '4.0.0'
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: check-executables-have-shebangs
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: crust-format
+        name: format Crust sources
+        language: system
+        entry: crust/build/crust crust/stages/build/run.crs stages/format/tool.crs --write --
+        files: '\.crs$'
+        require_serial: true

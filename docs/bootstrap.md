@@ -44,6 +44,21 @@ crust/build/hello
 
 The program must print `Hello, world!` and exit with status zero.
 
+## Commit checks
+
+After building the Crust seed, install the Git hook:
+
+```sh
+pre-commit install
+pre-commit run --all-files
+```
+
+The checks require pre-commit 4 or later. They check whitespace, line endings,
+YAML, JSON, TOML, merge conflicts, file names, symbolic links, executable scripts,
+large files, and private keys. The local hook formats `.crs` files with the pinned
+Crust formatter. It does not build or run the game. Review and stage any files
+that a hook changes, then run the checks again.
+
 ## Develop Crust
 
 Implement required language features and fixes in the submodule. Commit and test

@@ -24,5 +24,6 @@ A 6DOF exploration game in a rotating megastructure.
 
 ## Style
 
+- Run `pre-commit run --all-files` before committing. Stage hook changes and rerun.
 - Write short, direct comments and replies. Remove filler and repeated code descriptions.
 - Document public behaviour, preconditions, and postconditions for functions and types.
