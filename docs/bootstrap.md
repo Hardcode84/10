@@ -69,3 +69,9 @@ Do not add game code to work around missing language features.
 Windows host support requires a Crust platform profile, Windows implementations
 of its host operations and native ABI bridge, and support in its build stages.
 Implement these changes in Crust before using Windows as a build host.
+
+## Play the movement trial
+
+Run `crust main.crs` to build and start the game. Use `crust main.crs --test`
+for the simulation checks. See [movement](movement.md) for controls and replay
+commands. The renderer demo still starts with `crust demo.crs`.

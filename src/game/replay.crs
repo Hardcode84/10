@@ -1,0 +1,39 @@
+fn hash_word(hash: u32, value: u32) -> u32 {
+    return (hash ^ value) * 16777619u32;
+}
+fn hash_vec(hash: u32, v: Vec3) -> u32 {
+    return hash_word(
+        hash_word(hash_word(hash, float_bits(v.x)), float_bits(v.y)),
+        float_bits(v.z)
+    );
+}
+fn trial_hash(trial: read Trial) -> u32 {
+    var d: Drone = trial.drone;
+    var hash: u32 = hash_vec(2166136261u32, d.position);
+    hash = hash_vec(hash, d.velocity);
+    hash = hash_vec(hash, d.basis.right);
+    hash = hash_vec(hash, d.basis.up);
+    hash = hash_vec(hash, d.basis.forward);
+    hash = hash_vec(hash, d.cable.anchor);
+    hash = hash_word(hash, float_bits(d.cable.extent));
+    hash = hash_word(hash, float_bits(d.cable.tension));
+    hash = hash_word(hash, d.cable.rewind);
+    hash = hash_word(hash, float_bits(d.cable.reel_speed));
+    hash = hash_word(hash, d.cable.attached as u32);
+    hash = hash_word(hash, d.bursts);
+    hash = hash_word(hash, float_bits(d.brake_speed));
+    hash = hash_word(hash, float_bits(d.winch_work));
+    hash = hash_word(hash, trial.tick);
+    hash = hash_word(hash, trial.gate);
+    hash = hash_word(hash, trial.attempt);
+    hash = hash_word(hash, trial.finished as u32);
+    hash = hash_word(hash, trial.started as u32);
+    hash = hash_word(hash, trial.full_spin as u32);
+    hash = hash_word(hash, trial.auto_level as u32);
+    return hash_word(hash, trial.preview_mode);
+}
+fn command_flags(c: Command) -> u32 {
+    return c.burst as u32 | ((c.brake as u32) << 1u32) | ((c.tether as u32) << 2u32) | (
+        (c.restart as u32) << 3u32
+    ) | ((c.spin as u32) << 4u32) | ((c.assist as u32) << 5u32) | ((c.preview as u32) << 6u32);
+}

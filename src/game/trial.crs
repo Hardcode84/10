@@ -1,0 +1,60 @@
+fn reset_trial(trial: mut Trial) -> unit {
+    trial.drone = new_drone();
+    trial.tick = 0u32;
+    trial.gate = 0u32;
+    trial.finished = false;
+    trial.started = false;
+    trial.attempt = trial.attempt + 1u32;
+}
+fn gate_crossed(before: Vec3, after: Vec3, gate: Vec3) -> bool {
+    if before.z >= gate.z || after.z < gate.z {
+        return false;
+    }
+    var t: f32 = (gate.z - before.z) / (after.z - before.z);
+    var at: Vec3 = sub(add(before, scale(sub(after, before), t)), gate);
+    return absf(at.x) <= 6f32 && absf(at.y) <= 6f32;
+}
+fn trial_progress(trial: mut Trial, before: Vec3) -> unit {
+    if trial.gate < 3u32 && gate_crossed(
+        before,
+        trial.drone.position,
+        course_gate(trial.gate)
+    ) {
+        trial.gate = trial.gate + 1u32;
+    }
+    var p: Vec3 = trial.drone.position;
+    if trial.gate == 3u32 && absf(p.x) < 6f32 && absf(p.z - 155f32) < 6f32 && p.y < 1f32 && p.y >= DRONE_RADIUS && length(
+        trial.drone.velocity
+    ) < 2f32 {
+        trial.finished = true;
+    }
+}
+fn trial_step(trial: mut Trial, command: Command) -> unit {
+    if command.spin {
+        trial.full_spin = !trial.full_spin;
+        reset_trial(mut trial);
+    }
+    if command.restart {
+        reset_trial(mut trial);
+    }
+    if command.assist {
+        trial.auto_level = !trial.auto_level;
+    }
+    if command.preview {
+        trial.preview_mode = (trial.preview_mode + 1u32) % 3u32;
+    }
+    if trial.finished {
+        return;
+    }
+    if command.burst || command.brake || command.tether || length(command.thrust) > 0f32 {
+        trial.started = true;
+    }
+    if !trial.started {
+        orient(mut trial.drone, command.look, trial.auto_level);
+        return;
+    }
+    var before: Vec3 = trial.drone.position;
+    simulate(mut trial.drone, command, trial.full_spin, trial.auto_level);
+    trial.tick = trial.tick + 1u32;
+    trial_progress(mut trial, before);
+}

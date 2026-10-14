@@ -61,6 +61,7 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
     w[26usize] = config -> debug_pixels;
     w[31usize] = config -> view_budget;
     w[33usize] = config -> fault;
+    ((v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32)[PROJECTION as usize] = 1f32;
     if !descriptors_create(v) || !commands_create(v) || !queries_create(v) || !commands_record(v) {
         return false;
     }

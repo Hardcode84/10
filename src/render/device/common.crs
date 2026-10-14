@@ -63,10 +63,12 @@ fn light_normal(tri: u32, axis: u32) -> f32 {
 fn view_position(view: u32, z: f32, x: u32, y: u32, axis: u32) -> f32 {
     var p: u32 = VIEW_FLOAT + view * 16u32;
     var h: f32 = words_load(1u32) as f32;
-    var a: f32 = ((2f32 * (x as f32 + 0.5f32) - words_load(0u32) as f32) / h) * z - floats_load(
-        p + 3u32
+    var a: f32 = ((2f32 * (x as f32 + 0.5f32) - words_load(0u32) as f32) / h) * floats_load(
+        PROJECTION
+    ) * z - floats_load(p + 3u32);
+    var b: f32 = (1f32 - 2f32 * (y as f32 + 0.5f32) / h) * floats_load(PROJECTION) * z - floats_load(
+        p + 7u32
     );
-    var b: f32 = (1f32 - 2f32 * (y as f32 + 0.5f32) / h) * z - floats_load(p + 7u32);
     var c: f32 = z - floats_load(p + 11u32);
     return floats_load(p + axis) * a + floats_load(p + 4u32 + axis) * b + floats_load(
         p + 8u32 + axis

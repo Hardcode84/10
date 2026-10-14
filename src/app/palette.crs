@@ -1,0 +1,10 @@
+fn palette_entry(base: u32, shade: u32, state: u32, full_bright: bool) -> u32 {
+    var light: u32 = state;
+    if full_bright {
+        light = 511u32;
+    }
+    var r: u32 = (base & 255u32) * shade / 255u32 * (light % 8u32) / 7u32;
+    var g: u32 = ((base >> 8u32) & 255u32) * shade / 255u32 * ((light / 8u32) % 8u32) / 7u32;
+    var b: u32 = ((base >> 16u32) & 255u32) * shade / 255u32 * (light / 64u32) / 7u32;
+    return r | (g << 8u32) | (b << 16u32) | 0xff000000u32;
+}

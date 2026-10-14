@@ -19,12 +19,13 @@ A 6DOF exploration game in a rotating megastructure.
 
 ## Implementation
 
-- Run the rendering demo with `crust demo.crs`. Reserve the root `main.crs`
-  entry point for the game.
+- Run the rendering demo with `crust demo.crs`. Use the root `main.crs`
+  entry point for the playable movement trial.
 - Build playable slices. Follow the game design's prototype gates.
 - Keep ownership, memory costs, synchronization, and failure paths explicit.
 - Keep `src/render/` independent of demo and test sources. Put scene generation,
-  animation frame indices, palette generation, and user input in `src/demo/`.
+  animation frame indices, palette generation, and user input in `src/demo/` or
+  `src/game/`. Keep shared application helpers in `src/app/`.
 - Fix broken contracts. Handle unsupported cases completely or report an error.
 - Test actual game behaviour. Measure optimizations against a repeatable baseline.
 

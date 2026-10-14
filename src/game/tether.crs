@@ -1,0 +1,107 @@
+fn cable_snap(cable: mut Cable) -> unit {
+    cable.attached = false;
+    cable.rewind = 360u32;
+    cable.tension = 0f32;
+    cable.reel_speed = 0f32;
+}
+fn tether_input(drone: mut Drone, command: Command) -> unit {
+    if drone.cable.rewind > 0u32 {
+        drone.cable.rewind = drone.cable.rewind - 1u32;
+    }
+    if !command.tether {
+        drone.cable.attached = false;
+        drone.cable.tension = 0f32;
+        return;
+    }
+    if !drone.cable.attached && drone.cable.rewind == 0u32 {
+        var ray: Vec3 = scale(drone.basis.forward, 120f32);
+        var hit: Hit = course_hit(drone.position, ray, 0f32);
+        if hit.time <= 1f32 {
+            drone.cable.anchor = add(drone.position, scale(ray, hit.time));
+            drone.cable.extent = length(sub(drone.position, drone.cable.anchor));
+            drone.cable.attached = true;
+            drone.cable.reel_speed = 0f32;
+        }
+    }
+    if drone.cable.attached {
+        var old: f32 = drone.cable.extent;
+        drone.cable.reel_speed = drone.cable.reel_speed + clamp(
+            command.reel * 20f32 - drone.cable.reel_speed,
+            -10f32 * STEP,
+            10f32 * STEP
+        );
+        drone.cable.extent = clamp(old + drone.cable.reel_speed * STEP, 0.75f32, 120f32);
+        drone.cable.reel_speed = (drone.cable.extent - old) / STEP;
+        drone.winch_work = drone.winch_work + drone.cable.tension * clamp(
+            old - drone.cable.extent,
+            0f32,
+            120f32
+        );
+    }
+}
+fn tether_acceleration(drone: mut Drone, acceleration: Vec3) -> Vec3 {
+    if !drone.cable.attached {
+        return acceleration;
+    }
+    var offset: Vec3 = sub(drone.position, drone.cable.anchor);
+    var distance: f32 = length(offset);
+    var normal: Vec3 = unit_vector(offset);
+    var radial: f32 = dot(drone.velocity, normal);
+    var tangent: Vec3 = sub(drone.velocity, scale(normal, radial));
+    var extension: f32 = distance - (drone.cable.extent - 0.4f32);
+    var force: f32 = 0f32;
+    if extension > 0f32 {
+        force = clamp(
+            extension * 20f32 + (radial - drone.cable.reel_speed) * 6f32,
+            0f32,
+            10000f32
+        );
+        if distance >= drone.cable.extent - 0.01f32 {
+            force = force + clamp(
+                dot(acceleration, normal) + dot(tangent, tangent) / distance,
+                0f32,
+                10000f32
+            );
+        }
+    }
+    drone.cable.tension = force;
+    if force > 39.2f32 {
+        cable_snap(mut drone.cable);
+        return acceleration;
+    }
+    return sub(acceleration, scale(normal, force));
+}
+fn tether_constraint(drone: mut Drone) -> unit {
+    if !drone.cable.attached {
+        return;
+    }
+    var delta: Vec3 = sub(drone.position, drone.cable.anchor);
+    var distance: f32 = length(delta);
+    if distance > drone.cable.extent {
+        var normal: Vec3 = unit_vector(delta);
+        var speed: f32 = clamp(
+            dot(drone.velocity, normal) - drone.cable.reel_speed,
+            0f32,
+            100000f32
+        );
+        var impulse: f32 = speed / STEP;
+        if impulse + drone.cable.tension > 39.2f32 {
+            cable_snap(mut drone.cable);
+            return;
+        }
+        drone.cable.tension = drone.cable.tension + impulse;
+        var correction: Vec3 = scale(normal, drone.cable.extent - distance);
+        move_drone(mut drone, correction);
+        drone.velocity = sub(drone.velocity, scale(normal, speed));
+        if length(sub(drone.position, drone.cable.anchor)) > drone.cable.extent + 0.001f32 {
+            cable_snap(mut drone.cable);
+            return;
+        }
+    }
+    var to_anchor: Vec3 = sub(drone.cable.anchor, drone.position);
+    // A cable cannot pass through structure. Contact before its anchor breaks it.
+    var hit: Hit = course_hit(drone.position, to_anchor, 0f32);
+    if hit.time < 0.9999f32 {
+        cable_snap(mut drone.cable);
+    }
+}

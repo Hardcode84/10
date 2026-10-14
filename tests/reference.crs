@@ -214,8 +214,10 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
     var w: *u32 = mapped as *u32;
     var f: *f32 = (mapped + WORDS_LENGTH as isize * 4isize) as *f32;
     var d: Vec = make Vec {
-        x: (2f32 * (x as f32 + 0.5f32) - w[0usize] as f32) / w[1usize] as f32,
-        y: 1f32 - 2f32 * (y as f32 + 0.5f32) / w[1usize] as f32,
+        x: (2f32 * (x as f32 + 0.5f32) - w[0usize] as f32) / w[1usize] as f32 * f[
+            PROJECTION as usize
+        ],
+        y: (1f32 - 2f32 * (y as f32 + 0.5f32) / w[1usize] as f32) * f[PROJECTION as usize],
         z: 1f32
     };
     var ray: Ray = make Ray {
@@ -524,7 +526,7 @@ fn reference_point(delta: Vec, normal: Vec, radius: f32, color: Vec, t: f32) -> 
         z: color.z * weight
     };
 }
-fn reference_grid_hit(w: *u32, hit: Hit, normal: Vec, x: u32, y: u32) -> Hit {
+fn reference_grid_hit(w: *u32, f: *f32, hit: Hit, normal: Vec, x: u32, y: u32) -> Hit {
     var sx: u32 = x / 16u32 * 16u32;
     var sy: u32 = y / 16u32 * 16u32;
     var horizontal: u32 = 1u32 - ((x + y) % 2u32);
@@ -542,8 +544,8 @@ fn reference_grid_hit(w: *u32, hit: Hit, normal: Vec, x: u32, y: u32) -> Hit {
     }
     sx = sx + horizontal * 16u32;
     sy = sy + vertical * 16u32;
-    var dx: f32 = (sx as f32 - x as f32) * 2f32 / w[1usize] as f32;
-    var dy: f32 = (y as f32 - sy as f32) * 2f32 / w[1usize] as f32;
+    var dx: f32 = (sx as f32 - x as f32) * 2f32 / w[1usize] as f32 * f[PROJECTION as usize];
+    var dy: f32 = (y as f32 - sy as f32) * 2f32 / w[1usize] as f32 * f[PROJECTION as usize];
     var ray: Vec = sub(hit.position, hit.eye);
     var direction: Vec = make Vec {
         x: ray.x / hit.distance + hit.right.x * dx + hit.up.x * dy,
@@ -576,7 +578,7 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
         normal.y = -normal.y;
         normal.z = -normal.z;
     }
-    hit = reference_grid_hit(w, hit, normal, x, y);
+    hit = reference_grid_hit(w, f, hit, normal, x, y);
     var t: f32 = 0f32;
     var light: Vec = vertex(f, (SPACE_LIGHT + space * 4u32) as usize);
     if hit.distance > 0f32 && f[CAMERA_LIGHT as usize] > 0f32 {

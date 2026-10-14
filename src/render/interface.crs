@@ -49,3 +49,12 @@ const MATERIAL_TEXTURE: u32 = 2700000u32;
 const CAMERA_LIGHT: u32 = 1008u32;
 
 const LIT_PALETTE: u32 = 2702048u32;
+
+// Positive tangent of half the vertical field of view; setup defaults to 1.
+const PROJECTION: u32 = 20u32;
+// Optional 80 by 6 text cells, eight pixels square, at the output top edge.
+const OVERLAY_ENABLED: u32 = 37u32;
+const OVERLAY_CELLS: u32 = 2750000u32;
+const OVERLAY_FONT: u32 = 2751000u32;
+// Overlay foreground and background colours, supplied by the caller.
+const OVERLAY_COLOR: u32 = 38u32;

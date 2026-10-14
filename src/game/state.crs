@@ -1,0 +1,90 @@
+const STEP: f32 = 0.008333333333333333f32;
+const DRONE_RADIUS: f32 = 0.35f32;
+record Command {
+    thrust: Vec3;
+    look: Vec3;
+    reel: f32;
+    burst: bool;
+    brake: bool;
+    tether: bool;
+    restart: bool;
+    spin: bool;
+    assist: bool;
+    preview: bool;
+}
+fn idle_command() -> Command {
+    return make Command {
+        thrust: vec(0f32, 0f32, 0f32),
+        look: vec(0f32, 0f32, 0f32),
+        reel: 0f32,
+        burst: false,
+        brake: false,
+        tether: false,
+        restart: false,
+        spin: false,
+        assist: false,
+        preview: false
+    };
+}
+record Cable {
+    attached: bool;
+    anchor: Vec3;
+    extent: f32;
+    tension: f32;
+    reel_speed: f32;
+    rewind: u32;
+}
+fn empty_cable() -> Cable {
+    return make Cable {
+        attached: false,
+        anchor: vec(0f32, 0f32, 0f32),
+        extent: 0f32,
+        tension: 0f32,
+        reel_speed: 0f32,
+        rewind: 0u32
+    };
+}
+record Drone {
+    position: Vec3;
+    velocity: Vec3;
+    basis: Basis;
+    cable: Cable;
+    bursts: u32;
+    brake_speed: f32;
+    winch_work: f32;
+}
+fn new_drone() -> Drone {
+    return make Drone {
+        position: vec(0f32, 1f32, 0f32),
+        velocity: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        cable: empty_cable(),
+        bursts: 0u32,
+        brake_speed: 0f32,
+        winch_work: 0f32
+    };
+}
+record Trial {
+    drone: Drone;
+    tick: u32;
+    gate: u32;
+    finished: bool;
+    started: bool;
+    full_spin: bool;
+    auto_level: bool;
+    preview_mode: u32;
+    attempt: u32;
+}
+fn new_trial() -> Trial {
+    return make Trial {
+        drone: new_drone(),
+        tick: 0u32,
+        gate: 0u32,
+        finished: false,
+        started: false,
+        full_spin: false,
+        auto_level: true,
+        preview_mode: 1u32,
+        attempt: 1u32
+    };
+}

@@ -1,0 +1,42 @@
+fn flight_acceleration(position: Vec3, velocity: Vec3, full_spin: bool) -> Vec3 {
+    var omega: Vec3 = vec(0f32, 0f32, spin_rate(full_spin));
+    var coriolis: Vec3 = scale(cross(omega, velocity), -2f32);
+    var gravity: Vec3 = scale(
+        cross(omega, cross(omega, drum_position(position))),
+        -1f32
+    );
+    var drag: f32 = air_density(position) * (0.08f32 + 0.012f32 * length(velocity));
+    return sub(add(coriolis, gravity), scale(velocity, drag));
+}
+fn flight_impulses(drone: mut Drone, command: Command) -> unit {
+    if command.burst {
+        drone.velocity = add(drone.velocity, scale(drone.basis.forward, 15f32));
+        drone.bursts = drone.bursts + 1u32;
+    }
+    if command.brake {
+        var speed: f32 = length(drone.velocity);
+        var removed: f32 = clamp(speed, 0f32, 30f32);
+        drone.brake_speed = drone.brake_speed + removed;
+        if speed > 0f32 {
+            drone.velocity = scale(drone.velocity, (speed - removed) / speed);
+        }
+    }
+}
+fn simulate(drone: mut Drone, command: Command, full_spin: bool, auto_level: bool) -> unit {
+    orient(mut drone, command.look, auto_level);
+    flight_impulses(mut drone, command);
+    tether_input(mut drone, command);
+    var thrust: Vec3 = command.thrust;
+    if length(thrust) > 1f32 {
+        thrust = unit_vector(thrust);
+    }
+    var acceleration: Vec3 = add(
+        flight_acceleration(drone.position, drone.velocity, full_spin),
+        scale(basis_vector(drone.basis, thrust), 0.5f32)
+    );
+    acceleration = tether_acceleration(mut drone, acceleration);
+    drone.velocity = add(drone.velocity, scale(acceleration, STEP));
+    var travel: Vec3 = scale(drone.velocity, STEP);
+    move_drone(mut drone, travel);
+    tether_constraint(mut drone);
+}

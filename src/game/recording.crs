@@ -1,0 +1,180 @@
+resource Recording {
+    file: *u8;
+    mode: u32;
+    count: u32;
+    expected: u32;
+    ended: bool;
+}
+opaque drop recording_drop;
+fn float_bits(value: f32) -> u32 {
+    return *(&value as *u32);
+}
+fn bits_float(value: u32) -> f32 {
+    return *(&value as *f32);
+}
+fn recording_new() -> Recording {
+    return make Recording {
+        file: null(*u8),
+        mode: 0u32,
+        count: 0u32,
+        expected: 0u32,
+        ended: false
+    };
+}
+fn recording_drop(stream: mut Recording) -> unit {
+    if stream.file != null(*u8) && fclose(stream.file) != 0i32 {
+        error("cannot close recording");
+        exit(1i32);
+    }
+}
+fn recording_open(stream: *Recording, o: *Launch) -> bool {
+    var path: *u8 = o -> record_path;
+    var mode: *u8 = "wb";
+    stream -> mode = 1u32;
+    if o -> replay_path != null(*u8) {
+        path = o -> replay_path;
+        mode = "rb";
+        stream -> mode = 2u32;
+    }
+    if path == null(*u8) {
+        stream -> mode = 0u32;
+        return true;
+    }
+    stream -> file = fopen(path, mode);
+    if stream -> file == null(*u8) {
+        return error("cannot open recording");
+    }
+    var header: [u32; 2] = make [u32; 2] {
+        0x53504e30u32,
+        1u32
+    };
+    if stream -> mode == 1u32 {
+        return fwrite(&header as *u8, 8usize, 1usize, stream -> file) == 1usize || error(
+            "cannot write recording header"
+        );
+    }
+    if fread(&header as *u8, 8usize, 1usize, stream -> file) != 1usize || header[0usize] != 0x53504e30u32 || header[
+        1usize
+    ] != 1u32 {
+        return error("invalid recording header");
+    }
+    return true;
+}
+fn recording_finish(stream: *Recording) -> bool {
+    if stream -> mode == 1u32 && !stream -> ended {
+        var end: [u32; 10] = make [u32; 10] {
+            0xffffffffu32,
+            stream -> count,
+            0u32,
+            0u32,
+            0u32,
+            0u32,
+            0u32,
+            0u32,
+            0u32,
+            0u32
+        };
+        if fwrite(&end as *u8, 40usize, 1usize, stream -> file) != 1usize || fflush(
+            stream -> file
+        ) != 0i32 {
+            return error("cannot finish recording");
+        }
+        stream -> ended = true;
+    }
+    return true;
+}
+fn recording_read(stream: *Recording, c: *Command) -> i32 {
+    if stream -> mode != 2u32 {
+        return 1i32;
+    }
+    var data: [u32; 10] = uninit;
+    if fread(&data as *u8, 40usize, 1usize, stream -> file) != 1usize {
+        error("truncated recording");
+        return -1i32;
+    }
+    if data[0usize] == 0xffffffffu32 {
+        var extra: u8 = 0u8;
+        if data[1usize] != stream -> count || fread(&extra, 1usize, 1usize, stream -> file) != 0usize || ferror(
+            stream -> file
+        ) != 0i32 {
+            error("invalid recording end");
+            return -1i32;
+        }
+        stream -> ended = true;
+        return 0i32;
+    }
+    if data[0usize] != stream -> count || data[8usize] > 127u32 {
+        error("invalid recording tick or flags");
+        return -1i32;
+    }
+    var i: usize = 1usize;
+    while i <= 7usize {
+        var value: f32 = bits_float(data[i]);
+        if!(value >= -10000f32 && value <= 10000f32) {
+            error("invalid recording numeric value");
+            return -1i32;
+        }
+        i = i + 1usize;
+    }
+    * c = idle_command();
+    c -> thrust = vec(
+        bits_float(data[1usize]),
+        bits_float(data[2usize]),
+        bits_float(data[3usize])
+    );
+    c -> look = vec(
+        bits_float(data[4usize]),
+        bits_float(data[5usize]),
+        bits_float(data[6usize])
+    );
+    c -> reel = bits_float(data[7usize]);
+    var flags: u32 = data[8usize];
+    c -> burst = (flags & 1u32) != 0u32;
+    c -> brake = (flags & 2u32) != 0u32;
+    c -> tether = (flags & 4u32) != 0u32;
+    c -> restart = (flags & 8u32) != 0u32;
+    c -> spin = (flags & 16u32) != 0u32;
+    c -> assist = (flags & 32u32) != 0u32;
+    c -> preview = (flags & 64u32) != 0u32;
+    stream -> expected = data[9usize];
+    return 1i32;
+}
+fn game_command(session: mut GameSession, command: mut Command) -> i32 {
+    return recording_read(&session.stream, &command);
+}
+fn game_record(session: mut GameSession, command: Command, hash: u32) -> bool {
+    var stream: *Recording = &session.stream;
+    if stream -> mode == 2u32 && hash != stream -> expected {
+        print_number(stream -> count as i64);
+        return error("replay state differs at this tick");
+    }
+    if stream -> mode == 1u32 {
+        var data: [u32; 10] = make [u32; 10] {
+            stream -> count,
+            float_bits(command.thrust.x),
+            float_bits(command.thrust.y),
+            float_bits(command.thrust.z),
+            float_bits(command.look.x),
+            float_bits(command.look.y),
+            float_bits(command.look.z),
+            float_bits(command.reel),
+            command_flags(command),
+            hash
+        };
+        if fwrite(&data as *u8, 40usize, 1usize, stream -> file) != 1usize {
+            return error("cannot write input tick");
+        }
+    }
+    stream -> count = stream -> count + 1u32;
+    return true;
+}
+fn game_summary(trial: read Trial) -> unit {
+    puts("simulation ticks / gates / state hash:");
+    print_number(trial.tick as i64);
+    print_number(trial.gate as i64);
+    print_number(trial_hash(read trial) as i64);
+    puts("burst count / brake speed removed (m/s) / winch work per mass (J/kg):");
+    print_number(trial.drone.bursts as i64);
+    print_number(trial.drone.brake_speed as i64);
+    print_number(trial.drone.winch_work as i64);
+}

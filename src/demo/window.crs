@@ -1,21 +1,4 @@
-extern fn SDL_Init(flags: u32) -> i32 = "SDL_Init";
-extern fn SDL_Quit() -> unit = "SDL_Quit";
-extern fn SDL_GetError() -> *u8 = "SDL_GetError";
-extern fn SDL_CreateWindow(
-    title: *u8,
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
-    flags: u32
-) -> *u8 = "SDL_CreateWindow";
-extern fn SDL_DestroyWindow(window: *u8) -> unit = "SDL_DestroyWindow";
-extern fn SDL_Vulkan_GetInstanceExtensions(window: *u8, count: *u32, names: **u8) -> i32 = "SDL_Vulkan_GetInstanceExtensions";
-extern fn SDL_Vulkan_CreateSurface(window: *u8, instance: *u8, surface: **u8) -> i32 = "SDL_Vulkan_CreateSurface";
-extern fn SDL_PollEvent(event: *u8) -> i32 = "SDL_PollEvent";
-extern fn SDL_WaitEvent(event: *u8) -> i32 = "SDL_WaitEvent";
 extern fn frame_printf(format: *u8, frame: u32) -> i32 = "printf";
-extern fn fflush(file: *u8) -> i32 = "fflush";
 fn frame_print(p: *Playback) -> bool {
     var format: *u8 = "frame %u\n";
     if p -> paused {
@@ -26,54 +9,6 @@ fn frame_print(p: *Playback) -> bool {
     }
     return true;
 }
-fn window_open(window: **u8, width: u32, height: u32) -> bool {
-    if SDL_Init(32u32) != 0i32 {
-        error(SDL_GetError());
-        SDL_Quit();
-        return false;
-    }
-    * window = SDL_CreateWindow(
-        "SPINWARD | compute portal renderer",
-        805240832i32,
-        805240832i32,
-        width as i32,
-        height as i32,
-        268435460u32
-    );
-    if *window == null(*u8) {
-        error(SDL_GetError());
-        SDL_Quit();
-        return false;
-    }
-    return true;
-}
-fn window_close(window: *u8) -> unit {
-    if window != null(*u8) {
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-    }
-}
-fn window_instance(v: *Vulkan, window: *u8) -> bool {
-    if window == null(*u8) {
-        return instance_open(v, 0u32, null(**u8));
-    }
-    var extensions: [*u8; 16] = uninit;
-    var count: u32 = 0u32;
-    if SDL_Vulkan_GetInstanceExtensions(window, &count, null(**u8)) == 0i32 || count > 16u32 {
-        return error("cannot obtain Vulkan window extensions");
-    }
-    if SDL_Vulkan_GetInstanceExtensions(window, &count, &extensions[0usize]) == 0i32 {
-        return error(SDL_GetError());
-    }
-    if !instance_open(v, count, &extensions[0usize]) {
-        return false;
-    }
-    if SDL_Vulkan_CreateSurface(window, v -> instance, &v -> surface) == 0i32 {
-        return error(SDL_GetError());
-    }
-    return true;
-}
-
 record WindowEvent {
     status: i32;
     kind: u32;

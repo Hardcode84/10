@@ -1,0 +1,237 @@
+fn near(a: f32, b: f32, tolerance: f32) -> bool {
+    return absf(a - b) <= tolerance;
+}
+fn test_forces() -> bool {
+    var p: Vec3 = vec(0f32, 0f32, 0f32);
+    var stopped: Vec3 = flight_acceleration(p, vec(0f32, 0f32, 0f32), false);
+    var gravity: Vec3 = flight_acceleration(p, vec(0f32, 0f32, 0f32), true);
+    var v: Vec3 = vec(0f32, 30f32, 0f32);
+    var change: Vec3 = sub(
+        flight_acceleration(p, v, true),
+        flight_acceleration(p, v, false)
+    );
+    return game_check(
+        length(stopped) == 0f32 && near(gravity.y, -1.8376875f32, 0.00001f32) && near(
+            change.x,
+            2.97f32,
+            0.00001f32
+        ),
+        "force equation or Coriolis sign differs"
+    );
+}
+fn test_collision() -> bool {
+    var s: Solid = solid(vec(-1f32, -1f32, -1f32), vec(1f32, 1f32, 1f32), 0u32);
+    var face: Hit = sweep_box(
+        vec(0f32, 0f32, -10f32),
+        vec(0f32, 0f32, 20f32),
+        s,
+        0.35f32
+    );
+    var corner: Hit = sweep_box(
+        vec(1.3f32, 1.3f32, -10f32),
+        vec(0f32, 0f32, 20f32),
+        s,
+        0.35f32
+    );
+    var edge: Hit = sweep_box(
+        vec(1.2f32, 0f32, -10f32),
+        vec(0f32, 0f32, 20f32),
+        s,
+        0.35f32
+    );
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 5f32, 40f32);
+    drone.velocity = vec(10f32, 0f32, 1000f32);
+    move_drone(mut drone, vec(1f32, 0f32, 30f32));
+    return game_check(
+        near(face.time, 0.4325f32, 0.00001f32) && corner.time > 1f32 && edge.time < 0.45f32 && drone.position.z < 54.651f32 && drone.position.x > 0.99f32 && drone.velocity.z == 0f32,
+        "swept sphere face/edge/corner or sliding failed"
+    );
+}
+fn test_tether() -> bool {
+    var d: Drone = new_drone();
+    d.position = vec(0f32, 4f32, 35f32);
+    var command: Command = idle_command();
+    command.tether = true;
+    simulate(mut d, command, false, true);
+    if !game_check(
+        d.cable.attached && near(d.cable.anchor.z, 55f32, 0.001f32),
+        "tether did not hit the visible spoke"
+    ) {
+        return false;
+    }
+    command.tether = false;
+    simulate(mut d, command, false, true);
+    if !game_check(!d.cable.attached, "tether release failed") {
+        return false;
+    }
+    d.position = vec(0f32, 4f32, 35f32);
+    d.velocity = vec(0f32, 0f32, -30f32);
+    command.tether = true;
+    simulate(mut d, command, false, true);
+    if !game_check(
+        !d.cable.attached && d.cable.rewind == 360u32,
+        "overloaded tether did not snap"
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    command.tether = false;
+    while i < 360u32 {
+        tether_input(mut d, command);
+        i = i + 1u32;
+    }
+    return game_check(d.cable.rewind == 0u32, "rewind duration differs from three seconds");
+}
+fn test_trial() -> bool {
+    var t: Trial = new_trial();
+    var c: Command = idle_command();
+    c.burst = true;
+    trial_step(mut t, c);
+    if !game_check(
+        t.started && t.tick == 1u32 && t.drone.velocity.z > 14f32,
+        "burst did not start trial"
+    ) {
+        return false;
+    }
+    c = idle_command();
+    c.brake = true;
+    trial_step(mut t, c);
+    if !game_check(
+        length(t.drone.velocity) < 0.0001f32 && t.drone.brake_speed > 14f32,
+        "brake failed"
+    ) {
+        return false;
+    }
+    c = idle_command();
+    c.spin = true;
+    trial_step(mut t, c);
+    if !game_check(
+        t.full_spin && t.tick == 0u32 && !t.started,
+        "spin selection must reset the attempt"
+    ) {
+        return false;
+    }
+    t.drone.position = vec(0f32, 4f32, 36f32);
+    trial_progress(mut t, vec(0f32, 4f32, 34f32));
+    if !game_check(t.gate == 1u32, "swept checkpoint crossing failed") {
+        return false;
+    }
+    t.gate = 3u32;
+    t.drone.position = vec(0f32, 0.5f32, 155f32);
+    var before: Vec3 = t.drone.position;
+    trial_progress(mut t, before);
+    return game_check(t.finished, "finish landing failed");
+}
+fn test_input() -> bool {
+    var input: InputState = input_new();
+    input.values[6usize] = 1f32;
+    input_commands(mut input, 0f32, 0f32);
+    var c: Command = input_consume(mut input);
+    var next: Command = input_consume(mut input);
+    if !game_check(c.burst && !next.burst, "burst edge was repeated") {
+        return false;
+    }
+    input.bindings[8usize].toggle = true;
+    input.values[8usize] = 1f32;
+    input_commands(mut input, 0f32, 0f32);
+    c = input_consume(mut input);
+    input.values[8usize] = 0f32;
+    input_commands(mut input, 0f32, 0f32);
+    next = input_consume(mut input);
+    return game_check(c.tether && next.tether, "tether toggle did not remain active");
+}
+fn test_replay() -> bool {
+    var a: Trial = new_trial();
+    var b: Trial = new_trial();
+    var i: u32 = 0u32;
+    while i < 1200u32 {
+        var c: Command = idle_command();
+        c.thrust = vec(0.3f32, 0.2f32, 0.7f32);
+        c.look = vec(0.2f32, -0.1f32, 0f32);
+        c.burst = i % 97u32 == 0u32;
+        c.brake = i % 113u32 == 0u32;
+        c.tether = i % 80u32 < 40u32;
+        c.spin = i == 600u32;
+        trial_step(mut a, c);
+        trial_step(mut b, c);
+        if trial_hash(read a) != trial_hash(read b) {
+            return game_check(false, "identical input streams diverged");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn game_tests() -> bool {
+    return test_winch() && test_short_press() && test_mouse_accumulation() && test_swing() && test_forces() && test_collision() && test_tether() && test_trial() && test_input() && test_replay() && test_course_flight();
+}
+fn smoke_command(trial: read Trial, tick: u32) -> Command {
+    var c: Command = idle_command();
+    c.burst = tick == 0u32;
+    c.thrust = vec(0f32, 0.2f32, 0.5f32);
+    c.tether = tick >= 100u32 && tick < 200u32;
+    c.reel = -0.2f32;
+    c.brake = tick == 230u32;
+    c.spin = tick == 300u32;
+    if tick >= 301u32 {
+        c.thrust = vec(0.2f32, 1f32, 0.5f32);
+    }
+    c.burst = c.burst || tick == 301u32;
+    c.brake = c.brake || tick == 530u32;
+    return c;
+}
+
+fn test_mouse_accumulation() -> bool {
+    var input: InputState = input_new();
+    input_commands(mut input, 2f32, 0f32);
+    input_commands(mut input, 0f32, 0f32);
+    var first: Command = input_consume(mut input);
+    var second: Command = input_consume(mut input);
+    return game_check(
+        near(first.look.x * STEP, 0.005f32, 0.000001f32) && second.look.x == 0f32,
+        "mouse motion was lost or applied twice between ticks"
+    );
+}
+fn test_swing() -> bool {
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 4f32, 35f32);
+    drone.velocity = vec(4f32, 0f32, 0f32);
+    var c: Command = idle_command();
+    c.tether = true;
+    var i: u32 = 0u32;
+    while i < 600u32 {
+        simulate(mut drone, c, false, true);
+        if !drone.cable.attached || length(sub(drone.position, drone.cable.anchor)) > drone.cable.extent + 0.001f32 {
+            return game_check(false, "swing violated cable length or broke below the load limit");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn test_short_press() -> bool {
+    var input: InputState = input_new();
+    input.pulses[6usize] = 1u32;
+    input_commands(mut input, 0f32, 0f32);
+    var c: Command = input_consume(mut input);
+    var again: Command = input_consume(mut input);
+    return game_check(
+        c.burst && !again.burst,
+        "press and release between frames was lost or repeated"
+    );
+}
+fn test_winch() -> bool {
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 4f32, 35f32);
+    var c: Command = idle_command();
+    c.tether = true;
+    c.reel = -0.2f32;
+    var i: u32 = 0u32;
+    while i < 240u32 {
+        simulate(mut drone, c, false, true);
+        i = i + 1u32;
+    }
+    return game_check(
+        drone.cable.attached && drone.cable.extent < 14f32 && drone.winch_work > 0f32 && drone.velocity.z > 3f32,
+        "winch must shorten the cable, accelerate the drone, and record work"
+    );
+}

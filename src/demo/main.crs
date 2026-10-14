@@ -79,6 +79,13 @@ fn demo_scene(inputs: mut FrameInput, o: DemoConfig, frame: u32, index: u32) -> 
         input_set_word(mut inputs, LIGHT_COUNT as usize, lights);
         input_set_float(mut inputs, CAMERA_LIGHT as usize, camera_radius);
     }
+    if o.test == 4u32 && index >= 48u32 {
+        var angle: f32 = 70f32 * 0.00872664626f32;
+        if index == 49u32 {
+            angle = 110f32 * 0.00872664626f32;
+        }
+        input_set_float(mut inputs, PROJECTION as usize, sinf(angle) / cosf(angle));
+    }
     if o.test == 4u32 && index == 47u32 {
         light_band_scene(mut inputs);
     }
@@ -166,6 +173,9 @@ fn demo_run(session: DemoSession, o: DemoConfig) -> i32 {
 }
 
 fn tour_test_frame(index: u32) -> u32 {
+    if index >= 48u32 {
+        return 240u32;
+    }
     if index == 47u32 {
         return 0u32;
     }

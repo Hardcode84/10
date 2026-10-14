@@ -1,0 +1,142 @@
+extern fn SDL_SetRelativeMouseMode(enabled: i32) -> i32 = "SDL_SetRelativeMouseMode";
+extern fn SDL_GetRelativeMouseState(x: *i32, y: *i32) -> u32 = "SDL_GetRelativeMouseState";
+extern fn SDL_GetKeyboardState(count: *i32) -> *u8 = "SDL_GetKeyboardState";
+extern fn SDL_GetWindowFlags(window: *u8) -> u32 = "SDL_GetWindowFlags";
+extern fn SDL_SetWindowTitle(window: *u8, title: *u8) -> unit = "SDL_SetWindowTitle";
+extern fn SDL_NumJoysticks() -> i32 = "SDL_NumJoysticks";
+extern fn SDL_IsGameController(index: i32) -> i32 = "SDL_IsGameController";
+extern fn SDL_GameControllerOpen(index: i32) -> *u8 = "SDL_GameControllerOpen";
+extern fn SDL_GameControllerClose(controller: *u8) -> unit = "SDL_GameControllerClose";
+extern fn SDL_GameControllerGetAttached(controller: *u8) -> i32 = "SDL_GameControllerGetAttached";
+extern fn SDL_GameControllerGetAxis(controller: *u8, axis: i32) -> i16 = "SDL_GameControllerGetAxis";
+extern fn SDL_GameControllerGetButton(controller: *u8, button: i32) -> u8 = "SDL_GameControllerGetButton";
+extern fn SDL_Delay(ms: u32) -> unit = "SDL_Delay";
+fn controller_update(window: *GameWindow) -> bool {
+    if window -> controller != null(*u8) && SDL_GameControllerGetAttached(window -> controller) == 0i32 {
+        SDL_GameControllerClose(window -> controller);
+        window -> controller = null(*u8);
+    }
+    if window -> controller != null(*u8) {
+        return true;
+    }
+    var count: i32 = SDL_NumJoysticks();
+    if count < 0i32 {
+        return error(SDL_GetError());
+    }
+    var i: i32 = 0i32;
+    while i < count {
+        if SDL_IsGameController(i) != 0i32 {
+            window -> controller = SDL_GameControllerOpen(i);
+            if window -> controller == null(*u8) {
+                return error(SDL_GetError());
+            }
+            return true;
+        }
+        i = i + 1i32;
+    }
+    return true;
+}
+fn binding_value(b: Binding, keys: *u8, key_count: i32, mouse: u32, controller: *u8) -> f32 {
+    var value: f32 = 0f32;
+    if b.key >= 0i32 && b.key < key_count && keys[b.key as usize] != 0u8 {
+        value = 1f32;
+    }
+    if (mouse & b.mouse) != 0u32 {
+        value = 1f32;
+    }
+    if controller == null(*u8) {
+        return value;
+    }
+    if b.button >= 0i32 && SDL_GameControllerGetButton(controller, b.button) != 0u8 {
+        value = 1f32;
+    }
+    if b.axis >= 0i32 {
+        var axis: f32 = SDL_GameControllerGetAxis(controller, b.axis) as f32 / 32767f32 * b.direction;
+        axis = clamp((axis - 0.15f32) / 0.85f32, 0f32, 1f32);
+        if axis > value {
+            value = axis;
+        }
+    }
+    return value;
+}
+fn game_poll(session: mut GameSession, input: mut InputState) -> bool {
+    if session.launch.config.headless {
+        return true;
+    }
+    var event: [u64; 8] = uninit;
+    while SDL_PollEvent(&event as *u8) != 0i32 {
+        input_event(&input, &event as *u8);
+        if (&event as *u32)[0usize] == 256u32 {
+            input.quit = true;
+        }
+    }
+    if !controller_update(&session.window) {
+        return false;
+    }
+    var focused: bool = (SDL_GetWindowFlags(session.window.handle) & 512u32) != 0u32;
+    if !focused {
+        input.paused = true;
+        input.pending = idle_command();
+        input.mouse = vec(0f32, 0f32, 0f32);
+        var i: usize = 0usize;
+        while i < ACTION_COUNT {
+            input.latched[i] = false;
+            input.pulses[i] = 0u32;
+            i = i + 1usize;
+        }
+    }
+    session.window.focused = focused;
+    var mx: i32 = 0i32;
+    var my: i32 = 0i32;
+    var mouse: u32 = SDL_GetRelativeMouseState(&mx, &my);
+    if !focused {
+        return true;
+    }
+    var count: i32 = 0i32;
+    var keys: *u8 = SDL_GetKeyboardState(&count);
+    var i: usize = 0usize;
+    while i < ACTION_COUNT {
+        input.values[i] = binding_value(
+            input.bindings[i],
+            keys,
+            count,
+            mouse,
+            session.window.controller
+        );
+        i = i + 1usize;
+    }
+    input_commands(mut input, mx as f32, my as f32);
+    return true;
+}
+
+fn input_event(input: *InputState, event: *u8) -> unit {
+    var kind: u32 = (event as *u32)[0usize];
+    var i: usize = 0usize;
+    while i < ACTION_COUNT {
+        var b: Binding = input -> bindings[i];
+        if event_press(event, kind, b) {
+            input -> pulses[i] = input -> pulses[i] + 1u32;
+        }
+        if kind == 1616u32 && b.axis == event[12usize] as i32 {
+            var down: bool = (event as *i16)[8usize] as f32 * b.direction > 18841f32;
+            if down && !input -> axes_down[i] {
+                input -> pulses[i] = input -> pulses[i] + 1u32;
+            }
+            input -> axes_down[i] = down;
+        }
+        i = i + 1usize;
+    }
+}
+fn event_press(event: *u8, kind: u32, b: Binding) -> bool {
+    if kind == 768u32 && event[13usize] == 0u8 {
+        return b.key == (event as *i32)[4usize];
+    }
+    if kind == 1025u32 {
+        var button: u32 = event[16usize] as u32;
+        return button > 0u32 && button <= 5u32 && (b.mouse & (1u32 << (button - 1u32))) != 0u32;
+    }
+    if kind == 1617u32 {
+        return b.button == event[12usize] as i32;
+    }
+    return false;
+}

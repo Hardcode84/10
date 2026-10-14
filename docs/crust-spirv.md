@@ -2,7 +2,7 @@
 
 ## Current status: 2026-10-14
 
-Crust is pinned to `cd2db4e`. It includes the
+Crust is pinned to `bc57ce4`. It includes the
 first Vulkan compute stage and a Vulkan dispatch harness written in Crust.
 The upstream history also includes the device enumeration correction.
 
@@ -293,3 +293,9 @@ The estimates exclude the renderer itself and the Windows port of Crust's host
 runtime. Arbitrary host programs are not the acceptance criterion: host IO,
 native callbacks, and recursive call graphs do not transfer directly to Vulkan
 shaders. Specify a useful device profile and implement its features in Crust.
+
+The movement trial also requires checked inline value arrays and plain record
+replacement in loops. The pinned ownership stage now supports these operations.
+Dynamic array access has bounds traps. The host uses this support for input
+bindings and simulation state. Native text providers accept immutable string
+literals through explicit root trust.

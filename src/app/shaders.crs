@@ -48,3 +48,5 @@ fn load_pipeline(v: *Vulkan, path: *u8, slot: usize) -> bool {
     free(code.bytes);
     return good;
 }
+
+extern fn fflush(file: *u8) -> i32 = "fflush";

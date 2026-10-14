@@ -1,0 +1,74 @@
+fn hud_number(v: mut FrameInput, column: u32, row: u32, value: u32) -> unit {
+    var n: u32 = value;
+    var index: u32 = 0u32;
+    while index < 6u32 {
+        input_set_word(
+            mut v,
+            (OVERLAY_CELLS + row * 80u32 + column + 5u32 - index) as usize,
+            48u32 + n % 10u32
+        );
+        n = n / 10u32;
+        index = index + 1u32;
+    }
+}
+fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
+    input_set_word(mut v, OVERLAY_ENABLED as usize, 1u32);
+    input_set_word(mut v, OVERLAY_COLOR as usize, 0xffd8e8e8u32);
+    input_set_word(mut v, (OVERLAY_COLOR + 1u32) as usize, 0xff181410u32);
+    var i: u32 = 0u32;
+    while i < 480u32 {
+        input_set_word(mut v, (OVERLAY_CELLS + i) as usize, 0u32);
+        i = i + 1u32;
+    }
+    hud_text(mut v, 0u32, 0u32, "STOPPED");
+    if trial.full_spin {
+        hud_text(mut v, 0u32, 0u32, "FULL SPIN");
+    }
+    hud_text(mut v, 12u32, 0u32, "TIME MS");
+    hud_number(mut v, 20u32, 0u32, trial.tick * 1000u32 / 120u32);
+    hud_text(mut v, 28u32, 0u32, "GATES");
+    hud_number(mut v, 34u32, 0u32, trial.gate);
+    hud_text(mut v, 42u32, 0u32, "SPEED");
+    hud_number(mut v, 48u32, 0u32, length(trial.drone.velocity) as u32);
+    hud_text(mut v, 56u32, 0u32, "M/S");
+    hud_text(mut v, 0u32, 1u32, "TENSION %");
+    hud_number(
+        mut v,
+        10u32,
+        1u32,
+        (trial.drone.cable.tension / 39.2f32 * 100f32) as u32
+    );
+    hud_text(mut v, 18u32, 1u32, "REWIND MS");
+    hud_number(mut v, 28u32, 1u32, trial.drone.cable.rewind * 1000u32 / 120u32);
+    hud_text(mut v, 36u32, 1u32, "BURSTS");
+    hud_number(mut v, 43u32, 1u32, trial.drone.bursts);
+    hud_text(mut v, 51u32, 1u32, "CHARGE UNLIMITED");
+    hud_text(mut v, 0u32, 2u32, "AUTO LEVEL");
+    hud_number(mut v, 11u32, 2u32, trial.auto_level as u32);
+    hud_text(mut v, 19u32, 2u32, "PREVIEW 0 OFF 1 AIM 2 ALWAYS");
+    hud_number(mut v, 47u32, 2u32, trial.preview_mode);
+    hud_text(mut v, 0u32, 3u32, "WASD SPACE CTRL MOVE | MOUSE LOOK | RMB BURST | F BRAKE");
+    hud_text(mut v, 0u32, 4u32, "LMB TETHER | R/T REEL | F4 SPIN | L LEVEL | P PREVIEW");
+    hud_text(
+        mut v,
+        0u32,
+        5u32,
+        "BACKSPACE RETRY | TAB PAUSE | ESC EXIT | PASS CYAN GATES THEN LAND"
+    );
+    if paused {
+        hud_text(
+            mut v,
+            0u32,
+            5u32,
+            "PAUSED - TAB TO RESUME                                            "
+        );
+    }
+    if trial.finished {
+        hud_text(
+            mut v,
+            0u32,
+            5u32,
+            "FINISHED - BACKSPACE TO RETRY                                     "
+        );
+    }
+}

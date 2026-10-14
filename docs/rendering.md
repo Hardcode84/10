@@ -11,7 +11,8 @@ requirements. The reference project is
 
 The following decisions are fixed:
 
-- Keep the rendering core in `src/render/` and application policy in `src/demo/`.
+- Keep the rendering core in `src/render/` and application policy in `src/demo/`
+  and `src/game/`. Put shared application helpers in `src/app/`.
   The core consumes scene data and SPIR-V. It has no demo geometry, animation
   frame indices, input handling, or palette generation.
 - Use Vulkan compute for all image generation.
@@ -365,3 +366,20 @@ Stop expansion if portal visibility, the palette contract, memory budgets, or th
 agreed frame target fails. Identify the failing pass and its mechanism. Repeat the
 same scene after a bounded correction. Do not add a larger rendering system until
 this experiment meets its acceptance criteria.
+
+## Movement trial interface additions
+
+The [movement trial](movement.md) uses the renderer from a separate game entry
+point. Shared application helpers are in `src/app/`; game policy is in
+`src/game/` and renderer test policy remains in `src/demo/`.
+
+`PROJECTION` stores the positive tangent of half the vertical field of view.
+Renderer setup sets it to 1. Projection, light-grid rays, and the CPU reference
+use the same value. View transforms remain rigid transforms.
+
+An optional text overlay is composed by GPU compute. The caller supplies an
+80 by 6 cell grid and 128 glyphs with eight rows each. A zero cell is transparent.
+Each cell covers eight output pixels per axis. The renderer has no built-in
+font, labels, input state, or game status. `OVERLAY_ENABLED` defaults to zero.
+The caller supplies the two overlay colours through `OVERLAY_COLOR`. These
+colours must have opaque alpha.

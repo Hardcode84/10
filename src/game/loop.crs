@@ -1,0 +1,120 @@
+record GameLoop {
+    trial: Trial;
+    input: InputState;
+    ticks: u32;
+    credit: u64;
+    running: bool;
+}
+fn game_tick(session: mut GameSession, loop: mut GameLoop, config: GameConfig) -> bool {
+    var command: Command = input_consume(mut loop.input);
+    if config.smoke {
+        command = smoke_command(read loop.trial, loop.ticks);
+    }
+    var status: i32 = game_command(mut session, mut command);
+    if status < 0i32 {
+        return false;
+    }
+    if status == 0i32 {
+        loop.running = false;
+        return true;
+    }
+    var finished: bool = loop.trial.finished;
+    trial_step(mut loop.trial, command);
+    if loop.trial.finished && !finished {
+        game_message(1u32);
+    }
+    loop.ticks = loop.ticks + 1u32;
+    if config.ticks != 0u32 && loop.ticks >= config.ticks {
+        loop.running = false;
+    }
+    return game_record(mut session, command, trial_hash(read loop.trial));
+}
+fn game_render(session: mut GameSession, loop: read GameLoop, config: GameConfig) -> bool {
+    {
+        var renderer: mut Renderer = game_renderer(mut session);
+        var inputs: FrameInput = renderer_inputs(mut renderer);
+        game_scene(mut inputs, read loop.trial, config);
+        game_hud(mut inputs, read loop.trial, loop.input.paused);
+    }
+    return game_draw(mut session) && game_present(mut session);
+}
+fn game_advance(
+    session: mut GameSession,
+    loop: mut GameLoop,
+    config: GameConfig,
+    elapsed: u64
+) -> bool {
+    if !game_poll(mut session, mut loop.input) {
+        return false;
+    }
+    if loop.input.quit {
+        loop.running = false;
+        return true;
+    }
+    if config.headless {
+        return game_tick(mut session, mut loop, config);
+    }
+    if elapsed > 1000000000u64 {
+        loop.input.paused = true;
+        game_message(0u32);
+    }
+    if loop.input.paused {
+        loop.input.pending = idle_command();
+        loop.input.mouse = vec(0f32, 0f32, 0f32);
+        loop.credit = 0u64;
+        return true;
+    }
+    var rate: u64 = 120u64;
+    if config.slow {
+        rate = 84u64;
+    }
+    loop.credit = loop.credit + elapsed * rate;
+    while loop.credit >= 1000000000u64 && loop.running {
+        if !game_tick(mut session, mut loop, config) {
+            return false;
+        }
+        loop.credit = loop.credit - 1000000000u64;
+    }
+    return true;
+}
+fn game_run(session: GameSession, config: GameConfig) -> i32 {
+    var loop: GameLoop = make GameLoop {
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    if !game_open(mut session, mut loop.input) {
+        return 1i32;
+    }
+    {
+        var renderer: mut Renderer = game_renderer(mut session);
+        var inputs: FrameInput = renderer_inputs(mut renderer);
+        game_palette(mut inputs);
+        hud_font(mut inputs);
+    }
+    if !config.headless && !game_render(mut session, read loop, config) {
+        return 1i32;
+    }
+    var previous: u64 = now();
+    while loop.running {
+        var current: u64 = now();
+        var elapsed: u64 = current - previous;
+        previous = current;
+        if !game_advance(mut session, mut loop, config, elapsed) {
+            return 1i32;
+        }
+        if !config.headless && !game_render(mut session, read loop, config) {
+            return 1i32;
+        }
+        if !config.headless {
+            game_wait();
+        }
+    }
+    if config.headless && !game_render(mut session, read loop, config) {
+        return 1i32;
+    }
+    game_summary(read loop.trial);
+    return (!game_finish(mut session)) as i32;
+}

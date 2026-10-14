@@ -1,0 +1,80 @@
+resource GameWindow {
+    handle: *u8;
+    controller: *u8;
+    focused: bool;
+}
+opaque drop game_window_drop;
+record GameSession {
+    window: GameWindow;
+    renderer: Renderer;
+    launch: Launch;
+    stream: Recording;
+}
+opaque;
+fn game_window_drop(window: mut GameWindow) -> unit {
+    if window.controller != null(*u8) {
+        SDL_GameControllerClose(window.controller);
+    }
+    window_close(window.handle);
+}
+fn game_session(o: *Launch) -> GameSession {
+    return make GameSession {
+        window: make GameWindow {
+            handle: null(*u8),
+            controller: null(*u8),
+            focused: false
+        },
+        renderer: renderer_new(),
+        launch: *o,
+        stream: recording_new()
+    };
+}
+fn game_renderer(session: mut GameSession) -> mut Renderer from session {
+    return mut session.renderer;
+}
+fn game_open(session: mut GameSession, input: mut InputState) -> bool {
+    var o: *Launch = &session.launch;
+    if !bindings_load(o -> bindings_path, &input) || !recording_open(&session.stream, o) {
+        return false;
+    }
+    if !o -> config.headless {
+        if !window_open(&session.window.handle, o -> config.width, o -> config.height) {
+            return false;
+        }
+        if SDL_Init(8192u32) != 0i32 {
+            return error(SDL_GetError());
+        }
+        SDL_SetWindowTitle(session.window.handle, "SPINWARD | movement trial");
+        if SDL_SetRelativeMouseMode(1i32) != 0i32 {
+            return error(SDL_GetError());
+        }
+    }
+    return game_renderer_open(&session.renderer.state, o, session.window.handle);
+}
+fn game_finish(session: mut GameSession) -> bool {
+    var good: bool = recording_finish(&session.stream);
+    if session.launch.capture != null(*u8) {
+        good = capture(
+            &session.renderer.state,
+            session.launch.capture,
+            session.launch.config.width,
+            session.launch.config.height
+        ) && good;
+    }
+    return good;
+}
+fn game_wait() -> unit {
+    SDL_Delay(1u32);
+}
+fn scene_overflow() -> unit {
+    error("game scene exceeds triangle capacity");
+    exit(1i32);
+}
+fn game_message(code: u32) -> unit {
+    if code == 0u32 {
+        puts("Simulation paused after a clock stall. Tab resumes.");
+    }
+    if code == 1u32 {
+        puts("Course finished. Backspace / pad X restarts.");
+    }
+}

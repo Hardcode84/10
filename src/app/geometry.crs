@@ -1,0 +1,185 @@
+fn triangle(
+    v: mut FrameInput,
+    space: u32,
+    mat: u32,
+    portal: u32,
+    cutout: u32,
+    ax: f32,
+    ay: f32,
+    az: f32,
+    bx: f32,
+    by: f32,
+    bz: f32,
+    cx: f32,
+    cy: f32,
+    cz: f32
+) -> unit {
+    var n: u32 = input_word(read v, 3usize);
+    if n >= MAX_TRIS {
+        scene_overflow();
+        return;
+    }
+    var m: usize = (META + n * 4u32) as usize;
+    input_set_word(mut v, m, space);
+    input_set_word(mut v, m + 1usize, mat);
+    input_set_word(mut v, m + 2usize, portal);
+    input_set_word(mut v, m + 3usize, cutout);
+    var p: usize = (GEOMETRY + n * 15u32) as usize;
+    input_set_float(mut v, p, ax);
+    input_set_float(mut v, p + 1usize, ay);
+    input_set_float(mut v, p + 2usize, az);
+    input_set_float(mut v, p + 3usize, 0f32);
+    input_set_float(mut v, p + 4usize, 0f32);
+    input_set_float(mut v, p + 5usize, bx);
+    input_set_float(mut v, p + 6usize, by);
+    input_set_float(mut v, p + 7usize, bz);
+    input_set_float(mut v, p + 8usize, 1f32);
+    input_set_float(mut v, p + 9usize, 0f32);
+    input_set_float(mut v, p + 10usize, cx);
+    input_set_float(mut v, p + 11usize, cy);
+    input_set_float(mut v, p + 12usize, cz);
+    input_set_float(mut v, p + 13usize, 1f32);
+    input_set_float(mut v, p + 14usize, 1f32);
+    input_set_word(mut v, 3usize, n + 1u32);
+}
+fn quad(
+    v: mut FrameInput,
+    space: u32,
+    mat: u32,
+    portal: u32,
+    cutout: u32,
+    ax: f32,
+    ay: f32,
+    az: f32,
+    bx: f32,
+    by: f32,
+    bz: f32,
+    cx: f32,
+    cy: f32,
+    cz: f32,
+    dx: f32,
+    dy: f32,
+    dz: f32
+) -> unit {
+    triangle(mut v, space, mat, portal, cutout, ax, ay, az, bx, by, bz, cx, cy, cz);
+    triangle(mut v, space, mat, portal, cutout, ax, ay, az, cx, cy, cz, dx, dy, dz);
+    var p: usize = (GEOMETRY + (input_word(read v, 3usize) - 1u32) * 15u32) as usize;
+    input_set_float(mut v, p + 9usize, 1f32);
+    input_set_float(mut v, p + 13usize, 0f32);
+}
+fn box(v: mut FrameInput, space: u32, mat: u32, x: f32, y: f32, z: f32, s: f32) -> unit {
+    quad(
+        mut v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x - s,
+        y - s,
+        z - s,
+        x + s,
+        y - s,
+        z - s,
+        x + s,
+        y + s,
+        z - s,
+        x - s,
+        y + s,
+        z - s
+    );
+    quad(
+        mut v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x - s,
+        y - s,
+        z + s,
+        x + s,
+        y - s,
+        z + s,
+        x + s,
+        y + s,
+        z + s,
+        x - s,
+        y + s,
+        z + s
+    );
+    quad(
+        mut v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x - s,
+        y - s,
+        z - s,
+        x - s,
+        y - s,
+        z + s,
+        x - s,
+        y + s,
+        z + s,
+        x - s,
+        y + s,
+        z - s
+    );
+    quad(
+        mut v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x + s,
+        y - s,
+        z - s,
+        x + s,
+        y - s,
+        z + s,
+        x + s,
+        y + s,
+        z + s,
+        x + s,
+        y + s,
+        z - s
+    );
+    quad(
+        mut v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x - s,
+        y + s,
+        z - s,
+        x + s,
+        y + s,
+        z - s,
+        x + s,
+        y + s,
+        z + s,
+        x - s,
+        y + s,
+        z + s
+    );
+    quad(
+        mut v,
+        space,
+        mat,
+        0u32,
+        0u32,
+        x - s,
+        y - s,
+        z - s,
+        x + s,
+        y - s,
+        z - s,
+        x + s,
+        y - s,
+        z + s,
+        x - s,
+        y - s,
+        z + s
+    );
+}

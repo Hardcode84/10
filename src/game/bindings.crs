@@ -1,0 +1,99 @@
+extern fn fgets(bytes: *u8, size: i32, file: *u8) -> *u8 = "fgets";
+extern fn ferror(file: *u8) -> i32 = "ferror";
+fn binding_line(line: *u8, input: *InputState) -> bool {
+    var values: [i32; 7] = uninit;
+    var offset: usize = 0usize;
+    var index: usize = 0usize;
+    while index < 7usize {
+        if !binding_integer(line, &offset, &values[index]) {
+            return false;
+        }
+        index = index + 1usize;
+    }
+    while binding_space(line[offset]) {
+        offset = offset + 1usize;
+    }
+    if line[offset] != 0u8 || offset >= 255usize {
+        return error("binding needs exactly seven integers on one short line");
+    }
+    var a: i32 = values[0usize];
+    var k: i32 = values[1usize];
+    var m: i32 = values[2usize];
+    var b: i32 = values[3usize];
+    var axis: i32 = values[4usize];
+    var sign: i32 = values[5usize];
+    var toggle: i32 = values[6usize];
+    if !binding_device_valid(a, k, m, b) {
+        return error("invalid binding action, key, mouse mask or button");
+    }
+    if axis < -1i32 || axis > 5i32 || (sign != -1i32 && sign != 1i32) || toggle < 0i32 || toggle > 1i32 {
+        return error("invalid binding axis, direction or toggle");
+    }
+    input -> bindings[a as usize] = make Binding {
+        key: k,
+        mouse: m as u32,
+        button: b,
+        axis: axis,
+        direction: sign as f32,
+        toggle: toggle != 0i32
+    };
+    return true;
+}
+fn bindings_load(path: *u8, input: *InputState) -> bool {
+    if path == null(*u8) {
+        return true;
+    }
+    var file: *u8 = fopen(path, "r");
+    if file == null(*u8) {
+        return error("cannot open bindings");
+    }
+    var line: [u8; 256] = uninit;
+    var good: bool = true;
+    while good && fgets(&line[0usize], 256i32, file) != null(*u8) {
+        if line[0usize] != 35u8 && line[0usize] != 10u8 {
+            good = binding_line(&line[0usize], input);
+        }
+    }
+    if ferror(file) != 0i32 {
+        good = error("cannot read bindings");
+    }
+    if fclose(file) != 0i32 {
+        good = error("cannot close bindings");
+    }
+    return good;
+}
+
+fn binding_device_valid(a: i32, k: i32, m: i32, b: i32) -> bool {
+    return a >= 0i32 && a < ACTION_COUNT as i32 && k >= -1i32 && k < 512i32 && m >= 0i32 && m <= 31i32 && b >= -1i32 && b <= 20i32;
+}
+
+fn binding_space(c: u8) -> bool {
+    return c == 32u8 || c == 9u8 || c == 10u8 || c == 13u8;
+}
+fn binding_integer(line: *u8, offset: *usize, result: *i32) -> bool {
+    while binding_space(line[*offset]) {
+        *offset = *offset + 1usize;
+    }
+    var sign: i32 = 1i32;
+    if line[*offset] == 45u8 {
+        sign = -1i32;
+        *offset = *offset + 1usize;
+    }
+    var start: usize = *offset;
+    var value: i32 = 0i32;
+    while line[*offset] >= 48u8 && line[*offset] <= 57u8 {
+        if value > 1000i32 {
+            return error("binding integer is too large");
+        }
+        value = value * 10i32 + (line[*offset] - 48u8) as i32;
+        *offset = *offset + 1usize;
+    }
+    if *offset == start {
+        return error("binding needs seven integers");
+    }
+    if line[*offset] != 0u8 && !binding_space(line[*offset]) {
+        return error("invalid binding integer");
+    }
+    * result = sign * value;
+    return true;
+}

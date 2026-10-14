@@ -1,0 +1,143 @@
+fn game_quad(v: mut FrameInput, mat: u32, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> unit {
+    quad(
+        mut v,
+        0u32,
+        mat,
+        0u32,
+        0u32,
+        a.x,
+        a.y,
+        a.z,
+        b.x,
+        b.y,
+        b.z,
+        c.x,
+        c.y,
+        c.z,
+        d.x,
+        d.y,
+        d.z
+    );
+}
+fn draw_solid(v: mut FrameInput, s: Solid) -> unit {
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        var a: Vec3 = box_edge(s, axis, 0u32);
+        var b: Vec3 = box_edge(s, axis, 1u32);
+        var c: Vec3 = box_edge(s, axis, 3u32);
+        var d: Vec3 = box_edge(s, axis, 2u32);
+        surface_quad(mut v, s.material, a, b, c, d);
+        var shift: Vec3 = scale(
+            axis_vector(axis),
+            component(sub(s.high, s.low), axis)
+        );
+        surface_quad(
+            mut v,
+            s.material,
+            add(a, shift),
+            add(b, shift),
+            add(c, shift),
+            add(d, shift)
+        );
+        axis = axis + 1u32;
+    }
+}
+fn draw_ribbon(v: mut FrameInput, a: Vec3, b: Vec3, eye: Vec3, width: f32, mat: u32) -> unit {
+    var side: Vec3 = scale(unit_vector(cross(sub(b, a), sub(eye, a))), width);
+    game_quad(
+        mut v,
+        mat,
+        sub(a, side),
+        add(a, side),
+        add(b, side),
+        sub(b, side)
+    );
+}
+fn draw_gate(v: mut FrameInput, center: Vec3, mat: u32) -> unit {
+    var a: Vec3 = add(center, vec(-6f32, -6f32, 0f32));
+    var b: Vec3 = add(center, vec(6f32, -6f32, 0f32));
+    var c: Vec3 = add(center, vec(6f32, 6f32, 0f32));
+    var d: Vec3 = add(center, vec(-6f32, 6f32, 0f32));
+    game_quad(
+        mut v,
+        mat,
+        a,
+        b,
+        add(b, vec(0f32, 0.25f32, 0f32)),
+        add(a, vec(0f32, 0.25f32, 0f32))
+    );
+    game_quad(
+        mut v,
+        mat,
+        b,
+        c,
+        add(c, vec(-0.25f32, 0f32, 0f32)),
+        add(b, vec(-0.25f32, 0f32, 0f32))
+    );
+    game_quad(
+        mut v,
+        mat,
+        c,
+        d,
+        add(d, vec(0f32, -0.25f32, 0f32)),
+        add(c, vec(0f32, -0.25f32, 0f32))
+    );
+    game_quad(
+        mut v,
+        mat,
+        d,
+        a,
+        add(a, vec(0.25f32, 0f32, 0f32)),
+        add(d, vec(0.25f32, 0f32, 0f32))
+    );
+}
+fn camera_row(v: mut FrameInput, row: usize, axis: Vec3, position: Vec3) -> unit {
+    input_set_float(mut v, row, axis.x);
+    input_set_float(mut v, row + 1usize, axis.y);
+    input_set_float(mut v, row + 2usize, axis.z);
+    input_set_float(mut v, row + 3usize, -dot(axis, position));
+}
+fn game_scene(v: mut FrameInput, trial: read Trial, config: GameConfig) -> unit {
+    input_set_word(mut v, 3usize, 0u32);
+    input_set_word(mut v, 4usize, 0u32);
+    input_set_word(mut v, 20usize, 0u32);
+    input_set_word(mut v, BACKGROUND as usize, 0xff0d0906u32);
+    input_set_float(mut v, RENDER_STYLE as usize, 0.04f32);
+    var angle: f32 = config.fov * 0.00872664626f32;
+    input_set_float(mut v, PROJECTION as usize, sinf(angle) / cosf(angle));
+    camera_row(mut v, 0usize, trial.drone.basis.right, trial.drone.position);
+    camera_row(mut v, 4usize, trial.drone.basis.up, trial.drone.position);
+    camera_row(mut v, 8usize, trial.drone.basis.forward, trial.drone.position);
+    var i: u32 = 0u32;
+    while i < SOLID_COUNT {
+        draw_solid(mut v, course_solid(i));
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 3u32 {
+        var mat: u32 = 7u32;
+        if i == trial.gate {
+            mat = 4u32;
+        }
+        draw_gate(mut v, course_gate(i), mat);
+        i = i + 1u32;
+    }
+    draw_gate(mut v, vec(0f32, 6.1f32, 161f32), 5u32);
+    draw_cable(mut v, trial.drone, config);
+    draw_preview(mut v, read trial);
+    draw_frame(mut v, trial.drone, config);
+}
+
+fn surface_quad(v: mut FrameInput, mat: u32, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> unit {
+    var first: u32 = input_word(read v, 3usize);
+    game_quad(mut v, mat, a, b, c, d);
+    var u: f32 = length(sub(b, a)) / 4f32;
+    var w: f32 = length(sub(d, a)) / 4f32;
+    var base: usize = (GEOMETRY + first * 15u32) as usize;
+    input_set_float(mut v, base + 8usize, u);
+    input_set_float(mut v, base + 13usize, u);
+    input_set_float(mut v, base + 14usize, w);
+    input_set_float(mut v, base + 23usize, u);
+    input_set_float(mut v, base + 24usize, w);
+    input_set_float(mut v, base + 29usize, w);
+}

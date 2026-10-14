@@ -296,7 +296,7 @@ One valid borrow-and-move case must pass. Six invalid cases must produce their
 expected ownership diagnostics: resource copy, use after drop, drop with a live
 input borrow, escaping borrow, shared write, and private field access.
 
-The lit-tour test checks 48 states against the independent ray-triangle and
+The lit-tour test checks 50 states against the independent ray-triangle and
 point-light reference. It covers both directions at both openings and the
 moving lamp. Its entrance check requires visible pixels from both rooms,
 no yard pixels, and exactly two views. This checks the wall that hides the exit
@@ -448,3 +448,7 @@ need a measured spatial hierarchy and geometry selection before tile binning;
 raising the triangle limit alone increases every tile's scan cost. Extend the
 reference scenes and memory bounds with that change. Use the game's prototype
 gates before adding final assets or gameplay systems.
+
+The lit-tour reference test also checks vertical fields of view of 70 and
+110 degrees. Shared application helpers now reside in `src/app/`. The game
+uses those helpers and the rendering core without importing demo code.

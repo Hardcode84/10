@@ -1,0 +1,136 @@
+fn preview_visible(trial: read Trial) -> bool {
+    if trial.preview_mode == 0u32 {
+        return false;
+    }
+    if trial.preview_mode == 2u32 || trial.drone.cable.attached {
+        return true;
+    }
+    return course_hit(
+        trial.drone.position,
+        scale(trial.drone.basis.forward, 120f32),
+        0f32
+    ).time <= 1f32;
+}
+fn draw_preview(v: mut FrameInput, trial: read Trial) -> unit {
+    if !preview_visible(read trial) {
+        return;
+    }
+    var drone: Drone = trial.drone;
+    var command: Command = idle_command();
+    command.tether = drone.cable.attached;
+    var i: u32 = 0u32;
+    while i < 240u32 {
+        simulate(mut drone, command, trial.full_spin, trial.auto_level);
+        if i % 15u32 == 14u32 {
+            var r: Vec3 = scale(trial.drone.basis.right, 0.12f32);
+            var u: Vec3 = scale(trial.drone.basis.up, 0.12f32);
+            game_quad(
+                mut v,
+                4u32,
+                sub(sub(drone.position, r), u),
+                add(sub(drone.position, u), r),
+                add(add(drone.position, r), u),
+                add(sub(drone.position, r), u)
+            );
+        }
+        i = i + 1u32;
+    }
+}
+fn frame_point(drone: Drone, config: GameConfig, x: f32, y: f32) -> Vec3 {
+    var angle: f32 = config.fov * 0.00872664626f32;
+    var tangent: f32 = sinf(angle) / cosf(angle);
+    return add(
+        drone.position,
+        basis_vector(drone.basis, vec(x * tangent, y * tangent, 0.15f32))
+    );
+}
+fn frame_rect(
+    v: mut FrameInput,
+    drone: Drone,
+    config: GameConfig,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    mat: u32
+) -> unit {
+    game_quad(
+        mut v,
+        mat,
+        frame_point(drone, config, x, y),
+        frame_point(drone, config, x + w, y),
+        frame_point(drone, config, x + w, y + h),
+        frame_point(drone, config, x, y + h)
+    );
+}
+fn draw_frame(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
+    var aspect: f32 = config.width as f32 / config.height as f32;
+    frame_rect(mut v, drone, config, -0.035f32, 0.13f32, 0.07f32, 0.02f32, 7u32);
+    frame_rect(
+        mut v,
+        drone,
+        config,
+        -0.15f32 * aspect,
+        -0.15f32,
+        0.025f32,
+        0.06f32,
+        7u32
+    );
+    frame_rect(
+        mut v,
+        drone,
+        config,
+        0.15f32 * aspect - 0.025f32,
+        -0.15f32,
+        0.025f32,
+        0.06f32,
+        7u32
+    );
+    frame_rect(mut v, drone, config, -0.0005f32, -0.004f32, 0.001f32, 0.008f32, 4u32);
+    frame_rect(mut v, drone, config, -0.004f32, -0.0005f32, 0.008f32, 0.001f32, 4u32);
+}
+fn draw_cable(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
+    if !drone.cable.attached {
+        return;
+    }
+    var mat: u32 = 4u32;
+    if drone.cable.tension > 28f32 {
+        mat = 6u32;
+    }
+    var start: Vec3 = add(
+        drone.position,
+        basis_vector(drone.basis, vec(0f32, -0.12f32, 0.2f32))
+    );
+    var middle: Vec3 = scale(add(start, drone.cable.anchor), 0.5f32);
+    var slack: f32 = clamp(
+        drone.cable.extent - length(sub(drone.position, drone.cable.anchor)),
+        0f32,
+        10f32
+    );
+    middle = add(
+        middle,
+        scale(unit_vector(drum_position(drone.position)), slack * 0.5f32)
+    );
+    draw_ribbon(mut v, start, middle, drone.position, 0.04f32, mat);
+    draw_ribbon(mut v, middle, drone.cable.anchor, drone.position, 0.04f32, mat);
+    var direction: Vec3 = unit_vector(sub(drone.cable.anchor, drone.position));
+    if dot(direction, drone.basis.forward) < 0.5f32 {
+        var x: f32 = dot(direction, drone.basis.right);
+        var y: f32 = dot(direction, drone.basis.up);
+        var m: f32 = sqrtf(x * x + y * y);
+        if m < 0.001f32 {
+            y = -1f32;
+            m = 1f32;
+        }
+        frame_rect(
+            mut v,
+            drone,
+            config,
+            x / m * 0.12f32,
+            y / m * 0.12f32,
+            0.008f32,
+            0.008f32,
+            mat
+        );
+    }
+}

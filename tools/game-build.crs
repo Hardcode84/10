@@ -1,0 +1,85 @@
+fn game_sources(root: *CrustRun, args: **u8) -> usize {
+    var files: [*u8; 19] = make [*u8; 19] {
+        "src/game/math.crs",
+        "src/game/state.crs",
+        "src/game/course.crs",
+        "src/game/collision.crs",
+        "src/game/orientation.crs",
+        "src/game/tether.crs",
+        "src/game/physics.crs",
+        "src/game/trial.crs",
+        "src/game/scene.crs",
+        "src/game/input.crs",
+        "src/game/loop.crs",
+        "src/game/hud.crs",
+        "src/game/palette.crs",
+        "src/game/preview.crs",
+        "src/game/replay.crs",
+        "src/app/geometry.crs",
+        "src/app/palette.crs",
+        "tests/game/checks.crs",
+        "tests/game/course-flight.crs"
+    };
+    var i: usize = 0usize;
+    while i < 19usize {
+        args[i] = host_path(root, files[i]);
+        i = i + 1usize;
+    }
+    return i;
+}
+fn build_game(root: *CrustRun) -> bool {
+    var providers: [*u8; 21] = make [*u8; 21] {
+        "src/render/host/vulkan.crs",
+        "src/render/host/io.crs",
+        "src/render/host/device.crs",
+        "src/render/host/resources.crs",
+        "src/render/host/dispatch.crs",
+        "src/render/host/timing.crs",
+        "src/render/host/present.crs",
+        "src/render/host/renderer.crs",
+        "src/render/host/owner.crs",
+        "src/app/window.crs",
+        "src/app/clock.crs",
+        "src/app/shaders.crs",
+        "src/game/platform.crs",
+        "src/game/sdl-input.crs",
+        "src/game/renderer-host.crs",
+        "src/game/options.crs",
+        "src/game/recording.crs",
+        "src/game/bindings.crs",
+        "src/game/entry.crs",
+        "src/app/capture.crs",
+        "src/game/text.crs"
+    };
+    var args: [*u8; 64] = uninit;
+    args[0usize] = "-o";
+    args[1usize] = host_path(root, "build/game");
+    var count: usize = 2usize;
+    args[count] = host_path(root, "src/render/interface.crs");
+    count = count + 1usize;
+    count = count + game_sources(root, &args[count]);
+    var flags: [*u8; 8] = make [*u8; 8] {
+        "--cflag",
+        "-O2",
+        "--ldflag",
+        "-Wl,-l:libvulkan.so.1",
+        "--ldflag",
+        "-Wl,-l:libSDL2-2.0.so.0",
+        "--ldflag",
+        "-lm"
+    };
+    var i: usize = 0usize;
+    while i < 8usize {
+        args[count] = flags[i];
+        count = count + 1usize;
+        i = i + 1usize;
+    }
+    return ownership_sources(
+        root,
+        count as i32,
+        &args[0usize],
+        &providers[0usize],
+        21usize,
+        null(*u8)
+    ) == 0i32;
+}
