@@ -2,7 +2,7 @@
 
 ## Current status: 2026-10-14
 
-Crust is pinned to `d5cf303`. It includes the
+Crust is pinned to `54d2ffa`. It includes the
 first Vulkan compute stage and a Vulkan dispatch harness written in Crust.
 The upstream history also includes the device enumeration correction.
 
@@ -13,7 +13,8 @@ The upstream history also includes the device enumeration correction.
 - Device errors use invocation status. The stage rejects raw pointers, `usize`,
   recursion, `trap`, and barrier placements that violate its device contract.
 - Shader publication requires successful Vulkan 1.2 SPIR-V validation.
-- LLVM functions use one return block. The shader stage runs `mem2reg` and
+- The shader stage selects LLVM single-exit lowering. Host LLVM emission uses
+  direct returns by default. The shader stage runs `mem2reg` and
   `structurizecfg` before SPIR-V emission. This permits clipped-geometry helpers
   with returns inside nested control flow.
 - Invocation status accumulates failure across ordered dispatches. Clear it
