@@ -1,0 +1,55 @@
+fn portal_plane_check(v: *Vulkan) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var tri: u32 = 0u32;
+    while tri < w[3usize] {
+        var portal: u32 = w[(META + tri * 4u32 + 2u32) as usize];
+        if portal != 0u32 {
+            var p: usize = (PORTAL_FLOAT + (portal - 1u32) * 16u32) as usize;
+            var vertex: u32 = 0u32;
+            while vertex < 3u32 {
+                var g: usize = (GEOMETRY + tri * 15u32 + vertex * 5u32) as usize;
+                var x: f32 = f[g] - f[p + 3usize];
+                var y: f32 = f[g + 1usize] - f[p + 7usize];
+                var z: f32 = f[g + 2usize] - f[p + 11usize];
+                var distance: f32 = f[p + 15usize];
+                var axis: usize = 0usize;
+                while axis < 3usize {
+                    distance = distance + f[p + 12usize + axis] * (
+                        f[p + axis] * x + f[p + 4usize + axis] * y + f[p + 8usize + axis] * z
+                    );
+                    axis = axis + 1usize;
+                }
+                if distance != 0f32 {
+                    return error(
+                        "destination clip plane does not contain the transformed aperture"
+                    );
+                }
+                vertex = vertex + 1u32;
+            }
+        }
+        tri = tri + 1u32;
+    }
+    return true;
+}
+fn crossing_face_check(v: *Vulkan) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var hit: u32 = w[(DEBUG_VALUES + (125u32 * 320u32 + 100u32) * 4u32) as usize];
+    var tri: u32 = hit % 256u32;
+    if tri >= w[3usize] || w[(META + tri * 4u32) as usize] != 1u32 || w[
+        (META + tri * 4u32 + 1u32) as usize
+    ] != 2u32 {
+        return error("frame 523: portal must show the crossing cube front face");
+    }
+    var front: f32 = (8.5f32 + 2f32 * sinf(523f32 / 60f32) - 9f32) - 0.8f32;
+    var vertex: u32 = 0u32;
+    while vertex < 3u32 {
+        if f[(GEOMETRY + tri * 15u32 + vertex * 5u32 + 2u32) as usize] != front {
+            return error("frame 523: crossing cube front face is missing");
+        }
+        vertex = vertex + 1u32;
+    }
+    puts("frame 523 crossing cube front face passed");
+    return true;
+}

@@ -258,7 +258,7 @@ fn portal_setup(v: *Vulkan) -> unit {
         i = i + 1u32;
     }
     f[(PORTAL_FLOAT + 11u32) as usize] = 9f32;
-    f[(PORTAL_FLOAT + 15u32) as usize] = -0.001f32;
+    f[(PORTAL_FLOAT + 15u32) as usize] = 0f32;
     var p: usize = (PORTAL_FLOAT + 16u32) as usize;
     f[p] = 0f32;
     f[p + 2usize] = 1f32;
@@ -268,11 +268,11 @@ fn portal_setup(v: *Vulkan) -> unit {
     f[p + 11usize] = 9f32;
     f[p + 12usize] = -1f32;
     f[p + 14usize] = 0f32;
-    f[p + 15usize] = -0.001f32;
+    f[p + 15usize] = 0f32;
     p = (PORTAL_FLOAT + 32u32) as usize;
     f[p + 11usize] = 9f32;
     f[p + 14usize] = 1f32;
-    f[p + 15usize] = -8.001f32;
+    f[p + 15usize] = -9f32;
     w[(PORTAL_META + 2u32 * 4u32) as usize] = 1u32;
     w[(PORTAL_META + 2u32 * 4u32 + 1u32) as usize] = 0u32;
 }

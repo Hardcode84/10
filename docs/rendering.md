@@ -181,6 +181,8 @@ it must not cause division by zero.
 Create a child view only for pixels where the portal wins visibility. Start child
 visibility on the destination side of the portal plane. Geometry between the
 virtual camera and that plane must not appear through the opening.
+Use the exact destination plane and include its boundary. Do not move the plane
+into the destination space: that gap can remove a surface as it crosses a portal.
 
 Each child has its own depth context. Its image replaces only the selected parent
 portal pixels. Do not compare child depth values directly with parent depth

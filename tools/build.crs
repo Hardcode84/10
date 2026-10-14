@@ -107,7 +107,7 @@ fn build_shader(root: *CrustRun, name: *u8, output: *u8, llvm: *u8, validator: *
     return good;
 }
 fn build_host(root: *CrustRun) -> bool {
-    var args: [*u8; 27] = make [*u8; 27] {
+    var args: [*u8; 28] = make [*u8; 28] {
         "crust-c",
         "-o",
         host_path(root, "build/spinward"),
@@ -123,6 +123,7 @@ fn build_host(root: *CrustRun) -> bool {
         host_path(root, "src/host/timing.crs"),
         host_path(root, "tests/palette.crs"),
         host_path(root, "tests/playback.crs"),
+        host_path(root, "tests/portal.crs"),
         "--ldflag",
         host_path(root, "build/reference.o"),
         "--cflag",
@@ -136,7 +137,7 @@ fn build_host(root: *CrustRun) -> bool {
         "--ldflag",
         "-lm"
     };
-    return compiler_main(27i32, &args[0usize]) == 0i32;
+    return compiler_main(28i32, &args[0usize]) == 0i32;
 }
 
 extern fn reference_compiler(argc: i32, argv: **u8) -> i32 = "reference_compiler_main";
