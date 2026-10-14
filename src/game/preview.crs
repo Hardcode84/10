@@ -11,6 +11,27 @@ fn preview_visible(trial: read Trial) -> bool {
         0f32
     ).time <= 1f32;
 }
+fn draw_preview_marker(v: mut FrameInput, center: Vec3, basis: Basis) -> unit {
+    var r: Vec3 = basis.right;
+    var u: Vec3 = basis.up;
+    var edge: u32 = 0u32;
+    while edge < 4u32 {
+        var a: Vec3 = sub(scale(r, -1f32), u);
+        var b: Vec3 = sub(r, u);
+        game_quad(
+            mut v,
+            4u32,
+            add(center, scale(a, 0.12f32)),
+            add(center, scale(b, 0.12f32)),
+            add(center, scale(b, 0.10f32)),
+            add(center, scale(a, 0.10f32))
+        );
+        var next: Vec3 = scale(r, -1f32);
+        r = u;
+        u = next;
+        edge = edge + 1u32;
+    }
+}
 fn draw_preview(v: mut FrameInput, trial: read Trial) -> unit {
     if !preview_visible(read trial) {
         return;
@@ -22,16 +43,7 @@ fn draw_preview(v: mut FrameInput, trial: read Trial) -> unit {
     while i < 240u32 {
         simulate(mut drone, command, trial.full_spin, trial.auto_level);
         if i % 15u32 == 14u32 {
-            var r: Vec3 = scale(trial.drone.basis.right, 0.12f32);
-            var u: Vec3 = scale(trial.drone.basis.up, 0.12f32);
-            game_quad(
-                mut v,
-                4u32,
-                sub(sub(drone.position, r), u),
-                add(sub(drone.position, u), r),
-                add(add(drone.position, r), u),
-                add(sub(drone.position, r), u)
-            );
+            draw_preview_marker(mut v, drone.position, trial.drone.basis);
         }
         i = i + 1u32;
     }

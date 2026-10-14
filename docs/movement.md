@@ -64,6 +64,8 @@ vertical field of view. P cycles the preview through aim, always, and off.
 Aim mode shows the preview when the centre ray can reach a tether surface or
 a cable is attached. The preview runs the same simulation for two seconds
 without further thrust, braking, or reeling. It keeps an attached cable held.
+Blue square outlines mark the predicted positions. Each marker has a 24 cm
+outer width and a 2 cm border. The centre stays open.
 
 The HUD shows time, gates, air-relative speed, cable tension, rewind time,
 burst count, and assist settings. Cable colour changes near the load limit.
