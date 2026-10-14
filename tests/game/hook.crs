@@ -1,0 +1,115 @@
+fn test_hook_launch() -> bool {
+    var d: Drone = new_drone();
+    d.position = vec(0f32, 4f32, 35f32);
+    d.velocity = vec(3f32, 2f32, 1f32);
+    var before: Vec3 = d.velocity;
+    hook_launch(mut d);
+    var momentum: Vec3 = add(d.velocity, scale(d.cable.velocity, HOOK_MASS_RATIO));
+    if !game_check(
+        length(sub(momentum, scale(before, 1f32 + HOOK_MASS_RATIO))) < 0.00001f32 && near(
+            d.velocity.z,
+            -0.2f32,
+            0.00001f32
+        ) && near(d.cable.velocity.z, 61f32, 0.00001f32),
+        "launch must inherit velocity and conserve momentum with recoil"
+    ) {
+        return false;
+    }
+    var command: Command = idle_command();
+    command.tether = true;
+    simulate(mut d, command, false, true);
+    return game_check(
+        d.cable.phase == CABLE_FLYING && d.cable.anchor.z > 35f32 && d.cable.anchor.z < 36f32,
+        "hook must travel before it attaches"
+    );
+}
+fn test_hook_forces(full_spin: bool) -> bool {
+    var d: Drone = new_drone();
+    d.position = vec(20f32, 40f32, 0f32);
+    d.velocity = vec(3f32, 20f32, 5f32);
+    hook_launch(mut d);
+    var reference: Drone = new_drone();
+    reference.position = d.cable.anchor;
+    reference.velocity = d.cable.velocity;
+    var command: Command = idle_command();
+    command.tether = true;
+    var i: u32 = 0u32;
+    while i < 120u32 {
+        simulate(mut reference, idle_command(), full_spin, false);
+        simulate(mut d, command, full_spin, false);
+        if !game_check(
+            d.cable.phase == CABLE_FLYING && length(
+                sub(d.cable.anchor, reference.position)
+            ) < 0.00001f32 && length(sub(d.cable.velocity, reference.velocity)) < 0.00001f32,
+            "hook and reference player must follow the same force integration"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn test_hook_sweep() -> bool {
+    var d: Drone = new_drone();
+    d.position = vec(0f32, 4f32, 35f32);
+    hook_launch(mut d);
+    d.cable.velocity = vec(0f32, 0f32, 30000f32);
+    hook_step(mut d, false);
+    return game_check(
+        d.cable.phase == CABLE_ATTACHED && near(
+            d.cable.anchor.z,
+            55f32 - HOOK_RADIUS,
+            0.001f32
+        ),
+        "hook must hit the first surface even when a tick exceeds maximum range"
+    );
+}
+fn test_hook_miss() -> bool {
+    var d: Drone = new_drone();
+    d.position = vec(100f32, 100f32, 0f32);
+    var c: Command = idle_command();
+    c.tether = true;
+    var i: u32 = 0u32;
+    while i < 1200u32 && d.cable.phase != CABLE_MISSED {
+        simulate(mut d, c, false, false);
+        if d.cable.phase == CABLE_FLYING && length(sub(d.position, d.cable.anchor)) > CABLE_REACH + 0.001f32 {
+            return game_check(false, "flying hook exceeded cable reach");
+        }
+        i = i + 1u32;
+    }
+    if !game_check(
+        d.cable.phase == CABLE_MISSED,
+        "shot without a surface must report a range miss"
+    ) {
+        return false;
+    }
+    simulate(mut d, c, false, false);
+    if !game_check(d.cable.phase == CABLE_MISSED, "holding after a miss must not fire again") {
+        return false;
+    }
+    simulate(mut d, idle_command(), false, false);
+    simulate(mut d, c, false, false);
+    if !game_check(d.cable.phase == CABLE_FLYING, "release must permit a new launch") {
+        return false;
+    }
+    simulate(mut d, idle_command(), false, false);
+    return game_check(
+        d.cable.phase == CABLE_READY,
+        "release during flight must recall the hook"
+    );
+}
+fn test_hook_hash() -> bool {
+    var a: Trial = new_trial();
+    hook_launch(mut a.drone);
+    var b: Trial = a;
+    b.drone.cable.velocity.x = b.drone.cable.velocity.x + 1f32;
+    var c: Trial = a;
+    c.drone.cable.phase = CABLE_ATTACHED;
+    return game_check(
+        trial_hash(read a) != trial_hash(read b) && trial_hash(read a) != trial_hash(read c),
+        "replay hash must include projectile velocity and cable phase"
+    );
+}
+fn test_hook() -> bool {
+    return test_hook_launch() && test_hook_forces(false) && test_hook_forces(true) && test_hook_sweep() && test_hook_miss() && test_hook_hash();
+}

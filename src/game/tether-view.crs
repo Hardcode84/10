@@ -1,0 +1,51 @@
+fn draw_cable(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
+    if drone.cable.phase != CABLE_ATTACHED && drone.cable.phase != CABLE_FLYING {
+        return;
+    }
+    var mat: u32 = 4u32;
+    var size: Vec3 = vec(HOOK_RADIUS, HOOK_RADIUS, HOOK_RADIUS);
+    draw_solid(
+        mut v,
+        solid(
+            sub(drone.cable.anchor, size),
+            add(drone.cable.anchor, size),
+            5u32
+        )
+    );
+    var start: Vec3 = add(
+        drone.position,
+        basis_vector(drone.basis, vec(0f32, -0.12f32, 0.2f32))
+    );
+    var middle: Vec3 = scale(add(start, drone.cable.anchor), 0.5f32);
+    var slack: f32 = clamp(
+        drone.cable.extent - length(sub(drone.position, drone.cable.anchor)),
+        0f32,
+        10f32
+    );
+    middle = add(
+        middle,
+        scale(unit_vector(drum_position(drone.position)), slack * 0.5f32)
+    );
+    draw_ribbon(mut v, start, middle, drone.position, 0.004f32, mat);
+    draw_ribbon(mut v, middle, drone.cable.anchor, drone.position, 0.004f32, mat);
+    var direction: Vec3 = unit_vector(sub(drone.cable.anchor, drone.position));
+    if dot(direction, drone.basis.forward) < 0.5f32 {
+        var x: f32 = dot(direction, drone.basis.right);
+        var y: f32 = dot(direction, drone.basis.up);
+        var m: f32 = sqrtf(x * x + y * y);
+        if m < 0.001f32 {
+            y = -1f32;
+            m = 1f32;
+        }
+        frame_rect(
+            mut v,
+            drone,
+            config,
+            x / m * 0.12f32,
+            y / m * 0.12f32,
+            0.008f32,
+            0.008f32,
+            mat
+        );
+    }
+}

@@ -34,9 +34,10 @@ fn simulate(drone: mut Drone, command: Command, full_spin: bool, auto_level: boo
         flight_acceleration(drone.position, drone.velocity, full_spin),
         scale(basis_vector(drone.basis, thrust), 0.5f32)
     );
-    acceleration = tether_acceleration(mut drone, acceleration);
     drone.velocity = add(drone.velocity, scale(acceleration, STEP));
     var travel: Vec3 = scale(drone.velocity, STEP);
     move_drone(mut drone, travel);
+    hook_step(mut drone, full_spin);
+    tether_winch(mut drone, command.reel);
     tether_constraint(mut drone);
 }

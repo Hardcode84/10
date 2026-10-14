@@ -134,6 +134,7 @@ fn move_drone(drone: mut Drone, travel: Vec3) -> unit {
     var remaining: Vec3 = travel;
     var count: u32 = 0u32;
     while count < 4u32 && length(remaining) > 0.000001f32 {
+        remaining = tether_travel(read drone, remaining);
         var hit: Hit = course_hit(drone.position, remaining, DRONE_RADIUS);
         if hit.time > 1f32 {
             drone.position = add(drone.position, remaining);

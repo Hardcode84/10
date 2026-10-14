@@ -1,0 +1,94 @@
+fn attached_test_drone() -> Drone {
+    var d: Drone = new_drone();
+    d.position = vec(0f32, 4f32, 35f32);
+    var command: Command = idle_command();
+    command.tether = true;
+    var i: u32 = 0u32;
+    while i < 120u32 && d.cable.phase != CABLE_ATTACHED {
+        simulate(mut d, command, false, true);
+        i = i + 1u32;
+    }
+    return d;
+}
+fn test_tether() -> bool {
+    var d: Drone = attached_test_drone();
+    if !game_check(
+        d.cable.phase == CABLE_ATTACHED && near(
+            d.cable.anchor.z,
+            55f32 - HOOK_RADIUS,
+            0.001f32
+        ),
+        "tether projectile did not attach to the spoke"
+    ) {
+        return false;
+    }
+    d.velocity = vec(0f32, 0f32, -100f32);
+    var command: Command = idle_command();
+    command.tether = true;
+    simulate(mut d, command, false, true);
+    if !game_check(
+        d.cable.phase == CABLE_ATTACHED && length(sub(d.position, d.cable.anchor)) <= d.cable.extent + 0.001f32 && d.velocity.z >= -0.001f32,
+        "fast outward motion must stop at cable length without breaking"
+    ) {
+        return false;
+    }
+    simulate(mut d, idle_command(), false, true);
+    return game_check(d.cable.phase == CABLE_READY, "attached tether release failed");
+}
+fn test_swing() -> bool {
+    var drone: Drone = attached_test_drone();
+    drone.velocity = vec(40f32, 0f32, 0f32);
+    var c: Command = idle_command();
+    c.tether = true;
+    var i: u32 = 0u32;
+    while i < 600u32 {
+        simulate(mut drone, c, true, true);
+        if drone.cable.phase != CABLE_ATTACHED || length(
+            sub(drone.position, drone.cable.anchor)
+        ) > drone.cable.extent + 0.001f32 {
+            return game_check(false, "fast swing violated cable length or broke");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn test_blocked_winch() -> bool {
+    var drone: Drone = attached_test_drone();
+    drone.position = vec(0f32, 4f32, 70f32);
+    drone.velocity = vec(0f32, 0f32, 0f32);
+    var c: Command = idle_command();
+    c.tether = true;
+    c.reel = -1f32;
+    var i: u32 = 0u32;
+    while i < 600u32 {
+        simulate(mut drone, c, false, true);
+        if drone.cable.phase != CABLE_ATTACHED || drone.position.z < 61.35f32 || length(
+            sub(drone.position, drone.cable.anchor)
+        ) > drone.cable.extent + 0.001f32 {
+            return game_check(
+                false,
+                "cable through structure must remain attached and keep the player outside solids"
+            );
+        }
+        i = i + 1u32;
+    }
+    return game_check(
+        near(drone.position.z, 61.3501f32, 0.001f32) && absf(drone.cable.reel_speed) < 0.001f32,
+        "winch must stall at contact without shortening the cable through the player"
+    );
+}
+fn test_winch() -> bool {
+    var drone: Drone = attached_test_drone();
+    var c: Command = idle_command();
+    c.tether = true;
+    c.reel = -0.2f32;
+    var i: u32 = 0u32;
+    while i < 240u32 {
+        simulate(mut drone, c, false, true);
+        i = i + 1u32;
+    }
+    return game_check(
+        drone.cable.phase == CABLE_ATTACHED && drone.cable.extent < 14f32 && drone.winch_work > 0f32 && drone.velocity.z > 3f32,
+        "winch must shorten the cable, accelerate the drone, and record work"
+    ) && test_blocked_winch();
+}

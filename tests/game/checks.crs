@@ -48,41 +48,6 @@ fn test_collision() -> bool {
         "swept sphere face/edge/corner or sliding failed"
     );
 }
-fn test_tether() -> bool {
-    var d: Drone = new_drone();
-    d.position = vec(0f32, 4f32, 35f32);
-    var command: Command = idle_command();
-    command.tether = true;
-    simulate(mut d, command, false, true);
-    if !game_check(
-        d.cable.attached && near(d.cable.anchor.z, 55f32, 0.001f32),
-        "tether did not hit the visible spoke"
-    ) {
-        return false;
-    }
-    command.tether = false;
-    simulate(mut d, command, false, true);
-    if !game_check(!d.cable.attached, "tether release failed") {
-        return false;
-    }
-    d.position = vec(0f32, 4f32, 35f32);
-    d.velocity = vec(0f32, 0f32, -30f32);
-    command.tether = true;
-    simulate(mut d, command, false, true);
-    if !game_check(
-        !d.cable.attached && d.cable.rewind == 360u32,
-        "overloaded tether did not snap"
-    ) {
-        return false;
-    }
-    var i: u32 = 0u32;
-    command.tether = false;
-    while i < 360u32 {
-        tether_input(mut d, command);
-        i = i + 1u32;
-    }
-    return game_check(d.cable.rewind == 0u32, "rewind duration differs from three seconds");
-}
 fn test_trial() -> bool {
     var t: Trial = new_trial();
     var c: Command = idle_command();
@@ -163,7 +128,7 @@ fn test_replay() -> bool {
     return true;
 }
 fn game_tests() -> bool {
-    return test_winch() && test_short_press() && test_mouse_accumulation() && test_swing() && test_forces() && test_collision() && test_tether() && test_trial() && test_input() && test_replay() && test_course_flight();
+    return test_hook() && test_winch() && test_short_press() && test_mouse_accumulation() && test_swing() && test_forces() && test_collision() && test_tether() && test_trial() && test_input() && test_replay() && test_course_flight();
 }
 fn smoke_command(trial: read Trial, tick: u32) -> Command {
     var c: Command = idle_command();
@@ -192,22 +157,6 @@ fn test_mouse_accumulation() -> bool {
         "mouse motion was lost or applied twice between ticks"
     );
 }
-fn test_swing() -> bool {
-    var drone: Drone = new_drone();
-    drone.position = vec(0f32, 4f32, 35f32);
-    drone.velocity = vec(4f32, 0f32, 0f32);
-    var c: Command = idle_command();
-    c.tether = true;
-    var i: u32 = 0u32;
-    while i < 600u32 {
-        simulate(mut drone, c, false, true);
-        if !drone.cable.attached || length(sub(drone.position, drone.cable.anchor)) > drone.cable.extent + 0.001f32 {
-            return game_check(false, "swing violated cable length or broke below the load limit");
-        }
-        i = i + 1u32;
-    }
-    return true;
-}
 fn test_short_press() -> bool {
     var input: InputState = input_new();
     input.pulses[6usize] = 1u32;
@@ -217,21 +166,5 @@ fn test_short_press() -> bool {
     return game_check(
         c.burst && !again.burst,
         "press and release between frames was lost or repeated"
-    );
-}
-fn test_winch() -> bool {
-    var drone: Drone = new_drone();
-    drone.position = vec(0f32, 4f32, 35f32);
-    var c: Command = idle_command();
-    c.tether = true;
-    c.reel = -0.2f32;
-    var i: u32 = 0u32;
-    while i < 240u32 {
-        simulate(mut drone, c, false, true);
-        i = i + 1u32;
-    }
-    return game_check(
-        drone.cable.attached && drone.cable.extent < 14f32 && drone.winch_work > 0f32 && drone.velocity.z > 3f32,
-        "winch must shorten the cable, accelerate the drone, and record work"
     );
 }

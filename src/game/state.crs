@@ -26,22 +26,24 @@ fn idle_command() -> Command {
         preview: false
     };
 }
+const CABLE_READY: u32 = 0u32;
+const CABLE_FLYING: u32 = 1u32;
+const CABLE_ATTACHED: u32 = 2u32;
+const CABLE_MISSED: u32 = 3u32;
 record Cable {
-    attached: bool;
+    phase: u32;
     anchor: Vec3;
+    velocity: Vec3;
     extent: f32;
-    tension: f32;
     reel_speed: f32;
-    rewind: u32;
 }
 fn empty_cable() -> Cable {
     return make Cable {
-        attached: false,
+        phase: CABLE_READY,
         anchor: vec(0f32, 0f32, 0f32),
+        velocity: vec(0f32, 0f32, 0f32),
         extent: 0f32,
-        tension: 0f32,
-        reel_speed: 0f32,
-        rewind: 0u32
+        reel_speed: 0f32
     };
 }
 record Drone {

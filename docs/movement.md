@@ -38,7 +38,7 @@ values. Charge depletion and beacons belong to Phase 1.
 | Look | Mouse | Right stick |
 | Burst | Right mouse, on press | RT, on press |
 | Brake | F, on press | A, on press |
-| Tether | Hold left mouse | Hold LT |
+| Launch and hold tether; release to detach | Hold left mouse | Hold LT |
 | Reel in / out | R / T; Space / Ctrl while tethering | RB / LB while tethering |
 | Roll with auto-level off | Q / E | D-pad left / right |
 | Retry | Backspace | X |
@@ -62,14 +62,16 @@ with the design's 30 percent turn gain. Total look rotation is capped at
 The drone frame stays in view. `--fov` accepts 70 through 110 degrees of
 vertical field of view. P cycles the preview through aim, always, and off.
 Aim mode shows the preview when the centre ray can reach a tether surface or
-a cable is attached. The preview runs the same simulation for two seconds
-without further thrust, braking, or reeling. It keeps an attached cable held.
+a hook is in flight or a cable is attached. The preview runs the same simulation
+for two seconds without further thrust, braking, or reeling. It keeps a launched
+hook or an attached cable held.
 Blue square outlines mark the predicted positions. Each marker has a 24 cm
 outer width and a 2 cm border. The centre stays open.
 
-The HUD shows time, gates, air-relative speed, cable tension, rewind time,
-burst count, and assist settings. Cable colour changes near the load limit.
-A frame notch shows an anchor outside the forward view.
+The HUD shows time, gates, air-relative speed, hook state, cable length, burst
+count, and assist settings. The cable is cyan. A small amber body shows the
+hook in flight and at the attachment point. A frame notch shows a hook or
+anchor outside the forward view.
 
 ## Simulation contract
 
@@ -89,13 +91,28 @@ visible box and the collision box. Sweeps test faces, rounded edges, and
 corners. Contact removes inward velocity and permits sliding. A step resolves
 up to four contacts; excess travel stops at the last safe contact point.
 
-A tether can attach to the first surface within 120 m. Its length is a hard
-limit. The last 0.4 m includes a spring and damper. Initial coefficients per
-unit mass are 20 s^-2 and 6 s^-1. Tension includes the radial constraint impulse.
-The winch targets 20 m/s and changes speed at up to 10 m/s^2. This bounds its
-initial acceleration. A cable breaks above 39.2 N/kg and rewinds for 360 ticks.
-It also breaks if structure blocks the line to its anchor. There is no cable
-wrapping. Constraint corrections use collision sweeps.
+Press and hold the tether action to launch one hook. The hook starts at the
+drone position. It inherits drone velocity and adds 60 m/s along the view.
+The hook mass is 0.02 times the drone mass. The launch applies the opposite
+impulse to the drone: 1.2 m/s of recoil. The hook uses the same acceleration
+from drag, centrifugal force, and Coriolis force as the drone, with the same
+120 Hz integrator. It has no thrust or steering after launch.
+
+A swept sphere with a 0.06 m radius finds the first surface on each flight
+step. Only contact attaches the cable. The hook cannot pass through a thin
+solid between ticks. If it reaches 120 m from the drone without contact, the
+shot ends and the HUD shows MISS: RELEASE. Release the action before another
+launch. Release also removes an in-flight hook or an attached cable at once.
+There is no rewind delay.
+
+An attached cable cannot break. It passes through structure and does not wrap
+around corners. It has a hard maximum length, with no spring or stored tension.
+The player still collides with structure. Each collision-slide segment stays
+inside the cable length. The winch targets 20 m/s and changes speed at up to
+10 m/s^2. Its length is between 0.75 m and 120 m. If a surface blocks the player,
+the winch stops at the length it can reach. It does not pull the player through
+the surface. Winch work uses the velocity constraint impulse and the actual
+reel speed. There is no load limit or tension warning.
 
 The game keeps its camera, geometry, inputs, and trial rules outside
 `src/render/`. Transformed portals remain available in the renderer demo.
@@ -110,7 +127,9 @@ drum coordinates, and attached cables.
 | `course.crs` | Solids, gates, and drum placement |
 | `physics.crs`, `orientation.crs` | Forces, integration, and attitude |
 | `collision.crs` | Sweeps and contact response |
-| `tether.crs` | Attachment, winch, tension, and release |
+| `hook.crs` | Launch, recoil, projectile flight, contact, and range misses |
+| `tether.crs` | Cable length, winch, and release |
+| `tether-view.crs` | Cable, hook body, and direction indicator |
 | `trial.crs` | Attempt state, gate order, and finish detection |
 | `input.crs` | Actions, edges, toggles, and pending mouse motion |
 | `sdl-input.crs`, `bindings.crs` | Native device reads and binding file parsing |
@@ -144,13 +163,16 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation.
+format uses the current Linux host's word representation. Version 2 includes
+projectile velocity and cable phase in the state hash. Version 1 recordings
+are rejected because they use the previous attachment physics.
 
 `--ticks N` bounds a run. In headless mode, the simulation runs without wall
 clock pacing and renders the last state. `--smoke` supplies test commands for
 thrust, tether, brake, and a spin-mode change. `--test` checks forces, swept
-collision, tether release and overload, sustained swings, input edges, mouse
-accumulation, repeated input streams, and a complete stopped-course flight.
+collision, projectile flight and recoil, high-speed attachment, range misses,
+tether release, fast swings, blocked winching, input edges, mouse accumulation,
+repeated input streams, and a complete stopped-course flight.
 These checks use the production simulation.
 
 ## Input binding file

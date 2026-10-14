@@ -31,15 +31,21 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
     hud_text(mut v, 42u32, 0u32, "SPEED");
     hud_number(mut v, 48u32, 0u32, length(trial.drone.velocity) as u32);
     hud_text(mut v, 56u32, 0u32, "M/S");
-    hud_text(mut v, 0u32, 1u32, "TENSION %");
-    hud_number(
-        mut v,
-        10u32,
-        1u32,
-        (trial.drone.cable.tension / 39.2f32 * 100f32) as u32
-    );
-    hud_text(mut v, 18u32, 1u32, "REWIND MS");
-    hud_number(mut v, 28u32, 1u32, trial.drone.cable.rewind * 1000u32 / 120u32);
+    hud_text(mut v, 0u32, 1u32, "HOOK");
+    hud_text(mut v, 5u32, 1u32, "READY");
+    if trial.drone.cable.phase == CABLE_FLYING {
+        hud_text(mut v, 5u32, 1u32, "FLYING");
+    } else if trial.drone.cable.phase == CABLE_ATTACHED {
+        hud_text(mut v, 5u32, 1u32, "ATTACHED");
+    } else if trial.drone.cable.phase == CABLE_MISSED {
+        hud_text(mut v, 5u32, 1u32, "MISS: RELEASE");
+    }
+    hud_text(mut v, 20u32, 1u32, "CABLE M");
+    var cable_length: f32 = trial.drone.cable.extent;
+    if trial.drone.cable.phase == CABLE_FLYING {
+        cable_length = length(sub(trial.drone.cable.anchor, trial.drone.position));
+    }
+    hud_number(mut v, 28u32, 1u32, cable_length as u32);
     hud_text(mut v, 36u32, 1u32, "BURSTS");
     hud_number(mut v, 43u32, 1u32, trial.drone.bursts);
     hud_text(mut v, 51u32, 1u32, "CHARGE UNLIMITED");
