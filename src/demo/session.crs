@@ -104,7 +104,7 @@ fn playback_print(playback: read Playback) -> bool {
     return frame_print(&playback);
 }
 fn demo_controls() -> unit {
-    puts("Space: pause/resume | Left/Right: previous/next frame");
+    puts("Esc: close | Space: pause/resume | Left/Right: previous/next frame");
 }
 fn scene_overflow() -> unit {
     puts("scene exceeds triangle budget");

@@ -6,7 +6,7 @@ Build the pinned Crust seed as described in [bootstrap](bootstrap.md). Add
 `crust/build` to `PATH`. The application build starts at the root source file:
 
 ```sh
-crust main.crs
+crust demo.crs
 ```
 
 The root builds the host program, the reference checker, and all shader modules.
@@ -22,10 +22,10 @@ SPIRV-Tools 2025.1. Alternatively, put links at `build/toolchain/llvm` and
 `build/toolchain/spirv-val`. Missing tools stop the build with a diagnostic.
 
 ```sh
-crust main.crs --build-only
-crust main.crs --capture build/interior.ppm --width 960 --height 540
-crust main.crs --capture build/outdoor.ppm --frame 360 --width 1920 --height 1080
-crust main.crs --width 640 --height 360 --window-width 1280 --window-height 720
+crust demo.crs --build-only
+crust demo.crs --capture build/interior.ppm --width 960 --height 540
+crust demo.crs --capture build/outdoor.ppm --frame 360 --width 1920 --height 1080
+crust demo.crs --width 640 --height 360 --window-width 1280 --window-height 720
 ```
 
 The default demo tours a loading bay, a machinery gallery, and an outdoor yard.
@@ -52,7 +52,8 @@ and writes the last frame to a binary RGB PPM file. Use `--frames N` to change
 the count. A frame number determines the camera and moving object positions;
 wall-clock time does not affect them. Close the window to stop the demo.
 
-Press Space to pause or resume. Press Left or Right to pause and move backward
+Press Esc to close the demo, including while paused. Press Space to pause or
+resume. Press Left or Right to pause and move backward
 or forward by one frame. Each key press selects one frame; held-key repeats have
 no effect. Left stops at frame zero. The terminal prints each displayed frame
 index and marks paused frames. Use this index with `--frame N` to capture the
@@ -279,14 +280,14 @@ generation, configuration, and playback state machine are checked code.
 ## Checks and measurement
 
 ```sh
-crust main.crs --check-ownership
-crust main.crs --test 1
-crust main.crs --test 2
-crust main.crs --test 3
-crust main.crs --test 4
-crust main.crs --test 4 --dither 0
-crust main.crs --capture build/native.ppm --width 1920 --height 1080 --frames 601
-crust main.crs --capture build/baseline.ppm --width 1920 --height 1080 --frames 601 --baseline 1
+crust demo.crs --check-ownership
+crust demo.crs --test 1
+crust demo.crs --test 2
+crust demo.crs --test 3
+crust demo.crs --test 4
+crust demo.crs --test 4 --dither 0
+crust demo.crs --capture build/native.ppm --width 1920 --height 1080 --frames 601
+crust demo.crs --capture build/baseline.ppm --width 1920 --height 1080 --frames 601 --baseline 1
 cmp build/native.ppm build/baseline.ppm
 ```
 
@@ -311,8 +312,9 @@ The test includes frames 229 through 231 and 316 through 318. Two more states
 check that the camera faces into each turn.
 
 The playback test sends SDL events through the window input path. It checks
-pause, resume, both step directions, held-key repeats, frame zero, and quit
-while paused. It does not need a display or a GPU.
+pause, resume, both step directions, held-key repeats, frame zero, quit while
+paused, and Escape during playback and while paused. It does not need a display
+or a GPU.
 
 The palette test checks 465,366 source pixels exactly across two patterns,
 multiple workgroups, and dimensions that do not divide by eight. It checks
@@ -359,7 +361,7 @@ These rules do not establish bit-identical floating-point rasterization across
 drivers. Check the complete lit tour with:
 
 ```sh
-crust main.crs --capture build/return.ppm --width 640 --height 360 --frames 1200 --verify 1
+crust demo.crs --capture build/return.ppm --width 640 --height 360 --frames 1200 --verify 1
 ```
 
 The build validates every module for Vulkan 1.2. Vulkan ABI checks cover 53

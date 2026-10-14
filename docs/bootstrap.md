@@ -27,7 +27,7 @@ Add the seed directory to `PATH` and run the application root:
 
 ```sh
 export PATH="$PWD/crust/build:$PATH"
-crust main.crs
+crust demo.crs
 ```
 
 The root builds host code, device code, and test code, then starts the automatic

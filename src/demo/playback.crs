@@ -17,7 +17,9 @@ fn playback_next(p: mut Playback) -> bool {
             p.running = false;
         } else if kind == 768u32 && !event.repeat {
             var key: u32 = event.key;
-            if key == 32u32 {
+            if key == 27u32 {
+                p.running = false;
+            } else if key == 32u32 {
                 p.paused = !p.paused;
                 if !playback_print(read p) {
                     return false;

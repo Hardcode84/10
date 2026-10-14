@@ -67,7 +67,20 @@ fn playback_checks() -> bool {
     };
     return playback_pause_checks(mut p) && playback_forward_checks(mut p) && playback_resume_checks(
         mut p
-    ) && playback_quit_checks(mut p);
+    ) && playback_quit_checks(mut p) && playback_escape_checks(false) && playback_escape_checks(
+        true
+    );
+}
+fn playback_escape_checks(paused: bool) -> bool {
+    var p: Playback = make Playback {
+        frame: 33u32,
+        paused: paused,
+        running: true
+    };
+    if !playback_key(27u32, 0u8) || !playback_next(mut p) || p.running || p.frame != 33u32 || p.paused != paused {
+        return error("Escape must close the demo without advancing the frame, running or paused");
+    }
+    return true;
 }
 fn playback_test() -> bool {
     if SDL_Init(16384u32) != 0i32 {

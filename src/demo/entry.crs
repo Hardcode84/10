@@ -145,7 +145,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
             "--test 1 (exact palette/presentation) or 2 (scene reference) or 3 (playback input) or 4 (lit tour reference)"
         );
         puts("--verify 1 --baseline 1 --view-budget N --fault 1");
-        puts("Window keys: Space pauses/resumes; Left/Right step one frame and pause");
+        puts("Window keys: Esc closes; Space pauses/resumes; Left/Right step one frame and pause");
         return 0i32;
     }
     var o: Options = uninit;
