@@ -75,8 +75,19 @@ centre stays open. The squares still use world-space depth
 and can be hidden by scene geometry.
 Markers are 2 m apart along the predicted path, starting 2 m from the drone.
 Positions are interpolated between simulation steps. Slow motion shows fewer
-markers. A stationary path shows none. The preview stops at two seconds or
-16 markers, whichever comes first.
+markers. A stationary drone path shows none. The preview stops at two seconds
+or its marker limit, whichever comes first.
+
+Pink outlines show the hook path while the tether is ready to launch. This
+preview uses the actual launch and flight simulation on a copy of the drone.
+It includes inherited velocity, recoil, drag, spin forces, surface contact,
+and the range limit. It assumes no further movement input or reeling. It stops
+at contact or a range miss. It is hidden while the hook is in flight, attached,
+or waiting for release after a miss. P set to off hides both paths.
+
+The paths share a limit of 16 markers. When the hook preview is active, the
+drone path uses up to eight markers. The hook path uses the remaining markers.
+Both paths use the same 2 m spacing, solid colours, and scaled pixel borders.
 
 The HUD shows time, gates, air-relative speed, hook state, cable length, burst
 count, and assist settings. The cable is cyan. A small amber body shows the
@@ -144,6 +155,7 @@ drum coordinates, and attached cables.
 | `input.crs` | Actions, edges, toggles, and pending mouse motion |
 | `sdl-input.crs`, `bindings.crs` | Native device reads and binding file parsing |
 | `scene.crs`, `palette.crs`, `preview.crs` | Scene submission and flight indicators |
+| `hook-preview.crs` | Hook path before launch |
 | `hud.crs`, `text.crs` | Trial status and text data |
 | `loop.crs` | Fixed-step clock and frame sequence |
 | `platform.crs`, `renderer-host.crs` | Resource ownership and renderer setup |

@@ -1,0 +1,27 @@
+fn draw_hook_preview(v: mut FrameInput, trial: read Trial, config: GameConfig, limit: u32) -> unit {
+    var drone: Drone = trial.drone;
+    var command: Command = idle_command();
+    command.tether = true;
+    var trail: PreviewTrail = preview_trail(limit, HOOK_PREVIEW_MATERIAL);
+    var before: Vec3 = drone.position;
+    var i: u32 = 0u32;
+    while i < 240u32 && trail.markers < trail.limit {
+        simulate(mut drone, command, trial.full_spin, trial.auto_level);
+        if drone.cable.phase == CABLE_MISSED {
+            return;
+        }
+        draw_preview_segment(
+            mut v,
+            mut trail,
+            before,
+            drone.cable.anchor,
+            trial.drone,
+            config
+        );
+        if drone.cable.phase == CABLE_ATTACHED {
+            return;
+        }
+        before = drone.cable.anchor;
+        i = i + 1u32;
+    }
+}

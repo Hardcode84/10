@@ -26,7 +26,13 @@ fn preview_pixel_size(center: Vec3, drone: Drone, config: GameConfig) -> f32 {
     var angle: f32 = config.fov * 0.00872664626f32;
     return 2f32 * depth * sinf(angle) / (cosf(angle) * config.height as f32);
 }
-fn draw_preview_marker(v: mut FrameInput, center: Vec3, drone: Drone, config: GameConfig) -> unit {
+fn draw_preview_marker(
+    v: mut FrameInput,
+    center: Vec3,
+    drone: Drone,
+    config: GameConfig,
+    material: u32
+) -> unit {
     var pixel: f32 = preview_pixel_size(center, drone, config) * preview_border_pixels(config) as f32;
     if pixel <= 0f32 || pixel >= 0.12f32 {
         return;
@@ -41,7 +47,7 @@ fn draw_preview_marker(v: mut FrameInput, center: Vec3, drone: Drone, config: Ga
         var b: Vec3 = sub(r, u);
         game_quad(
             mut v,
-            PREVIEW_MATERIAL,
+            material,
             add(center, scale(a, outer)),
             add(center, scale(b, outer)),
             add(center, scale(b, inner)),
@@ -53,31 +59,73 @@ fn draw_preview_marker(v: mut FrameInput, center: Vec3, drone: Drone, config: Ga
         edge = edge + 1u32;
     }
 }
+record PreviewTrail {
+    distance: f32;
+    markers: u32;
+    limit: u32;
+    material: u32;
+}
+fn preview_trail(limit: u32, material: u32) -> PreviewTrail {
+    return make PreviewTrail {
+        distance: 0f32,
+        markers: 0u32,
+        limit: limit,
+        material: material
+    };
+}
+fn draw_preview_segment(
+    v: mut FrameInput,
+    trail: mut PreviewTrail,
+    before: Vec3,
+    after: Vec3,
+    eye: Drone,
+    config: GameConfig
+) -> unit {
+    var travel: Vec3 = sub(after, before);
+    var segment: f32 = length(travel);
+    var next: f32 = (trail.markers + 1u32) as f32 * PREVIEW_SPACING;
+    while segment > 0f32 && next <= trail.distance + segment && trail.markers < trail.limit {
+        var point: Vec3 = add(before, scale(travel, (next - trail.distance) / segment));
+        draw_preview_marker(mut v, point, eye, config, trail.material);
+        trail.markers = trail.markers + 1u32;
+        next = (trail.markers + 1u32) as f32 * PREVIEW_SPACING;
+    }
+    trail.distance = trail.distance + segment;
+}
 fn draw_preview(v: mut FrameInput, trial: read Trial, config: GameConfig) -> unit {
+    var hook_ready: bool = trial.drone.cable.phase == CABLE_READY && trial.preview_mode != 0u32;
+    var limit: u32 = PREVIEW_MARKERS;
+    if hook_ready {
+        limit = PREVIEW_MARKERS / 2u32;
+    }
+    var used: u32 = draw_drone_preview(mut v, read trial, config, limit);
+    if hook_ready {
+        draw_hook_preview(mut v, read trial, config, PREVIEW_MARKERS - used);
+    }
+}
+fn draw_drone_preview(v: mut FrameInput, trial: read Trial, config: GameConfig, limit: u32) -> u32 {
     if !preview_visible(read trial) {
-        return;
+        return 0u32;
     }
     var drone: Drone = trial.drone;
     var command: Command = idle_command();
     command.tether = drone.cable.phase == CABLE_ATTACHED || drone.cable.phase == CABLE_FLYING;
     var i: u32 = 0u32;
-    var distance: f32 = 0f32;
-    var marker: u32 = 0u32;
-    while i < 240u32 && marker < PREVIEW_MARKERS {
+    var trail: PreviewTrail = preview_trail(limit, PREVIEW_MATERIAL);
+    while i < 240u32 && trail.markers < trail.limit {
         var before: Vec3 = drone.position;
         simulate(mut drone, command, trial.full_spin, trial.auto_level);
-        var travel: Vec3 = sub(drone.position, before);
-        var segment: f32 = length(travel);
-        var next: f32 = (marker + 1u32) as f32 * PREVIEW_SPACING;
-        while segment > 0f32 && next <= distance + segment && marker < PREVIEW_MARKERS {
-            var point: Vec3 = add(before, scale(travel, (next - distance) / segment));
-            draw_preview_marker(mut v, point, trial.drone, config);
-            marker = marker + 1u32;
-            next = (marker + 1u32) as f32 * PREVIEW_SPACING;
-        }
-        distance = distance + segment;
+        draw_preview_segment(
+            mut v,
+            mut trail,
+            before,
+            drone.position,
+            trial.drone,
+            config
+        );
         i = i + 1u32;
     }
+    return trail.markers;
 }
 fn frame_point(drone: Drone, config: GameConfig, x: f32, y: f32) -> Vec3 {
     var angle: f32 = config.fov * 0.00872664626f32;
