@@ -29,3 +29,20 @@ fn draw_hook_preview(v: mut FrameInput, trial: read Trial, config: GameConfig, l
         i = i + 1u32;
     }
 }
+
+fn draw_hook_marker(v: mut FrameInput, center: Vec3, basis: Basis, pixel: f32) -> unit {
+    var half: f32 = 0.04f32;
+    if pixel * 0.5f32 > half {
+        half = pixel * 0.5f32;
+    }
+    var right: Vec3 = scale(basis.right, half);
+    var up: Vec3 = scale(basis.up, half);
+    game_quad(
+        mut v,
+        HOOK_PREVIEW_MATERIAL,
+        sub(sub(center, right), up),
+        sub(add(center, right), up),
+        add(add(center, right), up),
+        add(sub(center, right), up)
+    );
+}

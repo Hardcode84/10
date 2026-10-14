@@ -85,7 +85,9 @@ steps. The outlines face the camera; their centres supply the stable motion cue.
 markers. A stationary drone path shows none. The preview stops at two seconds
 or its marker limit, whichever comes first.
 
-Pink outlines show the hook path while the tether is ready to launch. This
+Small filled pink squares show the hook path while the tether is ready to
+launch. Each square is 8 cm wide, with a minimum screen width of
+`ceil(max(width / 640, height / 480))` pixels. This
 preview uses the actual launch and flight simulation on a copy of the drone.
 It includes inherited velocity, recoil, drag, spin forces, surface contact,
 and the range limit. It assumes no further movement input or reeling. It stops
@@ -94,7 +96,8 @@ or waiting for release after a snap. P set to off hides both paths.
 
 The paths share a limit of eight markers. When the hook preview is active, the
 drone path uses up to four markers. The hook path uses the remaining markers.
-Both paths use the same 4 m spacing, solid colours, and scaled pixel borders.
+Both paths use the same 4 m spacing and solid colours. Cyan markers remain
+hollow with scaled pixel borders. Pink markers are filled.
 The hook path advances its spacing phase by signed drone travel along the
 predicted launch direction, including inherited velocity. Lateral motion does
 not slide the markers along that direction. A change in aim changes the

@@ -21,7 +21,14 @@ fn draw_preview_marker(
     material: u32
 ) -> unit {
     var pixel: f32 = preview_pixel_size(center, drone, config) * preview_border_pixels(config) as f32;
-    if pixel <= 0f32 || pixel >= 0.12f32 {
+    if pixel <= 0f32 {
+        return;
+    }
+    if material == HOOK_PREVIEW_MATERIAL {
+        draw_hook_marker(mut v, center, drone.basis, pixel);
+        return;
+    }
+    if pixel >= 0.12f32 {
         return;
     }
     var outer: f32 = 0.12f32 + pixel * 0.5f32;
