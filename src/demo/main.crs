@@ -68,7 +68,7 @@ fn demo_scene(inputs: mut FrameInput, o: DemoConfig, frame: u32, index: u32) -> 
     }
     if o.test == 4u32 {
         var lights: u32 = 7u32;
-        var camera_radius: f32 = 6f32;
+        var camera_radius: f32 = 36f32;
         if index == 37u32 {
             lights = 0u32;
             camera_radius = 0f32;
@@ -78,6 +78,9 @@ fn demo_scene(inputs: mut FrameInput, o: DemoConfig, frame: u32, index: u32) -> 
         }
         input_set_word(mut inputs, LIGHT_COUNT as usize, lights);
         input_set_float(mut inputs, CAMERA_LIGHT as usize, camera_radius);
+    }
+    if o.test == 4u32 && index == 47u32 {
+        light_band_scene(mut inputs);
     }
 }
 fn demo_run(session: DemoSession, o: DemoConfig) -> i32 {
@@ -163,6 +166,9 @@ fn demo_run(session: DemoSession, o: DemoConfig) -> i32 {
 }
 
 fn tour_test_frame(index: u32) -> u32 {
+    if index == 47u32 {
+        return 0u32;
+    }
     if index == 46u32 {
         return 170u32;
     }

@@ -251,6 +251,7 @@ fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
     vkCmdCopyBuffer(v -> commands, src, dst, 1u32, &copy);
 }
 fn upload_scene(v: *Vulkan) -> unit {
+    copy_region(v, v -> staging, v -> buffer, LIT_PALETTE as u64 * 4u64, 32768u64 * 4u64);
     copy_region(v, v -> staging, v -> buffer, MATERIAL_TEXTURE as u64 * 4u64, 1024u64 * 4u64);
     copy_region(v, v -> staging, v -> buffer, 0u64, 8192u64 * 4u64);
     copy_region(v, v -> staging, v -> buffer, META as u64 * 4u64, MAX_TRIS as u64 * 16u64);

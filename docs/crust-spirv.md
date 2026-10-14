@@ -2,7 +2,7 @@
 
 ## Current status: 2026-10-14
 
-Crust is pinned to `54d2ffa`. It includes the
+Crust is pinned to `cd2db4e`. It includes the
 first Vulkan compute stage and a Vulkan dispatch harness written in Crust.
 The upstream history also includes the device enumeration correction.
 
@@ -10,6 +10,8 @@ The upstream history also includes the device enumeration correction.
 - LLVM field and element access uses typed addressing.
 - The external shader stage generates compute entries, buffer and R32f image
   bindings, workgroup storage, invocation IDs, and barriers.
+- The shader stage supplies `shader_sqrt(f32) -> f32` for finite, non-negative
+  inputs. It emits LLVM square root and validates the final SPIR-V.
 - Device errors use invocation status. The stage rejects raw pointers, `usize`,
   recursion, `trap`, and barrier placements that violate its device contract.
 - Shader publication requires successful Vulkan 1.2 SPIR-V validation.
@@ -26,11 +28,11 @@ profile and commands. It currently requires `shaderInt8` and specified float
 controls. Resource-name byte arrays still cause the `Int8` requirement; removing
 it requires LLVM emission to discard those values before capability collection.
 
-The shader suite passed eleven dispatch cases and ten source-rejection checks on
+The shader suite passed twelve dispatch cases and ten source-rejection checks on
 both an AMD Radeon PRO W7900 Dual Slot and an Intel Arc Pro B60. Both used Mesa
 25.2.8 on Linux. The tests cover buffer exchange, workgroup synchronization,
 failure propagation, helper exits, repeated dispatch status, bounds, images,
-float conversions, and zero initialization.
+float conversions, square root, and zero initialization.
 Failed-tool output preservation and allocation-failure checks also passed.
 Compilation used LLVM 23.1.3 and SPIRV-Tools 2025.1.
 
@@ -40,7 +42,7 @@ malformed-input checks also passed. Its bindings use the Linux x86-64 ABI.
 The game now compiles host and shader inputs from shared Crust buffer constants.
 Its [renderer tests](renderer-build.md) complete the visible-image and
 multiple-workgroup gates. The game bindings passed 1,177 checks across 53 Vulkan
-records. The compiler's eleven dispatch cases each use one four-invocation
+records. The compiler's twelve dispatch cases each use one four-invocation
 workgroup. Windows and NVIDIA were not tested.
 
 The repeated-dispatch test exposed a status loss on Intel with Mesa 25.2.8.

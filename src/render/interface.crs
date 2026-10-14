@@ -47,3 +47,5 @@ const SPACE_LIGHT: u32 = 880u32;
 const MATERIAL_TEXTURE: u32 = 2700000u32;
 // Camera light: radius squared (zero disables), followed by non-negative RGB intensity.
 const CAMERA_LIGHT: u32 = 1008u32;
+
+const LIT_PALETTE: u32 = 2702048u32;

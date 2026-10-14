@@ -467,20 +467,49 @@ fn reference_texel(w: *u32, mat: u32, u: f32, v: f32) -> u32 {
     var ty: u32 = ((v * 8f32) as i32 as u32) & 7u32;
     return w[(base + tx + ty * 8u32) as usize];
 }
+extern fn sqrtf(value: f32) -> f32 = "sqrtf";
 fn reference_quantize(value: f32, t: f32) -> u32 {
-    if value <= 0f32 {
-        return 0u32;
-    }
     if value >= 1f32 {
-        return 3u32;
+        return 7u32;
     }
-    var result: u32 = (value * 3f32) as u32;
-    if (value * 3f32 - result as f32) * 16f32 > t {
-        result = result + 1u32;
-    }
-    return result;
+    return (value * 7f32 + 0.5f32) as u32;
 }
-fn reference_illumination(w: *u32, f: *f32, hit: Hit) -> Vec {
+fn reference_point(delta: Vec, normal: Vec, radius: f32, color: Vec, t: f32) -> Vec {
+    var result: Vec = make Vec {
+        x: 0f32,
+        y: 0f32,
+        z: 0f32
+    };
+    var incidence: f32 = dot(delta, normal);
+    var peak: f32 = color.x;
+    if color.y > peak {
+        peak = color.y;
+    }
+    if color.z > peak {
+        peak = color.z;
+    }
+    if incidence <= 0f32 || peak == 0f32 {
+        return result;
+    }
+    var distance: f32 = dot(delta, delta);
+    var cosine: f32 = incidence / sqrtf(dot(normal, normal) * distance);
+    var attenuation: f32 = 1f32 + sqrtf(distance / radius);
+    var scaled: f32 = 7f32 * peak * (cosine / (attenuation * attenuation));
+    var level: u32 = 7u32;
+    if scaled < 7f32 {
+        level = scaled as u32;
+        if level > 0u32 && (scaled - level as f32 - 0.8f32) * 5f32 > (t + 0.5f32) / 16f32 {
+            level = level + 1u32;
+        }
+    }
+    var weight: f32 = level as f32 / (7f32 * peak);
+    return make Vec {
+        x: color.x * weight,
+        y: color.y * weight,
+        z: color.z * weight
+    };
+}
+fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
     var mat: u32 = w[(META + hit.triangle * 4u32 + 1u32) as usize];
     var space: u32 = w[(META + hit.triangle * 4u32) as usize];
     var p: usize = (GEOMETRY + hit.triangle * 15u32) as usize;
@@ -488,31 +517,39 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit) -> Vec {
         sub(vertex(f, p + 5usize), vertex(f, p)),
         sub(vertex(f, p + 10usize), vertex(f, p))
     );
+    if dot(sub(hit.eye, hit.position), normal) < 0f32 {
+        normal.x = -normal.x;
+        normal.y = -normal.y;
+        normal.z = -normal.z;
+    }
+    var t: f32 = reference_threshold(x, y, w[2usize]) as f32;
     var light: Vec = vertex(f, (SPACE_LIGHT + space * 4u32) as usize);
     if f[CAMERA_LIGHT as usize] > 0f32 {
-        var delta: Vec = sub(hit.eye, hit.position);
-        var distance: f32 = dot(delta, delta) + 0.01f32;
-        var incidence: f32 = dot(delta, normal);
-        var diffuse: f32 = incidence * incidence / (dot(normal, normal) * distance);
-        var amount: f32 = (0.18f32 + 0.82f32 * diffuse) / (
-            1f32 + distance / f[CAMERA_LIGHT as usize]
+        var contribution: Vec = reference_point(
+            sub(hit.eye, hit.position),
+            normal,
+            f[CAMERA_LIGHT as usize],
+            vertex(f, (CAMERA_LIGHT + 1u32) as usize),
+            t
         );
-        light.x = light.x + f[(CAMERA_LIGHT + 1u32) as usize] * amount;
-        light.y = light.y + f[(CAMERA_LIGHT + 2u32) as usize] * amount;
-        light.z = light.z + f[(CAMERA_LIGHT + 3u32) as usize] * amount;
+        light.x = light.x + contribution.x;
+        light.y = light.y + contribution.y;
+        light.z = light.z + contribution.z;
     }
     var i: u32 = 0u32;
     while i < w[LIGHT_COUNT as usize] {
         var l: usize = (LIGHT_DATA + i * 8u32) as usize;
         if f[l + 7usize] as u32 == space {
-            var delta: Vec = sub(vertex(f, l), hit.position);
-            var distance: f32 = dot(delta, delta) + 0.01f32;
-            var incidence: f32 = dot(delta, normal);
-            var diffuse: f32 = incidence * incidence / (dot(normal, normal) * distance);
-            var amount: f32 = (0.18f32 + 0.82f32 * diffuse) / (1f32 + distance / f[l + 3usize]);
-            light.x = light.x + f[l + 4usize] * amount;
-            light.y = light.y + f[l + 5usize] * amount;
-            light.z = light.z + f[l + 6usize] * amount;
+            var contribution: Vec = reference_point(
+                sub(vertex(f, l), hit.position),
+                normal,
+                f[l + 3usize],
+                vertex(f, l + 4usize),
+                t
+            );
+            light.x = light.x + contribution.x;
+            light.y = light.y + contribution.y;
+            light.z = light.z + contribution.z;
         }
         i = i + 1u32;
     }
@@ -525,15 +562,15 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit) -> Vec {
 }
 fn reference_lit(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> u32 {
     var mat: u32 = w[(META + hit.triangle * 4u32 + 1u32) as usize];
-    var light: Vec = reference_illumination(w, f, hit);
+    var light: Vec = reference_illumination(w, f, hit, x, y);
     var t: f32 = reference_threshold(x, y, w[2usize]) as f32;
-    var state: u32 = reference_quantize(light.x, t) + reference_quantize(light.y, t) * 4u32 + reference_quantize(
+    var state: u32 = reference_quantize(light.x, t) + reference_quantize(light.y, t) * 8u32 + reference_quantize(
         light.z,
         t
-    ) * 16u32;
+    ) * 64u32;
     return w[
         (
-            PALETTE + (mat * 4u32 + reference_texel(w, mat, hit.u, hit.v)) * 64u32 + state
+            LIT_PALETTE + (mat * 4u32 + reference_texel(w, mat, hit.u, hit.v)) * 512u32 + state
         ) as usize
     ];
 }
@@ -560,19 +597,19 @@ fn reference_intersect(
 
 // Accept only light states within one millionth of the calculated threshold.
 fn reference_light_boundary(w: *u32, f: *f32, hit: Hit, x: u32, y: u32, actual: u32) -> bool {
-    var light: Vec = reference_illumination(w, f, hit);
+    var light: Vec = reference_illumination(w, f, hit, x, y);
     var mat: u32 = w[(META + hit.triangle * 4u32 + 1u32) as usize];
-    var base: u32 = PALETTE + (mat * 4u32 + reference_texel(w, mat, hit.u, hit.v)) * 64u32;
+    var base: u32 = LIT_PALETTE + (mat * 4u32 + reference_texel(w, mat, hit.u, hit.v)) * 512u32;
     var t: f32 = reference_threshold(x, y, w[2usize]) as f32;
     var choice: u32 = 0u32;
     while choice < 8u32 {
         var r: f32 = light.x + ((choice & 1u32) as f32 * 2f32 - 1f32) * 0.000001f32;
         var g: f32 = light.y + (((choice >> 1u32) & 1u32) as f32 * 2f32 - 1f32) * 0.000001f32;
         var b: f32 = light.z + (((choice >> 2u32) & 1u32) as f32 * 2f32 - 1f32) * 0.000001f32;
-        var state: u32 = reference_quantize(r, t) + reference_quantize(g, t) * 4u32 + reference_quantize(
+        var state: u32 = reference_quantize(r, t) + reference_quantize(g, t) * 8u32 + reference_quantize(
             b,
             t
-        ) * 16u32;
+        ) * 64u32;
         if w[(base + state) as usize] == actual {
             ref_print("light-threshold rounding x=%u ", x);
             ref_print("y=%u\n", y);

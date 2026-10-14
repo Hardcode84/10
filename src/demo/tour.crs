@@ -314,7 +314,7 @@ fn tour_scene(v: mut FrameInput, width: u32, height: u32, frame: u32, mode: u32)
         8f32,
         0.8f32,
         7f32 + 2f32 * sinf(frame as f32 * 0.025f32),
-        1.25f32,
+        3.125f32,
         0.8f32,
         0.18f32,
         0.08f32
@@ -330,4 +330,20 @@ fn tour_scene(v: mut FrameInput, width: u32, height: u32, frame: u32, mode: u32)
         0.4f32,
         0.4f32
     );
+}
+
+fn light_band_scene(v: mut FrameInput) -> unit {
+    input_set_word(mut v, 3usize, 0u32);
+    input_set_word(mut v, 4usize, 0u32);
+    input_set_float(mut v, 7usize, 0f32);
+    input_set_float(mut v, 11usize, 0f32);
+    input_set_float(mut v, CAMERA_LIGHT as usize, 0f32);
+    input_set_word(mut v, LIGHT_COUNT as usize, 1u32);
+    tour_light(mut v, 0u32, 0u32, 0f32, 0f32, 3.8f32, 25f32, 1f32, 1f32, 1f32);
+    var i: u32 = 0u32;
+    while i < 64u32 {
+        input_set_word(mut v, (MATERIAL_TEXTURE + i) as usize, 0u32);
+        i = i + 1u32;
+    }
+    tour_face(mut v, 0u32, 0u32, 2u32, 4f32, -10f32, 10f32, -10f32, 10f32);
 }

@@ -132,32 +132,44 @@ The lit tour uses seven point lights in space-local coordinates and a camera
 light. The seven point lights affect only their own space. The camera light
 uses the camera position transformed through each visible portal path. Thus,
 it illuminates nearby surfaces on both sides of a doorway. The GPU computes
-each visible point and triangle normal
-in that space, including through rotated views. The light weight uses squared
-two-sided incidence and inverse quadratic distance attenuation. It does not
-compute shadow visibility. Add a tested occlusion pass before using these lights
-for cast shadows. Material emission makes lamp surfaces visible without nearby
-lights.
+each visible point and triangle normal in that space. Surfaces are two-sided:
+the normal faces the viewer, and light from behind that face contributes zero.
+The light weight is `max(0, cos(theta)) / (1 + d/R)^2`, where `d` is distance
+and `R` is the falloff radius. There is no minimum angular contribution.
+The renderer does not compute shadow visibility. Add a tested occlusion pass
+before using these lights for cast shadows. Material emission makes lamp
+surfaces visible without nearby lights.
+
+For each light, the largest RGB component sets its peak intensity. Multiply
+the light weight by that intensity and by seven. Round down to an integer
+from zero through seven before adding the light to the result. Preserve the
+light colour by scaling all channels by the same amount. Values below one
+contribute exactly zero; weak lights cannot add up to a faint background.
+
+Dithering selects the next band only in the top 20 percent of a lit band.
+It never raises a value below the first band. The checker pattern and 4 by 4
+Bayer pattern use the same band rule and internal pixel coordinates.
 
 The two interior spaces have zero ambient light. Fixed interior lamps use a
-squared falloff radius of 2.5; the moving lamp uses 1.25. This keeps most surfaces
-dark, with small lit areas near each lamp. Outdoor ambient RGB intensity is
-(0.55, 0.55, 0.60).
-The camera light has a squared falloff radius of 6 and RGB intensity
-(1, 1, 1). It follows the camera in all spaces and has no beam cone.
+squared falloff radius of 6.25; the moving lamp uses 3.125. Outdoor ambient RGB
+intensity is (0.55, 0.55, 0.60). The camera light has a squared falloff radius
+of 36 and RGB intensity (1, 1, 1). It follows the camera in all spaces and has
+no beam cone. These radii compensate for the faster decay of the new curve.
 
 Each material has an 8 by 8 indexed texture with four base colours. The GPU
-selects one of 64 RGB light states: four levels for each channel. The material
-table combines these states with its base colours. Screen-space dithering
-selects adjacent channel levels before lookup. The output has no frame palette
-limit. The Bayer pattern gives smoother dark gradients in the tour captures;
-the checker pattern remains available with `--dither 0`.
+selects one of 512 RGB light states: eight levels for each channel. After the
+lights are added, each channel rounds to its nearest level. The material table
+combines these states with its base colours. The output has no frame palette
+limit.
 
 `palette_entry` takes a full-bright flag for each source palette entry. It
-stores the full colour in all 64 light states when the flag is set. The pipe
+stores the full colour in all 512 light states when the flag is set. The pipe
 materials mark entry 3 as full-bright cyan. The other entries use normal
 lighting. The strips do not create point lights or light nearby surfaces.
 No palette index range is reserved by the rendering core.
+`LIT_PALETTE` contains 16 by 4 by 512 packed colours (128 KiB). The root
+creates this table in Crust. It occupies a separate range from the 64-state
+distance-shading table used by the original regression scene.
 
 `LIGHT_MODEL` selects distance shading (0) or coloured point lighting (1). The
 regression scene uses distance shading. `LIGHT_COUNT` gives the active count,
@@ -270,14 +282,16 @@ One valid borrow-and-move case must pass. Six invalid cases must produce their
 expected ownership diagnostics: resource copy, use after drop, drop with a live
 input borrow, escaping borrow, shared write, and private field access.
 
-The lit-tour test checks 47 states against the independent ray-triangle and
+The lit-tour test checks 48 states against the independent ray-triangle and
 point-light reference. It covers both directions at both openings and the
 moving lamp. Its entrance check requires visible pixels from both rooms,
 no yard pixels, and exactly two views. This checks the wall that hides the exit
 and rejects reverse-aperture recursion. One state disables all point lights
 and the camera light. It requires both cyan strips and black metal on visible
 pipe surfaces. A separate state enables only the camera light and requires lit
-ordinary surfaces in both rooms across the portal.
+ordinary surfaces in both rooms across the portal. A flat-surface fixture
+requires six visible lit bands and a black outer region. Its light is offset
+from the surface, so it does not reach the seventh non-zero brightness level.
 Run it with both dither patterns.
 The test includes frames 229 through 231 and 316 through 318. Two more states
 check that the camera faces into each turn.
@@ -381,6 +395,12 @@ The 25-state portal regression also passed on AMD. The full 1,200-frame route
 at 640 by 360 completed on AMD with p50/p99 of 4.92/5.83 ms, including readback.
 
 ## Platform and expansion gates
+
+The banded-light tour passed all 48 reference states with both dither patterns
+on AMD and Intel. The full 1,200-frame route at 640 by 360 completed on AMD
+with p50/p99 of 4.30/5.69 ms, including readback. The flat-surface test checks
+the visible light bands and black cutoff. The full-bright and camera-light
+tests also passed.
 
 The current host uses the Linux x86-64 ABI. Windows needs the Crust host platform
 profile described in [bootstrap](bootstrap.md), plus host bindings and build

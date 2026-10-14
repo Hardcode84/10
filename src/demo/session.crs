@@ -143,6 +143,9 @@ fn tour_verify(v: *Vulkan, index: u32) -> bool {
     if index == 46u32 {
         return camera_light_check(v);
     }
+    if index == 47u32 {
+        return light_band_check(v);
+    }
     if index == 44u32 || index == 45u32 {
         return tour_turn_check(v, index);
     }
