@@ -24,7 +24,14 @@ fn edge(ax: f32, ay: f32, bx: f32, by: f32, x: f32, y: f32) -> f32 {
 fn top_left(ax: f32, ay: f32, bx: f32, by: f32) -> bool {
     return by < ay || (by == ay && bx > ax);
 }
-fn inside(e: f32, ax: f32, ay: f32, bx: f32, by: f32) -> bool {
+fn covered(ax: f32, ay: f32, bx: f32, by: f32, x: f32, y: f32) -> bool {
+    // Shared edges must use the same arithmetic in both directions.
+    var e: f32 = 0f32;
+    if ax < bx || (ax == bx && ay < by) {
+        e = edge(ax, ay, bx, by, x, y);
+    } else {
+        e = 0f32 - edge(bx, by, ax, ay, x, y);
+    }
     return e > 0f32 || (e == 0f32 && top_left(ax, ay, bx, by));
 }
 fn light_color(mat: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {

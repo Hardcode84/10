@@ -215,6 +215,12 @@ to tiles. Do not repeat complete space traversal and vertex transforms for every
 tile. Measure large triangles, long thin triangles, and dense small triangles
 before selecting a more complex assignment algorithm.
 
+Evaluate shared raster edges with one endpoint order. Use the edge direction
+only to select the sign and the top-left ownership rule. Opposite evaluations
+must not round independently: both triangles can otherwise reject an edge pixel
+and expose geometry behind the surface. Keep texture and depth interpolation
+separate from this coverage decision.
+
 ### Frame sequence
 
 1. Upload scene changes and initialize root coverage and defined background values.

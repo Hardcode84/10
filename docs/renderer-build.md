@@ -133,18 +133,29 @@ The palette test checks 465,366 source pixels exactly across two patterns,
 multiple workgroups, and dimensions that do not divide by eight. It checks
 nearest-neighbour scaling and RGBA/BGRA channel order for every output pixel.
 
-The scene test checks 21 camera and object states against an independent
-ray-triangle reference. It includes translated and rotated views of the same
+The scene test checks 22 camera and object states at 320 by 180 against an
+independent ray-triangle reference. It includes translated and rotated views of the same
 space, destination clipping, cutouts, portal recursion, and complete portal
 occlusion. Frames 281 through 286 and 500 through 506 check both directions of
 camera crossing. Portal intersections in front of the eye remain visible inside
 the geometry near distance. This prevents the blank image previously seen at
-frame 284. The reference excludes the outer pixel border and independently
-calculated exact triangle edges. It permits
+frame 284. Frame 512 checks an internal edge between clipped fan triangles that
+previously exposed another cube face. Shared edges now use one arithmetic order
+for both directions.
+
+The reference excludes the outer pixel border and independently calculated exact
+triangle edges. Its one-pixel geometry-edge band uses changes in the reference
+triangle ID between adjacent pixels. Non-exact pixels in this band are counted
+and reported. Internal fan edges retain the source triangle ID and are not
+excluded by this band. The reference permits
 adjacent palette entries only at calculated texture boundaries. Other pixels
 must match within three channel units, with a one-pixel coverage tolerance.
 These rules do not establish bit-identical floating-point rasterization across
-drivers.
+drivers. Check the complete return sequence with:
+
+```sh
+crust main.crs --capture build/return.ppm --width 640 --height 360 --frame 420 --frames 121 --verify 1
+```
 
 The build validates every module for Vulkan 1.2. Vulkan ABI checks cover 53
 records and 1,177 layout and constant values. Palette and scene tests passed on

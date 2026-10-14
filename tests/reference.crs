@@ -321,6 +321,7 @@ unsafe fn reference_check(mapped: *u8) -> bool {
     }
     var errors: u32 = 0u32;
     var exact: u32 = 0u32;
+    var boundary_pixels: u32 = 0u32;
     y = 1u32;
     while y + 1u32 < height {
         var x: u32 = 1u32;
@@ -331,6 +332,7 @@ unsafe fn reference_check(mapped: *u8) -> bool {
                 exact = exact + 1u32;
             } else {
                 var match: bool = false;
+                var coverage_boundary: bool = edges[(y * width + x) as usize] != 0u8;
                 var dy: i32 = -1i32;
                 while dy <= 1i32 {
                     var dx: i32 = -1i32;
@@ -341,11 +343,19 @@ unsafe fn reference_check(mapped: *u8) -> bool {
                         if color_distance(actual, other) <= 3u32 {
                             match = true;
                         }
+                        if hits[((y as i32 + dy) * width as i32 + x as i32 + dx) as usize].triangle != hits[
+                            (y * width + x) as usize
+                        ].triangle {
+                            coverage_boundary = true;
+                        }
                         dx = dx + 1i32;
                     }
                     dy = dy + 1i32;
                 }
-                if !match && edges[(y * width + x) as usize] == 0u8 && !reference_alternate(
+                if coverage_boundary {
+                    boundary_pixels = boundary_pixels + 1u32;
+                }
+                if !match && !coverage_boundary && !reference_alternate(
                     w,
                     hits[(y * width + x) as usize],
                     x,
@@ -383,6 +393,8 @@ unsafe fn reference_check(mapped: *u8) -> bool {
     puts("reference exact pixels / unexpected pixels:");
     ref_print("%u\n", exact);
     ref_print("%u\n", errors);
+    puts("non-exact pixels within reference geometry-edge band:");
+    ref_print("%u\n", boundary_pixels);
     return errors == 0u32;
 }
 

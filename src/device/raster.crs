@@ -200,7 +200,14 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
         var a: f32 = edge(bx, by, cx, cy, px, py);
         var b: f32 = edge(cx, cy, ax, ay, px, py);
         var c: f32 = edge(ax, ay, bx, by, px, py);
-        if inside(a, bx, by, cx, cy) && inside(b, cx, cy, ax, ay) && inside(c, ax, ay, bx, by) {
+        if covered(bx, by, cx, cy, px, py) && covered(cx, cy, ax, ay, px, py) && covered(
+            ax,
+            ay,
+            bx,
+            by,
+            px,
+            py
+        ) {
             var area: f32 = floats_load(p + 18u32);
             var iz: f32 = (
                 a * floats_load(p + 2u32) + b * floats_load(p + 8u32) + c * floats_load(p + 14u32)
