@@ -36,6 +36,16 @@ and writes the last frame to a binary RGB PPM file. Use `--frames N` to change
 the count. A frame number determines the camera and moving object positions;
 wall-clock time does not affect them. Close the window to stop the demo.
 
+Press Space to pause or resume. Press Left or Right to pause and move backward
+or forward by one frame. Each key press selects one frame; held-key repeats have
+no effect. Left stops at frame zero. The terminal prints each displayed frame
+index and marks paused frames. Use this index with `--frame N` to capture the
+same scene state. Keep the same rendering options for that capture.
+
+The frame count includes frames selected with Left and Right. While paused, the
+demo waits for input and does not use the remaining frame count. Use
+`--frames 4096` for a longer inspection session.
+
 | Option | Behaviour |
 | --- | --- |
 | `--dither 0` or `1` | Checker or 4 by 4 Bayer light transition |
@@ -124,10 +134,15 @@ helper. It is not a runtime fallback.
 ```sh
 crust main.crs --test 1
 crust main.crs --test 2
+crust main.crs --test 3
 crust main.crs --capture build/native.ppm --width 1920 --height 1080 --frames 601
 crust main.crs --capture build/baseline.ppm --width 1920 --height 1080 --frames 601 --baseline 1
 cmp build/native.ppm build/baseline.ppm
 ```
+
+The playback test sends SDL events through the window input path. It checks
+pause, resume, both step directions, held-key repeats, frame zero, and quit
+while paused. It does not need a display or a GPU.
 
 The palette test checks 465,366 source pixels exactly across two patterns,
 multiple workgroups, and dimensions that do not divide by eight. It checks

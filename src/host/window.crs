@@ -13,6 +13,24 @@ extern fn SDL_DestroyWindow(window: *u8) -> unit = "SDL_DestroyWindow";
 extern fn SDL_Vulkan_GetInstanceExtensions(window: *u8, count: *u32, names: **u8) -> i32 = "SDL_Vulkan_GetInstanceExtensions";
 extern fn SDL_Vulkan_CreateSurface(window: *u8, instance: *u8, surface: **u8) -> i32 = "SDL_Vulkan_CreateSurface";
 extern fn SDL_PollEvent(event: *u8) -> i32 = "SDL_PollEvent";
+extern fn SDL_WaitEvent(event: *u8) -> i32 = "SDL_WaitEvent";
+extern fn frame_printf(format: *u8, frame: u32) -> i32 = "printf";
+extern fn fflush(file: *u8) -> i32 = "fflush";
+record Playback {
+    frame: u32;
+    paused: bool;
+    running: bool;
+}
+fn frame_print(p: *Playback) -> bool {
+    var format: *u8 = "frame %u\n";
+    if p -> paused {
+        format = "frame %u (paused)\n";
+    }
+    if frame_printf(format, p -> frame) < 0i32 || fflush(null(*u8)) != 0i32 {
+        return error("cannot print frame index");
+    }
+    return true;
+}
 fn window_open(v: *Vulkan, width: u32, height: u32) -> bool {
     if SDL_Init(32u32) != 0i32 {
         error(SDL_GetError());
@@ -34,15 +52,52 @@ fn window_open(v: *Vulkan, width: u32, height: u32) -> bool {
     }
     return true;
 }
-fn window_events() -> bool {
+fn window_next(p: *Playback) -> bool {
     var event: [u64; 8] = uninit;
-    var running: bool = true;
-    while SDL_PollEvent(&event as *u8) != 0i32 {
-        if ((&event as *u32)[0usize]) == 256u32 {
-            running = false;
+    while p -> running {
+        var bytes: *u8 = &event as *u8;
+        if p -> paused {
+            if SDL_WaitEvent(bytes) == 0i32 {
+                return error(SDL_GetError());
+            }
+        } else if SDL_PollEvent(bytes) == 0i32 {
+            if p -> frame == 0xffffffffu32 {
+                return error("frame index overflow");
+            }
+            p -> frame = p -> frame + 1u32;
+            return true;
+        }
+        var kind: u32 = (bytes as *u32)[0usize];
+        if kind == 256u32 {
+            p -> running = false;
+        } else if kind == 768u32 && bytes[13usize] == 0u8 {
+            var key: u32 = (bytes as *u32)[5usize];
+            if key == 32u32 {
+                p -> paused = !p -> paused;
+                if !frame_print(p) {
+                    return false;
+                }
+            } else if key == 1073741904u32 || key == 1073741903u32 {
+                p -> paused = true;
+                if key == 1073741904u32 {
+                    if p -> frame > 0u32 {
+                        p -> frame = p -> frame - 1u32;
+                        return true;
+                    }
+                    if !frame_print(p) {
+                        return false;
+                    }
+                } else {
+                    if p -> frame == 0xffffffffu32 {
+                        return error("frame index overflow");
+                    }
+                    p -> frame = p -> frame + 1u32;
+                    return true;
+                }
+            }
         }
     }
-    return running;
+    return true;
 }
 fn surface_format(v: *Vulkan, format: *VkSurfaceFormatKHR) -> bool {
     var count: u32 = 0u32;
