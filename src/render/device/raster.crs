@@ -1,3 +1,10 @@
+fn raster_active(base: u32, lane: u32, x: u32, y: u32, width: u32) -> bool {
+    return!(
+        x >= width || y >= words_load(1u32) || (
+            words_load(base + 2u32 + lane / 32u32) & (1u32 << (lane % 32u32))
+        ) == 0u32
+    );
+}
 fn perspective_sample(p: u32, x: f32, y: f32, offset: u32) -> f32 {
     var ax: f32 = floats_load(p);
     var ay: f32 = floats_load(p + 1u32);
@@ -175,9 +182,7 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
     var x: u32 = tile % cols * 8u32 + lane % 8u32;
     var y: u32 = tile / cols * 8u32 + lane / 8u32;
     shared_store(320u32 + lane, 0f32);
-    if x >= width || y >= words_load(1u32) || (
-        words_load(base + 2u32 + lane / 32u32) & (1u32 << (lane % 32u32))
-    ) == 0u32 {
+    if !raster_active(base, lane, x, y, width) {
         return;
     }
     var best: f32 = 0f32;

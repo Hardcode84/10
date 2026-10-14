@@ -1,3 +1,52 @@
+fn project_fan(scratch: u32, output: u32, count: u32, tri: u32) -> unit {
+    var fan: u32 = 0u32;
+    while fan < count - 2u32 {
+        var vertex: u32 = 0u32;
+        while vertex < 3u32 {
+            var src: u32 = 0u32;
+            if vertex > 0u32 {
+                src = fan + vertex;
+            }
+            src = scratch + src * 6u32;
+            var dst: u32 = output + fan * 20u32 + vertex * 6u32;
+            var iz: f32 = 1f32 / floats_load(src + 2u32);
+            var h: f32 = words_load(1u32) as f32 * 0.5f32;
+            var px: f32 = words_load(0u32) as f32 * 0.5f32 + floats_load(src) * iz * h;
+            var py: f32 = h - floats_load(src + 1u32) * iz * h;
+            if (words_load(MATERIAL_STYLE + words_load(META + tri * 4u32 + 1u32)) & 4u32) != 0u32 {
+                px = ((px + 0.5f32) as i32) as f32;
+                py = ((py + 0.5f32) as i32) as f32;
+            }
+            floats_store(dst, px);
+            floats_store(dst + 1u32, py);
+            floats_store(dst + 2u32, iz);
+            floats_store(dst + 3u32, floats_load(src + 3u32) * iz);
+            floats_store(dst + 4u32, floats_load(src + 4u32) * iz);
+            vertex = vertex + 1u32;
+        }
+        var p: u32 = output + fan * 20u32;
+        var area: f32 = edge(
+            floats_load(p),
+            floats_load(p + 1u32),
+            floats_load(p + 6u32),
+            floats_load(p + 7u32),
+            floats_load(p + 12u32),
+            floats_load(p + 13u32)
+        );
+        if area < 0f32 {
+            var c: u32 = 0u32;
+            while c < 5u32 {
+                var a: f32 = floats_load(p + 6u32 + c);
+                floats_store(p + 6u32 + c, floats_load(p + 12u32 + c));
+                floats_store(p + 12u32 + c, a);
+                c = c + 1u32;
+            }
+            area = 0f32 - area;
+        }
+        floats_store(p + 18u32, area);
+        fan = fan + 1u32;
+    }
+}
 fn clip_distance(base: u32, plane: u32, near: f32) -> f32 {
     var x: f32 = floats_load(base);
     var y: f32 = floats_load(base + 1u32);
@@ -122,53 +171,7 @@ fn prepare_triangle(index: u32) -> unit {
         }
         vertex = vertex + 1u32;
     }
-    fan = 0u32;
-    while fan < count - 2u32 {
-        vertex = 0u32;
-        while vertex < 3u32 {
-            var src: u32 = 0u32;
-            if vertex > 0u32 {
-                src = fan + vertex;
-            }
-            src = scratch + src * 6u32;
-            var dst: u32 = output + fan * 20u32 + vertex * 6u32;
-            var iz: f32 = 1f32 / floats_load(src + 2u32);
-            var h: f32 = words_load(1u32) as f32 * 0.5f32;
-            var px: f32 = words_load(0u32) as f32 * 0.5f32 + floats_load(src) * iz * h;
-            var py: f32 = h - floats_load(src + 1u32) * iz * h;
-            if (words_load(MATERIAL_STYLE + words_load(META + tri * 4u32 + 1u32)) & 4u32) != 0u32 {
-                px = ((px + 0.5f32) as i32) as f32;
-                py = ((py + 0.5f32) as i32) as f32;
-            }
-            floats_store(dst, px);
-            floats_store(dst + 1u32, py);
-            floats_store(dst + 2u32, iz);
-            floats_store(dst + 3u32, floats_load(src + 3u32) * iz);
-            floats_store(dst + 4u32, floats_load(src + 4u32) * iz);
-            vertex = vertex + 1u32;
-        }
-        var p: u32 = output + fan * 20u32;
-        var area: f32 = edge(
-            floats_load(p),
-            floats_load(p + 1u32),
-            floats_load(p + 6u32),
-            floats_load(p + 7u32),
-            floats_load(p + 12u32),
-            floats_load(p + 13u32)
-        );
-        if area < 0f32 {
-            var c: u32 = 0u32;
-            while c < 5u32 {
-                var a: f32 = floats_load(p + 6u32 + c);
-                floats_store(p + 6u32 + c, floats_load(p + 12u32 + c));
-                floats_store(p + 12u32 + c, a);
-                c = c + 1u32;
-            }
-            area = 0f32 - area;
-        }
-        floats_store(p + 18u32, area);
-        fan = fan + 1u32;
-    }
+    project_fan(scratch, output, count, tri);
 }
 fn compute() -> unit {
     var i: u32 = shader_global_x();

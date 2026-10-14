@@ -1,3 +1,28 @@
+fn surface_extent(
+    caps: *VkSurfaceCapabilitiesKHR,
+    width: u32,
+    height: u32,
+    output: *VkExtent2D
+) -> bool {
+    if (caps -> supportedUsageFlags & 2u32) == 0u32 || (caps -> supportedCompositeAlpha & 1u32) == 0u32 {
+        return error("surface requires transfer destination and opaque alpha support");
+    }
+    var extent: VkExtent2D = make VkExtent2D {
+        width: width,
+        height: height
+    };
+    if caps -> currentExtent.width != 0xffffffffu32 {
+        extent = caps -> currentExtent;
+    }
+    if extent.width != width || extent.height != height {
+        return error("surface extent differs from requested output extent");
+    }
+    if width < caps -> minImageExtent.width || width > caps -> maxImageExtent.width || height < caps -> minImageExtent.height || height > caps -> maxImageExtent.height {
+        return error("requested output extent exceeds surface limits");
+    }
+    * output = extent;
+    return true;
+}
 fn surface_format(v: *Vulkan, format: *VkSurfaceFormatKHR) -> bool {
     var count: u32 = 0u32;
     if !vk_ok(
@@ -43,21 +68,9 @@ fn swapchain_open(v: *Vulkan, width: u32, height: u32) -> bool {
     ) || !surface_format(v, &format) {
         return false;
     }
-    if (caps.supportedUsageFlags & 2u32) == 0u32 || (caps.supportedCompositeAlpha & 1u32) == 0u32 {
-        return error("surface requires transfer destination and opaque alpha support");
-    }
-    var extent: VkExtent2D = make VkExtent2D {
-        width: width,
-        height: height
-    };
-    if caps.currentExtent.width != 0xffffffffu32 {
-        extent = caps.currentExtent;
-    }
-    if extent.width != width || extent.height != height {
-        return error("surface extent differs from requested output extent");
-    }
-    if width < caps.minImageExtent.width || width > caps.maxImageExtent.width || height < caps.minImageExtent.height || height > caps.maxImageExtent.height {
-        return error("requested output extent exceeds surface limits");
+    var extent: VkExtent2D = uninit;
+    if !surface_extent(&caps, width, height, &extent) {
+        return false;
     }
     var info: VkSwapchainCreateInfoKHR = uninit;
     zero(&info as *u8, sizeof(VkSwapchainCreateInfoKHR));

@@ -1,3 +1,70 @@
+fn palette_pixels(v: *Vulkan, mode: u32) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var good: bool = true;
+    var i: u32 = 0u32;
+    while good && i < 641u32 * 363u32 {
+        if w[(PIXELS + i) as usize] != palette_expected(i % 641u32, i / 641u32, mode) {
+            print_number(i as i64);
+            good = error("palette reference mismatch");
+        }
+        i = i + 1u32;
+    }
+    return good;
+}
+fn palette_inputs(v: *Vulkan) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    w[0usize] = 641u32;
+    w[1usize] = 363u32;
+    w[22usize] = 1282u32;
+    w[23usize] = 726u32;
+    var i: u32 = 0u32;
+    while i < 64u32 {
+        w[(TEXTURE + i) as usize] = i;
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 4096u32 {
+        var c: u32 = i / 64u32;
+        var l: u32 = i % 64u32;
+        w[(PALETTE + i) as usize] = (((24u32 + c * 3u32) % 256u32) * l / 63u32) | (
+            (((24u32 + c * 5u32) % 256u32) * l / 63u32) << 8u32
+        ) | ((((24u32 + c * 7u32) % 256u32) * l / 63u32) << 16u32) | 0xff000000u32;
+        i = i + 1u32;
+    }
+}
+fn palette_run(v: *Vulkan) -> bool {
+    palette_inputs(v);
+    var w: *u32 = v -> mapped as *u32;
+    var good: bool = palette_record(v);
+    var mode: u32 = 0u32;
+    while good && mode < 2u32 {
+        w[2usize] = mode;
+        w[21usize] = 37u32;
+        if mode == 1u32 {
+            w[21usize] = 44u32;
+        }
+        good = dispatch(v) && frame_valid(v) && presentation_check(v);
+        if good {
+            good = palette_pixels(v, mode);
+        }
+        if good && mode == 0u32 {
+            good = palette_color_count(v);
+        }
+        if good && mode == 1u32 {
+            w[21usize] = 37u32;
+            good = dispatch(v) && frame_valid(v) && presentation_check(v);
+        }
+        if good {
+            if mode == 0u32 {
+                good = capture(v, "build/checker.ppm", 1282u32, 726u32);
+            } else {
+                good = capture(v, "build/ordered.ppm", 1282u32, 726u32);
+            }
+        }
+        mode = mode + 1u32;
+    }
+    return good;
+}
 fn palette_record(v: *Vulkan) -> bool {
     var begin: VkCommandBufferBeginInfo = uninit;
     zero(&begin as *u8, sizeof(VkCommandBufferBeginInfo));
@@ -78,58 +145,7 @@ fn palette_test() -> bool {
         1usize
     ) && descriptors_create(&v) && commands_create(&v);
     if good {
-        var w: *u32 = v.mapped as *u32;
-        w[0usize] = 641u32;
-        w[1usize] = 363u32;
-        w[22usize] = 1282u32;
-        w[23usize] = 726u32;
-        var i: u32 = 0u32;
-        while i < 64u32 {
-            w[(TEXTURE + i) as usize] = i;
-            i = i + 1u32;
-        }
-        i = 0u32;
-        while i < 4096u32 {
-            var c: u32 = i / 64u32;
-            var l: u32 = i % 64u32;
-            w[(PALETTE + i) as usize] = (((24u32 + c * 3u32) % 256u32) * l / 63u32) | (
-                (((24u32 + c * 5u32) % 256u32) * l / 63u32) << 8u32
-            ) | ((((24u32 + c * 7u32) % 256u32) * l / 63u32) << 16u32) | 0xff000000u32;
-            i = i + 1u32;
-        }
-        good = palette_record(&v);
-        var mode: u32 = 0u32;
-        while good && mode < 2u32 {
-            w[2usize] = mode;
-            w[21usize] = 37u32;
-            if mode == 1u32 {
-                w[21usize] = 44u32;
-            }
-            good = dispatch(&v) && frame_valid(&v) && presentation_check(&v);
-            i = 0u32;
-            while good && i < 641u32 * 363u32 {
-                if w[(PIXELS + i) as usize] != palette_expected(i % 641u32, i / 641u32, mode) {
-                    print_number(i as i64);
-                    good = error("palette reference mismatch");
-                }
-                i = i + 1u32;
-            }
-            if good && mode == 0u32 {
-                good = palette_color_count(&v);
-            }
-            if good && mode == 1u32 {
-                w[21usize] = 37u32;
-                good = dispatch(&v) && frame_valid(&v) && presentation_check(&v);
-            }
-            if good {
-                if mode == 0u32 {
-                    good = capture(&v, "build/checker.ppm", 1282u32, 726u32);
-                } else {
-                    good = capture(&v, "build/ordered.ppm", 1282u32, 726u32);
-                }
-            }
-            mode = mode + 1u32;
-        }
+        good = palette_run(&v);
     }
     device_close(&v);
     if good {

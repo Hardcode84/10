@@ -55,8 +55,9 @@ pre-commit run --all-files
 
 The checks require pre-commit 4 or later. They check whitespace, line endings,
 YAML, JSON, TOML, merge conflicts, file names, symbolic links, executable scripts,
-large files, and private keys. The local hook formats `.crs` files with the pinned
-Crust formatter. It does not build or run the game. Review and stage any files
+large files, and private keys. The local hooks format `.crs` files and reject functions with CCN above 15.
+They use the pinned Crust formatter and ownership-aware CCN reader. They do not
+build or run the game. Review and stage any files
 that a hook changes, then run the checks again.
 
 ## Develop Crust

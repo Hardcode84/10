@@ -28,3 +28,9 @@ repos:
         entry: crust/build/crust crust/stages/build/run.crs stages/format/tool.crs --write --
         files: '\.crs$'
         require_serial: true
+      - id: crust-ccn
+        name: check Crust CCN (maximum 15)
+        language: system
+        entry: crust/build/crust crust/stages/build/run.crs stages/ccn/ownership-tool.crs -w --CCN 15 --
+        files: '\.crs$'
+        require_serial: true

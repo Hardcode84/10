@@ -1,3 +1,45 @@
+fn demo_output(session: mut DemoSession, playback: mut Playback, o: DemoConfig, index: u32) -> bool {
+    var good: bool = true;
+    if o.capture {
+        if index + 1u32 == o.frames {
+            good = session_capture(read session);
+        }
+    } else {
+        good = session_present(mut session) && playback_print(read playback);
+        if good && index + 1u32 < o.frames {
+            good = playback_next(mut playback);
+        }
+    }
+    return good;
+}
+fn demo_frame(o: DemoConfig, index: u32, frame_index: u32) -> u32 {
+    var frame: u32 = o.frame + index;
+    if !o.capture {
+        frame = frame_index;
+    }
+    if o.test == 2u32 {
+        frame = index * 60u32;
+        if index == 7u32 {
+            frame = 0u32;
+        }
+        if index >= 8u32 && index < 14u32 {
+            frame = 281u32 + index - 8u32;
+        }
+        if index >= 14u32 {
+            frame = 500u32 + index - 14u32;
+        }
+        if index == 21u32 {
+            frame = 512u32;
+        }
+        if index == 22u32 {
+            frame = 523u32;
+        }
+        if index >= 23u32 {
+            frame = 367u32 + index - 23u32;
+        }
+    }
+    return frame;
+}
 fn demo_run(session: DemoSession, o: DemoConfig) -> i32 {
     var good: bool = session_open(mut session);
     if good {
@@ -26,31 +68,7 @@ fn demo_run(session: DemoSession, o: DemoConfig) -> i32 {
     }
     while good && playback.running && index < o.frames {
         var start: u64 = now();
-        var frame: u32 = o.frame + index;
-        if !o.capture {
-            frame = playback.frame;
-        }
-        if o.test == 2u32 {
-            frame = index * 60u32;
-            if index == 7u32 {
-                frame = 0u32;
-            }
-            if index >= 8u32 && index < 14u32 {
-                frame = 281u32 + index - 8u32;
-            }
-            if index >= 14u32 {
-                frame = 500u32 + index - 14u32;
-            }
-            if index == 21u32 {
-                frame = 512u32;
-            }
-            if index == 22u32 {
-                frame = 523u32;
-            }
-            if index >= 23u32 {
-                frame = 367u32 + index - 23u32;
-            }
-        }
+        var frame: u32 = demo_frame(o, index, playback.frame);
         {
             var renderer: mut Renderer = session_renderer(mut session);
             var inputs: FrameInput = renderer_inputs(mut renderer);
@@ -104,16 +122,7 @@ fn demo_run(session: DemoSession, o: DemoConfig) -> i32 {
             good = session_verify(read session, index, frame);
         }
         if good {
-            if o.capture {
-                if index + 1u32 == o.frames {
-                    good = session_capture(read session);
-                }
-            } else {
-                good = session_present(mut session) && playback_print(read playback);
-                if good && index + 1u32 < o.frames {
-                    good = playback_next(mut playback);
-                }
-            }
+            good = demo_output(mut session, mut playback, o, index);
         }
         index = index + 1u32;
     }

@@ -1,3 +1,20 @@
+fn buffers_close(v: *Vulkan) -> unit {
+    if v -> mapped != null(*u8) {
+        vkUnmapMemory(v -> device, v -> staging_memory);
+    }
+    if v -> staging != null(*u8) {
+        vkDestroyBuffer(v -> device, v -> staging, null(*u8));
+    }
+    if v -> staging_memory != null(*u8) {
+        vkFreeMemory(v -> device, v -> staging_memory, null(*u8));
+    }
+    if v -> buffer != null(*u8) {
+        vkDestroyBuffer(v -> device, v -> buffer, null(*u8));
+    }
+    if v -> memory != null(*u8) {
+        vkFreeMemory(v -> device, v -> memory, null(*u8));
+    }
+}
 // SPDX-License-Identifier: Apache-2.0
 
 fn commands_create(v: *Vulkan) -> bool {
@@ -188,21 +205,7 @@ fn device_close(v: *Vulkan) -> unit {
         if v -> layout != null(*u8) {
             vkDestroyDescriptorSetLayout(v -> device, v -> layout, null(*u8));
         }
-        if v -> mapped != null(*u8) {
-            vkUnmapMemory(v -> device, v -> staging_memory);
-        }
-        if v -> staging != null(*u8) {
-            vkDestroyBuffer(v -> device, v -> staging, null(*u8));
-        }
-        if v -> staging_memory != null(*u8) {
-            vkFreeMemory(v -> device, v -> staging_memory, null(*u8));
-        }
-        if v -> buffer != null(*u8) {
-            vkDestroyBuffer(v -> device, v -> buffer, null(*u8));
-        }
-        if v -> memory != null(*u8) {
-            vkFreeMemory(v -> device, v -> memory, null(*u8));
-        }
+        buffers_close(v);
         vkDestroyDevice(v -> device, null(*u8));
     }
     if v -> surface != null(*u8) {

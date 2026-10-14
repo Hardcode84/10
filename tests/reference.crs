@@ -1,3 +1,30 @@
+fn reference_image(
+    mapped: *u8,
+    width: u32,
+    height: u32,
+    expected: *u32,
+    hits: *Hit,
+    edges: *u8
+) -> unit {
+    var y: u32 = 0u32;
+    while y < height {
+        var x: u32 = 0u32;
+        while x < width {
+            var boundary: bool = false;
+            expected[(y * width + x) as usize] = trace(
+                mapped,
+                x,
+                y,
+                &boundary,
+                false,
+                &hits[(y * width + x) as usize]
+            );
+            edges[(y * width + x) as usize] = boundary as u8;
+            x = x + 1u32;
+        }
+        y = y + 1u32;
+    }
+}
 extern fn puts(text: *u8) -> i32 = "puts";
 extern fn malloc(size: usize) -> *u8 = "malloc";
 extern fn free(bytes: *u8) -> unit = "free";
@@ -293,24 +320,8 @@ fn reference_check(mapped: *u8) -> bool {
         free(expected as *u8);
         return false;
     }
+    reference_image(mapped, width, height, expected, hits, edges);
     var y: u32 = 0u32;
-    while y < height {
-        var x: u32 = 0u32;
-        while x < width {
-            var boundary: bool = false;
-            expected[(y * width + x) as usize] = trace(
-                mapped,
-                x,
-                y,
-                &boundary,
-                false,
-                &hits[(y * width + x) as usize]
-            );
-            edges[(y * width + x) as usize] = boundary as u8;
-            x = x + 1u32;
-        }
-        y = y + 1u32;
-    }
     var errors: u32 = 0u32;
     var exact: u32 = 0u32;
     var boundary_pixels: u32 = 0u32;

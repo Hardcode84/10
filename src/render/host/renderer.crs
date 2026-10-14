@@ -1,3 +1,9 @@
+fn render_config_valid(config: *RenderConfig) -> bool {
+    if config -> width == 0u32 || config -> height == 0u32 || config -> width > 1920u32 || config -> height > 1080u32 || config -> output_width == 0u32 || config -> output_height == 0u32 || config -> output_width > 1920u32 || config -> output_height > 1080u32 || config -> view_budget == 0u32 || config -> view_budget > MAX_VIEWS {
+        return error("render configuration exceeds image or view capacity");
+    }
+    return true;
+}
 fn frame_valid(v: *Vulkan) -> bool {
     var status: *u32 = (v -> mapped + (WORDS_LENGTH as isize + FLOATS_LENGTH as isize) * 4isize) as *u32;
     var i: usize = 0usize;
@@ -27,8 +33,8 @@ record RenderConfig {
 // Requires an instance and an optional surface. Shader bytes are borrowed for this call.
 // Call device_close after success or failure. Image dimensions stay fixed until close.
 fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> bool {
-    if config -> width == 0u32 || config -> height == 0u32 || config -> width > 1920u32 || config -> height > 1080u32 || config -> output_width == 0u32 || config -> output_height == 0u32 || config -> output_width > 1920u32 || config -> output_height > 1080u32 || config -> view_budget == 0u32 || config -> view_budget > MAX_VIEWS {
-        return error("render configuration exceeds image or view capacity");
+    if !render_config_valid(config) {
+        return false;
     }
     v -> read_pixels = config -> read_pixels;
     if !device_open(v) || !buffer_create(v) || !layout_create(v) {

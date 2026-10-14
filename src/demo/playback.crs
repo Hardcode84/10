@@ -10,11 +10,7 @@ fn playback_next(p: mut Playback) -> bool {
             return false;
         }
         if event.status == 0i32 {
-            if p.frame == 0xffffffffu32 {
-                return playback_overflow();
-            }
-            p.frame = p.frame + 1u32;
-            return true;
+            return playback_advance(mut p);
         }
         var kind: u32 = event.kind;
         if kind == 256u32 {
@@ -37,14 +33,18 @@ fn playback_next(p: mut Playback) -> bool {
                         return false;
                     }
                 } else {
-                    if p.frame == 0xffffffffu32 {
-                        return playback_overflow();
-                    }
-                    p.frame = p.frame + 1u32;
-                    return true;
+                    return playback_advance(mut p);
                 }
             }
         }
     }
+    return true;
+}
+
+fn playback_advance(p: mut Playback) -> bool {
+    if p.frame == 0xffffffffu32 {
+        return playback_overflow();
+    }
+    p.frame = p.frame + 1u32;
     return true;
 }
