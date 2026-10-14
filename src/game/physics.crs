@@ -38,6 +38,6 @@ fn simulate(drone: mut Drone, command: Command, full_spin: bool, auto_level: boo
     var travel: Vec3 = scale(drone.velocity, STEP);
     move_drone(mut drone, travel);
     hook_step(mut drone, full_spin);
-    tether_winch(mut drone, command.reel);
+    tether_winch(mut drone);
     tether_constraint(mut drone);
 }

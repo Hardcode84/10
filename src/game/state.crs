@@ -3,7 +3,7 @@ const DRONE_RADIUS: f32 = 0.35f32;
 record Command {
     thrust: Vec3;
     look: Vec3;
-    reel: f32;
+    reel: bool;
     burst: bool;
     brake: bool;
     tether: bool;
@@ -16,7 +16,7 @@ fn idle_command() -> Command {
     return make Command {
         thrust: vec(0f32, 0f32, 0f32),
         look: vec(0f32, 0f32, 0f32),
-        reel: 0f32,
+        reel: false,
         burst: false,
         brake: false,
         tether: false,
@@ -29,13 +29,14 @@ fn idle_command() -> Command {
 const CABLE_READY: u32 = 0u32;
 const CABLE_FLYING: u32 = 1u32;
 const CABLE_ATTACHED: u32 = 2u32;
-const CABLE_MISSED: u32 = 3u32;
+const CABLE_SNAPPED: u32 = 3u32;
 record Cable {
     phase: u32;
     anchor: Vec3;
     velocity: Vec3;
     extent: f32;
     reel_speed: f32;
+    reeling: bool;
 }
 fn empty_cable() -> Cable {
     return make Cable {
@@ -43,7 +44,8 @@ fn empty_cable() -> Cable {
         anchor: vec(0f32, 0f32, 0f32),
         velocity: vec(0f32, 0f32, 0f32),
         extent: 0f32,
-        reel_speed: 0f32
+        reel_speed: 0f32,
+        reeling: false
     };
 }
 record Drone {

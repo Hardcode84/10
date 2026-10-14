@@ -18,6 +18,7 @@ fn trial_hash(trial: read Trial) -> u32 {
     hash = hash_vec(hash, d.cable.velocity);
     hash = hash_word(hash, float_bits(d.cable.extent));
     hash = hash_word(hash, float_bits(d.cable.reel_speed));
+    hash = hash_word(hash, d.cable.reeling as u32);
     hash = hash_word(hash, d.cable.phase);
     hash = hash_word(hash, d.bursts);
     hash = hash_word(hash, float_bits(d.brake_speed));

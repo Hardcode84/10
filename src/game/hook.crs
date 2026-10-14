@@ -46,7 +46,7 @@ fn hook_step(drone: mut Drone, full_spin: bool) -> unit {
         drone.cable.phase = CABLE_ATTACHED;
     } else if limit < 1f32 {
         drone.cable = empty_cable();
-        drone.cable.phase = CABLE_MISSED;
+        drone.cable.phase = CABLE_SNAPPED;
     } else {
         drone.cable.anchor = add(drone.cable.anchor, travel);
     }

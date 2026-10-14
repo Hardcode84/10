@@ -135,7 +135,7 @@ fn smoke_command(trial: read Trial, tick: u32) -> Command {
     c.burst = tick == 0u32;
     c.thrust = vec(0f32, 0.2f32, 0.5f32);
     c.tether = tick >= 100u32 && tick < 200u32;
-    c.reel = -0.2f32;
+    c.reel = tick == 110u32;
     c.brake = tick == 230u32;
     c.spin = tick == 300u32;
     if tick >= 301u32 {

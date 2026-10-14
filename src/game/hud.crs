@@ -37,8 +37,11 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
         hud_text(mut v, 5u32, 1u32, "FLYING");
     } else if trial.drone.cable.phase == CABLE_ATTACHED {
         hud_text(mut v, 5u32, 1u32, "ATTACHED");
-    } else if trial.drone.cable.phase == CABLE_MISSED {
-        hud_text(mut v, 5u32, 1u32, "MISS: RELEASE");
+        if trial.drone.cable.reeling {
+            hud_text(mut v, 5u32, 1u32, "REELING ");
+        }
+    } else if trial.drone.cable.phase == CABLE_SNAPPED {
+        hud_text(mut v, 5u32, 1u32, "SNAP: RELEASE");
     }
     hud_text(mut v, 20u32, 1u32, "CABLE M");
     var cable_length: f32 = trial.drone.cable.extent;
@@ -54,7 +57,7 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
     hud_text(mut v, 19u32, 2u32, "PREVIEW 0 OFF 1 AIM 2 ALWAYS");
     hud_number(mut v, 47u32, 2u32, trial.preview_mode);
     hud_text(mut v, 0u32, 3u32, "WASD SPACE CTRL MOVE | MOUSE LOOK | RMB BURST | F BRAKE");
-    hud_text(mut v, 0u32, 4u32, "LMB TETHER | R/T REEL | F4 SPIN | L LEVEL | P PREVIEW");
+    hud_text(mut v, 0u32, 4u32, "LMB TETHER | R REEL | F4 SPIN | L LEVEL | P PREVIEW");
     hud_text(
         mut v,
         0u32,

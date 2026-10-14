@@ -39,7 +39,7 @@ values. Charge depletion and beacons belong to Phase 1.
 | Burst | Right mouse, on press | RT, on press |
 | Brake | F, on press | A, on press |
 | Launch and hold tether; release to detach | Hold left mouse | Hold LT |
-| Reel in / out | R / T; Space / Ctrl while tethering | RB / LB while tethering |
+| Start fast reel; stays on until hook release | R; Space while tethering | RB while tethering |
 | Roll with auto-level off | Q / E | D-pad left / right |
 | Retry | Backspace | X |
 | Select spin and retry | F4 | Y |
@@ -63,8 +63,8 @@ The drone frame stays in view. `--fov` accepts 70 through 110 degrees of
 vertical field of view. P cycles the preview through aim, always, and off.
 Aim mode shows the preview when the centre ray can reach a tether surface or
 a hook is in flight or a cable is attached. The preview runs the same simulation
-for two seconds without further thrust, braking, or reeling. It keeps a launched
-hook or an attached cable held.
+for two seconds without further thrust, braking, or reel commands. It keeps a
+launched hook or an attached cable held. An active reel continues in the preview.
 Blue square outlines mark the predicted positions. Each square is 24 cm wide
 between the border centre lines. The border has a solid cyan colour at full
 brightness. Its width in render pixels is `ceil(max(width / 640, height / 480))`:
@@ -82,8 +82,8 @@ Pink outlines show the hook path while the tether is ready to launch. This
 preview uses the actual launch and flight simulation on a copy of the drone.
 It includes inherited velocity, recoil, drag, spin forces, surface contact,
 and the range limit. It assumes no further movement input or reeling. It stops
-at contact or a range miss. It is hidden while the hook is in flight, attached,
-or waiting for release after a miss. P set to off hides both paths.
+at contact or a range snap. It is hidden while the hook is in flight, attached,
+or waiting for release after a snap. P set to off hides both paths.
 
 The paths share a limit of eight markers. When the hook preview is active, the
 drone path uses up to four markers. The hook path uses the remaining markers.
@@ -122,18 +122,24 @@ from drag, centrifugal force, and Coriolis force as the drone, with the same
 A swept sphere with a 0.06 m radius finds the first surface on each flight
 step. Only contact attaches the cable. The hook cannot pass through a thin
 solid between ticks. If it reaches 120 m from the drone without contact, the
-shot ends and the HUD shows MISS: RELEASE. Release the action before another
+cable snaps and the HUD shows SNAP: RELEASE. Release the action before another
 launch. Release also removes an in-flight hook or an attached cable at once.
 There is no rewind delay.
 
 An attached cable cannot break. It passes through structure and does not wrap
 around corners. It has a hard maximum length, with no spring or stored tension.
 The player still collides with structure. Each collision-slide segment stays
-inside the cable length. The winch targets 20 m/s and changes speed at up to
-10 m/s^2. Its length is between 0.75 m and 120 m. If a surface blocks the player,
-the winch stops at the length it can reach. It does not pull the player through
-the surface. Winch work uses the velocity constraint impulse and the actual
-reel speed. There is no load limit or tension warning.
+inside the cable length. Press reel once to start pulling at 40 m/s immediately.
+There is no speed ramp. A taut cable gives the player an immediate velocity
+change toward the hook. The reel stays on when its button is released or
+pressed again. It cannot reverse. Only hook release clears it. A reel press
+during hook flight starts the pull on contact.
+
+Cable length is between 0.75 m and 120 m. If a surface blocks the player, the
+winch stops at the length it can reach. It remains active and resumes when the
+path clears. It does not pull the player through the surface. Winch work uses
+the velocity constraint impulse and the actual reel speed. There is no load
+limit or tension warning. Ctrl and LB remain downward thrust while tethered.
 
 The game keeps its camera, geometry, inputs, and trial rules outside
 `src/render/`. Transformed portals remain available in the renderer demo.
@@ -148,7 +154,7 @@ drum coordinates, and attached cables.
 | `course.crs` | Solids, gates, and drum placement |
 | `physics.crs`, `orientation.crs` | Forces, integration, and attitude |
 | `collision.crs` | Sweeps and contact response |
-| `hook.crs` | Launch, recoil, projectile flight, contact, and range misses |
+| `hook.crs` | Launch, recoil, projectile flight, contact, and range snaps |
 | `tether.crs` | Cable length, winch, and release |
 | `tether-view.crs` | Cable, hook body, and direction indicator |
 | `trial.crs` | Attempt state, gate order, and finish detection |
@@ -185,15 +191,16 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 2 includes
-projectile velocity and cable phase in the state hash. Version 1 recordings
-are rejected because they use the previous attachment physics.
+format uses the current Linux host's word representation. Version 3 stores reel presses as
+Boolean commands and includes the latched reel state in the state hash. Earlier
+versions are rejected because they use different tether controls or physics.
 
 `--ticks N` bounds a run. In headless mode, the simulation runs without wall
 clock pacing and renders the last state. `--smoke` supplies test commands for
 thrust, tether, brake, and a spin-mode change. `--test` checks forces, swept
-collision, projectile flight and recoil, high-speed attachment, range misses,
-tether release, fast swings, blocked winching, input edges, mouse accumulation,
+collision, projectile flight and recoil, high-speed attachment, range snaps,
+tether release, fast swings, latched fast reeling, blocked winching, input edges,
+mouse accumulation,
 repeated input streams, and a complete stopped-course flight.
 These checks use the production simulation.
 
@@ -205,10 +212,10 @@ line has seven integers:
 ```text
 # action  SDL-scancode  mouse-mask  pad-button  pad-axis  direction  toggle
 8         -1            1           -1          4         1          1
-9         21            0           -1         -1         1          1
+9         21            0           -1         -1         1          0
 ```
 
-This example toggles the tether and reel-in actions. Use `-1` to disable a key,
+This example toggles the tether and binds R to start the latched reel. Use `-1` to disable a key,
 pad button, or pad axis; use zero to disable mouse buttons. Direction is -1 or
 1. Toggle is zero or one. Mouse masks use SDL button bits. Stick and trigger
 axes have a 15 percent dead zone. Mouse motion controls look directly.
@@ -216,9 +223,9 @@ axes have a 15 percent dead zone. Mouse motion controls look directly.
 | Action number | Action |
 | --- | --- |
 | 0–5 | Forward, backward, left, right, up, down |
-| 6–10 | Burst, brake, tether, reel in, reel out |
-| 11–16 | Yaw right, yaw left, pitch down, pitch up, roll right, roll left |
-| 17–22 | Retry, spin, auto-level, preview, quit, pause |
+| 6–9 | Burst, brake, tether, start reel |
+| 10–15 | Yaw right, yaw left, pitch down, pitch up, roll right, roll left |
+| 16–21 | Retry, spin, auto-level, preview, quit, pause |
 
 ## Playtest gate
 

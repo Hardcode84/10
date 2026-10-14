@@ -58,7 +58,7 @@ fn test_blocked_winch() -> bool {
     drone.velocity = vec(0f32, 0f32, 0f32);
     var c: Command = idle_command();
     c.tether = true;
-    c.reel = -1f32;
+    c.reel = true;
     var i: u32 = 0u32;
     while i < 600u32 {
         simulate(mut drone, c, false, true);
@@ -81,14 +81,88 @@ fn test_winch() -> bool {
     var drone: Drone = attached_test_drone();
     var c: Command = idle_command();
     c.tether = true;
-    c.reel = -0.2f32;
+    c.reel = true;
+    var old: f32 = drone.cable.extent;
+    simulate(mut drone, c, false, true);
+    if !game_check(
+        drone.cable.reeling && near(old - drone.cable.extent, REEL_SPEED * STEP, 0.001f32) && drone.velocity.z > 39f32,
+        "reel press must immediately pull at full speed"
+    ) {
+        return false;
+    }
+    c.reel = false;
+    old = drone.cable.extent;
+    simulate(mut drone, c, false, true);
+    if !game_check(
+        drone.cable.reeling && drone.cable.extent < old - 0.3f32,
+        "releasing the reel button must not stop reeling"
+    ) {
+        return false;
+    }
     var i: u32 = 0u32;
     while i < 240u32 {
         simulate(mut drone, c, false, true);
         i = i + 1u32;
     }
+    if !game_check(
+        drone.cable.phase == CABLE_ATTACHED && drone.cable.reeling && near(
+            drone.cable.extent,
+            0.75f32,
+            0.001f32
+        ) && drone.winch_work > 0f32,
+        "latched winch must keep pulling to minimum length"
+    ) {
+        return false;
+    }
+    simulate(mut drone, idle_command(), false, true);
     return game_check(
-        drone.cable.phase == CABLE_ATTACHED && drone.cable.extent < 14f32 && drone.winch_work > 0f32 && drone.velocity.z > 3f32,
-        "winch must shorten the cable, accelerate the drone, and record work"
-    ) && test_blocked_winch();
+        !drone.cable.reeling && drone.cable.phase == CABLE_READY,
+        "hook release must clear the reel latch"
+    ) && test_blocked_winch() && test_reel_input() && test_armed_winch();
+}
+fn test_reel_input() -> bool {
+    var input: InputState = input_new();
+    input.pulses[9usize] = 1u32;
+    input_commands(mut input, 0f32, 0f32);
+    var c: Command = input_consume(mut input);
+    var again: Command = input_consume(mut input);
+    if !game_check(
+        c.reel && !again.reel,
+        "short reel press must survive until consumed once"
+    ) {
+        return false;
+    }
+    input.values[8usize] = 1f32;
+    input.values[4usize] = 1f32;
+    input.values[5usize] = 1f32;
+    input_commands(mut input, 0f32, 0f32);
+    c = input_consume(mut input);
+    return game_check(
+        c.reel && c.tether && c.thrust.y == -1f32,
+        "tethered up must start reeling and down must remain thrust"
+    );
+}
+fn test_armed_winch() -> bool {
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 4f32, 35f32);
+    var c: Command = idle_command();
+    c.tether = true;
+    c.reel = true;
+    simulate(mut drone, c, false, true);
+    if !game_check(
+        drone.cable.phase == CABLE_FLYING && drone.cable.reeling,
+        "reel press during flight must arm the pull"
+    ) {
+        return false;
+    }
+    c.reel = false;
+    var i: u32 = 0u32;
+    while drone.cable.phase == CABLE_FLYING && i < 120u32 {
+        simulate(mut drone, c, false, true);
+        i = i + 1u32;
+    }
+    return game_check(
+        drone.cable.phase == CABLE_ATTACHED && drone.cable.reeling && drone.velocity.z > 39f32,
+        "armed reel must pull immediately on contact"
+    );
 }

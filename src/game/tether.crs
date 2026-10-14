@@ -1,13 +1,13 @@
-fn tether_winch(drone: mut Drone, reel: f32) -> unit {
+const REEL_SPEED: f32 = 40f32;
+fn tether_winch(drone: mut Drone) -> unit {
     if drone.cable.phase != CABLE_ATTACHED {
         return;
     }
     var old: f32 = drone.cable.extent;
-    var speed: f32 = drone.cable.reel_speed + clamp(
-        reel * 20f32 - drone.cable.reel_speed,
-        -10f32 * STEP,
-        10f32 * STEP
-    );
+    var speed: f32 = 0f32;
+    if drone.cable.reeling {
+        speed = -REEL_SPEED;
+    }
     var extent: f32 = clamp(old + speed * STEP, 0.75f32, CABLE_REACH);
     var offset: Vec3 = sub(drone.position, drone.cable.anchor);
     var distance: f32 = length(offset);
@@ -29,6 +29,11 @@ fn tether_input(drone: mut Drone, command: Command) -> unit {
     }
     if drone.cable.phase == CABLE_READY {
         hook_launch(mut drone);
+    }
+    if command.reel && (
+        drone.cable.phase == CABLE_FLYING || drone.cable.phase == CABLE_ATTACHED
+    ) {
+        drone.cable.reeling = true;
     }
 }
 fn tether_travel(drone: read Drone, travel: Vec3) -> Vec3 {
@@ -62,6 +67,6 @@ fn tether_constraint(drone: mut Drone) -> unit {
     drone.winch_work = drone.winch_work + speed * clamp(
         -drone.cable.reel_speed,
         0f32,
-        20f32
+        REEL_SPEED
     );
 }

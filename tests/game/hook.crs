@@ -64,13 +64,14 @@ fn test_hook_sweep() -> bool {
         "hook must hit the first surface even when a tick exceeds maximum range"
     );
 }
-fn test_hook_miss() -> bool {
+fn test_hook_range() -> bool {
     var d: Drone = new_drone();
     d.position = vec(100f32, 100f32, 0f32);
     var c: Command = idle_command();
     c.tether = true;
+    c.reel = true;
     var i: u32 = 0u32;
-    while i < 1200u32 && d.cable.phase != CABLE_MISSED {
+    while i < 1200u32 && d.cable.phase != CABLE_SNAPPED {
         simulate(mut d, c, false, false);
         if d.cable.phase == CABLE_FLYING && length(sub(d.position, d.cable.anchor)) > CABLE_REACH + 0.001f32 {
             return game_check(false, "flying hook exceeded cable reach");
@@ -78,18 +79,25 @@ fn test_hook_miss() -> bool {
         i = i + 1u32;
     }
     if !game_check(
-        d.cable.phase == CABLE_MISSED,
-        "shot without a surface must report a range miss"
+        d.cable.phase == CABLE_SNAPPED,
+        "shot without a surface must snap at the range limit"
     ) {
         return false;
     }
     simulate(mut d, c, false, false);
-    if !game_check(d.cable.phase == CABLE_MISSED, "holding after a miss must not fire again") {
+    if !game_check(
+        d.cable.phase == CABLE_SNAPPED && !d.cable.reeling,
+        "holding after a snap must not fire or retain reeling"
+    ) {
         return false;
     }
     simulate(mut d, idle_command(), false, false);
+    c.reel = false;
     simulate(mut d, c, false, false);
-    if !game_check(d.cable.phase == CABLE_FLYING, "release must permit a new launch") {
+    if !game_check(
+        d.cable.phase == CABLE_FLYING && !d.cable.reeling,
+        "release must permit a new launch with the reel off"
+    ) {
         return false;
     }
     simulate(mut d, idle_command(), false, false);
@@ -105,11 +113,15 @@ fn test_hook_hash() -> bool {
     b.drone.cable.velocity.x = b.drone.cable.velocity.x + 1f32;
     var c: Trial = a;
     c.drone.cable.phase = CABLE_ATTACHED;
+    var d: Trial = a;
+    d.drone.cable.reeling = true;
     return game_check(
-        trial_hash(read a) != trial_hash(read b) && trial_hash(read a) != trial_hash(read c),
-        "replay hash must include projectile velocity and cable phase"
+        trial_hash(read a) != trial_hash(read b) && trial_hash(read a) != trial_hash(read c) && trial_hash(
+            read a
+        ) != trial_hash(read d),
+        "replay hash must include projectile velocity, cable phase and latched reeling"
     );
 }
 fn test_hook() -> bool {
-    return test_hook_launch() && test_hook_forces(false) && test_hook_forces(true) && test_hook_sweep() && test_hook_miss() && test_hook_hash();
+    return test_hook_launch() && test_hook_forces(false) && test_hook_forces(true) && test_hook_sweep() && test_hook_range() && test_hook_hash();
 }

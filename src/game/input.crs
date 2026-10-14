@@ -1,4 +1,4 @@
-const ACTION_COUNT: usize = 23usize;
+const ACTION_COUNT: usize = 22usize;
 record Binding {
     key: i32;
     mouse: u32;
@@ -8,12 +8,12 @@ record Binding {
     toggle: bool;
 }
 record InputState {
-    bindings: [Binding; 23];
-    held: [bool; 23];
-    latched: [bool; 23];
-    values: [f32; 23];
-    pulses: [u32; 23];
-    axes_down: [bool; 23];
+    bindings: [Binding; 22];
+    held: [bool; 22];
+    latched: [bool; 22];
+    values: [f32; 22];
+    pulses: [u32; 22];
+    axes_down: [bool; 22];
     pending: Command;
     mouse: Vec3;
     quit: bool;
@@ -28,8 +28,7 @@ fn input_new() -> InputState {
         direction: 1f32,
         toggle: false
     };
-    var bindings: [Binding; 23] = make [Binding; 23] {
-        empty,
+    var bindings: [Binding; 22] = make [Binding; 22] {
         empty,
         empty,
         empty,
@@ -53,8 +52,7 @@ fn input_new() -> InputState {
         empty,
         empty
     };
-    var held: [bool; 23] = make [bool; 23] {
-        false,
+    var held: [bool; 22] = make [bool; 22] {
         false,
         false,
         false,
@@ -78,9 +76,8 @@ fn input_new() -> InputState {
         false,
         false
     };
-    var latched: [bool; 23] = held;
-    var values: [f32; 23] = make [f32; 23] {
-        0f32,
+    var latched: [bool; 22] = held;
+    var values: [f32; 22] = make [f32; 22] {
         0f32,
         0f32,
         0f32,
@@ -104,8 +101,7 @@ fn input_new() -> InputState {
         0f32,
         0f32
     };
-    var pulses: [u32; 23] = make [u32; 23] {
-        0u32,
+    var pulses: [u32; 22] = make [u32; 22] {
         0u32,
         0u32,
         0u32,
@@ -141,7 +137,7 @@ fn input_new() -> InputState {
         quit: false,
         paused: false
     };
-    var keys: [i32; 23] = make [i32; 23] {
+    var keys: [i32; 22] = make [i32; 22] {
         26i32,
         22i32,
         4i32,
@@ -152,7 +148,6 @@ fn input_new() -> InputState {
         9i32,
         -1i32,
         21i32,
-        23i32,
         -1i32,
         -1i32,
         -1i32,
@@ -194,19 +189,19 @@ fn input_new() -> InputState {
     result.bindings[6usize].axis = 5i32;
     result.bindings[8usize].axis = 4i32;
     result.bindings[7usize].button = 0i32;
+    result.bindings[10usize].axis = 2i32;
     result.bindings[11usize].axis = 2i32;
-    result.bindings[12usize].axis = 2i32;
-    result.bindings[12usize].direction = -1f32;
+    result.bindings[11usize].direction = -1f32;
+    result.bindings[12usize].axis = 3i32;
     result.bindings[13usize].axis = 3i32;
-    result.bindings[14usize].axis = 3i32;
-    result.bindings[14usize].direction = -1f32;
-    result.bindings[15usize].button = 14i32;
-    result.bindings[16usize].button = 13i32;
-    result.bindings[17usize].button = 2i32;
-    result.bindings[18usize].button = 3i32;
-    result.bindings[19usize].button = 4i32;
-    result.bindings[20usize].button = 1i32;
-    result.bindings[22usize].button = 6i32;
+    result.bindings[13usize].direction = -1f32;
+    result.bindings[14usize].button = 14i32;
+    result.bindings[15usize].button = 13i32;
+    result.bindings[16usize].button = 2i32;
+    result.bindings[17usize].button = 3i32;
+    result.bindings[18usize].button = 4i32;
+    result.bindings[19usize].button = 1i32;
+    result.bindings[21usize].button = 6i32;
     return result;
 }
 fn action_edge(input: read InputState, index: usize) -> bool {
@@ -217,14 +212,16 @@ fn action_edge(input: read InputState, index: usize) -> bool {
 fn input_commands(input: mut InputState, mouse_x: f32, mouse_y: f32) -> unit {
     input.pending.burst = input.pending.burst || action_edge(read input, 6usize);
     input.pending.brake = input.pending.brake || action_edge(read input, 7usize);
-    input.pending.restart = input.pending.restart || action_edge(read input, 17usize);
-    input.pending.spin = input.pending.spin || action_edge(read input, 18usize);
-    input.pending.assist = input.pending.assist || action_edge(read input, 19usize);
-    input.pending.preview = input.pending.preview || action_edge(read input, 20usize);
-    input.quit = input.quit || action_edge(read input, 21usize);
-    if action_edge(read input, 22usize) {
+    input.pending.restart = input.pending.restart || action_edge(read input, 16usize);
+    input.pending.spin = input.pending.spin || action_edge(read input, 17usize);
+    input.pending.assist = input.pending.assist || action_edge(read input, 18usize);
+    input.pending.preview = input.pending.preview || action_edge(read input, 19usize);
+    input.quit = input.quit || action_edge(read input, 20usize);
+    if action_edge(read input, 21usize) {
         input.paused = !input.paused;
     }
+    var reel_pressed: bool = action_edge(read input, 9usize);
+    var up_pressed: bool = action_edge(read input, 4usize);
     input_latches(mut input);
     input.pending.thrust = vec(
         input.values[3usize] - input.values[2usize],
@@ -232,20 +229,16 @@ fn input_commands(input: mut InputState, mouse_x: f32, mouse_y: f32) -> unit {
         input.values[0usize] - input.values[1usize]
     );
     input.pending.tether = input.values[8usize] > 0.5f32;
-    input.pending.reel = input.values[10usize] - input.values[9usize];
+    input.pending.reel = input.pending.reel || reel_pressed;
     if input.pending.tether {
-        input.pending.reel = clamp(
-            input.pending.reel - input.pending.thrust.y,
-            -1f32,
-            1f32
-        );
-        input.pending.thrust.y = 0f32;
+        input.pending.reel = input.pending.reel || up_pressed;
+        input.pending.thrust.y = -input.values[5usize];
     }
     input.mouse = add(input.mouse, vec(mouse_x * 0.0025f32, mouse_y * 0.0025f32, 0f32));
     input.pending.look = vec(
-        (input.values[11usize] - input.values[12usize]) * 2f32,
-        (input.values[13usize] - input.values[14usize]) * 2f32,
-        (input.values[15usize] - input.values[16usize]) * 2f32
+        (input.values[10usize] - input.values[11usize]) * 2f32,
+        (input.values[12usize] - input.values[13usize]) * 2f32,
+        (input.values[14usize] - input.values[15usize]) * 2f32
     );
 }
 fn input_consume(input: mut InputState) -> Command {
@@ -257,6 +250,7 @@ fn input_consume(input: mut InputState) -> Command {
     }
     command.look = add(command.look, scale(mouse, 1f32 / STEP));
     input.mouse = sub(input.mouse, mouse);
+    input.pending.reel = false;
     input.pending.burst = false;
     input.pending.brake = false;
     input.pending.restart = false;
