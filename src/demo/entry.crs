@@ -48,7 +48,7 @@ fn option_dimensions(o: *Options) -> bool {
     return o -> width != 0u32 && o -> height != 0u32 && o -> width <= 1920u32 && o -> height <= 1080u32 && o -> window_width <= 1920u32 && o -> window_height <= 1080u32 && o -> frames != 0u32 && o -> frames <= 4096u32;
 }
 fn option_modes(o: *Options) -> bool {
-    return o -> dither <= 1u32 && o -> view_budget != 0u32 && o -> view_budget <= MAX_VIEWS && o -> fault <= 1u32 && o -> test <= 3u32 && o -> mapping <= 2u32 && o -> snap <= 1u32 && (
+    return o -> dither <= 1u32 && o -> view_budget != 0u32 && o -> view_budget <= MAX_VIEWS && o -> fault <= 1u32 && o -> test <= 4u32 && o -> mapping <= 2u32 && o -> snap <= 1u32 && (
         o -> verify == 0u32 || (o -> mapping == 0u32 && o -> snap == 0u32)
     );
 }
@@ -94,8 +94,8 @@ fn options(argc: i32, argv: **u8, o: *Options) -> bool {
         width: 640u32,
         height: 360u32,
         frame: 0u32,
-        frames: 600u32,
-        dither: 0u32,
+        frames: 1200u32,
+        dither: 1u32,
         verify: 0u32,
         baseline: 0u32,
         view_budget: MAX_VIEWS,
@@ -141,7 +141,9 @@ fn main(argc: i32, argv: **u8) -> i32 {
         puts("SPINWARD automatic compute demo");
         puts("--capture FILE --width N --height N --window-width N --window-height N");
         puts("--frame N --frames N --dither 0|1 --mapping 0|1|2 --snap 0|1");
-        puts("--test 1 (exact palette/presentation) or 2 (scene reference) or 3 (playback input)");
+        puts(
+            "--test 1 (exact palette/presentation) or 2 (scene reference) or 3 (playback input) or 4 (lit tour reference)"
+        );
         puts("--verify 1 --baseline 1 --view-budget N --fault 1");
         puts("Window keys: Space pauses/resumes; Left/Right step one frame and pause");
         return 0i32;
@@ -163,6 +165,15 @@ fn main(argc: i32, argv: **u8) -> i32 {
         o.window_width = 640u32;
         o.window_height = 360u32;
         o.frames = 25u32;
+        o.verify = 1u32;
+    }
+    if o.test == 4u32 {
+        o.capture = "build/test-tour.ppm";
+        o.width = 320u32;
+        o.height = 180u32;
+        o.window_width = 640u32;
+        o.window_height = 360u32;
+        o.frames = 37u32;
         o.verify = 1u32;
     }
     var session: DemoSession = session_new(&o);

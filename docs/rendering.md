@@ -171,6 +171,11 @@ and [portal clipping semantics](https://github.com/hardcode84/ship3d/blob/fff58a
 
 ### Portal visibility contract
 
+Portals are directed apertures. Render an aperture only from its source side.
+Use its destination clip plane and rigid transform to determine this side.
+A reverse aperture at the same opening must not select pixels immediately after
+a view enters the destination.
+
 Resolve parent geometry and portal surfaces together. A nearer opaque object
 must hide the portal pixels behind it. A completely hidden portal creates no
 child work.

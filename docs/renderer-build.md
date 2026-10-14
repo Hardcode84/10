@@ -28,12 +28,20 @@ crust main.crs --capture build/outdoor.ppm --frame 330 --width 1920 --height 108
 crust main.crs --width 640 --height 360 --window-width 1280 --window-height 720
 ```
 
-The camera repeats a 600-frame path from an interior through a doorway into an
-outdoor space. The scene includes a rotated portal to the same outdoor space,
-a recursive portal, cutout foliage, and an object that crosses a doorway.
-This is a graybox rendering demo, not the game's playable prototype.
+The default demo tours a loading bay, a machinery gallery, and an outdoor yard.
+The bay contains wall ribs, crates, a console, and amber and cyan lamps. The
+gallery has a moving lamp. The yard contains terrain, towers, a bridge, and rock
+formations. A translated portal joins the rooms. A rotated portal joins the
+gallery and yard. Both openings have reverse connections. The scene uses 240
+source triangles within the 256-triangle budget.
 
-Window mode runs 600 frames by default. Capture mode runs one frame by default
+The camera repeats a 1,200-frame trip through both openings, looks back at the
+buildings, and returns. Frame 0 shows the loading bay, frame 240 shows the
+gallery and its outdoor opening, frame 320 shows the yard, and frame 600 looks
+back at the buildings. This remains a rendering demo, not a playable prototype.
+The original scene remains in test 2 for portal and cutout regression checks.
+
+Window mode runs 1,200 frames by default. Capture mode runs one frame by default
 and writes the last frame to a binary RGB PPM file. Use `--frames N` to change
 the count. A frame number determines the camera and moving object positions;
 wall-clock time does not affect them. Close the window to stop the demo.
@@ -50,7 +58,7 @@ demo waits for input and does not use the remaining frame count. Use
 
 | Option | Behaviour |
 | --- | --- |
-| `--dither 0` or `1` | Checker or 4 by 4 Bayer light transition |
+| `--dither 0` or `1` | Checker or 4 by 4 Bayer light transition; Bayer is the default |
 | `--mapping 0`, `1`, or `2` | Perspective, affine, or short-span UV correction |
 | `--snap 0` or `1` | Disable or enable projected vertex snapping |
 | `--width`, `--height` | Internal image dimensions |
@@ -111,6 +119,36 @@ window and renderer in that field order. Crust drops these fields in reverse
 order, so Vulkan resources are released before the SDL window. The checked
 demo loop owns the session and releases it on success or an error return.
 The demo owns event processing and application timing.
+
+## Demo lighting
+
+The lit tour uses seven point lights in space-local coordinates. Lights affect
+only their own space. The GPU computes each visible point and triangle normal
+in that space, including through rotated views. The light weight uses squared
+two-sided incidence and inverse quadratic distance attenuation. It does not
+compute shadow visibility. Add a tested occlusion pass before using these lights
+for cast shadows. Material emission makes lamp surfaces visible without nearby
+lights.
+
+Each material has an 8 by 8 indexed texture with four base colours. The GPU
+selects one of 64 RGB light states: four levels for each channel. The material
+table combines these states with its base colours. Screen-space dithering
+selects adjacent channel levels before lookup. The output has no frame palette
+limit. The Bayer pattern gives smoother dark gradients in the tour captures;
+the checker pattern remains available with `--dither 0`.
+
+`LIGHT_MODEL` selects distance shading (0) or coloured point lighting (1). The
+regression scene uses distance shading. `LIGHT_COUNT` gives the active count,
+from zero through eight. Each eight-float `LIGHT_DATA` record contains position
+XYZ, positive radius squared, non-negative RGB intensity, and an integer space
+index stored as a float. Space indices are from zero through 31.
+
+`SPACE_LIGHT` has one four-float record per space; its first three values give
+non-negative ambient RGB intensity. `MATERIAL_LIGHT` has one four-float record
+per material; its first value gives non-negative emission. There are 16
+materials. `MATERIAL_TEXTURE` holds 64 word indices per material, each from zero
+through three. These inputs use reserved buffer ranges and have no per-frame
+allocation. The demo owns texture, palette, and light generation.
 
 ## Frame contract
 
@@ -193,6 +231,8 @@ crust main.crs --check-ownership
 crust main.crs --test 1
 crust main.crs --test 2
 crust main.crs --test 3
+crust main.crs --test 4
+crust main.crs --test 4 --dither 0
 crust main.crs --capture build/native.ppm --width 1920 --height 1080 --frames 601
 crust main.crs --capture build/baseline.ppm --width 1920 --height 1080 --frames 601 --baseline 1
 cmp build/native.ppm build/baseline.ppm
@@ -202,6 +242,12 @@ The ownership tests check the production renderer API without GPU execution.
 One valid borrow-and-move case must pass. Six invalid cases must produce their
 expected ownership diagnostics: resource copy, use after drop, drop with a live
 input borrow, escaping borrow, shared write, and private field access.
+
+The lit-tour test checks 37 states against the independent ray-triangle and
+point-light reference. It covers both directions at both openings and the
+moving lamp. Its entrance check requires visible pixels from all three spaces
+and exactly three views. This rejects reverse-aperture recursion. Run it with
+both dither patterns.
 
 The playback test sends SDL events through the window input path. It checks
 pause, resume, both step directions, held-key repeats, frame zero, and quit
@@ -239,13 +285,17 @@ triangle edges. Its one-pixel geometry-edge band uses changes in the reference
 triangle ID between adjacent pixels. Non-exact pixels in this band are counted
 and reported. Internal fan edges retain the source triangle ID and are not
 excluded by this band. The reference permits
-adjacent palette entries only at calculated texture boundaries. Other pixels
+adjacent palette entries only at calculated texture boundaries. For point
+lighting, it also permits light states within an intensity interval of one
+millionth on each side of a calculated dither threshold. It reports each such
+case. A native-resolution check found a one-step Float32 difference at one
+threshold; it did not indicate a geometry or light-position error. Other pixels
 must match within three channel units, with a one-pixel coverage tolerance.
 These rules do not establish bit-identical floating-point rasterization across
-drivers. Check the complete return sequence with:
+drivers. Check the complete lit tour with:
 
 ```sh
-crust main.crs --capture build/return.ppm --width 640 --height 360 --frame 420 --frames 121 --verify 1
+crust main.crs --capture build/return.ppm --width 640 --height 360 --frames 1200 --verify 1
 ```
 
 The build validates every module for Vulkan 1.2. Vulkan ABI checks cover 53
@@ -268,7 +318,8 @@ sequence. Deferred opaque sampling and separate mask lanes reduced these costs.
 The final fixed-camera output remained byte-identical. Cutout samples still
 precede depth selection, so transparent texels cannot hide a portal.
 
-On 2026-10-14, repeated 601-frame capture runs at 1920 by 1080 produced these
+Before the lit tour was added, repeated 601-frame capture runs of the original
+scene at 1920 by 1080 produced these
 steady-frame results. The first frame was excluded. Both devices used Mesa
 25.2.8. These results apply to this bounded scene and build, not larger worlds.
 
@@ -281,6 +332,14 @@ Normal and baseline captures were byte-identical on each device. The final
 opaque-sampling and mask changes also preserved the earlier capture bytes.
 At 640 by 360, the same 601-frame sequence measured p50/p99 of 3.73/5.86 ms on
 AMD and 4.75/5.16 ms on Intel.
+
+The lit tour passed 37 reference states with each dither pattern on AMD and
+Intel. Native 1920 by 1080 reference captures also passed on both devices.
+Both devices completed the full 1,200-frame route. At 640 by 360, these
+capture runs measured p50/p99 of 4.40/6.59 ms on AMD and 5.02/5.98 ms on Intel.
+Six captures, including portal crossing states, matched the full triangle-scan
+baseline byte for byte. These measurements include image readback and exclude
+display pacing.
 
 ## Platform and expansion gates
 

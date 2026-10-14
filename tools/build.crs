@@ -136,18 +136,20 @@ fn check_renderer(root: *CrustRun) -> bool {
     return ownership_host(root, count as i32 - 1i32, &args[1usize], true, null(*u8)) == 0i32;
 }
 fn build_host(root: *CrustRun) -> bool {
-    var args: [*u8; 39] = uninit;
+    var args: [*u8; 41] = uninit;
     args[0usize] = "crust-c";
     args[1usize] = "-o";
     args[2usize] = host_path(root, "build/spinward");
     var count: usize = 3usize + render_sources(root, &args[3usize]);
-    var application: [*u8; 26] = make [*u8; 26] {
+    var application: [*u8; 28] = make [*u8; 28] {
         host_path(root, "src/demo/main.crs"),
         host_path(root, "src/demo/config.crs"),
         host_path(root, "src/demo/playback.crs"),
         host_path(root, "src/demo/entry.crs"),
         host_path(root, "src/demo/session.crs"),
         host_path(root, "src/demo/scene.crs"),
+        host_path(root, "src/demo/tour.crs"),
+        host_path(root, "src/demo/tour-assets.crs"),
         host_path(root, "src/demo/window.crs"),
         host_path(root, "src/demo/timing.crs"),
         host_path(root, "src/demo/capture.crs"),
@@ -170,7 +172,7 @@ fn build_host(root: *CrustRun) -> bool {
         "-lm"
     };
     var i: usize = 0usize;
-    while i < 26usize {
+    while i < 28usize {
         args[count] = application[i];
         count = count + 1usize;
         i = i + 1usize;

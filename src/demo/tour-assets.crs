@@ -1,0 +1,191 @@
+fn tour_base(mat: u32) -> u32 {
+    if mat == 0u32 {
+        return 0x9eadafu32;
+    }
+    if mat == 1u32 {
+        return 0x64777cu32;
+    }
+    if mat == 2u32 {
+        return 0x426dafu32;
+    }
+    if mat == 3u32 {
+        return 0x66824au32;
+    }
+    if mat == 4u32 {
+        return 0x64717bu32;
+    }
+    if mat == 5u32 {
+        return 0x337fffu32;
+    }
+    if mat == 6u32 {
+        return 0xf5d33cu32;
+    }
+    if mat == 8u32 {
+        return 0x496e68u32;
+    }
+    if mat == 9u32 {
+        return 0x7c8e9fu32;
+    }
+    if mat == 10u32 {
+        return 0x667f9bu32;
+    }
+    if mat == 11u32 {
+        return 0x328cc7u32;
+    }
+    return 0x96a1b3u32;
+}
+fn tour_texel(mat: u32, x: u32, y: u32) -> u32 {
+    if mat == 10u32 {
+        return tour_brick(x, y);
+    }
+    if mat == 1u32 {
+        if x == 0u32 || y == 0u32 {
+            return 0u32;
+        }
+        return 2u32;
+    }
+    if mat == 4u32 {
+        return 1u32 + (x % 4u32) / 2u32 * 2u32;
+    }
+    if mat == 11u32 {
+        return ((x + y) / 2u32) % 2u32 * 3u32;
+    }
+    if mat == 5u32 || mat == 6u32 {
+        return 2u32 + y % 2u32;
+    }
+    var hash: u32 = (x + 8u32 * y + 1u32) * 747796405u32 + 2891336453u32;
+    hash = ((hash >> ((hash >> 28u32) + 4u32)) ^ hash) * 277803737u32;
+    return ((hash >> 22u32) ^ hash) & 3u32;
+}
+fn tour_brick(x: u32, y: u32) -> u32 {
+    if y % 4u32 == 0u32 || (x + (y / 4u32) * 4u32) % 8u32 == 0u32 {
+        return 0u32;
+    }
+    return 2u32 + (x + y) % 2u32;
+}
+fn tour_palettes(v: mut FrameInput) -> unit {
+    var mat: u32 = 0u32;
+    while mat < 16u32 {
+        var base: u32 = tour_base(mat);
+        var tex: u32 = 0u32;
+        while tex < 4u32 {
+            var shade: u32 = 120u32 + tex * 45u32;
+            if tex == 0u32 && (mat == 1u32 || mat == 10u32 || mat == 11u32) {
+                shade = 38u32;
+            }
+            var state: u32 = 0u32;
+            while state < 64u32 {
+                var r: u32 = (base & 255u32) * shade / 255u32 * (state % 4u32) / 3u32;
+                var g: u32 = ((base >> 8u32) & 255u32) * shade / 255u32 * (
+                    (state / 4u32) % 4u32
+                ) / 3u32;
+                var b: u32 = ((base >> 16u32) & 255u32) * shade / 255u32 * (state / 16u32) / 3u32;
+                input_set_word(
+                    mut v,
+                    (PALETTE + (mat * 4u32 + tex) * 64u32 + state) as usize,
+                    r | (g << 8u32) | (b << 16u32) | 0xff000000u32
+                );
+                state = state + 1u32;
+            }
+            tex = tex + 1u32;
+        }
+        tex = 0u32;
+        while tex < 64u32 {
+            input_set_word(
+                mut v,
+                (MATERIAL_TEXTURE + mat * 64u32 + tex) as usize,
+                tour_texel(mat, tex % 8u32, tex / 8u32)
+            );
+            tex = tex + 1u32;
+        }
+        input_set_float(mut v, (MATERIAL_LIGHT + mat * 4u32) as usize, 0f32);
+        mat = mat + 1u32;
+    }
+    input_set_float(mut v, (MATERIAL_LIGHT + 5u32 * 4u32) as usize, 1f32);
+    input_set_float(mut v, (MATERIAL_LIGHT + 6u32 * 4u32) as usize, 1f32);
+}
+fn tour_portal(
+    v: mut FrameInput,
+    index: u32,
+    source: u32,
+    dest: u32,
+    c: f32,
+    s: f32,
+    tx: f32,
+    tz: f32,
+    nx: f32,
+    nz: f32,
+    d: f32
+) -> unit {
+    var p: usize = (PORTAL_FLOAT + index * 16u32) as usize;
+    var i: usize = 0usize;
+    while i < 16usize {
+        input_set_float(mut v, p + i, 0f32);
+        i = i + 1usize;
+    }
+    input_set_float(mut v, p, c);
+    input_set_float(mut v, p + 2usize, s);
+    input_set_float(mut v, p + 3usize, tx);
+    input_set_float(mut v, p + 5usize, 1f32);
+    input_set_float(mut v, p + 8usize, -s);
+    input_set_float(mut v, p + 10usize, c);
+    input_set_float(mut v, p + 11usize, tz);
+    input_set_float(mut v, p + 12usize, nx);
+    input_set_float(mut v, p + 14usize, nz);
+    input_set_float(mut v, p + 15usize, d);
+    input_set_word(mut v, (PORTAL_META + index * 4u32) as usize, source);
+    input_set_word(mut v, (PORTAL_META + index * 4u32 + 1u32) as usize, dest);
+}
+fn tour_light(
+    v: mut FrameInput,
+    index: u32,
+    space: u32,
+    x: f32,
+    y: f32,
+    z: f32,
+    radius: f32,
+    r: f32,
+    g: f32,
+    b: f32
+) -> unit {
+    var p: usize = (LIGHT_DATA + index * 8u32) as usize;
+    if space == 2u32 {
+        input_set_float(mut v, p, -z);
+        input_set_float(mut v, p + 2usize, x);
+    } else {
+        input_set_float(mut v, p, x);
+        input_set_float(mut v, p + 2usize, z);
+    }
+    input_set_float(mut v, p + 1usize, y);
+    input_set_float(mut v, p + 3usize, radius);
+    input_set_float(mut v, p + 4usize, r);
+    input_set_float(mut v, p + 5usize, g);
+    input_set_float(mut v, p + 6usize, b);
+    input_set_float(mut v, p + 7usize, space as f32);
+}
+fn tour_assets(v: mut FrameInput) -> unit {
+    tour_palettes(mut v);
+    input_set_word(mut v, LIGHT_MODEL as usize, 1u32);
+    input_set_word(mut v, LIGHT_COUNT as usize, 7u32);
+    tour_portal(mut v, 0u32, 0u32, 1u32, 1f32, 0f32, 0f32, 10f32, 0f32, 1f32, 0f32);
+    tour_portal(mut v, 1u32, 1u32, 0u32, 1f32, 0f32, 0f32, -10f32, 0f32, -1f32, 10f32);
+    tour_portal(mut v, 2u32, 1u32, 2u32, 0f32, 1f32, 0f32, 14f32, -1f32, 0f32, 0f32);
+    tour_portal(mut v, 3u32, 2u32, 1u32, 0f32, -1f32, 14f32, 0f32, 0f32, -1f32, 14f32);
+    tour_light(mut v, 0u32, 0u32, -5.3f32, 2f32, 0f32, 18f32, 1.7f32, 0.65f32, 0.15f32);
+    tour_light(mut v, 1u32, 0u32, 5.3f32, 2f32, 7f32, 22f32, 0.1f32, 0.85f32, 1.6f32);
+    tour_light(mut v, 2u32, 1u32, 3.3f32, 2f32, 3f32, 16f32, 0.12f32, 0.9f32, 1.5f32);
+    tour_light(mut v, 3u32, 1u32, -3.3f32, 2f32, 11f32, 18f32, 1.5f32, 0.5f32, 0.1f32);
+    tour_light(mut v, 4u32, 2u32, -9f32, 9f32, 10f32, 60f32, 0.1f32, 0.65f32, 1.2f32);
+    tour_light(mut v, 5u32, 2u32, 9f32, 14f32, 17f32, 90f32, 1.4f32, 0.65f32, 0.2f32);
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var ambient: f32 = 0.18f32;
+        if i == 2u32 {
+            ambient = 0.55f32;
+        }
+        input_set_float(mut v, (SPACE_LIGHT + i * 4u32) as usize, ambient);
+        input_set_float(mut v, (SPACE_LIGHT + i * 4u32 + 1u32) as usize, ambient);
+        input_set_float(mut v, (SPACE_LIGHT + i * 4u32 + 2u32) as usize, ambient + 0.05f32);
+        i = i + 1u32;
+    }
+}

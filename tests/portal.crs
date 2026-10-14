@@ -76,3 +76,25 @@ fn crossing_face_check(v: *Vulkan) -> bool {
     puts("frame 523 crossing cube front face passed");
     return true;
 }
+
+fn tour_visibility_check(v: *Vulkan) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var mask: u32 = 0u32;
+    var pixel: u32 = 0u32;
+    while pixel < w[0usize] * w[1usize] {
+        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % MAX_TRIS;
+        if tri < w[3usize] {
+            mask = mask | (1u32 << w[(META + tri * 4u32) as usize]);
+        }
+        pixel = pixel + 1u32;
+    }
+    if mask != 7u32 || w[11usize] != 3u32 {
+        return error(
+            "tour entrance must show both rooms and the yard without reverse-portal recursion"
+        );
+    }
+    puts("tour entrance: three visible spaces through two directed portals passed");
+    puts("tour source triangles:");
+    print_number(w[3usize] as i64);
+    return true;
+}

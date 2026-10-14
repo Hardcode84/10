@@ -226,10 +226,11 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
                     ) & 3u32;
                     var u: f32 = sample_uv(p, px, py, 3u32, style);
                     var v: f32 = sample_uv(p, px, py, 4u32, style);
-                    var tex: u32 = (((u * 8f32) as i32 as u32) & 7u32) + (
-                        (((v * 8f32) as i32 as u32) & 7u32) * 8u32
-                    );
-                    opaque = words_load(TEXTURE + tex) != 0u32;
+                    opaque = material_texel(
+                        words_load(META + (id / MAX_FAN) * 4u32 + 1u32),
+                        u,
+                        v
+                    ) != 0u32;
                 }
                 if opaque {
                     best = iz;
@@ -251,7 +252,7 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
         if portal != 0u32 && words_load(12u32) < words_load(4u32) {
             shared_store(320u32 + lane, portal as f32);
         }
-        color = light_color(mat, uu, vv, 1f32 / best, x, y);
+        color = surface_color(winner, view, uu, vv, 1f32 / best, x, y);
     }
     if words_load(26u32) != 0u32 {
         var debug: u32 = DEBUG_VALUES + (y * width + x) * 4u32;
