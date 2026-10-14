@@ -155,3 +155,27 @@ fn tour_turn_check(v: *Vulkan, index: u32) -> bool {
     puts("camera faces into the interior turn passed");
     return true;
 }
+
+fn camera_light_check(v: *Vulkan) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var mask: u32 = 0u32;
+    var pixel: u32 = 0u32;
+    while pixel < w[0usize] * w[1usize] {
+        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % MAX_TRIS;
+        if tri < w[3usize] {
+            var mat: u32 = w[(META + tri * 4u32 + 1u32) as usize];
+            if mat < 5u32 && w[(PIXELS + pixel) as usize] != 0xff000000u32 {
+                mask = mask | (1u32 << w[(META + tri * 4u32) as usize]);
+            }
+        }
+        pixel = pixel + 1u32;
+    }
+    if mask != 3u32 {
+        print_number(mask as i64);
+        return error(
+            "camera light alone must illuminate ordinary surfaces on both sides of the portal"
+        );
+    }
+    puts("camera light illuminates both sides of the portal passed");
+    return true;
+}

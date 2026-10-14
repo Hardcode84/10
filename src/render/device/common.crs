@@ -90,6 +90,20 @@ fn lit_state(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
     var nx: f32 = light_normal(tri, 0u32);
     var ny: f32 = light_normal(tri, 1u32);
     var nz: f32 = light_normal(tri, 2u32);
+    if floats_load(CAMERA_LIGHT) > 0f32 {
+        var amount: f32 = light_amount(
+            view_position(view, 0f32, x, y, 0u32) - px,
+            view_position(view, 0f32, x, y, 1u32) - py,
+            view_position(view, 0f32, x, y, 2u32) - pz,
+            nx,
+            ny,
+            nz,
+            floats_load(CAMERA_LIGHT)
+        );
+        red = red + floats_load(CAMERA_LIGHT + 1u32) * amount;
+        green = green + floats_load(CAMERA_LIGHT + 2u32) * amount;
+        blue = blue + floats_load(CAMERA_LIGHT + 3u32) * amount;
+    }
     var i: u32 = 0u32;
     while i < words_load(LIGHT_COUNT) {
         var p: u32 = LIGHT_DATA + i * 8u32;

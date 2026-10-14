@@ -173,7 +173,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
         o.height = 180u32;
         o.window_width = 640u32;
         o.window_height = 360u32;
-        o.frames = 46u32;
+        o.frames = 47u32;
         o.verify = 1u32;
     }
     var session: DemoSession = session_new(&o);

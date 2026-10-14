@@ -128,8 +128,11 @@ The demo owns event processing and application timing.
 
 ## Demo lighting
 
-The lit tour uses seven point lights in space-local coordinates. Lights affect
-only their own space. The GPU computes each visible point and triangle normal
+The lit tour uses seven point lights in space-local coordinates and a camera
+light. The seven point lights affect only their own space. The camera light
+uses the camera position transformed through each visible portal path. Thus,
+it illuminates nearby surfaces on both sides of a doorway. The GPU computes
+each visible point and triangle normal
 in that space, including through rotated views. The light weight uses squared
 two-sided incidence and inverse quadratic distance attenuation. It does not
 compute shadow visibility. Add a tested occlusion pass before using these lights
@@ -137,9 +140,11 @@ for cast shadows. Material emission makes lamp surfaces visible without nearby
 lights.
 
 The two interior spaces have zero ambient light. Fixed interior lamps use a
-squared falloff radius of 1.5; the moving lamp uses 0.75. This keeps most surfaces
+squared falloff radius of 2.5; the moving lamp uses 1.25. This keeps most surfaces
 dark, with small lit areas near each lamp. Outdoor ambient RGB intensity is
 (0.55, 0.55, 0.60).
+The camera light has a squared falloff radius of 6 and RGB intensity
+(1, 1, 1). It follows the camera in all spaces and has no beam cone.
 
 Each material has an 8 by 8 indexed texture with four base colours. The GPU
 selects one of 64 RGB light states: four levels for each channel. The material
@@ -159,6 +164,11 @@ regression scene uses distance shading. `LIGHT_COUNT` gives the active count,
 from zero through eight. Each eight-float `LIGHT_DATA` record contains position
 XYZ, positive radius squared, non-negative RGB intensity, and an integer space
 index stored as a float. Space indices are from zero through 31.
+
+`CAMERA_LIGHT` contains four floats: non-negative radius squared and
+non-negative RGB intensity. A zero radius disables this light. It uses the
+same attenuation and incidence rule as point lights. Each portal view has
+its own transformed camera position; no extra point-light records are needed.
 
 `SPACE_LIGHT` has one four-float record per space; its first three values give
 non-negative ambient RGB intensity. `MATERIAL_LIGHT` has one four-float record
@@ -260,12 +270,14 @@ One valid borrow-and-move case must pass. Six invalid cases must produce their
 expected ownership diagnostics: resource copy, use after drop, drop with a live
 input borrow, escaping borrow, shared write, and private field access.
 
-The lit-tour test checks 46 states against the independent ray-triangle and
+The lit-tour test checks 47 states against the independent ray-triangle and
 point-light reference. It covers both directions at both openings and the
 moving lamp. Its entrance check requires visible pixels from both rooms,
 no yard pixels, and exactly two views. This checks the wall that hides the exit
-and rejects reverse-aperture recursion. One state disables all point
-lights. It requires both cyan strips and black metal on visible pipe surfaces.
+and rejects reverse-aperture recursion. One state disables all point lights
+and the camera light. It requires both cyan strips and black metal on visible
+pipe surfaces. A separate state enables only the camera light and requires lit
+ordinary surfaces in both rooms across the portal.
 Run it with both dither patterns.
 The test includes frames 229 through 231 and 316 through 318. Two more states
 check that the camera faces into each turn.

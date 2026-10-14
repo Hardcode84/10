@@ -39,6 +39,7 @@ record Ray {
     direction: Vec;
 }
 record Hit {
+    eye: Vec;
     position: Vec;
     distance: f32;
     u: f32;
@@ -238,6 +239,7 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
     var clip: u32 = 0xffffffffu32;
     while depth <= w[4usize] {
         var hit: Hit = make Hit {
+            eye: ray.origin,
             position: make Vec {
                 x: 0f32,
                 y: 0f32,
@@ -487,6 +489,18 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit) -> Vec {
         sub(vertex(f, p + 10usize), vertex(f, p))
     );
     var light: Vec = vertex(f, (SPACE_LIGHT + space * 4u32) as usize);
+    if f[CAMERA_LIGHT as usize] > 0f32 {
+        var delta: Vec = sub(hit.eye, hit.position);
+        var distance: f32 = dot(delta, delta) + 0.01f32;
+        var incidence: f32 = dot(delta, normal);
+        var diffuse: f32 = incidence * incidence / (dot(normal, normal) * distance);
+        var amount: f32 = (0.18f32 + 0.82f32 * diffuse) / (
+            1f32 + distance / f[CAMERA_LIGHT as usize]
+        );
+        light.x = light.x + f[(CAMERA_LIGHT + 1u32) as usize] * amount;
+        light.y = light.y + f[(CAMERA_LIGHT + 2u32) as usize] * amount;
+        light.z = light.z + f[(CAMERA_LIGHT + 3u32) as usize] * amount;
+    }
     var i: u32 = 0u32;
     while i < w[LIGHT_COUNT as usize] {
         var l: usize = (LIGHT_DATA + i * 8u32) as usize;
