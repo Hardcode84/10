@@ -66,10 +66,12 @@ a hook is in flight or a cable is attached. The preview runs the same simulation
 for two seconds without further thrust, braking, or reeling. It keeps a launched
 hook or an attached cable held.
 Blue square outlines mark the predicted positions. Each square is 24 cm wide
-between the border centre lines. The border is one render pixel wide at all
-depths, fields of view, and render resolutions. Its world-space width changes
-with camera depth. Squares behind the camera or no more than two pixels wide
-are hidden, so the centre stays open. The squares still use world-space depth
+between the border centre lines. The border has a solid cyan colour at full
+brightness. Its width in render pixels is `ceil(max(width / 640, height / 480))`:
+1 px at 640 by 480, 2 px at 1280 by 960, and 3 px at 1920 by 1080.
+Its world-space width changes with camera depth and field of view. Squares
+behind the camera or no wider than twice the border width are hidden, so the
+centre stays open. The squares still use world-space depth
 and can be hidden by scene geometry.
 Markers are 2 m apart along the predicted path, starting 2 m from the drone.
 Positions are interpolated between simulation steps. Slow motion shows fewer

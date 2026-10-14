@@ -13,13 +13,21 @@ fn preview_visible(trial: read Trial) -> bool {
         0f32
     ).time <= 1f32;
 }
+fn preview_border_pixels(config: GameConfig) -> u32 {
+    var width: u32 = (config.width + 639u32) / 640u32;
+    var height: u32 = (config.height + 479u32) / 480u32;
+    if width > height {
+        return width;
+    }
+    return height;
+}
 fn preview_pixel_size(center: Vec3, drone: Drone, config: GameConfig) -> f32 {
     var depth: f32 = dot(sub(center, drone.position), drone.basis.forward);
     var angle: f32 = config.fov * 0.00872664626f32;
     return 2f32 * depth * sinf(angle) / (cosf(angle) * config.height as f32);
 }
 fn draw_preview_marker(v: mut FrameInput, center: Vec3, drone: Drone, config: GameConfig) -> unit {
-    var pixel: f32 = preview_pixel_size(center, drone, config);
+    var pixel: f32 = preview_pixel_size(center, drone, config) * preview_border_pixels(config) as f32;
     if pixel <= 0f32 || pixel >= 0.12f32 {
         return;
     }
@@ -33,7 +41,7 @@ fn draw_preview_marker(v: mut FrameInput, center: Vec3, drone: Drone, config: Ga
         var b: Vec3 = sub(r, u);
         game_quad(
             mut v,
-            4u32,
+            PREVIEW_MATERIAL,
             add(center, scale(a, outer)),
             add(center, scale(b, outer)),
             add(center, scale(b, inner)),

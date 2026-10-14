@@ -1,5 +1,6 @@
+const PREVIEW_MATERIAL: u32 = 8u32;
 fn game_palette(v: mut FrameInput) -> unit {
-    var colors: [u32; 8] = make [u32; 8] {
+    var colors: [u32; 9] = make [u32; 9] {
         0x687876u32,
         0x82949du32,
         0x365d8au32,
@@ -7,23 +8,23 @@ fn game_palette(v: mut FrameInput) -> unit {
         0xf0d444u32,
         0x54c4ffu32,
         0x4260ffu32,
-        0x303d41u32
+        0x303d41u32,
+        0xf0d444u32
     };
     var mat: u32 = 0u32;
-    while mat < 8u32 {
+    while mat < 9u32 {
         var tex: u32 = 0u32;
         while tex < 4u32 {
+            var shade: u32 = 130u32 + tex * 40u32;
+            if mat == PREVIEW_MATERIAL {
+                shade = 255u32;
+            }
             var state: u32 = 0u32;
             while state < 512u32 {
                 input_set_word(
                     mut v,
                     (LIT_PALETTE + (mat * 4u32 + tex) * 512u32 + state) as usize,
-                    palette_entry(
-                        colors[mat as usize],
-                        130u32 + tex * 40u32,
-                        state,
-                        mat >= 4u32
-                    )
+                    palette_entry(colors[mat as usize], shade, state, mat >= 4u32)
                 );
                 state = state + 1u32;
             }
