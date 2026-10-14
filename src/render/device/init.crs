@@ -7,7 +7,7 @@ fn compute() -> unit {
     var height: u32 = words_load(1u32);
     var tiles: u32 = ((width + 7u32) / 8u32) * ((height + 7u32) / 8u32);
     if i < width * height {
-        words_store(PIXELS + i, 0xff20140eu32);
+        words_store(PIXELS + i, words_load(BACKGROUND));
     }
     if i < tiles {
         words_store(TASK_A + i * 4u32, i);

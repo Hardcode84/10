@@ -69,14 +69,14 @@ fn palette_expected(x: u32, y: u32, mode: u32) -> u32 {
 fn palette_test() -> bool {
     var v: Vulkan = uninit;
     zero(&v as *u8, sizeof(Vulkan));
-    v.capture = true;
-    var good: bool = device_open(&v) && buffer_create(&v) && layout_create(&v) && load_pipeline(
-        &v,
-        "build/palette.spv",
-        0usize
-    ) && load_pipeline(&v, "build/compose.spv", 1usize) && descriptors_create(&v) && commands_create(
+    v.read_pixels = true;
+    var good: bool = instance_open(&v, 0u32, null(**u8)) && device_open(&v) && buffer_create(&v) && layout_create(
         &v
-    );
+    ) && load_pipeline(&v, "build/palette.spv", 0usize) && load_pipeline(
+        &v,
+        "build/compose.spv",
+        1usize
+    ) && descriptors_create(&v) && commands_create(&v);
     if good {
         var w: *u32 = v.mapped as *u32;
         w[0usize] = 641u32;

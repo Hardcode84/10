@@ -29,32 +29,9 @@ fn report(samples: *u64, count: u32) -> unit {
     print_number((samples[((count * 99u32 - 1u32) / 100u32) as usize] / 1000u64) as i64);
 }
 
-fn queries_create(v: *Vulkan) -> bool {
-    var info: VkQueryPoolCreateInfo = uninit;
-    zero(&info as *u8, sizeof(VkQueryPoolCreateInfo));
-    info.sType = 11u32;
-    info.queryType = 2u32;
-    info.queryCount = 20u32;
-    return vk_ok(
-        vkCreateQueryPool(v -> device, &info, null(*u8), &v -> query_pool),
-        "vkCreateQueryPool"
-    );
-}
 fn queries_report(v: *Vulkan) -> bool {
     var values: [u64; 20] = uninit;
-    if !vk_ok(
-        vkGetQueryPoolResults(
-            v -> device,
-            v -> query_pool,
-            0u32,
-            20u32,
-            sizeof([u64; 20]),
-            &values as *u8,
-            8u64,
-            3u32
-        ),
-        "vkGetQueryPoolResults"
-    ) {
+    if !queries_read(v, &values[0usize]) {
         return false;
     }
     puts(

@@ -11,7 +11,7 @@ if stages == null(*StageSession) || !stage_load(stages, "stages/c/tool.crs") || 
 };
 host_source(run, "crust/stages/shader/model.crs");
 host_source(run, "crust/stages/shader/api.crs");
-host_source(run, "src/interface.crs");
+host_source(run, "src/render/interface.crs");
 host_source(run, "tools/build.crs");
 var llvm: *u8 = build_getenv("LLVM_DIRECTORY");
 var validator: *u8 = build_getenv("SPIRV_VAL");
@@ -34,7 +34,7 @@ if build_access(stage_path(run, llvm, "bin/llc"), 1i32) != 0i32 || build_access(
 if !cache_directory(run -> context, host_path(run, "build")) {
     return 1i32;
 };
-if !build_reference(run) || !build_host(run) || !build_shader(
+if !check_renderer(run) || !build_reference(run) || !build_host(run) || !build_shader(
     run,
     "palette.crs",
     "build/palette.spv",

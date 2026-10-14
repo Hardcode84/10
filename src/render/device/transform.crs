@@ -102,7 +102,7 @@ fn prepare_triangle(index: u32) -> unit {
         vertex = vertex + 1u32;
     }
     var count: u32 = 3u32;
-    var near: f32 = 0.125f32;
+    var near: f32 = floats_load(RENDER_STYLE);
     if words_load(META + tri * 4u32 + 2u32) != 0u32 {
         near = 0f32;
     }

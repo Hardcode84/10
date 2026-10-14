@@ -284,6 +284,11 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
     w[2usize] = mode;
     w[3usize] = 0u32;
     w[4usize] = 3u32;
+    w[BACKGROUND as usize] = 0xff463026u32;
+    f[RENDER_STYLE as usize] = 0.125f32;
+    f[(RENDER_STYLE + 1u32) as usize] = 6f32;
+    f[(RENDER_STYLE + 2u32) as usize] = 52f32;
+    f[(RENDER_STYLE + 3u32) as usize] = 0.65f32;
     var t: f32 = frame as f32 / 60f32;
     var yaw: f32 = sinf(t * 0.25f32) * 0.12f32;
     var c: f32 = cosf(yaw);

@@ -12,7 +12,7 @@ record Vulkan {
     mapped: *u8;
     staging: *u8;
     staging_memory: *u8;
-    capture: bool;
+    read_pixels: bool;
     layout: *u8;
     pipeline_layout: *u8;
     modules: [*u8; 8];
@@ -21,7 +21,6 @@ record Vulkan {
     set: *u8;
     command_pool: *u8;
     commands: *u8;
-    window: *u8;
     surface: *u8;
     swapchain: *u8;
     images: [*u8; 8];
@@ -101,7 +100,7 @@ fn device_create(v: *Vulkan) -> bool {
     dci.queueCreateInfoCount = 1u32;
     dci.pQueueCreateInfos = &qci;
     var extension: *u8 = "VK_KHR_swapchain";
-    if v -> window != null(*u8) {
+    if v -> surface != null(*u8) {
         dci.enabledExtensionCount = 1u32;
         dci.ppEnabledExtensionNames = &extension;
     }
@@ -116,7 +115,7 @@ fn device_create(v: *Vulkan) -> bool {
     return true;
 }
 
-fn device_open(v: *Vulkan) -> bool {
+fn instance_open(v: *Vulkan, extension_count: u32, extensions: **u8) -> bool {
     var app: VkApplicationInfo = uninit;
     zero(&app as *u8, sizeof(VkApplicationInfo));
     app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -125,28 +124,14 @@ fn device_open(v: *Vulkan) -> bool {
     zero(&ici as *u8, sizeof(VkInstanceCreateInfo));
     ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     ici.pApplicationInfo = &app;
-    var extensions: [*u8; 16] = uninit;
-    if v -> window != null(*u8) {
-        var count: u32 = 0u32;
-        if SDL_Vulkan_GetInstanceExtensions(v -> window, &count, null(**u8)) == 0i32 || count > 16u32 {
-            return error("cannot obtain Vulkan window extensions");
-        }
-        if SDL_Vulkan_GetInstanceExtensions(v -> window, &count, &extensions[0usize]) == 0i32 {
-            return error(SDL_GetError());
-        }
-        ici.enabledExtensionCount = count;
-        ici.ppEnabledExtensionNames = &extensions[0usize];
-    }
-    if !vk_ok(vkCreateInstance(&ici, null(*u8), &v -> instance), "vkCreateInstance") {
-        return false;
-    }
-    if v -> window != null(*u8) && SDL_Vulkan_CreateSurface(
-        v -> window,
-        v -> instance,
-        &v -> surface
-    ) == 0i32 {
-        return error(SDL_GetError());
-    }
+    ici.enabledExtensionCount = extension_count;
+    ici.ppEnabledExtensionNames = extensions;
+    return vk_ok(
+        vkCreateInstance(&ici, null(*u8), &v -> instance),
+        "vkCreateInstance"
+    );
+}
+fn device_open(v: *Vulkan) -> bool {
     var count: u32 = 1u32;
     var result: i32 = vkEnumeratePhysicalDevices(v -> instance, &count, &v -> physical);
     // Only the first device is required, including when enumeration is truncated.
@@ -176,7 +161,7 @@ fn device_open(v: *Vulkan) -> bool {
             }
             if supported != 0u32 {
                 if families[v -> family as usize].timestampValidBits == 0u32 {
-                    return error("compute queue requires timestamp support for this demo");
+                    return error("compute queue requires timestamp support for GPU timing");
                 }
                 v -> timestamp_mask = 0xffffffffffffffffu64 >> (
                     64u64 - families[v -> family as usize].timestampValidBits as u64

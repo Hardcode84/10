@@ -1,0 +1,29 @@
+fn queries_create(v: *Vulkan) -> bool {
+    var info: VkQueryPoolCreateInfo = uninit;
+    zero(&info as *u8, sizeof(VkQueryPoolCreateInfo));
+    info.sType = 11u32;
+    info.queryType = 2u32;
+    info.queryCount = 20u32;
+    return vk_ok(
+        vkCreateQueryPool(v -> device, &info, null(*u8), &v -> query_pool),
+        "vkCreateQueryPool"
+    );
+}
+fn queries_read(v: *Vulkan, values: *u64) -> bool {
+    if !vk_ok(
+        vkGetQueryPoolResults(
+            v -> device,
+            v -> query_pool,
+            0u32,
+            20u32,
+            sizeof([u64; 20]),
+            values as *u8,
+            8u64,
+            3u32
+        ),
+        "vkGetQueryPoolResults"
+    ) {
+        return false;
+    }
+    return true;
+}

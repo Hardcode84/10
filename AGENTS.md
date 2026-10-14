@@ -19,6 +19,8 @@ A 6DOF exploration game in a rotating megastructure.
 
 - Build playable slices. Follow the game design's prototype gates.
 - Keep ownership, memory costs, synchronization, and failure paths explicit.
+- Keep `src/render/` independent of demo and test sources. Put scene generation,
+  animation frame indices, palette generation, and user input in `src/demo/`.
 - Fix broken contracts. Handle unsupported cases completely or report an error.
 - Test actual game behaviour. Measure optimizations against a repeatable baseline.
 

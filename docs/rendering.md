@@ -11,6 +11,9 @@ requirements. The reference project is
 
 The following decisions are fixed:
 
+- Keep the rendering core in `src/render/` and application policy in `src/demo/`.
+  The core consumes scene data and SPIR-V. It has no demo geometry, animation
+  frame indices, input handling, or palette generation.
 - Use Vulkan compute for all image generation.
 - Use Crust for host and device code. Compile device code to Vulkan Shader SPIR-V
   outside the renderer. See the [compiler investigation](crust-spirv.md) for the

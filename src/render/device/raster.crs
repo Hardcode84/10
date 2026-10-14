@@ -235,7 +235,7 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
         }
         i = i + 1u32;
     }
-    var color: u32 = 0xff463026u32;
+    var color: u32 = words_load(BACKGROUND);
     if winner != 0xffffffffu32 {
         var mat: u32 = words_load(META + winner * 4u32 + 1u32);
         var p: u32 = PROJECTED + (view * MAX_TRIS * MAX_FAN + winner_id) * 20u32;

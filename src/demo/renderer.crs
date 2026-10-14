@@ -1,0 +1,43 @@
+fn demo_renderer_open(v: *Vulkan, o: *Options, window: *u8) -> bool {
+    if !window_instance(v, window) {
+        return false;
+    }
+    var paths: [*u8; 8] = make [*u8; 8] {
+        "build/init.spv",
+        "build/transform.spv",
+        "build/raster.spv",
+        "build/advance.spv",
+        "build/compose.spv",
+        "build/compact.spv",
+        "build/scan.spv",
+        "build/fill.spv"
+    };
+    var shaders: [ShaderCode; 8] = uninit;
+    zero(&shaders as *u8, sizeof([ShaderCode; 8]));
+    var good: bool = true;
+    var i: usize = 0usize;
+    while good && i < 8usize {
+        good = read_input(paths[i], &shaders[i]);
+        i = i + 1usize;
+    }
+    var config: RenderConfig = make RenderConfig {
+        width: o -> width,
+        height: o -> height,
+        output_width: o -> window_width,
+        output_height: o -> window_height,
+        read_pixels: o -> capture != null(*u8) || o -> verify != 0u32,
+        debug_pixels: o -> verify,
+        baseline: o -> baseline,
+        view_budget: o -> view_budget,
+        fault: o -> fault
+    };
+    if good {
+        good = renderer_open(v, &config, &shaders[0usize]);
+    }
+    i = 0usize;
+    while i < 8usize {
+        free(shaders[i].bytes);
+        i = i + 1usize;
+    }
+    return good;
+}

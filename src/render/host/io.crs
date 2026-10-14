@@ -6,11 +6,6 @@ extern fn memset(bytes: *u8, value: i32, size: usize) -> *u8 = "memset";
 extern fn memcmp(left: *u8, right: *u8, size: usize) -> i32 = "memcmp";
 extern fn malloc(size: usize) -> *u8 = "malloc";
 extern fn free(bytes: *u8) -> unit = "free";
-extern fn fopen(path: *u8, mode: *u8) -> *u8 = "fopen";
-extern fn fclose(file: *u8) -> i32 = "fclose";
-extern fn fread(bytes: *u8, size: usize, count: usize, file: *u8) -> usize = "fread";
-extern fn fseek(file: *u8, offset: isize, origin: i32) -> i32 = "fseek";
-extern fn ftell(file: *u8) -> isize = "ftell";
 
 fn zero(bytes: *u8, size: usize) -> unit {
     memset(bytes, 0i32, size);
@@ -53,37 +48,7 @@ fn vk_ok(result: i32, operation: *u8) -> bool {
     return false;
 }
 
-record Input {
+record ShaderCode {
     bytes: *u8;
     size: usize;
-}
-
-fn read_input(path: *u8, output: *Input) -> bool {
-    var file: *u8 = fopen(path, "rb");
-    if file == null(*u8) {
-        return error("cannot open input");
-    }
-    var size: isize = -1isize;
-    if fseek(file, 0isize, 2i32) == 0i32 {
-        size = ftell(file);
-    }
-    var good: bool = size > 0isize && size % 4isize == 0isize;
-    if good {
-        good = fseek(file, 0isize, 0i32) == 0i32;
-    }
-    if good {
-        output -> size = size as usize;
-        output -> bytes = malloc(output -> size);
-        good = output -> bytes != null(*u8);
-    }
-    if good {
-        good = fread(output -> bytes, 1usize, output -> size, file) == output -> size;
-    }
-    if fclose(file) != 0i32 {
-        good = false;
-    }
-    if !good {
-        return error("cannot read aligned input");
-    }
-    return true;
 }

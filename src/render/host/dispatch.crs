@@ -208,10 +208,6 @@ fn device_close(v: *Vulkan) -> unit {
     if v -> surface != null(*u8) {
         vkDestroySurfaceKHR(v -> instance, v -> surface, null(*u8));
     }
-    if v -> window != null(*u8) {
-        SDL_DestroyWindow(v -> window);
-        SDL_Quit();
-    }
     if v -> instance != null(*u8) {
         vkDestroyInstance(v -> instance, null(*u8));
     }
@@ -279,7 +275,7 @@ fn readback(v: *Vulkan) -> unit {
         (WORDS_LENGTH as u64 + FLOATS_LENGTH as u64) * 4u64,
         MAX_INVOCATIONS as u64 * 4u64
     );
-    if v -> capture {
+    if v -> read_pixels {
         copy_region(
             v,
             v -> buffer,

@@ -39,9 +39,9 @@ fn light_color(mat: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
     var ty: u32 = ((v * 8f32) as i32 as u32) & 7u32;
     var tex: u32 = words_load(TEXTURE + tx + ty * 8u32);
     var color: u32 = mat * 4u32 + tex;
-    var light: f32 = 52f32 - z * 0.65f32;
-    if light < 6f32 {
-        light = 6f32;
+    var light: f32 = floats_load(RENDER_STYLE + 2u32) - z * floats_load(RENDER_STYLE + 3u32);
+    if light < floats_load(RENDER_STYLE + 1u32) {
+        light = floats_load(RENDER_STYLE + 1u32);
     }
     var level: u32 = light as u32;
     if (light - level as f32) * 16f32 > threshold(x, y, words_load(2u32)) as f32 && level < 63u32 {

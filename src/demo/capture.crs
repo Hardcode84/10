@@ -1,0 +1,28 @@
+extern fn fwrite(bytes: *u8, size: usize, count: usize, file: *u8) -> usize = "fwrite";
+extern fn snprintf(bytes: *u8, size: usize, format: *u8, width: u32, height: u32) -> i32 = "snprintf";
+
+fn capture(v: *Vulkan, path: *u8, width: u32, height: u32) -> bool {
+    var file: *u8 = fopen(path, "wb");
+    if file == null(*u8) {
+        return error("cannot open capture");
+    }
+    var header: [u8; 64] = uninit;
+    var n: i32 = snprintf(&header[0usize], 64usize, "P6\n%u %u\n255\n", width, height);
+    var good: bool = n > 0i32 && n < 64i32;
+    if good {
+        good = fwrite(&header[0usize], 1usize, n as usize, file) == n as usize;
+    }
+    var bytes: *u8 = v -> mapped + (PRESENT_PIXELS as isize) * 4isize;
+    var i: usize = 0usize;
+    while good && i < (width * height) as usize {
+        good = fwrite(bytes + i as isize * 4isize, 1usize, 3usize, file) == 3usize;
+        i = i + 1usize;
+    }
+    if fclose(file) != 0i32 {
+        good = false;
+    }
+    if !good {
+        return error("cannot write capture");
+    }
+    return true;
+}

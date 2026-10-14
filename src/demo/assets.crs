@@ -1,0 +1,50 @@
+extern fn ftell(file: *u8) -> isize = "ftell";
+extern fn fseek(file: *u8, offset: isize, origin: i32) -> i32 = "fseek";
+extern fn fread(bytes: *u8, size: usize, count: usize, file: *u8) -> usize = "fread";
+extern fn fclose(file: *u8) -> i32 = "fclose";
+extern fn fopen(path: *u8, mode: *u8) -> *u8 = "fopen";
+fn read_input(path: *u8, output: *ShaderCode) -> bool {
+    var file: *u8 = fopen(path, "rb");
+    if file == null(*u8) {
+        return error("cannot open input");
+    }
+    var size: isize = -1isize;
+    if fseek(file, 0isize, 2i32) == 0i32 {
+        size = ftell(file);
+    }
+    var good: bool = size > 0isize && size % 4isize == 0isize;
+    if good {
+        good = fseek(file, 0isize, 0i32) == 0i32;
+    }
+    if good {
+        output -> size = size as usize;
+        output -> bytes = malloc(output -> size);
+        good = output -> bytes != null(*u8);
+    }
+    if good {
+        good = fread(output -> bytes, 1usize, output -> size, file) == output -> size;
+    }
+    if fclose(file) != 0i32 {
+        good = false;
+    }
+    if !good {
+        return error("cannot read aligned input");
+    }
+    return true;
+}
+
+fn load_pipeline(v: *Vulkan, path: *u8, slot: usize) -> bool {
+    var code: ShaderCode = make ShaderCode {
+        bytes: null(*u8),
+        size: 0usize
+    };
+    var good: bool = read_input(path, &code);
+    if good && (code.size < 20usize || (code.bytes as *u32)[0usize] != 0x07230203u32) {
+        good = error("invalid SPIR-V module");
+    }
+    if good {
+        good = pipeline_create(v, &code, slot);
+    }
+    free(code.bytes);
+    return good;
+}

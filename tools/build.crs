@@ -1,3 +1,9 @@
+fn shader_path(root: *CrustRun, name: *u8) -> *u8 {
+    if cache_strcmp(name, "palette.crs") == 0i32 {
+        return host_path(root, "tests/device/palette.crs");
+    }
+    return stage_path(root, "src/render/device", name);
+}
 extern fn build_access(path: *u8, mode: i32) -> i32 = "access";
 extern fn build_getenv(name: *u8) -> *u8 = "getenv";
 extern fn build_chdir(path: *u8) -> i32 = "chdir";
@@ -7,17 +13,13 @@ fn shader_source(root: *CrustRun, name: *u8, result: *CrustSource) -> bool {
     var parts: [CrustSource; 3] = uninit;
     if !cache_read(
         root -> context,
-        host_path(root, "src/interface.crs"),
+        host_path(root, "src/render/interface.crs"),
         &parts[0usize]
     ) || !cache_read(
         root -> context,
-        host_path(root, "src/device/common.crs"),
+        host_path(root, "src/render/device/common.crs"),
         &parts[1usize]
-    ) || !cache_read(
-        root -> context,
-        stage_path(root, "src/device", name),
-        &parts[2usize]
-    ) {
+    ) || !cache_read(root -> context, shader_path(root, name), &parts[2usize]) {
         return false;
     }
     var size: usize = parts[0usize].size + parts[1usize].size + parts[2usize].size + 3usize;
@@ -106,21 +108,47 @@ fn build_shader(root: *CrustRun, name: *u8, output: *u8, llvm: *u8, validator: *
     crust_context_destroy(&context);
     return good;
 }
+fn render_sources(root: *CrustRun, args: **u8) -> usize {
+    var sources: [*u8; 9] = make [*u8; 9] {
+        "src/render/interface.crs",
+        "src/render/host/vulkan.crs",
+        "src/render/host/io.crs",
+        "src/render/host/device.crs",
+        "src/render/host/resources.crs",
+        "src/render/host/dispatch.crs",
+        "src/render/host/timing.crs",
+        "src/render/host/present.crs",
+        "src/render/host/renderer.crs"
+    };
+    var i: usize = 0usize;
+    while i < 9usize {
+        args[i] = host_path(root, sources[i]);
+        i = i + 1usize;
+    }
+    return i;
+}
+fn check_renderer(root: *CrustRun) -> bool {
+    var args: [*u8; 12] = uninit;
+    args[0usize] = "crust-c";
+    args[1usize] = "--check";
+    args[2usize] = "--library";
+    var count: usize = 3usize + render_sources(root, &args[3usize]);
+    return compiler_main(count as i32, &args[0usize]) == 0i32;
+}
 fn build_host(root: *CrustRun) -> bool {
-    var args: [*u8; 28] = make [*u8; 28] {
-        "crust-c",
-        "-o",
-        host_path(root, "build/spinward"),
-        host_path(root, "src/interface.crs"),
-        host_path(root, "src/host/vulkan.crs"),
-        host_path(root, "src/host/io.crs"),
-        host_path(root, "src/host/device.crs"),
-        host_path(root, "src/host/resources.crs"),
-        host_path(root, "src/host/dispatch.crs"),
-        host_path(root, "src/host/main.crs"),
-        host_path(root, "src/host/scene.crs"),
-        host_path(root, "src/host/window.crs"),
-        host_path(root, "src/host/timing.crs"),
+    var args: [*u8; 34] = uninit;
+    args[0usize] = "crust-c";
+    args[1usize] = "-o";
+    args[2usize] = host_path(root, "build/spinward");
+    var count: usize = 3usize + render_sources(root, &args[3usize]);
+    var application: [*u8; 22] = make [*u8; 22] {
+        host_path(root, "src/demo/main.crs"),
+        host_path(root, "src/demo/scene.crs"),
+        host_path(root, "src/demo/window.crs"),
+        host_path(root, "src/demo/timing.crs"),
+        host_path(root, "src/demo/capture.crs"),
+        host_path(root, "src/demo/assets.crs"),
+        host_path(root, "src/demo/renderer.crs"),
         host_path(root, "tests/palette.crs"),
         host_path(root, "tests/playback.crs"),
         host_path(root, "tests/portal.crs"),
@@ -137,7 +165,13 @@ fn build_host(root: *CrustRun) -> bool {
         "--ldflag",
         "-lm"
     };
-    return compiler_main(28i32, &args[0usize]) == 0i32;
+    var i: usize = 0usize;
+    while i < 22usize {
+        args[count] = application[i];
+        count = count + 1usize;
+        i = i + 1usize;
+    }
+    return compiler_main(count as i32, &args[0usize]) == 0i32;
 }
 
 extern fn reference_compiler(argc: i32, argv: **u8) -> i32 = "reference_compiler_main";
@@ -150,7 +184,7 @@ fn build_reference(root: *CrustRun) -> bool {
         "reference_check",
         "-o",
         host_path(root, "build/reference.o"),
-        host_path(root, "src/interface.crs"),
+        host_path(root, "src/render/interface.crs"),
         host_path(root, "tests/reference.crs"),
         "--cflag",
         "-O2"

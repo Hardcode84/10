@@ -108,7 +108,7 @@ fn layout_create(v: *Vulkan) -> bool {
         "vkCreatePipelineLayout"
     );
 }
-fn pipeline_create(v: *Vulkan, code: *Input, slot: usize) -> bool {
+fn pipeline_create(v: *Vulkan, code: *ShaderCode, slot: usize) -> bool {
     var module: VkShaderModuleCreateInfo = uninit;
     zero(&module as *u8, sizeof(VkShaderModuleCreateInfo));
     module.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

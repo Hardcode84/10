@@ -32,3 +32,7 @@ const TASK_PREFIX: u32 = 2900000u32;
 const GROUP_COUNTS: u32 = 2940000u32;
 const GROUP_PREFIX: u32 = 2950000u32;
 const DEBUG_VALUES: u32 = 8000000u32;
+
+// Caller-supplied scene appearance. Colours are packed RGBA; style values are floats.
+const BACKGROUND: u32 = 34u32;
+const RENDER_STYLE: u32 = 16u32;

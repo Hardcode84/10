@@ -63,6 +63,45 @@ The verifier requires perspective mapping with vertex snapping disabled.
 The built executable accepts the same options from the repository directory.
 Use `build/spinward --help` to list them without rebuilding.
 
+## Core and demo
+
+The source has three parts:
+
+| Path | Responsibility |
+| --- | --- |
+| `src/render/` | Shared input layout, Vulkan resources, compute passes, readback, and presentation |
+| `src/demo/` | Scene geometry, camera motion, palettes, lighting values, SDL window, keys, command-line options, capture files, and timing reports |
+| `tests/` | Palette patterns, CPU reference, input tests, and frame-specific scene checks |
+
+The root build checks the core sources without demo or test sources before it
+builds the application. The core has no SDL dependency and takes no animation
+frame index. It does not generate scene geometry or palette data. Its capacity
+constants define the supported buffer layout, not a scene.
+
+The caller clears a `Vulkan` owner, then calls `instance_open` with the required
+instance extensions. For a window, the caller creates a Vulkan surface and gives
+ownership of that surface to the renderer. The demo uses SDL for this step.
+`renderer_open` takes a `RenderConfig` and eight `ShaderCode` byte ranges, in
+init, transform, raster, advance, compose, compact, scan, and fill order. The
+shader bytes remain owned by the caller and can be released after this call.
+The core does not choose shader file paths.
+
+After setup, the caller writes trusted scene inputs to the mapped staging
+buffer, using `src/render/interface.crs`. These inputs include the camera,
+root space, crossing limit, triangles, portals, textures, light tables, and
+material styles. Word `BACKGROUND` holds the RGBA background colour. Floats
+`RENDER_STYLE` through `RENDER_STYLE + 3` hold the positive geometry near distance,
+minimum light level, initial light level, and non-negative distance attenuation.
+Light levels must stay in the table range, zero through 63. Image dimensions
+and readback options stay fixed for the lifetime of the renderer.
+
+`renderer_draw` completes upload, compute, readback, and status checks. On
+success, the caller can use the output pixels or call `present` for its surface.
+`queries_read` returns GPU timestamps; the caller chooses how to report them.
+Call `device_close` after success or partial setup failure. It releases the
+surface and all other Vulkan resources. The caller must then destroy its native
+window. It owns event processing and application timing throughout this lifetime.
+
 ## Frame contract
 
 The CPU generates scene inputs, records commands, and presents or saves output.
@@ -96,14 +135,15 @@ control rendering. Compute, indirect-command, transfer, and host accesses have
 explicit memory dependencies. The current demo uses one queue and one frame
 in flight.
 
-The host and shaders compile the same [buffer constants](../src/interface.crs).
+The host and shaders compile the same [buffer constants](../src/render/interface.crs).
 The interface uses four-byte words and floats, not host record layout. There
 are three storage bindings: 64 MiB of words, 16 MiB of floats, and 8 MiB of
 invocation status. One device-local buffer owns these ranges. An 88 MiB staging
 buffer owns upload and readback ranges. Staging memory must be host-visible,
 coherent, and cached. Device creation reports an error if the profile cannot
 be met. The Vulkan owner releases buffers, memory, pipelines, queries, commands,
-surface, window, and instance on normal exit and setup failure.
+surface, and instance on normal exit and setup failure. The demo releases its
+SDL window after the Vulkan owner is closed.
 
 ## Bounds and trust
 
@@ -125,8 +165,8 @@ shader files are private products of this root build. There is no external
 asset parser. Add such a parser with input validation before accepting untrusted
 scene data.
 
-The frame passes are hot paths. Scene creation, shader compilation, interface
-checks, and pipeline creation are cold paths. CPU reference rendering is a test
+Scene generation and the frame passes are hot paths. Shader compilation,
+interface checks, and pipeline creation are cold paths. CPU reference rendering is a test
 helper. It is not a runtime fallback.
 
 ## Checks and measurement
