@@ -212,7 +212,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
         o.height = 180u32;
         o.window_width = 640u32;
         o.window_height = 360u32;
-        o.frames = 23u32;
+        o.frames = 25u32;
         o.verify = 1u32;
     }
     var v: Vulkan = uninit;
@@ -301,6 +301,9 @@ fn main(argc: i32, argv: **u8) -> i32 {
             if index == 22u32 {
                 frame = 523u32;
             }
+            if index >= 23u32 {
+                frame = 367u32 + index - 23u32;
+            }
         }
         scene(&v, o.width, o.height, frame, o.dither);
         if o.test == 2u32 && !portal_plane_check(&v) {
@@ -367,6 +370,9 @@ fn main(argc: i32, argv: **u8) -> i32 {
         }
         if good && o.test == 2u32 && frame == 523u32 {
             good = crossing_face_check(&v);
+        }
+        if good && o.test == 2u32 && (frame == 367u32 || frame == 368u32) {
+            good = distant_cube_check(&v, frame);
         }
         if good {
             if o.capture != null(*u8) {

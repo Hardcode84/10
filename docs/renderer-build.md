@@ -148,7 +148,7 @@ The palette test checks 465,366 source pixels exactly across two patterns,
 multiple workgroups, and dimensions that do not divide by eight. It checks
 nearest-neighbour scaling and RGBA/BGRA channel order for every output pixel.
 
-The scene test checks 23 camera and object states at 320 by 180 against an
+The scene test checks 25 camera and object states at 320 by 180 against an
 independent ray-triangle reference. It includes translated and rotated views of the same
 space, destination clipping, cutouts, portal recursion, and complete portal
 occlusion. Frames 281 through 286 and 500 through 506 check both directions of
@@ -163,8 +163,10 @@ interior pixel. At this frame, the face is about 0.0008 units past the portal.
 The destination clip plane must use the portal boundary without an offset.
 An offset of 0.001 units removed this face and exposed the inside of the cube.
 The test also checks that each destination plane contains the transformed
-aperture vertices. The recursive portal maps to room Z = 9, so its destination
-plane must use Z = 9.
+aperture vertices. The recursive portal maps outdoor Z = 18 to room Z = -8.
+Its destination plane includes the room interior. An exit at room Z = 9 cut
+through the moving cube and made its back face appear between frames 367 and
+368. Both frames are part of the scene test.
 The reference evaluates the clip plane from triangle vertex distances and ray
 intersection weights. This includes surfaces exactly on the plane without
 rounding a reconstructed hit point to the wrong side.

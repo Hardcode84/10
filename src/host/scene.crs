@@ -270,9 +270,9 @@ fn portal_setup(v: *Vulkan) -> unit {
     f[p + 14usize] = 0f32;
     f[p + 15usize] = 0f32;
     p = (PORTAL_FLOAT + 32u32) as usize;
-    f[p + 11usize] = 9f32;
+    f[p + 11usize] = 26f32;
     f[p + 14usize] = 1f32;
-    f[p + 15usize] = -9f32;
+    f[p + 15usize] = 8f32;
     w[(PORTAL_META + 2u32 * 4u32) as usize] = 1u32;
     w[(PORTAL_META + 2u32 * 4u32 + 1u32) as usize] = 0u32;
 }

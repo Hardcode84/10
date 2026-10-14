@@ -1,3 +1,26 @@
+fn distant_cube_check(v: *Vulkan, frame: u32) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var front: f32 = 8.5f32 + 2f32 * sinf(frame as f32 / 60f32) - 0.8f32;
+    var pixel: u32 = 0u32;
+    while pixel < w[0usize] * w[1usize] {
+        var hit: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize];
+        var tri: u32 = hit % 256u32;
+        if hit >= 256u32 && tri < w[3usize] && w[(META + tri * 4u32) as usize] == 0u32 && w[
+            (META + tri * 4u32 + 1u32) as usize
+        ] == 2u32 {
+            var g: usize = (GEOMETRY + tri * 15u32) as usize;
+            if f[g + 2usize] == front && f[g + 7usize] == front && f[g + 12usize] == front {
+                puts("distant crossing cube front face passed");
+                return true;
+            }
+        }
+        pixel = pixel + 1u32;
+    }
+    return error(
+        "recursive portal must show the moving cube front face before and after frame 368"
+    );
+}
 fn portal_plane_check(v: *Vulkan) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
