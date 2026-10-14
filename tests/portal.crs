@@ -142,3 +142,16 @@ fn full_bright_check(v: *Vulkan) -> bool {
     puts("full-bright stripes and dark pipe texels with all point lights disabled passed");
     return true;
 }
+
+fn tour_turn_check(v: *Vulkan, index: u32) -> bool {
+    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var direction: f32 = f[8usize];
+    if index == 45u32 {
+        direction = -direction;
+    }
+    if direction <= 0.25f32 || f[10usize] <= 0.5f32 {
+        return error("interior camera must face forward and into the turn");
+    }
+    puts("camera faces into the interior turn passed");
+    return true;
+}

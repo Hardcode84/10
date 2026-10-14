@@ -66,8 +66,12 @@ fn demo_scene(inputs: mut FrameInput, o: DemoConfig, frame: u32, index: u32) -> 
     } else {
         tour_scene(mut inputs, o.width, o.height, frame, o.dither);
     }
-    if o.test == 4u32 && index == 37u32 {
-        input_set_word(mut inputs, LIGHT_COUNT as usize, 0u32);
+    if o.test == 4u32 {
+        var lights: u32 = 7u32;
+        if index == 37u32 {
+            lights = 0u32;
+        }
+        input_set_word(mut inputs, LIGHT_COUNT as usize, lights);
     }
 }
 fn demo_run(session: DemoSession, o: DemoConfig) -> i32 {
@@ -153,6 +157,15 @@ fn demo_run(session: DemoSession, o: DemoConfig) -> i32 {
 }
 
 fn tour_test_frame(index: u32) -> u32 {
+    if index >= 44u32 {
+        return 210u32 + (index - 44u32) * 90u32;
+    }
+    if index >= 41u32 {
+        return 316u32 + index - 41u32;
+    }
+    if index >= 38u32 {
+        return 229u32 + index - 38u32;
+    }
     if index == 37u32 {
         return 240u32;
     }

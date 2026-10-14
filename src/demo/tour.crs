@@ -265,12 +265,12 @@ fn tour_camera(v: mut FrameInput, frame: u32) -> unit {
     var z: f32 = journey;
     var x: f32 = sinf(phase * 6.2831853f32) * 0.65f32;
     var yaw: f32 = sinf(phase * 12.5663706f32) * 0.16f32;
+    yaw = yaw + atan2f(tour_bend(journey - 6f32) - tour_bend(journey - 10f32), 4f32);
     var space: u32 = 0u32;
     if journey >= 10f32 {
         space = 1u32;
         z = journey - 10f32;
         x = x + tour_bend(z);
-        yaw = yaw - atan2f(tour_bend(z + 0.05f32) - tour_bend(z - 0.05f32), 0.1f32);
     }
     if journey >= 34f32 {
         space = 2u32;

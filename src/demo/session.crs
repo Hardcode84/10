@@ -140,5 +140,8 @@ fn tour_verify(v: *Vulkan, index: u32) -> bool {
     if index == 37u32 {
         return full_bright_check(v);
     }
+    if index == 44u32 || index == 45u32 {
+        return tour_turn_check(v, index);
+    }
     return true;
 }

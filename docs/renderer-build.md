@@ -42,6 +42,9 @@ The camera repeats a 1,200-frame trip through both openings, looks back at the
 buildings, and returns. Frame 0 shows the loading bay, frame 240 shows the
 gallery after the first turn, frame 360 shows the yard, and frame 600 looks
 back at the buildings. This remains a rendering demo, not a playable prototype.
+At each interior bend, the camera aims four longitudinal units ahead along the
+route. This makes it look into the turn and reduces rapid rotation at the ends
+of the bend. The aim stays continuous across the room portal.
 The original scene remains in test 2 for portal and cutout regression checks.
 
 Window mode runs 1,200 frames by default. Capture mode runs one frame by default
@@ -257,13 +260,15 @@ One valid borrow-and-move case must pass. Six invalid cases must produce their
 expected ownership diagnostics: resource copy, use after drop, drop with a live
 input borrow, escaping borrow, shared write, and private field access.
 
-The lit-tour test checks 38 states against the independent ray-triangle and
+The lit-tour test checks 46 states against the independent ray-triangle and
 point-light reference. It covers both directions at both openings and the
 moving lamp. Its entrance check requires visible pixels from both rooms,
 no yard pixels, and exactly two views. This checks the wall that hides the exit
-and rejects reverse-aperture recursion. The last state disables all point
+and rejects reverse-aperture recursion. One state disables all point
 lights. It requires both cyan strips and black metal on visible pipe surfaces.
 Run it with both dither patterns.
+The test includes frames 229 through 231 and 316 through 318. Two more states
+check that the camera faces into each turn.
 
 The playback test sends SDL events through the window input path. It checks
 pause, resume, both step directions, held-key repeats, frame zero, and quit
