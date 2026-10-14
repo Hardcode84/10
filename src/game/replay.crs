@@ -32,7 +32,7 @@ fn trial_hash(trial: read Trial) -> u32 {
     hash = hash_word(hash, trial.started as u32);
     hash = hash_word(hash, trial.full_spin as u32);
     hash = hash_word(hash, trial.auto_level as u32);
-    return hash_word(hash, trial.preview_mode);
+    return hash_word(hash, trial.preview_enabled as u32);
 }
 fn command_flags(c: Command) -> u32 {
     return c.burst as u32 | ((c.brake as u32) << 1u32) | ((c.tether as u32) << 2u32) | (

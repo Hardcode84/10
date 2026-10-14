@@ -1,18 +1,5 @@
 const PREVIEW_SPACING: f32 = 4f32;
 const PREVIEW_MARKERS: u32 = 8u32;
-fn preview_visible(trial: read Trial) -> bool {
-    if trial.preview_mode == 0u32 {
-        return false;
-    }
-    if trial.preview_mode == 2u32 || trial.drone.cable.phase == CABLE_ATTACHED || trial.drone.cable.phase == CABLE_FLYING {
-        return true;
-    }
-    return course_hit(
-        trial.drone.position,
-        scale(trial.drone.basis.forward, 120f32),
-        0f32
-    ).time <= 1f32;
-}
 fn preview_border_pixels(config: GameConfig) -> u32 {
     var width: u32 = (config.width + 639u32) / 640u32;
     var height: u32 = (config.height + 479u32) / 480u32;
@@ -93,7 +80,7 @@ fn draw_preview_segment(
     trail.distance = trail.distance + segment;
 }
 fn draw_preview(v: mut FrameInput, trial: read Trial, config: GameConfig) -> unit {
-    var hook_ready: bool = trial.drone.cable.phase == CABLE_READY && trial.preview_mode != 0u32;
+    var hook_ready: bool = trial.drone.cable.phase == CABLE_READY && trial.preview_enabled;
     var limit: u32 = PREVIEW_MARKERS;
     if hook_ready {
         limit = PREVIEW_MARKERS / 2u32;
@@ -104,7 +91,7 @@ fn draw_preview(v: mut FrameInput, trial: read Trial, config: GameConfig) -> uni
     }
 }
 fn draw_drone_preview(v: mut FrameInput, trial: read Trial, config: GameConfig, limit: u32) -> u32 {
-    if !preview_visible(read trial) {
+    if !trial.preview_enabled {
         return 0u32;
     }
     var drone: Drone = trial.drone;

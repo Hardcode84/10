@@ -76,7 +76,7 @@ record Trial {
     started: bool;
     full_spin: bool;
     auto_level: bool;
-    preview_mode: u32;
+    preview_enabled: bool;
     attempt: u32;
     preview_phase: f32;
     hook_preview_phase: f32;
@@ -90,7 +90,7 @@ fn new_trial() -> Trial {
         started: false,
         full_spin: false,
         auto_level: true,
-        preview_mode: 1u32,
+        preview_enabled: true,
         attempt: 1u32,
         preview_phase: 0f32,
         hook_preview_phase: 0f32

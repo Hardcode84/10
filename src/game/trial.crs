@@ -47,7 +47,7 @@ fn trial_step(trial: mut Trial, command: Command) -> unit {
         trial.auto_level = !trial.auto_level;
     }
     if command.preview {
-        trial.preview_mode = (trial.preview_mode + 1u32) % 3u32;
+        trial.preview_enabled = !trial.preview_enabled;
     }
     if trial.finished {
         return;

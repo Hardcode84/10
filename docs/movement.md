@@ -63,9 +63,9 @@ with the design's 30 percent turn gain. Total look rotation is capped at
 180 degrees per second. Tether motion does not force a camera turn.
 
 The drone frame stays in view. `--fov` accepts 70 through 110 degrees of
-vertical field of view. P cycles the preview through aim, always, and off.
-Aim mode shows the preview when the centre ray can reach a tether surface or
-a hook is in flight or a cable is attached. The preview runs the same simulation
+vertical field of view. P switches both previews on or off. They are on by default. Looking into open
+space does not hide the drone path. Markers outside the view or behind scene
+geometry remain hidden. The preview runs the same simulation
 for two seconds without further thrust, braking, or reel commands. It keeps a
 launched hook or an attached cable held. An active reel continues in the preview.
 Blue square outlines mark the predicted positions. Each square is 24 cm wide
@@ -212,7 +212,7 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 5 stores the
+format uses the current Linux host's word representation. Version 6 uses an on/off preview setting, stores the
 initial spin mode in its header and includes both prediction phases in the
 state hash. Replay restores the mode and reproduces the marker motion. Earlier
 versions are rejected because their state contract differs.

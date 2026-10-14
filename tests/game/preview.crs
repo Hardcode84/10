@@ -45,7 +45,7 @@ fn test_preview_continuation(spin: bool) -> bool {
     if !game_check(index == 0u32, "drone must pass the tracked prediction station") {
         return false;
     }
-    trial.preview_mode = 0u32;
+    trial.preview_enabled = false;
     var before: f32 = trial.preview_phase;
     trial_step(mut trial, idle_command());
     if !game_check(
@@ -100,5 +100,21 @@ fn test_hook_preview_phase() -> bool {
     );
 }
 fn test_preview_stability() -> bool {
-    return test_preview_continuation(false) && test_preview_continuation(true) && test_hook_preview_phase();
+    return test_preview_continuation(false) && test_preview_continuation(true) && test_hook_preview_phase() && test_preview_toggle();
+}
+
+fn test_preview_toggle() -> bool {
+    var trial: Trial = new_trial();
+    var command: Command = idle_command();
+    command.preview = true;
+    trial_step(mut trial, command);
+    if !game_check(!trial.preview_enabled, "one preview press must hide both paths") {
+        return false;
+    }
+    trial_step(mut trial, idle_command());
+    if !game_check(!trial.preview_enabled, "preview must stay off until the next press") {
+        return false;
+    }
+    trial_step(mut trial, command);
+    return game_check(trial.preview_enabled, "the next preview press must restore both paths");
 }
