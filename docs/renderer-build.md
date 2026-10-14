@@ -131,7 +131,7 @@ for cast shadows. Material emission makes lamp surfaces visible without nearby
 lights.
 
 The two interior spaces have zero ambient light. Fixed interior lamps use a
-squared falloff radius of 1; the moving lamp uses 0.5. This keeps most surfaces
+squared falloff radius of 1.5; the moving lamp uses 0.75. This keeps most surfaces
 dark, with small lit areas near each lamp. Outdoor ambient RGB intensity is
 (0.55, 0.55, 0.60).
 
