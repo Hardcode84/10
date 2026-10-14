@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 33] = make [*u8; 33] {
+    var files: [*u8; 35] = make [*u8; 35] {
         "src/game/math.crs",
         "src/game/state.crs",
         "src/game/course.crs",
@@ -23,6 +23,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/hud.crs",
         "src/game/palette.crs",
         "src/game/preview.crs",
+        "src/game/preview-phase.crs",
         "src/game/hook-preview.crs",
         "src/game/replay.crs",
         "src/app/geometry.crs",
@@ -32,10 +33,11 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "tests/game/tether.crs",
         "tests/game/course-flight.crs",
         "tests/game/course-spin.crs",
-        "tests/game/course-geometry.crs"
+        "tests/game/course-geometry.crs",
+        "tests/game/preview.crs"
     };
     var i: usize = 0usize;
-    while i < 33usize {
+    while i < 35usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

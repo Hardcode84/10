@@ -1,6 +1,8 @@
 fn reset_trial(trial: mut Trial) -> unit {
     trial.drone = new_drone();
     trial.tick = 0u32;
+    trial.preview_phase = 0f32;
+    trial.hook_preview_phase = 0f32;
     trial.gate = 0u32;
     trial.finished = false;
     trial.started = false;
@@ -59,6 +61,7 @@ fn trial_step(trial: mut Trial, command: Command) -> unit {
     }
     var before: Vec3 = trial.drone.position;
     simulate(mut trial.drone, command, trial.full_spin, trial.auto_level);
+    advance_preview_phase(mut trial, before);
     trial.tick = trial.tick + 1u32;
     trial_progress(mut trial, before);
 }

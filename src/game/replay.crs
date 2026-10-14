@@ -23,6 +23,8 @@ fn trial_hash(trial: read Trial) -> u32 {
     hash = hash_word(hash, d.bursts);
     hash = hash_word(hash, float_bits(d.brake_speed));
     hash = hash_word(hash, float_bits(d.winch_work));
+    hash = hash_word(hash, float_bits(trial.preview_phase));
+    hash = hash_word(hash, float_bits(trial.hook_preview_phase));
     hash = hash_word(hash, trial.tick);
     hash = hash_word(hash, trial.gate);
     hash = hash_word(hash, trial.attempt);

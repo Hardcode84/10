@@ -1,0 +1,104 @@
+fn test_preview_station(trial: read Trial, index: u32) -> Vec3 {
+    var drone: Drone = trial.drone;
+    var distance: f32 = trial.preview_phase;
+    var station: f32 = index as f32 * PREVIEW_SPACING;
+    var i: u32 = 0u32;
+    while i < 240u32 {
+        var before: Vec3 = drone.position;
+        simulate(mut drone, idle_command(), trial.full_spin, trial.auto_level);
+        var segment: f32 = length(sub(drone.position, before));
+        if segment > 0f32 && distance + segment >= station {
+            return preview_station(before, drone.position, distance, station);
+        }
+        distance = distance + segment;
+        i = i + 1u32;
+    }
+    trap;
+}
+fn test_preview_continuation(spin: bool) -> bool {
+    var trial: Trial = new_trial();
+    trial.drone.position = vec(0f32, 150f32, 0f32);
+    trial.drone.velocity = vec(3f32, 30f32, 20f32);
+    trial.full_spin = spin;
+    trial.started = true;
+    var index: u32 = 4u32;
+    var first: Vec3 = test_preview_station(read trial, index);
+    var i: u32 = 0u32;
+    while i < 120u32 && index > 0u32 {
+        var phase: f32 = trial.preview_phase;
+        trial_step(mut trial, idle_command());
+        if trial.preview_phase < phase {
+            index = index - 1u32;
+        }
+        if index == 0u32 {
+            break;
+        }
+        var next: Vec3 = test_preview_station(read trial, index);
+        if !game_check(
+            length(sub(first, next)) < 0.001f32,
+            "coasting prediction markers must stay at the same world position"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if !game_check(index == 0u32, "drone must pass the tracked prediction station") {
+        return false;
+    }
+    trial.preview_mode = 0u32;
+    var before: f32 = trial.preview_phase;
+    trial_step(mut trial, idle_command());
+    if !game_check(
+        trial.preview_phase != before,
+        "hidden predictions must retain their travel phase"
+    ) {
+        return false;
+    }
+    reset_trial(mut trial);
+    return game_check(
+        trial.preview_phase == 0f32 && trial.hook_preview_phase == 0f32,
+        "retry must reset prediction phases"
+    );
+}
+fn test_hook_preview_phase() -> bool {
+    var trial: Trial = new_trial();
+    trial.drone.position = vec(0f32, 100f32, 0f32);
+    var before: Vec3 = trial.drone.position;
+    trial.drone.position.z = 1f32;
+    advance_preview_phase(mut trial, before);
+    var station: Vec3 = preview_station(
+        trial.drone.position,
+        add(trial.drone.position, vec(0f32, 0f32, 10f32)),
+        trial.hook_preview_phase,
+        PREVIEW_SPACING
+    );
+    if !game_check(
+        near(station.z, 4f32, 0.00001f32),
+        "forward motion must approach the same hook prediction station"
+    ) {
+        return false;
+    }
+    before = trial.drone.position;
+    trial.drone.position.x = 1f32;
+    advance_preview_phase(mut trial, before);
+    if !game_check(
+        near(trial.hook_preview_phase, 1f32, 0.00001f32),
+        "lateral motion must not slide hook stations along the aim ray"
+    ) {
+        return false;
+    }
+    before = trial.drone.position;
+    trial.drone.position.z = -1f32;
+    advance_preview_phase(mut trial, before);
+    return game_check(
+        near(trial.hook_preview_phase, 3f32, 0.00001f32) && near(
+            wrap_preview_phase(13f32),
+            1f32,
+            0.00001f32
+        ),
+        "reverse motion and multiple station crossings must wrap the phase"
+    );
+}
+fn test_preview_stability() -> bool {
+    return test_preview_continuation(false) && test_preview_continuation(true) && test_hook_preview_phase();
+}

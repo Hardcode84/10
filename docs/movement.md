@@ -76,8 +76,12 @@ Its world-space width changes with camera depth and field of view. Squares
 behind the camera or no wider than twice the border width are hidden, so the
 centre stays open. The squares still use world-space depth
 and can be hidden by scene geometry.
-Markers are 4 m apart along the predicted path, starting 4 m from the drone.
-Positions are interpolated between simulation steps. Slow motion shows fewer
+Markers are 4 m apart along the predicted path. Their spacing phase advances
+with actual travel at each simulation tick. During coasting, the drone approaches
+and passes the same world-space marker positions. A new marker enters at the
+far end when a near marker passes. Changing thrust, forces, or contact changes
+the predicted path immediately. Positions are interpolated between simulation
+steps. The outlines face the camera; their centres supply the stable motion cue. Slow motion shows fewer
 markers. A stationary drone path shows none. The preview stops at two seconds
 or its marker limit, whichever comes first.
 
@@ -91,6 +95,11 @@ or waiting for release after a snap. P set to off hides both paths.
 The paths share a limit of eight markers. When the hook preview is active, the
 drone path uses up to four markers. The hook path uses the remaining markers.
 Both paths use the same 4 m spacing, solid colours, and scaled pixel borders.
+The hook path advances its spacing phase by signed drone travel along the
+predicted launch direction, including inherited velocity. Lateral motion does
+not slide the markers along that direction. A change in aim changes the
+predicted path. Both phases update while previews are hidden and reset on retry.
+Rendering reads the phases and cannot change them.
 
 The HUD shows time, gates, air-relative speed, hook state, cable length, burst
 count, and assist settings. The cable is cyan. A small amber body shows the
@@ -169,6 +178,7 @@ drum coordinates, and attached cables.
 | `sdl-input.crs`, `bindings.crs` | Native device reads and binding file parsing |
 | `scene.crs`, `palette.crs`, `preview.crs` | Scene submission and flight indicators |
 | `hook-preview.crs` | Hook path before launch |
+| `preview-phase.crs` | Tick-based spacing phases and path station positions |
 | `hud.crs`, `text.crs` | Trial status and text data |
 | `loop.crs` | Fixed-step clock and frame sequence |
 | `platform.crs`, `renderer-host.crs` | Resource ownership and renderer setup |
@@ -202,9 +212,10 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 4 stores the
-initial spin mode in its header and uses the new course. Replay restores that
-mode. Earlier versions are rejected because their course or commands differ.
+format uses the current Linux host's word representation. Version 5 stores the
+initial spin mode in its header and includes both prediction phases in the
+state hash. Replay restores the mode and reproduces the marker motion. Earlier
+versions are rejected because their state contract differs.
 
 `--ticks N` bounds a run. In headless mode, the simulation runs without wall
 clock pacing and renders the last state. `--smoke` supplies test commands for
@@ -213,7 +224,7 @@ collision, projectile flight and recoil, high-speed attachment, range snaps,
 tether release, fast swings, latched fast reeling, blocked winching, input edges,
 mouse accumulation,
 repeated input streams, directional gate crossings, pipe contact, the triangle
-budget, and complete flights in stopped and full-spin modes.
+budget, marker stability during coasting, and complete flights in stopped and full-spin modes.
 These checks use the production simulation.
 
 `--tour` flies the course with ordinary tick commands and stops on landing.
