@@ -172,6 +172,12 @@ Resolve parent geometry and portal surfaces together. A nearer opaque object
 must hide the portal pixels behind it. A completely hidden portal creates no
 child work.
 
+Clip portal apertures against the eye plane, not the geometry near plane.
+An aperture between the eye and the geometry near plane must still select child
+pixels until the camera crosses its plane. Keep the geometry near plane for
+ordinary surfaces. A portal plane through the eye has zero projected area;
+it must not cause division by zero.
+
 Create a child view only for pixels where the portal wins visibility. Start child
 visibility on the destination side of the portal plane. Geometry between the
 virtual camera and that plane must not appear through the opening.

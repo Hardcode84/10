@@ -133,10 +133,13 @@ The palette test checks 465,366 source pixels exactly across two patterns,
 multiple workgroups, and dimensions that do not divide by eight. It checks
 nearest-neighbour scaling and RGBA/BGRA channel order for every output pixel.
 
-The scene test checks eight camera and object states against an independent
+The scene test checks 21 camera and object states against an independent
 ray-triangle reference. It includes translated and rotated views of the same
 space, destination clipping, cutouts, portal recursion, and complete portal
-occlusion. The reference excludes the outer pixel border and independently
+occlusion. Frames 281 through 286 and 500 through 506 check both directions of
+camera crossing. Portal intersections in front of the eye remain visible inside
+the geometry near distance. This prevents the blank image previously seen at
+frame 284. The reference excludes the outer pixel border and independently
 calculated exact triangle edges. It permits
 adjacent palette entries only at calculated texture boundaries. Other pixels
 must match within three channel units, with a one-pixel coverage tolerance.

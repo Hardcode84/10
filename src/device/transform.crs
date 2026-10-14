@@ -1,9 +1,9 @@
-fn clip_distance(base: u32, plane: u32) -> f32 {
+fn clip_distance(base: u32, plane: u32, near: f32) -> f32 {
     var x: f32 = floats_load(base);
     var y: f32 = floats_load(base + 1u32);
     var z: f32 = floats_load(base + 2u32);
     if plane == 0u32 {
-        return z - 0.125f32;
+        return z - near;
     }
     if plane == 1u32 {
         return floats_load(base + 5u32);
@@ -20,14 +20,14 @@ fn clip_distance(base: u32, plane: u32) -> f32 {
     }
     return z - y;
 }
-fn clip_polygon(base: u32, count: u32, plane: u32) -> u32 {
+fn clip_polygon(base: u32, count: u32, plane: u32, near: f32) -> u32 {
     var output: u32 = 0u32;
     var i: u32 = 0u32;
     while i < count {
         var a: u32 = base + i * 6u32;
         var b: u32 = base + ((i + 1u32) % count) * 6u32;
-        var da: f32 = clip_distance(a, plane);
-        var db: f32 = clip_distance(b, plane);
+        var da: f32 = clip_distance(a, plane, near);
+        var db: f32 = clip_distance(b, plane, near);
         var j: u32 = 0u32;
         if da >= 0f32 {
             while j < 6u32 {
@@ -102,13 +102,25 @@ fn prepare_triangle(index: u32) -> unit {
         vertex = vertex + 1u32;
     }
     var count: u32 = 3u32;
+    var near: f32 = 0.125f32;
+    if words_load(META + tri * 4u32 + 2u32) != 0u32 {
+        near = 0f32;
+    }
     var plane: u32 = 0u32;
     while plane < 6u32 && count >= 3u32 {
-        count = clip_polygon(scratch, count, plane);
+        count = clip_polygon(scratch, count, plane, near);
         plane = plane + 1u32;
     }
     if count < 3u32 {
         return;
+    }
+    vertex = 0u32;
+    while vertex < count {
+        // A polygon through the eye has no projected area.
+        if floats_load(scratch + vertex * 6u32 + 2u32) <= 0f32 {
+            return;
+        }
+        vertex = vertex + 1u32;
     }
     fan = 0u32;
     while fan < count - 2u32 {

@@ -208,7 +208,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
         o.height = 93u32;
         o.window_width = 322u32;
         o.window_height = 186u32;
-        o.frames = 8u32;
+        o.frames = 21u32;
         o.verify = 1u32;
     }
     var v: Vulkan = uninit;
@@ -274,6 +274,12 @@ fn main(argc: i32, argv: **u8) -> i32 {
             frame = index * 60u32;
             if index == 7u32 {
                 frame = 0u32;
+            }
+            if index >= 8u32 && index < 14u32 {
+                frame = 281u32 + index - 8u32;
+            }
+            if index >= 14u32 {
+                frame = 500u32 + index - 14u32;
             }
         }
         scene(&v, o.width, o.height, frame, o.dither);

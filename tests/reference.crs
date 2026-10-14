@@ -42,7 +42,7 @@ unsafe fn vertex(f: *f32, index: usize) -> Vec {
         z: f[index + 2usize]
     };
 }
-unsafe fn intersect(f: *f32, tri: u32, ray: Ray, hit: *Hit) -> bool {
+unsafe fn intersect(f: *f32, tri: u32, ray: Ray, minimum: f32, hit: *Hit) -> bool {
     var p: usize = (GEOMETRY + tri * 15u32) as usize;
     var a: Vec = vertex(f, p);
     var b: Vec = vertex(f, p + 5usize);
@@ -65,7 +65,7 @@ unsafe fn intersect(f: *f32, tri: u32, ray: Ray, hit: *Hit) -> bool {
         return false;
     }
     var distance: f32 = dot(ac, r) / determinant;
-    if distance < 0.125f32 || distance >= hit -> distance {
+    if distance <= 0f32 || distance < minimum || distance >= hit -> distance {
         return false;
     }
     hit -> edge = u;
@@ -209,7 +209,11 @@ unsafe fn trace(
         while tri < w[3usize] {
             if w[(META + tri * 4u32) as usize] == space {
                 var next: Hit = hit;
-                if intersect(f, tri, ray, &next) {
+                var minimum: f32 = 0.125f32;
+                if w[(META + tri * 4u32 + 2u32) as usize] != 0u32 {
+                    minimum = 0f32;
+                }
+                if intersect(f, tri, ray, minimum, &next) {
                     var accept: bool = true;
                     if clip != 0xffffffffu32 {
                         var p: usize = (PORTAL_FLOAT + clip * 16u32 + 12u32) as usize;
