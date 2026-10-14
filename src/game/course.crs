@@ -3,7 +3,7 @@ record Solid {
     high: Vec3;
     material: u32;
 }
-const SOLID_COUNT: u32 = 5u32;
+const SOLID_COUNT: u32 = 22u32;
 fn solid(lo: Vec3, hi: Vec3, mat: u32) -> Solid {
     return make Solid {
         low: lo,
@@ -11,9 +11,13 @@ fn solid(lo: Vec3, hi: Vec3, mat: u32) -> Solid {
         material: mat
     };
 }
-fn course_solid(index: u32) -> Solid {
+fn course_gallery(index: u32) -> Solid {
     if index == 0u32 {
-        return solid(vec(-95f32, -10f32, -20f32), vec(95f32, -8f32, 180f32), 0u32);
+        return solid(
+            vec(-95f32, -10f32, -20f32),
+            vec(190f32, -8f32, 280f32),
+            0u32
+        );
     }
     if index == 1u32 {
         return solid(vec(-3f32, -8f32, 55f32), vec(3f32, 55f32, 61f32), 1u32);
@@ -24,16 +28,67 @@ fn course_solid(index: u32) -> Solid {
     if index == 3u32 {
         return solid(vec(-7f32, -8f32, -7f32), vec(7f32, 0f32, 7f32), 3u32);
     }
-    return solid(vec(-7f32, -8f32, 148f32), vec(7f32, 0f32, 162f32), 3u32);
+    if index == 4u32 {
+        return solid(vec(-69f32, 52f32, 55f32), vec(-41f32, 60f32, 85f32), 3u32);
+    }
+    if index == 5u32 {
+        return solid(vec(-24f32, -8f32, -12f32), vec(-20f32, 22f32, 70f32), 12u32);
+    }
+    if index == 6u32 {
+        return solid(vec(24f32, -8f32, -12f32), vec(28f32, 22f32, 70f32), 12u32);
+    }
+    return solid(vec(-24f32, 22f32, -12f32), vec(28f32, 25f32, 42f32), 1u32);
 }
-fn course_gate(index: u32) -> Vec3 {
-    if index == 0u32 {
-        return vec(0f32, 4f32, 35f32);
+fn course_court(index: u32) -> Solid {
+    if index == 8u32 {
+        return solid(vec(38f32, -8f32, 103f32), vec(62f32, 38f32, 130f32), 2u32);
     }
-    if index == 1u32 {
-        return vec(16f32, 4f32, 80f32);
+    if index == 9u32 {
+        return solid(vec(78f32, -8f32, 175f32), vec(104f32, 57f32, 200f32), 1u32);
     }
-    return vec(16f32, 4f32, 120f32);
+    if index == 10u32 {
+        return solid(vec(96f32, -8f32, 107f32), vec(116f32, 46f32, 136f32), 2u32);
+    }
+    if index == 11u32 {
+        return solid(vec(132f32, -8f32, 125f32), vec(175f32, 116f32, 131f32), 12u32);
+    }
+    if index == 12u32 {
+        return solid(vec(132f32, -8f32, 179f32), vec(175f32, 116f32, 185f32), 12u32);
+    }
+    if index == 13u32 {
+        return solid(vec(172f32, -8f32, 125f32), vec(178f32, 116f32, 185f32), 1u32);
+    }
+    return solid(vec(125f32, 96f32, 185f32), vec(175f32, 100f32, 245f32), 0u32);
+}
+fn course_return(index: u32) -> Solid {
+    if index == 15u32 {
+        return solid(vec(125f32, 100f32, 185f32), vec(129f32, 108f32, 245f32), 11u32);
+    }
+    if index == 16u32 {
+        return solid(vec(171f32, 100f32, 185f32), vec(175f32, 108f32, 245f32), 11u32);
+    }
+    if index == 17u32 {
+        return solid(vec(30f32, 65f32, 195f32), vec(56f32, 98f32, 220f32), 2u32);
+    }
+    if index == 18u32 {
+        return solid(vec(-80f32, 50f32, 95f32), vec(0f32, 54f32, 245f32), 0u32);
+    }
+    if index == 19u32 {
+        return solid(vec(-40f32, 54f32, 150f32), vec(-8f32, 93f32, 178f32), 12u32);
+    }
+    if index == 20u32 {
+        return solid(vec(-84f32, 54f32, 70f32), vec(-80f32, 91f32, 245f32), 1u32);
+    }
+    return solid(vec(-80f32, 88f32, 95f32), vec(-40f32, 92f32, 172f32), 1u32);
+}
+fn course_solid(index: u32) -> Solid {
+    if index < 8u32 {
+        return course_gallery(index);
+    }
+    if index < 15u32 {
+        return course_court(index);
+    }
+    return course_return(index);
 }
 // Local Y points toward the axis; the course origin is 750 metres from it.
 fn drum_position(local: Vec3) -> Vec3 {

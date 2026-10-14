@@ -82,8 +82,8 @@ fn test_trial() -> bool {
     if !game_check(t.gate == 1u32, "swept checkpoint crossing failed") {
         return false;
     }
-    t.gate = 3u32;
-    t.drone.position = vec(0f32, 0.5f32, 155f32);
+    t.gate = GATE_COUNT;
+    t.drone.position = add(course_finish(), vec(0f32, 0.5f32, 0f32));
     var before: Vec3 = t.drone.position;
     trial_progress(mut t, before);
     return game_check(t.finished, "finish landing failed");

@@ -10,6 +10,12 @@ fn game_tick(session: mut GameSession, loop: mut GameLoop, config: GameConfig) -
     if config.smoke {
         command = smoke_command(read loop.trial, loop.ticks);
     }
+    if config.tour {
+        command = pilot_command(read loop.trial);
+        if loop.trial.full_spin {
+            command = spin_pilot_command(read loop.trial);
+        }
+    }
     var status: i32 = game_command(mut session, mut command);
     if status < 0i32 {
         return false;
@@ -22,6 +28,9 @@ fn game_tick(session: mut GameSession, loop: mut GameLoop, config: GameConfig) -
     trial_step(mut loop.trial, command);
     if loop.trial.finished && !finished {
         game_message(1u32);
+        if config.tour {
+            loop.running = false;
+        }
     }
     loop.ticks = loop.ticks + 1u32;
     if config.ticks != 0u32 && loop.ticks >= config.ticks {
@@ -88,6 +97,7 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
     if !game_open(mut session, mut loop.input) {
         return 1i32;
     }
+    loop.trial.full_spin = game_initial_spin(read session);
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var inputs: FrameInput = renderer_inputs(mut renderer);

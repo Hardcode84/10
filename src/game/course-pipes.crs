@@ -1,0 +1,59 @@
+const PIPE_COUNT: u32 = 2u32;
+record CoursePipe {
+    start: Vec3;
+    axis: u32;
+    extent: f32;
+    radius: f32;
+    material: u32;
+}
+fn course_pipe(index: u32) -> CoursePipe {
+    if index == 0u32 {
+        return make CoursePipe {
+            start: vec(20f32, 16f32, -10f32),
+            axis: 2u32,
+            extent: 84f32,
+            radius: 1.2f32,
+            material: 10u32
+        };
+    }
+    return make CoursePipe {
+        start: vec(169f32, 0f32, 165f32),
+        axis: 1u32,
+        extent: 126f32,
+        radius: 2f32,
+        material: 13u32
+    };
+}
+fn pipe_radial(pipe: CoursePipe, index: u32) -> Vec3 {
+    var i: u32 = index % 6u32;
+    var x: f32 = 1f32;
+    var y: f32 = 0f32;
+    if i == 1u32 {
+        x = 0.5f32;
+        y = 0.866025404f32;
+    } else if i == 2u32 {
+        x = -0.5f32;
+        y = 0.866025404f32;
+    } else if i == 3u32 {
+        x = -1f32;
+    } else if i == 4u32 {
+        x = -0.5f32;
+        y = -0.866025404f32;
+    } else if i == 5u32 {
+        x = 0.5f32;
+        y = -0.866025404f32;
+    }
+    return scale(
+        add(
+            scale(axis_vector((pipe.axis + 1u32) % 3u32), x),
+            scale(axis_vector((pipe.axis + 2u32) % 3u32), y)
+        ),
+        pipe.radius
+    );
+}
+fn pipe_vertex(pipe: CoursePipe, index: u32, end: f32) -> Vec3 {
+    return add(
+        add(pipe.start, pipe_radial(pipe, index)),
+        scale(axis_vector(pipe.axis), end * pipe.extent)
+    );
+}

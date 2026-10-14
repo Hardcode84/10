@@ -14,9 +14,12 @@ remains at `crust demo.crs` and `build/spinward`.
 
 ## Course
 
-Start on the small platform. Pass the three gates in order, in the direction
-away from the start. The current gate is cyan. Pass around the spoke and to the
-right of the brown wall. Land on the amber finish platform at less than 2 m/s.
+Start on the small platform. Pass 11 gates in order. The route goes through a
+launch gallery, a machinery court, a vertical shaft, an upper crossing, and a
+return duct. Each gate has a required crossing direction. The current gate is
+cyan; the next gate is dim. A cyan arrow points toward a gate outside the view.
+Land on the amber finish platform at less than 2 m/s. See the
+[course plan](flight-course.md) for geometry, lights, and route details.
 The timer stops when the drone is above that platform, less than one metre from
 its top. Backspace starts another attempt. There is no frame limit in window
 mode.
@@ -109,7 +112,8 @@ smoothstep over radii from zero through 4000 m.
 
 The drone has a 0.35 m collision radius. Each course solid supplies both the
 visible box and the collision box. Sweeps test faces, rounded edges, and
-corners. Contact removes inward velocity and permits sliding. A step resolves
+corners. The two pipes use six-sided prisms for both drawing and collision.
+Their sweeps test side faces, end caps, and rounded edges. Contact removes inward velocity and permits sliding. A step resolves
 up to four contacts; excess travel stops at the last safe contact point.
 
 Press and hold the tether action to launch one hook. The hook starts at the
@@ -151,7 +155,10 @@ drum coordinates, and attached cables.
 | Files | Responsibility |
 | --- | --- |
 | `src/game/math.crs`, `state.crs` | Value types and initial state |
-| `course.crs` | Solids, gates, and drum placement |
+| `course.crs`, `course-route.crs` | Solids, directional gates, dock, and drum placement |
+| `course-pipes.crs`, `pipe-collision.crs`, `pipe-view.crs` | Pipe shape, contact, and drawing |
+| `course-tour.crs` | Input controllers for automatic course flights |
+| `course-appearance.crs`, `course-view.crs` | Surface patterns, lights, and route indicator |
 | `physics.crs`, `orientation.crs` | Forces, integration, and attitude |
 | `collision.crs` | Sweeps and contact response |
 | `hook.crs` | Launch, recoil, projectile flight, contact, and range snaps |
@@ -180,6 +187,10 @@ checked. Native providers contain SDL, file, and Vulkan integration.
 crust main.crs --record build/flight.rec
 crust main.crs --replay build/flight.rec
 crust main.crs --test
+crust main.crs --tour
+crust main.crs --tour --full-spin
+crust main.crs --headless --tour --record build/course.rec \
+  --capture build/course.ppm
 crust main.crs --headless --smoke --ticks 600 --record build/smoke.rec \
   --capture build/smoke.ppm
 crust main.crs --headless --replay build/smoke.rec \
@@ -191,9 +202,9 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 3 stores reel presses as
-Boolean commands and includes the latched reel state in the state hash. Earlier
-versions are rejected because they use different tether controls or physics.
+format uses the current Linux host's word representation. Version 4 stores the
+initial spin mode in its header and uses the new course. Replay restores that
+mode. Earlier versions are rejected because their course or commands differ.
 
 `--ticks N` bounds a run. In headless mode, the simulation runs without wall
 clock pacing and renders the last state. `--smoke` supplies test commands for
@@ -201,8 +212,15 @@ thrust, tether, brake, and a spin-mode change. `--test` checks forces, swept
 collision, projectile flight and recoil, high-speed attachment, range snaps,
 tether release, fast swings, latched fast reeling, blocked winching, input edges,
 mouse accumulation,
-repeated input streams, and a complete stopped-course flight.
+repeated input streams, directional gate crossings, pipe contact, the triangle
+budget, and complete flights in stopped and full-spin modes.
 These checks use the production simulation.
+
+`--tour` flies the course with ordinary tick commands and stops on landing.
+Use `--full-spin` to start in full spin. The two tour controllers use different
+flight strategies; their times are not a comparison of player difficulty.
+Without `--ticks`, a headless tour runs until landing. A replay gets its initial
+spin mode from the recording; it rejects a separate `--full-spin` option.
 
 ## Input binding file
 
@@ -240,11 +258,12 @@ playtest before starting the beacon and charge-economy slice.
 
 ## Implementation checks
 
-The automated stopped-course flight passes all three gates and lands in 5,492
-simulation ticks, with four bursts. Force, collision, tether, winch, input, and
-replay checks pass. AMD and Intel replay the same 600-command recording with
-matching simulation hashes. On AMD, record and replay captures match byte for
-byte. A private X11 window test with software Vulkan checks presentation and
+The automated stopped-course flight passes all 11 gates and lands in 18,488
+simulation ticks, with 13 bursts. The full-spin flight lands in 6,470 ticks,
+with 32 bursts. Force, collision, tether, winch, input, and
+replay checks pass. AMD and Intel replay both complete course recordings with matching simulation
+hashes. On AMD, record and replay captures match byte for byte. Invalid version
+and spin fields in recording headers are rejected. A private X11 window test with software Vulkan checks presentation and
 Esc exit. A physical gamepad has not been tested in this environment.
 
 The renderer passes 50 lit-tour reference states, including 70 and 110 degree

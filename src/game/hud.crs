@@ -31,6 +31,7 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
     hud_text(mut v, 42u32, 0u32, "SPEED");
     hud_number(mut v, 48u32, 0u32, length(trial.drone.velocity) as u32);
     hud_text(mut v, 56u32, 0u32, "M/S");
+    course_label(mut v, trial.gate);
     hud_text(mut v, 0u32, 1u32, "HOOK");
     hud_text(mut v, 5u32, 1u32, "READY");
     if trial.drone.cable.phase == CABLE_FLYING {
@@ -79,5 +80,21 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
             5u32,
             "FINISHED - BACKSPACE TO RETRY                                     "
         );
+    }
+}
+
+fn course_label(v: mut FrameInput, gate: u32) -> unit {
+    if gate < 2u32 {
+        hud_text(mut v, 61u32, 0u32, "LAUNCH GALLERY");
+    } else if gate < 5u32 {
+        hud_text(mut v, 61u32, 0u32, "MACHINERY COURT");
+    } else if gate == 5u32 {
+        hud_text(mut v, 61u32, 0u32, "SERVICE SHAFT");
+    } else if gate < 9u32 {
+        hud_text(mut v, 61u32, 0u32, "UPPER CROSSING");
+    } else if gate < GATE_COUNT {
+        hud_text(mut v, 61u32, 0u32, "RETURN DUCT");
+    } else {
+        hud_text(mut v, 61u32, 0u32, "LANDING DOCK");
     }
 }

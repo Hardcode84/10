@@ -1,0 +1,60 @@
+fn test_course_gates() -> bool {
+    var i: u32 = 0u32;
+    while i < GATE_COUNT {
+        var gate: CourseGate = course_gate(i);
+        var before: Vec3 = sub(gate.center, scale(gate.normal, 10f32));
+        var after: Vec3 = add(gate.center, scale(gate.normal, 10f32));
+        var outside: Vec3 = scale(gate.right, 7f32);
+        if !game_check(
+            gate_crossed(before, after, gate) && !gate_crossed(after, before, gate) && !gate_crossed(
+                add(before, outside),
+                add(after, outside),
+                gate
+            ),
+            "oriented gates must accept only forward crossings inside their frame"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn test_pipe_collision() -> bool {
+    var pipe: CoursePipe = course_pipe(0u32);
+    var normal: Vec3 = unit_vector(
+        add(pipe_radial(pipe, 0u32), pipe_radial(pipe, 1u32))
+    );
+    var center: Vec3 = add(pipe.start, scale(axis_vector(pipe.axis), 20f32));
+    var side: Hit = sweep_pipe(
+        add(center, scale(normal, 5f32)),
+        scale(normal, -10f32),
+        pipe,
+        DRONE_RADIUS
+    );
+    var cap: Hit = sweep_pipe(
+        sub(pipe.start, vec(0f32, 0f32, 10f32)),
+        vec(0f32, 0f32, 20f32),
+        pipe,
+        DRONE_RADIUS
+    );
+    var corner: Hit = sweep_pipe(
+        add(pipe.start, vec(1.1f32, 1f32, -10f32)),
+        vec(0f32, 0f32, 100f32),
+        pipe,
+        HOOK_RADIUS
+    );
+    return game_check(
+        near(
+            side.time,
+            (5f32 - pipe.radius * 0.866025404f32 - DRONE_RADIUS) / 10f32,
+            0.00001f32
+        ) && near(cap.time, (10f32 - DRONE_RADIUS) / 20f32, 0.00001f32) && corner.time > 1f32,
+        "pipe faces and end caps must collide without a phantom box around the hexagon"
+    );
+}
+fn test_course_geometry() -> bool {
+    return game_check(
+        course_triangle_bound() <= MAX_TRIS,
+        "course geometry and indicators exceed the renderer triangle budget"
+    ) && test_course_gates() && test_pipe_collision();
+}

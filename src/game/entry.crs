@@ -3,7 +3,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
         puts("SPINWARD movement trial | stopped / full-spin course");
         puts("--width N --height N --fov 70..110 --slow --bindings FILE");
         puts("--record FILE | --replay FILE | --test");
-        puts("--headless --ticks N --capture FILE --smoke");
+        puts("--headless --ticks N --capture FILE --smoke | --tour --full-spin");
         puts("WASD Ctrl/Space: move | mouse: look | Q/E: roll with level off");
         puts("RMB: burst | F: brake | LMB: hold tether | R or Space: start fast reel");
         puts("Backspace: retry | F4: spin and retry | L: level | P: preview");

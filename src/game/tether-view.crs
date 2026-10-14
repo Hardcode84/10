@@ -10,7 +10,8 @@ fn draw_cable(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
             sub(drone.cable.anchor, size),
             add(drone.cable.anchor, size),
             5u32
-        )
+        ),
+        drone.position
     );
     var start: Vec3 = add(
         drone.position,

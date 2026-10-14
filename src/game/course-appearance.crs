@@ -1,0 +1,131 @@
+fn course_deck_texel(x: u32, y: u32) -> u32 {
+    if x == 0u32 || y == 0u32 {
+        return 0u32;
+    }
+    if y == 4u32 {
+        return 2u32;
+    }
+    return 1u32;
+}
+fn course_texel(mat: u32, x: u32, y: u32) -> u32 {
+    if mat == 0u32 {
+        return course_deck_texel(x, y);
+    }
+    if mat == 2u32 || mat == 3u32 {
+        if x == 1u32 && y == 1u32 {
+            return 3u32;
+        }
+        return ((x / 4u32 + y / 4u32) % 2u32) + 1u32;
+    }
+    if mat == 11u32 {
+        return ((x + y) / 2u32) % 2u32 * 3u32;
+    }
+    if mat == 10u32 || mat == 13u32 {
+        if x == 3u32 {
+            return 3u32;
+        }
+        return 1u32 + (x % 3u32) / 2u32;
+    }
+    if mat == 12u32 {
+        if x == 0u32 || y == 0u32 {
+            return 0u32;
+        }
+        return 2u32;
+    }
+    return x % 4u32;
+}
+fn course_light(v: mut FrameInput, index: u32, position: Vec3, color: Vec3, radius: f32) -> unit {
+    var p: usize = (LIGHT_DATA + index * 8u32) as usize;
+    input_set_float(mut v, p, position.x);
+    input_set_float(mut v, p + 1usize, position.y);
+    input_set_float(mut v, p + 2usize, position.z);
+    input_set_float(mut v, p + 3usize, radius * radius);
+    input_set_float(mut v, p + 4usize, color.x);
+    input_set_float(mut v, p + 5usize, color.y);
+    input_set_float(mut v, p + 6usize, color.z);
+    input_set_float(mut v, p + 7usize, 0f32);
+}
+fn course_lights(v: mut FrameInput) -> unit {
+    input_set_word(mut v, LIGHT_COUNT as usize, 8u32);
+    course_light(
+        mut v,
+        0u32,
+        vec(0f32, 14f32, 12f32),
+        vec(1.8f32, 1.1f32, 0.45f32),
+        18f32
+    );
+    course_light(
+        mut v,
+        1u32,
+        vec(16f32, 14f32, 76f32),
+        vec(0.5f32, 1.2f32, 1.6f32),
+        22f32
+    );
+    course_light(
+        mut v,
+        2u32,
+        vec(65f32, 30f32, 150f32),
+        vec(1.5f32, 0.8f32, 0.3f32),
+        30f32
+    );
+    course_light(
+        mut v,
+        3u32,
+        vec(150f32, 68f32, 153f32),
+        vec(0.5f32, 1.3f32, 1.6f32),
+        35f32
+    );
+    course_light(
+        mut v,
+        4u32,
+        vec(160f32, 120f32, 157f32),
+        vec(1.8f32, 0.45f32, 0.25f32),
+        25f32
+    );
+    course_light(
+        mut v,
+        5u32,
+        vec(90f32, 116f32, 240f32),
+        vec(0.7f32, 1.0f32, 1.4f32),
+        30f32
+    );
+    course_light(
+        mut v,
+        6u32,
+        vec(-55f32, 76f32, 180f32),
+        vec(0.5f32, 1.2f32, 1.4f32),
+        20f32
+    );
+    course_light(
+        mut v,
+        7u32,
+        vec(-55f32, 73f32, 74f32),
+        vec(1.8f32, 1.1f32, 0.45f32),
+        20f32
+    );
+}
+
+fn course_palette_color(base: u32, mat: u32, tex: u32, state: u32) -> u32 {
+    var shade: u32 = 130u32 + tex * 40u32;
+    if mat >= 4u32 && mat <= HOOK_PREVIEW_MATERIAL {
+        shade = 255u32;
+    }
+    var color: u32 = base;
+    var bright: bool = mat >= 4u32 && mat <= HOOK_PREVIEW_MATERIAL;
+    if (mat == 2u32 || mat == 10u32 || mat == 13u32) && tex == 3u32 {
+        bright = true;
+        shade = 255u32;
+        color = 0x68b6e8u32;
+        if mat == 10u32 {
+            color = 0xc4d265u32;
+        }
+        if mat == 13u32 {
+            color = 0x527ee8u32;
+        }
+    }
+    if mat == 0u32 {
+        shade = 130u32 + tex * 15u32;
+    }
+
+    return palette_entry(color, shade, state, bright);
+}

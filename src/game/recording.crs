@@ -44,20 +44,22 @@ fn recording_open(stream: *Recording, o: *Launch) -> bool {
     if stream -> file == null(*u8) {
         return error("cannot open recording");
     }
-    var header: [u32; 2] = make [u32; 2] {
+    var header: [u32; 3] = make [u32; 3] {
         0x53504e30u32,
-        3u32
+        4u32,
+        o -> config.full_spin as u32
     };
     if stream -> mode == 1u32 {
-        return fwrite(&header as *u8, 8usize, 1usize, stream -> file) == 1usize || error(
+        return fwrite(&header as *u8, 12usize, 1usize, stream -> file) == 1usize || error(
             "cannot write recording header"
         );
     }
-    if fread(&header as *u8, 8usize, 1usize, stream -> file) != 1usize || header[0usize] != 0x53504e30u32 || header[
+    if fread(&header as *u8, 12usize, 1usize, stream -> file) != 1usize || header[0usize] != 0x53504e30u32 || header[
         1usize
-    ] != 3u32 {
+    ] != 4u32 || header[2usize] > 1u32 {
         return error("invalid recording header");
     }
+    o -> config.full_spin = header[2usize] != 0u32;
     return true;
 }
 fn recording_finish(stream: *Recording) -> bool {

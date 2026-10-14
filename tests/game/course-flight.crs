@@ -1,36 +1,3 @@
-fn pilot_command(trial: read Trial) -> Command {
-    var c: Command = idle_command();
-    var target: Vec3 = vec(0f32, 0.36f32, 155f32);
-    if trial.gate < 3u32 {
-        target = add(course_gate(trial.gate), vec(0f32, 0f32, 2f32));
-    }
-    var delta: Vec3 = sub(target, trial.drone.position);
-    var distance: f32 = length(delta);
-    var direction: Vec3 = unit_vector(delta);
-    var b: Basis = trial.drone.basis;
-    var x: f32 = dot(direction, b.right);
-    var y: f32 = dot(direction, b.up);
-    var z: f32 = dot(direction, b.forward);
-    c.look = vec(atan2f(x, z) * 8f32, -atan2f(y, sqrtf(x * x + z * z)) * 8f32, 0f32);
-    var speed: f32 = length(trial.drone.velocity);
-    var desired_speed: f32 = clamp(sqrtf(distance) * 0.8f32, 0f32, 8f32);
-    if distance > 20f32 {
-        desired_speed = 15f32;
-    }
-    var desired: Vec3 = scale(direction, desired_speed);
-    var correction: Vec3 = sub(desired, trial.drone.velocity);
-    c.thrust = vec(
-        dot(correction, b.right),
-        dot(correction, b.up),
-        dot(correction, b.forward)
-    );
-    c.burst = distance > 20f32 && speed < 4f32 && z > 0.995f32;
-    c.brake = speed > length(desired) + 2f32 || (
-        speed > 2f32 && dot(unit_vector(trial.drone.velocity), direction) < 0.8f32
-    );
-    c.burst = c.burst && !c.brake;
-    return c;
-}
 fn test_course_flight() -> bool {
     var trial: Trial = new_trial();
     var i: u32 = 0u32;
@@ -41,7 +8,7 @@ fn test_course_flight() -> bool {
     }
     game_summary(read trial);
     return game_check(
-        trial.finished && trial.gate == 3u32,
+        trial.finished && trial.gate == GATE_COUNT,
         "production flight did not finish the stopped course"
-    );
+    ) && test_course_spin() && test_course_geometry();
 }

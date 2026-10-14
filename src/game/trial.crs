@@ -6,24 +6,28 @@ fn reset_trial(trial: mut Trial) -> unit {
     trial.started = false;
     trial.attempt = trial.attempt + 1u32;
 }
-fn gate_crossed(before: Vec3, after: Vec3, gate: Vec3) -> bool {
-    if before.z >= gate.z || after.z < gate.z {
+fn gate_crossed(before: Vec3, after: Vec3, gate: CourseGate) -> bool {
+    var a: f32 = dot(sub(before, gate.center), gate.normal);
+    var b: f32 = dot(sub(after, gate.center), gate.normal);
+    if a >= 0f32 || b < 0f32 {
         return false;
     }
-    var t: f32 = (gate.z - before.z) / (after.z - before.z);
-    var at: Vec3 = sub(add(before, scale(sub(after, before), t)), gate);
-    return absf(at.x) <= 6f32 && absf(at.y) <= 6f32;
+    var at: Vec3 = sub(
+        add(before, scale(sub(after, before), -a / (b - a))),
+        gate.center
+    );
+    return absf(dot(at, gate.right)) <= 6f32 && absf(dot(at, gate.up)) <= 6f32;
 }
 fn trial_progress(trial: mut Trial, before: Vec3) -> unit {
-    if trial.gate < 3u32 && gate_crossed(
+    while trial.gate < GATE_COUNT && gate_crossed(
         before,
         trial.drone.position,
         course_gate(trial.gate)
     ) {
         trial.gate = trial.gate + 1u32;
     }
-    var p: Vec3 = trial.drone.position;
-    if trial.gate == 3u32 && absf(p.x) < 6f32 && absf(p.z - 155f32) < 6f32 && p.y < 1f32 && p.y >= DRONE_RADIUS && length(
+    var p: Vec3 = sub(trial.drone.position, course_finish());
+    if trial.gate == GATE_COUNT && absf(p.x) < 10f32 && absf(p.z) < 10f32 && p.y < 1f32 && p.y >= DRONE_RADIUS && length(
         trial.drone.velocity
     ) < 2f32 {
         trial.finished = true;

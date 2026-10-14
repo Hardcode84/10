@@ -6,6 +6,8 @@ record GameConfig {
     headless: bool;
     test: bool;
     smoke: bool;
+    tour: bool;
+    full_spin: bool;
     slow: bool;
 }
 record Launch {
@@ -71,6 +73,14 @@ fn game_value(o: *Launch, key: *u8, value: *u8) -> bool {
     return error("unknown option; use --help");
 }
 fn game_flag(o: *Launch, key: *u8) -> bool {
+    if strcmp(key, "--tour") == 0i32 {
+        o -> config.tour = true;
+        return true;
+    }
+    if strcmp(key, "--full-spin") == 0i32 {
+        o -> config.full_spin = true;
+        return true;
+    }
     if strcmp(key, "--test") == 0i32 {
         o -> config.test = true;
         return true;
@@ -99,6 +109,8 @@ fn game_options(argc: i32, argv: **u8, o: *Launch) -> bool {
             headless: false,
             test: false,
             smoke: false,
+            tour: false,
+            full_spin: false,
             slow: false
         },
         capture: null(*u8),
@@ -132,10 +144,18 @@ fn game_options_valid(o: *Launch) -> bool {
     if o -> record_path != null(*u8) && o -> replay_path != null(*u8) {
         return error("record and replay are mutually exclusive");
     }
-    if o -> config.smoke && o -> replay_path != null(*u8) {
-        return error("smoke and replay are mutually exclusive");
+    return game_input_options(o);
+}
+fn game_input_options(o: *Launch) -> bool {
+    if o -> config.full_spin && o -> replay_path != null(*u8) {
+        return error("replay restores the recorded spin mode; omit --full-spin");
     }
-    if o -> config.headless && o -> config.ticks == 0u32 && o -> replay_path == null(*u8) {
+    if (o -> config.smoke && o -> config.tour) || (
+        (o -> config.smoke || o -> config.tour) && o -> replay_path != null(*u8)
+    ) {
+        return error("smoke, tour and replay are mutually exclusive");
+    }
+    if o -> config.headless && o -> config.ticks == 0u32 && o -> replay_path == null(*u8) && !o -> config.tour {
         o -> config.ticks = 1u32;
     }
     return true;

@@ -1,0 +1,43 @@
+fn draw_pipe(v: mut FrameInput, pipe: CoursePipe, eye: Vec3) -> unit {
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        var a: Vec3 = pipe_vertex(pipe, i, 0f32);
+        var b: Vec3 = pipe_vertex(pipe, i + 1u32, 0f32);
+        var normal: Vec3 = add(pipe_radial(pipe, i), pipe_radial(pipe, i + 1u32));
+        if dot(sub(eye, a), normal) > 0f32 {
+            surface_quad(
+                mut v,
+                pipe.material,
+                a,
+                b,
+                pipe_vertex(pipe, i + 1u32, 1f32),
+                pipe_vertex(pipe, i, 1f32)
+            );
+        }
+        i = i + 1u32;
+    }
+    var along: f32 = component(sub(eye, pipe.start), pipe.axis);
+    if along >= 0f32 && along <= pipe.extent {
+        return;
+    }
+    var end: f32 = 0f32;
+    if along > pipe.extent {
+        end = 1f32;
+    }
+    surface_quad(
+        mut v,
+        1u32,
+        pipe_vertex(pipe, 0u32, end),
+        pipe_vertex(pipe, 1u32, end),
+        pipe_vertex(pipe, 2u32, end),
+        pipe_vertex(pipe, 3u32, end)
+    );
+    surface_quad(
+        mut v,
+        1u32,
+        pipe_vertex(pipe, 0u32, end),
+        pipe_vertex(pipe, 3u32, end),
+        pipe_vertex(pipe, 4u32, end),
+        pipe_vertex(pipe, 5u32, end)
+    );
+}

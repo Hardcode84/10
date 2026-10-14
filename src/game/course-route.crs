@@ -1,0 +1,71 @@
+const GATE_COUNT: u32 = 11u32;
+record CourseGate {
+    center: Vec3;
+    right: Vec3;
+    up: Vec3;
+    normal: Vec3;
+}
+fn course_finish() -> Vec3 {
+    return vec(-55f32, 60f32, 70f32);
+}
+fn course_gate_center(index: u32) -> Vec3 {
+    if index == 0u32 {
+        return vec(0f32, 4f32, 35f32);
+    }
+    if index == 1u32 {
+        return vec(16f32, 4f32, 80f32);
+    }
+    if index == 2u32 {
+        return vec(16f32, 10f32, 125f32);
+    }
+    if index == 3u32 {
+        return vec(65f32, 22f32, 155f32);
+    }
+    if index == 4u32 {
+        return vec(150f32, 35f32, 155f32);
+    }
+    if index == 5u32 {
+        return vec(150f32, 115f32, 155f32);
+    }
+    if index == 6u32 {
+        return vec(150f32, 115f32, 220f32);
+    }
+    if index == 7u32 {
+        return vec(80f32, 110f32, 250f32);
+    }
+    if index == 8u32 {
+        return vec(5f32, 80f32, 230f32);
+    }
+    if index == 9u32 {
+        return vec(-55f32, 65f32, 175f32);
+    }
+    return vec(-55f32, 65f32, 105f32);
+}
+fn course_gate_normal(index: u32) -> Vec3 {
+    if index == 3u32 || index == 4u32 {
+        return vec(1f32, 0f32, 0f32);
+    }
+    if index == 5u32 {
+        return vec(0f32, 1f32, 0f32);
+    }
+    if index == 7u32 || index == 8u32 {
+        return vec(-1f32, 0f32, 0f32);
+    }
+    if index >= 9u32 {
+        return vec(0f32, 0f32, -1f32);
+    }
+    return vec(0f32, 0f32, 1f32);
+}
+fn course_gate(index: u32) -> CourseGate {
+    var normal: Vec3 = course_gate_normal(index);
+    var up: Vec3 = vec(0f32, 1f32, 0f32);
+    if index == 5u32 {
+        up = vec(0f32, 0f32, -1f32);
+    }
+    return make CourseGate {
+        center: course_gate_center(index),
+        right: cross(up, normal),
+        up: up,
+        normal: normal
+    };
+}

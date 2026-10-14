@@ -78,3 +78,6 @@ fn game_message(code: u32) -> unit {
         puts("Course finished. Backspace / pad X restarts.");
     }
 }
+fn game_initial_spin(session: read GameSession) -> bool {
+    return session.launch.config.full_spin;
+}

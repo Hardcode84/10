@@ -1,0 +1,80 @@
+fn pipe_side_hit(p: Vec3, d: Vec3, pipe: CoursePipe, index: u32, radius: f32) -> Hit {
+    var a: Vec3 = pipe_vertex(pipe, index, 0f32);
+    var edge: Vec3 = sub(pipe_vertex(pipe, index + 1u32, 0f32), a);
+    var normal: Vec3 = unit_vector(
+        add(pipe_radial(pipe, index), pipe_radial(pipe, index + 1u32))
+    );
+    var speed: f32 = dot(d, normal);
+    if speed >= -0.0000001f32 {
+        return miss();
+    }
+    var t: f32 = (dot(sub(a, p), normal) + radius) / speed;
+    if t < -0.00001f32 || t > 1f32 {
+        return miss();
+    }
+    t = clamp(t, 0f32, 1f32);
+    var at: Vec3 = sub(sub(add(p, scale(d, t)), scale(normal, radius)), a);
+    var along: f32 = component(at, pipe.axis);
+    var across: f32 = dot(at, edge);
+    if along < 0f32 || along > pipe.extent || across < 0f32 || across > dot(edge, edge) {
+        return miss();
+    }
+    return make Hit {
+        time: t,
+        normal: normal
+    };
+}
+fn pipe_cap_hit(p: Vec3, d: Vec3, pipe: CoursePipe, end: f32, radius: f32) -> Hit {
+    var normal: Vec3 = scale(axis_vector(pipe.axis), end * 2f32 - 1f32);
+    var speed: f32 = dot(d, normal);
+    if speed >= -0.0000001f32 {
+        return miss();
+    }
+    var center: Vec3 = add(
+        pipe.start,
+        scale(axis_vector(pipe.axis), end * pipe.extent)
+    );
+    var t: f32 = (dot(sub(center, p), normal) + radius) / speed;
+    if t < -0.00001f32 || t > 1f32 {
+        return miss();
+    }
+    t = clamp(t, 0f32, 1f32);
+    var at: Vec3 = sub(add(p, scale(d, t)), center);
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        var side: Vec3 = unit_vector(
+            add(pipe_radial(pipe, i), pipe_radial(pipe, i + 1u32))
+        );
+        if dot(at, side) > pipe.radius * 0.866025404f32 {
+            return miss();
+        }
+        i = i + 1u32;
+    }
+    return make Hit {
+        time: t,
+        normal: normal
+    };
+}
+fn sweep_pipe(p: Vec3, d: Vec3, pipe: CoursePipe, radius: f32) -> Hit {
+    var hit: Hit = nearest(
+        pipe_cap_hit(p, d, pipe, 0f32, radius),
+        pipe_cap_hit(p, d, pipe, 1f32, radius)
+    );
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        hit = nearest(hit, pipe_side_hit(p, d, pipe, i, radius));
+        var a: Vec3 = pipe_vertex(pipe, i, 0f32);
+        var b: Vec3 = pipe_vertex(pipe, i, 1f32);
+        hit = nearest(hit, edge_hit(p, d, a, b, radius));
+        hit = nearest(
+            hit,
+            edge_hit(p, d, a, pipe_vertex(pipe, i + 1u32, 0f32), radius)
+        );
+        hit = nearest(
+            hit,
+            edge_hit(p, d, b, pipe_vertex(pipe, i + 1u32, 1f32), radius)
+        );
+        i = i + 1u32;
+    }
+    return hit;
+}

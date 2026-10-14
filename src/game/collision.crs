@@ -124,6 +124,11 @@ fn course_hit(p: Vec3, d: Vec3, radius: f32) -> Hit {
         hit = nearest(hit, sweep_box(p, d, course_solid(i), radius));
         i = i + 1u32;
     }
+    i = 0u32;
+    while i < PIPE_COUNT {
+        hit = nearest(hit, sweep_pipe(p, d, course_pipe(i), radius));
+        i = i + 1u32;
+    }
     return hit;
 }
 fn slide_velocity(v: Vec3, normal: Vec3) -> Vec3 {
