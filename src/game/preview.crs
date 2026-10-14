@@ -20,6 +20,9 @@ fn draw_preview_marker(
     config: GameConfig,
     material: u32
 ) -> unit {
+    if length(sub(center, drone.position)) < 6f32 {
+        return;
+    }
     var pixel: f32 = preview_pixel_size(center, drone, config) * preview_border_pixels(config) as f32;
     if pixel <= 0f32 {
         return;
