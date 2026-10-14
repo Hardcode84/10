@@ -1,0 +1,50 @@
+record Playback {
+    frame: u32;
+    paused: bool;
+    running: bool;
+}
+fn playback_next(p: mut Playback) -> bool {
+    while p.running {
+        var event: WindowEvent = window_event(p.paused);
+        if event.status < 0i32 {
+            return false;
+        }
+        if event.status == 0i32 {
+            if p.frame == 0xffffffffu32 {
+                return playback_overflow();
+            }
+            p.frame = p.frame + 1u32;
+            return true;
+        }
+        var kind: u32 = event.kind;
+        if kind == 256u32 {
+            p.running = false;
+        } else if kind == 768u32 && !event.repeat {
+            var key: u32 = event.key;
+            if key == 32u32 {
+                p.paused = !p.paused;
+                if !playback_print(read p) {
+                    return false;
+                }
+            } else if key == 1073741904u32 || key == 1073741903u32 {
+                p.paused = true;
+                if key == 1073741904u32 {
+                    if p.frame > 0u32 {
+                        p.frame = p.frame - 1u32;
+                        return true;
+                    }
+                    if !playback_print(read p) {
+                        return false;
+                    }
+                } else {
+                    if p.frame == 0xffffffffu32 {
+                        return playback_overflow();
+                    }
+                    p.frame = p.frame + 1u32;
+                    return true;
+                }
+            }
+        }
+    }
+    return true;
+}

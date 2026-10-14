@@ -1,197 +1,33 @@
-extern fn reference_check(mapped: *u8) -> bool = "reference_check";
-record Options {
-    capture: *u8;
-    width: u32;
-    height: u32;
-    frame: u32;
-    frames: u32;
-    dither: u32;
-    verify: u32;
-    baseline: u32;
-    view_budget: u32;
-    fault: u32;
-    test: u32;
-    mapping: u32;
-    snap: u32;
-    window_width: u32;
-    window_height: u32;
-}
-extern fn strcmp(a: *u8, b: *u8) -> i32 = "strcmp";
-fn parse_number(text: *u8, result: *u32) -> bool {
-    var i: usize = 0usize;
-    var value: u32 = 0u32;
-    while text[i] != 0u8 {
-        if text[i] < 48u8 || text[i] > 57u8 || value > 100000u32 {
-            return error("invalid numeric argument");
-        }
-        value = value * 10u32 + (text[i] - 48u8) as u32;
-        i = i + 1usize;
-    }
-    if i == 0usize {
-        return error("empty numeric argument");
-    }
-    * result = value;
-    return true;
-}
-fn options(argc: i32, argv: **u8, o: *Options) -> bool {
-    *o = make Options {
-        capture: null(*u8),
-        width: 640u32,
-        height: 360u32,
-        frame: 0u32,
-        frames: 600u32,
-        dither: 0u32,
-        verify: 0u32,
-        baseline: 0u32,
-        view_budget: MAX_VIEWS,
-        fault: 0u32,
-        test: 0u32,
-        mapping: 0u32,
-        snap: 0u32,
-        window_width: 0u32,
-        window_height: 0u32
-    };
-    var specified: bool = false;
-    var i: usize = 1usize;
-    while i < argc as usize {
-        if i + 1usize >= argc as usize {
-            return error("options require a value");
-        }
-        var key: *u8 = argv[i];
-        var value: *u8 = argv[i + 1usize];
-        var good: bool = true;
-        if strcmp(key, "--window-width") == 0i32 {
-            good = parse_number(value, &o -> window_width);
-        } else if strcmp(key, "--window-height") == 0i32 {
-            good = parse_number(value, &o -> window_height);
-        } else if strcmp(key, "--mapping") == 0i32 {
-            good = parse_number(value, &o -> mapping);
-        } else if strcmp(key, "--snap") == 0i32 {
-            good = parse_number(value, &o -> snap);
-        } else if strcmp(key, "--test") == 0i32 {
-            good = parse_number(value, &o -> test);
-        } else if strcmp(key, "--view-budget") == 0i32 {
-            good = parse_number(value, &o -> view_budget);
-        } else if strcmp(key, "--fault") == 0i32 {
-            good = parse_number(value, &o -> fault);
-        } else if strcmp(key, "--baseline") == 0i32 {
-            good = parse_number(value, &o -> baseline);
-        } else if strcmp(key, "--verify") == 0i32 {
-            good = parse_number(value, &o -> verify);
-        } else if strcmp(key, "--capture") == 0i32 {
-            o -> capture = value;
-        } else {
-            if strcmp(key, "--width") == 0i32 {
-                good = parse_number(value, &o -> width);
-            } else {
-                if strcmp(key, "--height") == 0i32 {
-                    good = parse_number(value, &o -> height);
-                } else {
-                    if strcmp(key, "--frame") == 0i32 {
-                        good = parse_number(value, &o -> frame);
-                    } else {
-                        if strcmp(key, "--frames") == 0i32 {
-                            good = parse_number(value, &o -> frames);
-                            specified = true;
-                        } else {
-                            if strcmp(key, "--dither") == 0i32 {
-                                good = parse_number(value, &o -> dither);
-                            } else {
-                                return error(
-                                    "unknown option: use --capture, --width, --height, --frame, --frames, --dither"
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if !good {
-            return false;
-        }
-        i = i + 2usize;
-    }
-    if o -> capture != null(*u8) && !specified {
-        o -> frames = 1u32;
-    }
-    if o -> window_width == 0u32 {
-        o -> window_width = o -> width;
-    }
-    if o -> window_height == 0u32 {
-        o -> window_height = o -> height;
-    }
-    if o -> width == 0u32 || o -> height == 0u32 || o -> width > 1920u32 || o -> height > 1080u32 || o -> window_width > 1920u32 || o -> window_height > 1080u32 || o -> frames == 0u32 || o -> frames > 4096u32 || o -> dither > 1u32 || o -> view_budget == 0u32 || o -> view_budget > MAX_VIEWS || o -> fault > 1u32 || o -> test > 3u32 || o -> mapping > 2u32 || o -> snap > 1u32 || (
-        o -> verify != 0u32 && (o -> mapping != 0u32 || o -> snap != 0u32)
-    ) {
-        return error("dimensions, frame count, or dither mode outside demo budget");
-    }
-    return true;
-}
-fn main(argc: i32, argv: **u8) -> i32 {
-    if argc == 2i32 && strcmp(argv[1usize], "--help") == 0i32 {
-        puts("SPINWARD automatic compute demo");
-        puts("--capture FILE --width N --height N --window-width N --window-height N");
-        puts("--frame N --frames N --dither 0|1 --mapping 0|1|2 --snap 0|1");
-        puts("--test 1 (exact palette/presentation) or 2 (scene reference) or 3 (playback input)");
-        puts("--verify 1 --baseline 1 --view-budget N --fault 1");
-        puts("Window keys: Space pauses/resumes; Left/Right step one frame and pause");
-        return 0i32;
-    }
-    var o: Options = uninit;
-    if !options(argc, argv, &o) {
-        return 2i32;
-    }
-    if o.test == 1u32 {
-        return (!palette_test()) as i32;
-    }
-    if o.test == 3u32 {
-        return (!playback_test()) as i32;
-    }
-    if o.test == 2u32 {
-        o.capture = "build/test-scene.ppm";
-        o.width = 320u32;
-        o.height = 180u32;
-        o.window_width = 640u32;
-        o.window_height = 360u32;
-        o.frames = 25u32;
-        o.verify = 1u32;
-    }
-    var v: Vulkan = uninit;
-    zero(&v as *u8, sizeof(Vulkan));
-    var window: *u8 = null(*u8);
-    var good: bool = true;
-    if o.capture == null(*u8) {
-        good = window_open(&window, o.window_width, o.window_height);
-    }
-    good = good && demo_renderer_open(&v, &o, window);
+fn demo_run(session: DemoSession, o: DemoConfig) -> i32 {
+    var good: bool = session_open(mut session);
     if good {
-        palettes(&v);
-        portal_setup(&v);
-    }
-    if good {
+        var renderer: mut Renderer = session_renderer(mut session);
+        var inputs: FrameInput = renderer_inputs(mut renderer);
+        palettes(mut inputs);
+        portal_setup(mut inputs);
         var material: usize = 0usize;
         while material < 16usize {
-            (v.mapped as *u32)[(MATERIAL_STYLE as usize) + material] = o.mapping | (
-                o.snap * 4u32
+            input_set_word(
+                mut inputs,
+                (MATERIAL_STYLE as usize) + material,
+                o.mapping | (o.snap * 4u32)
             );
             material = material + 1usize;
         }
     }
-    var samples: [u64; 4096] = uninit;
-    var measured: u32 = 0u32;
     var index: u32 = 0u32;
     var playback: Playback = make Playback {
         frame: o.frame,
         paused: false,
         running: true
     };
-    if good && o.capture == null(*u8) {
-        puts("Space: pause/resume | Left/Right: previous/next frame");
+    if good && !o.capture {
+        demo_controls();
     }
     while good && playback.running && index < o.frames {
         var start: u64 = now();
         var frame: u32 = o.frame + index;
-        if o.capture == null(*u8) {
+        if !o.capture {
             frame = playback.frame;
         }
         if o.test == 2u32 {
@@ -215,96 +51,74 @@ fn main(argc: i32, argv: **u8) -> i32 {
                 frame = 367u32 + index - 23u32;
             }
         }
-        scene(&v, o.width, o.height, frame, o.dither);
-        if o.test == 2u32 && !portal_plane_check(&v) {
-            good = false;
-            break;
+        {
+            var renderer: mut Renderer = session_renderer(mut session);
+            var inputs: FrameInput = renderer_inputs(mut renderer);
+            scene(mut inputs, o.width, o.height, frame, o.dither);
+            if o.test == 2u32 && index == 6u32 {
+                quad(
+                    mut inputs,
+                    1u32,
+                    4u32,
+                    0u32,
+                    0u32,
+                    -100f32,
+                    -100f32,
+                    -0.25f32,
+                    100f32,
+                    -100f32,
+                    -0.25f32,
+                    100f32,
+                    100f32,
+                    -0.25f32,
+                    -100f32,
+                    100f32,
+                    -0.25f32
+                );
+            }
+            if o.test == 2u32 && index == 7u32 {
+                quad(
+                    mut inputs,
+                    0u32,
+                    4u32,
+                    0u32,
+                    0u32,
+                    -8f32,
+                    -8f32,
+                    7f32,
+                    8f32,
+                    -8f32,
+                    7f32,
+                    8f32,
+                    8f32,
+                    7f32,
+                    -8f32,
+                    8f32,
+                    7f32
+                );
+            }
         }
-        if o.test == 2u32 && index == 6u32 {
-            quad(
-                &v,
-                1u32,
-                4u32,
-                0u32,
-                0u32,
-                -100f32,
-                -100f32,
-                -0.25f32,
-                100f32,
-                -100f32,
-                -0.25f32,
-                100f32,
-                100f32,
-                -0.25f32,
-                -100f32,
-                100f32,
-                -0.25f32
-            );
-        }
-        if o.test == 2u32 && index == 7u32 {
-            quad(
-                &v,
-                0u32,
-                4u32,
-                0u32,
-                0u32,
-                -8f32,
-                -8f32,
-                7f32,
-                8f32,
-                -8f32,
-                7f32,
-                8f32,
-                8f32,
-                7f32,
-                -8f32,
-                8f32,
-                7f32
-            );
-        }
-        good = renderer_draw(&v);
-        if good && o.test == 2u32 && index == 0u32 && (v.mapped as *u32)[11usize] < 3u32 {
-            good = error("two transformed portal views were not created");
-        }
-        if good && o.test == 2u32 && index == 7u32 && (v.mapped as *u32)[11usize] != 1u32 {
-            good = error("hidden portal created child work");
-        }
-
-        var elapsed: u64 = now() - start;
-        if index > 0u32 {
-            samples[measured as usize] = elapsed;
-            measured = measured + 1u32;
-        }
-        if good && o.verify != 0u32 {
-            good = reference_check(v.mapped) && presentation_check(&v);
-        }
-        if good && o.test == 2u32 && frame == 523u32 {
-            good = crossing_face_check(&v);
-        }
-        if good && o.test == 2u32 && (frame == 367u32 || frame == 368u32) {
-            good = distant_cube_check(&v, frame);
+        good = session_draw(mut session);
+        session_sample(mut session, index, now() - start);
+        if good {
+            good = session_verify(read session, index, frame);
         }
         if good {
-            if o.capture != null(*u8) {
+            if o.capture {
                 if index + 1u32 == o.frames {
-                    good = capture(&v, o.capture, o.window_width, o.window_height);
+                    good = session_capture(read session);
                 }
             } else {
-                good = present(&v, o.window_width, o.window_height) && frame_print(&playback);
+                good = session_present(mut session) && playback_print(read playback);
                 if good && index + 1u32 < o.frames {
-                    good = window_next(&playback);
+                    good = playback_next(mut playback);
                 }
             }
         }
         index = index + 1u32;
     }
     if good {
-        good = queries_report(&v);
+        good = session_report(mut session);
     }
-    if measured > 0u32 {
-        report(&samples[0usize], measured);
-    }
-    device_close(&v);
-    window_close(window);
     return (!good) as i32;
 }

@@ -1,0 +1,35 @@
+fn check_host_ownership(root: *CrustRun) -> bool {
+    var files: [*u8; 7] = make [*u8; 7] {
+        "valid.crs",
+        "copy.crs",
+        "use-after-drop.crs",
+        "live-input.crs",
+        "escape.crs",
+        "shared-write.crs",
+        "opaque.crs"
+    };
+    var errors: [*u8; 7] = make [*u8; 7] {
+        null(*u8),
+        "copy of a resource requires an explicit move",
+        "value is uninitialized or has been moved",
+        "access conflicts with an active payload loan",
+        "returned loan does not match its declared source parameter or storage path",
+        "shared loan cannot grant mutable access",
+        "opaque fields are private to the trusted implementation"
+    };
+    var good: bool = true;
+    var i: usize = 0usize;
+    while i < 7usize {
+        var args: [*u8; 4] = make [*u8; 4] {
+            "--check",
+            "--library",
+            host_path(root, "src/render/interface.crs"),
+            stage_path(root, "tests/ownership", files[i])
+        };
+        if ownership_host(root, 4i32, &args[0usize], true, errors[i]) != 0i32 {
+            good = false;
+        }
+        i = i + 1usize;
+    }
+    return good;
+}

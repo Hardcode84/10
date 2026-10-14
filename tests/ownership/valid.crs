@@ -1,0 +1,8 @@
+fn valid_owner(renderer: Renderer) -> unit {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        input_set_word(mut input, 3usize, 0u32);
+    }
+    var transferred: Renderer = move renderer;
+    drop transferred;
+}

@@ -3,16 +3,22 @@ if !stage_setup(run, "crust") {
     return 1i32;
 };
 var stages: *StageSession = stage_open(run, "crust", "build/stage-cache");
-if stages == null(*StageSession) || !stage_load(stages, "stages/c/tool.crs") || !stage_load(
+if stages == null(*StageSession) || !stage_load(stages, "stages/ownership/package.crs") || !stage_load(
     stages,
     "stages/shader/package.crs"
-) || !stage_load(stages, host_path(run, "tools/reference-compiler.crs")) {
+) {
     return 1i32;
 };
 host_source(run, "crust/stages/shader/model.crs");
 host_source(run, "crust/stages/shader/api.crs");
 host_source(run, "src/render/interface.crs");
+host_source(run, "crust/stages/ownership/api.crs");
+host_source(run, "crust/stages/ownership/build.crs");
 host_source(run, "tools/build.crs");
+host_source(run, "tools/ownership-tests.crs");
+if run -> argc == 1i32 && cache_strcmp(run -> argv[0usize], "--check-ownership") == 0i32 {
+    return (!check_host_ownership(run)) as i32;
+};
 var llvm: *u8 = build_getenv("LLVM_DIRECTORY");
 var validator: *u8 = build_getenv("SPIRV_VAL");
 if llvm == null(*u8) {

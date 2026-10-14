@@ -5,10 +5,10 @@ fn terrain_height(x: f32, z: f32) -> f32 {
     }
     return -2f32 + distance * 0.04f32 + sinf(x * 0.22f32) * cosf(z * 0.14f32) * distance * 0.05f32;
 }
-extern fn sinf(x: f32) -> f32 = "sinf";
-extern fn cosf(x: f32) -> f32 = "cosf";
+extern fn sinf(x: f32) -> f32 foreign(scalar) = "sinf";
+extern fn cosf(x: f32) -> f32 foreign(scalar) = "cosf";
 fn triangle(
-    v: *Vulkan,
+    v: mut FrameInput,
     space: u32,
     mat: u32,
     portal: u32,
@@ -23,39 +23,36 @@ fn triangle(
     cy: f32,
     cz: f32
 ) -> unit {
-    var w: *u32 = v -> mapped as *u32;
-    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
-    var n: u32 = w[3usize];
+    var n: u32 = input_word(read v, 3usize);
     if n >= MAX_TRIS {
-        puts("scene exceeds triangle budget");
-        exit(1i32);
+        scene_overflow();
         return;
     }
     var m: usize = (META + n * 4u32) as usize;
-    w[m] = space;
-    w[m + 1usize] = mat;
-    w[m + 2usize] = portal;
-    w[m + 3usize] = cutout;
+    input_set_word(mut v, m, space);
+    input_set_word(mut v, m + 1usize, mat);
+    input_set_word(mut v, m + 2usize, portal);
+    input_set_word(mut v, m + 3usize, cutout);
     var p: usize = (GEOMETRY + n * 15u32) as usize;
-    f[p] = ax;
-    f[p + 1usize] = ay;
-    f[p + 2usize] = az;
-    f[p + 3usize] = 0f32;
-    f[p + 4usize] = 0f32;
-    f[p + 5usize] = bx;
-    f[p + 6usize] = by;
-    f[p + 7usize] = bz;
-    f[p + 8usize] = 1f32;
-    f[p + 9usize] = 0f32;
-    f[p + 10usize] = cx;
-    f[p + 11usize] = cy;
-    f[p + 12usize] = cz;
-    f[p + 13usize] = 1f32;
-    f[p + 14usize] = 1f32;
-    w[3usize] = n + 1u32;
+    input_set_float(mut v, p, ax);
+    input_set_float(mut v, p + 1usize, ay);
+    input_set_float(mut v, p + 2usize, az);
+    input_set_float(mut v, p + 3usize, 0f32);
+    input_set_float(mut v, p + 4usize, 0f32);
+    input_set_float(mut v, p + 5usize, bx);
+    input_set_float(mut v, p + 6usize, by);
+    input_set_float(mut v, p + 7usize, bz);
+    input_set_float(mut v, p + 8usize, 1f32);
+    input_set_float(mut v, p + 9usize, 0f32);
+    input_set_float(mut v, p + 10usize, cx);
+    input_set_float(mut v, p + 11usize, cy);
+    input_set_float(mut v, p + 12usize, cz);
+    input_set_float(mut v, p + 13usize, 1f32);
+    input_set_float(mut v, p + 14usize, 1f32);
+    input_set_word(mut v, 3usize, n + 1u32);
 }
 fn quad(
-    v: *Vulkan,
+    v: mut FrameInput,
     space: u32,
     mat: u32,
     portal: u32,
@@ -73,17 +70,15 @@ fn quad(
     dy: f32,
     dz: f32
 ) -> unit {
-    triangle(v, space, mat, portal, cutout, ax, ay, az, bx, by, bz, cx, cy, cz);
-    triangle(v, space, mat, portal, cutout, ax, ay, az, cx, cy, cz, dx, dy, dz);
-    var w: *u32 = v -> mapped as *u32;
-    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
-    var p: usize = (GEOMETRY + (w[3usize] - 1u32) * 15u32) as usize;
-    f[p + 9usize] = 1f32;
-    f[p + 13usize] = 0f32;
+    triangle(mut v, space, mat, portal, cutout, ax, ay, az, bx, by, bz, cx, cy, cz);
+    triangle(mut v, space, mat, portal, cutout, ax, ay, az, cx, cy, cz, dx, dy, dz);
+    var p: usize = (GEOMETRY + (input_word(read v, 3usize) - 1u32) * 15u32) as usize;
+    input_set_float(mut v, p + 9usize, 1f32);
+    input_set_float(mut v, p + 13usize, 0f32);
 }
-fn box(v: *Vulkan, space: u32, mat: u32, x: f32, y: f32, z: f32, s: f32) -> unit {
+fn box(v: mut FrameInput, space: u32, mat: u32, x: f32, y: f32, z: f32, s: f32) -> unit {
     quad(
-        v,
+        mut v,
         space,
         mat,
         0u32,
@@ -102,7 +97,7 @@ fn box(v: *Vulkan, space: u32, mat: u32, x: f32, y: f32, z: f32, s: f32) -> unit
         z - s
     );
     quad(
-        v,
+        mut v,
         space,
         mat,
         0u32,
@@ -121,7 +116,7 @@ fn box(v: *Vulkan, space: u32, mat: u32, x: f32, y: f32, z: f32, s: f32) -> unit
         z + s
     );
     quad(
-        v,
+        mut v,
         space,
         mat,
         0u32,
@@ -140,7 +135,7 @@ fn box(v: *Vulkan, space: u32, mat: u32, x: f32, y: f32, z: f32, s: f32) -> unit
         z - s
     );
     quad(
-        v,
+        mut v,
         space,
         mat,
         0u32,
@@ -159,7 +154,7 @@ fn box(v: *Vulkan, space: u32, mat: u32, x: f32, y: f32, z: f32, s: f32) -> unit
         z - s
     );
     quad(
-        v,
+        mut v,
         space,
         mat,
         0u32,
@@ -178,7 +173,7 @@ fn box(v: *Vulkan, space: u32, mat: u32, x: f32, y: f32, z: f32, s: f32) -> unit
         z + s
     );
     quad(
-        v,
+        mut v,
         space,
         mat,
         0u32,
@@ -197,11 +192,14 @@ fn box(v: *Vulkan, space: u32, mat: u32, x: f32, y: f32, z: f32, s: f32) -> unit
         z + s
     );
 }
-fn palettes(v: *Vulkan) -> unit {
-    var w: *u32 = v -> mapped as *u32;
+fn palettes(v: mut FrameInput) -> unit {
     var i: u32 = 0u32;
     while i < 64u32 {
-        w[(TEXTURE + i) as usize] = ((i % 8u32) / 2u32 + (i / 8u32) / 2u32) % 4u32;
+        input_set_word(
+            mut v,
+            (TEXTURE + i) as usize,
+            ((i % 8u32) / 2u32 + (i / 8u32) / 2u32) % 4u32
+        );
         i = i + 1u32;
     }
     i = 0u32;
@@ -236,59 +234,59 @@ fn palettes(v: *Vulkan) -> unit {
         }
         var light: u32 = 0u32;
         while light < 64u32 {
-            w[(PALETTE + i * 64u32 + light) as usize] = (r * light / 63u32) | (
-                (g * light / 63u32) << 8u32
-            ) | ((b * light / 63u32) << 16u32) | 0xff000000u32;
+            input_set_word(
+                mut v,
+                (PALETTE + i * 64u32 + light) as usize,
+                (r * light / 63u32) | ((g * light / 63u32) << 8u32) | (
+                    (b * light / 63u32) << 16u32
+                ) | 0xff000000u32
+            );
             light = light + 1u32;
         }
         i = i + 1u32;
     }
 }
-fn portal_setup(v: *Vulkan) -> unit {
-    var w: *u32 = v -> mapped as *u32;
-    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+fn portal_setup(v: mut FrameInput) -> unit {
     var i: u32 = 0u32;
     while i < MAX_PORTALS {
         var p: usize = (PORTAL_FLOAT + i * 16u32) as usize;
-        f[p] = 1f32;
-        f[p + 5usize] = 1f32;
-        f[p + 10usize] = 1f32;
-        f[p + 14usize] = 1f32;
-        w[(PORTAL_META + i * 4u32 + 1u32) as usize] = 1u32;
+        input_set_float(mut v, p, 1f32);
+        input_set_float(mut v, p + 5usize, 1f32);
+        input_set_float(mut v, p + 10usize, 1f32);
+        input_set_float(mut v, p + 14usize, 1f32);
+        input_set_word(mut v, (PORTAL_META + i * 4u32 + 1u32) as usize, 1u32);
         i = i + 1u32;
     }
-    f[(PORTAL_FLOAT + 11u32) as usize] = 9f32;
-    f[(PORTAL_FLOAT + 15u32) as usize] = 0f32;
+    input_set_float(mut v, (PORTAL_FLOAT + 11u32) as usize, 9f32);
+    input_set_float(mut v, (PORTAL_FLOAT + 15u32) as usize, 0f32);
     var p: usize = (PORTAL_FLOAT + 16u32) as usize;
-    f[p] = 0f32;
-    f[p + 2usize] = 1f32;
-    f[p + 3usize] = 4f32;
-    f[p + 8usize] = -1f32;
-    f[p + 10usize] = 0f32;
-    f[p + 11usize] = 9f32;
-    f[p + 12usize] = -1f32;
-    f[p + 14usize] = 0f32;
-    f[p + 15usize] = 0f32;
+    input_set_float(mut v, p, 0f32);
+    input_set_float(mut v, p + 2usize, 1f32);
+    input_set_float(mut v, p + 3usize, 4f32);
+    input_set_float(mut v, p + 8usize, -1f32);
+    input_set_float(mut v, p + 10usize, 0f32);
+    input_set_float(mut v, p + 11usize, 9f32);
+    input_set_float(mut v, p + 12usize, -1f32);
+    input_set_float(mut v, p + 14usize, 0f32);
+    input_set_float(mut v, p + 15usize, 0f32);
     p = (PORTAL_FLOAT + 32u32) as usize;
-    f[p + 11usize] = 26f32;
-    f[p + 14usize] = 1f32;
-    f[p + 15usize] = 8f32;
-    w[(PORTAL_META + 2u32 * 4u32) as usize] = 1u32;
-    w[(PORTAL_META + 2u32 * 4u32 + 1u32) as usize] = 0u32;
+    input_set_float(mut v, p + 11usize, 26f32);
+    input_set_float(mut v, p + 14usize, 1f32);
+    input_set_float(mut v, p + 15usize, 8f32);
+    input_set_word(mut v, (PORTAL_META + 2u32 * 4u32) as usize, 1u32);
+    input_set_word(mut v, (PORTAL_META + 2u32 * 4u32 + 1u32) as usize, 0u32);
 }
-fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
-    var w: *u32 = v -> mapped as *u32;
-    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
-    w[0usize] = width;
-    w[1usize] = height;
-    w[2usize] = mode;
-    w[3usize] = 0u32;
-    w[4usize] = 3u32;
-    w[BACKGROUND as usize] = 0xff463026u32;
-    f[RENDER_STYLE as usize] = 0.125f32;
-    f[(RENDER_STYLE + 1u32) as usize] = 6f32;
-    f[(RENDER_STYLE + 2u32) as usize] = 52f32;
-    f[(RENDER_STYLE + 3u32) as usize] = 0.65f32;
+fn scene(v: mut FrameInput, width: u32, height: u32, frame: u32, mode: u32) -> unit {
+    input_set_word(mut v, 0usize, width);
+    input_set_word(mut v, 1usize, height);
+    input_set_word(mut v, 2usize, mode);
+    input_set_word(mut v, 3usize, 0u32);
+    input_set_word(mut v, 4usize, 3u32);
+    input_set_word(mut v, BACKGROUND as usize, 0xff463026u32);
+    input_set_float(mut v, RENDER_STYLE as usize, 0.125f32);
+    input_set_float(mut v, (RENDER_STYLE + 1u32) as usize, 6f32);
+    input_set_float(mut v, (RENDER_STYLE + 2u32) as usize, 52f32);
+    input_set_float(mut v, (RENDER_STYLE + 3u32) as usize, 0.65f32);
     var t: f32 = frame as f32 / 60f32;
     var yaw: f32 = sinf(t * 0.25f32) * 0.12f32;
     var c: f32 = cosf(yaw);
@@ -302,25 +300,25 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
     if phase >= 420u32 {
         cz = 15f32 - (phase - 420u32) as f32 / 180f32 * 13f32;
     }
-    w[20usize] = 0u32;
+    input_set_word(mut v, 20usize, 0u32);
     if cz >= 9f32 {
-        w[20usize] = 1u32;
+        input_set_word(mut v, 20usize, 1u32);
         cz = cz - 9f32;
     }
-    f[0usize] = c;
-    f[1usize] = 0f32;
-    f[2usize] = -s;
-    f[3usize] = -c * cx + s * cz;
-    f[4usize] = 0f32;
-    f[5usize] = 1f32;
-    f[6usize] = 0f32;
-    f[7usize] = -0.5f32;
-    f[8usize] = s;
-    f[9usize] = 0f32;
-    f[10usize] = c;
-    f[11usize] = -s * cx - c * cz;
+    input_set_float(mut v, 0usize, c);
+    input_set_float(mut v, 1usize, 0f32);
+    input_set_float(mut v, 2usize, -s);
+    input_set_float(mut v, 3usize, -c * cx + s * cz);
+    input_set_float(mut v, 4usize, 0f32);
+    input_set_float(mut v, 5usize, 1f32);
+    input_set_float(mut v, 6usize, 0f32);
+    input_set_float(mut v, 7usize, -0.5f32);
+    input_set_float(mut v, 8usize, s);
+    input_set_float(mut v, 9usize, 0f32);
+    input_set_float(mut v, 10usize, c);
+    input_set_float(mut v, 11usize, -s * cx - c * cz);
     quad(
-        v,
+        mut v,
         0u32,
         0u32,
         0u32,
@@ -339,7 +337,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         9f32
     );
     quad(
-        v,
+        mut v,
         0u32,
         0u32,
         0u32,
@@ -358,7 +356,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         9f32
     );
     quad(
-        v,
+        mut v,
         0u32,
         0u32,
         0u32,
@@ -377,7 +375,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         -8f32
     );
     quad(
-        v,
+        mut v,
         0u32,
         0u32,
         0u32,
@@ -396,7 +394,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         -8f32
     );
     quad(
-        v,
+        mut v,
         0u32,
         0u32,
         0u32,
@@ -415,7 +413,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         9f32
     );
     quad(
-        v,
+        mut v,
         0u32,
         0u32,
         0u32,
@@ -434,7 +432,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         9f32
     );
     quad(
-        v,
+        mut v,
         0u32,
         0u32,
         0u32,
@@ -453,7 +451,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         9f32
     );
     quad(
-        v,
+        mut v,
         0u32,
         0u32,
         0u32,
@@ -472,7 +470,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         9f32
     );
     quad(
-        v,
+        mut v,
         0u32,
         2u32,
         1u32,
@@ -491,7 +489,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         9f32
     );
     quad(
-        v,
+        mut v,
         0u32,
         4u32,
         2u32,
@@ -516,7 +514,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
             var x: f32 = col as f32 * 8f32 - 24f32;
             var z: f32 = row as f32 * 8f32;
             quad(
-                v,
+                mut v,
                 1u32,
                 1u32,
                 0u32,
@@ -538,10 +536,10 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         }
         row = row + 1u32;
     }
-    box(v, 1u32, 2u32, 0f32, 1f32, 24f32, 3f32);
-    box(v, 1u32, 0u32, -10f32, 3f32, 12f32, 4f32);
+    box(mut v, 1u32, 2u32, 0f32, 1f32, 24f32, 3f32);
+    box(mut v, 1u32, 0u32, -10f32, 3f32, 12f32, 4f32);
     quad(
-        v,
+        mut v,
         1u32,
         4u32,
         3u32,
@@ -560,7 +558,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         18f32
     );
     quad(
-        v,
+        mut v,
         1u32,
         3u32,
         0u32,
@@ -579,7 +577,7 @@ fn scene(v: *Vulkan, width: u32, height: u32, frame: u32, mode: u32) -> unit {
         6f32
     );
     var z: f32 = 8.5f32 + 2f32 * sinf(t);
-    box(v, 0u32, 2u32, -0.8f32, -0.5f32, z, 0.8f32);
-    box(v, 1u32, 2u32, -0.8f32, -0.5f32, z - 9f32, 0.8f32);
-    box(v, 0u32, 4u32, 2.3f32, -1f32, 5f32, 0.6f32);
+    box(mut v, 0u32, 2u32, -0.8f32, -0.5f32, z, 0.8f32);
+    box(mut v, 1u32, 2u32, -0.8f32, -0.5f32, z - 9f32, 0.8f32);
+    box(mut v, 0u32, 4u32, 2.3f32, -1f32, 5f32, 0.6f32);
 }

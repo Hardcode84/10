@@ -1,0 +1,4 @@
+fn invalid_use(renderer: Renderer) -> unit {
+    drop renderer;
+    var input: FrameInput = renderer_inputs(mut renderer);
+}

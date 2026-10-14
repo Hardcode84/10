@@ -16,11 +16,6 @@ extern fn SDL_PollEvent(event: *u8) -> i32 = "SDL_PollEvent";
 extern fn SDL_WaitEvent(event: *u8) -> i32 = "SDL_WaitEvent";
 extern fn frame_printf(format: *u8, frame: u32) -> i32 = "printf";
 extern fn fflush(file: *u8) -> i32 = "fflush";
-record Playback {
-    frame: u32;
-    paused: bool;
-    running: bool;
-}
 fn frame_print(p: *Playback) -> bool {
     var format: *u8 = "frame %u\n";
     if p -> paused {
@@ -52,53 +47,6 @@ fn window_open(window: **u8, width: u32, height: u32) -> bool {
     }
     return true;
 }
-fn window_next(p: *Playback) -> bool {
-    var event: [u64; 8] = uninit;
-    while p -> running {
-        var bytes: *u8 = &event as *u8;
-        if p -> paused {
-            if SDL_WaitEvent(bytes) == 0i32 {
-                return error(SDL_GetError());
-            }
-        } else if SDL_PollEvent(bytes) == 0i32 {
-            if p -> frame == 0xffffffffu32 {
-                return error("frame index overflow");
-            }
-            p -> frame = p -> frame + 1u32;
-            return true;
-        }
-        var kind: u32 = (bytes as *u32)[0usize];
-        if kind == 256u32 {
-            p -> running = false;
-        } else if kind == 768u32 && bytes[13usize] == 0u8 {
-            var key: u32 = (bytes as *u32)[5usize];
-            if key == 32u32 {
-                p -> paused = !p -> paused;
-                if !frame_print(p) {
-                    return false;
-                }
-            } else if key == 1073741904u32 || key == 1073741903u32 {
-                p -> paused = true;
-                if key == 1073741904u32 {
-                    if p -> frame > 0u32 {
-                        p -> frame = p -> frame - 1u32;
-                        return true;
-                    }
-                    if !frame_print(p) {
-                        return false;
-                    }
-                } else {
-                    if p -> frame == 0xffffffffu32 {
-                        return error("frame index overflow");
-                    }
-                    p -> frame = p -> frame + 1u32;
-                    return true;
-                }
-            }
-        }
-    }
-    return true;
-}
 fn window_close(window: *u8) -> unit {
     if window != null(*u8) {
         SDL_DestroyWindow(window);
@@ -124,4 +72,34 @@ fn window_instance(v: *Vulkan, window: *u8) -> bool {
         return error(SDL_GetError());
     }
     return true;
+}
+
+record WindowEvent {
+    status: i32;
+    kind: u32;
+    key: u32;
+    repeat: bool;
+}
+fn window_event(wait: bool) -> WindowEvent {
+    var event: [u64; 8] = uninit;
+    zero(&event as *u8, sizeof([u64; 8]));
+    var status: i32 = 0i32;
+    if wait {
+        status = SDL_WaitEvent(&event as *u8);
+        if status == 0i32 {
+            error(SDL_GetError());
+            status = -1i32;
+        }
+    } else {
+        status = SDL_PollEvent(&event as *u8);
+    }
+    return make WindowEvent {
+        status: status,
+        kind: (&event as *u32)[0usize],
+        key: (&event as *u32)[5usize],
+        repeat: (&event as *u8)[13usize] != 0u8
+    };
+}
+fn playback_overflow() -> bool {
+    return error("frame index overflow");
 }

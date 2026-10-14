@@ -52,3 +52,4 @@ record ShaderCode {
     bytes: *u8;
     size: usize;
 }
+opaque;

@@ -12,6 +12,8 @@ A 6DOF exploration game in a rotating megastructure.
 - Develop Crust alongside the game. If a required feature is missing or broken,
   implement or fix it in Crust. Do not add workarounds in the game.
 - Use Vulkan compute with SPIR-V input for rendering.
+- Use the Crust ownership stage for host code. Keep native providers explicit
+  in the root build. Expose owned resources and scoped borrows to checked code.
 - See the [shader compiler investigation](docs/crust-spirv.md) before device work.
 - Keep design contracts current in the same commit as code changes.
 

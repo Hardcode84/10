@@ -1,0 +1,3 @@
+fn invalid_fields(renderer: read Renderer) -> unit {
+    var state: Vulkan = renderer.state;
+}

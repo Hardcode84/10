@@ -30,6 +30,7 @@ record Vulkan {
     timestamp_period: f32;
     family: u32;
 }
+opaque;
 
 fn device_profile(v: *Vulkan) -> bool {
     var controls: VkPhysicalDeviceFloatControlsProperties = uninit;

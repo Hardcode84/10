@@ -17,29 +17,31 @@ fn playback_checks() -> bool {
         paused: false,
         running: true
     };
-    if !window_next(&p) || p.frame != 505u32 || p.paused {
+    if !playback_next(mut p) || p.frame != 505u32 || p.paused {
         return error("automatic playback did not advance one frame");
     }
     if !playback_key(32u32, 0u8) || !playback_key(32u32, 1u8) || !playback_key(
         1073741904u32,
         0u8
-    ) || !window_next(&p) || p.frame != 504u32 || !p.paused {
+    ) || !playback_next(mut p) || p.frame != 504u32 || !p.paused {
         return error("pause and backward step did not preserve the displayed frame");
     }
     if !playback_key(1073741903u32, 1u8) || !playback_key(1073741903u32, 0u8) || !playback_key(
         1073741903u32,
         0u8
-    ) || !window_next(&p) || p.frame != 505u32 || !p.paused || !window_next(&p) || p.frame != 506u32 || !p.paused {
+    ) || !playback_next(mut p) || p.frame != 505u32 || !p.paused || !playback_next(mut p) || p.frame != 506u32 || !p.paused {
         return error("each forward key press must produce exactly one paused frame");
     }
-    if !playback_key(32u32, 0u8) || !window_next(&p) || p.frame != 507u32 || p.paused {
+    if !playback_key(32u32, 0u8) || !playback_next(mut p) || p.frame != 507u32 || p.paused {
         return error("resume did not advance one frame");
     }
-    if !playback_key(1073741904u32, 0u8) || !window_next(&p) || p.frame != 506u32 || !p.paused {
+    if !playback_key(1073741904u32, 0u8) || !playback_next(mut p) || p.frame != 506u32 || !p.paused {
         return error("step during playback did not pause");
     }
     p.frame = 0u32;
-    if !playback_key(1073741904u32, 0u8) || !playback_key(1073741903u32, 0u8) || !window_next(&p) || p.frame != 1u32 || !p.paused {
+    if !playback_key(1073741904u32, 0u8) || !playback_key(1073741903u32, 0u8) || !playback_next(
+        mut p
+    ) || p.frame != 1u32 || !p.paused {
         return error("backward step at zero changed the frame");
     }
     var quit: [u64; 8] = uninit;
@@ -48,7 +50,7 @@ fn playback_checks() -> bool {
     if SDL_PushEvent(&quit as *u8) != 1i32 {
         return error(SDL_GetError());
     }
-    if !window_next(&p) || p.running || p.frame != 1u32 {
+    if !playback_next(mut p) || p.running || p.frame != 1u32 {
         return error("quit while paused failed");
     }
     return true;

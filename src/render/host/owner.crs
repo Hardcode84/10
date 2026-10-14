@@ -1,0 +1,47 @@
+resource Renderer {
+    state: Vulkan;
+}
+opaque drop renderer_drop;
+record FrameInput {
+    storage: mut Vulkan;
+}
+fn renderer_new() -> Renderer {
+    var state: Vulkan = uninit;
+    zero(&state as *u8, sizeof(Vulkan));
+    return make Renderer {
+        state: state
+    };
+}
+fn renderer_drop(renderer: mut Renderer) -> unit {
+    device_close(&renderer.state);
+}
+// Requires successful renderer setup. The input borrow keeps the renderer alive.
+fn renderer_inputs(renderer: mut Renderer) -> FrameInput from renderer {
+    return make FrameInput {
+        storage: mut renderer.state
+    };
+}
+fn input_word(input: read FrameInput, index: usize) -> u32 {
+    if index >= WORDS_LENGTH as usize {
+        trap;
+    }
+    return (input.storage.mapped as *u32)[index];
+}
+fn input_float(input: read FrameInput, index: usize) -> f32 {
+    if index >= FLOATS_LENGTH as usize {
+        trap;
+    }
+    return ((input.storage.mapped + WORDS_LENGTH as isize * 4isize) as *f32)[index];
+}
+fn input_set_word(input: mut FrameInput, index: usize, value: u32) -> unit {
+    if index >= WORDS_LENGTH as usize {
+        trap;
+    }
+    (input.storage.mapped as *u32)[index] = value;
+}
+fn input_set_float(input: mut FrameInput, index: usize, value: f32) -> unit {
+    if index >= FLOATS_LENGTH as usize {
+        trap;
+    }
+    ((input.storage.mapped + WORDS_LENGTH as isize * 4isize) as *f32)[index] = value;
+}

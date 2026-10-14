@@ -1,0 +1,5 @@
+fn invalid_drop(renderer: Renderer) -> unit {
+    var input: FrameInput = renderer_inputs(mut renderer);
+    drop renderer;
+    input_set_word(mut input, 3usize, 0u32);
+}

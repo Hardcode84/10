@@ -68,6 +68,7 @@ record VkApplicationInfo {
     engineVersion: u32;
     apiVersion: u32;
 }
+opaque;
 
 record VkBufferCreateInfo {
     sType: u32;
@@ -79,6 +80,7 @@ record VkBufferCreateInfo {
     queueFamilyIndexCount: u32;
     pQueueFamilyIndices: *u32;
 }
+opaque;
 
 record VkCommandBufferAllocateInfo {
     sType: u32;
@@ -87,6 +89,7 @@ record VkCommandBufferAllocateInfo {
     level: u32;
     commandBufferCount: u32;
 }
+opaque;
 
 record VkCommandBufferBeginInfo {
     sType: u32;
@@ -94,6 +97,7 @@ record VkCommandBufferBeginInfo {
     flags: u32;
     pInheritanceInfo: *u8;
 }
+opaque;
 
 record VkCommandPoolCreateInfo {
     sType: u32;
@@ -101,6 +105,7 @@ record VkCommandPoolCreateInfo {
     flags: u32;
     queueFamilyIndex: u32;
 }
+opaque;
 
 record VkComponentMapping {
     r: u32;
@@ -108,6 +113,7 @@ record VkComponentMapping {
     b: u32;
     a: u32;
 }
+opaque;
 
 record VkComputePipelineCreateInfo {
     sType: u32;
@@ -118,18 +124,21 @@ record VkComputePipelineCreateInfo {
     basePipelineHandle: *u8;
     basePipelineIndex: i32;
 }
+opaque;
 
 record VkDescriptorBufferInfo {
     buffer: *u8;
     offset: u64;
     range: u64;
 }
+opaque;
 
 record VkDescriptorImageInfo {
     sampler: *u8;
     imageView: *u8;
     imageLayout: u32;
 }
+opaque;
 
 record VkDescriptorPoolCreateInfo {
     sType: u32;
@@ -139,11 +148,13 @@ record VkDescriptorPoolCreateInfo {
     poolSizeCount: u32;
     pPoolSizes: *VkDescriptorPoolSize;
 }
+opaque;
 
 record VkDescriptorPoolSize {
     type: u32;
     descriptorCount: u32;
 }
+opaque;
 
 record VkDescriptorSetAllocateInfo {
     sType: u32;
@@ -152,6 +163,7 @@ record VkDescriptorSetAllocateInfo {
     descriptorSetCount: u32;
     pSetLayouts: **u8;
 }
+opaque;
 
 record VkDescriptorSetLayoutBinding {
     binding: u32;
@@ -160,6 +172,7 @@ record VkDescriptorSetLayoutBinding {
     stageFlags: u32;
     pImmutableSamplers: **u8;
 }
+opaque;
 
 record VkDescriptorSetLayoutCreateInfo {
     sType: u32;
@@ -168,6 +181,7 @@ record VkDescriptorSetLayoutCreateInfo {
     bindingCount: u32;
     pBindings: *VkDescriptorSetLayoutBinding;
 }
+opaque;
 
 record VkDeviceCreateInfo {
     sType: u32;
@@ -181,6 +195,7 @@ record VkDeviceCreateInfo {
     ppEnabledExtensionNames: **u8;
     pEnabledFeatures: *VkPhysicalDeviceFeatures;
 }
+opaque;
 
 record VkDeviceQueueCreateInfo {
     sType: u32;
@@ -190,12 +205,14 @@ record VkDeviceQueueCreateInfo {
     queueCount: u32;
     pQueuePriorities: *f32;
 }
+opaque;
 
 record VkExtent3D {
     width: u32;
     height: u32;
     depth: u32;
 }
+opaque;
 
 record VkImageCreateInfo {
     sType: u32;
@@ -214,6 +231,7 @@ record VkImageCreateInfo {
     pQueueFamilyIndices: *u32;
     initialLayout: u32;
 }
+opaque;
 
 record VkImageMemoryBarrier {
     sType: u32;
@@ -227,6 +245,7 @@ record VkImageMemoryBarrier {
     image: *u8;
     subresourceRange: VkImageSubresourceRange;
 }
+opaque;
 
 record VkImageSubresourceRange {
     aspectMask: u32;
@@ -235,6 +254,7 @@ record VkImageSubresourceRange {
     baseArrayLayer: u32;
     layerCount: u32;
 }
+opaque;
 
 record VkImageViewCreateInfo {
     sType: u32;
@@ -246,6 +266,7 @@ record VkImageViewCreateInfo {
     components: VkComponentMapping;
     subresourceRange: VkImageSubresourceRange;
 }
+opaque;
 
 record VkInstanceCreateInfo {
     sType: u32;
@@ -257,6 +278,7 @@ record VkInstanceCreateInfo {
     enabledExtensionCount: u32;
     ppEnabledExtensionNames: **u8;
 }
+opaque;
 
 record VkMemoryAllocateInfo {
     sType: u32;
@@ -264,6 +286,7 @@ record VkMemoryAllocateInfo {
     allocationSize: u64;
     memoryTypeIndex: u32;
 }
+opaque;
 
 record VkMemoryBarrier {
     sType: u32;
@@ -271,22 +294,26 @@ record VkMemoryBarrier {
     srcAccessMask: u32;
     dstAccessMask: u32;
 }
+opaque;
 
 record VkMemoryHeap {
     size: u64;
     flags: u32;
 }
+opaque;
 
 record VkMemoryRequirements {
     size: u64;
     alignment: u64;
     memoryTypeBits: u32;
 }
+opaque;
 
 record VkMemoryType {
     propertyFlags: u32;
     heapIndex: u32;
 }
+opaque;
 
 record VkPhysicalDeviceFeatures {
     robustBufferAccess: u32;
@@ -345,12 +372,14 @@ record VkPhysicalDeviceFeatures {
     variableMultisampleRate: u32;
     inheritedQueries: u32;
 }
+opaque;
 
 record VkPhysicalDeviceFeatures2 {
     sType: u32;
     pNext: *u8;
     features: VkPhysicalDeviceFeatures;
 }
+opaque;
 
 record VkPhysicalDeviceFloatControlsProperties {
     sType: u32;
@@ -373,6 +402,7 @@ record VkPhysicalDeviceFloatControlsProperties {
     shaderRoundingModeRTZFloat32: u32;
     shaderRoundingModeRTZFloat64: u32;
 }
+opaque;
 
 record VkPhysicalDeviceLimits {
     maxImageDimension1D: u32;
@@ -482,6 +512,7 @@ record VkPhysicalDeviceLimits {
     optimalBufferCopyRowPitchAlignment: u64;
     nonCoherentAtomSize: u64;
 }
+opaque;
 
 record VkPhysicalDeviceMemoryProperties {
     memoryTypeCount: u32;
@@ -489,6 +520,7 @@ record VkPhysicalDeviceMemoryProperties {
     memoryHeapCount: u32;
     memoryHeaps: [VkMemoryHeap; 16];
 }
+opaque;
 
 record VkPhysicalDeviceProperties {
     apiVersion: u32;
@@ -501,12 +533,14 @@ record VkPhysicalDeviceProperties {
     limits: VkPhysicalDeviceLimits;
     sparseProperties: VkPhysicalDeviceSparseProperties;
 }
+opaque;
 
 record VkPhysicalDeviceProperties2 {
     sType: u32;
     pNext: *u8;
     properties: VkPhysicalDeviceProperties;
 }
+opaque;
 
 record VkPhysicalDeviceSparseProperties {
     residencyStandard2DBlockShape: u32;
@@ -515,6 +549,7 @@ record VkPhysicalDeviceSparseProperties {
     residencyAlignedMipSize: u32;
     residencyNonResidentStrict: u32;
 }
+opaque;
 
 record VkPhysicalDeviceVulkan12Features {
     sType: u32;
@@ -567,6 +602,7 @@ record VkPhysicalDeviceVulkan12Features {
     shaderOutputLayer: u32;
     subgroupBroadcastDynamicId: u32;
 }
+opaque;
 
 record VkPipelineLayoutCreateInfo {
     sType: u32;
@@ -577,6 +613,7 @@ record VkPipelineLayoutCreateInfo {
     pushConstantRangeCount: u32;
     pPushConstantRanges: *u8;
 }
+opaque;
 
 record VkPipelineShaderStageCreateInfo {
     sType: u32;
@@ -587,6 +624,7 @@ record VkPipelineShaderStageCreateInfo {
     pName: *u8;
     pSpecializationInfo: *u8;
 }
+opaque;
 
 record VkQueueFamilyProperties {
     queueFlags: u32;
@@ -594,6 +632,7 @@ record VkQueueFamilyProperties {
     timestampValidBits: u32;
     minImageTransferGranularity: VkExtent3D;
 }
+opaque;
 
 record VkShaderModuleCreateInfo {
     sType: u32;
@@ -602,6 +641,7 @@ record VkShaderModuleCreateInfo {
     codeSize: usize;
     pCode: *u32;
 }
+opaque;
 
 record VkSubmitInfo {
     sType: u32;
@@ -614,6 +654,7 @@ record VkSubmitInfo {
     signalSemaphoreCount: u32;
     pSignalSemaphores: **u8;
 }
+opaque;
 
 record VkWriteDescriptorSet {
     sType: u32;
@@ -627,6 +668,7 @@ record VkWriteDescriptorSet {
     pBufferInfo: *VkDescriptorBufferInfo;
     pTexelBufferView: **u8;
 }
+opaque;
 
 extern fn vkAllocateCommandBuffers(
     device: *u8,
@@ -841,10 +883,12 @@ record VkSurfaceCapabilitiesKHR {
     supportedCompositeAlpha: u32;
     supportedUsageFlags: u32;
 }
+opaque;
 record VkSurfaceFormatKHR {
     format: u32;
     colorSpace: u32;
 }
+opaque;
 record VkSwapchainCreateInfoKHR {
     sType: u32;
     pNext: *u8;
@@ -865,6 +909,7 @@ record VkSwapchainCreateInfoKHR {
     clipped: u32;
     oldSwapchain: *u8;
 }
+opaque;
 record VkPresentInfoKHR {
     sType: u32;
     pNext: *u8;
@@ -875,17 +920,20 @@ record VkPresentInfoKHR {
     pImageIndices: *u32;
     pResults: *i32;
 }
+opaque;
 record VkImageSubresourceLayers {
     aspectMask: u32;
     mipLevel: u32;
     baseArrayLayer: u32;
     layerCount: u32;
 }
+opaque;
 record VkOffset3D {
     x: i32;
     y: i32;
     z: i32;
 }
+opaque;
 record VkBufferImageCopy {
     bufferOffset: u64;
     bufferRowLength: u32;
@@ -894,11 +942,13 @@ record VkBufferImageCopy {
     imageOffset: VkOffset3D;
     imageExtent: VkExtent3D;
 }
+opaque;
 record VkFenceCreateInfo {
     sType: u32;
     pNext: *u8;
     flags: u32;
 }
+opaque;
 extern fn vkGetPhysicalDeviceSurfaceSupportKHR(
     physical: *u8,
     family: u32,
@@ -967,11 +1017,13 @@ record VkExtent2D {
     width: u32;
     height: u32;
 }
+opaque;
 record VkBufferCopy {
     srcOffset: u64;
     dstOffset: u64;
     size: u64;
 }
+opaque;
 extern fn vkCmdCopyBuffer(
     commandBuffer: *u8,
     src: *u8,
@@ -987,6 +1039,7 @@ record VkQueryPoolCreateInfo {
     queryCount: u32;
     pipelineStatistics: u32;
 }
+opaque;
 extern fn vkCreateQueryPool(
     device: *u8,
     info: *VkQueryPoolCreateInfo,

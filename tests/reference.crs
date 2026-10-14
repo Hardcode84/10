@@ -18,31 +18,31 @@ record Hit {
     triangle: u32;
     edge: f32;
 }
-unsafe fn sub(a: Vec, b: Vec) -> Vec {
+fn sub(a: Vec, b: Vec) -> Vec {
     return make Vec {
         x: a.x - b.x,
         y: a.y - b.y,
         z: a.z - b.z
     };
 }
-unsafe fn cross(a: Vec, b: Vec) -> Vec {
+fn cross(a: Vec, b: Vec) -> Vec {
     return make Vec {
         x: a.y * b.z - a.z * b.y,
         y: a.z * b.x - a.x * b.z,
         z: a.x * b.y - a.y * b.x
     };
 }
-unsafe fn dot(a: Vec, b: Vec) -> f32 {
+fn dot(a: Vec, b: Vec) -> f32 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
-unsafe fn vertex(f: *f32, index: usize) -> Vec {
+fn vertex(f: *f32, index: usize) -> Vec {
     return make Vec {
         x: f[index],
         y: f[index + 1usize],
         z: f[index + 2usize]
     };
 }
-unsafe fn intersect(f: *f32, tri: u32, ray: Ray, minimum: f32, clip: u32, hit: *Hit) -> bool {
+fn intersect(f: *f32, tri: u32, ray: Ray, minimum: f32, clip: u32, hit: *Hit) -> bool {
     var p: usize = (GEOMETRY + tri * 15u32) as usize;
     var a: Vec = vertex(f, p);
     var b: Vec = vertex(f, p + 5usize);
@@ -91,7 +91,7 @@ unsafe fn intersect(f: *f32, tri: u32, ray: Ray, minimum: f32, clip: u32, hit: *
     hit -> triangle = tri;
     return true;
 }
-unsafe fn through(ray: Ray, f: *f32, portal: u32) -> Ray {
+fn through(ray: Ray, f: *f32, portal: u32) -> Ray {
     var p: usize = (PORTAL_FLOAT + portal * 16u32) as usize;
     var o: Vec = sub(
         ray.origin,
@@ -129,7 +129,7 @@ unsafe fn through(ray: Ray, f: *f32, portal: u32) -> Ray {
         }
     };
 }
-unsafe fn reference_threshold(x: u32, y: u32, mode: u32) -> u32 {
+fn reference_threshold(x: u32, y: u32, mode: u32) -> u32 {
     if mode == 0u32 {
         if (x + y) % 2u32 == 0u32 {
             return 4u32;
@@ -156,7 +156,7 @@ unsafe fn reference_threshold(x: u32, y: u32, mode: u32) -> u32 {
     };
     return table[((y % 4u32) * 4u32 + x % 4u32) as usize];
 }
-unsafe fn reference_color(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> u32 {
+fn reference_color(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> u32 {
     var tx: u32 = ((hit.u * 8f32) as i32 as u32) & 7u32;
     var ty: u32 = ((hit.v * 8f32) as i32 as u32) & 7u32;
     var tex: u32 = w[(TEXTURE + tx + 8u32 * ty) as usize];
@@ -171,14 +171,7 @@ unsafe fn reference_color(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> u32 {
     }
     return w[(PALETTE + (mat * 4u32 + tex) * 64u32 + light) as usize];
 }
-unsafe fn trace(
-    mapped: *u8,
-    x: u32,
-    y: u32,
-    boundary: *bool,
-    debug: bool,
-    final: *Hit
-) -> u32 {
+fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit) -> u32 {
     var w: *u32 = mapped as *u32;
     var f: *f32 = (mapped + WORDS_LENGTH as isize * 4isize) as *f32;
     var d: Vec = make Vec {
@@ -263,7 +256,7 @@ unsafe fn trace(
     }
     return 0u32;
 }
-unsafe fn color_distance(a: u32, b: u32) -> u32 {
+fn color_distance(a: u32, b: u32) -> u32 {
     var result: u32 = 0u32;
     var shift: u32 = 0u32;
     while shift < 24u32 {
@@ -278,7 +271,7 @@ unsafe fn color_distance(a: u32, b: u32) -> u32 {
     }
     return result;
 }
-unsafe fn reference_check(mapped: *u8) -> bool {
+fn reference_check(mapped: *u8) -> bool {
     var w: *u32 = mapped as *u32;
     var width: u32 = w[0usize];
     var height: u32 = w[1usize];
@@ -398,14 +391,7 @@ unsafe fn reference_check(mapped: *u8) -> bool {
     return errors == 0u32;
 }
 
-unsafe fn reference_alternate(
-    w: *u32,
-    f: *f32,
-    hit: Hit,
-    x: u32,
-    y: u32,
-    actual: u32
-) -> bool {
+fn reference_alternate(w: *u32, f: *f32, hit: Hit, x: u32, y: u32, actual: u32) -> bool {
     if hit.triangle == 0xffffffffu32 {
         return false;
     }

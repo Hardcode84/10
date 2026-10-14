@@ -1,0 +1,4 @@
+fn invalid_escape(other: mut Renderer) -> FrameInput from other {
+    var renderer: Renderer = renderer_new();
+    return renderer_inputs(mut renderer);
+}

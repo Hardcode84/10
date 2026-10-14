@@ -1,0 +1,3 @@
+fn invalid_write(input: read FrameInput) -> unit {
+    input_set_word(mut input, 3usize, 0u32);
+}

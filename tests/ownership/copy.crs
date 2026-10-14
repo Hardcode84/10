@@ -1,0 +1,3 @@
+fn invalid_copy(renderer: Renderer) -> unit {
+    var duplicate: Renderer = renderer;
+}

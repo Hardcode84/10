@@ -8,7 +8,6 @@ extern fn build_access(path: *u8, mode: i32) -> i32 = "access";
 extern fn build_getenv(name: *u8) -> *u8 = "getenv";
 extern fn build_chdir(path: *u8) -> i32 = "chdir";
 extern fn build_execv(path: *u8, args: **u8) -> i32 = "execv";
-extern fn compiler_main(argc: i32, argv: **u8) -> i32 = "crust_tool_main";
 fn shader_source(root: *CrustRun, name: *u8, result: *CrustSource) -> bool {
     var parts: [CrustSource; 3] = uninit;
     if !cache_read(
@@ -109,7 +108,7 @@ fn build_shader(root: *CrustRun, name: *u8, output: *u8, llvm: *u8, validator: *
     return good;
 }
 fn render_sources(root: *CrustRun, args: **u8) -> usize {
-    var sources: [*u8; 9] = make [*u8; 9] {
+    var sources: [*u8; 10] = make [*u8; 10] {
         "src/render/interface.crs",
         "src/render/host/vulkan.crs",
         "src/render/host/io.crs",
@@ -118,31 +117,36 @@ fn render_sources(root: *CrustRun, args: **u8) -> usize {
         "src/render/host/dispatch.crs",
         "src/render/host/timing.crs",
         "src/render/host/present.crs",
-        "src/render/host/renderer.crs"
+        "src/render/host/renderer.crs",
+        "src/render/host/owner.crs"
     };
     var i: usize = 0usize;
-    while i < 9usize {
+    while i < 10usize {
         args[i] = host_path(root, sources[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn check_renderer(root: *CrustRun) -> bool {
-    var args: [*u8; 12] = uninit;
+    var args: [*u8; 13] = uninit;
     args[0usize] = "crust-c";
     args[1usize] = "--check";
     args[2usize] = "--library";
     var count: usize = 3usize + render_sources(root, &args[3usize]);
-    return compiler_main(count as i32, &args[0usize]) == 0i32;
+    return ownership_host(root, count as i32 - 1i32, &args[1usize], true, null(*u8)) == 0i32;
 }
 fn build_host(root: *CrustRun) -> bool {
-    var args: [*u8; 34] = uninit;
+    var args: [*u8; 39] = uninit;
     args[0usize] = "crust-c";
     args[1usize] = "-o";
     args[2usize] = host_path(root, "build/spinward");
     var count: usize = 3usize + render_sources(root, &args[3usize]);
-    var application: [*u8; 22] = make [*u8; 22] {
+    var application: [*u8; 26] = make [*u8; 26] {
         host_path(root, "src/demo/main.crs"),
+        host_path(root, "src/demo/config.crs"),
+        host_path(root, "src/demo/playback.crs"),
+        host_path(root, "src/demo/entry.crs"),
+        host_path(root, "src/demo/session.crs"),
         host_path(root, "src/demo/scene.crs"),
         host_path(root, "src/demo/window.crs"),
         host_path(root, "src/demo/timing.crs"),
@@ -166,18 +170,21 @@ fn build_host(root: *CrustRun) -> bool {
         "-lm"
     };
     var i: usize = 0usize;
-    while i < 22usize {
+    while i < 26usize {
         args[count] = application[i];
         count = count + 1usize;
         i = i + 1usize;
     }
-    return compiler_main(count as i32, &args[0usize]) == 0i32;
+    return ownership_host(root, count as i32 - 1i32, &args[1usize], false, null(*u8)) == 0i32;
 }
 
-extern fn reference_compiler(argc: i32, argv: **u8) -> i32 = "reference_compiler_main";
 fn build_reference(root: *CrustRun) -> bool {
-    var args: [*u8; 11] = make [*u8; 11] {
-        "crust-resource",
+    var source: CrustSource = uninit;
+    if !cache_read(root -> context, host_path(root, "tests/reference.crs"), &source) {
+        return false;
+    }
+    source.identity = 1000u64;
+    var args: [*u8; 9] = make [*u8; 9] {
         "--object",
         "--library",
         "--export",
@@ -185,9 +192,107 @@ fn build_reference(root: *CrustRun) -> bool {
         "-o",
         host_path(root, "build/reference.o"),
         host_path(root, "src/render/interface.crs"),
-        host_path(root, "tests/reference.crs"),
         "--cflag",
         "-O2"
     };
-    return reference_compiler(11i32, &args[0usize]) == 0i32;
+    return ownership_build(
+        null(*CrustSource),
+        0usize,
+        9i32,
+        &args[0usize],
+        &source,
+        1usize,
+        c_backend_build
+    ) == 0i32;
+}
+
+fn ownership_host(root: *CrustRun, argc: i32, argv: **u8, core: bool, expected: *u8) -> i32 {
+    var providers: [*u8; 19] = make [*u8; 19] {
+        "src/render/host/vulkan.crs",
+        "src/render/host/io.crs",
+        "src/render/host/device.crs",
+        "src/render/host/resources.crs",
+        "src/render/host/dispatch.crs",
+        "src/render/host/timing.crs",
+        "src/render/host/present.crs",
+        "src/render/host/renderer.crs",
+        "src/render/host/owner.crs",
+        "src/demo/entry.crs",
+        "src/demo/assets.crs",
+        "src/demo/capture.crs",
+        "src/demo/renderer.crs",
+        "src/demo/window.crs",
+        "src/demo/timing.crs",
+        "src/demo/session.crs",
+        "tests/palette.crs",
+        "tests/playback.crs",
+        "tests/portal.crs"
+    };
+    var trusted: [CrustSource; 19] = uninit;
+    var count: usize = 19usize;
+    if core {
+        count = 9usize;
+    }
+    var i: usize = 0usize;
+    while i < count {
+        if !cache_read(root -> context, host_path(root, providers[i]), &trusted[i]) {
+            return 1i32;
+        }
+        trusted[i].identity = 100u64 + i as u64;
+        i = i + 1usize;
+    }
+    var args: [*u8; 64] = uninit;
+    var total: usize = 0usize;
+    i = 0usize;
+    while i < argc as usize {
+        var provider: bool = false;
+        var j: usize = 0usize;
+        while j < count {
+            if cache_strcmp(argv[i], trusted[j].path) == 0i32 {
+                provider = true;
+            }
+            j = j + 1usize;
+        }
+        if !provider {
+            args[total] = argv[i];
+            total = total + 1usize;
+        }
+        i = i + 1usize;
+    }
+    var context: CrustContext = uninit;
+    crust_context_init(&context, null(*CrustAllocator));
+    var request: CrustBuild = make CrustBuild {
+        context: &context,
+        source: null(*CrustSource),
+        target_begin: 0usize,
+        argc: total as i32,
+        argv: &args[0usize]
+    };
+    var result: i32 = ownership_program(
+        &request,
+        &trusted[0usize],
+        count,
+        c_backend_build
+    );
+    if expected != null(*u8) {
+        if result != 0i32 && context.error_count != 0usize && cache_strcmp(
+            &context.error[0usize],
+            expected
+        ) == 0i32 {
+            result = 0i32;
+        } else {
+            if context.error_count != 0usize {
+                crust_run_diagnostic(&context);
+            }
+            native_error(
+                root -> context,
+                "ownership rejection did not match the expected diagnostic"
+            );
+            result = 1i32;
+        }
+    } else if context.error_count != 0usize {
+        crust_run_diagnostic(&context);
+    }
+    crust_context_destroy(&context);
+    return result;
 }
