@@ -130,6 +130,11 @@ compute shadow visibility. Add a tested occlusion pass before using these lights
 for cast shadows. Material emission makes lamp surfaces visible without nearby
 lights.
 
+The two interior spaces have zero ambient light. Fixed interior lamps use a
+squared falloff radius of 1; the moving lamp uses 0.5. This keeps most surfaces
+dark, with small lit areas near each lamp. Outdoor ambient RGB intensity is
+(0.55, 0.55, 0.60).
+
 Each material has an 8 by 8 indexed texture with four base colours. The GPU
 selects one of 64 RGB light states: four levels for each channel. The material
 table combines these states with its base colours. Screen-space dithering
