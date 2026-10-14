@@ -67,6 +67,10 @@ for two seconds without further thrust, braking, or reeling. It keeps a launched
 hook or an attached cable held.
 Blue square outlines mark the predicted positions. Each marker has a 24 cm
 outer width and a 2 cm border. The centre stays open.
+Markers are 2 m apart along the predicted path, starting 2 m from the drone.
+Positions are interpolated between simulation steps. Slow motion shows fewer
+markers. A stationary path shows none. The preview stops at two seconds or
+16 markers, whichever comes first.
 
 The HUD shows time, gates, air-relative speed, hook state, cable length, burst
 count, and assist settings. The cable is cyan. A small amber body shows the

@@ -1,3 +1,5 @@
+const PREVIEW_SPACING: f32 = 2f32;
+const PREVIEW_MARKERS: u32 = 16u32;
 fn preview_visible(trial: read Trial) -> bool {
     if trial.preview_mode == 0u32 {
         return false;
@@ -40,11 +42,21 @@ fn draw_preview(v: mut FrameInput, trial: read Trial) -> unit {
     var command: Command = idle_command();
     command.tether = drone.cable.phase == CABLE_ATTACHED || drone.cable.phase == CABLE_FLYING;
     var i: u32 = 0u32;
-    while i < 240u32 {
+    var distance: f32 = 0f32;
+    var marker: u32 = 0u32;
+    while i < 240u32 && marker < PREVIEW_MARKERS {
+        var before: Vec3 = drone.position;
         simulate(mut drone, command, trial.full_spin, trial.auto_level);
-        if i % 15u32 == 14u32 {
-            draw_preview_marker(mut v, drone.position, trial.drone.basis);
+        var travel: Vec3 = sub(drone.position, before);
+        var segment: f32 = length(travel);
+        var next: f32 = (marker + 1u32) as f32 * PREVIEW_SPACING;
+        while segment > 0f32 && next <= distance + segment && marker < PREVIEW_MARKERS {
+            var point: Vec3 = add(before, scale(travel, (next - distance) / segment));
+            draw_preview_marker(mut v, point, trial.drone.basis);
+            marker = marker + 1u32;
+            next = (marker + 1u32) as f32 * PREVIEW_SPACING;
         }
+        distance = distance + segment;
         i = i + 1u32;
     }
 }
