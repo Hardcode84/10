@@ -64,7 +64,7 @@ demo waits for input and does not use the remaining frame count. Use
 
 | Option | Behaviour |
 | --- | --- |
-| `--dither 0` or `1` | Checker or 4 by 4 Bayer light transition; Bayer is the default |
+| `--dither 0` or `1` | 16 by 16 light-grid checker or Bayer-weighted corner selection; checker is the default |
 | `--mapping 0`, `1`, or `2` | Perspective, affine, or short-span UV correction |
 | `--snap 0` or `1` | Disable or enable projected vertex snapping |
 | `--width`, `--height` | Internal image dimensions |
@@ -146,9 +146,22 @@ from zero through seven before adding the light to the result. Preserve the
 light colour by scaling all channels by the same amount. Values below one
 contribute exactly zero; weak lights cannot add up to a faint background.
 
-Dithering selects the next band only in the top 20 percent of a lit band.
-It never raises a value below the first band. The checker pattern and 4 by 4
-Bayer pattern use the same band rule and internal pixel coordinates.
+Lighting uses a 16 by 16 grid in internal screen coordinates. Each node is
+at the centre of the pixel whose coordinates are multiples of 16. For each
+visible triangle, intersect its plane with the selected node ray. The sample
+can be outside the triangle; it never reads another surface's lighting.
+A parallel ray or an intersection behind the camera contributes only ambient
+light and material emission. Texture sampling, depth, and coverage remain
+per-pixel.
+
+The default checker selects left or right nodes from pixel parity and top or
+bottom nodes from row parity, as in ship3d. Each cell repeats a 2 by 2 pattern
+made from its four corner samples. Mode 1 uses a 4 by 4 Bayer threshold to
+select corners with bilinear weights. Both modes quantize light at the nodes
+before selecting a sample. There is no per-pixel brightness-transition ramp.
+Grid coordinates are shared across portal views and do not restart at edges.
+Black samples remain black; only cells next to a lit node can mix light and
+black. Full-bright entries keep the same colour at every node.
 
 The two interior spaces have zero ambient light. Fixed interior lamps use a
 squared falloff radius of 6.25; the moving lamp uses 3.125. Outdoor ambient RGB
@@ -290,8 +303,9 @@ and rejects reverse-aperture recursion. One state disables all point lights
 and the camera light. It requires both cyan strips and black metal on visible
 pipe surfaces. A separate state enables only the camera light and requires lit
 ordinary surfaces in both rooms across the portal. A flat-surface fixture
-requires six visible lit bands and a black outer region. Its light is offset
-from the surface, so it does not reach the seventh non-zero brightness level.
+requires lit grid samples and a black outer region. In checker mode, it also
+checks the repeated 2 by 2 pattern inside each 16 by 16 cell and requires
+different neighbouring samples. Coarse sampling can skip narrow light bands.
 Run it with both dither patterns.
 The test includes frames 229 through 231 and 316 through 318. Two more states
 check that the camera faces into each turn.
@@ -311,7 +325,10 @@ occlusion. Frames 281 through 286 and 500 through 506 check both directions of
 camera crossing. Portal intersections in front of the eye remain visible inside
 the geometry near distance. This prevents the blank image previously seen at
 frame 284. Frame 512 checks an internal edge between clipped fan triangles that
-previously exposed another cube face. Shared edges now use one arithmetic order
+previously exposed another cube face. Clipping computes shared intersections
+from the inside endpoint first, regardless of edge direction. The light-grid
+fixture checks every pixel across a clipped two-triangle surface, including
+the shared seam. Shared raster edges use one arithmetic order
 for both directions.
 
 Frame 523 also checks that the crossing cube's front face is visible at an
@@ -396,7 +413,13 @@ at 640 by 360 completed on AMD with p50/p99 of 4.92/5.83 ms, including readback.
 
 ## Platform and expansion gates
 
-The banded-light tour passed all 48 reference states with both dither patterns
+The 16 by 16 light-grid tour passed all 48 reference states on AMD and Intel
+with both corner-selection patterns. The 25-state portal regression and the
+exact palette gate passed. A 1920 by 1080 reference capture at frame 230 passed
+on AMD. The 1,200-frame route at 640 by 360 measured p50/p99 of 4.94/5.77 ms
+on AMD, including readback.
+
+Before grid sampling, the banded-light tour passed all 48 reference states with both dither patterns
 on AMD and Intel. The full 1,200-frame route at 640 by 360 completed on AMD
 with p50/p99 of 4.30/5.69 ms, including readback. The flat-surface test checks
 the visible light bands and black cutoff. The full-bright and camera-light

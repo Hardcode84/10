@@ -95,7 +95,7 @@ fn options(argc: i32, argv: **u8, o: *Options) -> bool {
         height: 360u32,
         frame: 0u32,
         frames: 1200u32,
-        dither: 1u32,
+        dither: 0u32,
         verify: 0u32,
         baseline: 0u32,
         view_budget: MAX_VIEWS,

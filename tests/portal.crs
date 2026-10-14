@@ -195,9 +195,40 @@ fn light_band_check(v: *Vulkan) -> bool {
         }
         pixel = pixel + 1u32;
     }
-    if mask != 127u32 || w[PIXELS as usize] != 0xff000000u32 {
-        return error("flat light fixture must show six lit bands and a black outer region");
+    if (mask & 1u32) == 0u32 || mask <= 1u32 || w[PIXELS as usize] != 0xff000000u32 {
+        return error("flat light fixture must show lit grid samples and a black outer region");
     }
-    puts("six lit bands and total darkness beyond the first light level passed");
+    puts("grid-sampled light bands and black outer region passed");
+    return w[2usize] != 0u32 || light_grid_check(w);
+}
+
+fn light_grid_check(w: *u32) -> bool {
+    var different: u32 = 0u32;
+    var pixel: u32 = 0u32;
+    while pixel < w[0usize] * w[1usize] {
+        var x: u32 = pixel % w[0usize];
+        var y: u32 = pixel / w[0usize];
+        var anchor: u32 = (y / 16u32 * 16u32 + y % 2u32) * w[0usize] + x / 16u32 * 16u32 + x % 2u32;
+        if w[(PIXELS + pixel) as usize] != w[(PIXELS + anchor) as usize] {
+            puts("grid mismatch pixel / anchor / colour / anchor colour:");
+            print_number(pixel as i64);
+            print_number(anchor as i64);
+            print_number(w[(PIXELS + pixel) as usize] as i64);
+            print_number(w[(PIXELS + anchor) as usize] as i64);
+            return error(
+                "flat surface lighting must repeat the same checker inside each 16 by 16 cell"
+            );
+        }
+        if x % 16u32 == 0u32 && w[(PIXELS + pixel) as usize] != w[
+            (PIXELS + pixel + 1u32) as usize
+        ] {
+            different = different + 1u32;
+        }
+        pixel = pixel + 1u32;
+    }
+    if different == 0u32 {
+        return error("light grid must mix different neighbouring samples");
+    }
+    puts("16 by 16 light cells with alternating neighbouring samples passed");
     return true;
 }

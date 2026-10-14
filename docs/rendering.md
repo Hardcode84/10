@@ -41,9 +41,10 @@ depth calculations accurate. Colour precision must not reduce visibility accurac
 For point lights, use `max(0, cos(theta)) / (1 + d/R)^2` attenuation.
 Quantize each light to eight brightness levels before combining lights.
 Contributions below the first level are zero. Keep broad bands of constant
-brightness. Limit dithering to narrow transitions between non-zero bands;
-do not dither a faint tail into the black region. Use enough lookup-table
-levels to preserve these bands.
+brightness. Sample lighting on a 16 by 16 screen-space grid and dither between
+its corner samples. Quantize at the sample nodes; do not add a per-pixel
+brightness-transition ramp. Use enough lookup-table levels to preserve these
+bands. Unlit nodes remain black.
 
 Allow material settings for perspective-correct texture mapping, affine texture
 mapping, and correction at short span boundaries. Vertex snapping is also a
@@ -98,9 +99,10 @@ Use a deterministic spatial pattern to choose between discrete light samples or
 palette-derived colours. The choice can represent an intermediate colour or light
 level. Do not smooth the pattern during enlargement.
 
-The first style comparison must include the checkerboard light pattern from
-ship3d and a small ordered threshold pattern. Compare dark gradients, coloured
-lights, moving surfaces, and portal edges. Select the default from those images.
+Use ship3d's alternating corner-sample checker as the default. Keep Bayer
+corner selection available for comparison. The light grid uses each visible
+triangle's plane and the same screen-space origin in every portal view.
+Coverage, depth, and texture sampling remain per-pixel.
 
 ### Relation to ship3d
 

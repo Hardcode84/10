@@ -40,6 +40,8 @@ record Ray {
 }
 record Hit {
     eye: Vec;
+    right: Vec;
+    up: Vec;
     position: Vec;
     distance: f32;
     u: f32;
@@ -234,12 +236,26 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
             z: f[2usize] * d.x + f[6usize] * d.y + f[10usize] * d.z
         }
     };
+    var right: Ray = ray;
+    right.direction = make Vec {
+        x: f[0usize],
+        y: f[1usize],
+        z: f[2usize]
+    };
+    var up: Ray = ray;
+    up.direction = make Vec {
+        x: f[4usize],
+        y: f[5usize],
+        z: f[6usize]
+    };
     var space: u32 = w[20usize];
     var depth: u32 = 0u32;
     var clip: u32 = 0xffffffffu32;
     while depth <= w[4usize] {
         var hit: Hit = make Hit {
             eye: ray.origin,
+            right: right.direction,
+            up: up.direction,
             position: make Vec {
                 x: 0f32,
                 y: 0f32,
@@ -296,6 +312,8 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
         }
         portal = portal - 1u32;
         ray = through(ray, f, portal);
+        right = through(right, f, portal);
+        up = through(up, f, portal);
         space = w[(PORTAL_META + portal * 4u32 + 1u32) as usize];
         clip = portal;
         depth = depth + 1u32;
@@ -498,9 +516,6 @@ fn reference_point(delta: Vec, normal: Vec, radius: f32, color: Vec, t: f32) -> 
     var level: u32 = 7u32;
     if scaled < 7f32 {
         level = scaled as u32;
-        if level > 0u32 && (scaled - level as f32 - 0.8f32) * 5f32 > (t + 0.5f32) / 16f32 {
-            level = level + 1u32;
-        }
     }
     var weight: f32 = level as f32 / (7f32 * peak);
     return make Vec {
@@ -508,6 +523,45 @@ fn reference_point(delta: Vec, normal: Vec, radius: f32, color: Vec, t: f32) -> 
         y: color.y * weight,
         z: color.z * weight
     };
+}
+fn reference_grid_hit(w: *u32, hit: Hit, normal: Vec, x: u32, y: u32) -> Hit {
+    var sx: u32 = x / 16u32 * 16u32;
+    var sy: u32 = y / 16u32 * 16u32;
+    var horizontal: u32 = 1u32 - ((x + y) % 2u32);
+    var vertical: u32 = 1u32 - y % 2u32;
+    if w[2usize] == 1u32 {
+        var u: f32 = (x % 16u32) as f32 / 16f32;
+        var v: f32 = (y % 16u32) as f32 / 16f32;
+        var t: f32 = (reference_threshold(x, y, 1u32) as f32 + 0.5f32) / 16f32;
+        vertical = (t >= 1f32 - v) as u32;
+        var boundary: f32 = (1f32 - u) * (1f32 - v);
+        if vertical != 0u32 {
+            boundary = 1f32 - v + (1f32 - u) * v;
+        }
+        horizontal = (t >= boundary) as u32;
+    }
+    sx = sx + horizontal * 16u32;
+    sy = sy + vertical * 16u32;
+    var dx: f32 = (sx as f32 - x as f32) * 2f32 / w[1usize] as f32;
+    var dy: f32 = (y as f32 - sy as f32) * 2f32 / w[1usize] as f32;
+    var ray: Vec = sub(hit.position, hit.eye);
+    var direction: Vec = make Vec {
+        x: ray.x / hit.distance + hit.right.x * dx + hit.up.x * dy,
+        y: ray.y / hit.distance + hit.right.y * dx + hit.up.y * dy,
+        z: ray.z / hit.distance + hit.right.z * dx + hit.up.z * dy
+    };
+    var denominator: f32 = dot(direction, normal);
+    var result: Hit = hit;
+    result.distance = 0f32;
+    if denominator != 0f32 {
+        result.distance = dot(ray, normal) / denominator;
+    }
+    result.position = make Vec {
+        x: hit.eye.x + direction.x * result.distance,
+        y: hit.eye.y + direction.y * result.distance,
+        z: hit.eye.z + direction.z * result.distance
+    };
+    return result;
 }
 fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
     var mat: u32 = w[(META + hit.triangle * 4u32 + 1u32) as usize];
@@ -522,9 +576,10 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
         normal.y = -normal.y;
         normal.z = -normal.z;
     }
-    var t: f32 = reference_threshold(x, y, w[2usize]) as f32;
+    hit = reference_grid_hit(w, hit, normal, x, y);
+    var t: f32 = 0f32;
     var light: Vec = vertex(f, (SPACE_LIGHT + space * 4u32) as usize);
-    if f[CAMERA_LIGHT as usize] > 0f32 {
+    if hit.distance > 0f32 && f[CAMERA_LIGHT as usize] > 0f32 {
         var contribution: Vec = reference_point(
             sub(hit.eye, hit.position),
             normal,
@@ -537,7 +592,7 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
         light.z = light.z + contribution.z;
     }
     var i: u32 = 0u32;
-    while i < w[LIGHT_COUNT as usize] {
+    while hit.distance > 0f32 && i < w[LIGHT_COUNT as usize] {
         var l: usize = (LIGHT_DATA + i * 8u32) as usize;
         if f[l + 7usize] as u32 == space {
             var contribution: Vec = reference_point(

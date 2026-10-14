@@ -86,6 +86,15 @@ fn clip_polygon(base: u32, count: u32, plane: u32, near: f32) -> u32 {
             output = output + 1u32;
         }
         if (da < 0f32) != (db < 0f32) {
+            // Shared crossings use the inside endpoint first in both triangles.
+            if da < 0f32 {
+                var swap: u32 = a;
+                a = b;
+                b = swap;
+                var distance: f32 = da;
+                da = db;
+                db = distance;
+            }
             var t: f32 = da / (da - db);
             j = 0u32;
             while j < 6u32 {

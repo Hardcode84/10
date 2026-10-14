@@ -82,7 +82,7 @@ fn light_amount(dx: f32, dy: f32, dz: f32, nx: f32, ny: f32, nz: f32, radius: f3
     var attenuation: f32 = 1f32 + shader_sqrt(distance / radius);
     return diffuse / (attenuation * attenuation);
 }
-fn light_band(amount: f32, r: f32, g: f32, b: f32, x: u32, y: u32) -> f32 {
+fn light_band(amount: f32, r: f32, g: f32, b: f32) -> f32 {
     var peak: f32 = r;
     if g > peak {
         peak = g;
@@ -98,18 +98,17 @@ fn light_band(amount: f32, r: f32, g: f32, b: f32, x: u32, y: u32) -> f32 {
         return 1f32 / peak;
     }
     var level: u32 = scaled as u32;
-    var transition: f32 = (scaled - level as f32 - 0.8f32) * 5f32;
-    if level > 0u32 && transition > (threshold(x, y, words_load(2u32)) as f32 + 0.5f32) / 16f32 {
-        level = level + 1u32;
-    }
     return level as f32 / (7f32 * peak);
 }
-fn lit_state(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
+fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
     var mat: u32 = words_load(META + tri * 4u32 + 1u32);
     var space: u32 = words_load(META + tri * 4u32);
     var red: f32 = floats_load(SPACE_LIGHT + space * 4u32);
     var green: f32 = floats_load(SPACE_LIGHT + space * 4u32 + 1u32);
     var blue: f32 = floats_load(SPACE_LIGHT + space * 4u32 + 2u32);
+    if z <= 0f32 {
+        return light_state(red, green, blue, mat);
+    }
     var px: f32 = view_position(view, z, x, y, 0u32);
     var py: f32 = view_position(view, z, x, y, 1u32);
     var pz: f32 = view_position(view, z, x, y, 2u32);
@@ -130,9 +129,7 @@ fn lit_state(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
             amount,
             floats_load(CAMERA_LIGHT + 1u32),
             floats_load(CAMERA_LIGHT + 2u32),
-            floats_load(CAMERA_LIGHT + 3u32),
-            x,
-            y
+            floats_load(CAMERA_LIGHT + 3u32)
         );
         red = red + floats_load(CAMERA_LIGHT + 1u32) * amount;
         green = green + floats_load(CAMERA_LIGHT + 2u32) * amount;
@@ -155,9 +152,7 @@ fn lit_state(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
                 amount,
                 floats_load(p + 4u32),
                 floats_load(p + 5u32),
-                floats_load(p + 6u32),
-                x,
-                y
+                floats_load(p + 6u32)
             );
             red = red + floats_load(p + 4u32) * amount;
             green = green + floats_load(p + 5u32) * amount;
@@ -165,14 +160,60 @@ fn lit_state(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
         }
         i = i + 1u32;
     }
+    return light_state(red, green, blue, mat);
+}
+fn light_state(red: f32, green: f32, blue: f32, mat: u32) -> u32 {
     var emission: f32 = floats_load(MATERIAL_LIGHT + mat * 4u32);
-    return light_quantize(red + emission, x, y) + light_quantize(green + emission, x, y) * 8u32 + light_quantize(
-        blue + emission,
-        x,
-        y
+    return light_quantize(red + emission) + light_quantize(green + emission) * 8u32 + light_quantize(
+        blue + emission
     ) * 64u32;
 }
-fn light_quantize(value: f32, x: u32, y: u32) -> u32 {
+fn light_corner(x: u32, y: u32) -> u32 {
+    if words_load(2u32) == 0u32 {
+        return ((x + y + 1u32) & 1u32) + ((y + 1u32) & 1u32) * 2u32;
+    }
+    var u: f32 = (x % 16u32) as f32 / 16f32;
+    var v: f32 = (y % 16u32) as f32 / 16f32;
+    var t: f32 = (threshold(x, y, 1u32) as f32 + 0.5f32) / 16f32;
+    if t < (1f32 - u) * (1f32 - v) {
+        return 0u32;
+    }
+    if t < 1f32 - v {
+        return 1u32;
+    }
+    if t < 1f32 - v + (1f32 - u) * v {
+        return 2u32;
+    }
+    return 3u32;
+}
+fn light_grid_depth(tri: u32, view: u32, sx: u32, sy: u32) -> f32 {
+    var nx: f32 = light_normal(tri, 0u32);
+    var ny: f32 = light_normal(tri, 1u32);
+    var nz: f32 = light_normal(tri, 2u32);
+    var ex: f32 = view_position(view, 0f32, sx, sy, 0u32);
+    var ey: f32 = view_position(view, 0f32, sx, sy, 1u32);
+    var ez: f32 = view_position(view, 0f32, sx, sy, 2u32);
+    var dx: f32 = view_position(view, 1f32, sx, sy, 0u32) - ex;
+    var dy: f32 = view_position(view, 1f32, sx, sy, 1u32) - ey;
+    var dz: f32 = view_position(view, 1f32, sx, sy, 2u32) - ez;
+    var denominator: f32 = nx * dx + ny * dy + nz * dz;
+    if denominator == 0f32 {
+        return 0f32;
+    }
+    var p: u32 = GEOMETRY + tri * 15u32;
+    return (
+        nx * (floats_load(p) - ex) + ny * (floats_load(p + 1u32) - ey) + nz * (
+            floats_load(p + 2u32) - ez
+        )
+    ) / denominator;
+}
+fn lit_state(tri: u32, view: u32, x: u32, y: u32) -> u32 {
+    var corner: u32 = light_corner(x, y);
+    var sx: u32 = (x / 16u32 + (corner & 1u32)) * 16u32;
+    var sy: u32 = (y / 16u32 + (corner >> 1u32)) * 16u32;
+    return light_at(tri, view, light_grid_depth(tri, view, sx, sy), sx, sy);
+}
+fn light_quantize(value: f32) -> u32 {
     if value >= 1f32 {
         return 7u32;
     }
@@ -192,7 +233,7 @@ fn surface_color(tri: u32, view: u32, u: f32, v: f32, z: f32, x: u32, y: u32) ->
     if words_load(LIGHT_MODEL) == 0u32 {
         return light_color(mat, u, v, z, x, y);
     }
-    var state: u32 = lit_state(tri, view, z, x, y);
+    var state: u32 = lit_state(tri, view, x, y);
     return words_load(
         LIT_PALETTE + (mat * 4u32 + material_texel(mat, u, v)) * 512u32 + state
     );
