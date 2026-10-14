@@ -13,9 +13,20 @@ fn preview_visible(trial: read Trial) -> bool {
         0f32
     ).time <= 1f32;
 }
-fn draw_preview_marker(v: mut FrameInput, center: Vec3, basis: Basis) -> unit {
-    var r: Vec3 = basis.right;
-    var u: Vec3 = basis.up;
+fn preview_pixel_size(center: Vec3, drone: Drone, config: GameConfig) -> f32 {
+    var depth: f32 = dot(sub(center, drone.position), drone.basis.forward);
+    var angle: f32 = config.fov * 0.00872664626f32;
+    return 2f32 * depth * sinf(angle) / (cosf(angle) * config.height as f32);
+}
+fn draw_preview_marker(v: mut FrameInput, center: Vec3, drone: Drone, config: GameConfig) -> unit {
+    var pixel: f32 = preview_pixel_size(center, drone, config);
+    if pixel <= 0f32 || pixel >= 0.12f32 {
+        return;
+    }
+    var outer: f32 = 0.12f32 + pixel * 0.5f32;
+    var inner: f32 = 0.12f32 - pixel * 0.5f32;
+    var r: Vec3 = drone.basis.right;
+    var u: Vec3 = drone.basis.up;
     var edge: u32 = 0u32;
     while edge < 4u32 {
         var a: Vec3 = sub(scale(r, -1f32), u);
@@ -23,10 +34,10 @@ fn draw_preview_marker(v: mut FrameInput, center: Vec3, basis: Basis) -> unit {
         game_quad(
             mut v,
             4u32,
-            add(center, scale(a, 0.12f32)),
-            add(center, scale(b, 0.12f32)),
-            add(center, scale(b, 0.10f32)),
-            add(center, scale(a, 0.10f32))
+            add(center, scale(a, outer)),
+            add(center, scale(b, outer)),
+            add(center, scale(b, inner)),
+            add(center, scale(a, inner))
         );
         var next: Vec3 = scale(r, -1f32);
         r = u;
@@ -34,7 +45,7 @@ fn draw_preview_marker(v: mut FrameInput, center: Vec3, basis: Basis) -> unit {
         edge = edge + 1u32;
     }
 }
-fn draw_preview(v: mut FrameInput, trial: read Trial) -> unit {
+fn draw_preview(v: mut FrameInput, trial: read Trial, config: GameConfig) -> unit {
     if !preview_visible(read trial) {
         return;
     }
@@ -52,7 +63,7 @@ fn draw_preview(v: mut FrameInput, trial: read Trial) -> unit {
         var next: f32 = (marker + 1u32) as f32 * PREVIEW_SPACING;
         while segment > 0f32 && next <= distance + segment && marker < PREVIEW_MARKERS {
             var point: Vec3 = add(before, scale(travel, (next - distance) / segment));
-            draw_preview_marker(mut v, point, trial.drone.basis);
+            draw_preview_marker(mut v, point, trial.drone, config);
             marker = marker + 1u32;
             next = (marker + 1u32) as f32 * PREVIEW_SPACING;
         }

@@ -124,7 +124,7 @@ fn game_scene(v: mut FrameInput, trial: read Trial, config: GameConfig) -> unit 
     }
     draw_gate(mut v, vec(0f32, 6.1f32, 161f32), 5u32);
     draw_cable(mut v, trial.drone, config);
-    draw_preview(mut v, read trial);
+    draw_preview(mut v, read trial, config);
     draw_frame(mut v, trial.drone, config);
 }
 

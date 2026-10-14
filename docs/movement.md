@@ -65,8 +65,12 @@ Aim mode shows the preview when the centre ray can reach a tether surface or
 a hook is in flight or a cable is attached. The preview runs the same simulation
 for two seconds without further thrust, braking, or reeling. It keeps a launched
 hook or an attached cable held.
-Blue square outlines mark the predicted positions. Each marker has a 24 cm
-outer width and a 2 cm border. The centre stays open.
+Blue square outlines mark the predicted positions. Each square is 24 cm wide
+between the border centre lines. The border is one render pixel wide at all
+depths, fields of view, and render resolutions. Its world-space width changes
+with camera depth. Squares behind the camera or no more than two pixels wide
+are hidden, so the centre stays open. The squares still use world-space depth
+and can be hidden by scene geometry.
 Markers are 2 m apart along the predicted path, starting 2 m from the drone.
 Positions are interpolated between simulation steps. Slow motion shows fewer
 markers. A stationary path shows none. The preview stops at two seconds or
