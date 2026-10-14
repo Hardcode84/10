@@ -76,7 +76,7 @@ Its world-space width changes with camera depth and field of view. Squares
 behind the camera or no wider than twice the border width are hidden, so the
 centre stays open. The squares still use world-space depth
 and can be hidden by scene geometry.
-Markers are 4 m apart along the predicted path. Their spacing phase advances
+Cyan markers are 4 m apart along the predicted path. Their spacing phase advances
 with actual travel at each simulation tick. During coasting, the drone approaches
 and passes the same world-space marker positions. A new marker enters at the
 far end when a near marker passes. Changing thrust, forces, or contact changes
@@ -98,11 +98,11 @@ The paths share a limit of eight markers. When the hook preview is active, the
 drone path uses up to four markers. The hook path uses the remaining markers.
 Both paths use the same 4 m spacing and solid colours. Cyan markers remain
 hollow with scaled pixel borders. Pink markers are filled.
-The hook path advances its spacing phase by signed drone travel along the
-predicted launch direction, including inherited velocity. Lateral motion does
-not slide the markers along that direction. A change in aim changes the
-predicted path. Both phases update while previews are hidden and reset on retry.
-Rendering reads the phases and cannot change them.
+Pink markers stay relative to the ship: they start 4 m along the predicted
+hook path on each frame, followed by markers at 8 m, 12 m, and so on. The path
+still includes inherited velocity and forces. A change in aim changes the path.
+The cyan spacing phase updates while previews are hidden and resets on retry.
+Rendering reads that phase and cannot change it.
 
 The HUD shows time, gates, air-relative speed, hook state, cable length, burst
 count, and assist settings. The cable is cyan. A small amber body shows the
@@ -181,7 +181,7 @@ drum coordinates, and attached cables.
 | `sdl-input.crs`, `bindings.crs` | Native device reads and binding file parsing |
 | `scene.crs`, `palette.crs`, `preview.crs` | Scene submission and flight indicators |
 | `hook-preview.crs` | Hook path before launch |
-| `preview-phase.crs` | Tick-based spacing phases and path station positions |
+| `preview-phase.crs` | Flight spacing phase and path station positions |
 | `hud.crs`, `text.crs` | Trial status and text data |
 | `loop.crs` | Fixed-step clock and frame sequence |
 | `platform.crs`, `renderer-host.crs` | Resource ownership and renderer setup |
@@ -215,8 +215,8 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 6 uses an on/off preview setting, stores the
-initial spin mode in its header and includes both prediction phases in the
+format uses the current Linux host's word representation. Version 7 uses an on/off preview setting, stores the
+initial spin mode in its header and includes the cyan prediction phase in the
 state hash. Replay restores the mode and reproduces the marker motion. Earlier
 versions are rejected because their state contract differs.
 

@@ -56,51 +56,12 @@ fn test_preview_continuation(spin: bool) -> bool {
     }
     reset_trial(mut trial);
     return game_check(
-        trial.preview_phase == 0f32 && trial.hook_preview_phase == 0f32,
-        "retry must reset prediction phases"
-    );
-}
-fn test_hook_preview_phase() -> bool {
-    var trial: Trial = new_trial();
-    trial.drone.position = vec(0f32, 100f32, 0f32);
-    var before: Vec3 = trial.drone.position;
-    trial.drone.position.z = 1f32;
-    advance_preview_phase(mut trial, before);
-    var station: Vec3 = preview_station(
-        trial.drone.position,
-        add(trial.drone.position, vec(0f32, 0f32, 10f32)),
-        trial.hook_preview_phase,
-        PREVIEW_SPACING
-    );
-    if !game_check(
-        near(station.z, 4f32, 0.00001f32),
-        "forward motion must approach the same hook prediction station"
-    ) {
-        return false;
-    }
-    before = trial.drone.position;
-    trial.drone.position.x = 1f32;
-    advance_preview_phase(mut trial, before);
-    if !game_check(
-        near(trial.hook_preview_phase, 1f32, 0.00001f32),
-        "lateral motion must not slide hook stations along the aim ray"
-    ) {
-        return false;
-    }
-    before = trial.drone.position;
-    trial.drone.position.z = -1f32;
-    advance_preview_phase(mut trial, before);
-    return game_check(
-        near(trial.hook_preview_phase, 3f32, 0.00001f32) && near(
-            wrap_preview_phase(13f32),
-            1f32,
-            0.00001f32
-        ),
-        "reverse motion and multiple station crossings must wrap the phase"
+        trial.preview_phase == 0f32,
+        "retry must reset the flight prediction phase"
     );
 }
 fn test_preview_stability() -> bool {
-    return test_preview_continuation(false) && test_preview_continuation(true) && test_hook_preview_phase() && test_preview_toggle();
+    return test_preview_continuation(false) && test_preview_continuation(true) && test_preview_toggle();
 }
 
 fn test_preview_toggle() -> bool {

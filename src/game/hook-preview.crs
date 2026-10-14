@@ -2,11 +2,7 @@ fn draw_hook_preview(v: mut FrameInput, trial: read Trial, config: GameConfig, l
     var drone: Drone = trial.drone;
     var command: Command = idle_command();
     command.tether = true;
-    var trail: PreviewTrail = preview_trail(
-        limit,
-        HOOK_PREVIEW_MATERIAL,
-        trial.hook_preview_phase
-    );
+    var trail: PreviewTrail = preview_trail(limit, HOOK_PREVIEW_MATERIAL, 0f32);
     var before: Vec3 = drone.position;
     var i: u32 = 0u32;
     while i < 240u32 && trail.markers < trail.limit {

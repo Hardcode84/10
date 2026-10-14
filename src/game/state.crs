@@ -79,7 +79,6 @@ record Trial {
     preview_enabled: bool;
     attempt: u32;
     preview_phase: f32;
-    hook_preview_phase: f32;
 }
 fn new_trial() -> Trial {
     return make Trial {
@@ -92,7 +91,6 @@ fn new_trial() -> Trial {
         auto_level: true,
         preview_enabled: true,
         attempt: 1u32,
-        preview_phase: 0f32,
-        hook_preview_phase: 0f32
+        preview_phase: 0f32
     };
 }
