@@ -88,13 +88,57 @@ fn tour_visibility_check(v: *Vulkan) -> bool {
         }
         pixel = pixel + 1u32;
     }
-    if mask != 7u32 || w[11usize] != 3u32 {
-        return error(
-            "tour entrance must show both rooms and the yard without reverse-portal recursion"
-        );
+    if mask != 3u32 || w[11usize] != 2u32 {
+        return error("tour entrance must show both rooms with the yard hidden by the bend");
     }
-    puts("tour entrance: three visible spaces through two directed portals passed");
+    puts("tour entrance: two visible spaces with the yard hidden passed");
     puts("tour source triangles:");
     print_number(w[3usize] as i64);
+    return true;
+}
+
+fn full_bright_palette_check(w: *u32) -> bool {
+    var state: u32 = 0u32;
+    while state < 64u32 {
+        if w[(PALETTE + (7u32 * 4u32 + 3u32) * 64u32 + state) as usize] != 0xffe8ba32u32 || w[
+            (PALETTE + (12u32 * 4u32 + 3u32) * 64u32 + state) as usize
+        ] != 0xffe8ba32u32 {
+            return error("full-bright pipe colour must be constant across all light states");
+        }
+        state = state + 1u32;
+    }
+    return true;
+}
+fn full_bright_check(v: *Vulkan) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    if !full_bright_palette_check(w) {
+        return false;
+    }
+    var bright: u32 = 0u32;
+    var dark: u32 = 0u32;
+    var pixel: u32 = 0u32;
+    while pixel < w[0usize] * w[1usize] {
+        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % MAX_TRIS;
+        if tri < w[3usize] {
+            var mat: u32 = w[(META + tri * 4u32 + 1u32) as usize];
+            if mat == 7u32 || mat == 12u32 {
+                var color: u32 = w[(PIXELS + pixel) as usize];
+                if color == 0xffe8ba32u32 {
+                    bright = bright + 1u32;
+                } else if color == 0xff000000u32 {
+                    dark = dark + 1u32;
+                } else {
+                    return error(
+                        "unlit pipe must contain only full-bright stripes and black metal"
+                    );
+                }
+            }
+        }
+        pixel = pixel + 1u32;
+    }
+    if bright == 0u32 || dark == 0u32 {
+        return error("unlit pipe must show both full-bright and normally shaded texels");
+    }
+    puts("full-bright stripes and dark pipe texels with all point lights disabled passed");
     return true;
 }

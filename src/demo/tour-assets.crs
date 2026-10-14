@@ -35,6 +35,18 @@ fn tour_base(mat: u32) -> u32 {
     return 0x96a1b3u32;
 }
 fn tour_texel(mat: u32, x: u32, y: u32) -> u32 {
+    if mat == 7u32 {
+        if x == 0u32 {
+            return 3u32;
+        }
+        return 1u32;
+    }
+    if mat == 12u32 {
+        if y == 0u32 {
+            return 3u32;
+        }
+        return 1u32;
+    }
     if mat == 10u32 {
         return tour_brick(x, y);
     }
@@ -63,6 +75,19 @@ fn tour_brick(x: u32, y: u32) -> u32 {
     }
     return 2u32 + (x + y) % 2u32;
 }
+fn tour_full_bright(mat: u32, tex: u32) -> bool {
+    return (mat == 7u32 || mat == 12u32) && tex == 3u32;
+}
+fn palette_entry(base: u32, shade: u32, state: u32, full_bright: bool) -> u32 {
+    var light: u32 = state;
+    if full_bright {
+        light = 63u32;
+    }
+    var r: u32 = (base & 255u32) * shade / 255u32 * (light % 4u32) / 3u32;
+    var g: u32 = ((base >> 8u32) & 255u32) * shade / 255u32 * ((light / 4u32) % 4u32) / 3u32;
+    var b: u32 = ((base >> 16u32) & 255u32) * shade / 255u32 * (light / 16u32) / 3u32;
+    return r | (g << 8u32) | (b << 16u32) | 0xff000000u32;
+}
 fn tour_palettes(v: mut FrameInput) -> unit {
     var mat: u32 = 0u32;
     while mat < 16u32 {
@@ -75,15 +100,15 @@ fn tour_palettes(v: mut FrameInput) -> unit {
             }
             var state: u32 = 0u32;
             while state < 64u32 {
-                var r: u32 = (base & 255u32) * shade / 255u32 * (state % 4u32) / 3u32;
-                var g: u32 = ((base >> 8u32) & 255u32) * shade / 255u32 * (
-                    (state / 4u32) % 4u32
-                ) / 3u32;
-                var b: u32 = ((base >> 16u32) & 255u32) * shade / 255u32 * (state / 16u32) / 3u32;
+                var color: u32 = base;
+                var full_bright: bool = tour_full_bright(mat, tex);
+                if full_bright {
+                    color = 0xe8ba32u32;
+                }
                 input_set_word(
                     mut v,
                     (PALETTE + (mat * 4u32 + tex) * 64u32 + state) as usize,
-                    r | (g << 8u32) | (b << 16u32) | 0xff000000u32
+                    palette_entry(color, shade, state, full_bright)
                 );
                 state = state + 1u32;
             }
@@ -169,12 +194,12 @@ fn tour_assets(v: mut FrameInput) -> unit {
     input_set_word(mut v, LIGHT_COUNT as usize, 7u32);
     tour_portal(mut v, 0u32, 0u32, 1u32, 1f32, 0f32, 0f32, 10f32, 0f32, 1f32, 0f32);
     tour_portal(mut v, 1u32, 1u32, 0u32, 1f32, 0f32, 0f32, -10f32, 0f32, -1f32, 10f32);
-    tour_portal(mut v, 2u32, 1u32, 2u32, 0f32, 1f32, 0f32, 14f32, -1f32, 0f32, 0f32);
-    tour_portal(mut v, 3u32, 2u32, 1u32, 0f32, -1f32, 14f32, 0f32, 0f32, -1f32, 14f32);
+    tour_portal(mut v, 2u32, 1u32, 2u32, 0f32, 1f32, 0f32, 24f32, -1f32, 0f32, 0f32);
+    tour_portal(mut v, 3u32, 2u32, 1u32, 0f32, -1f32, 24f32, 0f32, 0f32, -1f32, 24f32);
     tour_light(mut v, 0u32, 0u32, -5.3f32, 2f32, 0f32, 1.5f32, 1.7f32, 0.65f32, 0.15f32);
     tour_light(mut v, 1u32, 0u32, 5.3f32, 2f32, 7f32, 1.5f32, 0.1f32, 0.85f32, 1.6f32);
-    tour_light(mut v, 2u32, 1u32, 3.3f32, 2f32, 3f32, 1.5f32, 0.12f32, 0.9f32, 1.5f32);
-    tour_light(mut v, 3u32, 1u32, -3.3f32, 2f32, 11f32, 1.5f32, 1.5f32, 0.5f32, 0.1f32);
+    tour_light(mut v, 2u32, 1u32, 11.3f32, 2f32, 10f32, 1.5f32, 0.12f32, 0.9f32, 1.5f32);
+    tour_light(mut v, 3u32, 1u32, 11.3f32, 2f32, 19f32, 1.5f32, 1.5f32, 0.5f32, 0.1f32);
     tour_light(mut v, 4u32, 2u32, -9f32, 9f32, 10f32, 60f32, 0.1f32, 0.65f32, 1.2f32);
     tour_light(mut v, 5u32, 2u32, 9f32, 14f32, 17f32, 90f32, 1.4f32, 0.65f32, 0.2f32);
     var i: u32 = 0u32;

@@ -24,20 +24,23 @@ SPIRV-Tools 2025.1. Alternatively, put links at `build/toolchain/llvm` and
 ```sh
 crust main.crs --build-only
 crust main.crs --capture build/interior.ppm --width 960 --height 540
-crust main.crs --capture build/outdoor.ppm --frame 330 --width 1920 --height 1080
+crust main.crs --capture build/outdoor.ppm --frame 360 --width 1920 --height 1080
 crust main.crs --width 640 --height 360 --window-width 1280 --window-height 720
 ```
 
 The default demo tours a loading bay, a machinery gallery, and an outdoor yard.
 The bay contains wall ribs, crates, a console, and amber and cyan lamps. The
-gallery has a moving lamp. The yard contains terrain, towers, a bridge, and rock
+gallery has a moving lamp and a wall that hides the exit from the entrance.
+The camera turns around this wall. Metal pipes with full-bright cyan strips
+mark the interior route. The yard contains terrain, towers, a bridge, and rock
 formations. A translated portal joins the rooms. A rotated portal joins the
-gallery and yard. Both openings have reverse connections. The scene uses 240
+gallery and yard. Both openings have reverse connections. The scene uses 256
 source triangles within the 256-triangle budget.
+The terrain uses six large quads. The bay has two wall ribs on each side.
 
 The camera repeats a 1,200-frame trip through both openings, looks back at the
 buildings, and returns. Frame 0 shows the loading bay, frame 240 shows the
-gallery and its outdoor opening, frame 320 shows the yard, and frame 600 looks
+gallery after the first turn, frame 360 shows the yard, and frame 600 looks
 back at the buildings. This remains a rendering demo, not a playable prototype.
 The original scene remains in test 2 for portal and cutout regression checks.
 
@@ -141,6 +144,12 @@ table combines these states with its base colours. Screen-space dithering
 selects adjacent channel levels before lookup. The output has no frame palette
 limit. The Bayer pattern gives smoother dark gradients in the tour captures;
 the checker pattern remains available with `--dither 0`.
+
+`palette_entry` takes a full-bright flag for each source palette entry. It
+stores the full colour in all 64 light states when the flag is set. The pipe
+materials mark entry 3 as full-bright cyan. The other entries use normal
+lighting. The strips do not create point lights or light nearby surfaces.
+No palette index range is reserved by the rendering core.
 
 `LIGHT_MODEL` selects distance shading (0) or coloured point lighting (1). The
 regression scene uses distance shading. `LIGHT_COUNT` gives the active count,
@@ -248,11 +257,13 @@ One valid borrow-and-move case must pass. Six invalid cases must produce their
 expected ownership diagnostics: resource copy, use after drop, drop with a live
 input borrow, escaping borrow, shared write, and private field access.
 
-The lit-tour test checks 37 states against the independent ray-triangle and
+The lit-tour test checks 38 states against the independent ray-triangle and
 point-light reference. It covers both directions at both openings and the
-moving lamp. Its entrance check requires visible pixels from all three spaces
-and exactly three views. This rejects reverse-aperture recursion. Run it with
-both dither patterns.
+moving lamp. Its entrance check requires visible pixels from both rooms,
+no yard pixels, and exactly two views. This checks the wall that hides the exit
+and rejects reverse-aperture recursion. The last state disables all point
+lights. It requires both cyan strips and black metal on visible pipe surfaces.
+Run it with both dither patterns.
 
 The playback test sends SDL events through the window input path. It checks
 pause, resume, both step directions, held-key repeats, frame zero, and quit
@@ -338,13 +349,19 @@ opaque-sampling and mask changes also preserved the earlier capture bytes.
 At 640 by 360, the same 601-frame sequence measured p50/p99 of 3.73/5.86 ms on
 AMD and 4.75/5.16 ms on Intel.
 
-The lit tour passed 37 reference states with each dither pattern on AMD and
-Intel. Native 1920 by 1080 reference captures also passed on both devices.
+Before the interior extension, the lit tour passed 37 reference states with
+each dither pattern on AMD and Intel. Native 1920 by 1080 reference captures
+also passed on both devices.
 Both devices completed the full 1,200-frame route. At 640 by 360, these
 capture runs measured p50/p99 of 4.40/6.59 ms on AMD and 5.02/5.98 ms on Intel.
 Six captures, including portal crossing states, matched the full triangle-scan
 baseline byte for byte. These measurements include image readback and exclude
 display pacing.
+
+The extended interior passed 38 reference states with each dither pattern on
+AMD and Intel. These include the hidden exit and full-bright pipe checks.
+The 25-state portal regression also passed on AMD. The full 1,200-frame route
+at 640 by 360 completed on AMD with p50/p99 of 4.92/5.83 ms, including readback.
 
 ## Platform and expansion gates
 

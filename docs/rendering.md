@@ -51,6 +51,12 @@ index with a light state to select a lit colour from a material lookup table.
 Materials can share tables or use separate tables. Preserve these associations
 through portal rendering and image composition.
 
+Allow a full-bright flag for each source palette entry. For a flagged entry,
+store the same RGB colour at every light state. These texels keep their colour
+in darkness and under coloured light. Lighting dithering does not change them.
+They obey depth and portal visibility and do not illuminate other surfaces.
+Do not reserve a fixed range of palette indices in the renderer.
+
 Resolve the selected colours into an RGB colour image. Do not require one palette
 for the complete frame or quantize the final image to a fixed colour count.
 Lighting, fog, effects, UI, and borders can contribute additional colours. Keep

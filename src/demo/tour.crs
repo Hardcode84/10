@@ -60,6 +60,14 @@ fn tour_quad(
     var base: usize = (GEOMETRY + (input_word(read v, 3usize) - 2u32) * 15u32) as usize;
     var u: f32 = (bx - ax + by - ay + bz - az) * 0.25f32;
     var w: f32 = (dx - ax + dy - ay + dz - az) * 0.25f32;
+    if mat == 7u32 || mat == 12u32 {
+        if u * u < 1f32 {
+            u = 1f32;
+        }
+        if w * w < 1f32 {
+            w = 1f32;
+        }
+    }
     input_set_float(mut v, base + 8usize, u);
     input_set_float(mut v, base + 13usize, u);
     input_set_float(mut v, base + 14usize, w);
@@ -134,15 +142,17 @@ fn tour_rooms(v: mut FrameInput) -> unit {
     tour_face(mut v, 0u32, 10u32, 0u32, 6f32, -2f32, 5f32, -6f32, 10f32);
     tour_face(mut v, 0u32, 0u32, 2u32, -6f32, -6f32, 6f32, -2f32, 5f32);
     tour_door(mut v, 0u32, 10f32, 6f32, 5f32, 1u32);
-    tour_face(mut v, 1u32, 1u32, 1u32, -2f32, -4f32, 4f32, 0f32, 14f32);
-    tour_face(mut v, 1u32, 4u32, 1u32, 4f32, -4f32, 4f32, 0f32, 14f32);
-    tour_face(mut v, 1u32, 0u32, 0u32, -4f32, -2f32, 4f32, 0f32, 14f32);
-    tour_face(mut v, 1u32, 0u32, 0u32, 4f32, -2f32, 4f32, 0f32, 14f32);
+    tour_face(mut v, 1u32, 1u32, 1u32, -2f32, -4f32, 12f32, 0f32, 24f32);
+    tour_face(mut v, 1u32, 4u32, 1u32, 4f32, -4f32, 12f32, 0f32, 24f32);
+    tour_face(mut v, 1u32, 0u32, 0u32, -4f32, -2f32, 4f32, 0f32, 24f32);
+    tour_face(mut v, 1u32, 0u32, 0u32, 12f32, -2f32, 4f32, 0f32, 24f32);
     tour_door(mut v, 1u32, 0f32, 4f32, 4f32, 2u32);
-    tour_door(mut v, 1u32, 14f32, 4f32, 4f32, 3u32);
+    tour_door(mut v, 1u32, 24f32, 4f32, 4f32, 3u32);
+    tour_face(mut v, 1u32, 0u32, 2u32, 0f32, 4f32, 12f32, -2f32, 4f32);
+    tour_face(mut v, 1u32, 0u32, 2u32, 24f32, 4f32, 12f32, -2f32, 4f32);
     var i: u32 = 0u32;
-    while i < 4u32 {
-        var z: f32 = 1f32 + i as f32 * 3.5f32;
+    while i < 2u32 {
+        var z: f32 = 1f32 + i as f32 * 7f32;
         tour_face(mut v, 0u32, 2u32, 2u32, z, -5.9f32, -5.5f32, -2f32, 4.8f32);
         tour_face(mut v, 0u32, 2u32, 2u32, z, 5.5f32, 5.9f32, -2f32, 4.8f32);
         tour_face(mut v, 0u32, 2u32, 1u32, 4.8f32, -5.5f32, 5.5f32, z, z + 0.35f32);
@@ -153,6 +163,13 @@ fn tour_rooms(v: mut FrameInput) -> unit {
     tour_face(mut v, 0u32, 6u32, 1u32, -0.48f32, 3.3f32, 5.1f32, 5.2f32, 7.8f32);
     tour_box(mut v, 1u32, 4u32, -3.8f32, -2f32, 5f32, 1.3f32, 3.8f32, 4f32);
     tour_face(mut v, 1u32, 11u32, 0u32, -2.48f32, -1.7f32, 1.5f32, 5.2f32, 8.8f32);
+    tour_box(mut v, 1u32, 10u32, -4f32, -2f32, 8f32, 8f32, 6f32, 8f32);
+}
+fn tour_pipes(v: mut FrameInput) -> unit {
+    tour_box(mut v, 0u32, 7u32, 5.4f32, -0.4f32, -4f32, 0.4f32, 0.4f32, 13f32);
+    tour_box(mut v, 1u32, 7u32, 3.3f32, -0.4f32, 0f32, 0.4f32, 0.4f32, 6f32);
+    tour_box(mut v, 1u32, 12u32, 3.3f32, -0.4f32, 6f32, 8.1f32, 0.4f32, 0.4f32);
+    tour_box(mut v, 1u32, 7u32, 11f32, -0.4f32, 6.4f32, 0.4f32, 0.4f32, 16f32);
 }
 fn tour_peak(
     v: mut FrameInput,
@@ -178,11 +195,11 @@ fn tour_rock(v: mut FrameInput, x: f32, z: f32, s: f32) -> unit {
 }
 fn tour_outdoors(v: mut FrameInput) -> unit {
     var row: u32 = 0u32;
-    while row < 4u32 {
+    while row < 2u32 {
         var col: u32 = 0u32;
-        while col < 6u32 {
-            var x: f32 = col as f32 * 12f32 - 36f32;
-            var z: f32 = row as f32 * 18f32;
+        while col < 3u32 {
+            var x: f32 = col as f32 * 24f32 - 36f32;
+            var z: f32 = row as f32 * 36f32;
             tour_quad(
                 mut v,
                 2u32,
@@ -191,15 +208,15 @@ fn tour_outdoors(v: mut FrameInput) -> unit {
                 x,
                 terrain_height(x, z),
                 z,
-                x + 12f32,
-                terrain_height(x + 12f32, z),
+                x + 24f32,
+                terrain_height(x + 24f32, z),
                 z,
-                x + 12f32,
-                terrain_height(x + 12f32, z + 18f32),
-                z + 18f32,
+                x + 24f32,
+                terrain_height(x + 24f32, z + 36f32),
+                z + 36f32,
                 x,
-                terrain_height(x, z + 18f32),
-                z + 18f32
+                terrain_height(x, z + 36f32),
+                z + 36f32
             );
             col = col + 1u32;
         }
@@ -223,12 +240,28 @@ fn tour_outdoors(v: mut FrameInput) -> unit {
 fn tour_lamps(v: mut FrameInput) -> unit {
     tour_face(mut v, 0u32, 5u32, 0u32, -5.95f32, 1.5f32, 2.5f32, -1f32, 1f32);
     tour_face(mut v, 0u32, 6u32, 0u32, 5.95f32, 1.5f32, 2.5f32, 6f32, 8f32);
-    tour_face(mut v, 1u32, 6u32, 0u32, 3.95f32, 1.5f32, 2.5f32, 2f32, 4f32);
-    tour_face(mut v, 1u32, 5u32, 0u32, -3.95f32, 1.5f32, 2.5f32, 10f32, 12f32);
+    tour_face(mut v, 1u32, 6u32, 0u32, 11.95f32, 1.5f32, 2.5f32, 9f32, 11f32);
+    tour_face(mut v, 1u32, 5u32, 0u32, 11.95f32, 1.5f32, 2.5f32, 18f32, 20f32);
 }
+fn tour_bend(z: f32) -> f32 {
+    if z < 2f32 {
+        return 0f32;
+    }
+    if z < 7f32 {
+        return 4f32 * (1f32 - cosf((z - 2f32) * 0.62831853f32));
+    }
+    if z < 17f32 {
+        return 8f32;
+    }
+    if z < 22f32 {
+        return 4f32 * (1f32 + cosf((z - 17f32) * 0.62831853f32));
+    }
+    return 0f32;
+}
+extern fn atan2f(y: f32, x: f32) -> f32 foreign(scalar) = "atan2f";
 fn tour_camera(v: mut FrameInput, frame: u32) -> unit {
     var phase: f32 = (frame % 1200u32) as f32 / 1200f32;
-    var journey: f32 = -3f32 + 26.5f32 * (1f32 - cosf(phase * 6.2831853f32));
+    var journey: f32 = -3f32 + 31.5f32 * (1f32 - cosf(phase * 6.2831853f32));
     var z: f32 = journey;
     var x: f32 = sinf(phase * 6.2831853f32) * 0.65f32;
     var yaw: f32 = sinf(phase * 12.5663706f32) * 0.16f32;
@@ -236,12 +269,14 @@ fn tour_camera(v: mut FrameInput, frame: u32) -> unit {
     if journey >= 10f32 {
         space = 1u32;
         z = journey - 10f32;
+        x = x + tour_bend(z);
+        yaw = yaw - atan2f(tour_bend(z + 0.05f32) - tour_bend(z - 0.05f32), 0.1f32);
     }
-    if journey >= 24f32 {
+    if journey >= 34f32 {
         space = 2u32;
-        z = x;
-        x = 24f32 - journey;
-        yaw = yaw - 1.5707963f32 + (journey - 24f32) / 26f32 * 3.1415927f32;
+        z = sinf(phase * 6.2831853f32) * 0.65f32;
+        x = 34f32 - journey;
+        yaw = yaw - 1.5707963f32 + (journey - 34f32) / 26f32 * 3.1415927f32;
     }
     var c: f32 = cosf(yaw);
     var s: f32 = sinf(yaw);
@@ -270,12 +305,13 @@ fn tour_scene(v: mut FrameInput, width: u32, height: u32, frame: u32, mode: u32)
     tour_camera(mut v, frame);
     tour_rooms(mut v);
     tour_outdoors(mut v);
+    tour_pipes(mut v);
     tour_lamps(mut v);
     tour_light(
         mut v,
         6u32,
         1u32,
-        1.5f32,
+        8f32,
         0.8f32,
         7f32 + 2f32 * sinf(frame as f32 * 0.025f32),
         0.75f32,
@@ -287,7 +323,7 @@ fn tour_scene(v: mut FrameInput, width: u32, height: u32, frame: u32, mode: u32)
         mut v,
         1u32,
         5u32,
-        1.3f32,
+        7.8f32,
         0.6f32,
         6.8f32 + 2f32 * sinf(frame as f32 * 0.025f32),
         0.4f32,
