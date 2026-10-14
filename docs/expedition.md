@@ -1,8 +1,10 @@
 # First expedition: The Silent Foundry
 
 The default game is a complete expedition through three connected areas:
-the service berth, pump court, and lantern crown. The movement course remains
-available with `--trial`. The user has authorized this slice before the human
+the service berth, pump hall, and lantern crown. Five sealed room prefabs
+form the route. See [room connections](prefabs.md). Large rooms supply open
+flight space; all routes remain inside the room shell. The movement course
+remains available with `--trial`. The user has authorized this slice before the human
 Gate 0 test. Automated completion does not establish comfort or fun.
 
 ## Acceptance contract
@@ -19,16 +21,16 @@ save IO in separate files. Keep the renderer independent of mission rules.
 
 ## Route and choices
 
-The gallery gives a sheltered approach to the pump court. The upper machinery
-provides a direct tether route to the crown. A lit upper return path leads
-back above the gallery. Players can use the same structures for fast swings
-or slow controlled flight. Warm marks identify home; cold marks identify
-power stations. Full-bright pipe stripes show nearby surfaces in the dark.
+The enclosed gallery opens into the pump hall. A floor-to-ceiling column
+provides an anchor and a landmark. The shaft connects the hall to the crown
+through a ceiling hatch. The crown also connects to an upper return chamber,
+whose floor hatch leads back to the hall. All doors and hatches have matched
+connections. There are no gaps to the outside.
 
-A relay supplies a safe place to recharge before the climb. The main beacon
-lights the structure and the return route. Dock slowly near each station to
-restore it. The HUD states the distance, required speed, and docking progress.
-No camera motion is forced during a relight.
+A relay supplies a place to recharge before the climb. The main beacon lights
+the connected rooms. Dock slowly near each station to restore it. The HUD
+states the distance, required speed, and docking progress. No camera motion
+is forced during a relight.
 
 ## Validation
 
@@ -56,14 +58,15 @@ crust main.crs --review
 ```
 
 The default expedition uses a stopped drum. `--trial --full-spin` selects the
-rotating movement course. `--tour` demonstrates the covered return route.
+rotating movement course. `--tour` demonstrates the return through the shaft.
 `--tour --shortcut` uses the actual hook and reel to climb the shaft and takes
-the open return. The automatic tours pause at the crown to show the relight.
-The playable game never moves the camera for a reveal.
+the return chamber and its floor hatch. The automatic tours pause at the crown
+to show the relight. The playable game never moves the camera for a reveal.
 
-`--review` writes four captures in `build/`: `expedition-dark.ppm`,
-`expedition-lit.ppm`, `expedition-recovery.ppm`, and `expedition-empty.ppm`.
-These use the game scene at one fixed view. They do not change saved progress.
+`--review` writes eight captures in `build/`: four expedition states and
+views of the hall, shaft, crown, and gallery door. It also checks 60 room and
+connection views for uncovered background pixels. It does not change saved
+progress.
 
 Use WASD and Ctrl/Space to move. Right mouse gives a burst. F brakes. Hold left
 mouse to launch and hold the hook; R starts fast reeling. Release left mouse
@@ -72,10 +75,10 @@ pause, and Esc to exit. The gamepad bindings remain those in the movement guide.
 
 Stay within 6 m of a station at less than 2 m/s for 1.5 seconds to link it.
 The relay supplies the crown. The crown supplies a return link. Carry that link
-back to the warm berth to finish. The covered route crosses the upper platform
-and return duct. The open route clears the platform rail, crosses above the
-court and gallery, and descends in front of the gallery entrance. There are no
-mandatory race gates. Flight-path markers and the objective arrow are assists.
+back to the warm berth to finish. The shaft route reverses the climb. The
+shorter route crosses the crown chamber and descends through two hatches into
+the pump hall. Both routes return through the gallery. There are no mandatory
+race gates. Flight-path markers and the objective arrow are assists.
 
 Backspace or gamepad X recovers a drone during flight. Lit stations remain lit.
 The most recent parked drone remains as an amber marker. A replacement starts
@@ -106,6 +109,9 @@ response stays unchanged: contact permits sliding and has no charge tax.
 
 ## Saved progress and replay
 
+Save version 2 belongs to the sealed room assembly. Use `--fresh` to replace
+a save from the earlier layout. Such a save reports a version error.
+
 Normal window play saves station state, completion, recovery count, the most
 recent parked drone, and checkpoint statistics to `spinward.save`. Use
 `--save FILE` to select another path. Saves are written at restoration,
@@ -121,7 +127,7 @@ Statistics resume from the last saved event.
 Tours, recordings, replays, and the movement trial do not read or write live
 progress. Headless runs do not use a save unless `--save FILE` is explicit.
 The game rejects `--save` and `--fresh` with an isolated run mode.
-Version 8 input recordings start from a fresh world and store the game mode
+Version 9 input recordings start from a fresh world and store the game mode
 and initial spin mode. Their hashes include charge, mission state, link,
 reveal, docking, recovery, and prediction state. Use the same build for replay.
 
@@ -137,18 +143,21 @@ cmp build/expedition.ppm build/expedition-replay.ppm
 
 | File group | Responsibility |
 | --- | --- |
-| `expedition-world.crs` | Station locations and collision geometry |
+| `prefab.crs`, `expedition-layout.crs` | Room templates, ports, and assembly |
+| `expedition-shell.crs` | Shared wall panels for drawing and collision |
+| `expedition-world.crs` | Station locations, attached props, and pipe |
 | `expedition-state.crs`, `expedition-rules.crs` | Mission state, docking, return, and recovery |
 | `energy.crs` | Charge, brake limits, and paid winch work |
-| `expedition-view.crs` | Station marks, reveal lights, and lamp output |
+| `expedition-view.crs`, `expedition-lighting.crs` | Station marks, reveal lights, and lamp output |
 | `expedition-hud.crs` | Objectives, controls, and completion summary |
 | `expedition-tour.crs` | Route hints and input-driven demonstration pilots |
 | `progress-store.crs` | Checked save-file input and atomic replacement |
 | `expedition-hash.crs` | Deterministic mission-state hashing |
 
-The world uses 21 box solids and two pipes. The worst-case scene fits 256
-triangles, including path previews, station marks, a parked drone, and cockpit
-indicators. The eight-light limit is unchanged. Light updates write a fixed
+The world uses five room shells, three attached solids, and one pipe. The
+worst-case scene fits 254 triangles, including path previews, station marks,
+a parked drone, and cockpit indicators. The eight-light limit is unchanged.
+Light updates write a fixed
 number of values each frame. Physics copies one plain drone value to evaluate
 winch work before committing an affordable move. Save IO runs only at progress
 events. No new renderer scene hierarchy or streaming system was added.
@@ -165,16 +174,16 @@ empty charge, unaffordable impulses, stalled reeling, and save replacement.
 
 | Input-driven route | Simulation ticks | Time | Charge at berth | Recoveries |
 | --- | --- | --- | --- | --- |
-| Covered return | 25,628 | 214 s | 63 | 0 |
-| Hook climb and open return | 19,034 | 159 s | 94 | 0 |
+| Shaft return | 22,510 | 188 s | 60 | 0 |
+| Hook climb and hatch return | 20,402 | 170 s | 49 | 0 |
 
-The shortcut applies 2,399 J/kg of actual winch work. These are automatic
+The shortcut applies 1,226 J/kg of actual winch work. These are automatic
 demonstrations, not target times for a new player.
 
 AMD Radeon PRO W7900 record and replay captures match byte for byte. Intel Arc
-Pro B60 replay matches every recorded simulation hash. Its final shortcut
-capture differs from AMD at two of 518,400 pixels. Cross-driver floating-point
-shading is not specified to produce identical pixels. The separate palette
+Pro B60 replay matches every recorded simulation hash. Both GPUs pass the
+60-view enclosure check. Cross-driver floating-point shading is not specified
+to produce identical pixels. The separate palette
 and text tests pass all 465,366 exact checks on both GPUs, including integer
 text scales and both output channel orders.
 
@@ -186,9 +195,10 @@ and a maximum function CCN of 15.
 
 ## Design review
 
-Claude Opus recommended reusing the proven industrial layout, making light
-reveal a return choice, and retaining free movement at zero charge. Those
-recommendations are implemented. Its proposed impact charge was rejected:
+Claude Opus recommended making light reveal a return choice and retaining
+free movement at zero charge. In the prefab review, it recommended different
+attached structures for the hall and return room. The column and ceiling
+gantry provide those landmarks. Its proposed impact charge was rejected:
 changing established contact behavior would add a separate penalty to learn.
 The initial scripted route exhausted charge near the relay. Lower burst and
 brake costs now leave a useful reserve on that leg.

@@ -22,7 +22,7 @@ fn test_progress_store() -> bool {
     mission.elapsed = 14000u32;
     mission.spent = 85.5f32;
     mission.has_parked = true;
-    mission.parked = vec(5f32, 20f32, 30f32);
+    mission.parked = vec(5f32, 10f32, 30f32);
     mission.rescues = 1u32;
     var loaded: Expedition = new_expedition();
     var good: bool = progress_write(&path as *u8, mission) && progress_read(

@@ -1,29 +1,27 @@
 fn expedition_waypoint(index: u32) -> Vec3 {
-    if index == 12u32 || index == 15u32 {
-        return vec(0f32, 40f32, -30f32);
-    }
-    if index == 13u32 || index == 16u32 {
-        return vec(0f32, 10f32, -30f32);
-    }
-    if index == 14u32 || index >= 17u32 {
-        return station_position(0u32);
-    }
-    if index == 5u32 {
-        return vec(150f32, 130f32, 155f32);
-    }
-    if index == 7u32 {
-        return vec(115f32, 130f32, 250f32);
-    }
-    if index == 3u32 {
-        return station_position(1u32);
-    }
-    if index == 6u32 {
-        return station_position(2u32);
-    }
-    if index == 11u32 {
-        return vec(-55f32, 65f32, 55f32);
-    }
-    return course_gate_center(index);
+    var points: [Vec3; 20] = make [Vec3; 20] {
+        vec(0f32, 4f32, 35f32),
+        vec(0f32, 4f32, 76f32),
+        vec(0f32, 16f32, 140f32),
+        station_position(1u32),
+        vec(116f32, 16f32, 150f32),
+        vec(116f32, 134f32, 150f32),
+        station_position(2u32),
+        vec(116f32, 134f32, 150f32),
+        vec(116f32, 16f32, 150f32),
+        station_position(1u32),
+        vec(0f32, 16f32, 140f32),
+        vec(0f32, 4f32, 76f32),
+        vec(0f32, 4f32, 35f32),
+        station_position(0u32),
+        vec(40f32, 92f32, 150f32),
+        vec(40f32, 40f32, 150f32),
+        vec(0f32, 16f32, 140f32),
+        vec(0f32, 4f32, 76f32),
+        vec(0f32, 4f32, 35f32),
+        station_position(0u32)
+    };
+    return points[index as usize];
 }
 fn expedition_route(trial: mut Trial) -> unit {
     if trial.expedition.return_link && trial.expedition.relight < 2400u32 {
@@ -34,14 +32,14 @@ fn expedition_route(trial: mut Trial) -> unit {
         last = 6u32;
     }
     if mission_goal(trial.expedition) == 0u32 {
-        last = 14u32;
+        last = 13u32;
     }
     if expedition_drop_entry(read trial) {
-        trial.gate = 15u32;
+        trial.gate = 14u32;
         trial.expedition.shortcut = true;
     }
-    if trial.gate >= 15u32 {
-        last = 17u32;
+    if trial.gate >= 14u32 {
+        last = 19u32;
     }
     if trial.gate < last && length(
         sub(trial.drone.position, expedition_waypoint(trial.gate))
@@ -51,22 +49,22 @@ fn expedition_route(trial: mut Trial) -> unit {
 }
 fn expedition_drop_entry(trial: read Trial) -> bool {
     var p: Vec3 = trial.drone.position;
-    return mission_goal(trial.expedition) == 0u32 && trial.gate == 7u32 && p.x < 118f32 && p.y > 120f32 && p.z > 200f32 && p.z < 215f32 && trial.drone.velocity.z < -1f32;
+    return mission_goal(trial.expedition) == 0u32 && trial.gate == 7u32 && p.x < 60f32 && p.y > 124f32;
 }
 fn expedition_pilot(trial: read Trial, shortcut: bool) -> Command {
     if trial.expedition.return_link && trial.expedition.relight < 2400u32 {
-        var hold: Command = steer_expedition(read trial, vec(115f32, 132f32, 220f32));
-        var view: Command = steer_expedition(read trial, station_position(1u32));
+        var hold: Command = steer_expedition(read trial, vec(63f32, 132f32, 150f32));
+        var view: Command = steer_expedition(read trial, vec(40f32, 40f32, 150f32));
         hold.look = view.look;
         hold.burst = false;
         return hold;
     }
-    if shortcut && trial.gate == 5u32 && trial.drone.position.y < 100f32 {
+    if shortcut && trial.gate == 5u32 && trial.drone.position.y > 40f32 && trial.drone.position.y < 110f32 {
         return expedition_hook_climb(read trial);
     }
     var target: Vec3 = expedition_waypoint(trial.gate);
     if shortcut && trial.gate == 7u32 {
-        target = vec(110f32, 125f32, 200f32);
+        target = vec(40f32, 134f32, 150f32);
     }
     var goal: u32 = mission_goal(trial.expedition);
     var c: Command = steer_expedition(read trial, target);
@@ -105,7 +103,7 @@ fn steer_expedition(trial: read Trial, target: Vec3) -> Command {
 }
 
 fn expedition_hook_climb(trial: read Trial) -> Command {
-    var anchor: Vec3 = vec(150f32, 112f32, 181f32);
+    var anchor: Vec3 = vec(116f32, 152f32, 150f32);
     var c: Command = steer_expedition(read trial, anchor);
     c.thrust = vec(0f32, 0f32, 0f32);
     c.burst = false;

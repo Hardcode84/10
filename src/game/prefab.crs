@@ -1,0 +1,261 @@
+record RoomPort {
+    face: u32;
+    low: Vec3;
+    high: Vec3;
+}
+record RoomPrefab {
+    size: Vec3;
+    material: u32;
+    ports: [RoomPort; 3];
+    count: u32;
+}
+record RoomInstance {
+    prefab: RoomPrefab;
+    origin: Vec3;
+}
+record RoomLink {
+    a: u32;
+    port_a: u32;
+    b: u32;
+    port_b: u32;
+}
+record WallPanels {
+    panels: [Solid; 64];
+    count: u32;
+}
+fn room_port(face: u32, low: Vec3, high: Vec3) -> RoomPort {
+    return make RoomPort {
+        face: face,
+        low: low,
+        high: high
+    };
+}
+fn room_prefab(
+    size: Vec3,
+    material: u32,
+    a: RoomPort,
+    b: RoomPort,
+    c: RoomPort,
+    count: u32
+) -> RoomPrefab {
+    return make RoomPrefab {
+        size: size,
+        material: material,
+        ports: make [RoomPort; 3] {
+            a,
+            b,
+            c
+        },
+        count: count
+    };
+}
+fn room_instance(prefab: RoomPrefab, origin: Vec3) -> RoomInstance {
+    return make RoomInstance {
+        prefab: prefab,
+        origin: origin
+    };
+}
+fn room_link(a: u32, pa: u32, b: u32, pb: u32) -> RoomLink {
+    return make RoomLink {
+        a: a,
+        port_a: pa,
+        b: b,
+        port_b: pb
+    };
+}
+fn set_axis(p: Vec3, axis: u32, value: f32) -> Vec3 {
+    return add(p, scale(axis_vector(axis), value - component(p, axis)));
+}
+fn room_face(room: RoomInstance, face: u32) -> Solid {
+    var axis: u32 = face / 2u32;
+    var plane: f32 = component(room.origin, axis);
+    if face % 2u32 != 0u32 {
+        plane = plane + component(room.prefab.size, axis);
+    }
+    return solid(
+        set_axis(room.origin, axis, plane),
+        set_axis(add(room.origin, room.prefab.size), axis, plane),
+        room.prefab.material
+    );
+}
+fn wall_panels() -> WallPanels {
+    var empty: Solid = solid(vec(0f32, 0f32, 0f32), vec(0f32, 0f32, 0f32), 0u32);
+    return make WallPanels {
+        panels: make [Solid; 64] {
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty,
+            empty
+        },
+        count: 0u32
+    };
+}
+fn panel_append(walls: mut WallPanels, panel: Solid, axis: u32) -> unit {
+    var extent: Vec3 = sub(panel.high, panel.low);
+    if component(extent, (axis + 1u32) % 3u32) > 0f32 && component(
+        extent,
+        (axis + 2u32) % 3u32
+    ) > 0f32 {
+        walls.panels[walls.count as usize] = panel;
+        walls.count = walls.count + 1u32;
+    }
+}
+fn panel_cut(walls: mut WallPanels, panel: Solid, hole: Solid, axis: u32) -> unit {
+    var a: u32 = (axis + 1u32) % 3u32;
+    var b: u32 = (axis + 2u32) % 3u32;
+    var lo_a: f32 = clamp(
+        component(hole.low, a),
+        component(panel.low, a),
+        component(panel.high, a)
+    );
+    var hi_a: f32 = clamp(
+        component(hole.high, a),
+        component(panel.low, a),
+        component(panel.high, a)
+    );
+    var lo_b: f32 = clamp(
+        component(hole.low, b),
+        component(panel.low, b),
+        component(panel.high, b)
+    );
+    var hi_b: f32 = clamp(
+        component(hole.high, b),
+        component(panel.low, b),
+        component(panel.high, b)
+    );
+    if lo_a >= hi_a || lo_b >= hi_b {
+        panel_append(mut walls, panel, axis);
+        return;
+    }
+    panel_append(
+        mut walls,
+        solid(panel.low, set_axis(panel.high, a, lo_a), panel.material),
+        axis
+    );
+    panel_append(
+        mut walls,
+        solid(set_axis(panel.low, a, hi_a), panel.high, panel.material),
+        axis
+    );
+    var low: Vec3 = set_axis(panel.low, a, lo_a);
+    var high: Vec3 = set_axis(panel.high, a, hi_a);
+    panel_append(
+        mut walls,
+        solid(low, set_axis(high, b, lo_b), panel.material),
+        axis
+    );
+    panel_append(
+        mut walls,
+        solid(set_axis(low, b, hi_b), high, panel.material),
+        axis
+    );
+}
+fn port_world(room: RoomInstance, index: u32) -> Solid {
+    var port: RoomPort = room.prefab.ports[index as usize];
+    return solid(
+        add(room.origin, port.low),
+        add(room.origin, port.high),
+        room.prefab.material
+    );
+}
+fn port_matches(a: RoomInstance, pa: u32, b: RoomInstance, pb: u32) -> bool {
+    var x: RoomPort = a.prefab.ports[pa as usize];
+    var y: RoomPort = b.prefab.ports[pb as usize];
+    var first: Solid = port_world(a, pa);
+    var second: Solid = port_world(b, pb);
+    return x.face / 2u32 == y.face / 2u32 && x.face % 2u32 != y.face % 2u32 && length(
+        sub(first.low, second.low)
+    ) == 0f32 && length(sub(first.high, second.high)) == 0f32;
+}
+// Both ports must have equal extents and opposite outward normals.
+// The returned instance places both openings at the same world coordinates.
+fn attach_prefab(parent: RoomInstance, port: u32, child: RoomPrefab, child_port: u32) -> RoomInstance {
+    var opening: Solid = port_world(parent, port);
+    return room_instance(
+        child,
+        sub(opening.low, child.ports[child_port as usize].low)
+    );
+}
+fn prefab_wall(room: RoomInstance, face: u32, open_ports: u32) -> WallPanels {
+    var walls: WallPanels = wall_panels();
+    panel_append(mut walls, room_face(room, face), face / 2u32);
+    var port: u32 = 0u32;
+    while port < room.prefab.count {
+        if room.prefab.ports[port as usize].face == face && (open_ports & (1u32 << port)) != 0u32 {
+            var previous: WallPanels = walls;
+            walls.count = 0u32;
+            var i: u32 = 0u32;
+            while i < previous.count {
+                panel_cut(
+                    mut walls,
+                    previous.panels[i as usize],
+                    port_world(room, port),
+                    face / 2u32
+                );
+                i = i + 1u32;
+            }
+        }
+        port = port + 1u32;
+    }
+    return walls;
+}

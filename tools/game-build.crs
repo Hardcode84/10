@@ -1,13 +1,17 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 45] = make [*u8; 45] {
+    var files: [*u8; 50] = make [*u8; 50] {
         "src/game/math.crs",
         "src/game/state.crs",
+        "src/game/prefab.crs",
+        "src/game/expedition-layout.crs",
+        "src/game/expedition-shell.crs",
         "src/game/expedition-world.crs",
         "src/game/expedition-state.crs",
         "src/game/energy.crs",
         "src/game/expedition-rules.crs",
         "src/game/expedition-hash.crs",
         "src/game/expedition-view.crs",
+        "src/game/expedition-lighting.crs",
         "src/game/expedition-hud.crs",
         "src/game/expedition-tour.crs",
         "src/game/course.crs",
@@ -43,11 +47,12 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "tests/game/course-spin.crs",
         "tests/game/course-geometry.crs",
         "tests/game/preview.crs",
+        "tests/game/prefabs.crs",
         "tests/game/expedition.crs",
         "tests/game/expedition-render.crs"
     };
     var i: usize = 0usize;
-    while i < 45usize {
+    while i < 50usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

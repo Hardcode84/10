@@ -77,14 +77,7 @@ fn expedition_light_strength(trial: read Trial, index: u32) -> f32 {
     return strength;
 }
 fn expedition_lights(v: mut FrameInput, trial: read Trial) -> unit {
-    course_lights(mut v);
-    course_light(
-        mut v,
-        5u32,
-        vec(150f32, 132f32, 220f32),
-        vec(0.7f32, 1.2f32, 1.8f32),
-        50f32
-    );
+    expedition_light_layout(mut v);
     var i: u32 = 0u32;
     while i < 8u32 {
         var strength: f32 = expedition_light_strength(read trial, i);

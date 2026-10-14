@@ -20,10 +20,19 @@ fn game_quad(v: mut FrameInput, mat: u32, a: Vec3, b: Vec3, c: Vec3, d: Vec3) ->
     );
 }
 fn draw_solid(v: mut FrameInput, s: Solid, eye: Vec3) -> unit {
+    draw_solid_faces(mut v, s, eye, 63u32);
+}
+fn draw_solid_faces(v: mut FrameInput, s: Solid, eye: Vec3, faces: u32) -> unit {
     var axis: u32 = 0u32;
     while axis < 3u32 {
         var side: f32 = component(eye, axis);
-        if side < component(s.low, axis) || side > component(s.high, axis) {
+        var face: u32 = axis * 2u32;
+        if side > component(s.high, axis) {
+            face = face + 1u32;
+        }
+        if (faces & (1u32 << face)) != 0u32 && (
+            side < component(s.low, axis) || side > component(s.high, axis)
+        ) {
             var shift: Vec3 = vec(0f32, 0f32, 0f32);
             if side > component(s.high, axis) {
                 shift = scale(
@@ -92,14 +101,22 @@ fn game_scene(v: mut FrameInput, trial: read Trial, config: GameConfig) -> unit 
     camera_row(mut v, 0usize, trial.drone.basis.right, trial.drone.position);
     camera_row(mut v, 4usize, trial.drone.basis.up, trial.drone.position);
     camera_row(mut v, 8usize, trial.drone.basis.forward, trial.drone.position);
+    if trial.drone.world == 1u32 {
+        draw_expedition_shell(mut v, trial.drone.position);
+    }
     var i: u32 = 0u32;
     while i < world_solid_count(trial.drone.world) {
-        draw_solid(mut v, world_solid(trial.drone.world, i), trial.drone.position);
+        draw_solid_faces(
+            mut v,
+            world_solid(trial.drone.world, i),
+            trial.drone.position,
+            world_solid_faces(trial.drone.world, i)
+        );
         i = i + 1u32;
     }
     i = 0u32;
-    while i < PIPE_COUNT {
-        draw_pipe(mut v, course_pipe(i), trial.drone.position);
+    while i < world_pipe_count(trial.drone.world) {
+        draw_pipe(mut v, world_pipe(trial.drone.world, i), trial.drone.position);
         i = i + 1u32;
     }
     if trial.drone.world == 1u32 {

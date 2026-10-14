@@ -44,9 +44,12 @@ fn progress_read(path: *u8, mission: *Expedition) -> bool {
     return progress_decode(&data as *u32, mission);
 }
 fn progress_decode(data: *u32, mission: *Expedition) -> bool {
-    if data[0usize] != 0x53505744u32 || data[1usize] != 1u32 || !progress_valid(data[2usize]) || data[
-        4usize
-    ] > 1u32 {
+    if data[1usize] != 2u32 {
+        return error(
+            "expedition save uses another level version; use --fresh to start this level"
+        );
+    }
+    if data[0usize] != 0x53505744u32 || !progress_valid(data[2usize]) || data[4usize] > 1u32 {
         return error("invalid expedition save header");
     }
     var m: Expedition = new_expedition();
@@ -67,6 +70,9 @@ fn progress_decode(data: *u32, mission: *Expedition) -> bool {
         i = i + 1usize;
     }
     m.elapsed = data[8usize];
+    if m.has_parked && !expedition_contains(m.parked) {
+        return error("saved drone is outside the expedition rooms");
+    }
     m.spent = bits_float(data[9usize]);
     if!(m.spent >= 0f32 && m.spent <= 1000000000f32) {
         return error("invalid saved charge total");
@@ -103,7 +109,7 @@ fn progress_write(path: *u8, m: Expedition) -> bool {
     }
     var data: [u32; 12] = make [u32; 12] {
         0x53505744u32,
-        1u32,
+        2u32,
         m.progress,
         m.rescues,
         m.has_parked as u32,

@@ -128,7 +128,7 @@ fn test_replay() -> bool {
     return true;
 }
 fn game_tests() -> bool {
-    return test_hook() && test_winch() && test_short_press() && test_mouse_accumulation() && test_swing() && test_forces() && test_collision() && test_tether() && test_trial() && test_input() && test_replay() && test_course_flight() && test_expedition() && test_progress_store();
+    return test_hook() && test_winch() && test_short_press() && test_mouse_accumulation() && test_swing() && test_forces() && test_collision() && test_tether() && test_trial() && test_input() && test_replay() && test_course_flight() && test_prefabs() && test_expedition() && test_progress_store();
 }
 fn smoke_command(trial: read Trial, tick: u32) -> Command {
     var c: Command = idle_command();

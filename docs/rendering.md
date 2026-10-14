@@ -389,3 +389,12 @@ colours must have opaque alpha.
 `OVERLAY_SCALE` selects an integer pixel scale for the text overlay. Zero and
 one select native pixels. The overlay bounds scale with the glyphs. The caller
 sets the scale; the renderer does not use game state to choose it.
+
+### Game room shells
+
+The playable expedition uses [connected room prefabs](prefabs.md). Large
+chambers supply open flight space. The level must have no path or uncovered
+sightline to the outside void. Matched ports connect complete room shells;
+unused ports remain closed. Drawing and collision use the same wall panels.
+The game builds these panels. The rendering core remains independent of room
+templates and mission rules.

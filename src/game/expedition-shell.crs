@@ -1,0 +1,108 @@
+fn panel_hit(p: Vec3, d: Vec3, panel: Solid, axis: u32, radius: f32) -> Hit {
+    var hit: Hit = nearest(
+        box_face_hit(p, d, panel, axis, -1f32, radius),
+        box_face_hit(p, d, panel, axis, 1f32, radius)
+    );
+    if radius <= 0f32 {
+        return hit;
+    }
+    var a: Vec3 = box_edge(panel, axis, 0u32);
+    var b: Vec3 = box_edge(panel, axis, 1u32);
+    var c: Vec3 = box_edge(panel, axis, 3u32);
+    var e: Vec3 = box_edge(panel, axis, 2u32);
+    hit = nearest(hit, edge_hit(p, d, a, b, radius));
+    hit = nearest(hit, edge_hit(p, d, b, c, radius));
+    hit = nearest(hit, edge_hit(p, d, c, e, radius));
+    return nearest(hit, edge_hit(p, d, e, a, radius));
+}
+fn expedition_shell_hit(p: Vec3, d: Vec3, radius: f32) -> Hit {
+    var hit: Hit = miss();
+    var room: u32 = 0u32;
+    while room < ROOM_COUNT {
+        var instance: RoomInstance = expedition_room(room);
+        var mask: u32 = expedition_open_ports(room);
+        var face: u32 = 0u32;
+        while face < 6u32 {
+            var walls: WallPanels = prefab_wall(instance, face, mask);
+            var i: u32 = 0u32;
+            while i < walls.count {
+                hit = nearest(
+                    hit,
+                    panel_hit(p, d, walls.panels[i as usize], face / 2u32, radius)
+                );
+                i = i + 1u32;
+            }
+            face = face + 1u32;
+        }
+        room = room + 1u32;
+    }
+    return hit;
+}
+fn draw_expedition_shell(v: mut FrameInput, eye: Vec3) -> unit {
+    var room: u32 = 0u32;
+    while room < ROOM_COUNT {
+        var instance: RoomInstance = expedition_room(room);
+        var mask: u32 = expedition_open_ports(room);
+        var face: u32 = 0u32;
+        while face < 6u32 {
+            var walls: WallPanels = prefab_wall(instance, face, mask);
+            var i: u32 = 0u32;
+            while i < walls.count {
+                var panel: Solid = walls.panels[i as usize];
+                var mat: u32 = panel.material;
+                if face == 2u32 {
+                    mat = 0u32;
+                }
+                if face == 3u32 {
+                    mat = 1u32;
+                }
+                if panel_faces_eye(panel, face, eye) {
+                    draw_wall_panel(mut v, panel, face / 2u32, mat);
+                }
+                i = i + 1u32;
+            }
+            face = face + 1u32;
+        }
+        room = room + 1u32;
+    }
+}
+fn expedition_contains(p: Vec3) -> bool {
+    var i: u32 = 0u32;
+    while i < ROOM_COUNT {
+        var room: RoomInstance = expedition_room(i);
+        var q: Vec3 = sub(p, room.origin);
+        var s: Vec3 = room.prefab.size;
+        if q.x >= 0f32 && q.y >= 0f32 && q.z >= 0f32 && q.x <= s.x && q.y <= s.y && q.z <= s.z {
+            return true;
+        }
+        i = i + 1u32;
+    }
+    return false;
+}
+fn panel_faces_eye(panel: Solid, face: u32, eye: Vec3) -> bool {
+    var delta: f32 = component(sub(eye, panel.low), face / 2u32);
+    if face % 2u32 == 0u32 {
+        return delta >= 0f32;
+    }
+    return delta <= 0f32;
+}
+fn draw_wall_panel(v: mut FrameInput, panel: Solid, axis: u32, material: u32) -> unit {
+    var first: u32 = input_word(read v, 3usize);
+    game_quad(
+        mut v,
+        material,
+        box_edge(panel, axis, 0u32),
+        box_edge(panel, axis, 1u32),
+        box_edge(panel, axis, 3u32),
+        box_edge(panel, axis, 2u32)
+    );
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        var base: usize = (GEOMETRY + first * 15u32 + i * 5u32) as usize;
+        var u: f32 = input_float(read v, base + ((axis + 1u32) % 3u32) as usize) / 4f32;
+        var w: f32 = input_float(read v, base + ((axis + 2u32) % 3u32) as usize) / 4f32;
+        input_set_float(mut v, base + 3usize, u);
+        input_set_float(mut v, base + 4usize, w);
+        i = i + 1u32;
+    }
+}

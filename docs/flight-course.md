@@ -72,7 +72,7 @@ their times do not measure relative player difficulty.
 
 Use `--trial --tour` for a windowed flight or `--trial --headless --tour` for a complete
 simulation without wall-clock pacing. Add `--full-spin` to start with rotation.
-Use `--ticks N --capture FILE` to inspect a particular tour state. Version 8
+Use `--ticks N --capture FILE` to inspect a particular tour state. Version 9
 recordings include the initial spin mode and hash the cyan prediction phase. Replay restores it and checks every
 state hash.
 

@@ -1,9 +1,13 @@
 fn review_capture(session: mut GameSession, index: u32) -> bool {
-    var paths: [*u8; 4] = make [*u8; 4] {
+    var paths: [*u8; 8] = make [*u8; 8] {
         "build/expedition-dark.ppm",
         "build/expedition-lit.ppm",
         "build/expedition-recovery.ppm",
-        "build/expedition-empty.ppm"
+        "build/expedition-empty.ppm",
+        "build/prefab-hall.ppm",
+        "build/prefab-shaft.ppm",
+        "build/prefab-crown.ppm",
+        "build/prefab-door.ppm"
     };
     return capture(
         &session.renderer.state,
@@ -11,4 +15,18 @@ fn review_capture(session: mut GameSession, index: u32) -> bool {
         session.launch.config.width,
         session.launch.config.height
     );
+}
+fn review_no_void(session: mut GameSession) -> bool {
+    var words: *u32 = session.renderer.state.mapped as *u32;
+    var background: u32 = words[BACKGROUND as usize];
+    var pixels: usize = (session.launch.config.width * session.launch.config.height) as usize;
+    var i: usize = 0usize;
+    while i < pixels {
+        if words[PRESENT_PIXELS as usize + i] == background {
+            print_number(i as i64);
+            return error("prefab view contains an uncovered background pixel");
+        }
+        i = i + 1usize;
+    }
+    return true;
 }

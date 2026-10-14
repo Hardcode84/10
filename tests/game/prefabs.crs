@@ -1,0 +1,199 @@
+fn test_prefab_ports() -> bool {
+    var i: u32 = 0u32;
+    while i < ROOM_LINK_COUNT {
+        var link: RoomLink = expedition_link(i);
+        var a: RoomInstance = expedition_room(link.a);
+        var b: RoomInstance = expedition_room(link.b);
+        if !game_check(
+            port_matches(a, link.port_a, b, link.port_b),
+            "connected prefab ports must have opposite normals and identical world bounds"
+        ) {
+            return false;
+        }
+        var aperture: Solid = port_world(a, link.port_a);
+        var center: Vec3 = scale(add(aperture.low, aperture.high), 0.5f32);
+        var normal: Vec3 = axis_vector(
+            a.prefab.ports[link.port_a as usize].face / 2u32
+        );
+        var step: Vec3 = scale(normal, 4f32);
+        var forward: Hit = expedition_shell_hit(
+            sub(center, step),
+            scale(step, 2f32),
+            DRONE_RADIUS
+        );
+        var backward: Hit = expedition_shell_hit(
+            add(center, step),
+            scale(step, -2f32),
+            DRONE_RADIUS
+        );
+        if !game_check(
+            forward.time > 1f32 && backward.time > 1f32,
+            "paired ports must admit a drone in both directions without a seam"
+        ) {
+            return false;
+        }
+        b.origin.x = b.origin.x + 1f32;
+        if !game_check(
+            !port_matches(a, link.port_a, b, link.port_b),
+            "offset port placements must not be compatible"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var room: RoomInstance = expedition_room(0u32);
+    var closed: WallPanels = prefab_wall(room, 5u32, 0u32);
+    var hit: Hit = panel_hit(
+        vec(0f32, 4f32, 56f32),
+        vec(0f32, 0f32, 8f32),
+        closed.panels[0usize],
+        2u32,
+        DRONE_RADIUS
+    );
+    return game_check(
+        closed.count == 1u32 && hit.time < 1f32,
+        "an unconnected prefab port must remain capped"
+    );
+}
+fn test_prefab_enclosure() -> bool {
+    var room: u32 = 0u32;
+    var triangles: u32 = 0u32;
+    while room < ROOM_COUNT {
+        var instance: RoomInstance = expedition_room(room);
+        var center: Vec3 = add(instance.origin, scale(instance.prefab.size, 0.5f32));
+        var face: u32 = 0u32;
+        while face < 6u32 {
+            var walls: WallPanels = prefab_wall(instance, face, expedition_open_ports(room));
+            triangles = triangles + walls.count * 2u32;
+            var boundary: Solid = room_face(instance, face);
+            var a: u32 = (face / 2u32 + 1u32) % 3u32;
+            var b: u32 = (face / 2u32 + 2u32) % 3u32;
+            var sample: u32 = 0u32;
+            while sample < 25u32 {
+                var p: Vec3 = boundary.low;
+                p = set_axis(
+                    p,
+                    a,
+                    component(p, a) + component(sub(boundary.high, boundary.low), a) * (
+                        sample % 5u32
+                    ) as f32 / 4f32
+                );
+                p = set_axis(
+                    p,
+                    b,
+                    component(p, b) + component(sub(boundary.high, boundary.low), b) * (
+                        sample / 5u32
+                    ) as f32 / 4f32
+                );
+                var hit: Hit = expedition_shell_hit(
+                    center,
+                    scale(unit_vector(sub(p, center)), 1000f32),
+                    0f32
+                );
+                if !game_check(hit.time <= 1f32, "a ray escaped the sealed prefab assembly") {
+                    return false;
+                }
+                sample = sample + 1u32;
+            }
+            face = face + 1u32;
+        }
+        room = room + 1u32;
+    }
+    return game_check(triangles == 116u32, "prefab shell must contain exactly 116 triangles");
+}
+fn test_prefabs() -> bool {
+    return test_prefab_definitions() && test_prefab_ports() && test_prefab_enclosure() && test_prefab_impacts();
+}
+fn test_prefab_impacts() -> bool {
+    var room: u32 = 0u32;
+    while room < ROOM_COUNT {
+        var instance: RoomInstance = expedition_room(room);
+        var center: Vec3 = add(instance.origin, scale(instance.prefab.size, 0.5f32));
+        var i: u32 = 0u32;
+        while i < 27u32 {
+            var direction: Vec3 = vec(
+                (i % 3u32) as f32 - 1f32,
+                ((i / 3u32) % 3u32) as f32 - 1f32,
+                (i / 9u32) as f32 - 1f32
+            );
+            var drone: Drone = new_drone();
+            drone.world = 1u32;
+            drone.position = center;
+            drone.velocity = scale(direction, 2000f32);
+            var travel: Vec3 = drone.velocity;
+            move_drone(mut drone, travel);
+            if !game_check(
+                expedition_contains(drone.position),
+                "high-speed face or corner impact escaped the prefab shell"
+            ) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+        room = room + 1u32;
+    }
+    return true;
+}
+fn test_prefab_definition(room: RoomInstance) -> bool {
+    var p: u32 = 0u32;
+    while p < room.prefab.count {
+        var port: RoomPort = room.prefab.ports[p as usize];
+        var axis: u32 = port.face / 2u32;
+        var plane: f32 = 0f32;
+        if port.face % 2u32 != 0u32 {
+            plane = component(room.prefab.size, axis);
+        }
+        if !game_check(
+            component(port.low, axis) == plane && component(port.high, axis) == plane,
+            "prefab port must be on its declared face"
+        ) {
+            return false;
+        }
+        var dim: u32 = 0u32;
+        while dim < 3u32 {
+            var low: f32 = component(port.low, dim);
+            var high: f32 = component(port.high, dim);
+            if !game_check(
+                low >= 0f32 && high <= component(room.prefab.size, dim) && (
+                    dim == axis || low < high
+                ),
+                "prefab opening must have positive area inside its wall"
+            ) {
+                return false;
+            }
+            dim = dim + 1u32;
+        }
+        p = p + 1u32;
+    }
+    return true;
+}
+fn test_prefab_definitions() -> bool {
+    var i: u32 = 0u32;
+    while i < ROOM_COUNT {
+        var a: RoomInstance = expedition_room(i);
+        if !test_prefab_definition(a) {
+            return false;
+        }
+        var j: u32 = i + 1u32;
+        while j < ROOM_COUNT {
+            var b: RoomInstance = expedition_room(j);
+            var separated: bool = false;
+            var axis: u32 = 0u32;
+            while axis < 3u32 {
+                var a_end: f32 = component(add(a.origin, a.prefab.size), axis);
+                var b_end: f32 = component(add(b.origin, b.prefab.size), axis);
+                separated = separated || a_end <= component(b.origin, axis) || b_end <= component(
+                    a.origin,
+                    axis
+                );
+                axis = axis + 1u32;
+            }
+            if !game_check(separated, "prefab interiors must not overlap") {
+                return false;
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

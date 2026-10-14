@@ -113,7 +113,7 @@ fn expedition_hint(v: mut FrameInput, trial: read Trial) -> unit {
     }
     var goal: u32 = mission_goal(trial.expedition);
     if goal == 1u32 {
-        hud_text(mut v, 0u32, 5u32, "PASS RIGHT OF THE SPOKE - FIND THE RED RELAY FRAME");
+        hud_text(mut v, 0u32, 5u32, "FOLLOW THE GALLERY DOOR - FIND THE RED RELAY FRAME");
     }
     if goal == 2u32 {
         hud_text(
@@ -124,7 +124,7 @@ fn expedition_hint(v: mut FrameInput, trial: read Trial) -> unit {
         );
     }
     if goal == 0u32 {
-        hud_text(mut v, 0u32, 5u32, "HOME: COVERED RETURN DUCT / OPEN DROP ABOVE THE GALLERY");
+        hud_text(mut v, 0u32, 5u32, "HOME: RETURN DOWN THE SHAFT OR DROP THROUGH THE HATCH");
     }
 }
 

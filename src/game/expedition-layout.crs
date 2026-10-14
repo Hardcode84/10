@@ -1,0 +1,115 @@
+const ROOM_COUNT: u32 = 5u32;
+const ROOM_LINK_COUNT: u32 = 5u32;
+fn berth_prefab() -> RoomPrefab {
+    var door: RoomPort = room_port(
+        5u32,
+        vec(4f32, 4f32, 72f32),
+        vec(20f32, 20f32, 72f32)
+    );
+    return room_prefab(vec(24f32, 24f32, 72f32), 12u32, door, door, door, 1u32);
+}
+fn hall_prefab() -> RoomPrefab {
+    return room_prefab(
+        vec(140f32, 72f32, 120f32),
+        12u32,
+        room_port(4u32, vec(32f32, 4f32, 0f32), vec(48f32, 20f32, 0f32)),
+        room_port(1u32, vec(140f32, 12f32, 72f32), vec(140f32, 36f32, 108f32)),
+        room_port(3u32, vec(60f32, 72f32, 72f32), vec(100f32, 72f32, 108f32)),
+        3u32
+    );
+}
+fn shaft_prefab() -> RoomPrefab {
+    var lower: RoomPort = room_port(
+        0u32,
+        vec(0f32, 12f32, 12f32),
+        vec(0f32, 36f32, 48f32)
+    );
+    var upper: RoomPort = room_port(
+        3u32,
+        vec(4f32, 128f32, 12f32),
+        vec(28f32, 128f32, 48f32)
+    );
+    return room_prefab(vec(32f32, 128f32, 60f32), 1u32, lower, upper, upper, 2u32);
+}
+fn crown_prefab() -> RoomPrefab {
+    var shaft: RoomPort = room_port(
+        2u32,
+        vec(104f32, 0f32, 12f32),
+        vec(128f32, 0f32, 48f32)
+    );
+    var drop: RoomPort = room_port(
+        2u32,
+        vec(20f32, 0f32, 12f32),
+        vec(60f32, 0f32, 48f32)
+    );
+    return room_prefab(vec(132f32, 32f32, 60f32), 0u32, shaft, drop, drop, 2u32);
+}
+fn return_prefab() -> RoomPrefab {
+    var upper: RoomPort = room_port(
+        3u32,
+        vec(60f32, 56f32, 72f32),
+        vec(100f32, 56f32, 108f32)
+    );
+    var lower: RoomPort = room_port(
+        2u32,
+        vec(60f32, 0f32, 72f32),
+        vec(100f32, 0f32, 108f32)
+    );
+    return room_prefab(vec(140f32, 56f32, 120f32), 12u32, upper, lower, lower, 2u32);
+}
+fn expedition_room(index: u32) -> RoomInstance {
+    var room: RoomInstance = room_instance(berth_prefab(), vec(-12f32, -8f32, -12f32));
+    if index == 0u32 {
+        return room;
+    }
+    room = attach_prefab(room, 0u32, hall_prefab(), 0u32);
+    if index == 1u32 {
+        return room;
+    }
+    room = attach_prefab(room, 1u32, shaft_prefab(), 0u32);
+    if index == 2u32 {
+        return room;
+    }
+    room = attach_prefab(room, 1u32, crown_prefab(), 0u32);
+    if index == 3u32 {
+        return room;
+    }
+    return attach_prefab(room, 1u32, return_prefab(), 0u32);
+}
+fn expedition_link(index: u32) -> RoomLink {
+    if index == 0u32 {
+        return room_link(0u32, 0u32, 1u32, 0u32);
+    }
+    if index == 1u32 {
+        return room_link(1u32, 1u32, 2u32, 0u32);
+    }
+    if index == 2u32 {
+        return room_link(2u32, 1u32, 3u32, 0u32);
+    }
+    if index == 3u32 {
+        return room_link(3u32, 1u32, 4u32, 0u32);
+    }
+    return room_link(4u32, 1u32, 1u32, 2u32);
+}
+fn expedition_port_open(room: u32, port: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < ROOM_LINK_COUNT {
+        var link: RoomLink = expedition_link(i);
+        if (link.a == room && link.port_a == port) || (link.b == room && link.port_b == port) {
+            return true;
+        }
+        i = i + 1u32;
+    }
+    return false;
+}
+fn expedition_open_ports(index: u32) -> u32 {
+    var mask: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < expedition_room(index).prefab.count {
+        if expedition_port_open(index, i) {
+            mask = mask | (1u32 << i);
+        }
+        i = i + 1u32;
+    }
+    return mask;
+}
