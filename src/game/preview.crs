@@ -1,5 +1,5 @@
-const PREVIEW_SPACING: f32 = 2f32;
-const PREVIEW_MARKERS: u32 = 16u32;
+const PREVIEW_SPACING: f32 = 4f32;
+const PREVIEW_MARKERS: u32 = 8u32;
 fn preview_visible(trial: read Trial) -> bool {
     if trial.preview_mode == 0u32 {
         return false;

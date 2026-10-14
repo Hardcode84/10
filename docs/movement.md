@@ -73,7 +73,7 @@ Its world-space width changes with camera depth and field of view. Squares
 behind the camera or no wider than twice the border width are hidden, so the
 centre stays open. The squares still use world-space depth
 and can be hidden by scene geometry.
-Markers are 2 m apart along the predicted path, starting 2 m from the drone.
+Markers are 4 m apart along the predicted path, starting 4 m from the drone.
 Positions are interpolated between simulation steps. Slow motion shows fewer
 markers. A stationary drone path shows none. The preview stops at two seconds
 or its marker limit, whichever comes first.
@@ -85,9 +85,9 @@ and the range limit. It assumes no further movement input or reeling. It stops
 at contact or a range miss. It is hidden while the hook is in flight, attached,
 or waiting for release after a miss. P set to off hides both paths.
 
-The paths share a limit of 16 markers. When the hook preview is active, the
-drone path uses up to eight markers. The hook path uses the remaining markers.
-Both paths use the same 2 m spacing, solid colours, and scaled pixel borders.
+The paths share a limit of eight markers. When the hook preview is active, the
+drone path uses up to four markers. The hook path uses the remaining markers.
+Both paths use the same 4 m spacing, solid colours, and scaled pixel borders.
 
 The HUD shows time, gates, air-relative speed, hook state, cable length, burst
 count, and assist settings. The cable is cyan. A small amber body shows the
