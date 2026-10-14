@@ -96,10 +96,7 @@ fn test_expedition_winch() -> bool {
     );
 }
 fn test_expedition() -> bool {
-    return game_check(
-        116u32 + EXPEDITION_SOLIDS * 6u32 + 10u32 + 64u32 + 24u32 + 16u32 + 6u32 <= MAX_TRIS,
-        "expedition and recovery marker exceed the triangle budget"
-    ) && test_expedition_docking() && test_expedition_power() && test_expedition_recovery() && test_expedition_winch() && test_expedition_stalled_reel() && test_expedition_flight(
+    return test_content_budget() && test_room_content() && test_expedition_docking() && test_expedition_power() && test_expedition_recovery() && test_expedition_winch() && test_expedition_stalled_reel() && test_expedition_flight(
         false
     ) && test_expedition_flight(true);
 }

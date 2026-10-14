@@ -1,0 +1,28 @@
+const RISER_PARTS: u32 = 2u32;
+fn riser_pipe(room: u32) -> CoursePipe {
+    return make CoursePipe {
+        start: add(expedition_room(room).origin, vec(30f32, 0f32, 30f32)),
+        axis: 1u32,
+        extent: 128f32,
+        radius: 1f32,
+        material: 13u32
+    };
+}
+fn riser_part(room: u32, index: u32) -> RoomPart {
+    if index == 0u32 {
+        return room_part(
+            room,
+            vec(0f32, 48f32, 12f32),
+            vec(10f32, 52f32, 48f32),
+            ANCHOR_LEDGE_MATERIAL,
+            62u32
+        );
+    }
+    return room_part(
+        room,
+        vec(22f32, 92f32, 12f32),
+        vec(32f32, 96f32, 48f32),
+        ANCHOR_LEDGE_MATERIAL,
+        61u32
+    );
+}

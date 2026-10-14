@@ -63,8 +63,9 @@ rotating movement course. `--tour` demonstrates the return through the shaft.
 the return chamber and its floor hatch. The automatic tours pause at the crown
 to show the relight. The playable game never moves the camera for a reveal.
 
-`--review` writes eight captures in `build/`: four expedition states and
-views of the hall, shaft, crown, and gallery door. It also checks 60 room and
+`--review` writes fourteen captures in `build/`: four expedition states,
+views of the hall, shaft, crown, and gallery door, and six views of the
+launch cradle and counterweight riser. It also checks 60 room and
 connection views for uncovered background pixels. It does not change saved
 progress.
 
@@ -109,7 +110,7 @@ response stays unchanged: contact permits sliding and has no charge tax.
 
 ## Saved progress and replay
 
-Save version 2 belongs to the sealed room assembly. Use `--fresh` to replace
+Save version 3 belongs to the sealed room assembly. Use `--fresh` to replace
 a save from the earlier layout. Such a save reports a version error.
 
 Normal window play saves station state, completion, recovery count, the most
@@ -127,7 +128,7 @@ Statistics resume from the last saved event.
 Tours, recordings, replays, and the movement trial do not read or write live
 progress. Headless runs do not use a save unless `--save FILE` is explicit.
 The game rejects `--save` and `--fresh` with an isolated run mode.
-Version 9 input recordings start from a fresh world and store the game mode
+Version 10 input recordings start from a fresh world and store the game mode
 and initial spin mode. Their hashes include charge, mission state, link,
 reveal, docking, recovery, and prediction state. Use the same build for replay.
 
@@ -154,8 +155,8 @@ cmp build/expedition.ppm build/expedition-replay.ppm
 | `progress-store.crs` | Checked save-file input and atomic replacement |
 | `expedition-hash.crs` | Deterministic mission-state hashing |
 
-The world uses five room shells, three attached solids, and one pipe. The
-worst-case scene fits 254 triangles, including path previews, station marks,
+The world uses five room shells, eleven attached solids, and one pipe. The
+worst-case scene fits 252 triangles, including path previews, station marks,
 a parked drone, and cockpit indicators. The eight-light limit is unchanged.
 Light updates write a fixed
 number of values each frame. Physics copies one plain drone value to evaluate

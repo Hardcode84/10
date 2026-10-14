@@ -1,0 +1,55 @@
+const CRADLE_PARTS: u32 = 6u32;
+fn cradle_part(room: u32, index: u32) -> RoomPart {
+    if index == 0u32 {
+        return room_part(
+            room,
+            vec(0f32, 0f32, 12f32),
+            vec(6f32, 8f32, 32f32),
+            CRADLE_BED_MATERIAL,
+            58u32
+        );
+    }
+    if index == 1u32 {
+        return room_part(
+            room,
+            vec(18f32, 0f32, 12f32),
+            vec(24f32, 8f32, 32f32),
+            CRADLE_BED_MATERIAL,
+            57u32
+        );
+    }
+    if index == 2u32 {
+        return room_part(
+            room,
+            vec(0f32, 20f32, 28f32),
+            vec(24f32, 24f32, 32f32),
+            STRUCTURAL_RIB_MATERIAL,
+            52u32
+        );
+    }
+    if index == 3u32 {
+        return room_part(
+            room,
+            vec(0f32, 20f32, 56f32),
+            vec(24f32, 24f32, 60f32),
+            STRUCTURAL_RIB_MATERIAL,
+            52u32
+        );
+    }
+    if index == 4u32 {
+        return room_part(
+            room,
+            vec(0f32, 8f32, 40f32),
+            vec(3f32, 20f32, 52f32),
+            SERVICE_CABINET_MATERIAL,
+            62u32
+        );
+    }
+    return room_part(
+        room,
+        vec(21f32, 8f32, 40f32),
+        vec(24f32, 20f32, 52f32),
+        SERVICE_CABINET_MATERIAL,
+        61u32
+    );
+}

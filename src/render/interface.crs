@@ -40,6 +40,7 @@ const RENDER_STYLE: u32 = 16u32;
 // Light records contain local position, radius squared, RGB intensity, and space.
 const LIGHT_COUNT: u32 = 35u32;
 const LIGHT_MODEL: u32 = 36u32;
+const MAX_MATERIALS: u32 = 20u32;
 const MAX_LIGHTS: u32 = 8u32;
 const LIGHT_DATA: u32 = 704u32;
 const MATERIAL_LIGHT: u32 = 800u32;

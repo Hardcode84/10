@@ -1,0 +1,53 @@
+record RoomPart {
+    room: u32;
+    shape: Solid;
+    faces: u32;
+}
+fn room_part(room: u32, low: Vec3, high: Vec3, material: u32, faces: u32) -> RoomPart {
+    return make RoomPart {
+        room: room,
+        shape: solid(low, high, material),
+        faces: faces
+    };
+}
+fn expedition_part(index: u32) -> RoomPart {
+    if index >= 3u32 + CRADLE_PARTS {
+        return riser_part(2u32, index - 3u32 - CRADLE_PARTS);
+    }
+    if index >= 3u32 {
+        return cradle_part(0u32, index - 3u32);
+    }
+    if index == 0u32 {
+        return room_part(
+            1u32,
+            vec(50f32, 0f32, 36f32),
+            vec(58f32, 72f32, 60f32),
+            2u32,
+            51u32
+        );
+    }
+    if index == 1u32 {
+        return room_part(
+            3u32,
+            vec(70f32, 0f32, 20f32),
+            vec(82f32, 6f32, 32f32),
+            2u32,
+            59u32
+        );
+    }
+    return room_part(
+        4u32,
+        vec(0f32, 48f32, 32f32),
+        vec(58f32, 56f32, 40f32),
+        11u32,
+        54u32
+    );
+}
+fn placed_room_part(part: RoomPart) -> Solid {
+    var origin: Vec3 = expedition_room(part.room).origin;
+    return solid(
+        add(origin, part.shape.low),
+        add(origin, part.shape.high),
+        part.shape.material
+    );
+}

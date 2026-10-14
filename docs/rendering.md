@@ -398,3 +398,13 @@ sightline to the outside void. Matched ports connect complete room shells;
 unused ports remain closed. Drawing and collision use the same wall panels.
 The game builds these panels. The rendering core remains independent of room
 templates and mission rules.
+
+### Material table capacity
+
+The current shared buffer supports `MAX_MATERIALS` (20) material records.
+Each material has 64 texture indices, four palettes of 512 colours, one style
+word, and four light values. The host uploads all records before dispatch.
+The game uses 19 records. Room appearance data stays in the game sources.
+The GPU review renders the last supported material and checks every output
+pixel against its supplied palette colour. This checks the upload boundary
+as well as texture and palette lookup.

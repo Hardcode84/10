@@ -82,9 +82,9 @@ fn expedition_contains(p: Vec3) -> bool {
 fn panel_faces_eye(panel: Solid, face: u32, eye: Vec3) -> bool {
     var delta: f32 = component(sub(eye, panel.low), face / 2u32);
     if face % 2u32 == 0u32 {
-        return delta >= 0f32;
+        return delta > 0f32;
     }
-    return delta <= 0f32;
+    return delta < 0f32;
 }
 fn draw_wall_panel(v: mut FrameInput, panel: Solid, axis: u32, material: u32) -> unit {
     var first: u32 = input_word(read v, 3usize);

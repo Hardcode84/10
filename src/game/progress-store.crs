@@ -44,7 +44,7 @@ fn progress_read(path: *u8, mission: *Expedition) -> bool {
     return progress_decode(&data as *u32, mission);
 }
 fn progress_decode(data: *u32, mission: *Expedition) -> bool {
-    if data[1usize] != 2u32 {
+    if data[1usize] != 3u32 {
         return error(
             "expedition save uses another level version; use --fresh to start this level"
         );
@@ -109,7 +109,7 @@ fn progress_write(path: *u8, m: Expedition) -> bool {
     }
     var data: [u32; 12] = make [u32; 12] {
         0x53505744u32,
-        2u32,
+        3u32,
         m.progress,
         m.rescues,
         m.has_parked as u32,

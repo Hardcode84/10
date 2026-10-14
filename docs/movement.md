@@ -217,7 +217,7 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 9 uses an on/off preview setting, stores the
+format uses the current Linux host's word representation. Version 10 uses an on/off preview setting, stores the
 game mode and initial spin mode in its header and includes the cyan prediction phase in the
 state hash. Replay restores the mode and reproduces the marker motion. Earlier
 versions are rejected because their state contract differs.

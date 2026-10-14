@@ -55,10 +55,14 @@ into the hall. Both routes use the gallery door to reach the berth.
 
 ## Bounds and verification
 
-The shell contains 116 triangles before inward-face selection. Three props,
-one pipe, station marks, a parked drone, the cockpit, and both prediction
-sets give a conservative total of 254 triangles. The renderer limit remains
-256. The eight-light limit is unchanged.
+The shell contains 116 triangles before inward-face selection. Eleven attached
+solids include the launch cradle and riser content in the
+[room catalogue](room-catalogue.md). The complete submission bound is 252
+triangles, including the pipe, station marks, parked drone, cockpit, cable,
+and both prediction sets. Tests sum the maximum face counts for each axis
+over every interval between shell and prop planes. Faces on the eye plane
+have zero projected area and are omitted. The renderer limit remains 256.
+The eight-light limit is unchanged.
 
 Panel construction uses fixed stack storage and no heap allocation. Each
 face has capacity for 64 panels: each of at most three port cuts can replace
@@ -75,9 +79,9 @@ room containment after every simulation tick.
 `crust main.crs --review` checks every output pixel in 30 room views and 30
 views before, on, and after connection planes. No view may retain an uncovered
 background pixel. It also writes dark, lit, recovery, empty-charge, hall,
-shaft, crown, and doorway captures. These checks run through the production
+shaft, crown, and doorway captures, plus six authored-room views. These checks run through the production
 Vulkan renderer on AMD and Intel GPUs.
 
-Run a new expedition with `crust main.crs --fresh`. Save version 2 belongs to
+Run a new expedition with `crust main.crs --fresh`. Save version 3 belongs to
 this assembly. A save from the previous layout reports an error. Recordings
-use version 9; they must be made and replayed with the same build.
+use version 10; they must be made and replayed with the same build.

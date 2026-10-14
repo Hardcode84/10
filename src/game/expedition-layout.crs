@@ -29,7 +29,14 @@ fn shaft_prefab() -> RoomPrefab {
         vec(4f32, 128f32, 12f32),
         vec(28f32, 128f32, 48f32)
     );
-    return room_prefab(vec(32f32, 128f32, 60f32), 1u32, lower, upper, upper, 2u32);
+    return room_prefab(
+        vec(32f32, 128f32, 60f32),
+        STRUCTURAL_WALL_MATERIAL,
+        lower,
+        upper,
+        upper,
+        2u32
+    );
 }
 fn crown_prefab() -> RoomPrefab {
     var shaft: RoomPort = room_port(

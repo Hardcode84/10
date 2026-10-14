@@ -1,7 +1,9 @@
-const EXPEDITION_SOLIDS: u32 = 3u32;
+fn expedition_solid_count() -> u32 {
+    return 3u32 + CRADLE_PARTS + RISER_PARTS;
+}
 fn world_solid_count(world: u32) -> u32 {
     if world == 1u32 {
-        return EXPEDITION_SOLIDS;
+        return expedition_solid_count();
     }
     return SOLID_COUNT;
 }
@@ -9,13 +11,7 @@ fn world_solid(world: u32, index: u32) -> Solid {
     if world == 0u32 {
         return course_solid(index);
     }
-    if index == 0u32 {
-        return solid(vec(10f32, -8f32, 96f32), vec(18f32, 64f32, 120f32), 2u32);
-    }
-    if index == 2u32 {
-        return solid(vec(-40f32, 112f32, 92f32), vec(18f32, 120f32, 100f32), 11u32);
-    }
-    return solid(vec(70f32, 120f32, 140f32), vec(82f32, 126f32, 152f32), 2u32);
+    return placed_room_part(expedition_part(index));
 }
 fn world_pipe_count(world: u32) -> u32 {
     if world == 1u32 {
@@ -27,13 +23,7 @@ fn world_pipe(world: u32, index: u32) -> CoursePipe {
     if world == 0u32 {
         return course_pipe(index);
     }
-    return make CoursePipe {
-        start: vec(130f32, -8f32, 174f32),
-        axis: 1u32,
-        extent: 128f32,
-        radius: 1f32,
-        material: 13u32
-    };
+    return riser_pipe(2u32);
 }
 fn station_position(index: u32) -> Vec3 {
     if index == 0u32 {
@@ -60,11 +50,5 @@ fn world_solid_faces(world: u32, index: u32) -> u32 {
     if world == 0u32 {
         return 63u32;
     }
-    if index == 0u32 {
-        return 51u32;
-    }
-    if index == 2u32 {
-        return 54u32;
-    }
-    return 59u32;
+    return expedition_part(index).faces;
 }

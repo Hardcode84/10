@@ -5,6 +5,7 @@ A 6DOF exploration game in a rotating megastructure.
 ## Design and language
 
 - Read the [game design](../SPINWARD.md) and [rendering design](docs/rendering.md).
+- Use the [room catalogue](docs/room-catalogue.md) for biomes and room content.
 - Use [Crust](https://github.com/hardcode84/9) for host and device code (`.crs`).
   Follow its language specification and examples.
 - Keep Crust as a pinned Git submodule in `crust/`. Bootstrap its seed from source
