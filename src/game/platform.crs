@@ -9,6 +9,7 @@ record GameSession {
     renderer: Renderer;
     launch: Launch;
     stream: Recording;
+    saved_revision: u64;
 }
 opaque;
 fn game_window_drop(window: mut GameWindow) -> unit {
@@ -26,7 +27,8 @@ fn game_session(o: *Launch) -> GameSession {
         },
         renderer: renderer_new(),
         launch: *o,
-        stream: recording_new()
+        stream: recording_new(),
+        saved_revision: 0u64
     };
 }
 fn game_renderer(session: mut GameSession) -> mut Renderer from session {
@@ -44,7 +46,7 @@ fn game_open(session: mut GameSession, input: mut InputState) -> bool {
         if SDL_Init(8192u32) != 0i32 {
             return error(SDL_GetError());
         }
-        SDL_SetWindowTitle(session.window.handle, "SPINWARD | movement trial");
+        SDL_SetWindowTitle(session.window.handle, "SPINWARD | The Silent Foundry");
         if SDL_SetRelativeMouseMode(1i32) != 0i32 {
             return error(SDL_GetError());
         }
@@ -75,7 +77,7 @@ fn game_message(code: u32) -> unit {
         puts("Simulation paused after a clock stall. Tab resumes.");
     }
     if code == 1u32 {
-        puts("Course finished. Backspace / pad X restarts.");
+        puts("Run complete. Backspace starts a new run; Esc exits.");
     }
 }
 fn game_initial_spin(session: read GameSession) -> bool {

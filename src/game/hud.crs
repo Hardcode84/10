@@ -20,6 +20,10 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
         input_set_word(mut v, (OVERLAY_CELLS + i) as usize, 0u32);
         i = i + 1u32;
     }
+    if trial.drone.world == 1u32 {
+        expedition_hud(mut v, read trial, paused);
+        return;
+    }
     hud_text(mut v, 0u32, 0u32, "STOPPED");
     if trial.full_spin {
         hud_text(mut v, 0u32, 0u32, "FULL SPIN");

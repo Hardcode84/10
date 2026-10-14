@@ -58,3 +58,6 @@ const OVERLAY_CELLS: u32 = 2750000u32;
 const OVERLAY_FONT: u32 = 2751000u32;
 // Overlay foreground and background colours, supplied by the caller.
 const OVERLAY_COLOR: u32 = 38u32;
+
+// Integer text pixel scale; zero and one both select the native glyph size.
+const OVERLAY_SCALE: u32 = 40u32;

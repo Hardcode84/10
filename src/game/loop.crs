@@ -16,6 +16,9 @@ fn game_tick(session: mut GameSession, loop: mut GameLoop, config: GameConfig) -
             command = spin_pilot_command(read loop.trial);
         }
     }
+    if config.tour && loop.trial.drone.world == 1u32 {
+        command = expedition_pilot(read loop.trial, config.shortcut);
+    }
     var status: i32 = game_command(mut session, mut command);
     if status < 0i32 {
         return false;
@@ -36,7 +39,11 @@ fn game_tick(session: mut GameSession, loop: mut GameLoop, config: GameConfig) -
     if config.ticks != 0u32 && loop.ticks >= config.ticks {
         loop.running = false;
     }
-    return game_record(mut session, command, trial_hash(read loop.trial));
+    return game_save(mut session, read loop.trial) && game_record(
+        mut session,
+        command,
+        trial_hash(read loop.trial)
+    );
 }
 fn game_render(session: mut GameSession, loop: read GameLoop, config: GameConfig) -> bool {
     {
@@ -44,6 +51,14 @@ fn game_render(session: mut GameSession, loop: read GameLoop, config: GameConfig
         var inputs: FrameInput = renderer_inputs(mut renderer);
         game_scene(mut inputs, read loop.trial, config);
         game_hud(mut inputs, read loop.trial, loop.input.paused);
+        var hud_scale: u32 = 1u32;
+        if loop.trial.drone.world == 1u32 {
+            hud_scale = config.width / 448u32;
+            if hud_scale == 0u32 {
+                hud_scale = 1u32;
+            }
+        }
+        input_set_word(mut inputs, OVERLAY_SCALE as usize, hud_scale);
     }
     return game_draw(mut session) && game_present(mut session);
 }
@@ -98,11 +113,17 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
         return 1i32;
     }
     loop.trial.full_spin = game_initial_spin(read session);
+    if !game_restore(mut session, mut loop.trial) {
+        return 1i32;
+    }
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var inputs: FrameInput = renderer_inputs(mut renderer);
         game_palette(mut inputs);
         hud_font(mut inputs);
+    }
+    if config.review {
+        return (!expedition_review(mut session, config)) as i32;
     }
     if !config.headless && !game_render(mut session, read loop, config) {
         return 1i32;

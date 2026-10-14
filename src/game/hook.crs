@@ -34,7 +34,7 @@ fn hook_step(drone: mut Drone, full_spin: bool) -> unit {
     drone.cable.velocity = add(drone.cable.velocity, scale(acceleration, STEP));
     var travel: Vec3 = scale(drone.cable.velocity, STEP);
     var limit: f32 = hook_range_time(drone.cable.anchor, travel, drone.position);
-    var hit: Hit = course_hit(drone.cable.anchor, travel, HOOK_RADIUS);
+    var hit: Hit = course_hit(drone.world, drone.cable.anchor, travel, HOOK_RADIUS);
     if hit.time <= limit {
         drone.cable.anchor = add(drone.cable.anchor, scale(travel, hit.time));
         drone.cable.velocity = vec(0f32, 0f32, 0f32);

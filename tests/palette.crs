@@ -201,7 +201,9 @@ fn palette_color_count(v: *Vulkan) -> bool {
     return count > 256u32;
 }
 
-fn overlay_expected(x: u32, y: u32) -> u32 {
+fn overlay_expected(output_x: u32, output_y: u32, scale: u32) -> u32 {
+    var x: u32 = output_x / scale;
+    var y: u32 = output_y / scale;
     if x < 8u32 && y < 8u32 {
         if x == y {
             return 0xffd8e8e8u32;
@@ -214,13 +216,13 @@ fn overlay_expected(x: u32, y: u32) -> u32 {
         }
         return 0xff181410u32;
     }
-    return palette_expected(x / 2u32, y / 2u32, 1u32);
+    return palette_expected(output_x / 2u32, output_y / 2u32, 1u32);
 }
-fn overlay_pixels(v: *Vulkan, format: u32) -> bool {
+fn overlay_pixels(v: *Vulkan, format: u32, scale: u32) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var i: u32 = 0u32;
     while i < 1282u32 * 726u32 {
-        var expected: u32 = overlay_expected(i % 1282u32, i / 1282u32);
+        var expected: u32 = overlay_expected(i % 1282u32, i / 1282u32, scale);
         if format == 44u32 {
             expected = (expected & 0xff00ff00u32) | ((expected & 255u32) << 16u32) | (
                 (expected >> 16u32) & 255u32
@@ -249,10 +251,18 @@ fn overlay_test(v: *Vulkan) -> bool {
         }
         row = row + 1u32;
     }
-    w[21usize] = 37u32;
-    if !dispatch(v) || !frame_valid(v) || !overlay_pixels(v, 37u32) {
-        return false;
+    var scale: u32 = 1u32;
+    while scale <= 2u32 {
+        w[OVERLAY_SCALE as usize] = scale;
+        w[21usize] = 37u32;
+        if !dispatch(v) || !frame_valid(v) || !overlay_pixels(v, 37u32, scale) {
+            return false;
+        }
+        w[21usize] = 44u32;
+        if !dispatch(v) || !frame_valid(v) || !overlay_pixels(v, 44u32, scale) {
+            return false;
+        }
+        scale = scale + 1u32;
     }
-    w[21usize] = 44u32;
-    return dispatch(v) && frame_valid(v) && overlay_pixels(v, 44u32);
+    return true;
 }

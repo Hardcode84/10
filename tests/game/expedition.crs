@@ -1,0 +1,164 @@
+fn test_expedition_flight(shortcut: bool) -> bool {
+    var trial: Trial = new_trial();
+    start_expedition(mut trial);
+    var i: u32 = 0u32;
+    while i < 50000u32 && !trial.finished {
+        var command: Command = expedition_pilot(read trial, shortcut);
+        trial_step(mut trial, command);
+        i = i + 1u32;
+    }
+    game_summary(read trial);
+    if shortcut && !game_check(
+        trial.expedition.shortcut && trial.drone.winch_work > 0f32,
+        "shortcut pilot must reel the actual hook and take the open return"
+    ) {
+        return false;
+    }
+    return game_check(
+        trial.finished && trial.expedition.progress == 7u32 && trial.drone.charge > 0f32 && trial.expedition.rescues == 0u32,
+        "finite-charge expedition must restore both stations and return home"
+    );
+}
+fn test_expedition_power() -> bool {
+    var drone: Drone = new_drone();
+    drone.world = 1u32;
+    drone.charge = 7f32;
+    var command: Command = idle_command();
+    command.burst = true;
+    flight_impulses(mut drone, command);
+    if !game_check(
+        drone.charge == 7f32 && drone.bursts == 0u32,
+        "unaffordable bursts must not spend charge or add velocity"
+    ) {
+        return false;
+    }
+    drone.velocity = vec(20f32, 0f32, 0f32);
+    command.burst = false;
+    command.brake = true;
+    flight_impulses(mut drone, command);
+    if !game_check(
+        near(drone.charge, 0f32, 0.0001f32) && length(drone.velocity) == 0f32,
+        "brake must charge for the actual speed removed"
+    ) {
+        return false;
+    }
+    drone.charge = 0f32;
+    command = idle_command();
+    command.thrust.z = 1f32;
+    simulate(mut drone, command, false, true);
+    return game_check(
+        drone.velocity.z > 0f32 && drone.charge == 0f32,
+        "free maneuver must remain available at zero charge"
+    );
+}
+fn test_expedition_recovery() -> bool {
+    var trial: Trial = new_trial();
+    start_expedition(mut trial);
+    trial.expedition.progress = 3u32;
+    trial.started = true;
+    trial.drone.position = vec(16f32, 20f32, 80f32);
+    trial.drone.charge = 0f32;
+    var command: Command = idle_command();
+    command.restart = true;
+    trial_step(mut trial, command);
+    return game_check(
+        trial.expedition.progress == 3u32 && mission_goal(trial.expedition) == 2u32 && trial.expedition.has_parked && trial.expedition.parked.z == 80f32 && trial.drone.charge == 100f32 && trial.expedition.rescues == 1u32 && trial.drone.world == 1u32,
+        "recovery must preserve station light and mark the parked drone"
+    );
+}
+fn test_expedition_winch() -> bool {
+    var drone: Drone = new_drone();
+    drone.world = 1u32;
+    drone.position = vec(0f32, 150f32, 0f32);
+    drone.cable.phase = CABLE_ATTACHED;
+    drone.cable.reeling = true;
+    drone.cable.anchor = vec(0f32, 150f32, 30f32);
+    drone.cable.extent = 30f32;
+    drone.charge = 0.01f32;
+    powered_winch(mut drone);
+    if !game_check(
+        drone.position.z == 0f32 && drone.velocity.z == 0f32 && drone.charge == 0.01f32,
+        "unaffordable winch work must not move or accelerate the drone"
+    ) {
+        return false;
+    }
+    drone.charge = 100f32;
+    powered_winch(mut drone);
+    return game_check(
+        drone.velocity.z > 39f32 && drone.charge < 100f32 && drone.winch_work > 0f32,
+        "loaded reeling must give real acceleration and consume charge"
+    );
+}
+fn test_expedition() -> bool {
+    return game_check(
+        EXPEDITION_SOLIDS * 6u32 + PIPE_COUNT * 10u32 + 64u32 + 24u32 + 16u32 + 6u32 <= MAX_TRIS,
+        "expedition and recovery marker exceed the triangle budget"
+    ) && test_expedition_docking() && test_expedition_power() && test_expedition_recovery() && test_expedition_winch() && test_expedition_stalled_reel() && test_expedition_flight(
+        false
+    ) && test_expedition_flight(true);
+}
+fn test_expedition_stalled_reel() -> bool {
+    var drone: Drone = attached_test_drone();
+    drone.world = 1u32;
+    drone.position = vec(0f32, 4f32, 70f32);
+    drone.velocity = vec(0f32, 0f32, 0f32);
+    var command: Command = idle_command();
+    command.tether = true;
+    command.reel = true;
+    var i: u32 = 0u32;
+    while i < 600u32 {
+        simulate(mut drone, command, false, true);
+        i = i + 1u32;
+    }
+    var charge: f32 = drone.charge;
+    var work: f32 = drone.winch_work;
+    simulate(mut drone, command, false, true);
+    return game_check(
+        drone.cable.phase == CABLE_ATTACHED && drone.cable.reeling && absf(
+            drone.cable.reel_speed
+        ) < 0.001f32 && drone.charge == charge && drone.winch_work == work,
+        "stalled reel must remain attached without spending charge"
+    );
+}
+fn test_expedition_docking() -> bool {
+    var trial: Trial = new_trial();
+    start_expedition(mut trial);
+    trial.drone.position = station_position(1u32);
+    trial.expedition.docking = 179u32;
+    trial.drone.velocity = vec(3f32, 0f32, 0f32);
+    expedition_objectives(mut trial);
+    if !game_check(
+        trial.expedition.progress == 0u32 && trial.expedition.docking == 0u32,
+        "fast station passes must reset docking"
+    ) {
+        return false;
+    }
+    trial.drone.velocity = vec(0f32, 0f32, 0f32);
+    trial.expedition.docking = 179u32;
+    expedition_objectives(mut trial);
+    if !game_check(
+        trial.expedition.progress == 1u32 && trial.drone.charge == 100f32,
+        "slow docking must restore the relay"
+    ) {
+        return false;
+    }
+    trial.expedition.progress = 3u32;
+    trial.expedition.return_link = true;
+    trial.started = true;
+    recover_expedition(mut trial);
+    trial.expedition.docking = 179u32;
+    expedition_objectives(mut trial);
+    if !game_check(
+        !trial.finished && trial.expedition.progress == 3u32,
+        "recovery must not deliver the crown link"
+    ) {
+        return false;
+    }
+    trial.finished = true;
+    trial.expedition.progress = 7u32;
+    restart_expedition(mut trial);
+    return game_check(
+        !trial.finished && trial.expedition.progress == 0u32 && trial.expedition.rescues == 0u32 && trial.drone.world == 1u32,
+        "new expedition must reset completion and recovery history"
+    );
+}

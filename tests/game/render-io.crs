@@ -1,0 +1,14 @@
+fn review_capture(session: mut GameSession, index: u32) -> bool {
+    var paths: [*u8; 4] = make [*u8; 4] {
+        "build/expedition-dark.ppm",
+        "build/expedition-lit.ppm",
+        "build/expedition-recovery.ppm",
+        "build/expedition-empty.ppm"
+    };
+    return capture(
+        &session.renderer.state,
+        paths[index as usize],
+        session.launch.config.width,
+        session.launch.config.height
+    );
+}

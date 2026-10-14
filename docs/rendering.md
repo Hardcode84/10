@@ -383,3 +383,9 @@ Each cell covers eight output pixels per axis. The renderer has no built-in
 font, labels, input state, or game status. `OVERLAY_ENABLED` defaults to zero.
 The caller supplies the two overlay colours through `OVERLAY_COLOR`. These
 colours must have opaque alpha.
+
+### Text scale
+
+`OVERLAY_SCALE` selects an integer pixel scale for the text overlay. Zero and
+one select native pixels. The overlay bounds scale with the glyphs. The caller
+sets the scale; the renderer does not use game state to choose it.

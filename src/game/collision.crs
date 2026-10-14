@@ -117,11 +117,11 @@ fn sweep_box(p: Vec3, d: Vec3, s: Solid, radius: f32) -> Hit {
     }
     return hit;
 }
-fn course_hit(p: Vec3, d: Vec3, radius: f32) -> Hit {
+fn course_hit(world: u32, p: Vec3, d: Vec3, radius: f32) -> Hit {
     var hit: Hit = miss();
     var i: u32 = 0u32;
-    while i < SOLID_COUNT {
-        hit = nearest(hit, sweep_box(p, d, course_solid(i), radius));
+    while i < world_solid_count(world) {
+        hit = nearest(hit, sweep_box(p, d, world_solid(world, i), radius));
         i = i + 1u32;
     }
     i = 0u32;
@@ -140,7 +140,7 @@ fn move_drone(drone: mut Drone, travel: Vec3) -> unit {
     var count: u32 = 0u32;
     while count < 4u32 && length(remaining) > 0.000001f32 {
         remaining = tether_travel(read drone, remaining);
-        var hit: Hit = course_hit(drone.position, remaining, DRONE_RADIUS);
+        var hit: Hit = course_hit(drone.world, drone.position, remaining, DRONE_RADIUS);
         if hit.time > 1f32 {
             drone.position = add(drone.position, remaining);
             return;

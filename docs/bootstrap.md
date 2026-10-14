@@ -70,8 +70,10 @@ Windows host support requires a Crust platform profile, Windows implementations
 of its host operations and native ABI bridge, and support in its build stages.
 Implement these changes in Crust before using Windows as a build host.
 
-## Play the movement trial
+## Play the game
 
-Run `crust main.crs` to build and start the game. Use `crust main.crs --test`
-for the simulation checks. See [movement](movement.md) for controls and replay
+Run `crust main.crs` to build and start the expedition. See
+[the expedition guide](expedition.md) for objectives and saved progress.
+Use `crust main.crs --trial` for the movement course and `crust main.crs --test`
+for all simulation checks. See [movement](movement.md) for controls and replay
 commands. The renderer demo still starts with `crust demo.crs`.

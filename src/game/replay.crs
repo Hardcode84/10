@@ -10,6 +10,10 @@ fn hash_vec(hash: u32, v: Vec3) -> u32 {
 fn trial_hash(trial: read Trial) -> u32 {
     var d: Drone = trial.drone;
     var hash: u32 = hash_vec(2166136261u32, d.position);
+    hash = hash_word(hash, d.world);
+    hash = hash_word(hash, float_bits(d.charge));
+    hash = hash_word(hash, float_bits(d.charge_spent));
+    hash = expedition_hash(hash, trial.expedition);
     hash = hash_vec(hash, d.velocity);
     hash = hash_vec(hash, d.basis.right);
     hash = hash_vec(hash, d.basis.up);

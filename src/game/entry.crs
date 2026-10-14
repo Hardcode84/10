@@ -1,12 +1,14 @@
 fn main(argc: i32, argv: **u8) -> i32 {
     if argc == 2i32 && strcmp(argv[1usize], "--help") == 0i32 {
-        puts("SPINWARD movement trial | stopped / full-spin course");
+        puts("SPINWARD | The Silent Foundry expedition");
         puts("--width N --height N --fov 70..110 --slow --bindings FILE");
-        puts("--record FILE | --replay FILE | --test");
+        puts("--save FILE --fresh | --trial (movement course) | --test");
+        puts("--record FILE | --replay FILE (isolated from saved progress)");
         puts("--headless --ticks N --capture FILE --smoke | --tour --full-spin");
+        puts("--tour --shortcut: hook climb and open return | --review: lighting captures");
         puts("WASD Ctrl/Space: move | mouse: look | Q/E: roll with level off");
         puts("RMB: burst | F: brake | LMB: hold tether | R or Space: start fast reel");
-        puts("Backspace: retry | F4: spin and retry | L: level | P: preview");
+        puts("Backspace: recover / retry | F4: trial spin only | L: level | P: preview");
         puts("Tab: pause | Esc: exit. Focus loss pauses; Tab resumes.");
         puts(
             "Pad: sticks move/look, shoulders vertical, RB starts reel with tether, RT burst, LT tether"

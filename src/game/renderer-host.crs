@@ -25,7 +25,7 @@ fn game_renderer_open(v: *Vulkan, o: *Launch, window: *u8) -> bool {
         height: o -> config.height,
         output_width: o -> config.width,
         output_height: o -> config.height,
-        read_pixels: o -> capture != null(*u8),
+        read_pixels: o -> capture != null(*u8) || o -> config.review,
         debug_pixels: 0u32,
         baseline: 0u32,
         view_budget: MAX_VIEWS,

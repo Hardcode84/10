@@ -9,13 +9,15 @@ fn flight_acceleration(position: Vec3, velocity: Vec3, full_spin: bool) -> Vec3 
     return sub(add(coriolis, gravity), scale(velocity, drag));
 }
 fn flight_impulses(drone: mut Drone, command: Command) -> unit {
-    if command.burst {
+    if command.burst && burst_available(read drone) {
+        use_charge(mut drone, BURST_CHARGE);
         drone.velocity = add(drone.velocity, scale(drone.basis.forward, 15f32));
         drone.bursts = drone.bursts + 1u32;
     }
     if command.brake {
         var speed: f32 = length(drone.velocity);
-        var removed: f32 = clamp(speed, 0f32, 30f32);
+        var removed: f32 = brake_amount(read drone);
+        use_charge(mut drone, removed * BRAKE_CHARGE_PER_SPEED);
         drone.brake_speed = drone.brake_speed + removed;
         if speed > 0f32 {
             drone.velocity = scale(drone.velocity, (speed - removed) / speed);
@@ -38,6 +40,5 @@ fn simulate(drone: mut Drone, command: Command, full_spin: bool, auto_level: boo
     var travel: Vec3 = scale(drone.velocity, STEP);
     move_drone(mut drone, travel);
     hook_step(mut drone, full_spin);
-    tether_winch(mut drone);
-    tether_constraint(mut drone);
+    powered_winch(mut drone);
 }

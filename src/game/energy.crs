@@ -1,0 +1,46 @@
+const BURST_CHARGE: f32 = 8f32;
+const BRAKE_CHARGE_PER_SPEED: f32 = 0.35f32;
+const WINCH_CHARGE_PER_WORK: f32 = 0.0025f32;
+fn use_charge(drone: mut Drone, amount: f32) -> unit {
+    if drone.world == 0u32 {
+        return;
+    }
+    var used: f32 = clamp(amount, 0f32, drone.charge);
+    drone.charge = drone.charge - used;
+    drone.charge_spent = drone.charge_spent + used;
+}
+fn burst_available(drone: read Drone) -> bool {
+    return drone.world == 0u32 || drone.charge >= BURST_CHARGE;
+}
+fn brake_amount(drone: read Drone) -> f32 {
+    var amount: f32 = clamp(length(drone.velocity), 0f32, 30f32);
+    if drone.world != 0u32 {
+        amount = clamp(amount, 0f32, drone.charge / BRAKE_CHARGE_PER_SPEED);
+    }
+    return amount;
+}
+fn recharge_expedition(trial: mut Trial) -> unit {
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        if station_lit(trial.expedition.progress, i) && length(
+            sub(trial.drone.position, station_position(i))
+        ) < 18f32 {
+            trial.drone.charge = clamp(trial.drone.charge + 8f32 * STEP, 0f32, 100f32);
+            return;
+        }
+        i = i + 1u32;
+    }
+}
+fn powered_winch(drone: mut Drone) -> unit {
+    var candidate: Drone = drone;
+    tether_winch(mut candidate);
+    tether_constraint(mut candidate);
+    var cost: f32 = (candidate.winch_work - drone.winch_work) * WINCH_CHARGE_PER_WORK;
+    if drone.world != 0u32 && cost > drone.charge {
+        drone.cable.reel_speed = 0f32;
+        tether_constraint(mut drone);
+        return;
+    }
+    drone = candidate;
+    use_charge(mut drone, cost);
+}

@@ -1,7 +1,15 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 35] = make [*u8; 35] {
+    var files: [*u8; 45] = make [*u8; 45] {
         "src/game/math.crs",
         "src/game/state.crs",
+        "src/game/expedition-world.crs",
+        "src/game/expedition-state.crs",
+        "src/game/energy.crs",
+        "src/game/expedition-rules.crs",
+        "src/game/expedition-hash.crs",
+        "src/game/expedition-view.crs",
+        "src/game/expedition-hud.crs",
+        "src/game/expedition-tour.crs",
         "src/game/course.crs",
         "src/game/course-route.crs",
         "src/game/course-tour.crs",
@@ -34,17 +42,19 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "tests/game/course-flight.crs",
         "tests/game/course-spin.crs",
         "tests/game/course-geometry.crs",
-        "tests/game/preview.crs"
+        "tests/game/preview.crs",
+        "tests/game/expedition.crs",
+        "tests/game/expedition-render.crs"
     };
     var i: usize = 0usize;
-    while i < 35usize {
+    while i < 45usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn build_game(root: *CrustRun) -> bool {
-    var providers: [*u8; 21] = make [*u8; 21] {
+    var providers: [*u8; 24] = make [*u8; 24] {
         "src/render/host/vulkan.crs",
         "src/render/host/io.crs",
         "src/render/host/device.crs",
@@ -58,6 +68,9 @@ fn build_game(root: *CrustRun) -> bool {
         "src/app/clock.crs",
         "src/app/shaders.crs",
         "src/game/platform.crs",
+        "src/game/progress-store.crs",
+        "tests/game/progress-store.crs",
+        "tests/game/render-io.crs",
         "src/game/sdl-input.crs",
         "src/game/renderer-host.crs",
         "src/game/options.crs",
@@ -95,7 +108,7 @@ fn build_game(root: *CrustRun) -> bool {
         count as i32,
         &args[0usize],
         &providers[0usize],
-        21usize,
+        24usize,
         null(*u8)
     ) == 0i32;
 }

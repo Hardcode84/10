@@ -452,3 +452,6 @@ gates before adding final assets or gameplay systems.
 The lit-tour reference test also checks vertical fields of view of 70 and
 110 degrees. Shared application helpers now reside in `src/app/`. The game
 uses those helpers and the rendering core without importing demo code.
+
+The palette gate also checks text overlay scales of one and two in both RGBA
+and BGRA output. It checks scaled glyph pixels, transparent cells, and bounds.

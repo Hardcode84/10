@@ -35,6 +35,10 @@ fn trial_progress(trial: mut Trial, before: Vec3) -> unit {
     }
 }
 fn trial_step(trial: mut Trial, command: Command) -> unit {
+    if trial.drone.world == 1u32 {
+        expedition_step(mut trial, command);
+        return;
+    }
     if command.spin {
         trial.full_spin = !trial.full_spin;
         reset_trial(mut trial);

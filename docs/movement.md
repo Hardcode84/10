@@ -1,11 +1,11 @@
 # Movement trial
 
 This is the Phase 0 slice from the [game design](../../SPINWARD.md).
-Run it with:
+The default game is now the [expedition](expedition.md). Run the movement trial with:
 
 ```sh
-crust main.crs
-crust main.crs --width 1280 --height 720 --fov 90
+crust main.crs --trial
+crust main.crs --trial --width 1280 --height 720 --fov 90
 ```
 
 The root builds the host through the Crust ownership stage and builds the
@@ -199,16 +199,16 @@ checked. Native providers contain SDL, file, and Vulkan integration.
 ## Record, replay, and checks
 
 ```sh
-crust main.crs --record build/flight.rec
-crust main.crs --replay build/flight.rec
+crust main.crs --trial --record build/flight.rec
+crust main.crs --trial --replay build/flight.rec
 crust main.crs --test
-crust main.crs --tour
-crust main.crs --tour --full-spin
-crust main.crs --headless --tour --record build/course.rec \
+crust main.crs --trial --tour
+crust main.crs --trial --tour --full-spin
+crust main.crs --trial --headless --tour --record build/course.rec \
   --capture build/course.ppm
-crust main.crs --headless --smoke --ticks 600 --record build/smoke.rec \
+crust main.crs --trial --headless --smoke --ticks 600 --record build/smoke.rec \
   --capture build/smoke.ppm
-crust main.crs --headless --replay build/smoke.rec \
+crust main.crs --trial --headless --replay build/smoke.rec \
   --capture build/replay.ppm
 cmp build/smoke.ppm build/replay.ppm
 ```
@@ -217,8 +217,8 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 7 uses an on/off preview setting, stores the
-initial spin mode in its header and includes the cyan prediction phase in the
+format uses the current Linux host's word representation. Version 8 uses an on/off preview setting, stores the
+game mode and initial spin mode in its header and includes the cyan prediction phase in the
 state hash. Replay restores the mode and reproduces the marker motion. Earlier
 versions are rejected because their state contract differs.
 

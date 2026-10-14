@@ -6,6 +6,9 @@ fn draw_route_indicator(v: mut FrameInput, trial: read Trial, config: GameConfig
     if trial.gate < GATE_COUNT {
         target = course_gate_center(trial.gate);
     }
+    if trial.drone.world == 1u32 {
+        target = station_position(mission_goal(trial.expedition));
+    }
     var delta: Vec3 = sub(target, trial.drone.position);
     var aspect: f32 = config.width as f32 / config.height as f32;
     var angle: f32 = config.fov * 0.00872664626f32;

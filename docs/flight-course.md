@@ -70,9 +70,9 @@ The stopped controller completes 11 gates and lands in 18,488 ticks. The spin
 controller completes them in 6,470 ticks. These are different controllers, so
 their times do not measure relative player difficulty.
 
-Use `--tour` for a windowed flight or `--headless --tour` for a complete
+Use `--trial --tour` for a windowed flight or `--trial --headless --tour` for a complete
 simulation without wall-clock pacing. Add `--full-spin` to start with rotation.
-Use `--ticks N --capture FILE` to inspect a particular tour state. Version 7
+Use `--ticks N --capture FILE` to inspect a particular tour state. Version 8
 recordings include the initial spin mode and hash the cyan prediction phase. Replay restores it and checks every
 state hash.
 

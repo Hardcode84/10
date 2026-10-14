@@ -1,0 +1,43 @@
+const EXPEDITION_SOLIDS: u32 = 21u32;
+fn world_solid_count(world: u32) -> u32 {
+    if world == 1u32 {
+        return EXPEDITION_SOLIDS;
+    }
+    return SOLID_COUNT;
+}
+fn world_solid(world: u32, index: u32) -> Solid {
+    if world == 1u32 && index == 17u32 {
+        return solid(vec(58f32, -8f32, 148f32), vec(72f32, 18f32, 162f32), 2u32);
+    }
+    if world == 1u32 && index == 14u32 {
+        return solid(vec(125f32, 116f32, 185f32), vec(175f32, 120f32, 245f32), 0u32);
+    }
+    if world == 1u32 && index == 15u32 {
+        return solid(vec(125f32, 120f32, 185f32), vec(129f32, 124f32, 245f32), 11u32);
+    }
+    if world == 1u32 && index == 16u32 {
+        return solid(vec(171f32, 120f32, 185f32), vec(175f32, 124f32, 245f32), 11u32);
+    }
+    return course_solid(index);
+}
+fn station_position(index: u32) -> Vec3 {
+    if index == 0u32 {
+        return vec(0f32, 1f32, 0f32);
+    }
+    if index == 1u32 {
+        return vec(65f32, 26f32, 155f32);
+    }
+    return vec(125f32, 126f32, 220f32);
+}
+fn station_lit(progress: u32, station: u32) -> bool {
+    return station == 0u32 || (progress & (1u32 << (station - 1u32))) != 0u32;
+}
+fn mission_goal(mission: Expedition) -> u32 {
+    if (mission.progress & 1u32) == 0u32 {
+        return 1u32;
+    }
+    if (mission.progress & 2u32) == 0u32 || !mission.return_link {
+        return 2u32;
+    }
+    return 0u32;
+}

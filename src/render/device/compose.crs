@@ -1,4 +1,10 @@
-fn overlay_color(x: u32, y: u32, color: u32) -> u32 {
+fn overlay_color(output_x: u32, output_y: u32, color: u32) -> u32 {
+    var scale: u32 = words_load(OVERLAY_SCALE);
+    if scale == 0u32 {
+        scale = 1u32;
+    }
+    var x: u32 = output_x / scale;
+    var y: u32 = output_y / scale;
     if words_load(OVERLAY_ENABLED) == 0u32 || x >= 640u32 || y >= 48u32 {
         return color;
     }

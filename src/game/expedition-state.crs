@@ -1,0 +1,52 @@
+record Expedition {
+    progress: u32;
+    return_link: bool;
+    shortcut: bool;
+    elapsed: u32;
+    spent: f32;
+    docking: u32;
+    relight: u32;
+    rescues: u32;
+    parked: Vec3;
+    has_parked: bool;
+}
+fn new_expedition() -> Expedition {
+    return make Expedition {
+        progress: 0u32,
+        return_link: false,
+        shortcut: false,
+        elapsed: 0u32,
+        spent: 0f32,
+        docking: 0u32,
+        relight: 0u32,
+        rescues: 0u32,
+        parked: vec(0f32, 0f32, 0f32),
+        has_parked: false
+    };
+}
+fn start_expedition(trial: mut Trial) -> unit {
+    trial.drone.world = 1u32;
+    trial.drone.charge = 100f32;
+    trial.full_spin = false;
+}
+fn recover_expedition(trial: mut Trial) -> unit {
+    if trial.started && !trial.finished {
+        trial.expedition.parked = trial.drone.position;
+        trial.expedition.has_parked = true;
+        trial.expedition.rescues = trial.expedition.rescues + 1u32;
+    }
+    reset_trial(mut trial);
+    start_expedition(mut trial);
+    trial.expedition.docking = 0u32;
+    trial.expedition.return_link = false;
+}
+
+fn restart_expedition(trial: mut Trial) -> unit {
+    if trial.finished {
+        trial.expedition = new_expedition();
+        reset_trial(mut trial);
+        start_expedition(mut trial);
+    } else {
+        recover_expedition(mut trial);
+    }
+}

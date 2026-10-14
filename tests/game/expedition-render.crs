@@ -1,0 +1,55 @@
+fn expedition_review(session: mut GameSession, config: GameConfig) -> bool {
+    var trial: Trial = new_trial();
+    start_expedition(mut trial);
+    trial.drone.position = vec(115f32, 132f32, 220f32);
+    var forward: Vec3 = unit_vector(
+        sub(vec(5f32, 12f32, 40f32), trial.drone.position)
+    );
+    var right: Vec3 = unit_vector(cross(vec(0f32, 1f32, 0f32), forward));
+    trial.drone.basis = make Basis {
+        forward: forward,
+        right: right,
+        up: cross(forward, right)
+    };
+    trial.drone.velocity = scale(forward, 20f32);
+    if !review_frame(mut session, read trial, config, 0u32) {
+        return false;
+    }
+    trial.expedition.progress = 3u32;
+    trial.expedition.return_link = true;
+    trial.expedition.relight = 2400u32;
+    if !review_frame(mut session, read trial, config, 1u32) {
+        return false;
+    }
+    trial.expedition.has_parked = true;
+    trial.expedition.parked = vec(85f32, 90f32, 180f32);
+    trial.drone.cable.phase = CABLE_ATTACHED;
+    trial.drone.cable.anchor = vec(130f32, 120f32, 220f32);
+    trial.drone.cable.extent = 30f32;
+    if !review_frame(mut session, read trial, config, 2u32) {
+        return false;
+    }
+    trial.expedition = new_expedition();
+    trial.drone.charge = 0f32;
+    return review_frame(mut session, read trial, config, 3u32);
+}
+fn review_frame(
+    session: mut GameSession,
+    trial: read Trial,
+    config: GameConfig,
+    index: u32
+) -> bool {
+    {
+        var renderer: mut Renderer = game_renderer(mut session);
+        var input: FrameInput = renderer_inputs(mut renderer);
+        game_scene(mut input, read trial, config);
+        input_set_word(mut input, OVERLAY_ENABLED as usize, 0u32);
+        if !game_check(
+            input_word(read input, 3usize) <= MAX_TRIS,
+            "expedition render exceeds triangle budget"
+        ) {
+            return false;
+        }
+    }
+    return game_draw(mut session) && review_capture(mut session, index);
+}
