@@ -2,7 +2,7 @@
 
 ## Current status: 2026-10-15
 
-Crust is pinned to `6cbede3`. It includes the
+Crust is pinned to `9359718`. It includes the
 first Vulkan compute stage and a Vulkan dispatch harness written in Crust.
 The upstream history also includes the device enumeration correction.
 

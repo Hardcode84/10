@@ -1,4 +1,9 @@
-fn build_collision_checks(root: *CrustRun, sanitize: bool, output: *u8) -> bool {
+fn build_collision_checks(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
+    sanitize: bool,
+    output: *u8
+) -> bool {
     var files: [*u8; 26] = make [*u8; 26] {
         "src/app/math.crs",
         "src/collision/primitives.crs",
@@ -71,6 +76,7 @@ fn build_collision_checks(root: *CrustRun, sanitize: bool, output: *u8) -> bool 
     }
     return ownership_sources(
         root,
+        emit,
         count as i32,
         &args[0usize],
         &providers[0usize],
@@ -78,7 +84,10 @@ fn build_collision_checks(root: *CrustRun, sanitize: bool, output: *u8) -> bool 
         null(*u8)
     ) == 0i32;
 }
-fn run_collision_checks(root: *CrustRun) -> i32 {
+fn run_collision_checks(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> i32 {
     if !cache_directory(root -> context, host_path(root, "build")) {
         return 1i32;
     }
@@ -100,7 +109,7 @@ fn run_collision_checks(root: *CrustRun) -> i32 {
     if sanitize {
         output = "build/tests-collision-asan";
     }
-    if !build_collision_checks(root, sanitize, output) {
+    if !build_collision_checks(root, emit, sanitize, output) {
         return 1i32;
     }
     if !execute {

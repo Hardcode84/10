@@ -35,6 +35,31 @@ Run `crust tests.crs` to build and run the tests. It generates palettes in Crust
 build. See [renderer build](../render/renderer-build.md) for LLVM, SPIRV-Tools, SDL2, and
 Vulkan requirements, capture commands, and checks.
 
+## Shared application setup
+
+All application and test roots use Crust's `application_setup` helper.
+`tools/build/setup.crs` opens one stage session, selects the host backend,
+and loads the ownership package with `application_load`. Rendering roots also
+load the shader package. The focused collision target loads no shader package.
+
+Component files retain explicit checked sources and native providers. The
+ownership stage checks host code before it calls the selected emitter. The
+shader stage still produces Vulkan SPIR-V independently of the host backend.
+Application arguments pass through after leading build options are consumed.
+
+The default host emitter is the C backend. Select another compatible emitter
+with Crust's shared backend option, before application or test arguments:
+
+```sh
+crust tests.crs --backend stages/c/package.crs c_backend_build collision
+crust main.crs --backend stages/c/package.crs c_backend_build --build-only
+```
+
+Package paths start at the `crust/` package base. Crust also accepts
+`--stage-compiler PACKAGE ENTRY TOOLCHAIN` to select how stage packages are
+compiled. See the [application build API](../../crust/stages/build/README.md#build-an-application)
+for callback and toolchain contracts. Compiler errors stop the root before launch.
+
 ## Check the compiler
 
 ```sh

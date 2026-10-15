@@ -101,7 +101,10 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
     }
     return i;
 }
-fn build_game(root: *CrustRun) -> bool {
+fn build_game(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> bool {
     var sources: [*u8; 96] = uninit;
     var providers: [*u8; 96] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
@@ -112,6 +115,7 @@ fn build_game(root: *CrustRun) -> bool {
     provider_count = provider_count + 1usize;
     return build_application(
         root,
+        emit,
         "build/game",
         &sources[0usize],
         source_count,

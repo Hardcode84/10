@@ -1,0 +1,48 @@
+fn project_open(root: *CrustRun, backend: *ApplicationBackend) -> *StageSession {
+    var stages: *StageSession = stage_open(root, "crust", "build/stage-cache");
+    if stages == null(*StageSession) || !application_backend(
+        root,
+        stages,
+        backend,
+        c_backend_build
+    ) || !application_load(stages, backend, "stages/ownership/package.crs") {
+        return null(*StageSession);
+    }
+    var paths: [*u8; 4] = make [*u8; 4] {
+        "crust/stages/ownership/api.crs",
+        "crust/stages/ownership/build.crs",
+        "tools/build/ownership.crs",
+        "tools/build/common.crs"
+    };
+    var i: usize = 0usize;
+    while i < 4usize {
+        if !host_source(root, paths[i]) {
+            return null(*StageSession);
+        }
+        i = i + 1usize;
+    }
+    if !cache_directory(root -> context, host_path(root, "build")) {
+        return null(*StageSession);
+    }
+    return stages;
+}
+fn project_render(root: *CrustRun, stages: *StageSession, backend: *ApplicationBackend) -> bool {
+    if !application_load(stages, backend, "stages/shader/package.crs") {
+        return false;
+    }
+    var paths: [*u8; 5] = make [*u8; 5] {
+        "crust/stages/shader/model.crs",
+        "crust/stages/shader/api.crs",
+        "src/render/interface.crs",
+        "tools/build/render.crs",
+        "tools/build/shaders.crs"
+    };
+    var i: usize = 0usize;
+    while i < 5usize {
+        if !host_source(root, paths[i]) {
+            return false;
+        }
+        i = i + 1usize;
+    }
+    return true;
+}

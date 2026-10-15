@@ -1,30 +1,20 @@
 host_source(run, "crust/stages/build/load.crs");
-if !stage_setup(run, "crust") {
+if !application_setup(run, "crust") {
     return 1i32;
 };
-var stages: *StageSession = stage_open(run, "crust", "build/stage-cache");
-if stages == null(*StageSession) || !stage_load(stages, "stages/ownership/package.crs") || !stage_load(
-    stages,
-    "stages/shader/package.crs"
-) {
+host_source(run, "tools/build/setup.crs");
+var backend: ApplicationBackend = uninit;
+var stages: *StageSession = project_open(run, &backend);
+if stages == null(*StageSession) {
     return 1i32;
 };
-host_source(run, "crust/stages/shader/model.crs");
-host_source(run, "crust/stages/shader/api.crs");
-host_source(run, "src/render/interface.crs");
-host_source(run, "crust/stages/ownership/api.crs");
-host_source(run, "crust/stages/ownership/build.crs");
-host_source(run, "tools/build/ownership.crs");
-host_source(run, "tools/build/common.crs");
-host_source(run, "tools/build/render.crs");
-host_source(run, "tools/build/shaders.crs");
-if !cache_directory(run -> context, host_path(run, "build")) {
+if !project_render(run, stages, &backend) {
     return 1i32;
 };
 
 host_source(run, "tools/build/game.crs");
 host_source(run, "tools/build/viewer.crs");
-if !check_renderer(run) || !build_viewer(run) || !build_render_shaders(run) {
+if !check_renderer(run) || !build_viewer(run, backend.emit) || !build_render_shaders(run) {
     return 1i32;
 };
 return launch_application(run, "build/viewer");

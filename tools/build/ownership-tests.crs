@@ -19,7 +19,7 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         "opaque fields are private to the trusted implementation",
         "access conflicts with an active payload loan"
     };
-    var providers: [*u8; 17] = uninit;
+    var providers: [*u8; 18] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
     var good: bool = true;
     var i: usize = 0usize;
@@ -32,6 +32,7 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         };
         if ownership_sources(
             root,
+            c_backend_build,
             4i32,
             &args[0usize],
             &providers[0usize],
@@ -66,6 +67,7 @@ fn check_collision_ownership(root: *CrustRun) -> bool {
         args[source_count] = stage_path(root, "tests/ownership", files[i]);
         if ownership_sources(
             root,
+            c_backend_build,
             (source_count + 1usize) as i32,
             &args[0usize],
             &providers[0usize],

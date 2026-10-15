@@ -1,5 +1,6 @@
 fn ownership_sources(
     root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
     argc: i32,
     argv: **u8,
     providers: **u8,
@@ -42,12 +43,7 @@ fn ownership_sources(
         argc: total as i32,
         argv: &args[0usize]
     };
-    var result: i32 = ownership_program(
-        &request,
-        &trusted[0usize],
-        count,
-        c_backend_build
-    );
+    var result: i32 = ownership_program(&request, &trusted[0usize], count, emit);
     if expected != null(*u8) {
         if result != 0i32 && context.error_count != 0usize && cache_strcmp(
             &context.error[0usize],

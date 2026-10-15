@@ -36,6 +36,7 @@ fn check_renderer(root: *CrustRun) -> bool {
     };
     return ownership_sources(
         root,
+        c_backend_build,
         3i32,
         &args[0usize],
         &providers[0usize],

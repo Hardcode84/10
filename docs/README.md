@@ -33,7 +33,7 @@ application functions as the applications.
 | `src/game/view/` | Game geometry submission, HUD, and path markers |
 | `src/game/host/` | Game entry, input, options, saves, replay, and session |
 | `src/viewer/` | Prefab viewer |
-| `tools/build/` | Component source lists, native providers, and build functions |
+| `tools/build/` | Shared application setup, component source lists, and native providers |
 | `tests/render/` | Renderer fixtures, CPU reference, and image checks |
 | `tests/demo/` | Demo playback checks |
 | `tests/collision/` | Mesh sweep fixtures and analytic comparison |

@@ -22,18 +22,18 @@ fn collision_rotating_face(
         var pose: CollisionInstance = collision_pose(item, time + duration * fraction);
         var center: Vec3 = add(p, scale(d, fraction));
         var local: Vec3 = collision_local(pose.basis, sub(center, pose.origin));
-        var near: CollisionProximity = collision_proximity(face_data, local);
-        var gap: f32 = near.distance - radius;
+        var proximity: CollisionProximity = collision_proximity(face_data, local);
+        var gap: f32 = proximity.distance - radius;
         var tolerance: f32 = collision_tolerance(center, radius) * 0.25f32;
         if gap <= tolerance {
             result.contact.hit.time = fraction;
             result.contact.hit.normal = collision_normal(
-                basis_vector(pose.basis, near.normal)
+                basis_vector(pose.basis, proximity.normal)
             );
-            result.contact.local_point = near.point;
+            result.contact.local_point = proximity.point;
             result.contact.point = add(
                 pose.origin,
-                basis_vector(pose.basis, near.point)
+                basis_vector(pose.basis, proximity.point)
             );
             result.contact.penetration = clamp(-gap, 0f32, radius);
             return result;
@@ -45,7 +45,7 @@ fn collision_rotating_face(
             item,
             pose,
             local,
-            near.normal,
+            proximity.normal,
             sub(d, scale(item.linear, duration)),
             duration,
             gap,

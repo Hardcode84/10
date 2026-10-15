@@ -1,5 +1,8 @@
-fn build_viewer(root: *CrustRun) -> bool {
-    var sources: [*u8; 64] = uninit;
+fn build_viewer(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> bool {
+    var sources: [*u8; 96] = uninit;
     var providers: [*u8; 64] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
@@ -12,6 +15,7 @@ fn build_viewer(root: *CrustRun) -> bool {
     provider_count = provider_count + 1usize;
     return build_application(
         root,
+        emit,
         "build/viewer",
         &sources[0usize],
         source_count,

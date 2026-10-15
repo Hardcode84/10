@@ -1,4 +1,7 @@
-fn build_reference(root: *CrustRun) -> bool {
+fn build_reference(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> bool {
     var source: CrustSource = uninit;
     if !cache_read(root -> context, host_path(root, "tests/render/reference.crs"), &source) {
         return false;
@@ -22,10 +25,13 @@ fn build_reference(root: *CrustRun) -> bool {
         &args[0usize],
         &source,
         1usize,
-        c_backend_build
+        emit
     ) == 0i32;
 }
-fn build_render_tests(root: *CrustRun) -> bool {
+fn build_render_tests(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> bool {
     var sources: [*u8; 96] = uninit;
     var providers: [*u8; 64] = uninit;
     var source_count: usize = demo_sources(root, &sources[0usize]);
@@ -65,6 +71,7 @@ fn build_render_tests(root: *CrustRun) -> bool {
     provider_count = provider_count + 1usize;
     return build_application(
         root,
+        emit,
         "build/tests-render",
         &sources[0usize],
         source_count,
@@ -73,7 +80,10 @@ fn build_render_tests(root: *CrustRun) -> bool {
         true
     );
 }
-fn build_game_tests(root: *CrustRun) -> bool {
+fn build_game_tests(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> bool {
     var sources: [*u8; 96] = uninit;
     var providers: [*u8; 64] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
@@ -127,6 +137,7 @@ fn build_game_tests(root: *CrustRun) -> bool {
     provider_count = provider_count + 1usize;
     return build_application(
         root,
+        emit,
         "build/tests-game",
         &sources[0usize],
         source_count,
@@ -135,7 +146,10 @@ fn build_game_tests(root: *CrustRun) -> bool {
         false
     );
 }
-fn build_viewer_tests(root: *CrustRun) -> bool {
+fn build_viewer_tests(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> bool {
     var sources: [*u8; 96] = uninit;
     var providers: [*u8; 64] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
@@ -151,6 +165,7 @@ fn build_viewer_tests(root: *CrustRun) -> bool {
     provider_count = provider_count + 1usize;
     return build_application(
         root,
+        emit,
         "build/tests-viewer",
         &sources[0usize],
         source_count,

@@ -4,6 +4,7 @@ extern fn build_chdir(path: *u8) -> i32 = "chdir";
 extern fn build_execv(path: *u8, args: **u8) -> i32 = "execv";
 fn build_application(
     root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
     output: *u8,
     sources: **u8,
     source_count: usize,
@@ -45,6 +46,7 @@ fn build_application(
     }
     return ownership_sources(
         root,
+        emit,
         count as i32,
         &args[0usize],
         providers,

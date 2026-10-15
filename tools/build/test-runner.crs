@@ -43,7 +43,10 @@ fn test_process(root: *CrustRun, output: *u8, count: usize, arguments: **u8) -> 
     }
     return true;
 }
-fn build_tests(root: *CrustRun) -> bool {
+fn build_tests(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> bool {
     var llvm: *u8 = build_getenv("LLVM_DIRECTORY");
     var validator: *u8 = build_getenv("SPIRV_VAL");
     if llvm == null(*u8) {
@@ -52,9 +55,10 @@ fn build_tests(root: *CrustRun) -> bool {
     if validator == null(*u8) {
         validator = host_path(root, "build/toolchain/spirv-val");
     }
-    return check_renderer(root) && build_reference(root) && build_render_tests(root) && build_game_tests(
-        root
-    ) && build_viewer_tests(root) && build_render_shaders(root) && build_shader(
+    return check_renderer(root) && build_reference(root, emit) && build_render_tests(root, emit) && build_game_tests(
+        root,
+        emit
+    ) && build_viewer_tests(root, emit) && build_render_shaders(root) && build_shader(
         root,
         "tests/render/device/status.crs",
         "build/status-test.spv",

@@ -1,19 +1,19 @@
 fn collision_contact_planes(
     pose: CollisionInstance,
-    near: CollisionProximity,
+    proximity: CollisionProximity,
     radius: f32,
     skin: f32,
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes
 ) -> bool {
-    var normal: Vec3 = collision_normal(basis_vector(pose.basis, near.normal));
+    var normal: Vec3 = collision_normal(basis_vector(pose.basis, proximity.normal));
     var position: CollisionPlane = make CollisionPlane {
         normal: normal,
-        offset: radius + skin - near.distance
+        offset: radius + skin - proximity.distance
     };
     var velocity: CollisionPlane = make CollisionPlane {
         normal: normal,
-        offset: dot(normal, collision_surface_velocity(pose, near.point))
+        offset: dot(normal, collision_surface_velocity(pose, proximity.point))
     };
     return collision_plane_add(mut separate, position) && collision_plane_add(
         mut speeds,
@@ -45,13 +45,13 @@ fn collision_moving_contacts(
             i = node.skip;
         } else {
             if node.leaf != 0xffffffffu32 {
-                var near: CollisionProximity = collision_proximity(
+                var proximity: CollisionProximity = collision_proximity(
                     collision_face(read scene, item.first + node.leaf),
                     local
                 );
-                if near.distance <= radius + skin * 2f32 && !collision_contact_planes(
+                if proximity.distance <= radius + skin * 2f32 && !collision_contact_planes(
                     pose,
-                    near,
+                    proximity,
                     radius,
                     skin,
                     mut separate,
