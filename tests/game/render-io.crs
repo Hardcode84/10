@@ -28,7 +28,7 @@ fn review_no_void(session: mut GameSession) -> bool {
     var pixels: usize = (session.launch.config.width * session.launch.config.height) as usize;
     var i: usize = 0usize;
     while i < pixels {
-        if words[PRESENT_PIXELS as usize + i] == background {
+        if words[words[PRESENT_PIXELS as usize] as usize + i] == background {
             print_number(i as i64);
             return error("prefab view contains an uncovered background pixel");
         }
@@ -60,7 +60,11 @@ fn review_material_capacity(session: mut GameSession, config: GameConfig) -> boo
         var palette: u32 = app_palette(read input);
         var i: u32 = 0u32;
         while i < input_word(read input, 3usize) {
-            input_set_word(mut input, (META + i * 4u32 + 1u32) as usize, material);
+            input_set_word(
+                mut input,
+                (input_word(read input, META as usize) + i * 4u32 + 1u32) as usize,
+                material
+            );
             i = i + 1u32;
         }
         i = 0u32;
@@ -80,7 +84,7 @@ fn review_material_capacity(session: mut GameSession, config: GameConfig) -> boo
     var words: *u32 = session.renderer.state.mapped as *u32;
     var i: u32 = 0u32;
     while i < config.width * config.height {
-        if words[(PRESENT_PIXELS + i) as usize] != 0xff5173b9u32 {
+        if words[(words[PRESENT_PIXELS as usize] + i) as usize] != 0xff5173b9u32 {
             return error("last material texture and palette must reach the GPU");
         }
         i = i + 1u32;

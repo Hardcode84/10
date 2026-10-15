@@ -109,20 +109,24 @@ and Intel. Test 7 retains the translated and rotated portal regression.
 The game still needs gameplay traversal rules before it can use transformed
 connections for the player, hook, or collision queries.
 
-### R5. Image capacity and resize — viewer and room scale
+### R5. Image capacity and resize — implemented
 
-[Renderer configuration](../../src/render/host/renderer.crs) rejects internal or
-output dimensions above 1920 by 1080. Dimensions stay fixed until close.
-`MAX_INVOCATIONS` is 2,097,152. This is a storage and dispatch constraint, not
-a low-resolution art requirement.
+Image, output, debug, and geometry ranges use the configured dimensions. The
+renderer checks arithmetic and device storage limits before allocation. There
+is no 1920 by 1080 cap. Image passes use bounded dispatches and process the
+remaining pixels with a stride. The invocation-status size is not an image limit.
 
-**Change:** size image-dependent buffers and dispatches from configuration.
-Define resize and swapchain resource replacement with GPU completion rules.
-Keep internal and output resolution independent where the application needs it.
+Resize preserves camera, material, mesh, and instance data. The renderer waits
+for queue completion before it replaces buffers or a swapchain. A rejected size
+or buffer allocation preserves the active storage. Window resize changes output
+size while internal resolution stays independent. Output scaling preserves aspect
+ratio with black bars. See the [image and resize contract](../render/images.md).
 
-**Check:** different aspect ratios, dimensions not divisible by a tile, outputs
-above the present cap, resize, and allocation failure. Do not change texture
-or model proportions with viewport size.
+**Check:** crust tests.crs render 9 compares 4K, odd dimensions, portrait,
+one-pixel-wide, and very wide images with the CPU reference. It checks patterned
+scaling, retained assets across resize, rejection, and recovery. Test 10 checks
+window resize and swapchain replacement on a display. The ownership checks reject
+resize while an input borrow is live.
 
 ### R6. Lighting and surface response — asset proof, then room scale
 
@@ -145,8 +149,8 @@ light. Verify that distant lights and indicators do not change local shading.
 ### R7. Memory, upload, and synchronization — room scale
 
 [Resource allocation](../../src/render/host/resources.crs) allocates one packed
-device buffer and an equally sized staging buffer. Each has a 64 MiB fixed word
-region, 8 MiB of status, and geometry-dependent storage, before other Vulkan
+device buffer and an equally sized staging buffer. Each has dimension-dependent
+image storage, 8 MiB of status, and geometry-dependent storage, before other Vulkan
 resources. Geometry offsets follow the allocated capacity. [Frame dispatch](../../src/render/host/dispatch.crs)
 uploads fixed scene/table ranges each frame and reads back the 8 MiB invocation
 status region. [Frame validation](../../src/render/host/renderer.crs) scans that

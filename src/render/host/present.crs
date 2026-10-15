@@ -68,6 +68,12 @@ fn swapchain_open(v: *Vulkan, width: u32, height: u32) -> bool {
     ) || !surface_format(v, &format) {
         return false;
     }
+    if caps.currentExtent.width != 0xffffffffu32 && (
+        caps.currentExtent.width != width || caps.currentExtent.height != height
+    ) {
+        v -> swapchain_dirty = true;
+        return true;
+    }
     var extent: VkExtent2D = uninit;
     if !surface_extent(&caps, width, height, &extent) {
         return false;
@@ -89,12 +95,24 @@ fn swapchain_open(v: *Vulkan, width: u32, height: u32) -> bool {
     info.compositeAlpha = 1u32;
     info.presentMode = 2u32;
     info.clipped = 1u32;
-    if !vk_ok(
-        vkCreateSwapchainKHR(v -> device, &info, null(*u8), &v -> swapchain),
-        "vkCreateSwapchainKHR"
-    ) {
+    var result: i32 = vkCreateSwapchainKHR(
+        v -> device,
+        &info,
+        null(*u8),
+        &v -> swapchain
+    );
+    if result == -1000001004i32 {
+        v -> swapchain_dirty = true;
+        return true;
+    }
+    if !vk_ok(result, "vkCreateSwapchainKHR") {
         return false;
     }
+    (v -> mapped as *u32)[21usize] = format.format;
+    v -> swapchain_dirty = false;
+    return swapchain_resources(v);
+}
+fn swapchain_resources(v: *Vulkan) -> bool {
     var count: u32 = 0u32;
     if !vk_ok(
         vkGetSwapchainImagesKHR(v -> device, v -> swapchain, &count, null(**u8)),
@@ -102,14 +120,18 @@ fn swapchain_open(v: *Vulkan, width: u32, height: u32) -> bool {
     ) {
         return false;
     }
-    if count > 8u32 {
-        return error("swapchain image budget exceeded");
+    v -> images = malloc(count as usize * sizeof(*u8)) as **u8;
+    if v -> images == null(**u8) {
+        return error("swapchain image list allocation failed");
     }
     if !vk_ok(
-        vkGetSwapchainImagesKHR(v -> device, v -> swapchain, &count, &v -> images[0usize]),
+        vkGetSwapchainImagesKHR(v -> device, v -> swapchain, &count, v -> images),
         "vkGetSwapchainImagesKHR"
     ) {
         return false;
+    }
+    if v -> acquired != null(*u8) {
+        return true;
     }
     var fence: VkFenceCreateInfo = uninit;
     zero(&fence as *u8, sizeof(VkFenceCreateInfo));
@@ -131,7 +153,6 @@ fn swapchain_open(v: *Vulkan, width: u32, height: u32) -> bool {
     ) {
         return false;
     }
-    (v -> mapped as *u32)[21usize] = format.format;
     return true;
 }
 fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
@@ -174,7 +195,7 @@ fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
     );
     var region: VkBufferImageCopy = uninit;
     zero(&region as *u8, sizeof(VkBufferImageCopy));
-    region.bufferOffset = 4u64 + (PRESENT_PIXELS as u64) * 4u64;
+    region.bufferOffset = 4u64 + ((v -> mapped as *u32)[PRESENT_PIXELS as usize] as u64) * 4u64;
     region.imageSubresource = make VkImageSubresourceLayers {
         aspectMask: 1u32,
         mipLevel: 0u32,
@@ -212,7 +233,11 @@ fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
     );
     return vk_ok(vkEndCommandBuffer(v -> present_commands), "vkEndCommandBuffer");
 }
-fn present(v: *Vulkan, width: u32, height: u32) -> bool {
+fn present(v: *Vulkan) -> bool {
+    if !v -> present_ready {
+        return true;
+    }
+    v -> present_ready = false;
     var index: u32 = 0u32;
     var result: i32 = vkAcquireNextImageKHR(
         v -> device,
@@ -222,6 +247,13 @@ fn present(v: *Vulkan, width: u32, height: u32) -> bool {
         v -> acquired,
         &index
     );
+    if result == -1000001004i32 {
+        v -> swapchain_dirty = true;
+        return true;
+    }
+    if result == 1000001003i32 {
+        v -> swapchain_dirty = true;
+    }
     if result != 0i32 && result != 1000001003i32 {
         return vk_ok(result, "vkAcquireNextImageKHR");
     }
@@ -231,8 +263,8 @@ fn present(v: *Vulkan, width: u32, height: u32) -> bool {
     ) || !vk_ok(vkResetFences(v -> device, 1u32, &v -> acquired), "vkResetFences") || !present_record(
         v,
         index,
-        width,
-        height
+        v -> output_width,
+        v -> output_height
     ) {
         return false;
     }
@@ -251,13 +283,22 @@ fn present(v: *Vulkan, width: u32, height: u32) -> bool {
         exit(1i32);
         return false;
     }
+    return present_release(v, index);
+}
+fn present_release(v: *Vulkan, index: u32) -> bool {
     var info: VkPresentInfoKHR = uninit;
     zero(&info as *u8, sizeof(VkPresentInfoKHR));
     info.sType = 1000001001u32;
     info.swapchainCount = 1u32;
     info.pSwapchains = &v -> swapchain;
     info.pImageIndices = &index;
-    result = vkQueuePresentKHR(v -> queue, &info);
+    var result: i32 = vkQueuePresentKHR(v -> queue, &info);
+    if result == -1000001004i32 || result == 1000001003i32 {
+        v -> swapchain_dirty = true;
+    }
+    if result == -1000001004i32 {
+        return true;
+    }
     if result != 0i32 && result != 1000001003i32 {
         return vk_ok(result, "vkQueuePresentKHR");
     }

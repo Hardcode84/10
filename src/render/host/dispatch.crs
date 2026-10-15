@@ -71,13 +71,7 @@ fn commands_record(v: *Vulkan) -> bool {
     );
     retained_dispatch(v, 8usize, v -> instance_capacity);
     frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-    vkCmdBindPipeline(v -> commands, VK_PIPELINE_BIND_POINT_COMPUTE, v -> pipelines[0usize]);
-    vkCmdDispatch(
-        v -> commands,
-        ((v -> mapped as *u32)[0usize] * (v -> mapped as *u32)[1usize] + 63u32) / 64u32,
-        1u32,
-        1u32
-    );
+    retained_dispatch(v, 0usize, (v -> width * v -> height + 63u32) / 64u32);
     frame_barrier(v, 2048u32, 64u32, 2048u32 | 2u32, 96u32 | 1u32);
     vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 1u32);
     var depth: u32 = 0u32;
@@ -116,13 +110,7 @@ fn commands_record(v: *Vulkan) -> bool {
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 5u32 + depth * 4u32);
         depth = depth + 1u32;
     }
-    vkCmdBindPipeline(v -> commands, VK_PIPELINE_BIND_POINT_COMPUTE, v -> pipelines[4usize]);
-    vkCmdDispatch(
-        v -> commands,
-        ((v -> mapped as *u32)[22usize] * (v -> mapped as *u32)[23usize] + 63u32) / 64u32,
-        1u32,
-        1u32
-    );
+    retained_dispatch(v, 4usize, (v -> output_width * v -> output_height + 63u32) / 64u32);
     var barrier: VkMemoryBarrier = uninit;
     zero(&barrier as *u8, sizeof(VkMemoryBarrier));
     barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
@@ -162,15 +150,19 @@ fn dispatch(v: *Vulkan) -> bool {
 }
 fn device_close(v: *Vulkan) -> unit {
     if v -> device != null(*u8) {
+        if v -> queue != null(*u8) && !vk_ok(
+            vkQueueWaitIdle(v -> queue),
+            "wait before device close"
+        ) {
+            exit(1i32);
+        }
         if v -> query_pool != null(*u8) {
             vkDestroyQueryPool(v -> device, v -> query_pool, null(*u8));
         }
         if v -> acquired != null(*u8) {
             vkDestroyFence(v -> device, v -> acquired, null(*u8));
         }
-        if v -> swapchain != null(*u8) {
-            vkDestroySwapchainKHR(v -> device, v -> swapchain, null(*u8));
-        }
+        swapchain_close(v);
         if v -> command_pool != null(*u8) {
             vkDestroyCommandPool(v -> device, v -> command_pool, null(*u8));
         }
@@ -255,19 +247,12 @@ fn upload_scene(v: *Vulkan) -> unit {
             v -> asset_capacity as u64 * 4u64
         );
     }
-    copy_region(
-        v,
-        v -> staging,
-        v -> buffer,
-        4u64 + OVERLAY_CELLS as u64 * 4u64,
-        2024u64 * 4u64
-    );
     copy_region(v, v -> staging, v -> buffer, 0u64, 8193u64 * 4u64);
     copy_region(
         v,
         v -> staging,
         v -> buffer,
-        4u64 + META as u64 * 4u64,
+        4u64 + (v -> mapped as *u32)[META as usize] as u64 * 4u64,
         (v -> mapped as *u32)[DYNAMIC_COUNT as usize] as u64 * 16u64
     );
     retained_transfer(v, PORTAL_META, v -> portal_capacity * 4u32, false, true);
@@ -284,7 +269,7 @@ fn upload_scene(v: *Vulkan) -> unit {
 }
 fn readback(v: *Vulkan) -> unit {
     retained_readback(v);
-    copy_region(v, v -> buffer, v -> staging, 0u64, 77u64 * 4u64);
+    copy_region(v, v -> buffer, v -> staging, 0u64, 83u64 * 4u64);
     copy_region(
         v,
         v -> buffer,
@@ -298,14 +283,14 @@ fn readback(v: *Vulkan) -> unit {
             v -> buffer,
             v -> staging,
             4u64 + PIXELS as u64 * 4u64,
-            MAX_INVOCATIONS as u64 * 4u64
+            v -> width as u64 * v -> height as u64 * 4u64
         );
         copy_region(
             v,
             v -> buffer,
             v -> staging,
-            4u64 + (PRESENT_PIXELS as u64) * 4u64,
-            MAX_INVOCATIONS as u64 * 4u64
+            4u64 + ((v -> mapped as *u32)[PRESENT_PIXELS as usize] as u64) * 4u64,
+            v -> output_width as u64 * v -> output_height as u64 * 4u64
         );
     }
     if (v -> mapped as *u32)[26usize] != 0u32 {
@@ -313,7 +298,7 @@ fn readback(v: *Vulkan) -> unit {
             v,
             v -> buffer,
             v -> staging,
-            4u64 + (DEBUG_VALUES as u64) * 4u64,
+            4u64 + ((v -> mapped as *u32)[DEBUG_VALUES as usize] as u64) * 4u64,
             (v -> mapped as *u32)[0usize] as u64 * (v -> mapped as *u32)[1usize] as u64 * 16u64
         );
     }

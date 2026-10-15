@@ -44,7 +44,7 @@ application functions as the applications.
 - Build: [bootstrap](build/bootstrap.md), [shader compiler](build/crust-spirv.md).
 - Render: [design](render/rendering.md), [build and checks](render/renderer-build.md),
   [textures](render/textures.md), [retained meshes](render/retained-meshes.md),
-  [portal capacity](render/portal-capacity.md).
+  [portal capacity](render/portal-capacity.md), [image resize](render/images.md).
 - Game: [expedition](game/expedition.md), [movement](game/movement.md),
   [flight course](game/flight-course.md).
 - Content: [parametric assets](content/parametric-assets.md),
@@ -62,13 +62,14 @@ crust tests.crs viewer --width 320 --height 180
 crust tests.crs render 8
 ```
 
-The complete run checks ownership, all eight renderer cases, game simulation,
+The complete run checks ownership, all nine headless renderer cases, game simulation,
 expedition images, and viewer visibility. It uses 320 by 180 pixels for the
 expedition and viewer checks. Individual checks accept their image options.
 
 Renderer cases: 1 checks palette and presentation; 2 checks portal images;
 3 checks playback; 4 checks lighting; 5 checks geometry capacity; 6 checks
-textures; 7 checks retained portal views; 8 checks portal capacity.
+textures; 7 checks retained portal views; 8 checks portal capacity; 9 checks image capacity and resize.
+Run case 10 on a display to check window and swapchain resize.
 Use case 0 with `--capture FILE --frames N` to compare a custom demo sequence
 with the CPU reference.
 

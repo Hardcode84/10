@@ -15,7 +15,9 @@ fn project_fan(scratch: u32, output: u32, count: u32, tri: u32) -> unit {
                 PROJECTION
             );
             var py: f32 = h - floats_load(src + 1u32) * iz * h / floats_load(PROJECTION);
-            if (material_field(words_load(META + tri * 4u32 + 1u32), 5u32) & 4u32) != 0u32 {
+            if (
+                material_field(words_load(words_load(META) + tri * 4u32 + 1u32), 5u32) & 4u32
+            ) != 0u32 {
                 px = ((px + 0.5f32) as i32) as f32;
                 py = ((py + 0.5f32) as i32) as f32;
             }
@@ -129,7 +131,7 @@ fn prepare_triangle(index: u32) -> unit {
         floats_store(output + fan * 20u32 + 18u32, 0f32);
         fan = fan + 1u32;
     }
-    if tri >= words_load(3u32) || words_load(META + tri * 4u32) != words_load(
+    if tri >= words_load(3u32) || words_load(words_load(META) + tri * 4u32) != words_load(
         words_load(VIEW_META) + view * 4u32
     ) {
         return;
@@ -137,7 +139,7 @@ fn prepare_triangle(index: u32) -> unit {
     if !triangle_visible(tri, view) {
         return;
     }
-    if !portal_facing(view, words_load(META + tri * 4u32 + 2u32)) {
+    if !portal_facing(view, words_load(words_load(META) + tri * 4u32 + 2u32)) {
         return;
     }
     var scratch: u32 = words_load(CLIP_OFFSET) + slot * 144u32;
@@ -170,7 +172,7 @@ fn prepare_triangle(index: u32) -> unit {
     }
     var count: u32 = 3u32;
     var near: f32 = floats_load(RENDER_STYLE);
-    if words_load(META + tri * 4u32 + 2u32) != 0u32 {
+    if words_load(words_load(META) + tri * 4u32 + 2u32) != 0u32 {
         near = 0f32;
     }
     var plane: u32 = 0u32;

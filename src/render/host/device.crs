@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 record Vulkan {
+    width: u32;
+    height: u32;
+    output_width: u32;
+    output_height: u32;
     timestamp_mask: u64;
     mesh_capacity: u32;
     mesh_count: u32;
@@ -39,7 +43,9 @@ record Vulkan {
     commands: *u8;
     surface: *u8;
     swapchain: *u8;
-    images: [*u8; 8];
+    images: **u8;
+    swapchain_dirty: bool;
+    present_ready: bool;
     acquired: *u8;
     present_commands: *u8;
     query_pool: *u8;
@@ -79,9 +85,6 @@ fn device_profile(v: *Vulkan) -> bool {
     }
     if props.properties.limits.minStorageBufferOffsetAlignment > 256u64 {
         return error("buffer interface requires storage alignment at most 256 bytes");
-    }
-    if props.properties.limits.maxStorageBufferRange < WORDS_LENGTH * 4u32 {
-        return error("words binding exceeds maxStorageBufferRange");
     }
     if props.properties.limits.maxPerStageDescriptorStorageBuffers < 3u32 || props.properties.limits.maxDescriptorSetStorageBuffers < 3u32 {
         return error("requires three storage-buffer bindings");

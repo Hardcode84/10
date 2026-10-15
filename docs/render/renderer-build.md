@@ -250,8 +250,8 @@ The host and shaders compile the same [buffer constants](../../src/render/interf
 The interface uses four-byte words and floats, not host record layout. There
 are three storage bindings: words, floats, and invocation status. Words and
 floats use runtime lengths. Status uses 8 MiB. One device-local buffer and one
-staging buffer each own the complete layout. The fixed word region uses 64 MiB;
-geometry metadata, projected vertices, clipping scratch, and compact indices
+staging buffer each own the complete layout. Image ranges use the configured
+dimensions; geometry metadata, projected vertices, clipping scratch, and compact indices
 follow the checked layout in `src/render/host/geometry.crs`.
 
 Storage grows geometrically on submission, up to the physical device range
@@ -270,11 +270,13 @@ SDL window after the Vulkan owner is closed.
 
 ## Bounds and trust
 
-The demo accepts internal and output images from 1 by 1 through 1920 by 1080.
-This allocation bound does not require a low-resolution image style. The scene
+The demo accepts positive internal and output dimensions that fit the device
+storage range and available memory. See [image capacity and resize](images.md).
+The scene
 has no fixed source-triangle or tile-candidate limit. Device storage range and
 available memory bound geometry size. It allows 32 views, four portal definitions,
-and 32,768 tile tasks per depth. Clipping reserves eight
+and at least 32,768 tile tasks per depth. Larger images increase this demo
+budget to fit the root tiles. Clipping reserves eight
 fan triangles per source triangle. Three portal crossings follow the root view.
 Capacity errors reject the frame; geometry and child work are not silently
 truncated. The frame count must be from 1 through 4,096.
@@ -309,6 +311,8 @@ crust tests.crs render 2
 crust tests.crs render 3
 crust tests.crs render 4
 crust tests.crs render 4 --dither 0
+crust tests.crs render 9
+crust tests.crs render 10 # requires a display
 crust demo.crs --capture build/native.ppm --width 1920 --height 1080 --frames 601
 crust demo.crs --capture build/baseline.ppm --width 1920 --height 1080 --frames 601 --baseline 1
 cmp build/native.ppm build/baseline.ppm

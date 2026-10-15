@@ -49,15 +49,11 @@ fn game_renderer_open(v: *Vulkan, o: *Launch, window: *u8) -> bool {
     return good;
 }
 fn game_draw(session: mut GameSession) -> bool {
-    return renderer_draw(&session.renderer.state);
+    return window_draw(&session.renderer.state, session.window.handle);
 }
 fn game_present(session: mut GameSession) -> bool {
     if session.launch.config.headless {
         return true;
     }
-    return present(
-        &session.renderer.state,
-        session.launch.config.width,
-        session.launch.config.height
-    );
+    return present(&session.renderer.state);
 }

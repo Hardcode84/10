@@ -4,10 +4,10 @@ fn distant_cube_check(v: *Vulkan, frame: u32) -> bool {
     var front: f32 = 8.5f32 + 2f32 * sinf(frame as f32 / 60f32) - 0.8f32;
     var pixel: u32 = 0u32;
     while pixel < w[0usize] * w[1usize] {
-        var hit: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize];
+        var hit: u32 = w[(w[DEBUG_VALUES as usize] + pixel * 4u32) as usize];
         var tri: u32 = hit % w[3usize];
-        if hit >= w[3usize] && tri < w[3usize] && w[(META + tri * 4u32) as usize] == 0u32 && w[
-            (META + tri * 4u32 + 1u32) as usize
+        if hit >= w[3usize] && tri < w[3usize] && w[(w[META as usize] + tri * 4u32) as usize] == 0u32 && w[
+            (w[META as usize] + tri * 4u32 + 1u32) as usize
         ] == 2u32 {
             var g: usize = (GEOMETRY + tri * 15u32) as usize;
             if f[g + 2usize] == front && f[g + 7usize] == front && f[g + 12usize] == front {
@@ -26,7 +26,7 @@ fn portal_plane_check(v: *Vulkan) -> bool {
     var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
     var tri: u32 = 0u32;
     while tri < w[3usize] {
-        var portal: u32 = w[(META + tri * 4u32 + 2u32) as usize];
+        var portal: u32 = w[(w[META as usize] + tri * 4u32 + 2u32) as usize];
         if portal != 0u32 {
             var p: usize = (w[PORTAL_FLOAT as usize] + (portal - 1u32) * 16u32) as usize;
             var vertex: u32 = 0u32;
@@ -58,10 +58,12 @@ fn portal_plane_check(v: *Vulkan) -> bool {
 fn crossing_face_check(v: *Vulkan) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
-    var hit: u32 = w[(DEBUG_VALUES + (125u32 * 320u32 + 100u32) * 4u32) as usize];
+    var hit: u32 = w[
+        (w[DEBUG_VALUES as usize] + (125u32 * 320u32 + 100u32) * 4u32) as usize
+    ];
     var tri: u32 = hit % w[3usize];
-    if tri >= w[3usize] || w[(META + tri * 4u32) as usize] != 1u32 || w[
-        (META + tri * 4u32 + 1u32) as usize
+    if tri >= w[3usize] || w[(w[META as usize] + tri * 4u32) as usize] != 1u32 || w[
+        (w[META as usize] + tri * 4u32 + 1u32) as usize
     ] != 2u32 {
         return error("frame 523: portal must show the crossing cube front face");
     }
@@ -82,9 +84,9 @@ fn tour_visibility_check(v: *Vulkan) -> bool {
     var mask: u32 = 0u32;
     var pixel: u32 = 0u32;
     while pixel < w[0usize] * w[1usize] {
-        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % w[3usize];
+        var tri: u32 = w[(w[DEBUG_VALUES as usize] + pixel * 4u32) as usize] % w[3usize];
         if tri < w[3usize] {
-            mask = mask | (1u32 << w[(META + tri * 4u32) as usize]);
+            mask = mask | (1u32 << w[(w[META as usize] + tri * 4u32) as usize]);
         }
         pixel = pixel + 1u32;
     }
@@ -128,9 +130,9 @@ fn full_bright_check(v: *Vulkan) -> bool {
     var dark: u32 = 0u32;
     var pixel: u32 = 0u32;
     while pixel < w[0usize] * w[1usize] {
-        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % w[3usize];
+        var tri: u32 = w[(w[DEBUG_VALUES as usize] + pixel * 4u32) as usize] % w[3usize];
         if tri < w[3usize] {
-            var mat: u32 = w[(META + tri * 4u32 + 1u32) as usize];
+            var mat: u32 = w[(w[META as usize] + tri * 4u32 + 1u32) as usize];
             if mat == 7u32 || mat == 12u32 {
                 var color: u32 = w[(PIXELS + pixel) as usize];
                 if color == 0xffe8ba32u32 {
@@ -171,11 +173,11 @@ fn camera_light_check(v: *Vulkan) -> bool {
     var mask: u32 = 0u32;
     var pixel: u32 = 0u32;
     while pixel < w[0usize] * w[1usize] {
-        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % w[3usize];
+        var tri: u32 = w[(w[DEBUG_VALUES as usize] + pixel * 4u32) as usize] % w[3usize];
         if tri < w[3usize] {
-            var mat: u32 = w[(META + tri * 4u32 + 1u32) as usize];
+            var mat: u32 = w[(w[META as usize] + tri * 4u32 + 1u32) as usize];
             if mat < 5u32 && w[(PIXELS + pixel) as usize] != 0xff000000u32 {
-                mask = mask | (1u32 << w[(META + tri * 4u32) as usize]);
+                mask = mask | (1u32 << w[(w[META as usize] + tri * 4u32) as usize]);
             }
         }
         pixel = pixel + 1u32;
@@ -277,13 +279,15 @@ fn texture_constant_check(v: *Vulkan, index: u32) -> bool {
     var covered: u32 = 0u32;
     var pixel: u32 = 0u32;
     while pixel < w[0usize] * w[1usize] {
-        if w[(DEBUG_VALUES + pixel * 4u32) as usize] != 0xffffffffu32 {
+        if w[(w[DEBUG_VALUES as usize] + pixel * 4u32) as usize] != 0xffffffffu32 {
             if w[(PIXELS + pixel) as usize] != expected {
                 print_number(index as i64);
                 print_number(pixel as i64);
                 print_number(w[(PIXELS + pixel) as usize] as i64);
                 print_number(expected as i64);
-                print_number(w[(DEBUG_VALUES + pixel * 4u32 + 1u32) as usize] as i64);
+                print_number(
+                    w[(w[DEBUG_VALUES as usize] + pixel * 4u32 + 1u32) as usize] as i64
+                );
                 return error("constant UV sample must match the exact palette colour");
             }
             covered = covered + 1u32;

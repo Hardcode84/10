@@ -41,7 +41,7 @@ fn session_open(session: mut DemoSession) -> bool {
     return demo_renderer_open(&session.renderer.state, o, session.window.handle);
 }
 fn session_draw(session: mut DemoSession) -> bool {
-    return renderer_draw(&session.renderer.state);
+    return window_draw(&session.renderer.state, session.window.handle);
 }
 fn session_sample(session: mut DemoSession, index: u32, elapsed: u64) -> unit {
     if index > 0u32 {
@@ -58,11 +58,7 @@ fn session_capture(session: read DemoSession) -> bool {
     );
 }
 fn session_present(session: mut DemoSession) -> bool {
-    return present(
-        &session.renderer.state,
-        session.options.window_width,
-        session.options.window_height
-    );
+    return present(&session.renderer.state);
 }
 fn session_report(session: mut DemoSession) -> bool {
     var good: bool = queries_report(&session.renderer.state);

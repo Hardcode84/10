@@ -1,0 +1,102 @@
+// Dimensions must be positive and fit signed window coordinates and buffer indexing.
+fn image_extent_valid(width: u32, height: u32, output_width: u32, output_height: u32) -> bool {
+    if width == 0u32 || height == 0u32 || output_width == 0u32 || output_height == 0u32 || width > 0x7fffffffu32 || height > 0x7fffffffu32 || output_width > 0x7fffffffu32 || output_height > 0x7fffffffu32 {
+        return error("image dimensions are outside the address range");
+    }
+    var pixels: u64 = width as u64 * height as u64;
+    var output: u64 = output_width as u64 * output_height as u64;
+    if pixels > 0x3fffffffu64 / 5u64 || output > 0x3fffffffu64 {
+        return error("image pixel count exceeds the buffer address range");
+    }
+    var words: u64 = PIXELS as u64 + pixels * 5u64 + output;
+    if words > 0x3fffffffu64 {
+        return error("image storage exceeds the buffer address range");
+    }
+    return true;
+}
+fn image_words(v: *Vulkan) -> u64 {
+    return PIXELS as u64 + v -> width as u64 * v -> height as u64 * 5u64 + v -> output_width as u64 * v -> output_height as u64;
+}
+// Requires an open renderer and no active input borrow. Scene assets and camera data survive.
+// A rejected size or allocation preserves the active storage. Draw again before presentation.
+fn renderer_resize(
+    v: *Vulkan,
+    width: u32,
+    height: u32,
+    output_width: u32,
+    output_height: u32
+) -> bool {
+    if !image_extent_valid(width, height, output_width, output_height) {
+        return false;
+    }
+    if v -> width == width && v -> height == height && v -> output_width == output_width && v -> output_height == output_height {
+        return image_swapchain(v);
+    }
+    var next: Vulkan = *v;
+    next.width = width;
+    next.height = height;
+    next.output_width = output_width;
+    next.output_height = output_height;
+    var tiles: u32 = ((width + 7u32) / 8u32) * ((height + 7u32) / 8u32);
+    if next.task_capacity < tiles {
+        next.task_capacity = tiles;
+    }
+    if !geometry_layout(&next, next.triangle_capacity) {
+        return false;
+    }
+    if !vk_ok(vkQueueWaitIdle(v -> queue), "wait before image resize") {
+        return false;
+    }
+    if !storage_replace(v, &next) {
+        return false;
+    }
+    v -> swapchain_dirty = v -> surface != null(*u8);
+    v -> present_ready = false;
+    return image_swapchain(v);
+}
+fn image_viewport(v: *Vulkan) -> unit {
+    var width: u32 = v -> output_width;
+    var height: u32 = v -> output_height;
+    if width as u64 * v -> height as u64 < height as u64 * v -> width as u64 {
+        height = (width as u64 * v -> height as u64 / v -> width as u64) as u32;
+    } else {
+        width = (height as u64 * v -> width as u64 / v -> height as u64) as u32;
+    }
+    if width == 0u32 {
+        width = 1u32;
+    }
+    if height == 0u32 {
+        height = 1u32;
+    }
+    (v -> mapped as *u32)[OUTPUT_VIEW_WIDTH as usize] = width;
+    (v -> mapped as *u32)[OUTPUT_VIEW_HEIGHT as usize] = height;
+}
+
+fn swapchain_close(v: *Vulkan) -> unit {
+    if v -> swapchain != null(*u8) {
+        vkDestroySwapchainKHR(v -> device, v -> swapchain, null(*u8));
+        v -> swapchain = null(*u8);
+    }
+    free(v -> images as *u8);
+    v -> images = null(**u8);
+}
+fn image_swapchain(v: *Vulkan) -> bool {
+    if v -> surface == null(*u8) || !v -> swapchain_dirty {
+        return true;
+    }
+    if !vk_ok(vkQueueWaitIdle(v -> queue), "wait before swapchain replacement") {
+        return false;
+    }
+    swapchain_close(v);
+    return swapchain_open(v, v -> output_width, v -> output_height);
+}
+// No frame is presented until a new draw completes after a successful resize.
+fn renderer_set_extent(
+    renderer: mut Renderer,
+    width: u32,
+    height: u32,
+    output_width: u32,
+    output_height: u32
+) -> bool {
+    return renderer_resize(&renderer.state, width, height, output_width, output_height);
+}

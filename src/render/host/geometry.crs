@@ -7,7 +7,7 @@ fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
         ) + 64u64
     ) / 64u64 * 64u64 - 1u64;
     var words: u64 = (
-        META as u64 + capacity as u64 * (5u64 + v -> view_capacity as u64 * MAX_FAN as u64) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
+        image_words(v) + capacity as u64 * (5u64 + v -> view_capacity as u64 * MAX_FAN as u64) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
             5u64 + v -> view_capacity as u64
         ) + traversal_words(v) + 64u64
     ) / 64u64 * 64u64 - 1u64;
@@ -22,10 +22,18 @@ fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
 fn geometry_header(v: *Vulkan) -> unit {
     var w: *u32 = v -> mapped as *u32;
     var capacity: u32 = v -> triangle_capacity;
+    w[0usize] = v -> width;
+    w[1usize] = v -> height;
+    w[22usize] = v -> output_width;
+    w[23usize] = v -> output_height;
+    w[PRESENT_PIXELS as usize] = PIXELS + v -> width * v -> height;
+    w[DEBUG_VALUES as usize] = w[PRESENT_PIXELS as usize] + v -> output_width * v -> output_height;
+    w[META as usize] = image_words(v) as u32;
+    image_viewport(v);
     w[SCENE_CAPACITY as usize] = capacity;
     w[PROJECTED_OFFSET as usize] = GEOMETRY + capacity * 15u32;
     w[CLIP_OFFSET as usize] = w[PROJECTED_OFFSET as usize] + capacity * v -> view_capacity * MAX_FAN * 20u32;
-    w[COMPACT_OFFSET as usize] = META + capacity * 4u32;
+    w[COMPACT_OFFSET as usize] = w[META as usize] + capacity * 4u32;
     w[ASSET_OFFSET as usize] = w[COMPACT_OFFSET as usize] + capacity * v -> view_capacity * MAX_FAN;
     w[INSTANCE_OWNER as usize] = w[ASSET_OFFSET as usize] + v -> asset_capacity;
     w[MESH_META as usize] = w[INSTANCE_OWNER as usize] + capacity;
@@ -38,10 +46,10 @@ fn geometry_header(v: *Vulkan) -> unit {
     w[FLOAT_COUNT as usize] = v -> floats;
 }
 fn geometry_copy(v: *Vulkan, old: *Vulkan) -> unit {
-    memcpy(v -> mapped, old -> mapped, META as usize * 4usize);
+    memcpy(v -> mapped, old -> mapped, PIXELS as usize * 4usize);
     memcpy(
-        v -> mapped + META as isize * 4isize,
-        old -> mapped + META as isize * 4isize,
+        v -> mapped + image_words(v) as isize * 4isize,
+        old -> mapped + image_words(old) as isize * 4isize,
         old -> triangle_capacity as usize * 16usize
     );
     memcpy(
@@ -100,7 +108,7 @@ fn storage_replace(v: *Vulkan, planned: *Vulkan) -> bool {
 }
 fn geometry_limit(v: *Vulkan) -> u32 {
     var elements: u64 = (v -> storage_limit as u64 / 256u64) * 64u64 - 1u64;
-    var fixed_words: u64 = META as u64 + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
+    var fixed_words: u64 = image_words(v) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
         5u64 + v -> view_capacity as u64
     ) + traversal_words(v);
     var fixed_floats: u64 = GEOMETRY as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(

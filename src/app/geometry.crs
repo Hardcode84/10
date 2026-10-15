@@ -32,7 +32,7 @@ fn triangle_uv(
         scene_overflow();
         return;
     }
-    var m: usize = (META + n * 4u32) as usize;
+    var m: usize = (input_word(read v, META as usize) + n * 4u32) as usize;
     input_set_word(mut v, m, space);
     input_set_word(mut v, m + 1usize, mat);
     input_set_word(mut v, m + 2usize, portal);

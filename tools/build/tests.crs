@@ -31,6 +31,8 @@ fn build_render_tests(root: *CrustRun) -> bool {
     var source_count: usize = demo_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + demo_providers(root, &providers[provider_count]);
+    providers[provider_count] = host_path(root, "tests/render/image.crs");
+    provider_count = provider_count + 1usize;
     sources[source_count] = host_path(root, "tests/render/scene.crs");
     source_count = source_count + 1usize;
     sources[source_count] = host_path(root, "tests/render/runner.crs");

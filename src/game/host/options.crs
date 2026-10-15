@@ -156,8 +156,15 @@ fn game_options_valid(o: *Launch) -> bool {
     if o -> config.shortcut && !o -> config.tour {
         return error("--shortcut requires --tour");
     }
-    if o -> config.width < 320u32 || o -> config.height < 180u32 || o -> config.width > 1920u32 || o -> config.height > 1080u32 {
-        return error("image dimensions must be 320x180 through 1920x1080");
+    if o -> config.width < 320u32 || o -> config.height < 180u32 || !image_extent_valid(
+        o -> config.width,
+        o -> config.height,
+        o -> config.width,
+        o -> config.height
+    ) {
+        return error(
+            "image dimensions must be at least 320x180 and fit the renderer address range"
+        );
     }
     if o -> config.fov < 70f32 || o -> config.fov > 110f32 {
         return error("FOV must be 70 through 110 degrees");

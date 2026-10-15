@@ -26,7 +26,7 @@ fn window_open(window: **u8, width: u32, height: u32) -> bool {
         805240832i32,
         width as i32,
         height as i32,
-        268435460u32
+        268435492u32
     );
     if *window == null(*u8) {
         error(SDL_GetError());
@@ -60,4 +60,27 @@ fn window_instance(v: *Vulkan, window: *u8) -> bool {
         return error(SDL_GetError());
     }
     return true;
+}
+
+extern fn SDL_Vulkan_GetDrawableSize(window: *u8, width: *i32, height: *i32) -> unit = "SDL_Vulkan_GetDrawableSize";
+extern fn SDL_GetWindowFlags(window: *u8) -> u32 = "SDL_GetWindowFlags";
+// A minimized window suspends rendering. Internal resolution remains unchanged.
+fn window_draw(v: *Vulkan, window: *u8) -> bool {
+    if window != null(*u8) {
+        var width: i32 = 0i32;
+        var height: i32 = 0i32;
+        SDL_Vulkan_GetDrawableSize(window, &width, &height);
+        if width <= 0i32 || height <= 0i32 || (SDL_GetWindowFlags(window) & 64u32) != 0u32 {
+            v -> present_ready = false;
+            return true;
+        }
+        if !renderer_resize(v, v -> width, v -> height, width as u32, height as u32) {
+            return false;
+        }
+        if v -> swapchain_dirty {
+            v -> present_ready = false;
+            return true;
+        }
+    }
+    return renderer_draw(v);
 }

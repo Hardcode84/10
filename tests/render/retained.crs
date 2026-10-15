@@ -13,7 +13,7 @@ fn retain_scene(v: mut FrameInput) -> unit {
     var i: u32 = 0u32;
     while i < count {
         var p: usize = (GEOMETRY + i * 15u32) as usize;
-        var meta: usize = (META + i * 4u32) as usize;
+        var meta: usize = (input_word(read v, META as usize) + i * 4u32) as usize;
         var face: MeshTriangle = make MeshTriangle {
             vertices: make [MeshVertex; 3] {
                 retained_vertex(read v, p),

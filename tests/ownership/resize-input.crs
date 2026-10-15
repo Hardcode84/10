@@ -1,0 +1,5 @@
+fn invalid_resize(renderer: Renderer) -> unit {
+    var input: FrameInput = renderer_inputs(mut renderer);
+    var resized: bool = renderer_set_extent(mut renderer, 800u32, 600u32, 800u32, 600u32);
+    input_set_word(mut input, 3usize, resized as u32);
+}

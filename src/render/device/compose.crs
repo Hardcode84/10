@@ -20,14 +20,26 @@ fn overlay_color(output_x: u32, output_y: u32, color: u32) -> u32 {
 }
 fn compute() -> unit {
     var i: u32 = shader_global_x();
-    if i < words_load(22u32) * words_load(23u32) && words_load(5u32) == 0u32 {
-        var x: u32 = (i % words_load(22u32)) * words_load(0u32) / words_load(22u32);
-        var y: u32 = (i / words_load(22u32)) * words_load(1u32) / words_load(23u32);
-        var c: u32 = words_load(PIXELS + y * words_load(0u32) + x);
+    while i < words_load(22u32) * words_load(23u32) && words_load(5u32) == 0u32 {
+        var c: u32 = compose_color(i % words_load(22u32), i / words_load(22u32));
         c = overlay_color(i % words_load(22u32), i / words_load(22u32), c);
         if words_load(21u32) == 44u32 {
             c = (c & 0xff00ff00u32) | ((c & 255u32) << 16u32) | ((c >> 16u32) & 255u32);
         }
-        words_store(PRESENT_PIXELS + i, c);
+        words_store(words_load(PRESENT_PIXELS) + i, c);
+        i = i + MAX_INVOCATIONS;
     }
+}
+
+fn compose_color(x: u32, y: u32) -> u32 {
+    var width: u32 = words_load(OUTPUT_VIEW_WIDTH);
+    var height: u32 = words_load(OUTPUT_VIEW_HEIGHT);
+    var left: u32 = (words_load(22u32) - width) / 2u32;
+    var top: u32 = (words_load(23u32) - height) / 2u32;
+    if x < left || y < top || x >= left + width || y >= top + height {
+        return 0xff000000u32;
+    }
+    var sx: u32 = image_coordinate(x - left, words_load(0u32), width);
+    var sy: u32 = image_coordinate(y - top, words_load(1u32), height);
+    return words_load(PIXELS + sy * words_load(0u32) + sx);
 }

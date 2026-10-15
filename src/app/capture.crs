@@ -12,7 +12,7 @@ fn capture(v: *Vulkan, path: *u8, width: u32, height: u32) -> bool {
     if good {
         good = fwrite(&header[0usize], 1usize, n as usize, file) == n as usize;
     }
-    var bytes: *u8 = v -> mapped + (PRESENT_PIXELS as isize) * 4isize;
+    var bytes: *u8 = v -> mapped + ((v -> mapped as *u32)[PRESENT_PIXELS as usize] as isize) * 4isize;
     var i: usize = 0usize;
     while good && i < (width * height) as usize {
         good = fwrite(bytes + i as isize * 4isize, 1usize, 3usize, file) == 3usize;

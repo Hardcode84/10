@@ -1,8 +1,13 @@
 fn render_config_valid(config: *RenderConfig) -> bool {
-    if config -> width == 0u32 || config -> height == 0u32 || config -> width > 1920u32 || config -> height > 1080u32 || config -> output_width == 0u32 || config -> output_height == 0u32 || config -> output_width > 1920u32 || config -> output_height > 1080u32 || config -> view_budget == 0u32 || config -> task_budget == 0u32 || config -> crossing_limit > 0x3ffffffdu32 {
+    if config -> width == 0u32 || config -> height == 0u32 || config -> output_width == 0u32 || config -> output_height == 0u32 || config -> view_budget == 0u32 || config -> task_budget == 0u32 || config -> crossing_limit > 0x3ffffffdu32 {
         return error("render configuration exceeds image or view capacity");
     }
-    return true;
+    return image_extent_valid(
+        config -> width,
+        config -> height,
+        config -> output_width,
+        config -> output_height
+    );
 }
 fn frame_valid(v: *Vulkan) -> bool {
     var status: *u32 = (
@@ -40,11 +45,15 @@ record RenderConfig {
     fault: u32;
 }
 // Requires an instance and an optional surface. Shader bytes are borrowed for this call.
-// Call device_close after success or failure. Image dimensions stay fixed until close.
+// Call device_close after success or failure. Use renderer_resize to change image dimensions.
 fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> bool {
     if !render_config_valid(config) {
         return false;
     }
+    v -> width = config -> width;
+    v -> height = config -> height;
+    v -> output_width = config -> output_width;
+    v -> output_height = config -> output_height;
     v -> read_pixels = config -> read_pixels;
     v -> view_capacity = config -> view_budget;
     v -> portal_capacity = config -> portal_budget;
@@ -80,6 +89,7 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
 // Consumes the caller's camera, geometry, portals, textures, and lighting in the input buffer.
 // Returns after GPU completion and status readback. A failed frame must not be presented.
 fn renderer_draw(v: *Vulkan) -> bool {
+    v -> present_ready = false;
     var w: *u32 = v -> mapped as *u32;
     if w[4usize] > v -> crossing_limit {
         return error("frame crossing limit exceeds configured traversal depth");
@@ -95,6 +105,7 @@ fn renderer_draw(v: *Vulkan) -> bool {
         return false;
     }
     v -> mesh_dirty = false;
+    v -> present_ready = true;
     return true;
 }
 

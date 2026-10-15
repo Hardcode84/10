@@ -208,7 +208,7 @@ fn reference_color(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> u32 {
     if w[LIGHT_MODEL as usize] == 1u32 {
         return reference_lit(w, f, hit, x, y);
     }
-    var mat: u32 = w[(META + hit.triangle * 4u32 + 1u32) as usize];
+    var mat: u32 = w[(w[META as usize] + hit.triangle * 4u32 + 1u32) as usize];
     var tex: u32 = reference_texel(w, mat, hit.u, hit.v);
     var level: f32 = f[(RENDER_STYLE + 2u32) as usize] - f[(RENDER_STYLE + 3u32) as usize] * hit.distance;
     if level < f[(RENDER_STYLE + 1u32) as usize] {
@@ -283,23 +283,23 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
         };
         var tri: u32 = 0u32;
         while tri < w[3usize] {
-            if w[(META + tri * 4u32) as usize] == space {
+            if w[(w[META as usize] + tri * 4u32) as usize] == space {
                 var next: Hit = hit;
                 var minimum: f32 = f[RENDER_STYLE as usize];
-                if w[(META + tri * 4u32 + 2u32) as usize] != 0u32 {
+                if w[(w[META as usize] + tri * 4u32 + 2u32) as usize] != 0u32 {
                     minimum = 0f32;
                 }
                 if reference_intersect(w, f, tri, ray, minimum, clip, &next) {
                     var accept: bool = true;
-                    if (w[(META + tri * 4u32 + 3u32) as usize] & 1u32) != 0u32 {
+                    if (w[(w[META as usize] + tri * 4u32 + 3u32) as usize] & 1u32) != 0u32 {
                         accept = accept && reference_texel(
                             w,
-                            w[(META + tri * 4u32 + 1u32) as usize],
+                            w[(w[META as usize] + tri * 4u32 + 1u32) as usize],
                             next.u,
                             next.v
                         ) != reference_material(
                             w,
-                            w[(META + tri * 4u32 + 1u32) as usize],
+                            w[(w[META as usize] + tri * 4u32 + 1u32) as usize],
                             9u32
                         );
                     }
@@ -323,7 +323,7 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
         if hit.edge < 0.00001f32 {
             *boundary = true;
         }
-        var portal: u32 = w[(META + hit.triangle * 4u32 + 2u32) as usize];
+        var portal: u32 = w[(w[META as usize] + hit.triangle * 4u32 + 2u32) as usize];
         if portal == 0u32 || depth == w[4usize] {
             *final = hit;
             return reference_color(w, f, hit, x, y);
@@ -428,7 +428,7 @@ fn reference_check(mapped: *u8) -> bool {
                     ref_print("y=%u ", y);
                     ref_print("actual=%u ", actual);
                     ref_print("expected=%u\n", target);
-                    var j: usize = (DEBUG_VALUES + (y * width + x) * 4u32) as usize;
+                    var j: usize = (w[DEBUG_VALUES as usize] + (y * width + x) * 4u32) as usize;
                     ref_print("gpu tri/view=%u ", w[j]);
                     ref_print("u=%u ", w[j + 1usize]);
                     ref_print("v=%u ", w[j + 2usize]);
@@ -466,7 +466,7 @@ fn reference_alternate(w: *u32, f: *f32, hit: Hit, x: u32, y: u32, actual: u32) 
     if w[LIGHT_MODEL as usize] == 1u32 && reference_light_boundary(w, f, hit, x, y, actual) {
         return true;
     }
-    var mat: u32 = w[(META + hit.triangle * 4u32 + 1u32) as usize];
+    var mat: u32 = w[(w[META as usize] + hit.triangle * 4u32 + 1u32) as usize];
     var u: f32 = hit.u * reference_material(w, mat, 1u32) as f32;
     var v: f32 = hit.v * reference_material(w, mat, 2u32) as f32;
     var iu: f32 = floorf(u + 0.5f32);
@@ -621,8 +621,8 @@ fn reference_grid_hit(w: *u32, f: *f32, hit: Hit, normal: Vec, x: u32, y: u32) -
     return result;
 }
 fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
-    var mat: u32 = w[(META + hit.triangle * 4u32 + 1u32) as usize];
-    var space: u32 = w[(META + hit.triangle * 4u32) as usize];
+    var mat: u32 = w[(w[META as usize] + hit.triangle * 4u32 + 1u32) as usize];
+    var space: u32 = w[(w[META as usize] + hit.triangle * 4u32) as usize];
     var p: usize = (GEOMETRY + hit.triangle * 15u32) as usize;
     var normal: Vec = cross(
         sub(vertex(f, p + 5usize), vertex(f, p)),
@@ -673,7 +673,7 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
     };
 }
 fn reference_lit(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> u32 {
-    var mat: u32 = w[(META + hit.triangle * 4u32 + 1u32) as usize];
+    var mat: u32 = w[(w[META as usize] + hit.triangle * 4u32 + 1u32) as usize];
     var light: Vec = reference_illumination(w, f, hit, x, y);
     var t: f32 = reference_threshold(x, y, w[2usize]) as f32;
     var state: u32 = reference_quantize(light.x, t) + reference_quantize(light.y, t) * 8u32 + reference_quantize(
@@ -696,7 +696,7 @@ fn reference_intersect(
     clip: u32,
     hit: *Hit
 ) -> bool {
-    if (w[(META + tri * 4u32 + 3u32) as usize] & 2u32) != 0u32 {
+    if (w[(w[META as usize] + tri * 4u32 + 3u32) as usize] & 2u32) != 0u32 {
         var p: usize = (GEOMETRY + tri * 15u32) as usize;
         var a: Vec = vertex(f, p);
         var normal: Vec = cross(
@@ -707,7 +707,7 @@ fn reference_intersect(
             return false;
         }
     }
-    var portal: u32 = w[(META + tri * 4u32 + 2u32) as usize];
+    var portal: u32 = w[(w[META as usize] + tri * 4u32 + 2u32) as usize];
     if portal != 0u32 {
         var destination: Ray = through(ray, w, f, portal - 1u32);
         var plane: usize = (w[PORTAL_FLOAT as usize] + (portal - 1u32) * 16u32 + 12u32) as usize;
@@ -721,7 +721,7 @@ fn reference_intersect(
 // Accept only light states within one millionth of the calculated threshold.
 fn reference_light_boundary(w: *u32, f: *f32, hit: Hit, x: u32, y: u32, actual: u32) -> bool {
     var light: Vec = reference_illumination(w, f, hit, x, y);
-    var mat: u32 = w[(META + hit.triangle * 4u32 + 1u32) as usize];
+    var mat: u32 = w[(w[META as usize] + hit.triangle * 4u32 + 1u32) as usize];
     var base: u32 = reference_palette(w, mat) + reference_texel(w, mat, hit.u, hit.v) * LIGHT_STATES;
     var t: f32 = reference_threshold(x, y, w[2usize]) as f32;
     var choice: u32 = 0u32;

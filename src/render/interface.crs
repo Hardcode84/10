@@ -15,7 +15,7 @@ const COMPACT_OFFSET: u32 = 44u32;
 const WORD_COUNT: u32 = 45u32;
 const FLOAT_COUNT: u32 = 46u32;
 const MAX_FAN: u32 = 8u32;
-const META: u32 = 16777216u32;
+const META: u32 = 79u32;
 const TASK_A: u32 = 59u32;
 const TASK_B: u32 = 60u32;
 const CANDIDATES: u32 = 61u32;
@@ -27,13 +27,12 @@ const PORTAL_FLOAT: u32 = 66u32;
 const GEOMETRY: u32 = 1024u32;
 const LOCAL_SIZE: u32 = 64u32;
 const MAX_INVOCATIONS: u32 = 2097152u32;
-const WORDS_LENGTH: u32 = 16777216u32;
-const PRESENT_PIXELS: u32 = 5000000u32;
+const PRESENT_PIXELS: u32 = 77u32;
 const COMPACT_COUNT: u32 = 67u32;
 const TASK_PREFIX: u32 = 68u32;
 const GROUP_COUNTS: u32 = 69u32;
 const GROUP_PREFIX: u32 = 70u32;
-const DEBUG_VALUES: u32 = 8000000u32;
+const DEBUG_VALUES: u32 = 78u32;
 
 // Caller-supplied scene appearance. Colours are packed RGBA; style values are floats.
 const BACKGROUND: u32 = 34u32;
@@ -52,8 +51,8 @@ const CAMERA_LIGHT: u32 = 1008u32;
 const PROJECTION: u32 = 20u32;
 // Optional 80 by 6 text cells, eight pixels square, at the output top edge.
 const OVERLAY_ENABLED: u32 = 37u32;
-const OVERLAY_CELLS: u32 = 2750000u32;
-const OVERLAY_FONT: u32 = 2751000u32;
+const OVERLAY_CELLS: u32 = 6144u32;
+const OVERLAY_FONT: u32 = 7144u32;
 // Overlay foreground and background colours, supplied by the caller.
 const OVERLAY_COLOR: u32 = 38u32;
 
@@ -80,3 +79,6 @@ const TASK_COMMANDS: u32 = 74u32;
 const PEAK_TASKS: u32 = 75u32;
 
 const VIEW_KEYS: u32 = 76u32;
+
+const OUTPUT_VIEW_WIDTH: u32 = 80u32;
+const OUTPUT_VIEW_HEIGHT: u32 = 81u32;

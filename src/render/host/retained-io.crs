@@ -54,7 +54,7 @@ fn retained_readback(v: *Vulkan) -> unit {
         v,
         v -> buffer,
         v -> staging,
-        (META as u64 + 1u64) * 4u64,
+        (w[META as usize] as u64 + 1u64) * 4u64,
         w[3usize] as u64 * 16u64
     );
 }

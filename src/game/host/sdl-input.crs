@@ -1,7 +1,6 @@
 extern fn SDL_SetRelativeMouseMode(enabled: i32) -> i32 = "SDL_SetRelativeMouseMode";
 extern fn SDL_GetRelativeMouseState(x: *i32, y: *i32) -> u32 = "SDL_GetRelativeMouseState";
 extern fn SDL_GetKeyboardState(count: *i32) -> *u8 = "SDL_GetKeyboardState";
-extern fn SDL_GetWindowFlags(window: *u8) -> u32 = "SDL_GetWindowFlags";
 extern fn SDL_SetWindowTitle(window: *u8, title: *u8) -> unit = "SDL_SetWindowTitle";
 extern fn SDL_NumJoysticks() -> i32 = "SDL_NumJoysticks";
 extern fn SDL_IsGameController(index: i32) -> i32 = "SDL_IsGameController";

@@ -27,10 +27,10 @@ fn expand_triangle(instance: u32, local: u32) -> unit {
     if material == 0xffffffffu32 {
         material = words_load(meta);
     }
-    words_store(META + triangle * 4u32, words_load(info + 3u32));
-    words_store(META + triangle * 4u32 + 1u32, material);
-    words_store(META + triangle * 4u32 + 2u32, words_load(meta + 1u32));
-    words_store(META + triangle * 4u32 + 3u32, words_load(meta + 2u32));
+    words_store(words_load(META) + triangle * 4u32, words_load(info + 3u32));
+    words_store(words_load(META) + triangle * 4u32 + 1u32, material);
+    words_store(words_load(META) + triangle * 4u32 + 2u32, words_load(meta + 1u32));
+    words_store(words_load(META) + triangle * 4u32 + 3u32, words_load(meta + 2u32));
     words_store(words_load(INSTANCE_OWNER) + triangle, instance);
 }
 fn compute() -> unit {

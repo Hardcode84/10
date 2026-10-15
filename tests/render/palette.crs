@@ -1,5 +1,5 @@
 const PALETTE: u32 = 256u32;
-const TEXTURE: u32 = 64u32;
+const TEXTURE: u32 = 128u32;
 fn palette_pixels(v: *Vulkan, mode: u32) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var good: bool = true;
@@ -139,6 +139,10 @@ fn palette_test() -> bool {
     var v: Vulkan = uninit;
     zero(&v as *u8, sizeof(Vulkan));
     v.read_pixels = true;
+    v.width = 641u32;
+    v.height = 363u32;
+    v.output_width = 1282u32;
+    v.output_height = 726u32;
     var good: bool = instance_open(&v, 0u32, null(**u8)) && device_open(&v) && buffer_create(&v) && layout_create(
         &v
     ) && load_pipeline(&v, "build/palette.spv", 0usize) && load_pipeline(
@@ -164,15 +168,13 @@ fn presentation_check(v: *Vulkan) -> bool {
     var height: u32 = w[23usize];
     var i: u32 = 0u32;
     while i < width * height {
-        var x: u32 = (i % width) * w[0usize] / width;
-        var y: u32 = (i / width) * w[1usize] / height;
-        var expected: u32 = w[(PIXELS + y * w[0usize] + x) as usize];
+        var expected: u32 = presentation_expected(w, i % width, i / width);
         if w[21usize] == 44u32 {
             expected = (expected & 0xff00ff00u32) | ((expected & 255u32) << 16u32) | (
                 (expected >> 16u32) & 255u32
             );
         }
-        if w[(PRESENT_PIXELS + i) as usize] != expected {
+        if w[(w[PRESENT_PIXELS as usize] + i) as usize] != expected {
             return error("presentation conversion or nearest-neighbour scaling mismatch");
         }
         i = i + 1u32;
@@ -230,7 +232,7 @@ fn overlay_pixels(v: *Vulkan, format: u32, scale: u32) -> bool {
                 (expected >> 16u32) & 255u32
             );
         }
-        if w[(PRESENT_PIXELS + i) as usize] != expected {
+        if w[(w[PRESENT_PIXELS as usize] + i) as usize] != expected {
             return error("overlay glyph, bounds, transparency or channel order differs");
         }
         i = i + 1u32;
@@ -267,4 +269,28 @@ fn overlay_test(v: *Vulkan) -> bool {
         scale = scale + 1u32;
     }
     return true;
+}
+
+fn presentation_expected(w: *u32, x: u32, y: u32) -> u32 {
+    var width: u64 = w[22usize] as u64;
+    var height: u64 = w[23usize] as u64;
+    if width * w[1usize] as u64 < height * w[0usize] as u64 {
+        height = width * w[1usize] as u64 / w[0usize] as u64;
+    } else {
+        width = height * w[0usize] as u64 / w[1usize] as u64;
+    }
+    if width == 0u64 {
+        width = 1u64;
+    }
+    if height == 0u64 {
+        height = 1u64;
+    }
+    var left: u64 = (w[22usize] as u64 - width) / 2u64;
+    var top: u64 = (w[23usize] as u64 - height) / 2u64;
+    if x as u64 < left || y as u64 < top || x as u64 >= left + width || y as u64 >= top + height {
+        return 0xff000000u32;
+    }
+    var sx: u64 = (x as u64 - left) * w[0usize] as u64 / width;
+    var sy: u64 = (y as u64 - top) * w[1usize] as u64 / height;
+    return w[(PIXELS as u64 + sy * w[0usize] as u64 + sx) as usize];
 }

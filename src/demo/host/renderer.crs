@@ -43,7 +43,7 @@ fn demo_render_config(o: *Options) -> RenderConfig {
         baseline: o -> baseline,
         view_budget: o -> view_budget,
         portal_budget: 4u32,
-        task_budget: 32768u32,
+        task_budget: demo_task_budget(o -> width, o -> height),
         crossing_limit: 3u32,
         fault: o -> fault
     };
@@ -52,4 +52,12 @@ fn demo_render_config(o: *Options) -> RenderConfig {
 fn demo_renderer_open(v: *Vulkan, o: *Options, window: *u8) -> bool {
     var config: RenderConfig = demo_render_config(o);
     return demo_renderer_configured(v, &config, window);
+}
+
+fn demo_task_budget(width: u32, height: u32) -> u32 {
+    var tiles: u32 = ((width + 7u32) / 8u32) * ((height + 7u32) / 8u32);
+    if tiles < 32768u32 {
+        return 32768u32;
+    }
+    return tiles;
 }

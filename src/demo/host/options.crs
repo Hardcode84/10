@@ -43,7 +43,12 @@ fn option_value(key: *u8, value: *u8, o: *Options) -> bool {
     return error("unknown option: use --help");
 }
 fn option_dimensions(o: *Options) -> bool {
-    return o -> width != 0u32 && o -> height != 0u32 && o -> width <= 1920u32 && o -> height <= 1080u32 && o -> window_width <= 1920u32 && o -> window_height <= 1080u32 && o -> frames != 0u32 && o -> frames <= 4096u32;
+    return o -> width != 0u32 && o -> height != 0u32 && image_extent_valid(
+        o -> width,
+        o -> height,
+        o -> window_width,
+        o -> window_height
+    ) && o -> frames != 0u32 && o -> frames <= 4096u32;
 }
 fn option_modes(o: *Options) -> bool {
     return o -> dither <= 1u32 && o -> view_budget != 0u32 && o -> fault <= 1u32 && o -> mapping <= 2u32 && o -> snap <= 1u32 && o -> debug_pixels <= 1u32;

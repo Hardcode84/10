@@ -106,8 +106,8 @@ fn light_band(amount: f32, r: f32, g: f32, b: f32) -> f32 {
     return level as f32 / (7f32 * peak);
 }
 fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
-    var mat: u32 = words_load(META + tri * 4u32 + 1u32);
-    var space: u32 = words_load(META + tri * 4u32);
+    var mat: u32 = words_load(words_load(META) + tri * 4u32 + 1u32);
+    var space: u32 = words_load(words_load(META) + tri * 4u32);
     var red: f32 = floats_load(SPACE_LIGHT + space * 4u32);
     var green: f32 = floats_load(SPACE_LIGHT + space * 4u32 + 1u32);
     var blue: f32 = floats_load(SPACE_LIGHT + space * 4u32 + 2u32);
@@ -263,7 +263,7 @@ fn material_texel(mat: u32, u: f32, v: f32) -> u32 {
     );
 }
 fn surface_color(tri: u32, view: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
-    var mat: u32 = words_load(META + tri * 4u32 + 1u32);
+    var mat: u32 = words_load(words_load(META) + tri * 4u32 + 1u32);
     if words_load(LIGHT_MODEL) == 0u32 {
         return light_color(mat, u, v, z, x, y);
     }
@@ -306,7 +306,7 @@ fn triangle_visible(tri: u32, view: u32) -> bool {
             return false;
         }
     }
-    if (words_load(META + tri * 4u32 + 3u32) & 2u32) == 0u32 {
+    if (words_load(words_load(META) + tri * 4u32 + 3u32) & 2u32) == 0u32 {
         return true;
     }
     var p: u32 = GEOMETRY + tri * 15u32;
@@ -356,4 +356,33 @@ fn task_commands(tasks: u32, previous: u32) -> unit {
 
 fn view_key_words() -> u32 {
     return (words_load(31u32) * words_load(PORTAL_CAPACITY) + 31u32) / 32u32;
+}
+
+// Returns floor(coordinate * source / extent). Coordinate must be below extent.
+fn image_coordinate(coordinate: u32, source: u32, extent: u32) -> u32 {
+    if source <= 0xffffffffu32 / extent {
+        return coordinate * source / extent;
+    }
+    var quotient: u32 = 0u32;
+    var remainder: u32 = 0u32;
+    var bit: u32 = 32u32;
+    while bit != 0u32 {
+        bit = bit - 1u32;
+        quotient = quotient * 2u32;
+        if remainder >= extent - remainder {
+            remainder = remainder - (extent - remainder);
+            quotient = quotient + 1u32;
+        } else {
+            remainder = remainder * 2u32;
+        }
+        if ((source >> bit) & 1u32) != 0u32 {
+            if remainder >= extent - coordinate {
+                remainder = remainder - (extent - coordinate);
+                quotient = quotient + 1u32;
+            } else {
+                remainder = remainder + coordinate;
+            }
+        }
+    }
+    return quotient;
 }
