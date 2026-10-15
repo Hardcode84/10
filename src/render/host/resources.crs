@@ -56,7 +56,13 @@ fn allocate_buffer(
     );
 }
 fn buffer_create(v: *Vulkan) -> bool {
-    var size: u64 = (WORDS_LENGTH as u64 + FLOATS_LENGTH as u64 + MAX_INVOCATIONS as u64) * 4u64;
+    if v -> view_capacity == 0u32 {
+        v -> view_capacity = 1u32;
+    }
+    if v -> triangle_capacity == 0u32 && !geometry_layout(v, 1u32) {
+        return false;
+    }
+    var size: u64 = (v -> words as u64 + v -> floats as u64 + 2u64 + MAX_INVOCATIONS as u64) * 4u64;
     if !allocate_buffer(v, size, 35u32 | 256u32, 1u32, &v -> buffer, &v -> memory) || !allocate_buffer(
         v,
         size,
@@ -74,6 +80,10 @@ fn buffer_create(v: *Vulkan) -> bool {
         return false;
     }
     zero(v -> mapped, size as usize);
+    (v -> mapped as *u32)[0usize] = v -> words;
+    (v -> mapped as *u32)[(v -> words + 1u32) as usize] = v -> floats;
+    v -> mapped = v -> mapped + 4isize;
+    geometry_header(v);
     return true;
 }
 fn layout_create(v: *Vulkan) -> bool {
@@ -170,20 +180,24 @@ fn descriptors_create(v: *Vulkan) -> bool {
     ) {
         return false;
     }
+    descriptors_update(v);
+    return true;
+}
+fn descriptors_update(v: *Vulkan) -> unit {
     var buffers: [VkDescriptorBufferInfo; 3] = uninit;
     buffers[0usize] = make VkDescriptorBufferInfo {
         buffer: v -> buffer,
         offset: 0u64,
-        range: WORDS_LENGTH as u64 * 4u64
+        range: (v -> words as u64 + 1u64) * 4u64
     };
     buffers[1usize] = make VkDescriptorBufferInfo {
         buffer: v -> buffer,
-        offset: WORDS_LENGTH as u64 * 4u64,
-        range: FLOATS_LENGTH as u64 * 4u64
+        offset: (v -> words as u64 + 1u64) * 4u64,
+        range: (v -> floats as u64 + 1u64) * 4u64
     };
     buffers[2usize] = make VkDescriptorBufferInfo {
         buffer: v -> buffer,
-        offset: (WORDS_LENGTH as u64 + FLOATS_LENGTH as u64) * 4u64,
+        offset: (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
         range: MAX_INVOCATIONS as u64 * 4u64
     };
     var writes: [VkWriteDescriptorSet; 3] = uninit;
@@ -199,5 +213,4 @@ fn descriptors_create(v: *Vulkan) -> bool {
         i = i + 1usize;
     }
     vkUpdateDescriptorSets(v -> device, 3u32, &writes[0usize], 0u32, null(*u8));
-    return true;
 }

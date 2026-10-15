@@ -1,3 +1,9 @@
+fn geometry_groups(count: u32) -> u32 {
+    if count > MAX_INVOCATIONS {
+        return MAX_INVOCATIONS / LOCAL_SIZE;
+    }
+    return (count + LOCAL_SIZE - 1u32) / LOCAL_SIZE;
+}
 fn task_base() -> u32 {
     if words_load(8u32) == 0u32 {
         return TASK_A;

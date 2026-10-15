@@ -64,6 +64,9 @@ fn session_draw(session: mut DemoSession) -> bool {
 fn session_verify(session: read DemoSession, index: u32, frame: u32) -> bool {
     var v: *Vulkan = &session.renderer.state;
     var o: *Options = &session.options;
+    if o -> test == 5u32 && index == 7u32 && !capacity_failure_check(v) {
+        return false;
+    }
     if o -> test == 4u32 && !tour_verify(v, index) {
         return false;
     }

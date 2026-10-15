@@ -30,7 +30,7 @@ fn compute() -> unit {
         words_store(13u32, tiles);
         words_store(14u32, 1u32);
         words_store(15u32, 1u32);
-        words_store(16u32, MAX_TRIS / 64u32);
+        words_store(16u32, geometry_groups(words_load(3u32)));
         words_store(17u32, 1u32);
         words_store(18u32, 1u32);
         words_store(VIEW_META, words_load(20u32));

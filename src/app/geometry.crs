@@ -15,7 +15,7 @@ fn triangle(
     cz: f32
 ) -> unit {
     var n: u32 = input_word(read v, 3usize);
-    if n >= MAX_TRIS {
+    if !input_reserve_triangles(mut v, n + 1u32) {
         scene_overflow();
         return;
     }

@@ -96,7 +96,7 @@ fn test_expedition_winch() -> bool {
     );
 }
 fn test_expedition() -> bool {
-    return test_content_budget() && test_room_content() && test_expedition_docking() && test_expedition_power() && test_expedition_recovery() && test_expedition_winch() && test_expedition_stalled_reel() && test_expedition_flight(
+    return test_room_content() && test_expedition_docking() && test_expedition_power() && test_expedition_recovery() && test_expedition_winch() && test_expedition_stalled_reel() && test_expedition_flight(
         false
     ) && test_expedition_flight(true);
 }

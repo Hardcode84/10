@@ -76,7 +76,7 @@ fn palette_record(v: *Vulkan) -> bool {
     vkCmdFillBuffer(
         v -> commands,
         v -> buffer,
-        (WORDS_LENGTH as u64 + FLOATS_LENGTH as u64) * 4u64,
+        (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
         MAX_INVOCATIONS as u64 * 4u64,
         0u32
     );

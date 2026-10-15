@@ -5,7 +5,9 @@ fn render_config_valid(config: *RenderConfig) -> bool {
     return true;
 }
 fn frame_valid(v: *Vulkan) -> bool {
-    var status: *u32 = (v -> mapped + (WORDS_LENGTH as isize + FLOATS_LENGTH as isize) * 4isize) as *u32;
+    var status: *u32 = (
+        v -> mapped + (v -> words as isize + v -> floats as isize + 1isize) * 4isize
+    ) as *u32;
     var i: usize = 0usize;
     while i < MAX_INVOCATIONS as usize {
         if status[i] != 0u32 {
@@ -37,6 +39,7 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
         return false;
     }
     v -> read_pixels = config -> read_pixels;
+    v -> view_capacity = config -> view_budget;
     if !device_open(v) || !buffer_create(v) || !layout_create(v) {
         return false;
     }
@@ -61,7 +64,7 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
     w[26usize] = config -> debug_pixels;
     w[31usize] = config -> view_budget;
     w[33usize] = config -> fault;
-    ((v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32)[PROJECTION as usize] = 1f32;
+    ((v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32)[PROJECTION as usize] = 1f32;
     if !descriptors_create(v) || !commands_create(v) || !queries_create(v) || !commands_record(v) {
         return false;
     }

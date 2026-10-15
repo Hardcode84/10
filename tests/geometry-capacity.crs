@@ -1,0 +1,51 @@
+fn capacity_scene(v: mut FrameInput, index: u32) -> unit {
+    var counts: [u32; 8] = make [u32; 8] {
+        0u32,
+        1u32,
+        255u32,
+        256u32,
+        257u32,
+        1025u32,
+        4097u32,
+        17u32
+    };
+    input_set_word(mut v, 3usize, 0u32);
+    input_set_word(mut v, 4usize, 0u32);
+    input_set_word(mut v, 20usize, 0u32);
+    input_set_word(mut v, LIGHT_MODEL as usize, 0u32);
+    input_set_word(mut v, BACKGROUND as usize, 0xff302010u32);
+    input_set_float(mut v, RENDER_STYLE as usize, 0.125f32);
+    input_set_float(mut v, (RENDER_STYLE + 1u32) as usize, 6f32);
+    input_set_float(mut v, (RENDER_STYLE + 2u32) as usize, 52f32);
+    input_set_float(mut v, (RENDER_STYLE + 3u32) as usize, 0.65f32);
+    var i: u32 = 0u32;
+    while i < 12u32 {
+        var value: f32 = 0f32;
+        if i == 0u32 || i == 5u32 || i == 10u32 {
+            value = 1f32;
+        }
+        input_set_float(mut v, i as usize, value);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < counts[index as usize] {
+        var depth: f32 = 8f32 - (i / 2u32) as f32 * 0.001f32;
+        triangle(
+            mut v,
+            0u32,
+            i % 5u32,
+            0u32,
+            (i % 3u32 == 0u32) as u32,
+            -20f32,
+            -20f32,
+            depth,
+            20f32,
+            -20f32,
+            depth,
+            0f32,
+            20f32,
+            depth
+        );
+        i = i + 1u32;
+    }
+}

@@ -61,7 +61,7 @@ solids include the launch cradle and riser content in the
 triangles, including the pipe, station marks, parked drone, cockpit, cable,
 and both prediction sets. Tests sum the maximum face counts for each axis
 over every interval between shell and prop planes. Faces on the eye plane
-have zero projected area and are omitted. The renderer limit remains 256.
+have zero projected area and are omitted. The renderer grows geometry storage to fit the submission.
 The eight-light limit is unchanged.
 
 Panel construction uses fixed stack storage and no heap allocation. Each

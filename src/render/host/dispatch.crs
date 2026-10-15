@@ -54,7 +54,7 @@ fn commands_record(v: *Vulkan) -> bool {
     vkCmdFillBuffer(
         v -> commands,
         v -> buffer,
-        (WORDS_LENGTH as u64 + FLOATS_LENGTH as u64) * 4u64,
+        (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
         MAX_INVOCATIONS as u64 * 4u64,
         0u32
     );
@@ -85,7 +85,7 @@ fn commands_record(v: *Vulkan) -> bool {
             VK_PIPELINE_BIND_POINT_COMPUTE,
             v -> pipelines[1usize]
         );
-        vkCmdDispatchIndirect(v -> commands, v -> buffer, 64u64);
+        vkCmdDispatchIndirect(v -> commands, v -> buffer, 68u64);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 2u32 + depth * 4u32);
         vkCmdBindPipeline(
@@ -101,7 +101,7 @@ fn commands_record(v: *Vulkan) -> bool {
             VK_PIPELINE_BIND_POINT_COMPUTE,
             v -> pipelines[2usize]
         );
-        vkCmdDispatchIndirect(v -> commands, v -> buffer, 52u64);
+        vkCmdDispatchIndirect(v -> commands, v -> buffer, 56u64);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 4u32 + depth * 4u32);
         vkCmdBindPipeline(
@@ -123,7 +123,7 @@ fn commands_record(v: *Vulkan) -> bool {
             VK_PIPELINE_BIND_POINT_COMPUTE,
             v -> pipelines[7usize]
         );
-        vkCmdDispatchIndirect(v -> commands, v -> buffer, 112u64);
+        vkCmdDispatchIndirect(v -> commands, v -> buffer, 116u64);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 5u32 + depth * 4u32);
         depth = depth + 1u32;
@@ -251,52 +251,64 @@ fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
     vkCmdCopyBuffer(v -> commands, src, dst, 1u32, &copy);
 }
 fn upload_scene(v: *Vulkan) -> unit {
-    copy_region(v, v -> staging, v -> buffer, OVERLAY_CELLS as u64 * 4u64, 2024u64 * 4u64);
     copy_region(
         v,
         v -> staging,
         v -> buffer,
-        LIT_PALETTE as u64 * 4u64,
+        4u64 + OVERLAY_CELLS as u64 * 4u64,
+        2024u64 * 4u64
+    );
+    copy_region(
+        v,
+        v -> staging,
+        v -> buffer,
+        4u64 + LIT_PALETTE as u64 * 4u64,
         MAX_MATERIALS as u64 * 2048u64 * 4u64
     );
     copy_region(
         v,
         v -> staging,
         v -> buffer,
-        MATERIAL_TEXTURE as u64 * 4u64,
+        4u64 + MATERIAL_TEXTURE as u64 * 4u64,
         MAX_MATERIALS as u64 * 64u64 * 4u64
     );
-    copy_region(v, v -> staging, v -> buffer, 0u64, 8192u64 * 4u64);
-    copy_region(v, v -> staging, v -> buffer, META as u64 * 4u64, MAX_TRIS as u64 * 16u64);
+    copy_region(v, v -> staging, v -> buffer, 0u64, 8193u64 * 4u64);
     copy_region(
         v,
         v -> staging,
         v -> buffer,
-        (MATERIAL_STYLE as u64) * 4u64,
+        4u64 + META as u64 * 4u64,
+        v -> triangle_capacity as u64 * 16u64
+    );
+    copy_region(
+        v,
+        v -> staging,
+        v -> buffer,
+        4u64 + (MATERIAL_STYLE as u64) * 4u64,
         MAX_MATERIALS as u64 * 4u64
     );
     copy_region(
         v,
         v -> staging,
         v -> buffer,
-        PORTAL_META as u64 * 4u64,
+        4u64 + PORTAL_META as u64 * 4u64,
         MAX_PORTALS as u64 * 16u64
     );
     copy_region(
         v,
         v -> staging,
         v -> buffer,
-        WORDS_LENGTH as u64 * 4u64,
-        (GEOMETRY as u64 + MAX_TRIS as u64 * 15u64) * 4u64
+        (v -> words as u64 + 1u64) * 4u64,
+        (1u64 + GEOMETRY as u64 + v -> triangle_capacity as u64 * 15u64) * 4u64
     );
 }
 fn readback(v: *Vulkan) -> unit {
-    copy_region(v, v -> buffer, v -> staging, 0u64, 64u64 * 4u64);
+    copy_region(v, v -> buffer, v -> staging, 0u64, 65u64 * 4u64);
     copy_region(
         v,
         v -> buffer,
         v -> staging,
-        (WORDS_LENGTH as u64 + FLOATS_LENGTH as u64) * 4u64,
+        (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
         MAX_INVOCATIONS as u64 * 4u64
     );
     if v -> read_pixels {
@@ -304,14 +316,14 @@ fn readback(v: *Vulkan) -> unit {
             v,
             v -> buffer,
             v -> staging,
-            PIXELS as u64 * 4u64,
+            4u64 + PIXELS as u64 * 4u64,
             MAX_INVOCATIONS as u64 * 4u64
         );
         copy_region(
             v,
             v -> buffer,
             v -> staging,
-            (PRESENT_PIXELS as u64) * 4u64,
+            4u64 + (PRESENT_PIXELS as u64) * 4u64,
             MAX_INVOCATIONS as u64 * 4u64
         );
     }
@@ -320,7 +332,7 @@ fn readback(v: *Vulkan) -> unit {
             v,
             v -> buffer,
             v -> staging,
-            (DEBUG_VALUES as u64) * 4u64,
+            4u64 + (DEBUG_VALUES as u64) * 4u64,
             (v -> mapped as *u32)[0usize] as u64 * (v -> mapped as *u32)[1usize] as u64 * 16u64
         );
     }

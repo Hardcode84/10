@@ -120,10 +120,10 @@ fn clip_polygon(base: u32, count: u32, plane: u32, near: f32) -> u32 {
     return output;
 }
 fn prepare_triangle(index: u32) -> unit {
-    var view: u32 = words_load(9u32) + index / MAX_TRIS;
-    var tri: u32 = index % MAX_TRIS;
-    var slot: u32 = view * MAX_TRIS + tri;
-    var output: u32 = PROJECTED + slot * MAX_FAN * 20u32;
+    var view: u32 = words_load(9u32) + index / words_load(3u32);
+    var tri: u32 = index % words_load(3u32);
+    var slot: u32 = view * words_load(3u32) + tri;
+    var output: u32 = words_load(PROJECTED_OFFSET) + slot * MAX_FAN * 20u32;
     var fan: u32 = 0u32;
     while fan < MAX_FAN {
         floats_store(output + fan * 20u32 + 18u32, 0f32);
@@ -137,7 +137,7 @@ fn prepare_triangle(index: u32) -> unit {
     if !portal_facing(view, words_load(META + tri * 4u32 + 2u32)) {
         return;
     }
-    var scratch: u32 = CLIP + slot * 144u32;
+    var scratch: u32 = words_load(CLIP_OFFSET) + slot * 144u32;
     var matrix: u32 = VIEW_FLOAT + view * 16u32;
     var vertex: u32 = 0u32;
     while vertex < 3u32 {
@@ -190,7 +190,8 @@ fn prepare_triangle(index: u32) -> unit {
 }
 fn compute() -> unit {
     var i: u32 = shader_global_x();
-    if words_load(5u32) == 0u32 && i < words_load(10u32) * MAX_TRIS {
+    while words_load(5u32) == 0u32 && i < words_load(10u32) * words_load(3u32) {
         prepare_triangle(i);
+        i = i + MAX_INVOCATIONS;
     }
 }

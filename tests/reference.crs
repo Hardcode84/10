@@ -212,7 +212,9 @@ fn reference_color(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> u32 {
 }
 fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit) -> u32 {
     var w: *u32 = mapped as *u32;
-    var f: *f32 = (mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var f: *f32 = (
+        mapped + ((mapped as *u32)[WORD_COUNT as usize] as isize + 1isize) * 4isize
+    ) as *f32;
     var d: Vec = make Vec {
         x: (2f32 * (x as f32 + 0.5f32) - w[0usize] as f32) / w[1usize] as f32 * f[
             PROJECTION as usize
@@ -399,7 +401,9 @@ fn reference_check(mapped: *u8) -> bool {
                 }
                 if !match && !coverage_boundary && !reference_alternate(
                     w,
-                    (mapped + WORDS_LENGTH as isize * 4isize) as *f32,
+                    (
+                        mapped + ((mapped as *u32)[WORD_COUNT as usize] as isize + 1isize) * 4isize
+                    ) as *f32,
                     hits[(y * width + x) as usize],
                     x,
                     y,

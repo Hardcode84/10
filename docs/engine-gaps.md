@@ -23,25 +23,26 @@ or silently discard content until that gate.
 
 ## Rendering
 
-### R1. Geometry and tile capacity — asset proof
+### R1. Geometry and tile capacity — implemented
 
-[Buffer layout](../src/render/interface.crs) sets `MAX_TRIS` to 256,
-`MAX_VIEWS` to 32, and `MAX_FAN` to 8. The current expedition has a conservative
-252-triangle submission bound. The [transform pass](../src/render/device/transform.crs)
-reserves projected and clipping storage by view, triangle, and fan slot.
-The [raster pass](../src/render/device/raster.crs), in `bin_tile`, separately
-rejects more than 256 candidates for a tile. Its shared-memory offsets also
-contain that capacity. Raising `MAX_TRIS` alone is unsafe.
+The renderer has no fixed source-triangle or tile-candidate count. The host
+computes storage sizes from the submitted geometry and configured view budget.
+It grows storage before writing new triangles. Each storage range must fit the
+device's `maxStorageBufferRange`; allocation failures report an error.
 
-**Change:** define checked buffer regions and capacities from one layout
-contract. Size projection, clipping, candidate, and dispatch data together.
-Support dense tiles through a bounded complete algorithm, such as candidate
-batches with persistent depth state. Select that algorithm with a measured
-assembly witness. Keep overflow explicit; never drop faces to pass a budget.
+The raster pass reads all compacted candidates. It keeps depth and triangle
+identity per pixel. It does not discard faces when many triangles cover a tile.
+The eight fan slots per source triangle follow the clipping-plane bound; they
+are not a scene capacity.
 
-**Check:** render the detailed assembly alone and repeated in a room. Include
-a camera where more than 256 clipped candidates overlap a tile. Compare
-coverage and depth with the reference path. Measure memory and GPU time.
+`crust demo.crs --test 5` checks 0, 1, 255, 256, 257, 1,025, 4,097, and
+17 source triangles in sequence. The dense cases include clipping, cutouts,
+and equal-depth ties. The test compares output with the CPU reference and
+checks that a rejected allocation leaves the active storage unchanged.
+
+The scan cost still grows with the number of visible candidates per view.
+Before adding spatial indexing, measure a detailed room assembly against this
+complete scan and require equal coverage, depth, and cutout results.
 
 ### R2. Texture and material storage — asset proof
 
@@ -134,8 +135,9 @@ light. Verify that distant lights and indicators do not change local shading.
 ### R7. Memory, upload, and synchronization — room scale
 
 [Resource allocation](../src/render/host/resources.crs) allocates one packed
-88 MiB device buffer and an equally sized staging buffer, before other Vulkan
-resources. Offsets are fixed. [Frame dispatch](../src/render/host/dispatch.crs)
+device buffer and an equally sized staging buffer. Each has a 64 MiB fixed word
+region, 8 MiB of status, and geometry-dependent storage, before other Vulkan
+resources. Geometry offsets follow the allocated capacity. [Frame dispatch](../src/render/host/dispatch.crs)
 uploads fixed scene/table ranges each frame and reads back the 8 MiB invocation
 status region. [Frame validation](../src/render/host/renderer.crs) scans that
 region and waits for GPU completion before returning.

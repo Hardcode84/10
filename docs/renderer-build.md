@@ -35,7 +35,7 @@ The camera turns around this wall. Metal pipes with full-bright cyan strips
 mark the interior route. The yard contains terrain, towers, a bridge, and rock
 formations. A translated portal joins the rooms. A rotated portal joins the
 gallery and yard. Both openings have reverse connections. The scene uses 256
-source triangles within the 256-triangle budget.
+source triangles. Storage grows with the scene.
 The terrain uses six large quads. The bay has two wall ribs on each side.
 
 The camera repeats a 1,200-frame trip through both openings, looks back at the
@@ -72,7 +72,7 @@ demo waits for input and does not use the remaining frame count. Use
 | `--window-width`, `--window-height` | Window or capture output dimensions |
 | `--frame N` | Initial frame number |
 | `--verify 1` | Compare geometry and output with the Crust CPU reference |
-| `--baseline 1` | Scan all projected slots when building tile lists |
+| `--baseline 1` | Scan all projected slots instead of the compact list |
 | `--view-budget N` | Reduce the view capacity for an overflow test |
 | `--fault 1` | Inject a shader failure for an error-path test |
 
@@ -213,8 +213,8 @@ pipelines. SDL2 creates the window and Vulkan surface only.
 1. Upload scene inputs and clear invocation status.
 2. Initialize root view tasks and the background image.
 3. For each of four view depths, transform and clip geometry. Compact valid
-   projected triangles per view. Build each tile's triangle list with parallel
-   count and fill steps. Resolve depth and cutouts before selecting portal pixels.
+   projected triangles per view. Each pixel scans the complete candidate list.
+   Reject candidates outside the tile. Resolve depth and cutouts before selecting portal pixels.
    Sample opaque materials only after the depth winner is known. Build each
    portal mask in a separate lane.
 4. Count child tasks and view keys in workgroups. Scan the group summaries and
@@ -238,10 +238,22 @@ in flight.
 
 The host and shaders compile the same [buffer constants](../src/render/interface.crs).
 The interface uses four-byte words and floats, not host record layout. There
-are three storage bindings: 64 MiB of words, 16 MiB of floats, and 8 MiB of
-invocation status. One device-local buffer owns these ranges. An 88 MiB staging
-buffer owns upload and readback ranges. Staging memory must be host-visible,
-coherent, and cached. Device creation reports an error if the profile cannot
+are three storage bindings: words, floats, and invocation status. Words and
+floats use runtime lengths. Status uses 8 MiB. One device-local buffer and one
+staging buffer each own the complete layout. The fixed word region uses 64 MiB;
+geometry metadata, projected vertices, clipping scratch, and compact indices
+follow the checked layout in `src/render/host/geometry.crs`.
+
+Storage grows geometrically on submission, up to the physical device range
+limit. If geometric growth would exceed that limit, allocate the requested
+size. Each words or floats binding starts with its payload element count.
+Offsets and descriptor ranges include that header. The host preserves scene
+inputs across growth, updates descriptors, and records commands again. The
+synchronous frame API guarantees that no GPU work uses the old buffer during
+replacement. Reserve calls can fail due to device limits, allocation, or Vulkan
+command errors. They must not run while GPU work is pending.
+
+Staging memory must be host-visible, coherent, and cached. Device creation reports an error if the profile cannot
 be met. The Vulkan owner releases buffers, memory, pipelines, queries, commands,
 surface, and instance on normal exit and setup failure. The demo releases its
 SDL window after the Vulkan owner is closed.
@@ -250,8 +262,9 @@ SDL window after the Vulkan owner is closed.
 
 The demo accepts internal and output images from 1 by 1 through 1920 by 1080.
 This allocation bound does not require a low-resolution image style. The scene
-allows 256 source triangles, 32 views, four portal definitions, 32,768 tile
-tasks per depth, and 256 projected triangles per tile. Clipping reserves eight
+has no fixed source-triangle or tile-candidate limit. Device storage range and
+available memory bound geometry size. It allows 32 views, four portal definitions,
+and 32,768 tile tasks per depth. Clipping reserves eight
 fan triangles per source triangle. Three portal crossings follow the root view.
 Capacity errors reject the frame; geometry and child work are not silently
 truncated. The frame count must be from 1 through 4,096.
@@ -375,7 +388,7 @@ readback. They exclude startup, file writes, reference tests, and presentation
 waits. GPU timestamps show the last frame's pass intervals. Run baseline and
 normal modes in alternating order on an otherwise idle GPU; compare captures
 before interpreting timings. The baseline keeps the same pass graph and only
-changes the tile-list input scan.
+changes the candidate input scan.
 
 The first Intel native-resolution run exceeded the frame target. GPU timestamps
 identified the raster pass. Its loop sampled each nearer opaque candidate before
@@ -444,9 +457,8 @@ error.
 
 The bounded scene proves the host-to-device-to-image path. It does not establish
 the large-scene or playable-game gates in [rendering](rendering.md). Larger worlds
-need a measured spatial hierarchy and geometry selection before tile binning;
-raising the triangle limit alone increases every tile's scan cost. Extend the
-reference scenes and memory bounds with that change. Use the game's prototype
+increase the candidate scan cost. Measure a spatial hierarchy against the
+complete scan before adopting it. Extend the reference scenes with that change. Use the game's prototype
 gates before adding final assets or gameplay systems.
 
 The lit-tour reference test also checks vertical fields of view of 70 and
@@ -455,3 +467,8 @@ uses those helpers and the rendering core without importing demo code.
 
 The palette gate also checks text overlay scales of one and two in both RGBA
 and BGRA output. It checks scaled glyph pixels, transparent cells, and bounds.
+
+The geometry capacity gate is `crust demo.crs --test 5`. It checks growth,
+reuse after scene shrink, empty scenes, clipping, cutouts, equal-depth ties,
+and 4,097 overlapping source triangles against the CPU reference. It also
+checks rejection at the device storage boundary without changing live buffers.

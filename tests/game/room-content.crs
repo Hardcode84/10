@@ -73,16 +73,12 @@ fn content_axis_bound(axis: u32) -> u32 {
     }
     return maximum;
 }
-fn test_content_budget() -> bool {
+fn content_triangle_bound() -> u32 {
     var maximum: u32 = content_axis_bound(0u32) + content_axis_bound(1u32) + content_axis_bound(
         2u32
     );
     maximum = maximum + 10u32 + 64u32 + 24u32 + 16u32 + 6u32;
-    print_number(maximum as i64);
-    return game_check(
-        maximum <= MAX_TRIS,
-        "authored room content exceeds the complete scene triangle bound"
-    );
+    return maximum;
 }
 fn test_content_hook(position: Vec3, ceiling: f32) -> bool {
     var drone: Drone = new_drone();

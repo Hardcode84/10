@@ -174,7 +174,7 @@ fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
     );
     var region: VkBufferImageCopy = uninit;
     zero(&region as *u8, sizeof(VkBufferImageCopy));
-    region.bufferOffset = (PRESENT_PIXELS as u64) * 4u64;
+    region.bufferOffset = 4u64 + (PRESENT_PIXELS as u64) * 4u64;
     region.imageSubresource = make VkImageSubresourceLayers {
         aspectMask: 1u32,
         mipLevel: 0u32,

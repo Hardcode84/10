@@ -5,8 +5,13 @@ fn compute() -> unit {
         var count: u32 = 0u32;
         var i: u32 = 0u32;
         while i < words_load(3u32) * MAX_FAN {
-            if floats_load(PROJECTED + (view * MAX_TRIS * MAX_FAN + i) * 20u32 + 18u32) > 0f32 {
-                words_store(COMPACT_LIST + view * MAX_TRIS * MAX_FAN + count, i);
+            if floats_load(
+                words_load(PROJECTED_OFFSET) + (view * words_load(3u32) * MAX_FAN + i) * 20u32 + 18u32
+            ) > 0f32 {
+                words_store(
+                    words_load(COMPACT_OFFSET) + view * words_load(3u32) * MAX_FAN + count,
+                    i
+                );
                 count = count + 1u32;
             }
             i = i + 1u32;

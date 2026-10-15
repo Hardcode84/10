@@ -51,8 +51,8 @@ fn review_frame(
         game_scene(mut input, read trial, config);
         input_set_word(mut input, OVERLAY_ENABLED as usize, 0u32);
         if !game_check(
-            input_word(read input, 3usize) <= MAX_TRIS,
-            "expedition render exceeds triangle budget"
+            input_word(read input, 3usize) <= content_triangle_bound(),
+            "expedition submission exceeds its calculated content bound"
         ) {
             return false;
         }

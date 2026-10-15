@@ -118,60 +118,50 @@ fn tile_overlap(p: u32, x: f32, y: f32) -> bool {
         ax > x + 8f32 && bx > x + 8f32 && cx > x + 8f32
     ) &&!(ay > y + 8f32 && by > y + 8f32 && cy > y + 8f32);
 }
-fn bin_tile(task: u32, lane: u32, fill: bool) -> unit {
-    var base: u32 = task_base() + task * 4u32;
-    var tile: u32 = words_load(base);
-    var view: u32 = words_load(base + 1u32);
-    var cols: u32 = (words_load(0u32) + 7u32) / 8u32;
-    var x: f32 = (tile % cols * 8u32) as f32;
-    var y: f32 = (tile / cols * 8u32) as f32;
-    var count: u32 = 0u32;
-    var offset: u32 = 0u32;
-    if fill {
-        var j: u32 = 0u32;
-        while j < 64u32 {
-            var n: u32 = shared_load(384u32 + j) as u32;
-            if j < lane {
-                offset = offset + n;
-            }
-            count = count + n;
-            j = j + 1u32;
-        }
-        if lane == 0u32 {
-            shared_store(256u32, count as f32);
-            words_store(TASK_ERRORS + task, 0u32);
-        }
-        if count > 256u32 {
-            if lane == 0u32 {
-                shared_store(256u32, 0f32);
-                words_store(TASK_ERRORS + task, 1u32);
-            }
-            return;
-        }
+fn candidate_depth(p: u32, px: f32, py: f32) -> f32 {
+    if floats_load(p + 18u32) <= 0f32 {
+        return 0f32;
     }
-    count = 0u32;
-    var i: u32 = lane;
-    var length: u32 = words_load(COMPACT_COUNT + view);
-    if words_load(25u32) != 0u32 {
-        length = words_load(3u32) * MAX_FAN;
+    var ax: f32 = floats_load(p);
+    var ay: f32 = floats_load(p + 1u32);
+    var bx: f32 = floats_load(p + 6u32);
+    var by: f32 = floats_load(p + 7u32);
+    var cx: f32 = floats_load(p + 12u32);
+    var cy: f32 = floats_load(p + 13u32);
+    var a: f32 = edge(bx, by, cx, cy, px, py);
+    var b: f32 = edge(cx, cy, ax, ay, px, py);
+    var c: f32 = edge(ax, ay, bx, by, px, py);
+    if covered(bx, by, cx, cy, px, py) && covered(cx, cy, ax, ay, px, py) && covered(
+        ax,
+        ay,
+        bx,
+        by,
+        px,
+        py
+    ) {
+        var area: f32 = floats_load(p + 18u32);
+        var iz: f32 = (
+            a * floats_load(p + 2u32) + b * floats_load(p + 8u32) + c * floats_load(p + 14u32)
+        ) / area;
+        return iz;
     }
-    while i < length {
-        var id: u32 = i;
-        if words_load(25u32) == 0u32 {
-            id = words_load(COMPACT_LIST + view * MAX_TRIS * MAX_FAN + i);
-        }
-        var p: u32 = PROJECTED + (view * MAX_TRIS * MAX_FAN + id) * 20u32;
-        if floats_load(p + 18u32) > 0f32 && tile_overlap(p, x, y) {
-            if fill {
-                shared_store(offset + count, id as f32);
-            }
-            count = count + 1u32;
-        }
-        i = i + 64u32;
+    return 0f32;
+}
+fn candidate_opaque(id: u32, p: u32, px: f32, py: f32) -> bool {
+    var meta: u32 = META + (id / MAX_FAN) * 4u32;
+    if words_load(meta + 3u32) == 0u32 {
+        return true;
     }
-    if !fill {
-        shared_store(384u32 + lane, count as f32);
-    }
+    var mat: u32 = words_load(meta + 1u32);
+    var style: u32 = words_load(MATERIAL_STYLE + mat) & 3u32;
+    return material_texel(
+        mat,
+        sample_uv(p, px, py, 3u32, style),
+        sample_uv(p, px, py, 4u32, style)
+    ) != 0u32;
+}
+fn nearer(iz: f32, best: f32, id: u32, winner: u32) -> bool {
+    return iz > 0f32 && (iz > best || (iz == best && id < winner));
 }
 fn raster_pixel(task: u32, lane: u32) -> unit {
     var base: u32 = task_base() + task * 4u32;
@@ -193,46 +183,22 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
     var i: u32 = 0u32;
     var px: f32 = x as f32 + 0.5f32;
     var py: f32 = y as f32 + 0.5f32;
-    while i < shared_load(256u32) as u32 {
-        var id: u32 = shared_load(i) as u32;
-        var p: u32 = PROJECTED + (view * MAX_TRIS * MAX_FAN + id) * 20u32;
-        var ax: f32 = floats_load(p);
-        var ay: f32 = floats_load(p + 1u32);
-        var bx: f32 = floats_load(p + 6u32);
-        var by: f32 = floats_load(p + 7u32);
-        var cx: f32 = floats_load(p + 12u32);
-        var cy: f32 = floats_load(p + 13u32);
-        var a: f32 = edge(bx, by, cx, cy, px, py);
-        var b: f32 = edge(cx, cy, ax, ay, px, py);
-        var c: f32 = edge(ax, ay, bx, by, px, py);
-        if covered(bx, by, cx, cy, px, py) && covered(cx, cy, ax, ay, px, py) && covered(
-            ax,
-            ay,
-            bx,
-            by,
-            px,
-            py
-        ) {
-            var area: f32 = floats_load(p + 18u32);
-            var iz: f32 = (
-                a * floats_load(p + 2u32) + b * floats_load(p + 8u32) + c * floats_load(p + 14u32)
-            ) / area;
-            if iz > best || (iz == best && id < winner_id) {
-                var cutout: bool = words_load(META + (id / MAX_FAN) * 4u32 + 3u32) != 0u32;
-                var opaque: bool = true;
-                if cutout {
-                    var style: u32 = words_load(
-                        MATERIAL_STYLE + words_load(META + (id / MAX_FAN) * 4u32 + 1u32)
-                    ) & 3u32;
-                    var u: f32 = sample_uv(p, px, py, 3u32, style);
-                    var v: f32 = sample_uv(p, px, py, 4u32, style);
-                    opaque = material_texel(
-                        words_load(META + (id / MAX_FAN) * 4u32 + 1u32),
-                        u,
-                        v
-                    ) != 0u32;
-                }
-                if opaque {
+    var count: u32 = words_load(COMPACT_COUNT + view);
+    if words_load(25u32) != 0u32 {
+        count = words_load(3u32) * MAX_FAN;
+    }
+    while i < count {
+        var id: u32 = i;
+        if words_load(25u32) == 0u32 {
+            id = words_load(
+                words_load(COMPACT_OFFSET) + view * words_load(3u32) * MAX_FAN + i
+            );
+        }
+        var p: u32 = words_load(PROJECTED_OFFSET) + (view * words_load(3u32) * MAX_FAN + id) * 20u32;
+        if tile_overlap(p, (x / 8u32 * 8u32) as f32, (y / 8u32 * 8u32) as f32) {
+            var iz: f32 = candidate_depth(p, px, py);
+            if nearer(iz, best, id, winner_id) {
+                if candidate_opaque(id, p, px, py) {
                     best = iz;
                     winner = id / MAX_FAN;
                     winner_id = id;
@@ -244,7 +210,9 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
     var color: u32 = words_load(BACKGROUND);
     if winner != 0xffffffffu32 {
         var mat: u32 = words_load(META + winner * 4u32 + 1u32);
-        var p: u32 = PROJECTED + (view * MAX_TRIS * MAX_FAN + winner_id) * 20u32;
+        var p: u32 = words_load(PROJECTED_OFFSET) + (
+            view * words_load(3u32) * MAX_FAN + winner_id
+        ) * 20u32;
         var style: u32 = words_load(MATERIAL_STYLE + mat) & 3u32;
         uu = sample_uv(p, px, py, 3u32, style);
         vv = sample_uv(p, px, py, 4u32, style);
@@ -256,7 +224,11 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
     }
     if words_load(26u32) != 0u32 {
         var debug: u32 = DEBUG_VALUES + (y * width + x) * 4u32;
-        words_store(debug, winner + view * 256u32);
+        var identity: u32 = winner;
+        if winner != 0xffffffffu32 {
+            identity = winner + view * words_load(3u32);
+        }
+        words_store(debug, identity);
         words_store(debug + 1u32, (uu * 10000f32) as i32 as u32);
         words_store(debug + 2u32, (vv * 10000f32) as i32 as u32);
         words_store(debug + 3u32, (10000f32 / best) as u32);
@@ -284,14 +256,9 @@ fn child_masks(task: u32, portal: u32) -> unit {
 fn compute() -> unit {
     var lane: u32 = shader_local_x();
     var task: u32 = shader_global_x() / 64u32;
-    if task < words_load(6u32) && words_load(5u32) == 0u32 {
-        bin_tile(task, lane, false);
+    if lane == 0u32 && task < words_load(6u32) {
+        words_store(TASK_ERRORS + task, 0u32);
     }
-    shader_barrier();
-    if task < words_load(6u32) && words_load(5u32) == 0u32 {
-        bin_tile(task, lane, true);
-    }
-    shader_barrier();
     if task < words_load(6u32) && words_load(5u32) == 0u32 {
         raster_pixel(task, lane);
     }

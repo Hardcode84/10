@@ -105,7 +105,7 @@ fn advance() -> unit {
     words_store(11u32, views);
     words_store(12u32, words_load(12u32) + 1u32);
     words_store(13u32, count);
-    words_store(16u32, (views - oldviews) * MAX_TRIS / 64u32);
+    words_store(16u32, geometry_groups((views - oldviews) * words_load(3u32)));
 }
 fn compute() -> unit {
     if shader_global_x() == 0u32 {

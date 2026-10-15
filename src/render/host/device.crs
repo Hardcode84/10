@@ -2,6 +2,11 @@
 
 record Vulkan {
     timestamp_mask: u64;
+    words: u32;
+    floats: u32;
+    triangle_capacity: u32;
+    view_capacity: u32;
+    storage_limit: u32;
     properties: VkPhysicalDeviceMemoryProperties;
     instance: *u8;
     physical: *u8;
@@ -78,6 +83,7 @@ fn device_profile(v: *Vulkan) -> bool {
     if props.properties.limits.maxComputeSharedMemorySize < 2048u32 {
         return error("raster module requires 2048 bytes of workgroup memory");
     }
+    v -> storage_limit = props.properties.limits.maxStorageBufferRange;
     v -> timestamp_period = props.properties.limits.timestampPeriod;
     return true;
 }

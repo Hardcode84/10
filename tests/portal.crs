@@ -1,12 +1,12 @@
 fn distant_cube_check(v: *Vulkan, frame: u32) -> bool {
     var w: *u32 = v -> mapped as *u32;
-    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
     var front: f32 = 8.5f32 + 2f32 * sinf(frame as f32 / 60f32) - 0.8f32;
     var pixel: u32 = 0u32;
     while pixel < w[0usize] * w[1usize] {
         var hit: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize];
-        var tri: u32 = hit % 256u32;
-        if hit >= 256u32 && tri < w[3usize] && w[(META + tri * 4u32) as usize] == 0u32 && w[
+        var tri: u32 = hit % w[3usize];
+        if hit >= w[3usize] && tri < w[3usize] && w[(META + tri * 4u32) as usize] == 0u32 && w[
             (META + tri * 4u32 + 1u32) as usize
         ] == 2u32 {
             var g: usize = (GEOMETRY + tri * 15u32) as usize;
@@ -23,7 +23,7 @@ fn distant_cube_check(v: *Vulkan, frame: u32) -> bool {
 }
 fn portal_plane_check(v: *Vulkan) -> bool {
     var w: *u32 = v -> mapped as *u32;
-    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
     var tri: u32 = 0u32;
     while tri < w[3usize] {
         var portal: u32 = w[(META + tri * 4u32 + 2u32) as usize];
@@ -57,9 +57,9 @@ fn portal_plane_check(v: *Vulkan) -> bool {
 }
 fn crossing_face_check(v: *Vulkan) -> bool {
     var w: *u32 = v -> mapped as *u32;
-    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
     var hit: u32 = w[(DEBUG_VALUES + (125u32 * 320u32 + 100u32) * 4u32) as usize];
-    var tri: u32 = hit % 256u32;
+    var tri: u32 = hit % w[3usize];
     if tri >= w[3usize] || w[(META + tri * 4u32) as usize] != 1u32 || w[
         (META + tri * 4u32 + 1u32) as usize
     ] != 2u32 {
@@ -82,7 +82,7 @@ fn tour_visibility_check(v: *Vulkan) -> bool {
     var mask: u32 = 0u32;
     var pixel: u32 = 0u32;
     while pixel < w[0usize] * w[1usize] {
-        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % MAX_TRIS;
+        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % w[3usize];
         if tri < w[3usize] {
             mask = mask | (1u32 << w[(META + tri * 4u32) as usize]);
         }
@@ -118,7 +118,7 @@ fn full_bright_check(v: *Vulkan) -> bool {
     var dark: u32 = 0u32;
     var pixel: u32 = 0u32;
     while pixel < w[0usize] * w[1usize] {
-        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % MAX_TRIS;
+        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % w[3usize];
         if tri < w[3usize] {
             var mat: u32 = w[(META + tri * 4u32 + 1u32) as usize];
             if mat == 7u32 || mat == 12u32 {
@@ -144,7 +144,7 @@ fn full_bright_check(v: *Vulkan) -> bool {
 }
 
 fn tour_turn_check(v: *Vulkan, index: u32) -> bool {
-    var f: *f32 = (v -> mapped + WORDS_LENGTH as isize * 4isize) as *f32;
+    var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
     var direction: f32 = f[8usize];
     if index == 45u32 {
         direction = -direction;
@@ -161,7 +161,7 @@ fn camera_light_check(v: *Vulkan) -> bool {
     var mask: u32 = 0u32;
     var pixel: u32 = 0u32;
     while pixel < w[0usize] * w[1usize] {
-        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % MAX_TRIS;
+        var tri: u32 = w[(DEBUG_VALUES + pixel * 4u32) as usize] % w[3usize];
         if tri < w[3usize] {
             var mat: u32 = w[(META + tri * 4u32 + 1u32) as usize];
             if mat < 5u32 && w[(PIXELS + pixel) as usize] != 0xff000000u32 {
@@ -231,4 +231,19 @@ fn light_grid_check(w: *u32) -> bool {
     }
     puts("16 by 16 light cells with alternating neighbouring samples passed");
     return true;
+}
+fn capacity_failure_check(v: *Vulkan) -> bool {
+    var before: *u8 = v -> mapped;
+    var capacity: u32 = v -> triangle_capacity;
+    var limit: u32 = geometry_limit(v);
+    var trial: Vulkan = *v;
+    if !geometry_layout(&trial, limit) || geometry_layout(&trial, limit + 1u32) || geometry_reserve(
+        v,
+        0xffffffffu32
+    ) {
+        return error("geometry range limit must match device storage bounds");
+    }
+    return (v -> mapped == before && v -> triangle_capacity == capacity) || error(
+        "failed geometry reservation changed the live allocation"
+    );
 }
