@@ -1,10 +1,9 @@
 # Crust to Vulkan Shader SPIR-V
 
-## Current status: 2026-10-15
+## Current status
 
-Crust is pinned to `c4dbef2`. It includes the
-first Vulkan compute stage and a Vulkan dispatch harness written in Crust.
-The upstream history also includes the device enumeration correction.
+Crust supplies a Vulkan compute stage and a Vulkan dispatch harness written
+in Crust. The submodule pin selects the compiler version.
 
 - The seed, C backend, and LLVM host backend support shared `f32` semantics.
 - LLVM field and element access uses typed addressing.
@@ -55,11 +54,12 @@ shader entry now writes status unconditionally under the caller's dispatch-bound
 precondition. This removes the redundant predicate from the compiler output.
 The conditional-failure test passes on both tested devices.
 
-## Initial investigation: 2026-10-13
+## Initial investigation
 
-The remaining sections preserve the initial investigation at `408f466`. Its
-missing-feature statements and estimates describe that revision. Use the current
-status above and Crust's shader tutorial for implemented behaviour.
+The remaining sections preserve the investigation before the shader stage was
+implemented. Its missing-feature statements and estimates describe that earlier
+state. Use the current status above and Crust's shader tutorial for implemented
+behaviour.
 
 ### Result
 
@@ -73,9 +73,8 @@ already translate. Device types, interfaces, memory operations, and failure
 semantics require work. Floating-point support is also absent from the inspected
 Crust stages.
 
-This investigation used Crust commit
-`408f4660f0b6e43b102eca2908a1f1d81780b321` on 2026-10-13. It includes source
-inspection and compilation probes. It does not establish GPU execution,
+The investigation includes source inspection and compilation probes.
+It does not establish GPU execution,
 performance, or support across the target device list.
 
 ## Paths considered

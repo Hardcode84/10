@@ -11,7 +11,7 @@ automatic demo now implement the core frame path. See the
 [implementation and checks](renderer-build.md) for commands, allocation bounds,
 and tested scope. The large-scene and playable-game gates below remain acceptance
 requirements. The reference project is
-[ship3d at commit fff58ad70d101859e3498b2ed0d910cd9f5721a5](https://github.com/hardcode84/ship3d/tree/fff58ad70d101859e3498b2ed0d910cd9f5721a5).
+[ship3d](https://github.com/hardcode84/ship3d/tree/fff58ad70d101859e3498b2ed0d910cd9f5721a5).
 
 The following decisions are fixed:
 
