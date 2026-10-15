@@ -72,6 +72,11 @@ separate metal, accent, and indicator colours. Indices 0–223 form the metal
 ramp. Indices 224–247 form the accent ramp. Grain has low contrast; panel
 edges and relief supply the main surface cues. These cues are baked into the
 texture. They do not supply reflections or change collision geometry.
+The ribbed finish uses continuous folded strips. It has no crosswise panel
+joints or fasteners. Strip direction follows the surface's U axis.
+Quad UV frames start at the face centre. Their U axis follows the mean direction
+of opposite edges, so tapered faces have a centred slope direction. UV distance
+continues to use metres.
 
 Generation, triangulation, palette generation, and collision-index construction
 run only when the asset is built or rebuilt. Frame submission uses a retained

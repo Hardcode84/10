@@ -11,14 +11,22 @@ record SurfaceFrame {
 fn hull_corner(hull: read AssetHull, face: HullFace, corner: u32) -> Vec3 {
     return asset_vertex(read hull, asset_index(read hull, face.first + corner));
 }
+// Quad frames use the face centre and the mean direction of opposite edges.
+// Other polygon frames start at the first corner and follow the first edge.
 fn hull_frame(hull: read AssetHull, face: HullFace) -> SurfaceFrame {
     var a: Vec3 = hull_corner(read hull, face, 0u32);
     var b: Vec3 = hull_corner(read hull, face, 1u32);
     var c: Vec3 = hull_corner(read hull, face, 2u32);
     var normal: Vec3 = unit_vector(cross(sub(b, a), sub(c, a)));
     var right: Vec3 = unit_vector(sub(b, a));
+    var origin: Vec3 = a;
+    if face.count == 4u32 {
+        var d: Vec3 = hull_corner(read hull, face, 3u32);
+        right = unit_vector(add(sub(b, a), sub(c, d)));
+        origin = scale(add(add(a, b), add(c, d)), 0.25f32);
+    }
     return make SurfaceFrame {
-        origin: a,
+        origin: origin,
         right: right,
         up: cross(normal, right),
         normal: normal

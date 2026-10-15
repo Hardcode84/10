@@ -3,6 +3,7 @@ const METAL_TREAD: u32 = 1u32;
 const METAL_RIBBED: u32 = 2u32;
 // Dimensions are in metres. Panel height must divide tile size; pitch must
 // divide both panel dimensions. Sizes and texel density must be positive.
+// Ribbed metal requires a pitch greater than the 0.065 m seam width.
 // Finish is METAL_PLATE, METAL_TREAD, or METAL_RIBBED. Colours use packed RGB.
 record PanelMaterial {
     colour: u32;
@@ -51,16 +52,21 @@ fn metal_relief(material: PanelMaterial, x: f32, y: f32) -> f32 {
     if material.finish == METAL_TREAD {
         return metal_tread(material, x, y);
     }
-    if material.finish == METAL_RIBBED {
-        var across: f32 = mask_repeat(x, material.pitch);
-        if across < 0.035f32 {
-            return -26f32;
-        }
-        if across < 0.055f32 {
-            return 18f32;
-        }
-    }
     return 0f32;
+}
+// Samples continuous folded metal strips without crosswise panel joints.
+fn metal_strip_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var across: f32 = mask_repeat(x, material.pitch);
+    var shade: f32 = 154f32;
+    if across < 0.035f32 {
+        shade = 94f32;
+    } else if across < 0.065f32 {
+        shade = 184f32;
+    } else {
+        var field: f32 = (across - 0.065f32) / (material.pitch - 0.065f32);
+        shade = shade + 8f32 * (1f32 - absf(field * 2f32 - 1f32));
+    }
+    return (shade + metal_grain(material, y, x) * 0.5f32) as u32;
 }
 fn metal_fastener(material: PanelMaterial, x: f32, y: f32) -> u32 {
     var px: f32 = mask_min(x, material.tile_metres - x) - 0.12f32;
@@ -81,6 +87,9 @@ fn metal_fastener(material: PanelMaterial, x: f32, y: f32) -> u32 {
 }
 // Returns a palette index for a point within one repeated panel tile.
 fn panel_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
+    if material.finish == METAL_RIBBED {
+        return metal_strip_sample(material, tile_y, x);
+    }
     var y: f32 = mask_repeat(tile_y, material.panel_height);
     if mask_border(x, y, material.tile_metres, material.panel_height, material.border) {
         return 24u32;
