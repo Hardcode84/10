@@ -1,0 +1,185 @@
+fn lighting_wall(v: mut FrameInput, index: u32) -> unit {
+    if index == 0u32 || index == 5u32 || index == 6u32 {
+        return;
+    }
+    var space: u32 = 0u32;
+    if index == 3u32 {
+        space = 1u32;
+    }
+    var flags: u32 = 2u32;
+    if index == 2u32 {
+        flags = 3u32;
+    }
+    quad(
+        mut v,
+        space,
+        1u32,
+        0u32,
+        flags,
+        2f32,
+        -20f32,
+        -20f32,
+        2f32,
+        20f32,
+        -20f32,
+        2f32,
+        20f32,
+        20f32,
+        2f32,
+        -20f32,
+        20f32
+    );
+}
+fn lighting_scene(v: mut FrameInput, index: u32) -> unit {
+    texture_scene(mut v, 0u32);
+    input_set_word(mut v, INSTANCE_COUNT as usize, 0u32);
+    input_set_word(mut v, 3usize, 0u32);
+    var material: u32 = 0u32;
+    while material < 2u32 {
+        input_asset_set(mut v, material * MATERIAL_WORDS + 1u32, 1u32);
+        input_asset_set(mut v, material * MATERIAL_WORDS + 2u32, 1u32);
+        input_asset_set(mut v, material * MATERIAL_WORDS, 320u32 + material);
+        material = material + 1u32;
+    }
+    input_texel(mut v, 320u32, 100u32);
+    input_texel(mut v, 321u32, 0u32);
+    if index == 6u32 {
+        input_texel(mut v, 320u32, 255u32);
+    }
+    var channel: u32 = 0u32;
+    while channel < 3u32 {
+        input_set_float(mut v, (SPACE_LIGHT + channel) as usize, 0f32);
+        channel = channel + 1u32;
+    }
+    if !input_lights(mut v, 17u32) {
+        trap;
+    }
+    var i: u32 = 0u32;
+    while i < 17u32 {
+        var strength: f32 = 0f32;
+        if i == 16u32 && index != 6u32 {
+            strength = 2f32;
+        }
+        var x: f32 = 4f32;
+        if index == 5u32 {
+            x = 100000f32;
+        }
+        tour_light(mut v, i, 0u32, x, 0f32, 3f32, 100f32, strength, strength, strength);
+        i = i + 1u32;
+    }
+    quad(
+        mut v,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        -20f32,
+        -20f32,
+        6f32,
+        20f32,
+        -20f32,
+        6f32,
+        20f32,
+        20f32,
+        6f32,
+        -20f32,
+        20f32,
+        6f32
+    );
+    lighting_wall(mut v, index);
+    if index == 4u32 {
+        retain_scene(mut v);
+    }
+}
+fn lighting_test(base: *Options) -> bool {
+    var o: Options = *base;
+    o.width = 64u32;
+    o.height = 48u32;
+    o.window_width = 64u32;
+    o.window_height = 48u32;
+    o.capture = "build/test-lighting.ppm";
+    var renderer: Renderer = renderer_new();
+    var config: RenderConfig = demo_render_config(&o);
+    config.view_budget = 1u32;
+    config.portal_budget = 0u32;
+    config.crossing_limit = 0u32;
+    config.task_budget = 64u32;
+    if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
+        return false;
+    }
+    var index: u32 = 0u32;
+    while index < 7u32 {
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            lighting_scene(mut input, index);
+        }
+        if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
+            return false;
+        }
+        var w: *u32 = renderer.state.mapped as *u32;
+        var color: u32 = w[(PIXELS + 24u32 * 64u32 + 32u32) as usize] & 0xffffffu32;
+        var dark: bool = index == 1u32 || index == 4u32 || index == 5u32;
+        if (color == 0u32) != dark {
+            print_number(index as i64);
+            return error("bulkhead lighting differs from expected visibility");
+        }
+        if index == 0u32 && !lighting_resize(mut renderer) {
+            return false;
+        }
+        index = index + 1u32;
+    }
+    puts(
+        "light occlusion, cutouts, space isolation, retained blockers, distant lights and 17 lights passed"
+    );
+    return true;
+}
+fn lighting_rejections(renderer: mut Renderer) -> bool {
+    var capacity: u32 = renderer.state.light_capacity;
+    var words: u32 = renderer.state.words;
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if input_lights(mut input, 0xffffffffu32) {
+            return error("unaddressable light storage was accepted");
+        }
+    }
+    if renderer.state.light_capacity != capacity || renderer.state.words != words {
+        return error("rejected light growth changed active storage");
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        input_set_word(mut input, LIGHT_COUNT as usize, capacity + 1u32);
+    }
+    if renderer_draw(&renderer.state) {
+        return error("unreserved light count was accepted");
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !input_lights(mut input, 1u32) {
+            return false;
+        }
+        var p: usize = input_word(read input, LIGHT_DATA as usize) as usize;
+        input_set_float(mut input, p + 3usize, -1f32);
+    }
+    if renderer_draw(&renderer.state) {
+        return error("negative light radius was accepted");
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !input_lights(mut input, 0u32) {
+            return false;
+        }
+    }
+    return renderer_draw(&renderer.state) && reference_check(renderer.state.mapped);
+}
+fn lighting_resize(renderer: mut Renderer) -> bool {
+    if !renderer_resize(&renderer.state, 65u32, 48u32, 65u32, 48u32) || !renderer_draw(
+        &renderer.state
+    ) || !reference_check(renderer.state.mapped) {
+        return false;
+    }
+    var w: *u32 = renderer.state.mapped as *u32;
+    if (w[(PIXELS + 24u32 * 65u32 + 32u32) as usize] & 0xffffffu32) == 0u32 {
+        return error("resize lost the contributing light");
+    }
+    return renderer_resize(&renderer.state, 64u32, 48u32, 64u32, 48u32);
+}

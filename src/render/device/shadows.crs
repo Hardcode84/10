@@ -1,0 +1,62 @@
+fn light_blocks(tri: u32, ox: f32, oy: f32, oz: f32, dx: f32, dy: f32, dz: f32) -> bool {
+    var p: u32 = GEOMETRY + tri * 15u32;
+    var ax: f32 = floats_load(p);
+    var ay: f32 = floats_load(p + 1u32);
+    var az: f32 = floats_load(p + 2u32);
+    var bx: f32 = floats_load(p + 5u32) - ax;
+    var by: f32 = floats_load(p + 6u32) - ay;
+    var bz: f32 = floats_load(p + 7u32) - az;
+    var cx: f32 = floats_load(p + 10u32) - ax;
+    var cy: f32 = floats_load(p + 11u32) - ay;
+    var cz: f32 = floats_load(p + 12u32) - az;
+    var qx: f32 = dy * cz - dz * cy;
+    var qy: f32 = dz * cx - dx * cz;
+    var qz: f32 = dx * cy - dy * cx;
+    var det: f32 = bx * qx + by * qy + bz * qz;
+    if det == 0f32 {
+        return false;
+    }
+    var tx: f32 = ox - ax;
+    var ty: f32 = oy - ay;
+    var tz: f32 = oz - az;
+    var u: f32 = (tx * qx + ty * qy + tz * qz) / det;
+    if u < 0f32 || u > 1f32 {
+        return false;
+    }
+    var rx: f32 = ty * bz - tz * by;
+    var ry: f32 = tz * bx - tx * bz;
+    var rz: f32 = tx * by - ty * bx;
+    var v: f32 = (dx * rx + dy * ry + dz * rz) / det;
+    if v < 0f32 || u + v > 1f32 {
+        return false;
+    }
+    var t: f32 = (cx * rx + cy * ry + cz * rz) / det;
+    if t <= 0.00001f32 || t >= 0.99999f32 {
+        return false;
+    }
+    var meta: u32 = words_load(META) + tri * 4u32;
+    if (words_load(meta + 3u32) & 1u32) == 0u32 {
+        return true;
+    }
+    var tu: f32 = floats_load(p + 3u32) + u * (
+        floats_load(p + 8u32) - floats_load(p + 3u32)
+    ) + v * (floats_load(p + 13u32) - floats_load(p + 3u32));
+    var tv: f32 = floats_load(p + 4u32) + u * (
+        floats_load(p + 9u32) - floats_load(p + 4u32)
+    ) + v * (floats_load(p + 14u32) - floats_load(p + 4u32));
+    var mat: u32 = words_load(meta + 1u32);
+    return material_texel(mat, tu, tv) != material_field(mat, 9u32);
+}
+fn light_visible(receiver: u32, ox: f32, oy: f32, oz: f32, lx: f32, ly: f32, lz: f32) -> bool {
+    var space: u32 = words_load(words_load(META) + receiver * 4u32);
+    var i: u32 = 0u32;
+    while i < words_load(3u32) {
+        if i != receiver && words_load(words_load(META) + i * 4u32) == space {
+            if light_blocks(i, ox, oy, oz, lx - ox, ly - oy, lz - oz) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

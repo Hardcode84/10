@@ -157,7 +157,7 @@ cmp build/expedition.ppm build/expedition-replay.ppm
 
 The world uses five room shells, eleven attached solids, and one pipe. The
 worst-case scene fits 252 triangles, including path previews, station marks,
-a parked drone, and cockpit indicators. The eight-light limit is unchanged.
+a parked drone, and cockpit indicators. The renderer uses growable light storage and geometry-based light visibility.
 Light updates write a fixed
 number of values each frame. Physics copies one plain drone value to evaluate
 winch work before committing an affordable move. Save IO runs only at progress

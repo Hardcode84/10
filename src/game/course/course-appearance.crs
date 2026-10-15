@@ -35,7 +35,7 @@ fn course_texel(mat: u32, x: u32, y: u32) -> u32 {
     return x % 4u32;
 }
 fn course_light(v: mut FrameInput, index: u32, position: Vec3, color: Vec3, radius: f32) -> unit {
-    var p: usize = (LIGHT_DATA + index * 8u32) as usize;
+    var p: usize = (input_word(read v, LIGHT_DATA as usize) + index * 8u32) as usize;
     input_set_float(mut v, p, position.x);
     input_set_float(mut v, p + 1usize, position.y);
     input_set_float(mut v, p + 2usize, position.z);

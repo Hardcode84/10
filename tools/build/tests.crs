@@ -27,10 +27,12 @@ fn build_reference(root: *CrustRun) -> bool {
 }
 fn build_render_tests(root: *CrustRun) -> bool {
     var sources: [*u8; 64] = uninit;
-    var providers: [*u8; 32] = uninit;
+    var providers: [*u8; 64] = uninit;
     var source_count: usize = demo_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + demo_providers(root, &providers[provider_count]);
+    providers[provider_count] = host_path(root, "tests/render/lighting.crs");
+    provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/render/image.crs");
     provider_count = provider_count + 1usize;
     sources[source_count] = host_path(root, "tests/render/scene.crs");
@@ -71,7 +73,7 @@ fn build_render_tests(root: *CrustRun) -> bool {
 }
 fn build_game_tests(root: *CrustRun) -> bool {
     var sources: [*u8; 64] = uninit;
-    var providers: [*u8; 32] = uninit;
+    var providers: [*u8; 64] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + game_providers(root, &providers[provider_count]);
@@ -121,7 +123,7 @@ fn build_game_tests(root: *CrustRun) -> bool {
 }
 fn build_viewer_tests(root: *CrustRun) -> bool {
     var sources: [*u8; 64] = uninit;
-    var providers: [*u8; 32] = uninit;
+    var providers: [*u8; 64] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + game_providers(root, &providers[provider_count]);

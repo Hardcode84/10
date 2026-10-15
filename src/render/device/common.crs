@@ -80,7 +80,7 @@ fn view_position(view: u32, z: f32, x: u32, y: u32, axis: u32) -> f32 {
 fn light_amount(dx: f32, dy: f32, dz: f32, nx: f32, ny: f32, nz: f32, radius: f32) -> f32 {
     var distance: f32 = dx * dx + dy * dy + dz * dz;
     var incidence: f32 = dx * nx + dy * ny + dz * nz;
-    if incidence <= 0f32 {
+    if incidence <= 0f32 || radius <= 0f32 {
         return 0f32;
     }
     var diffuse: f32 = incidence / shader_sqrt((nx * nx + ny * ny + nz * nz) * distance);
@@ -105,7 +105,7 @@ fn light_band(amount: f32, r: f32, g: f32, b: f32) -> f32 {
     var level: u32 = scaled as u32;
     return level as f32 / (7f32 * peak);
 }
-fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
+fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32, hx: u32, hy: u32) -> u32 {
     var mat: u32 = words_load(words_load(META) + tri * 4u32 + 1u32);
     var space: u32 = words_load(words_load(META) + tri * 4u32);
     var red: f32 = floats_load(SPACE_LIGHT + space * 4u32);
@@ -114,6 +114,10 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
     if z <= 0f32 {
         return light_state(red, green, blue, mat);
     }
+    var depth: f32 = light_grid_depth(tri, view, hx, hy);
+    var sx: f32 = view_position(view, depth, hx, hy, 0u32);
+    var sy: f32 = view_position(view, depth, hx, hy, 1u32);
+    var sz: f32 = view_position(view, depth, hx, hy, 2u32);
     var px: f32 = view_position(view, z, x, y, 0u32);
     var py: f32 = view_position(view, z, x, y, 1u32);
     var pz: f32 = view_position(view, z, x, y, 2u32);
@@ -142,7 +146,7 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
     }
     var i: u32 = 0u32;
     while i < words_load(LIGHT_COUNT) {
-        var p: u32 = LIGHT_DATA + i * 8u32;
+        var p: u32 = words_load(LIGHT_DATA) + i * 8u32;
         if floats_load(p + 7u32) as u32 == space {
             var amount: f32 = light_amount(
                 floats_load(p) - px,
@@ -159,6 +163,17 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
                 floats_load(p + 5u32),
                 floats_load(p + 6u32)
             );
+            if amount > 0f32 && !light_visible(
+                tri,
+                sx,
+                sy,
+                sz,
+                floats_load(p),
+                floats_load(p + 1u32),
+                floats_load(p + 2u32)
+            ) {
+                amount = 0f32;
+            }
             red = red + floats_load(p + 4u32) * amount;
             green = green + floats_load(p + 5u32) * amount;
             blue = blue + floats_load(p + 6u32) * amount;
@@ -216,7 +231,7 @@ fn lit_state(tri: u32, view: u32, x: u32, y: u32) -> u32 {
     var corner: u32 = light_corner(x, y);
     var sx: u32 = (x / 16u32 + (corner & 1u32)) * 16u32;
     var sy: u32 = (y / 16u32 + (corner >> 1u32)) * 16u32;
-    return light_at(tri, view, light_grid_depth(tri, view, sx, sy), sx, sy);
+    return light_at(tri, view, light_grid_depth(tri, view, sx, sy), sx, sy, x, y);
 }
 fn light_quantize(value: f32) -> u32 {
     if value >= 1f32 {

@@ -1,5 +1,5 @@
 fn shader_source(root: *CrustRun, name: *u8, result: *CrustSource) -> bool {
-    var parts: [CrustSource; 3] = uninit;
+    var parts: [CrustSource; 4] = uninit;
     if !cache_read(
         root -> context,
         host_path(root, "src/render/interface.crs"),
@@ -8,17 +8,21 @@ fn shader_source(root: *CrustRun, name: *u8, result: *CrustSource) -> bool {
         root -> context,
         host_path(root, "src/render/device/common.crs"),
         &parts[1usize]
-    ) || !cache_read(root -> context, host_path(root, name), &parts[2usize]) {
+    ) || !cache_read(
+        root -> context,
+        host_path(root, "src/render/device/shadows.crs"),
+        &parts[2usize]
+    ) || !cache_read(root -> context, host_path(root, name), &parts[3usize]) {
         return false;
     }
-    var size: usize = parts[0usize].size + parts[1usize].size + parts[2usize].size + 3usize;
+    var size: usize = parts[0usize].size + parts[1usize].size + parts[2usize].size + parts[3usize].size + 4usize;
     var data: *u8 = crust_try_alloc(root -> context, size + 1usize, 1usize);
     if data == null(*u8) {
         return false;
     }
     var offset: usize = 0usize;
     var i: usize = 0usize;
-    while i < 3usize {
+    while i < 4usize {
         var j: usize = 0usize;
         while j < parts[i].size {
             data[offset] = parts[i].bytes[j];

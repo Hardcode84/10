@@ -55,6 +55,7 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
     v -> output_width = config -> output_width;
     v -> output_height = config -> output_height;
     v -> read_pixels = config -> read_pixels;
+    v -> light_capacity = 8u32;
     v -> view_capacity = config -> view_budget;
     v -> portal_capacity = config -> portal_budget;
     v -> task_capacity = config -> task_budget;
@@ -90,6 +91,9 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
 // Returns after GPU completion and status readback. A failed frame must not be presented.
 fn renderer_draw(v: *Vulkan) -> bool {
     v -> present_ready = false;
+    if !lighting_valid(v) {
+        return false;
+    }
     var w: *u32 = v -> mapped as *u32;
     if w[4usize] > v -> crossing_limit {
         return error("frame crossing limit exceeds configured traversal depth");

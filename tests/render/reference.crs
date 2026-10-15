@@ -563,7 +563,7 @@ fn reference_point(delta: Vec, normal: Vec, radius: f32, color: Vec, t: f32) -> 
     if color.z > peak {
         peak = color.z;
     }
-    if incidence <= 0f32 || peak == 0f32 {
+    if incidence <= 0f32 || peak == 0f32 || radius <= 0f32 {
         return result;
     }
     var distance: f32 = dot(delta, delta);
@@ -633,6 +633,7 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
         normal.y = -normal.y;
         normal.z = -normal.z;
     }
+    var surface: Hit = hit;
     hit = reference_grid_hit(w, f, hit, normal, x, y);
     var t: f32 = 0f32;
     var light: Vec = vertex(f, (SPACE_LIGHT + space * 4u32) as usize);
@@ -650,7 +651,7 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
     }
     var i: u32 = 0u32;
     while hit.distance > 0f32 && i < w[LIGHT_COUNT as usize] {
-        var l: usize = (LIGHT_DATA + i * 8u32) as usize;
+        var l: usize = (w[LIGHT_DATA as usize] + i * 8u32) as usize;
         if f[l + 7usize] as u32 == space {
             var contribution: Vec = reference_point(
                 sub(vertex(f, l), hit.position),
@@ -659,6 +660,18 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
                 vertex(f, l + 4usize),
                 t
             );
+            if (contribution.x > 0f32 || contribution.y > 0f32 || contribution.z > 0f32) && !reference_light_visible(
+                w,
+                f,
+                surface,
+                vertex(f, l)
+            ) {
+                contribution = make Vec {
+                    x: 0f32,
+                    y: 0f32,
+                    z: 0f32
+                };
+            }
             light.x = light.x + contribution.x;
             light.y = light.y + contribution.y;
             light.z = light.z + contribution.z;
@@ -741,4 +754,32 @@ fn reference_light_boundary(w: *u32, f: *f32, hit: Hit, x: u32, y: u32, actual: 
         choice = choice + 1u32;
     }
     return false;
+}
+
+fn reference_light_visible(w: *u32, f: *f32, receiver: Hit, target: Vec) -> bool {
+    var space: u32 = w[(w[META as usize] + receiver.triangle * 4u32) as usize];
+    var ray: Ray = make Ray {
+        origin: receiver.position,
+        direction: sub(target, receiver.position)
+    };
+    var i: u32 = 0u32;
+    while i < w[3usize] {
+        var meta: usize = (w[META as usize] + i * 4u32) as usize;
+        if i != receiver.triangle && w[meta] == space {
+            var hit: Hit = receiver;
+            hit.distance = 0.99999f32;
+            if intersect(w, f, i, ray, 0.00001f32, 0xffffffffu32, &hit) {
+                if (w[meta + 3usize] & 1u32) == 0u32 || reference_texel(
+                    w,
+                    w[meta + 1usize],
+                    hit.u,
+                    hit.v
+                ) != reference_material(w, w[meta + 1usize], 9u32) {
+                    return false;
+                }
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
 }

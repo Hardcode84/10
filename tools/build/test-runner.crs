@@ -68,7 +68,7 @@ fn all_tests(root: *CrustRun) -> bool {
     if !check_host_ownership(root) {
         return false;
     }
-    var cases: [*u8; 9] = make [*u8; 9] {
+    var cases: [*u8; 10] = make [*u8; 10] {
         "1",
         "2",
         "3",
@@ -77,10 +77,11 @@ fn all_tests(root: *CrustRun) -> bool {
         "6",
         "7",
         "8",
-        "9"
+        "9",
+        "11"
     };
     var i: usize = 0usize;
-    while i < 9usize {
+    while i < 10usize {
         if !test_process(root, "build/tests-render", 1usize, &cases[i]) {
             return false;
         }
@@ -148,6 +149,7 @@ fn test_help() -> i32 {
     );
     test_puts("render 0 --capture FILE --frames N: custom demo sequence with CPU reference");
     test_puts("render 10: window and swapchain resize (requires a display)");
+    test_puts("render 11: light capacity, bulkhead shadows and cutout visibility");
     test_puts("review and viewer accept --width N --height N");
     return 0i32;
 }

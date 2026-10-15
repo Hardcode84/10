@@ -83,7 +83,9 @@ fn expedition_lights(v: mut FrameInput, trial: read Trial) -> unit {
         var strength: f32 = expedition_light_strength(read trial, i);
         var channel: u32 = 0u32;
         while channel < 3u32 {
-            var at: usize = (LIGHT_DATA + i * 8u32 + 4u32 + channel) as usize;
+            var at: usize = (
+                input_word(read v, LIGHT_DATA as usize) + i * 8u32 + 4u32 + channel
+            ) as usize;
             var value: f32 = input_float(read v, at) * strength;
             input_set_float(mut v, at, value);
             channel = channel + 1u32;

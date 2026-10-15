@@ -313,6 +313,7 @@ crust tests.crs render 4
 crust tests.crs render 4 --dither 0
 crust tests.crs render 9
 crust tests.crs render 10 # requires a display
+crust tests.crs render 11 # light capacity and geometry visibility
 crust demo.crs --capture build/native.ppm --width 1920 --height 1080 --frames 601
 crust demo.crs --capture build/baseline.ppm --width 1920 --height 1080 --frames 601 --baseline 1
 cmp build/native.ppm build/baseline.ppm
@@ -490,3 +491,6 @@ checks rejection at the device storage boundary without changing live buffers.
 Run `crust tests.crs render 6` for texture dimensions, atlas regions, palette
 sharing, addressing, and vertex UV checks. The test also grows asset storage
 after geometry submission and checks storage reuse with smaller textures.
+
+The [lighting contract](lighting.md) defines point-light visibility, growable
+light storage, and the surface response checks.

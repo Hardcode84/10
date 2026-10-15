@@ -6,7 +6,7 @@ fn ownership_sources(
     count: usize,
     expected: *u8
 ) -> i32 {
-    var trusted: [CrustSource; 32] = uninit;
+    var trusted: [CrustSource; 64] = uninit;
     var i: usize = 0usize;
     while i < count {
         if !cache_read(root -> context, providers[i], &trusted[i]) {

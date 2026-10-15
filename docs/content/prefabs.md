@@ -62,7 +62,7 @@ triangles, including the pipe, station marks, parked drone, cockpit, cable,
 and both prediction sets. Tests sum the maximum face counts for each axis
 over every interval between shell and prop planes. Faces on the eye plane
 have zero projected area and are omitted. The renderer grows geometry storage to fit the submission.
-The eight-light limit is unchanged.
+The renderer uses growable light storage and geometry-based light visibility.
 
 Panel construction uses fixed stack storage and no heap allocation. Each
 face has capacity for 64 panels: each of at most three port cuts can replace

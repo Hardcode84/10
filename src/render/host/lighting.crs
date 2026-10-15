@@ -1,0 +1,42 @@
+// Sets the active light count. Growth preserves submitted data; failure preserves the old layout.
+// Fill each active record before drawing. Records use the offset in LIGHT_DATA.
+fn input_lights(input: mut FrameInput, count: u32) -> bool {
+    if count > input.storage.light_capacity {
+        var next: Vulkan = input.storage;
+        next.light_capacity = count;
+        if !geometry_layout(&next, next.triangle_capacity) || !storage_replace(
+            &input.storage,
+            &next
+        ) {
+            return false;
+        }
+    }
+    input_set_word(mut input, LIGHT_COUNT as usize, count);
+    return true;
+}
+fn lighting_valid(v: *Vulkan) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    if w[LIGHT_COUNT as usize] > v -> light_capacity {
+        return error("light count exceeds reserved storage");
+    }
+    var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
+    var i: u32 = 0u32;
+    while i < w[LIGHT_COUNT as usize] {
+        var p: usize = (w[LIGHT_DATA as usize] + i * 8u32) as usize;
+        var j: usize = 0usize;
+        while j < 8usize {
+            var value: f32 = f[p + j];
+            if value - value != 0f32 || (j >= 3usize && value < 0f32) {
+                return error(
+                    "light records require finite positions and non-negative radius and colour"
+                );
+            }
+            j = j + 1usize;
+        }
+        if f[p + 7usize] > 31f32 || f[p + 7usize] != (f[p + 7usize] as u32) as f32 {
+            return error("light space must be an integer from zero through 31");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

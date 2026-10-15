@@ -238,6 +238,13 @@ fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
 }
 fn upload_scene(v: *Vulkan) -> unit {
     retained_upload(v);
+    retained_transfer(
+        v,
+        LIGHT_DATA,
+        (v -> mapped as *u32)[LIGHT_COUNT as usize] * 8u32,
+        true,
+        true
+    );
     if v -> asset_capacity != 0u32 {
         copy_region(
             v,

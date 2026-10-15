@@ -128,23 +128,24 @@ scaling, retained assets across resize, rejection, and recovery. Test 10 checks
 window resize and swapchain replacement on a display. The ownership checks reject
 resize while an input borrow is live.
 
-### R6. Lighting and surface response — asset proof, then room scale
+### R6. Lighting and surface response — implemented
 
-The [layout](../../src/render/interface.crs) permits eight point lights.
-[Lighting](../../src/render/device/common.crs) computes face normals from triangle
-positions and evaluates lights without an occlusion query. It does not accept
-authored vertex normals or normal maps. A wall does not block a light within
-the same space. Full-bright texels and the screen-space light grid already work.
+Point lights use geometry visibility within their declared space. Closed walls
+block light from either side. Cutout texels pass light. Retained instances
+remain shadow blockers when camera culling rejects them. The intensity bands
+and screen-space dither grid remain unchanged. Full-bright texels do not emit
+light. Flat triangle normals remain the selected surface style.
 
-**Change:** preserve flat shading as a valid style. Add other normal inputs
-only when an accepted asset requires them. Define room/light influence and
-visibility before using local lamps to distinguish adjacent spaces. Scale light
-selection with measured scene costs, without changing full-bright texels into
-emitters.
+Light storage grows with the active count and reports device-range or allocation
+failures. The raster pass skips shadow queries for contributions below the first
+band. The current demo measurement supports a complete geometry scan. See the
+[lighting contract](../render/lighting.md) for visibility rules, endpoint precision,
+storage, measured cost, and the gate for spatial indexing.
 
-**Check:** a lamp behind a closed bulkhead must not light the other side under
-the selected visibility rule. Compare faceted curved parts in neutral and game
-light. Verify that distant lights and indicators do not change local shading.
+**Check:** `crust tests.crs render 11` compares bulkhead shadows, cutouts,
+space isolation, retained blockers, distant lamps, full-bright texels, and
+17 lights with the CPU reference. It checks rejected growth and recovery.
+Test 4 and the viewer checks retain the faceted-pipe and lighting regressions.
 
 ### R7. Memory, upload, and synchronization — room scale
 

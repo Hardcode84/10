@@ -172,7 +172,7 @@ fn tour_light(
     g: f32,
     b: f32
 ) -> unit {
-    var p: usize = (LIGHT_DATA + index * 8u32) as usize;
+    var p: usize = (input_word(read v, LIGHT_DATA as usize) + index * 8u32) as usize;
     if space == 2u32 {
         input_set_float(mut v, p, -z);
         input_set_float(mut v, p + 2usize, x);

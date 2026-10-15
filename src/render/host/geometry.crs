@@ -4,7 +4,7 @@ fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
     var floats: u64 = (
         clip + capacity as u64 * v -> view_capacity as u64 * 144u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
             v
-        ) + 64u64
+        ) + v -> light_capacity as u64 * 8u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
     var words: u64 = (
         image_words(v) + capacity as u64 * (5u64 + v -> view_capacity as u64 * MAX_FAN as u64) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
@@ -42,6 +42,7 @@ fn geometry_header(v: *Vulkan) -> unit {
     w[MESH_FLOAT as usize] = w[CLIP_OFFSET as usize] + capacity * v -> view_capacity * 144u32;
     w[INSTANCE_FLOAT as usize] = w[MESH_FLOAT as usize] + v -> mesh_capacity * 15u32;
     traversal_header(v);
+    w[LIGHT_DATA as usize] = w[PORTAL_FLOAT as usize] + v -> portal_capacity * 16u32;
     w[WORD_COUNT as usize] = v -> words;
     w[FLOAT_COUNT as usize] = v -> floats;
 }
@@ -59,6 +60,7 @@ fn geometry_copy(v: *Vulkan, old: *Vulkan) -> unit {
     );
     geometry_header(v);
     retained_copy(v, old);
+    retained_copy_region(v, old, LIGHT_DATA, old -> light_capacity * 8u32, true);
     retained_copy_region(v, old, PORTAL_META, old -> portal_capacity * 4u32, false);
     retained_copy_region(v, old, PORTAL_FLOAT, old -> portal_capacity * 16u32, true);
     memcpy(
@@ -113,7 +115,7 @@ fn geometry_limit(v: *Vulkan) -> u32 {
     ) + traversal_words(v);
     var fixed_floats: u64 = GEOMETRY as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
         v
-    );
+    ) + v -> light_capacity as u64 * 8u64;
     if elements <= fixed_words || elements <= fixed_floats {
         return 0u32;
     }
