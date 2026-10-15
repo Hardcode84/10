@@ -54,7 +54,7 @@ fn panel_upload(
             input_asset_set(
                 mut input,
                 palette + index * LIGHT_STATES + state,
-                palette_entry(panel.colour, index, state, index >= 248u32)
+                panel_palette(panel, index, state)
             );
             state = state + 1u32;
         }
@@ -68,4 +68,14 @@ fn panel_upload(
         index = index + 1u32;
     }
     return true;
+}
+
+fn panel_palette(panel: PanelMaterial, index: u32, state: u32) -> u32 {
+    if index >= 248u32 {
+        return palette_entry(panel.emission, 255u32, state, true);
+    }
+    if index >= 224u32 {
+        return palette_entry(panel.accent, 160u32 + (index - 224u32) * 4u32, state, false);
+    }
+    return palette_entry(panel.colour, index, state, false);
 }

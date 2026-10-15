@@ -1,0 +1,125 @@
+const METAL_PLATE: u32 = 0u32;
+const METAL_TREAD: u32 = 1u32;
+const METAL_RIBBED: u32 = 2u32;
+// Dimensions are in metres. Panel height must divide tile size; pitch must
+// divide both panel dimensions. Sizes and texel density must be positive.
+// Finish is METAL_PLATE, METAL_TREAD, or METAL_RIBBED. Colours use packed RGB.
+record PanelMaterial {
+    colour: u32;
+    accent: u32;
+    emission: u32;
+    tile_metres: f32;
+    panel_height: f32;
+    texels_per_metre: u32;
+    border: f32;
+    finish: u32;
+    pitch: f32;
+    seed: u32;
+    indicator: bool;
+}
+fn metal_hash(x: u32, y: u32, seed: u32) -> u32 {
+    var h: u32 = (x * 73856093u32) ^ (y * 19349663u32) ^ seed;
+    h = (h ^ (h >> 13u32)) * 1274126177u32;
+    return h ^ (h >> 16u32);
+}
+// Samples metal grain in metres. Grain contrast stays below panel relief contrast.
+fn metal_grain(material: PanelMaterial, x: f32, y: f32) -> f32 {
+    var row: u32 = (y * material.texels_per_metre as f32) as u32;
+    var column: u32 = (x * material.texels_per_metre as f32) as u32;
+    var brush: f32 = (metal_hash(column / 16u32, row, material.seed) % 7u32) as f32;
+    var fleck: f32 = (metal_hash(column, row, material.seed) % 3u32) as f32;
+    return brush + fleck - 4f32;
+}
+fn metal_tread(material: PanelMaterial, x: f32, y: f32) -> f32 {
+    var cell: u32 = (x / material.pitch) as u32 + (y / material.pitch) as u32;
+    var px: f32 = mask_repeat(x, material.pitch) - material.pitch * 0.5f32;
+    var py: f32 = mask_repeat(y, material.pitch) - material.pitch * 0.5f32;
+    if cell % 2u32 == 0u32 {
+        py = -py;
+    }
+    var along: f32 = (px + py) * 0.70710678f32;
+    var across: f32 = (px - py) * 0.70710678f32;
+    if absf(along) < material.pitch * 0.31f32 && absf(across) < 0.025f32 {
+        if across < 0f32 {
+            return 19f32;
+        }
+        return -17f32;
+    }
+    return 0f32;
+}
+fn metal_relief(material: PanelMaterial, x: f32, y: f32) -> f32 {
+    if material.finish == METAL_TREAD {
+        return metal_tread(material, x, y);
+    }
+    if material.finish == METAL_RIBBED {
+        var across: f32 = mask_repeat(x, material.pitch);
+        if across < 0.035f32 {
+            return -26f32;
+        }
+        if across < 0.055f32 {
+            return 18f32;
+        }
+    }
+    return 0f32;
+}
+fn metal_fastener(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var px: f32 = mask_min(x, material.tile_metres - x) - 0.12f32;
+    var py: f32 = y - 0.12f32;
+    if px * px + py * py > 0.0016f32 {
+        return 0u32;
+    }
+    if px * px + py * py > 0.0009f32 {
+        return 60u32;
+    }
+    if absf(py) < 0.008f32 {
+        return 75u32;
+    }
+    if py < 0f32 {
+        return 210u32;
+    }
+    return 130u32;
+}
+// Returns a palette index for a point within one repeated panel tile.
+fn panel_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
+    var y: f32 = mask_repeat(tile_y, material.panel_height);
+    if mask_border(x, y, material.tile_metres, material.panel_height, material.border) {
+        return 24u32;
+    }
+    var edge: f32 = material.border + 0.025f32;
+    if x < edge || y < edge {
+        return 194u32;
+    }
+    if x > material.tile_metres - edge || y > material.panel_height - edge {
+        return 82u32;
+    }
+    var screw: u32 = metal_fastener(material, x, y);
+    if screw != 0u32 {
+        return screw;
+    }
+    if material.indicator && mask_box(
+        x,
+        y,
+        0.25f32,
+        0.19f32,
+        material.tile_metres - 0.25f32,
+        0.30f32
+    ) {
+        if y < 0.23f32 {
+            return 248u32;
+        }
+        return 228u32;
+    }
+    var edge_distance: f32 = mask_min(
+        mask_min(x, y),
+        mask_min(material.tile_metres - x, material.panel_height - y)
+    );
+    var plate: u32 = (tile_y / material.panel_height) as u32;
+    var sheen: f32 = 9f32 * (1f32 - absf(x / material.tile_metres * 2f32 - 1f32));
+    var shade: f32 = 150f32 + (plate % 2u32) as f32 * 6f32 + sheen + metal_grain(material, x, y) + metal_relief(
+        material,
+        x,
+        y
+    );
+    shade = shade - 22f32 * (1f32 - clamp(edge_distance / 0.20f32, 0f32, 1f32));
+    return clamp(shade, 1f32, 223f32) as u32;
+}

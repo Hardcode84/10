@@ -49,7 +49,7 @@ its inputs through a root Crust entry point.
 | Surface conversion | Triangulate convex polygons; preserve region IDs; derive planar UV coordinates at a fixed physical scale |
 | Room bundle | Own the hull, render mesh, collision index, and spawn frame |
 | Material masks | Reusable rectangle and border operations in metres |
-| Panel material | A repeated indexed panel tile with a border and optional full-bright indicator strip |
+| Panel material | Repeated metal plates, tread, or ribs with grain, recessed joints, fasteners, and an optional full-bright strip |
 | Viewer session | Own the window and renderer; compile no game or expedition sources |
 
 The loft operations consume valid construction data. The recipe checks public
@@ -66,6 +66,12 @@ size, texture density, and border width. Size changes repeat the tile without
 changing its physical border width. Each material has a 256-entry palette.
 Indices 248–255 are full-bright and do not emit light. The renderer supplies
 lighting and screen-space dither.
+
+Metal materials specify panel height, relief pitch, a stable grain seed, and
+separate metal, accent, and indicator colours. Indices 0–223 form the metal
+ramp. Indices 224–247 form the accent ramp. Grain has low contrast; panel
+edges and relief supply the main surface cues. These cues are baked into the
+texture. They do not supply reflections or change collision geometry.
 
 Generation, triangulation, palette generation, and collision-index construction
 run only when the asset is built or rebuilt. Frame submission uses a retained

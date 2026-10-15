@@ -10,6 +10,10 @@
 // Panel tiles repeat every two metres at 64 texels per metre. Their borders
 // keep a fixed physical width when room dimensions change. The start cap has
 // full-bright indicator strips. These strips do not emit light.
+// Walls use 2 by 1 metre brushed steel plates. The base uses raised tread; the taper uses
+// ribbed sheet metal. The start cap uses warm metal with pale green indicators.
+// Recessed joints, bevels, and fasteners supply baked surface relief; they do
+// not change collision or add view-dependent reflections. Grain stays subtle.
 fn room_parameter_count() -> u32 {
     return 4u32;
 }
@@ -80,19 +84,32 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     return room_asset_finish(mut asset);
 }
 fn room_material(region: u32) -> PanelMaterial {
-    var colour: u32 = 0x827b65u32;
+    var colour: u32 = 0xe1d5c5u32;
+    var finish: u32 = METAL_PLATE;
+    var panel_height: f32 = 1f32;
     if region == REGION_BASE {
-        colour = 0x5a666cu32;
+        colour = 0xb4b3acu32;
+        finish = METAL_TREAD;
+        panel_height = 2f32;
     }
     if region == REGION_TAPER {
-        colour = 0x9b947au32;
+        colour = 0xc6bfb4u32;
+        finish = METAL_RIBBED;
+        panel_height = 2f32;
     }
     if region == REGION_START {
-        colour = 0x548babu32;
+        colour = 0x9eafc0u32;
+        panel_height = 2f32;
     }
     return make PanelMaterial {
         colour: colour,
+        accent: 0x4f97c4u32,
+        emission: 0xd6ffc0u32,
+        finish: finish,
+        pitch: 0.25f32,
+        seed: 147u32 + region,
         tile_metres: 2f32,
+        panel_height: panel_height,
         texels_per_metre: 64u32,
         border: 0.025f32,
         indicator: region == REGION_START
