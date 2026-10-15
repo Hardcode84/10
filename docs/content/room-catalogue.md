@@ -71,8 +71,10 @@ entrance and exit views.
 ## Geometry vocabulary
 
 A geometry describes the navigable volume, not only the number of ports.
-It may use several joined shell cells and attached structures. All cells obey
-[the sealed prefab contract](prefabs.md).
+It may use several joined shell cells and attached structures. A catalogue
+variant can contain several convex rooms from the [room format](room-format.md).
+An elbow or branched variant does not require a non-convex room hull.
+The [current prefabs](prefabs.md) use rectangular cells.
 
 | Geometry | Required spatial feature | Connection rule |
 | --- | --- | --- |

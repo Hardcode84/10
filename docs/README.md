@@ -53,6 +53,7 @@ application functions as the applications.
 - Game: [expedition](game/expedition.md), [movement](game/movement.md),
   [flight course](game/flight-course.md).
 - Content: [parametric assets](content/parametric-assets.md),
+  [room format](content/room-format.md),
   [prefabs](content/prefabs.md), [room catalogue](content/room-catalogue.md),
   [engine gaps](content/engine-gaps.md).
 

@@ -1,5 +1,9 @@
 # Connected room prefabs
 
+This document describes the current rectangular expedition implementation.
+The [room format](room-format.md) defines the target convex rooms, named
+connections, allowed rotations, and separate local spaces.
+
 The expedition is a closed assembly of rooms. A large chamber supplies open
 flight space. There is no playable space outside the assembly. Walls stop the
 drone and hook and cover the background. Darkness does not replace geometry.

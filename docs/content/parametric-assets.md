@@ -169,10 +169,15 @@ Contacts must identify the instance and surface, not only time and normal.
 A hook attachment must retain the local contact point and its owning instance.
 This supports inspection and is required before moving anchors can work.
 
-Sockets contain a stable name, local rigid frame, connection type, profile,
-and clearance. Compatible sockets must meet without a gap in drawing or
-collision. Both sides use one canonical opening description. Closed sockets
-must have a generated closure. Changing dimensions must update that closure.
+Room sockets follow the [room format](room-format.md). Each has a unique local
+port ID, compatibility name, local rigid frame, and allowed rotation count.
+Names determine compatibility without polygon matching. The shared profile
+supplies the opening recipe and clearance. Both sides must meet without a gap
+in drawing or collision. Closed sockets must have a generated closure.
+Changing dimensions must update that closure and use a compatible profile name.
+
+Each room has a convex hull and its own local space. Props use that space.
+Build non-convex room variants from several connected convex rooms.
 
 Rigid instance placement must transform mesh, collision, sockets, and bounds
 together. Non-uniform size changes belong in recipe parameters, where wall

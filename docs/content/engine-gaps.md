@@ -85,12 +85,13 @@ the selected spatial path contract, not a global-coordinate shortcut.
 64 temporary panels per face, and translation-only instances. Port matching
 uses exact world-coordinate equality. The [expedition layout](../../src/game/expedition/expedition-layout.crs)
 contains five fixed room instances and five links. Containment tests use box
-volumes. There is no generated compound-room or rotated-socket contract.
+volumes. The [convex room format](room-format.md) is not implemented.
 
-**Change:** use named sockets and rigid instance frames. Generate compound
-room boundaries and closures from the recipe. Share canonical connection
-geometry instead of separately rounding each side. Validate topology at build
-time. Replace fixed port storage when the first approved room needs more ports.
+**Change:** implement convex hull rooms in separate local spaces. Use named
+connection profiles, local port frames, and declared rotation counts. Names
+determine compatibility; do not match polygons to select links. Generate
+openings and closures from shared recipes. Build non-convex routes as assemblies
+of convex rooms. Validate topology at build time. Size port storage from content.
 
 **Check:** rotated connections, four-way junctions, unused closures, loop
 closure, and non-box containment. Render and sweep both sides of every seam.
