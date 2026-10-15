@@ -76,10 +76,10 @@ fn test_expedition_winch(collision: read CollisionScene) -> bool {
     var drone: Drone = new_drone();
     drone.world = 1u32;
     drone.position = vec(40f32, 90f32, 100f32);
-    drone.cable.phase = CABLE_ATTACHED;
+    if !test_attach_surface(read collision, mut drone, vec(0f32, 0f32, 100f32)) {
+        return false;
+    }
     drone.cable.reeling = true;
-    drone.cable.anchor = vec(40f32, 90f32, 130f32);
-    drone.cable.extent = 30f32;
     drone.charge = 0.01f32;
     powered_winch(read collision, mut drone);
     if !game_check(
@@ -109,9 +109,9 @@ fn test_expedition_stalled_reel(collision: read CollisionScene) -> bool {
     var drone: Drone = new_drone();
     drone.world = 1u32;
     drone.position = vec(0f32, 4f32, 35f32);
-    drone.cable.phase = CABLE_ATTACHED;
-    drone.cable.anchor = vec(-20f32, 4f32, 35f32);
-    drone.cable.extent = 20f32;
+    if !test_attach_surface(read collision, mut drone, vec(-40f32, 0f32, 0f32)) {
+        return false;
+    }
     drone.velocity = vec(0f32, 0f32, 0f32);
     var command: Command = idle_command();
     command.tether = true;

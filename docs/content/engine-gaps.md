@@ -197,8 +197,8 @@ sorts shared edges for adjacency instead of comparing all triangle pairs.
 
 The [spatial index contract](../collision/spatial-index.md) specifies ownership,
 scene replacement, stable contact identity, memory cost, and measured scaling.
-Static poses remain immutable. C4 must define separate kinematic updates before
-moving geometry can enter collision queries.
+Static poses remain immutable. C4 adds prescribed kinematic trajectories and
+interval queries without changing geometry or rebuilding this index.
 
 **Check:** indexed queries match exhaustive mesh queries, including all contact
 fields, equal-time hits, rotated instances, space isolation, and initial surface
@@ -227,27 +227,28 @@ containment, transformed instances, and 2400 repeated elbow slide steps.
 See the motion contract for failure statuses, numerical tolerances, storage,
 and dense-contact cost.
 
-### C4. Contact identity and moving anchors — world feature
+### C4. Contact identity and moving anchors — implemented
 
-[Mesh contacts](../../src/collision/sweep.crs) include instance/surface identity
-and a local contact point. The flight adapter currently consumes time and normal.
-[Hook attachment](../../src/game/flight/hook.crs) stores a position in `Cable.anchor`.
-[Drone state](../../src/game/flight/state.crs) has no collider or body identity for that
-attachment. Collision geometry has no velocity or motion interval.
+The [kinematic mesh contract](../collision/kinematic-meshes.md) defines prescribed
+translation and rotation, relative continuous queries, and contact response.
+Hooks retain instance and surface identities and the local surface point.
+Rendering, physics, attachment updates, and prediction use the same poses.
+A rotating beam in each game world provides a visible consumer.
 
-**Change:** retain the mesh contact identity and local point in the hook state.
-For moving machines, add kinematic poses, surface velocity, relative swept
-queries, and attachment updates. Couple winch work and momentum to the selected
-moving-anchor model. A rotating visual mesh alone is not a moving machine.
+The machine drive absorbs reaction impulses. Release keeps acquired player
+velocity. Cable accounting separates winch work, machine work, and inelastic
+loss. Mesh contact accounting records net player kinetic-energy change.
 
-**Check:** hook a moving beam, ride its motion, release it, and collide with it
-at speed. Verify contact location and energy accounting in the chosen frame.
+Focused component checks launch and attach the hook, ride translating and
+rotating anchors, release, and collide at speed. They check transformed local
+points, space isolation, energy, and explicit failure for opposed constraints.
+The checks do not load a game level.
 
 ### P1. Drum frames and forces — world feature
 
-[Force evaluation](../../src/game/flight/physics.crs) already includes centrifugal force,
+[Force evaluation](../../src/game/flight/environment.crs) already includes centrifugal force,
 Coriolis force, and speed-dependent drag. The hook uses the same force function.
-[Drum parameters](../../src/game/course/course.crs) are fixed: a Z spin axis, an origin
+[Drum parameters](../../src/game/flight/environment.crs) are fixed: a Z spin axis, an origin
 750 m along local Y, a 4,000 m density scale, and spin either zero or
 0.0495 rad/s. The expedition uses the stopped state. There is no per-region
 frame, partial-spin parameter, or time-dependent angular velocity.
@@ -285,10 +286,11 @@ relative motion during each collision interval.
 It has no wrapping or obstacle contact. The flying hook has a 120 m range;
 attached reeling is latched and uses a 40 m/s target with charge and collision
 constraints. These are deliberate game rules. The cable has no representation
-for a path through transformed spaces or for a moving owner.
+for a path through transformed spaces. C4 supplies moving mesh owners and local
+attachment points within one collision space.
 
 **Change:** preserve the direct cable rule. Specify and implement cable state
-across portal crossings and moving anchors before either feature is playable.
+across portal crossings before that feature is playable.
 Do not add rope wrapping as an incidental collision fix.
 
 **Check:** player and hook on opposite sides of a transformed portal, crossing

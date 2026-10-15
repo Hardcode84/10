@@ -27,9 +27,13 @@ fn expedition_review(
     }
     trial.expedition.has_parked = true;
     trial.expedition.parked = vec(10f32, 90f32, 130f32);
-    trial.drone.cable.phase = CABLE_ATTACHED;
-    trial.drone.cable.anchor = vec(18f32, 112f32, 100f32);
-    trial.drone.cable.extent = 30f32;
+    if !test_attach_surface(
+        read collision,
+        mut trial.drone,
+        vec(-22f32, 8f32, -100f32)
+    ) {
+        return false;
+    }
     if !review_frame(read collision, mut session, read trial, config, 2u32) {
         return false;
     }

@@ -1,0 +1,42 @@
+fn draw_machines(scene: read CollisionScene, v: mut FrameInput, drone: Drone) -> unit {
+    var index: u32 = collision_moving_head(read scene);
+    while index != 0xffffffffu32 {
+        var item: CollisionInstance = collision_instance(read scene, index);
+        if item.space == drone.world {
+            var pose: CollisionInstance = collision_pose(item, drone.clock as f32 * STEP);
+            draw_machine_beam(mut v, pose);
+        }
+        index = item.next_moving;
+    }
+}
+fn draw_machine_beam(v: mut FrameInput, pose: CollisionInstance) -> unit {
+    var beam: Solid = machine_beam();
+    var face: u32 = 0u32;
+    while face < 6u32 {
+        var shift: Vec3 = vec(0f32, 0f32, 0f32);
+        if face % 2u32 != 0u32 {
+            shift = scale(
+                axis_vector(face / 2u32),
+                component(sub(beam.high, beam.low), face / 2u32)
+            );
+        }
+        var a: Vec3 = add(
+            pose.origin,
+            basis_vector(pose.basis, add(box_edge(beam, face / 2u32, 0u32), shift))
+        );
+        var b: Vec3 = add(
+            pose.origin,
+            basis_vector(pose.basis, add(box_edge(beam, face / 2u32, 1u32), shift))
+        );
+        var c: Vec3 = add(
+            pose.origin,
+            basis_vector(pose.basis, add(box_edge(beam, face / 2u32, 3u32), shift))
+        );
+        var d: Vec3 = add(
+            pose.origin,
+            basis_vector(pose.basis, add(box_edge(beam, face / 2u32, 2u32), shift))
+        );
+        surface_quad(mut v, beam.material, a, b, c, d);
+        face = face + 1u32;
+    }
+}

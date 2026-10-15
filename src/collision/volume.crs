@@ -21,6 +21,9 @@ fn collision_winding(scene: read CollisionScene, item: CollisionInstance, p: Vec
 }
 fn collision_inside_solid(scene: read CollisionScene, index: u32, p: Vec3) -> bool {
     var item: CollisionInstance = collision_instance(read scene, index);
+    return collision_inside_pose(read scene, item, p);
+}
+fn collision_inside_pose(scene: read CollisionScene, item: CollisionInstance, p: Vec3) -> bool {
     if !item.solid {
         return false;
     }
@@ -39,7 +42,9 @@ fn collision_embedded(scene: read CollisionScene, space: u32, p: Vec3) -> u32 {
         if !collision_aabb(p, vec(0f32, 0f32, 0f32), 0f32, node.low, node.high) {
             i = node.skip;
         } else {
-            if node.leaf != 0xffffffffu32 && collision_inside_solid(read scene, node.leaf, p) {
+            if node.leaf != 0xffffffffu32 && !collision_moving(
+                collision_instance(read scene, node.leaf)
+            ) && collision_inside_solid(read scene, node.leaf, p) {
                 return node.leaf;
             }
             i = i + 1u32;

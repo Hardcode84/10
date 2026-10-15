@@ -13,11 +13,7 @@ fn attached_test_drone(collision: read CollisionScene) -> Drone {
 fn test_tether(collision: read CollisionScene) -> bool {
     var d: Drone = attached_test_drone(read collision);
     if !game_check(
-        d.cable.phase == CABLE_ATTACHED && near(
-            d.cable.anchor.z,
-            55f32 - HOOK_RADIUS,
-            0.001f32
-        ),
+        d.cable.phase == CABLE_ATTACHED && near(d.cable.anchor.z, 55f32, 0.001f32),
         "tether projectile did not attach to the spoke"
     ) {
         return false;

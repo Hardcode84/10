@@ -50,5 +50,8 @@ fn collision_build_game(scene: mut CollisionScene) -> bool {
     if !collision_build_world(mut builder, 0u32) || !collision_build_world(mut builder, 1u32) {
         return false;
     }
+    if !collision_build_machine(mut builder, 0u32) || !collision_build_machine(mut builder, 1u32) {
+        return false;
+    }
     return collision_finish(move builder, mut scene);
 }

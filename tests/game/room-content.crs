@@ -17,7 +17,7 @@ fn test_content_hook(collision: read CollisionScene, position: Vec3, ceiling: f3
     return game_check(
         drone.cable.phase == CABLE_ATTACHED && near(
             drone.cable.anchor.y,
-            ceiling - HOOK_RADIUS,
+            ceiling,
             0.001f32
         ),
         "room feature must stop and attach the launched hook at its visible surface"

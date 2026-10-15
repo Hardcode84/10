@@ -56,11 +56,7 @@ fn test_hook_sweep(collision: read CollisionScene) -> bool {
     d.cable.velocity = vec(0f32, 0f32, 30000f32);
     hook_step(read collision, mut d, false);
     return game_check(
-        d.cable.phase == CABLE_ATTACHED && near(
-            d.cable.anchor.z,
-            55f32 - HOOK_RADIUS,
-            0.001f32
-        ),
+        d.cable.phase == CABLE_ATTACHED && near(d.cable.anchor.z, 55f32, 0.001f32),
         "hook must hit the first surface even when a tick exceeds maximum range"
     );
 }
@@ -127,4 +123,25 @@ fn test_hook(collision: read CollisionScene) -> bool {
         read collision,
         true
     ) && test_hook_sweep(read collision) && test_hook_range(read collision) && test_hook_hash();
+}
+
+fn test_attach_surface(scene: read CollisionScene, drone: mut Drone, travel: Vec3) -> bool {
+    var time: f32 = drone.clock as f32 * STEP;
+    var hit: CollisionSweep = collision_sweep_interval(
+        read scene,
+        drone.world,
+        drone.position,
+        travel,
+        HOOK_RADIUS,
+        time,
+        0f32
+    );
+    if !game_check(
+        hit.status == 0u32 && hit.contact.hit.time <= 1f32,
+        "attachment fixture must hit a mesh surface"
+    ) {
+        return false;
+    }
+    hook_attach(read scene, mut drone, hit.contact, time);
+    return true;
 }

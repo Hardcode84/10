@@ -39,3 +39,10 @@ fn print_number(value: i64) -> unit {
     }
     puts(&buffer[index]);
 }
+
+fn float_bits(value: f32) -> u32 {
+    return *(&value as *u32);
+}
+fn bits_float(value: u32) -> f32 {
+    return *(&value as *f32);
+}

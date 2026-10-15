@@ -34,22 +34,31 @@ fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) 
     drone.cable.velocity = add(drone.cable.velocity, scale(acceleration, STEP));
     var travel: Vec3 = scale(drone.cable.velocity, STEP);
     var limit: f32 = hook_range_time(drone.cable.anchor, travel, drone.position);
-    var hit: Hit = course_hit(
+    var query: CollisionSweep = collision_sweep_interval(
         read collision,
         drone.world,
         drone.cable.anchor,
         travel,
-        HOOK_RADIUS
+        HOOK_RADIUS,
+        drone.clock as f32 * STEP,
+        STEP
     );
-    if hit.time <= limit {
-        drone.cable.anchor = add(drone.cable.anchor, scale(travel, hit.time));
-        drone.cable.velocity = vec(0f32, 0f32, 0f32);
-        drone.cable.extent = clamp(
-            length(sub(drone.position, drone.cable.anchor)),
-            0.75f32,
-            CABLE_REACH
+    if query.status != 0u32 {
+        var failure: CollisionMotion = collision_motion_begin(
+            read collision,
+            drone.world,
+            drone.cable.anchor,
+            travel,
+            drone.cable.velocity
         );
-        drone.cable.phase = CABLE_ATTACHED;
+        failure.status = query.status;
+        failure.contact = query.contact;
+        game_collision_failure(failure);
+    }
+    var hit: CollisionContact = query.contact;
+    if hit.hit.time <= limit {
+        var end_time: f32 = (drone.clock + 1u32) as f32 * STEP;
+        hook_attach(read collision, mut drone, hit, end_time);
     } else if limit < 1f32 {
         drone.cable = empty_cable();
         drone.cable.phase = CABLE_SNAPPED;

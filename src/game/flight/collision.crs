@@ -3,22 +3,36 @@ fn course_hit(collision: read CollisionScene, world: u32, p: Vec3, d: Vec3, radi
 }
 // Applies sphere motion. Invalid geometry or unresolved contacts terminate the run.
 fn move_drone(collision: read CollisionScene, drone: mut Drone, travel: Vec3) -> unit {
-    var motion: CollisionMotion = collision_motion_begin(
+    move_drone_interval(read collision, mut drone, travel, 0f32);
+}
+fn move_drone_interval(
+    collision: read CollisionScene,
+    drone: mut Drone,
+    travel: Vec3,
+    duration: f32
+) -> unit {
+    var time: f32 = drone.clock as f32 * STEP;
+    var motion: CollisionMotion = collision_interval_begin(
         read collision,
         drone.world,
         drone.position,
         travel,
-        drone.velocity
+        drone.velocity,
+        time
     );
     var planes: CollisionPlanes = collision_planes_new();
+    var speeds: CollisionPlanes = collision_planes_new();
     var done: bool = false;
     while !done {
         motion.remaining = tether_travel(read drone, motion.remaining);
-        done = collision_motion_step(
+        done = collision_interval_step(
             read collision,
             drone.world,
             DRONE_RADIUS,
+            time,
+            duration,
             mut planes,
+            mut speeds,
             mut motion
         );
         drone.position = motion.position;
@@ -27,23 +41,5 @@ fn move_drone(collision: read CollisionScene, drone: mut Drone, travel: Vec3) ->
         game_collision_failure(motion);
     }
     drone.velocity = motion.velocity;
-}
-fn game_collision_spawn(collision: read CollisionScene, trial: read Trial) -> bool {
-    if !collision_position_valid(
-        read collision,
-        trial.drone.world,
-        trial.drone.position,
-        DRONE_RADIUS
-    ) {
-        return error("drone spawn intersects collision geometry");
-    }
-    if trial.expedition.has_parked && !collision_position_valid(
-        read collision,
-        1u32,
-        trial.expedition.parked,
-        DRONE_RADIUS
-    ) {
-        return error("saved drone intersects collision geometry");
-    }
-    return true;
+    drone.contact_work = drone.contact_work + motion.contact_work;
 }

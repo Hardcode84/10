@@ -1,0 +1,21 @@
+fn game_collision_spawn(collision: read CollisionScene, trial: read Trial) -> bool {
+    if !collision_position_valid_at(
+        read collision,
+        trial.drone.world,
+        trial.drone.position,
+        DRONE_RADIUS,
+        trial.drone.clock as f32 * STEP
+    ) {
+        return error("drone spawn intersects collision geometry");
+    }
+    if trial.expedition.has_parked && !collision_position_valid_at(
+        read collision,
+        1u32,
+        trial.expedition.parked,
+        DRONE_RADIUS,
+        trial.drone.clock as f32 * STEP
+    ) {
+        return error("saved drone intersects collision geometry");
+    }
+    return true;
+}

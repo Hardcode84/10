@@ -284,7 +284,9 @@ fn collision_exhaustive(
     var result: CollisionContact = collision_miss(space);
     var i: u32 = 0u32;
     while i < collision_instances(read scene) {
-        if collision_instance(read scene, i).space == space {
+        if collision_instance(read scene, i).space == space && !collision_moving(
+            collision_instance(read scene, i)
+        ) {
             var next: CollisionContact = collision_exhaustive_instance(
                 read scene,
                 i,

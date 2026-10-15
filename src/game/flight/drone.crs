@@ -1,0 +1,64 @@
+const STEP: f32 = 0.008333333333333333f32;
+const DRONE_RADIUS: f32 = 0.35f32;
+const CABLE_READY: u32 = 0u32;
+const CABLE_FLYING: u32 = 1u32;
+const CABLE_ATTACHED: u32 = 2u32;
+const CABLE_SNAPPED: u32 = 3u32;
+record Cable {
+    phase: u32;
+    instance: u32;
+    surface: u32;
+    local_point: Vec3;
+    anchor: Vec3;
+    velocity: Vec3;
+    extent: f32;
+    reel_speed: f32;
+    reeling: bool;
+}
+fn empty_cable() -> Cable {
+    return make Cable {
+        phase: CABLE_READY,
+        instance: 0xffffffffu32,
+        surface: 0xffffffffu32,
+        local_point: vec(0f32, 0f32, 0f32),
+        anchor: vec(0f32, 0f32, 0f32),
+        velocity: vec(0f32, 0f32, 0f32),
+        extent: 0f32,
+        reel_speed: 0f32,
+        reeling: false
+    };
+}
+record Drone {
+    world: u32;
+    clock: u32;
+    machine_work: f32;
+    cable_loss: f32;
+    contact_work: f32;
+    charge: f32;
+    charge_spent: f32;
+    position: Vec3;
+    velocity: Vec3;
+    basis: Basis;
+    cable: Cable;
+    bursts: u32;
+    brake_speed: f32;
+    winch_work: f32;
+}
+fn new_drone() -> Drone {
+    return make Drone {
+        world: 0u32,
+        clock: 0u32,
+        machine_work: 0f32,
+        cable_loss: 0f32,
+        contact_work: 0f32,
+        charge: 100f32,
+        charge_spent: 0f32,
+        position: vec(0f32, 1f32, 0f32),
+        velocity: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        cable: empty_cable(),
+        bursts: 0u32,
+        brake_speed: 0f32,
+        winch_work: 0f32
+    };
+}

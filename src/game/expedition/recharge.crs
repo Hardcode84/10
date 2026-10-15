@@ -1,0 +1,12 @@
+fn recharge_expedition(trial: mut Trial) -> unit {
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        if station_lit(trial.expedition.progress, i) && length(
+            sub(trial.drone.position, station_position(i))
+        ) < 18f32 {
+            trial.drone.charge = clamp(trial.drone.charge + 8f32 * STEP, 0f32, 100f32);
+            return;
+        }
+        i = i + 1u32;
+    }
+}

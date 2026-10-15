@@ -1,5 +1,5 @@
 fn build_collision_checks(root: *CrustRun, sanitize: bool, output: *u8) -> bool {
-    var files: [*u8; 11] = make [*u8; 11] {
+    var files: [*u8; 26] = make [*u8; 26] {
         "src/app/math.crs",
         "src/collision/primitives.crs",
         "src/collision/topology.crs",
@@ -9,10 +9,25 @@ fn build_collision_checks(root: *CrustRun, sanitize: bool, output: *u8) -> bool 
         "src/collision/contact-solve.crs",
         "src/collision/motion.crs",
         "src/collision/volume.crs",
+        "src/collision/kinematics.crs",
+        "src/collision/kinematic-sweep.crs",
+        "src/collision/kinematic-contacts.crs",
+        "src/collision/kinematic-motion.crs",
         "tests/collision/fixtures.crs",
-        "tests/collision/motion.crs"
+        "tests/collision/motion.crs",
+        "src/game/flight/drone.crs",
+        "src/game/flight/attachment.crs",
+        "tests/collision/kinematic.crs",
+        "src/game/flight/command.crs",
+        "src/game/flight/environment.crs",
+        "src/game/flight/energy.crs",
+        "src/game/flight/collision.crs",
+        "src/game/flight/tether.crs",
+        "src/game/flight/hook.crs",
+        "src/game/flight/orientation.crs",
+        "src/game/flight/physics.crs"
     };
-    var native: [*u8; 8] = make [*u8; 8] {
+    var native: [*u8; 9] = make [*u8; 9] {
         "src/app/io.crs",
         "src/render/host/mesh.crs",
         "src/collision/storage.crs",
@@ -20,45 +35,46 @@ fn build_collision_checks(root: *CrustRun, sanitize: bool, output: *u8) -> bool 
         "src/collision/adjacency-build.crs",
         "src/collision/contact-storage.crs",
         "tests/collision/check-host.crs",
-        "tests/collision/entry.crs"
+        "tests/collision/entry.crs",
+        "src/game/host/collision-errors.crs"
     };
-    var args: [*u8; 32] = uninit;
-    var providers: [*u8; 8] = uninit;
+    var args: [*u8; 64] = uninit;
+    var providers: [*u8; 9] = uninit;
     var i: usize = 0usize;
-    while i < 11usize {
+    while i < 26usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     i = 0usize;
-    while i < 8usize {
+    while i < 9usize {
         providers[i] = host_path(root, native[i]);
         i = i + 1usize;
     }
-    args[11usize] = "-o";
-    args[12usize] = host_path(root, output);
-    args[13usize] = "--cflag";
-    args[14usize] = "-O2";
-    args[15usize] = "--ldflag";
-    args[16usize] = "-lm";
-    var count: usize = 17usize;
+    args[26usize] = "-o";
+    args[27usize] = host_path(root, output);
+    args[28usize] = "--cflag";
+    args[29usize] = "-O2";
+    args[30usize] = "--ldflag";
+    args[31usize] = "-lm";
+    var count: usize = 32usize;
     if sanitize {
-        args[14usize] = "-O1";
-        args[17usize] = "--cflag";
-        args[18usize] = "-g";
-        args[19usize] = "--cflag";
-        args[20usize] = "-fsanitize=address,undefined";
-        args[21usize] = "--ldflag";
-        args[22usize] = "-fsanitize=address,undefined";
-        args[23usize] = "--cflag";
-        args[24usize] = "-fno-sanitize-recover=all";
-        count = 25usize;
+        args[29usize] = "-O1";
+        args[32usize] = "--cflag";
+        args[33usize] = "-g";
+        args[34usize] = "--cflag";
+        args[35usize] = "-fsanitize=address,undefined";
+        args[36usize] = "--ldflag";
+        args[37usize] = "-fsanitize=address,undefined";
+        args[38usize] = "--cflag";
+        args[39usize] = "-fno-sanitize-recover=all";
+        count = 40usize;
     }
     return ownership_sources(
         root,
         count as i32,
         &args[0usize],
         &providers[0usize],
-        8usize,
+        9usize,
         null(*u8)
     ) == 0i32;
 }

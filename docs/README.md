@@ -22,7 +22,7 @@ application functions as the applications.
 | `src/render/host/` | Renderer resources, uploads, and Vulkan commands |
 | `src/render/device/` | Compute shaders |
 | `src/render/interface.crs` | Shared host and device data definitions |
-| `src/collision/` | Static mesh storage, spatial indices, adjacency, sphere queries, and contact solving |
+| `src/collision/` | Mesh storage, kinematic poses, spatial indices, sphere queries, and contact solving |
 | `src/app/` | Shared window, clock, capture, shader, and asset helpers |
 | `src/demo/host/` | Demo options, playback, session, and main loop |
 | `src/demo/scene/` | Demo geometry, camera route, and textures |
@@ -48,7 +48,8 @@ application functions as the applications.
   [textures](render/textures.md), [retained meshes](render/retained-meshes.md),
   [portal capacity](render/portal-capacity.md), [image resize](render/images.md).
 - Collision: [static meshes](collision/static-meshes.md),
-  [spatial index](collision/spatial-index.md), [sphere motion](collision/motion.md).
+  [spatial index](collision/spatial-index.md), [sphere motion](collision/motion.md),
+  [moving meshes and anchors](collision/kinematic-meshes.md).
 - Game: [expedition](game/expedition.md), [movement](game/movement.md),
   [flight course](game/flight-course.md).
 - Content: [parametric assets](content/parametric-assets.md),
@@ -81,3 +82,5 @@ with the CPU reference.
 
 The test runner preserves the environment. For example, set `VK_DRIVER_FILES`
 to select a Vulkan driver. A failed child process makes the test root fail.
+
+The focused collision target includes flight and hook fixtures without game levels.

@@ -90,17 +90,3 @@ fn course_solid(index: u32) -> Solid {
     }
     return course_return(index);
 }
-// Local Y points toward the axis; the course origin is 750 metres from it.
-fn drum_position(local: Vec3) -> Vec3 {
-    return vec(local.x, local.y - 750f32, 0f32);
-}
-fn spin_rate(full_spin: bool) -> f32 {
-    if full_spin {
-        return 0.0495f32;
-    }
-    return 0f32;
-}
-fn air_density(p: Vec3) -> f32 {
-    var t: f32 = clamp(length(drum_position(p)) / 4000f32, 0f32, 1f32);
-    return 0.05f32 + 0.95f32 * t * t * (3f32 - 2f32 * t);
-}

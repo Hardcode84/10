@@ -1,0 +1,26 @@
+record Command {
+    thrust: Vec3;
+    look: Vec3;
+    reel: bool;
+    burst: bool;
+    brake: bool;
+    tether: bool;
+    restart: bool;
+    spin: bool;
+    assist: bool;
+    preview: bool;
+}
+fn idle_command() -> Command {
+    return make Command {
+        thrust: vec(0f32, 0f32, 0f32),
+        look: vec(0f32, 0f32, 0f32),
+        reel: false,
+        burst: false,
+        brake: false,
+        tether: false,
+        restart: false,
+        spin: false,
+        assist: false,
+        preview: false
+    };
+}

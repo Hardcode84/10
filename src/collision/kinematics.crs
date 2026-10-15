@@ -1,0 +1,140 @@
+// Poses use space-local time in seconds. Angular velocity is expressed in that space.
+fn collision_moving(item: CollisionInstance) -> bool {
+    return dot(item.linear, item.linear) != 0f32 || dot(item.angular, item.angular) != 0f32;
+}
+fn collision_pose(item: CollisionInstance, time: f32) -> CollisionInstance {
+    var pose: CollisionInstance = item;
+    pose.origin = add(item.origin, scale(item.linear, time));
+    var speed: f32 = length(item.angular);
+    if speed != 0f32 {
+        var axis: Vec3 = collision_divide(item.angular, speed);
+        pose.basis.right = rotate(item.basis.right, axis, speed * time);
+        pose.basis.up = rotate(item.basis.up, axis, speed * time);
+        pose.basis.forward = rotate(item.basis.forward, axis, speed * time);
+    }
+    return pose;
+}
+fn collision_surface_velocity(pose: CollisionInstance, local: Vec3) -> Vec3 {
+    return add(pose.linear, cross(pose.angular, basis_vector(pose.basis, local)));
+}
+fn collision_anchor(scene: read CollisionScene, instance: u32, local: Vec3, time: f32) -> Vec3 {
+    var pose: CollisionInstance = collision_pose(
+        collision_instance(read scene, instance),
+        time
+    );
+    return add(pose.origin, basis_vector(pose.basis, local));
+}
+fn collision_anchor_velocity(
+    scene: read CollisionScene,
+    instance: u32,
+    local: Vec3,
+    time: f32
+) -> Vec3 {
+    return collision_surface_velocity(
+        collision_pose(collision_instance(read scene, instance), time),
+        local
+    );
+}
+record CollisionSweep {
+    contact: CollisionContact;
+    status: u32;
+}
+fn collision_sweep_result(contact: CollisionContact) -> CollisionSweep {
+    return make CollisionSweep {
+        contact: contact,
+        status: 0u32
+    };
+}
+fn collision_reach(item: CollisionInstance) -> f32 {
+    var size: Vec3 = vec(
+        clamp(absf(item.low.x), absf(item.high.x), 3.4028234e38f32),
+        clamp(absf(item.low.y), absf(item.high.y), 3.4028234e38f32),
+        clamp(absf(item.low.z), absf(item.high.z), 3.4028234e38f32)
+    );
+    return length(size);
+}
+// Returns the first contact over [time,time+duration], including moving surfaces.
+// Status 6 reports a numerical or iteration failure; it is never a miss.
+fn collision_sweep_interval(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32
+) -> CollisionSweep {
+    var result: CollisionSweep = collision_sweep_result(
+        collision_sweep(read scene, space, p, d, radius)
+    );
+    var index: u32 = collision_moving_head(read scene);
+    while index != 0xffffffffu32 {
+        var item: CollisionInstance = collision_instance(read scene, index);
+        if item.space == space {
+            var next: CollisionSweep = collision_sweep_moving(
+                read scene,
+                index,
+                item,
+                p,
+                d,
+                radius,
+                time,
+                duration
+            );
+            if next.status != 0u32 {
+                return next;
+            }
+            if collision_better(next.contact, result.contact) {
+                result = next;
+            }
+        }
+        index = item.next_moving;
+    }
+    return result;
+}
+fn collision_embedded_at(scene: read CollisionScene, space: u32, p: Vec3, time: f32) -> u32 {
+    var found: u32 = collision_embedded(read scene, space, p);
+    if found != 0xffffffffu32 {
+        return found;
+    }
+    var index: u32 = collision_moving_head(read scene);
+    while index != 0xffffffffu32 {
+        var item: CollisionInstance = collision_instance(read scene, index);
+        if item.space == space && collision_inside_pose(
+            read scene,
+            collision_pose(item, time),
+            p
+        ) {
+            return index;
+        }
+        index = item.next_moving;
+    }
+    return 0xffffffffu32;
+}
+
+fn collision_position_valid_at(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    radius: f32,
+    time: f32
+) -> bool {
+    if !collision_position_valid(read scene, space, p, radius) || collision_embedded_at(
+        read scene,
+        space,
+        p,
+        time
+    ) != 0xffffffffu32 {
+        return false;
+    }
+    var query: CollisionSweep = collision_sweep_interval(
+        read scene,
+        space,
+        p,
+        vec(0f32, 0f32, 0f32),
+        radius,
+        time,
+        0f32
+    );
+    return query.status == 0u32 && query.contact.penetration <= collision_tolerance(p, radius) * 0.25f32;
+}

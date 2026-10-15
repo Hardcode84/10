@@ -1,0 +1,156 @@
+fn collision_contact_planes(
+    pose: CollisionInstance,
+    near: CollisionProximity,
+    radius: f32,
+    skin: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes
+) -> bool {
+    var normal: Vec3 = collision_normal(basis_vector(pose.basis, near.normal));
+    var position: CollisionPlane = make CollisionPlane {
+        normal: normal,
+        offset: radius + skin - near.distance
+    };
+    var velocity: CollisionPlane = make CollisionPlane {
+        normal: normal,
+        offset: dot(normal, collision_surface_velocity(pose, near.point))
+    };
+    return collision_plane_add(mut separate, position) && collision_plane_add(
+        mut speeds,
+        velocity
+    );
+}
+fn collision_moving_contacts(
+    scene: read CollisionScene,
+    item: CollisionInstance,
+    p: Vec3,
+    radius: f32,
+    skin: f32,
+    time: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes
+) -> bool {
+    var pose: CollisionInstance = collision_pose(item, time);
+    var local: Vec3 = collision_local(pose.basis, sub(p, pose.origin));
+    var i: u32 = item.root;
+    while i < item.end {
+        var node: CollisionNode = collision_node(read scene, i);
+        if !collision_aabb(
+            local,
+            vec(0f32, 0f32, 0f32),
+            radius + skin * 2f32,
+            node.low,
+            node.high
+        ) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 {
+                var near: CollisionProximity = collision_proximity(
+                    collision_face(read scene, item.first + node.leaf),
+                    local
+                );
+                if near.distance <= radius + skin * 2f32 && !collision_contact_planes(
+                    pose,
+                    near,
+                    radius,
+                    skin,
+                    mut separate,
+                    mut speeds
+                ) {
+                    return false;
+                }
+            }
+            i = i + 1u32;
+        }
+    }
+    return true;
+}
+fn collision_interval_contacts(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    radius: f32,
+    skin: f32,
+    time: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes
+) -> bool {
+    if !collision_contacts(read scene, space, p, radius, skin, mut separate) {
+        return false;
+    }
+    collision_planes_clear(mut speeds);
+    var i: u32 = 0u32;
+    while i < collision_plane_count(read separate) {
+        var plane: CollisionPlane = collision_plane(read separate, i);
+        plane.offset = 0f32;
+        if !collision_plane_add(mut speeds, plane) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = collision_moving_head(read scene);
+    while i != 0xffffffffu32 {
+        var item: CollisionInstance = collision_instance(read scene, i);
+        if item.space == space && !collision_moving_contacts(
+            read scene,
+            item,
+            p,
+            radius,
+            skin,
+            time,
+            mut separate,
+            mut speeds
+        ) {
+            return false;
+        }
+        i = item.next_moving;
+    }
+    return true;
+}
+fn collision_correction_blocked(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32
+) -> CollisionContact {
+    var result: CollisionContact = collision_query(read scene, space, p, d, radius, true);
+    var i: u32 = collision_moving_head(read scene);
+    while i != 0xffffffffu32 {
+        var item: CollisionInstance = collision_instance(read scene, i);
+        if item.space == space {
+            var next: CollisionContact = collision_query_pose(
+                read scene,
+                i,
+                collision_pose(item, time),
+                p,
+                d,
+                radius,
+                true
+            );
+            if collision_better(next, result) {
+                result = next;
+            }
+        }
+        i = item.next_moving;
+    }
+    return result;
+}
+fn collision_travel_planes(
+    speeds: read CollisionPlanes,
+    duration: f32,
+    planes: mut CollisionPlanes
+) -> bool {
+    collision_planes_clear(mut planes);
+    var i: u32 = 0u32;
+    while i < collision_plane_count(read speeds) {
+        var plane: CollisionPlane = collision_plane(read speeds, i);
+        plane.offset = plane.offset * duration;
+        if !collision_plane_add(mut planes, plane) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

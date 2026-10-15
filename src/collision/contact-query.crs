@@ -7,6 +7,9 @@ fn collision_contacts_instance(
     planes: mut CollisionPlanes
 ) -> bool {
     var item: CollisionInstance = collision_instance(read scene, index);
+    if collision_moving(item) {
+        return true;
+    }
     var local: Vec3 = collision_local(item.basis, sub(p, item.origin));
     var still: Vec3 = vec(0f32, 0f32, 0f32);
     var i: u32 = item.root;

@@ -1,0 +1,406 @@
+fn kinematic_fixture(
+    scene: mut CollisionScene,
+    linear: Vec3,
+    angular: Vec3,
+    beam: bool,
+    basis: Basis,
+    origin: Vec3
+) -> bool {
+    var mesh: Mesh = mesh_new();
+    if beam {
+        if !collision_test_box(
+            mut mesh,
+            vec(-3f32, -0.1f32, -0.2f32),
+            vec(3f32, 0.1f32, 0.2f32)
+        ) {
+            return false;
+        }
+    } else if !motion_plane(
+        mut mesh,
+        vec(1f32, 0f32, 0f32),
+        vec(0f32, 0f32, 0f32),
+        10f32
+    ) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    var appended: bool = false;
+    if beam {
+        appended = collision_append_solid(mut builder, read mesh, 17u32, origin, basis);
+    } else {
+        appended = collision_append(mut builder, read mesh, 17u32, origin, basis);
+    }
+    if !appended || !collision_set_motion(mut builder, linear, angular) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn test_kinematic_translation() -> bool {
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !kinematic_fixture(
+        mut scene,
+        vec(2f32, 0f32, 0f32),
+        still,
+        false,
+        identity_basis(),
+        still
+    ) {
+        return false;
+    }
+    var hit: CollisionSweep = collision_sweep_interval(
+        read scene,
+        17u32,
+        vec(-2f32, 0f32, 0f32),
+        vec(4f32, 0f32, 0f32),
+        0.25f32,
+        0f32,
+        1f32
+    );
+    if !game_check(
+        hit.status == 0u32 && absf(hit.contact.hit.time - 0.875f32) < 0.00001f32 && absf(
+            hit.contact.point.x - 1.75f32
+        ) < 0.00001f32 && length(hit.contact.local_point) < 0.00001f32,
+        "moving contact identity, time or local point"
+    ) {
+        return false;
+    }
+    var motion: CollisionMotion = collision_move_interval(
+        read scene,
+        17u32,
+        vec(-2f32, 0f32, 0f32),
+        vec(4f32, 0f32, 0f32),
+        vec(4f32, 0f32, 0f32),
+        0.25f32,
+        0f32,
+        1f32
+    );
+    if !game_check(
+        motion.status == 0u32 && absf(motion.position.x - 1.75f32) < 0.0001f32 && absf(
+            motion.velocity.x - 2f32
+        ) < 0.0001f32 && absf(motion.contact_work + 6f32) < 0.0001f32,
+        "relative moving-wall response"
+    ) {
+        return false;
+    }
+    var absent: CollisionSweep = collision_sweep_interval(
+        read scene,
+        18u32,
+        vec(-2f32, 0f32, 0f32),
+        vec(4f32, 0f32, 0f32),
+        0.25f32,
+        0f32,
+        1f32
+    );
+    return game_check(
+        absent.status == 0u32 && absent.contact.hit.time > 1f32,
+        "kinematic space isolation"
+    );
+}
+fn test_kinematic_hook() -> bool {
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !kinematic_fixture(
+        mut scene,
+        vec(2f32, 0f32, 0f32),
+        still,
+        false,
+        identity_basis(),
+        still
+    ) {
+        return false;
+    }
+    var hit: CollisionSweep = collision_sweep_interval(
+        read scene,
+        17u32,
+        vec(-2f32, 0f32, 0f32),
+        vec(4f32, 0f32, 0f32),
+        0.06f32,
+        0f32,
+        1f32
+    );
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, 0f32);
+    hook_attach(read scene, mut drone, hit.contact, 1f32);
+    hook_follow(read scene, mut drone, 1.1f32);
+    drone.cable.reel_speed = -3f32;
+    tether_constraint(mut drone);
+    var energy: f32 = 0.5f32 * dot(drone.velocity, drone.velocity);
+    if !game_check(
+        drone.cable.instance == 0u32 && drone.cable.surface == hit.contact.surface && absf(
+            drone.cable.anchor.x - 2.2f32
+        ) < 0.00001f32 && absf(drone.velocity.x - 5f32) < 0.00001f32 && absf(
+            energy - drone.winch_work - drone.machine_work + drone.cable_loss
+        ) < 0.0001f32 && absf(drone.winch_work - 15f32) < 0.0001f32 && absf(
+            drone.machine_work - 10f32
+        ) < 0.0001f32,
+        "moving anchor or separate machine/winch energy"
+    ) {
+        return false;
+    }
+    hook_release(mut drone);
+    return game_check(
+        drone.cable.phase == CABLE_READY && drone.velocity.x == 5f32,
+        "release lost acquired momentum"
+    );
+}
+fn test_kinematic_rotation() -> bool {
+    var scene: CollisionScene = collision_new();
+    var origin: Vec3 = vec(7f32, -3f32, 11f32);
+    var basis: Basis = collision_test_basis();
+    var angular: Vec3 = basis_vector(basis, vec(0f32, 0f32, 1f32));
+    if !kinematic_fixture(
+        mut scene,
+        vec(0f32, 0f32, 0f32),
+        angular,
+        true,
+        basis,
+        origin
+    ) {
+        return false;
+    }
+    var p: Vec3 = add(origin, basis_vector(basis, vec(0f32, 2f32, 0f32)));
+    var hit: CollisionSweep = collision_sweep_interval(
+        read scene,
+        17u32,
+        p,
+        vec(0f32, 0f32, 0f32),
+        0.25f32,
+        0f32,
+        3.14159265f32
+    );
+    if !game_check(
+        hit.status == 0u32 && hit.contact.hit.time > 0.4f32 && hit.contact.hit.time < 0.5f32,
+        "rotating beam passed through stationary sphere"
+    ) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    hook_attach(
+        read scene,
+        mut drone,
+        hit.contact,
+        hit.contact.hit.time * 3.14159265f32
+    );
+    if !game_check(
+        length(sub(drone.cable.anchor, hit.contact.point)) < 0.0001f32,
+        "rotated hook contact location"
+    ) {
+        return false;
+    }
+    hook_follow(read scene, mut drone, 2f32);
+    var expected: Vec3 = add(
+        origin,
+        basis_vector(
+            basis,
+            rotate(hit.contact.local_point, vec(0f32, 0f32, 1f32), 2f32)
+        )
+    );
+    var velocity: Vec3 = cross(angular, sub(expected, origin));
+    return game_check(
+        length(sub(drone.cable.anchor, expected)) < 0.0001f32 && length(
+            sub(drone.cable.velocity, velocity)
+        ) < 0.0001f32,
+        "rotating anchor point or surface velocity"
+    );
+}
+fn test_kinematic_fast() -> bool {
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !kinematic_fixture(
+        mut scene,
+        vec(-120f32, 0f32, 0f32),
+        still,
+        false,
+        identity_basis(),
+        vec(1f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    var motion: CollisionMotion = collision_move_interval(
+        read scene,
+        17u32,
+        still,
+        still,
+        still,
+        0.25f32,
+        0f32,
+        0.02f32
+    );
+    return game_check(
+        motion.status == 0u32 && absf(motion.position.x + 1.65f32) < 0.0001f32 && absf(
+            motion.velocity.x + 120f32
+        ) < 0.001f32 && absf(motion.contact_work - 7200f32) < 0.1f32,
+        "fast moving wall missed a stationary body"
+    );
+}
+fn test_collision_kinematic() -> bool {
+    return test_kinematic_translation() && test_kinematic_hook() && test_kinematic_rotation() && test_kinematic_fast() && test_kinematic_flight() && test_kinematic_rotating_response() && test_kinematic_crush();
+}
+
+fn test_kinematic_flight() -> bool {
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !kinematic_fixture(
+        mut scene,
+        vec(2f32, 0f32, 0f32),
+        still,
+        false,
+        identity_basis(),
+        vec(2f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.world = 17u32;
+    drone.position = still;
+    drone.basis = make Basis {
+        right: vec(0f32, 0f32, -1f32),
+        up: vec(0f32, 1f32, 0f32),
+        forward: vec(1f32, 0f32, 0f32)
+    };
+    var command: Command = idle_command();
+    command.tether = true;
+    var i: u32 = 0u32;
+    while i < 12u32 && drone.cable.phase != CABLE_ATTACHED {
+        simulate(read scene, mut drone, command, false, false);
+        i = i + 1u32;
+    }
+    if !game_check(
+        drone.cable.phase == CABLE_ATTACHED && drone.cable.instance == 0u32,
+        "launched hook did not attach to moving mesh"
+    ) {
+        return false;
+    }
+    var old_position: Vec3 = drone.position;
+    var charge: f32 = drone.charge;
+    i = 0u32;
+    while i < 24u32 {
+        simulate(read scene, mut drone, command, false, false);
+        i = i + 1u32;
+    }
+    if !game_check(
+        drone.position.x > old_position.x + 0.3f32 && drone.velocity.x > 1.9f32 && drone.charge == charge && length(
+            sub(drone.position, drone.cable.anchor)
+        ) <= drone.cable.extent + 0.0001f32,
+        "tether did not ride moving anchor without charging the winch"
+    ) {
+        return false;
+    }
+    var before_release: f32 = drone.velocity.x;
+    command.tether = false;
+    simulate(read scene, mut drone, command, false, false);
+    return game_check(
+        drone.cable.phase == CABLE_READY && drone.velocity.x > before_release * 0.99f32,
+        "flight release did not preserve machine momentum"
+    );
+}
+
+fn test_kinematic_rotating_response() -> bool {
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !kinematic_fixture(
+        mut scene,
+        still,
+        vec(0f32, 0f32, 1f32),
+        true,
+        identity_basis(),
+        still
+    ) {
+        return false;
+    }
+    var p: Vec3 = vec(2f32, 0.36f32, 0f32);
+    var motion: CollisionMotion = collision_move_interval(
+        read scene,
+        17u32,
+        p,
+        still,
+        still,
+        0.25f32,
+        0f32,
+        0.1f32
+    );
+    if !game_check(
+        motion.status == 0u32 && motion.position.y > 0.53f32 && motion.velocity.y > 1.9f32 && collision_position_valid_at(
+            read scene,
+            17u32,
+            motion.position,
+            0.25f32,
+            0.1f32
+        ),
+        "rotating contact did not carry the sphere"
+    ) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.world = 17u32;
+    drone.position = vec(2f32, 0f32, 3f32);
+    drone.basis = make Basis {
+        right: vec(-1f32, 0f32, 0f32),
+        up: vec(0f32, 1f32, 0f32),
+        forward: vec(0f32, 0f32, -1f32)
+    };
+    var command: Command = idle_command();
+    command.tether = true;
+    var i: u32 = 0u32;
+    while i < 60u32 {
+        simulate(read scene, mut drone, command, false, false);
+        i = i + 1u32;
+    }
+    return game_check(
+        drone.cable.phase == CABLE_ATTACHED && length(
+            sub(
+                drone.cable.anchor,
+                collision_anchor(
+                    read scene,
+                    drone.cable.instance,
+                    drone.cable.local_point,
+                    drone.clock as f32 * STEP
+                )
+            )
+        ) < 0.00001f32 && length(sub(drone.position, drone.cable.anchor)) <= drone.cable.extent + 0.0001f32,
+        "flight did not retain the rotating local anchor"
+    );
+}
+
+fn test_kinematic_crush() -> bool {
+    var mesh: Mesh = mesh_new();
+    if !motion_plane(mut mesh, vec(1f32, 0f32, 0f32), vec(0f32, 0f32, 0f32), 10f32) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !collision_append(
+        mut builder,
+        read mesh,
+        17u32,
+        vec(-0.25f32, 0f32, 0f32),
+        identity_basis()
+    ) || !collision_append(
+        mut builder,
+        read mesh,
+        17u32,
+        vec(0.26f32, 0f32, 0f32),
+        identity_basis()
+    ) || !collision_set_motion(mut builder, vec(-1f32, 0f32, 0f32), still) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var motion: CollisionMotion = collision_move_interval(
+        read scene,
+        17u32,
+        still,
+        still,
+        still,
+        0.25f32,
+        0f32,
+        0.1f32
+    );
+    return game_check(
+        motion.status == 2u32 && motion.elapsed < 0.1f32,
+        "opposed machine contacts must report infeasible motion"
+    );
+}

@@ -1,13 +1,3 @@
-fn flight_acceleration(position: Vec3, velocity: Vec3, full_spin: bool) -> Vec3 {
-    var omega: Vec3 = vec(0f32, 0f32, spin_rate(full_spin));
-    var coriolis: Vec3 = scale(cross(omega, velocity), -2f32);
-    var gravity: Vec3 = scale(
-        cross(omega, cross(omega, drum_position(position))),
-        -1f32
-    );
-    var drag: f32 = air_density(position) * (0.08f32 + 0.012f32 * length(velocity));
-    return sub(add(coriolis, gravity), scale(velocity, drag));
-}
 fn flight_impulses(drone: mut Drone, command: Command) -> unit {
     if command.burst && burst_available(read drone) {
         use_charge(mut drone, BURST_CHARGE);
@@ -44,7 +34,10 @@ fn simulate(
     );
     drone.velocity = add(drone.velocity, scale(acceleration, STEP));
     var travel: Vec3 = scale(drone.velocity, STEP);
-    move_drone(read collision, mut drone, travel);
+    var end_time: f32 = (drone.clock + 1u32) as f32 * STEP;
+    hook_follow(read collision, mut drone, end_time);
+    move_drone_interval(read collision, mut drone, travel, STEP);
     hook_step(read collision, mut drone, full_spin);
+    drone.clock = drone.clock + 1u32;
     powered_winch(read collision, mut drone);
 }

@@ -28,7 +28,7 @@ fn tether_winch(collision: read CollisionScene, drone: mut Drone) -> unit {
 }
 fn tether_input(drone: mut Drone, command: Command) -> unit {
     if !command.tether {
-        drone.cable = empty_cable();
+        hook_release(mut drone);
         return;
     }
     if drone.cable.phase == CABLE_READY {
@@ -52,25 +52,5 @@ fn tether_travel(drone: read Drone, travel: Vec3) -> Vec3 {
     return sub(
         add(drone.cable.anchor, scale(unit_vector(offset), drone.cable.extent)),
         drone.position
-    );
-}
-fn tether_constraint(drone: mut Drone) -> unit {
-    if drone.cable.phase != CABLE_ATTACHED {
-        return;
-    }
-    var offset: Vec3 = sub(drone.position, drone.cable.anchor);
-    if length(offset) < drone.cable.extent - 0.001f32 {
-        return;
-    }
-    var normal: Vec3 = unit_vector(offset);
-    var speed: f32 = dot(drone.velocity, normal) - drone.cable.reel_speed;
-    if speed <= 0f32 {
-        return;
-    }
-    drone.velocity = sub(drone.velocity, scale(normal, speed));
-    drone.winch_work = drone.winch_work + speed * clamp(
-        -drone.cable.reel_speed,
-        0f32,
-        REEL_SPEED
     );
 }

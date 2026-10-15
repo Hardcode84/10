@@ -2,8 +2,9 @@
 
 ## Contract
 
-C3 supplies sphere motion in one collision space. The game uses the same solver
-for flight, reeling, and prediction. The collision component has no drone,
+C3 supplies static sphere motion in one collision space.
+[C4](kinematic-meshes.md) extends it with moving surfaces and time intervals.
+The game uses the interval solver for flight, reeling, and prediction. The collision component has no drone,
 input, frame, or level data. The game applies the cable travel constraint before
 each contact step.
 

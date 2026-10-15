@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 54] = make [*u8; 54] {
+    var files: [*u8; 66] = make [*u8; 66] {
         "src/app/math.crs",
         "src/collision/primitives.crs",
         "src/collision/topology.crs",
@@ -9,9 +9,21 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/collision/contact-solve.crs",
         "src/collision/motion.crs",
         "src/collision/volume.crs",
+        "src/collision/kinematics.crs",
+        "src/collision/kinematic-sweep.crs",
+        "src/collision/kinematic-contacts.crs",
+        "src/collision/kinematic-motion.crs",
         "src/game/content/collision.crs",
         "src/game/content/geometry.crs",
         "src/game/flight/state.crs",
+        "src/game/flight/spawn.crs",
+        "src/game/flight/command.crs",
+        "src/game/flight/environment.crs",
+        "src/game/expedition/recharge.crs",
+        "src/game/flight/drone.crs",
+        "src/game/flight/attachment.crs",
+        "src/game/content/machines.crs",
+        "src/game/view/machines.crs",
         "src/game/content/prefab.crs",
         "src/game/expedition/expedition-layout.crs",
         "src/game/expedition/expedition-shell.crs",
@@ -56,14 +68,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 54usize {
+    while i < 66usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 16] = make [*u8; 16] {
+    var files: [*u8; 17] = make [*u8; 17] {
         "src/app/window.crs",
         "src/collision/storage.crs",
         "src/collision/contact-storage.crs",
@@ -72,6 +84,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/app/clock.crs",
         "src/app/shaders.crs",
         "src/game/host/platform.crs",
+        "src/game/host/collision-errors.crs",
         "src/game/host/progress-store.crs",
         "src/game/host/sdl-input.crs",
         "src/game/host/renderer-host.crs",
@@ -82,15 +95,15 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/text.crs"
     };
     var i: usize = 0usize;
-    while i < 16usize {
+    while i < 17usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn build_game(root: *CrustRun) -> bool {
-    var sources: [*u8; 64] = uninit;
-    var providers: [*u8; 64] = uninit;
+    var sources: [*u8; 96] = uninit;
+    var providers: [*u8; 96] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + game_providers(root, &providers[provider_count]);

@@ -1,0 +1,162 @@
+fn collision_rotating_face(
+    scene: read CollisionScene,
+    index: u32,
+    face: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32
+) -> CollisionSweep {
+    var item: CollisionInstance = collision_instance(read scene, index);
+    var face_data: CollisionFace = collision_face(read scene, item.first + face);
+    var bound: f32 = length(sub(d, scale(item.linear, duration))) + length(item.angular) * duration * collision_reach(
+        item
+    );
+    var fraction: f32 = 0f32;
+    var attempts: u32 = 0u32;
+    var result: CollisionSweep = collision_sweep_result(collision_miss(item.space));
+    result.contact.instance = index;
+    result.contact.surface = face;
+    while attempts < 256u32 {
+        var pose: CollisionInstance = collision_pose(item, time + duration * fraction);
+        var center: Vec3 = add(p, scale(d, fraction));
+        var local: Vec3 = collision_local(pose.basis, sub(center, pose.origin));
+        var near: CollisionProximity = collision_proximity(face_data, local);
+        var gap: f32 = near.distance - radius;
+        var tolerance: f32 = collision_tolerance(center, radius) * 0.25f32;
+        if gap <= tolerance {
+            result.contact.hit.time = fraction;
+            result.contact.hit.normal = collision_normal(
+                basis_vector(pose.basis, near.normal)
+            );
+            result.contact.local_point = near.point;
+            result.contact.point = add(
+                pose.origin,
+                basis_vector(pose.basis, near.point)
+            );
+            result.contact.penetration = clamp(-gap, 0f32, radius);
+            return result;
+        }
+        if bound == 0f32 {
+            return result;
+        }
+        var advance: f32 = collision_rotation_advance(
+            item,
+            pose,
+            local,
+            near.normal,
+            sub(d, scale(item.linear, duration)),
+            duration,
+            gap,
+            bound
+        );
+        if advance > 1f32 - fraction {
+            return result;
+        }
+        var next: f32 = fraction + advance * 0.9f32;
+        if next <= fraction {
+            break;
+        }
+        fraction = next;
+        attempts = attempts + 1u32;
+    }
+    result.status = 6u32;
+    return result;
+}
+fn collision_sweep_moving(
+    scene: read CollisionScene,
+    index: u32,
+    item: CollisionInstance,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32
+) -> CollisionSweep {
+    var pose: CollisionInstance = collision_pose(item, time);
+    var relative: Vec3 = sub(d, scale(item.linear, duration));
+    var reach: f32 = collision_reach(item) + radius;
+    var extent: Vec3 = vec(reach, reach, reach);
+    var result: CollisionSweep = collision_sweep_result(collision_miss(item.space));
+    if !collision_aabb(
+        sub(p, pose.origin),
+        relative,
+        0f32,
+        scale(extent, -1f32),
+        extent
+    ) {
+        return result;
+    }
+    if dot(item.angular, item.angular) == 0f32 || duration == 0f32 {
+        result.contact = collision_query_pose(
+            read scene,
+            index,
+            pose,
+            p,
+            relative,
+            radius,
+            false
+        );
+        result.contact.point = add(
+            result.contact.point,
+            scale(item.linear, duration * result.contact.hit.time)
+        );
+        return result;
+    }
+    var face: u32 = 0u32;
+    while face < item.count {
+        var next: CollisionSweep = collision_rotating_face(
+            read scene,
+            index,
+            face,
+            p,
+            d,
+            radius,
+            time,
+            duration
+        );
+        if next.status != 0u32 {
+            return next;
+        }
+        if collision_better(next.contact, result.contact) {
+            result = next;
+        }
+        face = face + 1u32;
+    }
+    return result;
+}
+
+fn collision_rotation_advance(
+    item: CollisionInstance,
+    pose: CollisionInstance,
+    local: Vec3,
+    normal: Vec3,
+    relative: Vec3,
+    duration: f32,
+    gap: f32,
+    bound: f32
+) -> f32 {
+    var omega: Vec3 = collision_local(pose.basis, scale(item.angular, duration));
+    var derivative: Vec3 = sub(
+        collision_local(pose.basis, relative),
+        cross(omega, local)
+    );
+    var speed: f32 = dot(normal, derivative);
+    var angular: f32 = length(omega);
+    var acceleration: f32 = 2f32 * angular * length(relative) + angular * angular * (
+        length(local) + length(relative)
+    );
+    var advance: f32 = gap / bound;
+    if acceleration > 0f32 {
+        var root: f32 = sqrtf(speed * speed + 2f32 * acceleration * gap);
+        var plane_advance: f32 = (speed + root) / acceleration;
+        if speed < 0f32 {
+            plane_advance = 2f32 * gap / (root - speed);
+        }
+        if plane_advance > advance {
+            advance = plane_advance;
+        }
+    }
+    return advance;
+}

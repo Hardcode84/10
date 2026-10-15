@@ -7,6 +7,9 @@ record CollisionFace {
 }
 record CollisionInstance {
     solid: bool;
+    linear: Vec3;
+    angular: Vec3;
+    next_moving: u32;
     first: u32;
     count: u32;
     space: u32;
@@ -24,6 +27,7 @@ record CollisionData {
     instances: *CollisionInstance;
     instance_count: u32;
     instance_capacity: u32;
+    moving: u32;
 }
 opaque;
 resource CollisionBuilder {
@@ -56,7 +60,8 @@ fn collision_empty_data() -> CollisionData {
         face_capacity: 0u32,
         instances: null(*CollisionInstance),
         instance_count: 0u32,
-        instance_capacity: 0u32
+        instance_capacity: 0u32,
+        moving: 0xffffffffu32
     };
 }
 fn collision_builder_new() -> CollisionBuilder {
@@ -237,6 +242,9 @@ fn collision_append(
     }
     builder.data.instances[builder.data.instance_count as usize] = make CollisionInstance {
         solid: false,
+        linear: vec(0f32, 0f32, 0f32),
+        angular: vec(0f32, 0f32, 0f32),
+        next_moving: 0xffffffffu32,
         first: builder.data.face_count,
         count: mesh.count,
         space: space,
@@ -293,5 +301,30 @@ fn collision_append_solid(
         return false;
     }
     builder.data.instances[(builder.data.instance_count - 1u32) as usize].solid = true;
+    return true;
+}
+
+fn collision_moving_head(scene: read CollisionScene) -> u32 {
+    return scene.data.moving;
+}
+// Sets constant centre and angular velocities on the last appended instance.
+// Call once per moving instance, before finish. Units are metres/s and radians/s.
+fn collision_set_motion(builder: mut CollisionBuilder, linear: Vec3, angular: Vec3) -> bool {
+    if builder.data.instance_count == 0u32 || !collision_finite(linear) || !collision_finite(
+        angular
+    ) || !collision_finite(vec(length(linear), length(angular), 0f32)) {
+        return error("invalid kinematic velocity");
+    }
+    var index: u32 = builder.data.instance_count - 1u32;
+    var item: *CollisionInstance = &builder.data.instances[index as usize];
+    if collision_moving(*item) {
+        return error("kinematic velocity already set");
+    }
+    item -> linear = linear;
+    item -> angular = angular;
+    if collision_moving(*item) {
+        item -> next_moving = builder.data.moving;
+        builder.data.moving = index;
+    }
     return true;
 }

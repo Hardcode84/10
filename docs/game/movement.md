@@ -171,15 +171,17 @@ drum coordinates, and attached cables.
 
 | Files | Responsibility |
 | --- | --- |
-| `src/app/math.crs`, `flight/state.crs` | Value types and initial state |
-| `course/course.crs`, `course/course-route.crs` | Solids, directional gates, dock, and drum placement |
+| `src/app/math.crs`, `flight/drone.crs`, `flight/state.crs` | Value types and initial state |
+| `course/course.crs`, `course/course-route.crs` | Solids, directional gates, and dock |
 | `course/course-pipes.crs`, `content/geometry.crs`, `../collision/sweep.crs` | Pipe shape, drawing, and mesh contact |
 | `course/course-tour.crs` | Input controllers for automatic course flights |
 | `course/course-appearance.crs`, `course/course-view.crs` | Surface patterns, lights, and route indicator |
-| `flight/physics.crs`, `flight/orientation.crs` | Forces, integration, and attitude |
+| `flight/physics.crs`, `flight/orientation.crs` | Integration and attitude |
 | `flight/collision.crs` | Collision scene query and contact response |
 | `flight/hook.crs` | Launch, recoil, projectile flight, contact, and range snaps |
-| `flight/tether.crs` | Cable length, winch, and release |
+| `flight/tether.crs` | Cable length, winch, and release input |
+| `flight/attachment.crs` | Mesh anchors, relative cable impulse, and energy |
+| `flight/environment.crs` | Drum parameters and flight forces |
 | `view/tether-view.crs` | Cable, hook body, and direction indicator |
 | `flight/trial.crs` | Attempt state, gate order, and finish detection |
 | `host/input.crs` | Actions, edges, toggles, and pending mouse motion |
@@ -220,10 +222,11 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 10 uses an on/off preview setting, stores the
+format uses the current Linux host's word representation. Version 11 uses an on/off preview setting, stores the
 game mode and initial spin mode in its header and includes the cyan prediction phase in the
 state hash. Replay restores the mode and reproduces the marker motion. Earlier
-versions are rejected because their state contract differs.
+versions are rejected because their state contract differs. Version 11 also hashes
+the machine clock, mesh attachment identity, local anchor, and energy counters.
 
 `--ticks N` bounds a run. In headless mode, the simulation runs without wall
 clock pacing and renders the last state. `--smoke` supplies test commands for

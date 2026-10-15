@@ -118,3 +118,6 @@ C2 replaces both linear scans with spatial indices and replaces pairwise
 adjacency construction with sorted edges. The measurements above record the
 C1 baseline. See the [index measurements](spatial-index.md#evidence-and-checks)
 for current storage and query behaviour.
+
+For prescribed translation and rotation, use the
+[kinematic interval API](kinematic-meshes.md). Static queries exclude moving instances.

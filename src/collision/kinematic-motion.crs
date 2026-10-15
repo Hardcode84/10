@@ -1,0 +1,185 @@
+fn collision_interval_begin(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    travel: Vec3,
+    velocity: Vec3,
+    time: f32
+) -> CollisionMotion {
+    var result: CollisionMotion = collision_motion_begin(
+        read scene,
+        space,
+        p,
+        travel,
+        velocity
+    );
+    var embedded: u32 = collision_embedded_at(read scene, space, p, time);
+    if embedded != 0xffffffffu32 {
+        result.status = 4u32;
+        result.contact.instance = embedded;
+    }
+    return result;
+}
+fn collision_interval_resolve(
+    scene: read CollisionScene,
+    space: u32,
+    radius: f32,
+    time: f32,
+    left: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes,
+    result: mut CollisionMotion
+) -> unit {
+    var skin: f32 = collision_tolerance(result.position, radius);
+    if !collision_interval_contacts(
+        read scene,
+        space,
+        result.position,
+        radius,
+        skin,
+        time,
+        mut separate,
+        mut speeds
+    ) {
+        result.status = 1u32;
+        return;
+    }
+    var correction: CollisionProjection = collision_project(
+        read separate,
+        vec(0f32, 0f32, 0f32),
+        true,
+        skin * 0.125f32
+    );
+    if !correction.found || collision_plane_count(read separate) == 0u32 {
+        result.status = 2u32;
+        return;
+    }
+    var blocked: CollisionContact = collision_correction_blocked(
+        read scene,
+        space,
+        result.position,
+        correction.value,
+        radius,
+        time
+    );
+    if blocked.hit.time <= 1f32 {
+        result.status = 5u32;
+        result.contact = blocked;
+        return;
+    }
+    result.position = add(result.position, correction.value);
+    var velocity: CollisionProjection = collision_project(
+        read speeds,
+        result.velocity,
+        true,
+        length(result.velocity) * 0.000001f32
+    );
+    if !collision_travel_planes(read speeds, left, mut separate) {
+        result.status = 1u32;
+        return;
+    }
+    var travel: CollisionProjection = collision_project(
+        read separate,
+        result.remaining,
+        true,
+        length(result.remaining) * 0.000001f32
+    );
+    if !velocity.found || !travel.found {
+        result.status = 2u32;
+        return;
+    }
+    result.contact_work = result.contact_work + 0.5f32 * dot(
+        sub(velocity.value, result.velocity),
+        add(velocity.value, result.velocity)
+    );
+    result.velocity = velocity.value;
+    result.remaining = travel.value;
+}
+fn collision_interval_step(
+    scene: read CollisionScene,
+    space: u32,
+    radius: f32,
+    time: f32,
+    duration: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes,
+    result: mut CollisionMotion
+) -> bool {
+    if result.status != 0u32 {
+        return true;
+    }
+    if result.contacts == 1024u32 {
+        result.status = 3u32;
+        return true;
+    }
+    var query: CollisionSweep = collision_sweep_interval(
+        read scene,
+        space,
+        result.position,
+        result.remaining,
+        radius,
+        time + result.elapsed,
+        duration - result.elapsed
+    );
+    result.contact = query.contact;
+    if query.status != 0u32 {
+        result.status = query.status;
+        return true;
+    }
+    var fraction: f32 = query.contact.hit.time;
+    if fraction > 1f32 {
+        result.position = add(result.position, result.remaining);
+        result.remaining = vec(0f32, 0f32, 0f32);
+        result.elapsed = duration;
+        return true;
+    }
+    result.position = add(result.position, scale(result.remaining, fraction));
+    result.remaining = scale(result.remaining, 1f32 - fraction);
+    result.elapsed = result.elapsed + (duration - result.elapsed) * fraction;
+    collision_interval_resolve(
+        read scene,
+        space,
+        radius,
+        time + result.elapsed,
+        duration - result.elapsed,
+        mut separate,
+        mut speeds,
+        mut result
+    );
+    result.contacts = result.contacts + 1u32;
+    return false;
+}
+// Advances a sphere through prescribed rigid motion. Time and duration are in seconds.
+// Status 6 is a failed continuous query. Other statuses match collision_move.
+fn collision_move_interval(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    travel: Vec3,
+    velocity: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32
+) -> CollisionMotion {
+    var result: CollisionMotion = collision_interval_begin(
+        read scene,
+        space,
+        p,
+        travel,
+        velocity,
+        time
+    );
+    var separate: CollisionPlanes = collision_planes_new();
+    var speeds: CollisionPlanes = collision_planes_new();
+    while !collision_interval_step(
+        read scene,
+        space,
+        radius,
+        time,
+        duration,
+        mut separate,
+        mut speeds,
+        mut result
+    ) {}
+    return result;
+}

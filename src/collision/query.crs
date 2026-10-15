@@ -61,7 +61,25 @@ fn collision_query_instance(
     radius: f32,
     separation: bool
 ) -> CollisionContact {
-    var item: CollisionInstance = collision_instance(read scene, index);
+    return collision_query_pose(
+        read scene,
+        index,
+        collision_instance(read scene, index),
+        p,
+        d,
+        radius,
+        separation
+    );
+}
+fn collision_query_pose(
+    scene: read CollisionScene,
+    index: u32,
+    item: CollisionInstance,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    separation: bool
+) -> CollisionContact {
     var local_p: Vec3 = collision_local(item.basis, sub(p, item.origin));
     var local_d: Vec3 = collision_local(item.basis, d);
     var result: CollisionContact = collision_miss(item.space);
@@ -108,7 +126,9 @@ fn collision_query(
         if !collision_aabb(p, d, radius, node.low, node.high) {
             i = node.skip;
         } else {
-            if node.leaf != 0xffffffffu32 {
+            if node.leaf != 0xffffffffu32 && !collision_moving(
+                collision_instance(read scene, node.leaf)
+            ) {
                 var next: CollisionContact = collision_query_instance(
                     read scene,
                     node.leaf,
@@ -127,7 +147,7 @@ fn collision_query(
     return result;
 }
 
-// Returns the first surface contact in one space. Inputs must be finite; radius must be nonnegative.
+// Returns the first static surface contact in one space. Inputs must be finite; radius must be nonnegative.
 // The immutable scene remains valid for concurrent read queries. The query does not cross portals.
 fn collision_sweep(scene: read CollisionScene, space: u32, p: Vec3, d: Vec3, radius: f32) -> CollisionContact {
     return collision_query(read scene, space, p, d, radius, false);
