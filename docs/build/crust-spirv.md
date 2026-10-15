@@ -1,8 +1,8 @@
 # Crust to Vulkan Shader SPIR-V
 
-## Current status: 2026-10-14
+## Current status: 2026-10-15
 
-Crust is pinned to `bc57ce4`. It includes the
+Crust is pinned to `6cbede3`. It includes the
 first Vulkan compute stage and a Vulkan dispatch harness written in Crust.
 The upstream history also includes the device enumeration correction.
 
@@ -10,6 +10,9 @@ The upstream history also includes the device enumeration correction.
 - LLVM field and element access uses typed addressing.
 - The external shader stage generates compute entries, buffer and R32f image
   bindings, workgroup storage, invocation IDs, and barriers.
+- The renderer selects `SHADER_CHECKED` execution. Its storage buffers use
+  `SHADER_COUNTED` layout, with a count header before the payload. Workgroup
+  arrays use `SHADER_FIXED` layout.
 - The shader stage supplies `shader_sqrt(f32) -> f32` for finite, non-negative
   inputs. It emits LLVM square root and validates the final SPIR-V.
 - Device errors use invocation status. The stage rejects raw pointers, `usize`,
