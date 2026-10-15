@@ -1,5 +1,9 @@
 # Rendering
 
+See the [parametric asset design](parametric-assets.md) for generated content
+and the [engine gap register](engine-gaps.md) for source-verified capacity,
+collision, and world-state changes needed to support it.
+
 ## Status and decisions
 
 This document defines the rendering direction. A bounded compute renderer and

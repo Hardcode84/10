@@ -1,5 +1,9 @@
 # Biomes and authored rooms
 
+Use the [parametric asset design](parametric-assets.md) to build this content.
+It defines the shared modeling, texture, collision, and viewer workflow. The
+[engine gap register](engine-gaps.md) lists the required engine changes.
+
 ## Content hierarchy
 
 Use this order to define content:
