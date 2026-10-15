@@ -13,43 +13,109 @@ record CollisionInstance {
     basis: Basis;
     low: Vec3;
     high: Vec3;
+    root: u32;
+    end: u32;
 }
-resource CollisionScene {
+record CollisionData {
     faces: *CollisionFace;
     face_count: u32;
+    face_capacity: u32;
     instances: *CollisionInstance;
     instance_count: u32;
+    instance_capacity: u32;
+}
+opaque;
+resource CollisionBuilder {
+    data: CollisionData;
+}
+opaque drop collision_builder_drop;
+resource CollisionScene {
+    data: CollisionData;
+    nodes: *CollisionNode;
+    node_count: u32;
+    spaces: *CollisionSpace;
+    space_count: u32;
 }
 opaque drop collision_drop;
+record CollisionNode {
+    low: Vec3;
+    high: Vec3;
+    skip: u32;
+    leaf: u32;
+}
+record CollisionSpace {
+    id: u32;
+    root: u32;
+    end: u32;
+}
+fn collision_empty_data() -> CollisionData {
+    return make CollisionData {
+        faces: null(*CollisionFace),
+        face_count: 0u32,
+        face_capacity: 0u32,
+        instances: null(*CollisionInstance),
+        instance_count: 0u32,
+        instance_capacity: 0u32
+    };
+}
+fn collision_builder_new() -> CollisionBuilder {
+    return make CollisionBuilder {
+        data: collision_empty_data()
+    };
+}
+fn collision_builder_drop(builder: mut CollisionBuilder) -> unit {
+    free(builder.data.faces as *u8);
+    free(builder.data.instances as *u8);
+}
 fn collision_drop(scene: mut CollisionScene) -> unit {
-    free(scene.faces as *u8);
-    free(scene.instances as *u8);
+    free(scene.data.faces as *u8);
+    free(scene.data.instances as *u8);
+    free(scene.nodes as *u8);
+    free(scene.spaces as *u8);
 }
 fn collision_new() -> CollisionScene {
     return make CollisionScene {
-        faces: null(*CollisionFace),
-        face_count: 0u32,
-        instances: null(*CollisionInstance),
-        instance_count: 0u32
+        data: collision_empty_data(),
+        nodes: null(*CollisionNode),
+        node_count: 0u32,
+        spaces: null(*CollisionSpace),
+        space_count: 0u32
     };
 }
 fn collision_face(scene: read CollisionScene, index: u32) -> CollisionFace {
-    if index >= scene.face_count {
-        trap;
-    }
-    return scene.faces[index as usize];
+    return scene.data.faces[index as usize];
 }
 fn collision_instance(scene: read CollisionScene, index: u32) -> CollisionInstance {
-    if index >= scene.instance_count {
-        trap;
-    }
-    return scene.instances[index as usize];
+    return scene.data.instances[index as usize];
 }
 fn collision_instances(scene: read CollisionScene) -> u32 {
-    return scene.instance_count;
+    return scene.data.instance_count;
 }
-fn collision_neighbour(scene: mut CollisionScene, face: u32, edge: u32, neighbour: u32) -> unit {
-    scene.faces[face as usize].neighbours[edge as usize] = neighbour;
+fn collision_builder_instances(builder: read CollisionBuilder) -> u32 {
+    return builder.data.instance_count;
+}
+fn collision_node(scene: read CollisionScene, index: u32) -> CollisionNode {
+    return scene.nodes[index as usize];
+}
+fn collision_space(scene: read CollisionScene, id: u32) -> CollisionSpace {
+    var lo: u32 = 0u32;
+    var hi: u32 = scene.space_count;
+    while lo < hi {
+        var mid: u32 = lo + (hi - lo) / 2u32;
+        if scene.spaces[mid as usize].id < id {
+            lo = mid + 1u32;
+        } else {
+            hi = mid;
+        }
+    }
+    if lo < scene.space_count && scene.spaces[lo as usize].id == id {
+        return scene.spaces[lo as usize];
+    }
+    return make CollisionSpace {
+        id: id,
+        root: 0u32,
+        end: 0u32
+    };
 }
 fn collision_point(v: MeshVertex) -> Vec3 {
     return vec(v.x, v.y, v.z);
@@ -87,9 +153,60 @@ fn collision_mesh_valid(mesh: read Mesh) -> bool {
     }
     return true;
 }
-// Appends a static rigid instance. Failure preserves all previously appended instances.
+fn collision_grow_faces(data: *CollisionData, required: u32) -> bool {
+    if required <= data -> face_capacity {
+        return true;
+    }
+    var capacity: u64 = data -> face_capacity as u64 * 2u64 + 1u64;
+    if capacity < required as u64 {
+        capacity = required as u64;
+    }
+    if capacity > 0xffffffffu64 {
+        capacity = 0xffffffffu64;
+    }
+    var faces: *CollisionFace = malloc(capacity as usize * sizeof(CollisionFace)) as *CollisionFace;
+    if faces == null(*CollisionFace) {
+        return error("collision face allocation failed");
+    }
+    if data -> face_count != 0u32 {
+        memcpy(
+            faces as *u8,
+            data -> faces as *u8,
+            data -> face_count as usize * sizeof(CollisionFace)
+        );
+    }
+    free(data -> faces as *u8);
+    data -> faces = faces;
+    data -> face_capacity = capacity as u32;
+    return true;
+}
+fn collision_grow_instances(data: *CollisionData) -> bool {
+    if data -> instance_count < data -> instance_capacity {
+        return true;
+    }
+    var capacity: u64 = data -> instance_capacity as u64 * 2u64 + 1u64;
+    if capacity > 0xffffffffu64 {
+        capacity = 0xffffffffu64;
+    }
+    var instances: *CollisionInstance = malloc(capacity as usize * sizeof(CollisionInstance)) as *CollisionInstance;
+    if instances == null(*CollisionInstance) {
+        return error("collision instance allocation failed");
+    }
+    if data -> instance_count != 0u32 {
+        memcpy(
+            instances as *u8,
+            data -> instances as *u8,
+            data -> instance_count as usize * sizeof(CollisionInstance)
+        );
+    }
+    free(data -> instances as *u8);
+    data -> instances = instances;
+    data -> instance_capacity = capacity as u32;
+    return true;
+}
+// Appends a rigid static instance. Failure preserves all prior instances.
 fn collision_append(
-    scene: mut CollisionScene,
+    builder: mut CollisionBuilder,
     mesh: read Mesh,
     space: u32,
     origin: Vec3,
@@ -101,56 +218,60 @@ fn collision_append(
     if !collision_mesh_valid(read mesh) {
         return false;
     }
-    var total: u64 = scene.face_count as u64 + mesh.count as u64;
-    if total > 0xffffffffu64 || scene.instance_count == 0xffffffffu32 {
+    var total: u64 = builder.data.face_count as u64 + mesh.count as u64;
+    if total > 0xffffffffu64 || builder.data.instance_count == 0xffffffffu32 {
         return error("collision storage exceeds address range");
     }
-    var faces: *CollisionFace = malloc((total as usize + 1usize) * sizeof(CollisionFace)) as *CollisionFace;
-    var instances: *CollisionInstance = malloc(
-        (scene.instance_count as usize + 1usize) * sizeof(CollisionInstance)
-    ) as *CollisionInstance;
-    if faces == null(*CollisionFace) || instances == null(*CollisionInstance) {
-        free(faces as *u8);
-        free(instances as *u8);
-        return error("collision allocation failed");
-    }
-    if scene.face_count != 0u32 {
-        memcpy(
-            faces as *u8,
-            scene.faces as *u8,
-            scene.face_count as usize * sizeof(CollisionFace)
-        );
-    }
-    if scene.instance_count != 0u32 {
-        memcpy(
-            instances as *u8,
-            scene.instances as *u8,
-            scene.instance_count as usize * sizeof(CollisionInstance)
-        );
+    if !collision_grow_faces(&builder.data, total as u32) || !collision_grow_instances(
+        &builder.data
+    ) {
+        return false;
     }
     var i: u32 = 0u32;
     while i < mesh.count {
-        faces[(scene.face_count + i) as usize] = collision_make_face(
+        builder.data.faces[(builder.data.face_count + i) as usize] = collision_make_face(
             mesh.triangles[i as usize]
         );
         i = i + 1u32;
     }
-    var instance: CollisionInstance = make CollisionInstance {
-        first: scene.face_count,
+    builder.data.instances[builder.data.instance_count as usize] = make CollisionInstance {
+        first: builder.data.face_count,
         count: mesh.count,
         space: space,
         origin: origin,
         basis: basis,
         low: vec(mesh.bounds[0usize], mesh.bounds[1usize], mesh.bounds[2usize]),
-        high: vec(mesh.bounds[3usize], mesh.bounds[4usize], mesh.bounds[5usize])
+        high: vec(mesh.bounds[3usize], mesh.bounds[4usize], mesh.bounds[5usize]),
+        root: 0u32,
+        end: 0u32
     };
-    instances[scene.instance_count as usize] = instance;
-    free(scene.faces as *u8);
-    free(scene.instances as *u8);
-    scene.faces = faces;
-    scene.instances = instances;
-    scene.face_count = total as u32;
-    scene.instance_count = scene.instance_count + 1u32;
-    collision_adjacency(mut scene, instance);
+    builder.data.face_count = total as u32;
+    builder.data.instance_count = builder.data.instance_count + 1u32;
     return true;
+}
+// Consumes the builder. Success replaces the scene with immutable indexed geometry.
+// Failure preserves the previous scene and releases the consumed construction data.
+fn collision_finish(builder: CollisionBuilder, scene: mut CollisionScene) -> bool {
+    var next: CollisionScene = collision_new();
+    next.data = builder.data;
+    builder.data = collision_empty_data();
+    if !collision_index_build(&next) {
+        return false;
+    }
+    scene = move next;
+    return true;
+}
+fn collision_bytes(scene: read CollisionScene) -> u64 {
+    var bytes: u64 = scene.data.face_capacity as u64 * sizeof(CollisionFace) as u64 + scene.data.instance_capacity as u64 * sizeof(
+        CollisionInstance
+    ) as u64;
+    if scene.nodes != null(*CollisionNode) {
+        bytes = bytes + (
+            2u64 * (scene.data.face_count as u64 + scene.data.instance_count as u64) + 1u64
+        ) * sizeof(CollisionNode) as u64;
+    }
+    if scene.spaces != null(*CollisionSpace) {
+        bytes = bytes + (scene.data.instance_count as u64 + 1u64) * sizeof(CollisionSpace) as u64;
+    }
+    return bytes;
 }

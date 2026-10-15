@@ -22,7 +22,7 @@ application functions as the applications.
 | `src/render/host/` | Renderer resources, uploads, and Vulkan commands |
 | `src/render/device/` | Compute shaders |
 | `src/render/interface.crs` | Shared host and device data definitions |
-| `src/collision/` | Static mesh storage, adjacency, and continuous sphere queries |
+| `src/collision/` | Static mesh storage, spatial indices, adjacency, and continuous sphere queries |
 | `src/app/` | Shared window, clock, capture, shader, and asset helpers |
 | `src/demo/host/` | Demo options, playback, session, and main loop |
 | `src/demo/scene/` | Demo geometry, camera route, and textures |
@@ -47,7 +47,8 @@ application functions as the applications.
 - Render: [design](render/rendering.md), [build and checks](render/renderer-build.md),
   [textures](render/textures.md), [retained meshes](render/retained-meshes.md),
   [portal capacity](render/portal-capacity.md), [image resize](render/images.md).
-- Collision: [static meshes](collision/static-meshes.md).
+- Collision: [static meshes](collision/static-meshes.md),
+  [spatial index](collision/spatial-index.md).
 - Game: [expedition](game/expedition.md), [movement](game/movement.md),
   [flight course](game/flight-course.md).
 - Content: [parametric assets](content/parametric-assets.md),

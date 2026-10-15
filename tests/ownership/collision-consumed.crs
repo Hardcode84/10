@@ -1,0 +1,7 @@
+fn invalid_collision_builder(builder: CollisionBuilder) -> unit {
+    var scene: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut scene) {
+        return;
+    }
+    var count: u32 = collision_builder_instances(read builder);
+}

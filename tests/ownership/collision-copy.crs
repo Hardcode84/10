@@ -1,0 +1,3 @@
+fn invalid_collision_copy(scene: CollisionScene) -> unit {
+    var duplicate: CollisionScene = scene;
+}

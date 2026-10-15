@@ -1,0 +1,252 @@
+extern fn collision_sort(
+    base: *u8,
+    count: usize,
+    size: usize,
+    compare: fn(*u8, *u8) -> i32
+) -> unit = "qsort";
+record CollisionBuildItem {
+    low: Vec3;
+    high: Vec3;
+    id: u32;
+    space: u32;
+}
+fn collision_min_scalar(a: f32, b: f32) -> f32 {
+    if a < b {
+        return a;
+    }
+    return b;
+}
+fn collision_max_scalar(a: f32, b: f32) -> f32 {
+    if a > b {
+        return a;
+    }
+    return b;
+}
+fn collision_min(a: Vec3, b: Vec3) -> Vec3 {
+    return vec(
+        collision_min_scalar(a.x, b.x),
+        collision_min_scalar(a.y, b.y),
+        collision_min_scalar(a.z, b.z)
+    );
+}
+fn collision_max(a: Vec3, b: Vec3) -> Vec3 {
+    return vec(
+        collision_max_scalar(a.x, b.x),
+        collision_max_scalar(a.y, b.y),
+        collision_max_scalar(a.z, b.z)
+    );
+}
+fn collision_compare_id(a: u32, b: u32) -> i32 {
+    if a < b {
+        return -1i32;
+    }
+    return (a > b) as i32;
+}
+fn collision_compare_axis(a: *u8, b: *u8, axis: u32) -> i32 {
+    var x: *CollisionBuildItem = a as *CollisionBuildItem;
+    var y: *CollisionBuildItem = b as *CollisionBuildItem;
+    var p: f32 = component(x -> low, axis) * 0.5f32 + component(x -> high, axis) * 0.5f32;
+    var q: f32 = component(y -> low, axis) * 0.5f32 + component(y -> high, axis) * 0.5f32;
+    if p < q {
+        return -1i32;
+    }
+    if p > q {
+        return 1i32;
+    }
+    return collision_compare_id(x -> id, y -> id);
+}
+fn collision_compare_x(a: *u8, b: *u8) -> i32 {
+    return collision_compare_axis(a, b, 0u32);
+}
+fn collision_compare_y(a: *u8, b: *u8) -> i32 {
+    return collision_compare_axis(a, b, 1u32);
+}
+fn collision_compare_z(a: *u8, b: *u8) -> i32 {
+    return collision_compare_axis(a, b, 2u32);
+}
+fn collision_compare_space(a: *u8, b: *u8) -> i32 {
+    var x: *CollisionBuildItem = a as *CollisionBuildItem;
+    var y: *CollisionBuildItem = b as *CollisionBuildItem;
+    var order: i32 = collision_compare_id(x -> space, y -> space);
+    if order != 0i32 {
+        return order;
+    }
+    return collision_compare_id(x -> id, y -> id);
+}
+fn collision_sort_axis(items: *CollisionBuildItem, count: u32, low: Vec3, high: Vec3) -> unit {
+    var extent: Vec3 = sub(scale(high, 0.5f32), scale(low, 0.5f32));
+    var compare: fn(*u8, *u8) -> i32 = collision_compare_x;
+    if extent.y > extent.x && extent.y >= extent.z {
+        compare = collision_compare_y;
+    }
+    if extent.z > extent.x && extent.z > extent.y {
+        compare = collision_compare_z;
+    }
+    collision_sort(items as *u8, count as usize, sizeof(CollisionBuildItem), compare);
+}
+fn collision_build_tree(scene: *CollisionScene, items: *CollisionBuildItem, count: u32) -> unit {
+    if count == 0u32 {
+        return;
+    }
+    var root: u32 = scene -> node_count;
+    scene -> node_count = root + 1u32;
+    var low: Vec3 = items[0usize].low;
+    var high: Vec3 = items[0usize].high;
+    var i: u32 = 1u32;
+    while i < count {
+        low = collision_min(low, items[i as usize].low);
+        high = collision_max(high, items[i as usize].high);
+        i = i + 1u32;
+    }
+    var leaf: u32 = items[0usize].id;
+    if count > 1u32 {
+        leaf = 0xffffffffu32;
+        collision_sort_axis(items, count, low, high);
+        var half: u32 = count / 2u32;
+        collision_build_tree(scene, items, half);
+        collision_build_tree(scene, &items[half as usize], count - half);
+    }
+    scene -> nodes[root as usize] = make CollisionNode {
+        low: low,
+        high: high,
+        skip: scene -> node_count,
+        leaf: leaf
+    };
+}
+fn collision_build_faces(
+    scene: *CollisionScene,
+    items: *CollisionBuildItem,
+    instance: *CollisionInstance
+) -> unit {
+    var i: u32 = 0u32;
+    while i < instance -> count {
+        var face: CollisionFace = scene -> data.faces[(instance -> first + i) as usize];
+        items[i as usize] = make CollisionBuildItem {
+            low: collision_min(face.a, collision_min(face.b, face.c)),
+            high: collision_max(face.a, collision_max(face.b, face.c)),
+            id: i,
+            space: 0u32
+        };
+        i = i + 1u32;
+    }
+    instance -> root = scene -> node_count;
+    collision_build_tree(scene, items, instance -> count);
+    instance -> end = scene -> node_count;
+}
+fn collision_instance_bounds(
+    instance: CollisionInstance,
+    id: u32,
+    result: *CollisionBuildItem
+) -> bool {
+    var low: Vec3 = vec(0f32, 0f32, 0f32);
+    var high: Vec3 = low;
+    var i: u32 = 0u32;
+    while i < 8u32 {
+        var p: Vec3 = instance.low;
+        if (i & 1u32) != 0u32 {
+            p.x = instance.high.x;
+        }
+        if (i & 2u32) != 0u32 {
+            p.y = instance.high.y;
+        }
+        if (i & 4u32) != 0u32 {
+            p.z = instance.high.z;
+        }
+        p = add(instance.origin, basis_vector(instance.basis, p));
+        if !collision_finite(p) {
+            return error("collision transform exceeds coordinate range");
+        }
+        if i == 0u32 {
+            low = p;
+            high = p;
+        } else {
+            low = collision_min(low, p);
+            high = collision_max(high, p);
+        }
+        i = i + 1u32;
+    }
+    * result = make CollisionBuildItem {
+        low: low,
+        high: high,
+        id: id,
+        space: instance.space
+    };
+    return true;
+}
+fn collision_build_spaces(scene: *CollisionScene, items: *CollisionBuildItem) -> bool {
+    var i: u32 = 0u32;
+    while i < scene -> data.instance_count {
+        if !collision_instance_bounds(
+            scene -> data.instances[i as usize],
+            i,
+            &items[i as usize]
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    collision_sort(
+        items as *u8,
+        scene -> data.instance_count as usize,
+        sizeof(CollisionBuildItem),
+        collision_compare_space
+    );
+    i = 0u32;
+    while i < scene -> data.instance_count {
+        var start: u32 = i;
+        var id: u32 = items[i as usize].space;
+        while i < scene -> data.instance_count && items[i as usize].space == id {
+            i = i + 1u32;
+        }
+        var root: u32 = scene -> node_count;
+        collision_build_tree(scene, &items[start as usize], i - start);
+        scene -> spaces[scene -> space_count as usize] = make CollisionSpace {
+            id: id,
+            root: root,
+            end: scene -> node_count
+        };
+        scene -> space_count = scene -> space_count + 1u32;
+    }
+    return true;
+}
+fn collision_index_build(scene: *CollisionScene) -> bool {
+    if scene -> data.instance_count == 0u32 {
+        return true;
+    }
+    var total: u64 = 2u64 * (
+        scene -> data.face_count as u64 + scene -> data.instance_count as u64
+    ) + 1u64;
+    if total > 0xffffffffu64 {
+        return error("collision index exceeds address range");
+    }
+    scene -> nodes = malloc(total as usize * sizeof(CollisionNode)) as *CollisionNode;
+    scene -> spaces = malloc(
+        (scene -> data.instance_count as usize + 1usize) * sizeof(CollisionSpace)
+    ) as *CollisionSpace;
+    var capacity: u32 = scene -> data.instance_count + 1u32;
+    var i: u32 = 0u32;
+    while i < scene -> data.instance_count {
+        if scene -> data.instances[i as usize].count > capacity {
+            capacity = scene -> data.instances[i as usize].count;
+        }
+        i = i + 1u32;
+    }
+    var items: *CollisionBuildItem = malloc(capacity as usize * sizeof(CollisionBuildItem)) as *CollisionBuildItem;
+    if scene -> nodes == null(*CollisionNode) || scene -> spaces == null(*CollisionSpace) || items == null(
+        *CollisionBuildItem
+    ) {
+        free(items as *u8);
+        return error("collision index allocation failed");
+    }
+    i = 0u32;
+    var good: bool = true;
+    while i < scene -> data.instance_count && good {
+        var instance: *CollisionInstance = &scene -> data.instances[i as usize];
+        good = collision_build_adjacency(scene -> data.faces, *instance);
+        collision_build_faces(scene, items, instance);
+        i = i + 1u32;
+    }
+    good = good && collision_build_spaces(scene, items);
+    free(items as *u8);
+    return good;
+}

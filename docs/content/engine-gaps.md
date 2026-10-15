@@ -188,23 +188,24 @@ expedition connections in both directions and high-speed room containment.
 The movement, hook, winch, prediction, and expedition completion checks use
 baked mesh collision.
 
-### C2. Query cost and repeated construction — construction implemented
+### C2. Query cost and repeated construction — implemented
 
-The game builds collision once. Queries do not allocate or reconstruct panels.
-They reject instances with a swept local-space bounding-box test, then test
-all triangles of each remaining instance. Instance selection still scans the
-instance list. The build also compares triangle edges within each mesh to find
-coplanar adjacency. These costs grow with instance and mesh size.
+The game builds collision once. An immutable scene contains a space directory,
+an instance hierarchy for each space, and a triangle hierarchy for each
+instance. Queries allocate no memory and do not rebuild panels. Construction
+sorts shared edges for adjacency instead of comparing all triangle pairs.
 
-**Change:** measure larger generated rooms against the current scan. Build a
-spatial index over instances and surfaces when that witness requires one.
-Use indexed construction edges to replace pairwise adjacency search for large
-meshes. Keep dynamic updates separate from static construction.
+The [spatial index contract](../collision/spatial-index.md) specifies ownership,
+scene replacement, stable contact identity, memory cost, and measured scaling.
+Static poses remain immutable. C4 must define separate kinematic updates before
+moving geometry can enter collision queries.
 
-**Check:** compare indexed results with exhaustive queries. Increase room and
-instance count while holding the nearby geometry constant. Measure active
-tick and prediction query costs separately. The current controlled query
-measurement is in the [collision contract](../collision/static-meshes.md).
+**Check:** indexed queries match exhaustive mesh queries, including all contact
+fields, equal-time hits, rotated instances, space isolation, and initial surface
+overlap. Scaling checks add distant rooms and pipe detail while holding nearby
+geometry constant. They measure active simulation ticks and prediction paths
+separately. Ownership and replacement checks cover consumed builders, empty
+scenes, and failed builds.
 
 ### C3. Contact solving and overlap — asset proof
 

@@ -1,9 +1,10 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 49] = make [*u8; 49] {
+    var files: [*u8; 50] = make [*u8; 50] {
         "src/app/math.crs",
         "src/collision/primitives.crs",
         "src/collision/topology.crs",
         "src/collision/sweep.crs",
+        "src/collision/query.crs",
         "src/game/content/collision.crs",
         "src/game/content/geometry.crs",
         "src/game/flight/state.crs",
@@ -51,16 +52,18 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 49usize {
+    while i < 50usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 13] = make [*u8; 13] {
+    var files: [*u8; 15] = make [*u8; 15] {
         "src/app/window.crs",
         "src/collision/storage.crs",
+        "src/collision/index-build.crs",
+        "src/collision/adjacency-build.crs",
         "src/app/clock.crs",
         "src/app/shaders.crs",
         "src/game/host/platform.crs",
@@ -74,7 +77,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/text.crs"
     };
     var i: usize = 0usize;
-    while i < 13usize {
+    while i < 15usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
@@ -82,7 +85,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
 }
 fn build_game(root: *CrustRun) -> bool {
     var sources: [*u8; 64] = uninit;
-    var providers: [*u8; 32] = uninit;
+    var providers: [*u8; 64] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + game_providers(root, &providers[provider_count]);

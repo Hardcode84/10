@@ -1,0 +1,121 @@
+fn collision_aabb(p: Vec3, d: Vec3, radius: f32, bounds_low: Vec3, bounds_high: Vec3) -> bool {
+    var lo: f32 = 0f32;
+    var hi: f32 = 1f32;
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        var start: f32 = component(p, axis);
+        var delta: f32 = component(d, axis);
+        var padding: f32 = radius * 0.00002f32 + 0.000002f32 * (
+            absf(start) + absf(delta) + absf(component(bounds_low, axis)) + absf(
+                component(bounds_high, axis)
+            ) + 1f32
+        );
+        var low: f32 = component(bounds_low, axis) - radius - padding;
+        var high: f32 = component(bounds_high, axis) + radius + padding;
+        if delta == 0f32 {
+            if start < low || start > high {
+                return false;
+            }
+        } else {
+            var a: f32 = (low - start) / delta;
+            var b: f32 = (high - start) / delta;
+            if a > b {
+                var swap: f32 = a;
+                a = b;
+                b = swap;
+            }
+            if a > lo {
+                lo = a;
+            }
+            if b < hi {
+                hi = b;
+            }
+            if lo > hi {
+                return false;
+            }
+        }
+        axis = axis + 1u32;
+    }
+    return true;
+}
+fn collision_better(next: CollisionContact, current: CollisionContact) -> bool {
+    if next.hit.time > 1f32 {
+        return false;
+    }
+    if next.hit.time != current.hit.time {
+        return next.hit.time < current.hit.time;
+    }
+    if next.penetration != current.penetration {
+        return next.penetration > current.penetration;
+    }
+    if next.instance != current.instance {
+        return next.instance < current.instance;
+    }
+    return next.surface < current.surface;
+}
+fn collision_sweep_instance(
+    scene: read CollisionScene,
+    index: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32
+) -> CollisionContact {
+    var item: CollisionInstance = collision_instance(read scene, index);
+    var local_p: Vec3 = collision_local(item.basis, sub(p, item.origin));
+    var local_d: Vec3 = collision_local(item.basis, d);
+    var result: CollisionContact = collision_miss(item.space);
+    var i: u32 = item.root;
+    while i < item.end {
+        var node: CollisionNode = collision_node(read scene, i);
+        if !collision_aabb(local_p, local_d, radius, node.low, node.high) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 {
+                var next: CollisionContact = collision_surface(
+                    local_p,
+                    local_d,
+                    collision_face(read scene, item.first + node.leaf),
+                    radius
+                );
+                next.instance = index;
+                next.surface = node.leaf;
+                if collision_better(next, result) {
+                    result = next;
+                }
+            }
+            i = i + 1u32;
+        }
+    }
+    result.space = item.space;
+    result.point = add(item.origin, basis_vector(item.basis, result.local_point));
+    result.hit.normal = basis_vector(item.basis, result.hit.normal);
+    return result;
+}
+// Returns the first surface contact in one space. Inputs must be finite; radius must be nonnegative.
+// The immutable scene remains valid for concurrent read queries. The query does not cross portals.
+fn collision_sweep(scene: read CollisionScene, space: u32, p: Vec3, d: Vec3, radius: f32) -> CollisionContact {
+    var result: CollisionContact = collision_miss(space);
+    var range: CollisionSpace = collision_space(read scene, space);
+    var i: u32 = range.root;
+    while i < range.end {
+        var node: CollisionNode = collision_node(read scene, i);
+        if !collision_aabb(p, d, radius, node.low, node.high) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 {
+                var next: CollisionContact = collision_sweep_instance(
+                    read scene,
+                    node.leaf,
+                    p,
+                    d,
+                    radius
+                );
+                if collision_better(next, result) {
+                    result = next;
+                }
+            }
+            i = i + 1u32;
+        }
+    }
+    return result;
+}

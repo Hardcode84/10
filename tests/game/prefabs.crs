@@ -109,11 +109,12 @@ fn test_prefab_enclosure(collision: read CollisionScene) -> bool {
 }
 fn test_prefabs(collision: read CollisionScene) -> bool {
     var shells: CollisionScene = collision_new();
+    var builder: CollisionBuilder = collision_builder_new();
     var i: u32 = 0u32;
     while i < ROOM_COUNT {
         var mesh: Mesh = mesh_new();
         if !static_room(mut mesh, i) || !collision_append(
-            mut shells,
+            mut builder,
             read mesh,
             1u32,
             vec(0f32, 0f32, 0f32),
@@ -122,6 +123,9 @@ fn test_prefabs(collision: read CollisionScene) -> bool {
             return false;
         }
         i = i + 1u32;
+    }
+    if !collision_finish(move builder, mut shells) {
+        return false;
     }
     return test_prefab_definitions() && test_prefab_ports(read shells) && test_prefab_enclosure(
         read shells

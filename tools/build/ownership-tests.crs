@@ -42,5 +42,39 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         }
         i = i + 1usize;
     }
-    return good;
+    return good && check_collision_ownership(root);
+}
+fn check_collision_ownership(root: *CrustRun) -> bool {
+    var files: [*u8; 2] = make [*u8; 2] {
+        "collision-copy.crs",
+        "collision-consumed.crs"
+    };
+    var errors: [*u8; 2] = make [*u8; 2] {
+        "copy of a resource requires an explicit move",
+        "value is uninitialized or has been moved"
+    };
+    var providers: [*u8; 64] = uninit;
+    var count: usize = render_providers(root, &providers[0usize]);
+    count = count + game_providers(root, &providers[count]);
+    var args: [*u8; 96] = uninit;
+    args[0usize] = "--check";
+    args[1usize] = "--library";
+    args[2usize] = host_path(root, "src/render/interface.crs");
+    var source_count: usize = 3usize + game_sources(root, &args[3usize]);
+    var i: usize = 0usize;
+    while i < 2usize {
+        args[source_count] = stage_path(root, "tests/ownership", files[i]);
+        if ownership_sources(
+            root,
+            (source_count + 1usize) as i32,
+            &args[0usize],
+            &providers[0usize],
+            count,
+            errors[i]
+        ) != 0i32 {
+            return false;
+        }
+        i = i + 1usize;
+    }
+    return true;
 }

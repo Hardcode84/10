@@ -1,4 +1,5 @@
 fn test_mesh_features() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
     var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     if !collision_test_triangle(
@@ -7,12 +8,15 @@ fn test_mesh_features() -> bool {
         vec(4f32, 0f32, 0f32),
         vec(0f32, 4f32, 0f32)
     ) || !collision_append(
-        mut scene,
+        mut builder,
         read mesh,
         7u32,
         vec(0f32, 0f32, 0f32),
         identity_basis()
     ) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
         return false;
     }
     var i: u32 = 0u32;
@@ -94,6 +98,7 @@ fn test_mesh_features() -> bool {
     );
 }
 fn test_mesh_seam() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
     var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     if !static_quad(
@@ -106,12 +111,15 @@ fn test_mesh_seam() -> bool {
         vec(0f32, 0f32, 1f32),
         3u32
     ) || !collision_append(
-        mut scene,
+        mut builder,
         read mesh,
         0u32,
         vec(0f32, 0f32, 0f32),
         identity_basis()
     ) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
         return false;
     }
     var along: CollisionContact = collision_sweep(
@@ -138,17 +146,21 @@ fn test_mesh_seam() -> bool {
     );
 }
 fn test_mesh_aperture(count: u32) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
     var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     var basis: Basis = collision_test_basis();
     var origin: Vec3 = vec(13f32, -7f32, 21f32);
     if !collision_test_aperture(mut mesh, count) || !collision_append(
-        mut scene,
+        mut builder,
         read mesh,
         19u32,
         origin,
         basis
-    ) || !collision_append(mut scene, read mesh, 20u32, origin, identity_basis()) {
+    ) || !collision_append(mut builder, read mesh, 20u32, origin, identity_basis()) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
         return false;
     }
     var i: u32 = 0u32;
@@ -198,15 +210,19 @@ fn test_mesh_aperture(count: u32) -> bool {
     return true;
 }
 fn test_mesh_elbow() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
     var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     if !collision_test_elbow(mut mesh) || !collision_append(
-        mut scene,
+        mut builder,
         read mesh,
         0u32,
         vec(0f32, 0f32, 0f32),
         identity_basis()
     ) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
         return false;
     }
     var ring: u32 = 0u32;
@@ -240,6 +256,7 @@ fn test_mesh_collision() -> bool {
     ) && test_mesh_aperture(8u32) && test_mesh_aperture(13u32) && test_mesh_elbow();
 }
 fn test_mesh_rigid_equivalence() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
     var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     var shape: Solid = solid(
@@ -250,12 +267,15 @@ fn test_mesh_rigid_equivalence() -> bool {
     var basis: Basis = collision_test_basis();
     var origin: Vec3 = vec(19f32, -11f32, 8f32);
     if !static_solid(mut mesh, shape, 63u32) || !collision_append(
-        mut scene,
+        mut builder,
         read mesh,
         3u32,
         origin,
         basis
     ) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
         return false;
     }
     var i: u32 = 0u32;
@@ -289,6 +309,7 @@ fn test_mesh_rigid_equivalence() -> bool {
     return true;
 }
 fn test_mesh_rejection() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
     var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     if !collision_test_triangle(
@@ -297,7 +318,7 @@ fn test_mesh_rejection() -> bool {
         vec(1f32, 0f32, 0f32),
         vec(0f32, 1f32, 0f32)
     ) || !collision_append(
-        mut scene,
+        mut builder,
         read mesh,
         0u32,
         vec(0f32, 0f32, 0f32),
@@ -308,8 +329,8 @@ fn test_mesh_rejection() -> bool {
     var scaled: Basis = identity_basis();
     scaled.right.x = 2f32;
     if !game_check(
-        !collision_append(mut scene, read mesh, 0u32, vec(0f32, 0f32, 0f32), scaled) && collision_instances(
-            read scene
+        !collision_append(mut builder, read mesh, 0u32, vec(0f32, 0f32, 0f32), scaled) && collision_builder_instances(
+            read builder
         ) == 1u32,
         "non-rigid instance must fail without modifying the collision scene"
     ) {
@@ -325,25 +346,29 @@ fn test_mesh_rejection() -> bool {
     }
     return game_check(
         !collision_append(
-            mut scene,
+            mut builder,
             read mesh,
             0u32,
             vec(0f32, 0f32, 0f32),
             identity_basis()
-        ) && collision_instances(read scene) == 1u32,
+        ) && collision_builder_instances(read builder) == 1u32,
         "degenerate collision mesh must fail without modifying the scene"
     );
 }
 fn test_mesh_flight() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
     var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     if !collision_test_elbow(mut mesh) || !collision_append(
-        mut scene,
+        mut builder,
         read mesh,
         0u32,
         vec(0f32, 0f32, 0f32),
         identity_basis()
     ) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
         return false;
     }
     var face: CollisionFace = collision_face(read scene, 56u32);
@@ -377,10 +402,11 @@ fn test_mesh_flight() -> bool {
     );
 }
 fn test_mesh_clearance() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
     var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     if !collision_test_aperture(mut mesh, 8u32) || !collision_append(
-        mut scene,
+        mut builder,
         read mesh,
         0u32,
         vec(0f32, 0f32, 0f32),
@@ -392,6 +418,9 @@ fn test_mesh_clearance() -> bool {
     var b: Vec3 = collision_test_aperture_vertex(1u32, 8u32, false);
     var inward: Vec3 = unit_vector(cross(vec(0f32, 0f32, 1f32), sub(b, a)));
     var midpoint: Vec3 = scale(add(a, b), 0.5f32);
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
     var i: u32 = 0u32;
     while i < 2u32 {
         var radius: f32 = DRONE_RADIUS;

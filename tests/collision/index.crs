@@ -1,0 +1,247 @@
+fn collision_same_contact(a: CollisionContact, b: CollisionContact) -> bool {
+    if a.hit.time != b.hit.time || a.instance != b.instance || a.surface != b.surface || a.space != b.space || a.penetration != b.penetration {
+        return false;
+    }
+    if a.hit.time > 1f32 {
+        return true;
+    }
+    return collision_equal(a.hit.normal, b.hit.normal) && collision_equal(a.point, b.point) && collision_equal(
+        a.local_point,
+        b.local_point
+    );
+}
+fn test_collision_index_queries(scene: read CollisionScene) -> bool {
+    var i: u32 = 0u32;
+    while i < 1536u32 {
+        var p: Vec3 = vec(
+            (i % 23u32) as f32 * 6f32 - 20f32,
+            ((i / 23u32) % 11u32) as f32 * 6f32 - 15f32,
+            ((i / 253u32) % 9u32) as f32 * 30f32 - 15f32
+        );
+        var d: Vec3 = vec(
+            sinf(i as f32) * 150f32,
+            cosf(i as f32) * 150f32,
+            200f32 - (i % 7u32) as f32 * 70f32
+        );
+        if i % 13u32 == 0u32 {
+            d = vec(0f32, 0f32, 0f32);
+        }
+        var radius: f32 = (i % 3u32) as f32 * DRONE_RADIUS;
+        var space: u32 = i % 4u32;
+        if !game_check(
+            collision_same_contact(
+                collision_sweep(read scene, space, p, d, radius),
+                collision_exhaustive(read scene, space, p, d, radius)
+            ),
+            "BVH differs from exhaustive collision time, identity, point, normal or overlap depth"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn test_collision_index_surfaces(scene: read CollisionScene) -> bool {
+    var index: u32 = 0u32;
+    while index < collision_instances(read scene) {
+        var instance: CollisionInstance = collision_instance(read scene, index);
+        var i: u32 = 0u32;
+        while i < instance.count {
+            var face: CollisionFace = collision_face(read scene, instance.first + i);
+            var point: Vec3 = scale(add(add(face.a, face.b), face.c), 1f32 / 3f32);
+            var p: Vec3 = add(
+                instance.origin,
+                basis_vector(instance.basis, add(point, scale(face.normal, 0.1f32)))
+            );
+            var d: Vec3 = basis_vector(instance.basis, scale(face.normal, -2000f32));
+            if !game_check(
+                collision_same_contact(
+                    collision_sweep(read scene, instance.space, p, d, HOOK_RADIUS),
+                    collision_exhaustive(read scene, instance.space, p, d, HOOK_RADIUS)
+                ),
+                "BVH lost a high-speed generated surface contact"
+            ) {
+                return false;
+            }
+            d = vec(0f32, 0f32, 0f32);
+            if !game_check(
+                collision_same_contact(
+                    collision_sweep(read scene, instance.space, p, d, DRONE_RADIUS),
+                    collision_exhaustive(read scene, instance.space, p, d, DRONE_RADIUS)
+                ),
+                "BVH lost initial generated surface overlap"
+            ) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+        index = index + 1u32;
+    }
+    return true;
+}
+fn test_collision_index_rotated() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    if !collision_test_aperture(mut mesh, 13u32) || !collision_test_elbow(mut mesh) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 17u32 {
+        var origin: Vec3 = vec((i % 3u32) as f32 * 6f32, (i / 3u32) as f32 * 8f32, 0f32);
+        if !collision_append(
+            mut builder,
+            read mesh,
+            i % 3u32,
+            origin,
+            collision_test_basis()
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    return test_collision_index_queries(read scene) && test_collision_index_surfaces(read scene);
+}
+fn collision_test_panel(builder: mut CollisionBuilder, space: u32, x: f32) -> bool {
+    var mesh: Mesh = mesh_new();
+    if !static_quad(
+        mut mesh,
+        0u32,
+        vec(-2f32, -2f32, 0f32),
+        vec(2f32, -2f32, 0f32),
+        vec(2f32, 2f32, 0f32),
+        vec(-2f32, 2f32, 0f32),
+        vec(0f32, 0f32, 1f32),
+        3u32
+    ) {
+        return false;
+    }
+    return collision_append(
+        mut builder,
+        read mesh,
+        space,
+        vec(x, 0f32, 0f32),
+        identity_basis()
+    );
+}
+fn test_collision_index_ties() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    if !collision_test_panel(mut builder, 0xffffffffu32, 1f32) || !collision_test_panel(
+        mut builder,
+        0xffffffffu32,
+        -1f32
+    ) || !collision_test_panel(mut builder, 0u32, 0f32) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var p: Vec3 = vec(0f32, 0f32, 1f32);
+    var d: Vec3 = vec(0f32, 0f32, -2f32);
+    var hit: CollisionContact = collision_sweep(read scene, 0xffffffffu32, p, d, DRONE_RADIUS);
+    return game_check(
+        hit.instance == 0u32 && collision_same_contact(
+            hit,
+            collision_exhaustive(read scene, 0xffffffffu32, p, d, DRONE_RADIUS)
+        ) && collision_sweep(read scene, 99u32, p, d, DRONE_RADIUS).hit.time > 1f32,
+        "BVH traversal order changed an equal-time hit or sparse space lookup"
+    );
+}
+fn test_collision_index_replace() -> bool {
+    var scene: CollisionScene = collision_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_test_panel(mut builder, 0u32, 0f32) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var failed: CollisionBuilder = collision_builder_new();
+    var mesh: Mesh = mesh_new();
+    if !collision_test_triangle(
+        mut mesh,
+        vec(3e38f32, 0f32, 0f32),
+        vec(3e38f32, 1f32, 0f32),
+        vec(3e38f32, 0f32, 1f32)
+    ) || !collision_append(
+        mut failed,
+        read mesh,
+        0u32,
+        vec(3e38f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    if !game_check(
+        !collision_finish(move failed, mut scene) && collision_instances(read scene) == 1u32 && collision_sweep(
+            read scene,
+            0u32,
+            vec(0f32, 0f32, 1f32),
+            vec(0f32, 0f32, -2f32),
+            HOOK_RADIUS
+        ).hit.time < 1f32,
+        "failed index build replaced the active scene"
+    ) {
+        return false;
+    }
+    var empty: CollisionBuilder = collision_builder_new();
+    if !collision_finish(move empty, mut scene) {
+        return false;
+    }
+    return game_check(
+        collision_instances(read scene) == 0u32 && collision_bytes(read scene) == 0u64 && collision_sweep(
+            read scene,
+            0u32,
+            vec(0f32, 0f32, 0f32),
+            vec(0f32, 0f32, 0f32),
+            DRONE_RADIUS
+        ).hit.time > 1f32,
+        "empty replacement retained stale collision nodes"
+    );
+}
+fn test_collision_index(scene: read CollisionScene) -> bool {
+    return test_collision_adjacency(read scene) && test_collision_index_queries(read scene) && test_collision_index_surfaces(
+        read scene
+    ) && test_collision_index_rotated() && test_collision_index_ties() && test_collision_index_replace();
+}
+fn test_collision_adjacency(scene: read CollisionScene) -> bool {
+    var index: u32 = 0u32;
+    while index < collision_instances(read scene) {
+        var item: CollisionInstance = collision_instance(read scene, index);
+        var i: u32 = 0u32;
+        while i < item.count {
+            var a: CollisionFace = collision_face(read scene, item.first + i);
+            var edge: u32 = 0u32;
+            while edge < 3u32 {
+                var expected: u32 = 0xffffffffu32;
+                var j: u32 = 0u32;
+                while j < item.count {
+                    var b: CollisionFace = collision_face(read scene, item.first + j);
+                    if i != j && absf(dot(a.normal, b.normal)) > 0.999999f32 && collision_shared(
+                        a,
+                        edge,
+                        b
+                    ) {
+                        expected = item.first + j;
+                        break;
+                    }
+                    j = j + 1u32;
+                }
+                if !game_check(
+                    a.neighbours[edge as usize] == expected,
+                    "sorted construction edges differ from exhaustive coplanar adjacency"
+                ) {
+                    return false;
+                }
+                edge = edge + 1u32;
+            }
+            i = i + 1u32;
+        }
+        index = index + 1u32;
+    }
+    return true;
+}

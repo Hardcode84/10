@@ -1,4 +1,4 @@
-fn collision_build_world(scene: mut CollisionScene, world: u32) -> bool {
+fn collision_build_world(scene: mut CollisionBuilder, world: u32) -> bool {
     var i: u32 = 0u32;
     if world == 1u32 {
         while i < ROOM_COUNT {
@@ -46,5 +46,9 @@ fn collision_build_world(scene: mut CollisionScene, world: u32) -> bool {
     return true;
 }
 fn collision_build_game(scene: mut CollisionScene) -> bool {
-    return collision_build_world(mut scene, 0u32) && collision_build_world(mut scene, 1u32);
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_build_world(mut builder, 0u32) || !collision_build_world(mut builder, 1u32) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
 }

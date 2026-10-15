@@ -46,30 +46,6 @@ fn collision_shared(a: CollisionFace, edge: u32, b: CollisionFace) -> bool {
     }
     return false;
 }
-fn collision_adjacency(scene: mut CollisionScene, instance: CollisionInstance) -> unit {
-    var i: u32 = instance.first;
-    while i < instance.first + instance.count {
-        var a: CollisionFace = collision_face(read scene, i);
-        var edge: u32 = 0u32;
-        while edge < 3u32 {
-            var j: u32 = instance.first;
-            while j < instance.first + instance.count {
-                var b: CollisionFace = collision_face(read scene, j);
-                if i != j && absf(dot(a.normal, b.normal)) > 0.999999f32 && collision_shared(
-                    a,
-                    edge,
-                    b
-                ) {
-                    collision_neighbour(mut scene, i, edge, j);
-                    break;
-                }
-                j = j + 1u32;
-            }
-            edge = edge + 1u32;
-        }
-        i = i + 1u32;
-    }
-}
 fn collision_normal(n: Vec3) -> Vec3 {
     var size: f32 = length(n);
     if size == 0f32 {

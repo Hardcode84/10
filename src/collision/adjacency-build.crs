@@ -1,0 +1,105 @@
+record CollisionEdge {
+    a: Vec3;
+    b: Vec3;
+    face: u32;
+    edge: u32;
+}
+fn collision_compare_point(a: Vec3, b: Vec3) -> i32 {
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        if component(a, axis) < component(b, axis) {
+            return -1i32;
+        }
+        if component(a, axis) > component(b, axis) {
+            return 1i32;
+        }
+        axis = axis + 1u32;
+    }
+    return 0i32;
+}
+fn collision_compare_edge_key(a: CollisionEdge, b: CollisionEdge) -> i32 {
+    var order: i32 = collision_compare_point(a.a, b.a);
+    if order != 0i32 {
+        return order;
+    }
+    return collision_compare_point(a.b, b.b);
+}
+fn collision_compare_edge(a: *u8, b: *u8) -> i32 {
+    var x: CollisionEdge = *(a as *CollisionEdge);
+    var y: CollisionEdge = *(b as *CollisionEdge);
+    var order: i32 = collision_compare_edge_key(x, y);
+    if order != 0i32 {
+        return order;
+    }
+    return collision_compare_id(x.face, y.face);
+}
+fn collision_edge_records(
+    faces: *CollisionFace,
+    instance: CollisionInstance,
+    edges: *CollisionEdge
+) -> unit {
+    var i: u32 = 0u32;
+    while i < instance.count {
+        var face: CollisionFace = faces[(instance.first + i) as usize];
+        var edge: u32 = 0u32;
+        while edge < 3u32 {
+            var a: Vec3 = collision_corner(face, edge);
+            var b: Vec3 = collision_corner(face, (edge + 1u32) % 3u32);
+            if collision_compare_point(a, b) > 0i32 {
+                var swap: Vec3 = a;
+                a = b;
+                b = swap;
+            }
+            edges[i as usize * 3usize + edge as usize] = make CollisionEdge {
+                a: a,
+                b: b,
+                face: instance.first + i,
+                edge: edge
+            };
+            edge = edge + 1u32;
+        }
+        i = i + 1u32;
+    }
+}
+fn collision_connect_edges(faces: *CollisionFace, edges: *CollisionEdge, count: usize) -> unit {
+    var i: usize = 0usize;
+    while i < count {
+        var a: CollisionEdge = edges[i];
+        var j: usize = 0usize;
+        while j < count {
+            var b: CollisionEdge = edges[j];
+            if a.face != b.face && absf(
+                dot(faces[a.face as usize].normal, faces[b.face as usize].normal)
+            ) > 0.999999f32 && collision_shared(
+                faces[a.face as usize],
+                a.edge,
+                faces[b.face as usize]
+            ) {
+                faces[a.face as usize].neighbours[a.edge as usize] = b.face;
+                break;
+            }
+            j = j + 1usize;
+        }
+        i = i + 1usize;
+    }
+}
+fn collision_build_adjacency(faces: *CollisionFace, instance: CollisionInstance) -> bool {
+    var count: usize = instance.count as usize * 3usize;
+    var edges: *CollisionEdge = malloc((count + 1usize) * sizeof(CollisionEdge)) as *CollisionEdge;
+    if edges == null(*CollisionEdge) {
+        return error("collision edge allocation failed");
+    }
+    collision_edge_records(faces, instance, edges);
+    collision_sort(edges as *u8, count, sizeof(CollisionEdge), collision_compare_edge);
+    var i: usize = 0usize;
+    while i < count {
+        var start: usize = i;
+        i = i + 1usize;
+        while i < count && collision_compare_edge_key(edges[start], edges[i]) == 0i32 {
+            i = i + 1usize;
+        }
+        collision_connect_edges(faces, &edges[start], i - start);
+    }
+    free(edges as *u8);
+    return true;
+}

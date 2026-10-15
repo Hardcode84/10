@@ -13,12 +13,15 @@ Do not submit a renderer portal surface as a solid collision surface.
 
 ## Ownership and build
 
-`CollisionScene` owns local triangles and static instance records. The root
+`CollisionScene` owns local triangles, static instance records, and a
+[spatial index](spatial-index.md). The root
 session owns the scene. Simulation and prediction receive checked read borrows.
 They do not allocate, rebuild geometry, or access a global collision cache.
 The native provider owns allocation and exposes value records to checked code.
 
-`collision_append` copies a mesh and appends an instance. It accepts a finite
+`collision_append` copies a mesh into a `CollisionBuilder` and appends an
+instance. `collision_finish` consumes this builder to make an immutable scene.
+It accepts a finite
 translation and a proper orthonormal basis. It rejects scale, reflection,
 non-finite coordinates, and degenerate triangles. Apply dimensions in the
 construction recipe. A rejected append preserves all prior instances.
@@ -112,7 +115,7 @@ The two worlds contain 41 instances and 534 triangles. Collision payload is
 There is no query allocation. Existing flight and expedition test summaries,
 including their deterministic state hashes, matched the baseline run.
 
-C2 still needs a larger-room witness before replacing the linear instance scan
-and per-instance triangle scan. The current adjacency build is quadratic within
-each appended mesh. Indexed construction edges are the concrete replacement
-when asset size makes that build cost significant.
+C2 replaces both linear scans with spatial indices and replaces pairwise
+adjacency construction with sorted edges. The measurements above record the
+C1 baseline. See the [index measurements](spatial-index.md#evidence-and-checks)
+for current storage and query behaviour.

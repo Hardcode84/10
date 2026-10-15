@@ -1,0 +1,94 @@
+fn collision_scale_scene(scene: mut CollisionScene, copies: u32, detail: u32) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_build_world(mut builder, 0u32) || !collision_build_world(mut builder, 1u32) {
+        return false;
+    }
+    var room: Mesh = mesh_new();
+    if !static_room(mut room, 0u32) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < copies {
+        if !collision_append(
+            mut builder,
+            read room,
+            1u32 + i % 2u32,
+            vec(
+                100f32 + (i % 16u32) as f32 * 100f32,
+                100f32 + (i / 16u32) as f32 * 100f32,
+                0f32
+            ),
+            identity_basis()
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < detail {
+        var pipe: CoursePipe = course_pipe(0u32);
+        pipe.start.x = 100f32 + i as f32 * 5f32;
+        if !static_pipe(mut room, pipe) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if !collision_append(
+        mut builder,
+        read room,
+        1u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn collision_scale_flight(scene: read CollisionScene, steps: u32, paths: u32) -> f32 {
+    var sum: f32 = 0f32;
+    var i: u32 = 0u32;
+    while i < paths {
+        var drone: Drone = new_drone();
+        drone.world = 1u32;
+        drone.velocity = vec(0f32, 0f32, 8f32);
+        var j: u32 = 0u32;
+        while j < steps {
+            simulate(read scene, mut drone, idle_command(), false, true);
+            j = j + 1u32;
+        }
+        sum = sum + drone.position.z;
+        i = i + 1u32;
+    }
+    return sum;
+}
+fn test_collision_scale_case(copies: u32, detail: u32, expected: f32) -> f32 {
+    var scene: CollisionScene = collision_new();
+    var start: u64 = now();
+    if !collision_scale_scene(mut scene, copies, detail) {
+        return -1f32;
+    }
+    var build_time: u64 = now() - start;
+    start = now();
+    var active: f32 = collision_scale_flight(read scene, 1u32, 256u32);
+    var active_time: u64 = now() - start;
+    start = now();
+    var prediction: f32 = collision_scale_flight(read scene, 240u32, 16u32);
+    var prediction_time: u64 = now() - start;
+    collision_scale_report(read scene, build_time, active_time, prediction_time);
+    var result: f32 = active + prediction;
+    if expected >= 0f32 && !game_check(
+        result == expected,
+        "distant collision geometry changed local simulation or prediction"
+    ) {
+        return -1f32;
+    }
+    return result;
+}
+fn test_collision_scaling() -> bool {
+    var expected: f32 = test_collision_scale_case(0u32, 0u32, -1f32);
+    return expected >= 0f32 && test_collision_scale_case(32u32, 16u32, expected) >= 0f32 && test_collision_scale_case(
+        256u32,
+        64u32,
+        expected
+    ) >= 0f32;
+}
