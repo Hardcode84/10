@@ -1,0 +1,142 @@
+record AssetCamera {
+    view: u32;
+    yaw: f32;
+    pitch: f32;
+    zoom: f32;
+}
+fn asset_camera(
+    input: mut FrameInput,
+    asset: read RoomAsset,
+    mesh: MeshRange,
+    camera: AssetCamera
+) -> unit {
+    var eye: Vec3 = asset.spawn.position;
+    var basis: Basis = asset.spawn.basis;
+    if camera.view != 2u32 {
+        var low: Vec3 = vec(
+            mesh.bounds[0usize],
+            mesh.bounds[1usize],
+            mesh.bounds[2usize]
+        );
+        var high: Vec3 = vec(
+            mesh.bounds[3usize],
+            mesh.bounds[4usize],
+            mesh.bounds[5usize]
+        );
+        var center: Vec3 = scale(add(low, high), 0.5f32);
+        var direction: Vec3 = vec(
+            sinf(camera.yaw) * cosf(camera.pitch),
+            sinf(camera.pitch),
+            cosf(camera.yaw) * cosf(camera.pitch)
+        );
+        eye = center;
+        basis.forward = direction;
+        if camera.view == 1u32 {
+            eye = add(
+                center,
+                scale(direction, length(sub(high, low)) * camera.zoom)
+            );
+            basis.forward = scale(direction, -1f32);
+        }
+        basis.right = unit_vector(cross(vec(0f32, 1f32, 0f32), basis.forward));
+        basis.up = cross(basis.forward, basis.right);
+    }
+    camera_row(mut input, 0usize, basis.right, eye);
+    camera_row(mut input, 4usize, basis.up, eye);
+    camera_row(mut input, 8usize, basis.forward, eye);
+}
+fn asset_scene(
+    input: mut FrameInput,
+    asset: read RoomAsset,
+    mesh: MeshRange,
+    camera: AssetCamera
+) -> bool {
+    input_frame(mut input);
+    input_set_word(mut input, 4usize, 0u32);
+    input_set_word(mut input, 20usize, 0u32);
+    input_set_word(mut input, LIGHT_MODEL as usize, 1u32);
+    input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
+    input_set_word(mut input, BACKGROUND as usize, 0xff181410u32);
+    input_set_float(mut input, RENDER_STYLE as usize, 0.04f32);
+    input_set_float(mut input, PROJECTION as usize, 1f32);
+    input_set_float(mut input, CAMERA_LIGHT as usize, 900f32);
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        input_set_float(mut input, (SPACE_LIGHT + i) as usize, 0.5f32);
+        input_set_float(mut input, (CAMERA_LIGHT + 1u32 + i) as usize, 1f32);
+        i = i + 1u32;
+    }
+    asset_camera(mut input, read asset, mesh, camera);
+    return input_instance(mut input, mesh_identity(mesh, 0u32));
+}
+fn asset_view_upload(session: mut AssetSession, asset: read RoomAsset, range: mut MeshRange) -> bool {
+    var renderer: mut Renderer = asset_renderer(mut session);
+    var input: FrameInput = renderer_inputs(mut renderer);
+    input_clear_meshes(mut input);
+    return input_mesh(mut input, read asset.mesh, mut range) && room_materials(mut input);
+}
+fn asset_view_run(
+    session: AssetSession,
+    values: AssetValues,
+    options: AssetViewOptions,
+    headless: bool
+) -> i32 {
+    var asset: RoomAsset = room_asset_new();
+    var started: u64 = now();
+    if !room_build(read values, mut asset) {
+        return 1i32;
+    }
+    asset_build_report(read asset, now() - started);
+
+    var range: MeshRange = mesh_empty_range();
+    if !asset_session_open(mut session) || !asset_view_upload(
+        mut session,
+        read asset,
+        mut range
+    ) {
+        return 1i32;
+    }
+    asset_view_window(mut session);
+    var state: AssetViewState = asset_view_state(options.view);
+    var frame: u32 = 0u32;
+    while state.running && (options.frames == 0u32 || frame < options.frames) {
+        if !headless {
+            var key: u32 = asset_view_event();
+            while key != 0u32 {
+                asset_view_adjust(mut state, key);
+                var good: bool = true;
+                asset = asset_view_edit(
+                    mut session,
+                    read state,
+                    mut values,
+                    move asset,
+                    mut range,
+                    key,
+                    mut good
+                );
+                if !good {
+                    return 1i32;
+                }
+                key = asset_view_event();
+            }
+        }
+        {
+            var renderer: mut Renderer = asset_renderer(mut session);
+            var output: FrameInput = renderer_inputs(mut renderer);
+            if !asset_scene(mut output, read asset, range, state.camera) {
+                return 1i32;
+            }
+        }
+        if !asset_session_draw(mut session) {
+            return 1i32;
+        }
+        if !headless {
+            asset_session_wait();
+        }
+        if state.rotating {
+            state.camera.yaw = state.camera.yaw + 0.008f32;
+        }
+        frame = frame + 1u32;
+    }
+    return (!asset_session_finish(mut session)) as i32;
+}

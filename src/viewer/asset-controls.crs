@@ -1,0 +1,108 @@
+record AssetViewState {
+    camera: AssetCamera;
+    selected: u32;
+    running: bool;
+    rotating: bool;
+}
+fn asset_view_state(view: u32) -> AssetViewState {
+    var pitch: f32 = 0.85f32;
+    if view == 1u32 {
+        pitch = 0.45f32;
+    }
+    return make AssetViewState {
+        camera: make AssetCamera {
+            view: view,
+            yaw: 0.4f32,
+            pitch: pitch,
+            zoom: 0.6f32
+        },
+        selected: 0u32,
+        running: true,
+        rotating: false
+    };
+}
+fn asset_view_adjust(state: mut AssetViewState, key: u32) -> unit {
+    if key == 27u32 {
+        state.running = false;
+    }
+    if key == 9u32 {
+        state.camera.view = (state.camera.view + 1u32) % 3u32;
+    }
+    if key == 32u32 {
+        state.rotating = !state.rotating;
+    }
+    if key == 1073741903u32 {
+        state.camera.yaw = state.camera.yaw + 0.1f32;
+    }
+    if key == 1073741904u32 {
+        state.camera.yaw = state.camera.yaw - 0.1f32;
+    }
+    if key == 1073741906u32 {
+        state.camera.pitch = clamp(state.camera.pitch + 0.1f32, -1.45f32, 1.45f32);
+    }
+    if key == 1073741905u32 {
+        state.camera.pitch = clamp(state.camera.pitch - 0.1f32, -1.45f32, 1.45f32);
+    }
+    if key == 119u32 {
+        state.camera.zoom = clamp(state.camera.zoom * 0.9f32, 0.55f32, 5f32);
+    }
+    if key == 115u32 {
+        state.camera.zoom = clamp(state.camera.zoom / 0.9f32, 0.55f32, 5f32);
+    }
+    asset_view_select(mut state, key);
+}
+fn asset_view_select(state: mut AssetViewState, key: u32) -> unit {
+    if room_parameter_count() == 0u32 {
+        return;
+    }
+    if key == 93u32 {
+        state.selected = (state.selected + 1u32) % room_parameter_count();
+    }
+    if key == 91u32 {
+        state.selected = (state.selected + room_parameter_count() - 1u32) % room_parameter_count();
+    }
+    if key == 91u32 || key == 93u32 {
+        asset_name_print(room_parameter_name(state.selected));
+    }
+}
+fn asset_view_edit(
+    session: mut AssetSession,
+    state: read AssetViewState,
+    values: mut AssetValues,
+    asset: RoomAsset,
+    range: mut MeshRange,
+    key: u32,
+    good: mut bool
+) -> RoomAsset {
+    if room_parameter_count() == 0u32 {
+        return move asset;
+    }
+    if key != 45u32 && key != 61u32 && key != 43u32 && key != 114u32 {
+        return move asset;
+    }
+    var parameter: AssetParameter = room_parameter(state.selected);
+    var old: f32 = asset_value(read values, state.selected);
+    var value: f32 = old + parameter.step;
+    if key == 45u32 {
+        value = old - parameter.step;
+    }
+    if key == 114u32 {
+        value = parameter.initial;
+    }
+    asset_value_set(mut values, state.selected, value);
+    var next: RoomAsset = room_asset_new();
+    var start: u64 = now();
+    if !room_build(read values, mut next) {
+        asset_value_set(mut values, state.selected, old);
+        puts("Parameter rejected; displaying the previous successful asset.");
+        asset_view_rejected(mut session);
+        return move asset;
+    }
+    asset_build_report(read next, now() - start);
+    if !asset_view_upload(mut session, read next, mut range) {
+        good = false;
+        return move asset;
+    }
+    asset_view_window(mut session);
+    return move next;
+}

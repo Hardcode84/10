@@ -1,0 +1,83 @@
+const REGION_BASE: u32 = 0u32;
+const REGION_WALL: u32 = 1u32;
+const REGION_TAPER: u32 = 2u32;
+const REGION_START: u32 = 3u32;
+record SurfaceFrame {
+    origin: Vec3;
+    right: Vec3;
+    up: Vec3;
+    normal: Vec3;
+}
+fn hull_corner(hull: read AssetHull, face: HullFace, corner: u32) -> Vec3 {
+    return asset_vertex(read hull, asset_index(read hull, face.first + corner));
+}
+fn hull_frame(hull: read AssetHull, face: HullFace) -> SurfaceFrame {
+    var a: Vec3 = hull_corner(read hull, face, 0u32);
+    var b: Vec3 = hull_corner(read hull, face, 1u32);
+    var c: Vec3 = hull_corner(read hull, face, 2u32);
+    var normal: Vec3 = unit_vector(cross(sub(b, a), sub(c, a)));
+    var right: Vec3 = unit_vector(sub(b, a));
+    return make SurfaceFrame {
+        origin: a,
+        right: right,
+        up: cross(normal, right),
+        normal: normal
+    };
+}
+fn surface_vertex(p: Vec3, frame: SurfaceFrame, tile_metres: f32) -> MeshVertex {
+    var relative: Vec3 = sub(p, frame.origin);
+    return make MeshVertex {
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        u: dot(relative, frame.right) / tile_metres,
+        v: dot(relative, frame.up) / tile_metres
+    };
+}
+// Produces an inward-facing room shell. UV scale is metres per repeated tile.
+fn hull_mesh(hull: read AssetHull, mesh: mut Mesh, tile_metres: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        var face: HullFace = asset_face(read hull, i);
+        var frame: SurfaceFrame = hull_frame(read hull, face);
+        var corner: u32 = 1u32;
+        while corner + 1u32 < face.count {
+            var primitive: MeshTriangle = make MeshTriangle {
+                vertices: make [MeshVertex; 3] {
+                    surface_vertex(hull_corner(read hull, face, 0u32), frame, tile_metres),
+                    surface_vertex(
+                        hull_corner(read hull, face, corner + 1u32),
+                        frame,
+                        tile_metres
+                    ),
+                    surface_vertex(
+                        hull_corner(read hull, face, corner),
+                        frame,
+                        tile_metres
+                    )
+                },
+                material: face.region,
+                portal: 0u32,
+                flags: 0u32
+            };
+            if !mesh_append(mut mesh, primitive) {
+                return false;
+            }
+            corner = corner + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+// Tests a sphere against the convex room interior, including its closed caps.
+fn hull_contains(hull: read AssetHull, point: Vec3, radius: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        var frame: SurfaceFrame = hull_frame(read hull, asset_face(read hull, i));
+        if dot(frame.normal, sub(point, frame.origin)) + radius > 0f32 {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

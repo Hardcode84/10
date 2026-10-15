@@ -1,22 +1,62 @@
 fn build_viewer(
     root: *CrustRun,
-    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
+    recipe: *u8,
+    checks: bool
 ) -> bool {
-    var sources: [*u8; 96] = uninit;
+    var sources: [*u8; 64] = uninit;
     var providers: [*u8; 64] = uninit;
-    var source_count: usize = game_sources(root, &sources[0usize]);
+    var source_count: usize = asset_sources(root, &sources[0usize]);
+    source_count = source_count + asset_collision_sources(root, &sources[source_count]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
-    provider_count = provider_count + game_providers(root, &providers[provider_count]);
-    sources[source_count] = host_path(root, "src/viewer/scene.crs");
+    provider_count = provider_count + asset_collision_providers(
+        root,
+        &providers[provider_count]
+    );
+    provider_count = provider_count + asset_providers(root, &providers[provider_count]);
+    var files: [*u8; 5] = make [*u8; 5] {
+        "src/viewer/asset-controls.crs",
+        "src/app/camera.crs",
+        "src/app/colour.crs",
+        "src/viewer/asset-scene.crs",
+        "src/assets/materials/upload.crs"
+    };
+    var native: [*u8; 9] = make [*u8; 9] {
+        "src/app/window.crs",
+        "src/app/clock.crs",
+        "src/app/capture.crs",
+        "src/app/shaders.crs",
+        "src/app/render-open.crs",
+        "src/viewer/entry.crs",
+        "src/viewer/session.crs",
+        "src/viewer/asset-platform.crs",
+        "src/viewer/asset-options.crs"
+    };
+    var output: *u8 = "build/viewer";
+    if checks {
+        native[5usize] = "tests/assets/viewer-entry.crs";
+        sources[source_count] = host_path(root, "tests/assets/viewer.crs");
+        source_count = source_count + 1usize;
+        output = "build/tests-assets-viewer";
+    }
+    var i: usize = 0usize;
+    while i < 5usize {
+        sources[source_count] = host_path(root, files[i]);
+        source_count = source_count + 1usize;
+        i = i + 1usize;
+    }
+    sources[source_count] = recipe;
     source_count = source_count + 1usize;
-    providers[provider_count] = host_path(root, "src/viewer/entry.crs");
-    provider_count = provider_count + 1usize;
-    providers[provider_count] = host_path(root, "src/viewer/platform.crs");
-    provider_count = provider_count + 1usize;
+    i = 0usize;
+    while i < 9usize {
+        providers[provider_count] = host_path(root, native[i]);
+        provider_count = provider_count + 1usize;
+        i = i + 1usize;
+    }
     return build_application(
         root,
         emit,
-        "build/viewer",
+        output,
         &sources[0usize],
         source_count,
         &providers[0usize],

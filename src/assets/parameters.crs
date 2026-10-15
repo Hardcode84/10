@@ -1,0 +1,26 @@
+record AssetParameter {
+    minimum: f32;
+    maximum: f32;
+    initial: f32;
+    step: f32;
+}
+// Parameter values are in metres. The recipe also checks coupled constraints.
+fn asset_parameters_reset(values: mut AssetValues) -> unit {
+    var i: u32 = 0u32;
+    while i < room_parameter_count() {
+        asset_value_set(mut values, i, room_parameter(i).initial);
+        i = i + 1u32;
+    }
+}
+fn asset_parameters_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < room_parameter_count() {
+        var p: AssetParameter = room_parameter(i);
+        var value: f32 = asset_value(read values, i);
+        if value - value != 0f32 || value < p.minimum || value > p.maximum {
+            return error("room parameter is outside its declared range");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

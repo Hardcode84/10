@@ -24,8 +24,10 @@ A 6DOF exploration game in a rotating megastructure.
 
 - Run the rendering demo with `crust demo.crs`. Use the root `main.crs`
   entry point for the playable expedition. Use `--trial` for the movement course.
-  See [expedition rules](docs/game/expedition.md). Run `crust viewer.crs` to inspect
-  the shared generated meshes. See [retained meshes](docs/render/retained-meshes.md).
+  See [expedition rules](docs/game/expedition.md). Run
+  `crust viewer.crs assets/rooms/radial-start.crs` to inspect a Crust room recipe.
+  See [parametric assets](docs/content/parametric-assets.md#implemented-recipe-workflow).
+  Keep room-specific notes in the room's Crust file comments, not separate Markdown files.
 - Run `crust tests.crs` for automated checks. Keep test entry points and fixtures
   out of application builds. See the [component map](docs/README.md).
 - Build playable slices. Follow the game design's prototype gates.

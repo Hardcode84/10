@@ -174,3 +174,9 @@ fn mesh_identity(mesh: MeshRange, space: u32) -> MeshInstance {
         material: 0xffffffffu32
     };
 }
+fn mesh_triangle_count(mesh: read Mesh) -> u32 {
+    return mesh.count;
+}
+fn mesh_triangle(mesh: read Mesh, index: u32) -> MeshTriangle {
+    return mesh.triangles[index as usize];
+}

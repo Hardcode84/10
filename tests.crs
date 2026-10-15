@@ -9,11 +9,30 @@ if stages == null(*StageSession) {
     return 1i32;
 };
 host_source(run, "tools/build/collision.crs");
+host_source(run, "tools/build/assets.crs");
+host_source(run, "tools/build/asset-tests.crs");
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "assets") == 0i32 {
+    return run_asset_checks(run, backend.emit);
+};
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "collision") == 0i32 {
     return run_collision_checks(run, backend.emit);
 };
 if !project_render(run, stages, &backend) {
     return 1i32;
+};
+host_source(run, "tools/build/viewer.crs");
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "asset-viewer") == 0i32 {
+    if !build_viewer(
+        run,
+        backend.emit,
+        host_path(run, "assets/rooms/radial-start.crs"),
+        true
+    ) || !build_render_shaders(run) {
+        return 1i32;
+    }
+    run -> argc = run -> argc - 1i32;
+    run -> argv = run -> argv + 1isize;
+    return launch_application(run, "build/tests-assets-viewer");
 };
 
 host_source(run, "tools/build/demo.crs");

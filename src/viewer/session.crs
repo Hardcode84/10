@@ -1,0 +1,74 @@
+resource AssetWindow {
+    handle: *u8;
+}
+opaque drop asset_window_drop;
+fn asset_window_drop(window: mut AssetWindow) -> unit {
+    window_close(window.handle);
+}
+record AssetSession {
+    window: AssetWindow;
+    renderer: Renderer;
+    launch: ViewerLaunch;
+}
+opaque;
+fn asset_session(launch: *ViewerLaunch) -> AssetSession {
+    return make AssetSession {
+        window: make AssetWindow {
+            handle: null(*u8)
+        },
+        renderer: renderer_new(),
+        launch: *launch
+    };
+}
+fn asset_renderer(session: mut AssetSession) -> mut Renderer from session {
+    return mut session.renderer;
+}
+fn asset_session_open(session: mut AssetSession) -> bool {
+    if session.launch.capture == null(*u8) && !window_open(
+        &session.window.handle,
+        session.launch.width,
+        session.launch.height
+    ) {
+        return false;
+    }
+    var config: RenderConfig = make RenderConfig {
+        width: session.launch.width,
+        height: session.launch.height,
+        output_width: session.launch.width,
+        output_height: session.launch.height,
+        shader_checks: false,
+        read_pixels: session.launch.capture != null(*u8),
+        debug_pixels: 0u32,
+        baseline: 0u32,
+        view_budget: 1u32,
+        portal_budget: 0u32,
+        task_budget: ((session.launch.width + 7u32) / 8u32) * (
+            (session.launch.height + 7u32) / 8u32
+        ),
+        crossing_limit: 0u32,
+        fault: 0u32
+    };
+    return app_renderer_open(&session.renderer.state, session.window.handle, &config);
+}
+fn asset_session_draw(session: mut AssetSession) -> bool {
+    if !window_draw(&session.renderer.state, session.window.handle) {
+        return false;
+    }
+    return session.window.handle == null(*u8) || present(&session.renderer.state);
+}
+fn asset_session_finish(session: mut AssetSession) -> bool {
+    if session.launch.capture != null(*u8) {
+        return capture(
+            &session.renderer.state,
+            session.launch.capture,
+            session.launch.width,
+            session.launch.height
+        );
+    }
+    return true;
+}
+fn asset_session_wait() -> unit {
+    SDL_Delay(1u32);
+}
+extern fn SDL_Delay(milliseconds: u32) -> unit = "SDL_Delay";
+extern fn SDL_SetWindowTitle(window: *u8, title: *u8) -> unit = "SDL_SetWindowTitle";

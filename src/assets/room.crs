@@ -1,0 +1,42 @@
+record AssetSpawn {
+    position: Vec3;
+    basis: Basis;
+}
+record RoomAsset {
+    hull: AssetHull;
+    mesh: Mesh;
+    collision: CollisionScene;
+    spawn: AssetSpawn;
+    tile_metres: f32;
+}
+fn room_asset_new() -> RoomAsset {
+    return make RoomAsset {
+        hull: asset_hull_new(),
+        mesh: mesh_new(),
+        collision: collision_new(),
+        spawn: make AssetSpawn {
+            position: vec(0f32, 0f32, 0f32),
+            basis: identity_basis()
+        },
+        tile_metres: 2f32
+    };
+}
+fn room_asset_finish(asset: mut RoomAsset) -> bool {
+    if !hull_contains(read asset.hull, asset.spawn.position, 0.35f32) {
+        return error("room spawn does not have player clearance");
+    }
+    if !hull_mesh(read asset.hull, mut asset.mesh, asset.tile_metres) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_append(
+        mut builder,
+        read asset.mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    return collision_finish(move builder, mut asset.collision);
+}

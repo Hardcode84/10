@@ -1,0 +1,93 @@
+record RegularProfile {
+    sides: u32;
+    phase: f32;
+}
+// Requires at least three sides and two rings, with counts that fit u32.
+fn loft_allocate(hull: mut AssetHull, profile: RegularProfile, rings: u32) -> bool {
+    var sides: u64 = profile.sides as u64;
+    return asset_hull_allocate(
+        mut hull,
+        (sides * rings as u64) as u32,
+        (sides * (rings - 1u32) as u64 + 2u64) as u32,
+        (sides * (rings - 1u32) as u64 * 4u64 + sides * 2u64) as u32
+    );
+}
+// Rings share an axis and phase. Heights increase; radii are positive.
+fn loft_ring(
+    hull: mut AssetHull,
+    profile: RegularProfile,
+    ring: u32,
+    height: f32,
+    radius: f32
+) -> unit {
+    var i: u32 = 0u32;
+    while i < profile.sides {
+        var angle: f32 = profile.phase + 6.28318530718f32 * i as f32 / profile.sides as f32;
+        asset_vertex_set(
+            mut hull,
+            ring * profile.sides + i,
+            vec(radius * cosf(angle), height, radius * sinf(angle))
+        );
+        i = i + 1u32;
+    }
+}
+// Connects adjacent rings with outward-facing planar quads and a semantic region.
+fn loft_span(hull: mut AssetHull, profile: RegularProfile, ring: u32, region: u32) -> unit {
+    var i: u32 = 0u32;
+    while i < profile.sides {
+        var face: u32 = ring * profile.sides + i;
+        var next: u32 = (i + 1u32) % profile.sides;
+        asset_face_set(
+            mut hull,
+            face,
+            make HullFace {
+                first: face * 4u32,
+                count: 4u32,
+                region: region
+            }
+        );
+        asset_index_set(mut hull, face * 4u32, ring * profile.sides + i);
+        asset_index_set(mut hull, face * 4u32 + 1u32, (ring + 1u32) * profile.sides + i);
+        asset_index_set(mut hull, face * 4u32 + 2u32, (ring + 1u32) * profile.sides + next);
+        asset_index_set(mut hull, face * 4u32 + 3u32, ring * profile.sides + next);
+        i = i + 1u32;
+    }
+}
+fn loft_caps(
+    hull: mut AssetHull,
+    profile: RegularProfile,
+    rings: u32,
+    base: u32,
+    top: u32
+) -> unit {
+    var sides: u32 = profile.sides;
+    var count: u32 = sides * (rings - 1u32);
+    asset_face_set(
+        mut hull,
+        count,
+        make HullFace {
+            first: count * 4u32,
+            count: sides,
+            region: base
+        }
+    );
+    asset_face_set(
+        mut hull,
+        count + 1u32,
+        make HullFace {
+            first: count * 4u32 + sides,
+            count: sides,
+            region: top
+        }
+    );
+    var i: u32 = 0u32;
+    while i < sides {
+        asset_index_set(mut hull, count * 4u32 + i, i);
+        asset_index_set(
+            mut hull,
+            count * 4u32 + sides + i,
+            (rings - 1u32) * sides + sides - 1u32 - i
+        );
+        i = i + 1u32;
+    }
+}

@@ -1,0 +1,43 @@
+resource AssetValues {
+    data: *f32;
+    count: u32;
+}
+opaque drop asset_values_drop;
+fn asset_values_new() -> AssetValues {
+    return make AssetValues {
+        data: null(*f32),
+        count: 0u32
+    };
+}
+fn asset_values_drop(values: mut AssetValues) -> unit {
+    free(values.data as *u8);
+}
+fn asset_values_allocate(values: mut AssetValues, count: u32) -> bool {
+    free(values.data as *u8);
+    values.data = malloc((count as usize + 1usize) * sizeof(f32)) as *f32;
+    values.count = count;
+    return values.data != null(*f32) || error("asset parameter allocation failed");
+}
+fn asset_value(values: read AssetValues, i: u32) -> f32 {
+    return values.data[i as usize];
+}
+fn asset_value_set(values: mut AssetValues, i: u32, value: f32) -> unit {
+    values.data[i as usize] = value;
+}
+record AssetName {
+    text: *u8;
+}
+opaque;
+// Text must be immutable storage that remains valid for the life of the program.
+fn asset_name(text: *u8) -> AssetName {
+    return make AssetName {
+        text: text
+    };
+}
+fn asset_name_print(name: AssetName) -> unit {
+    puts(name.text);
+}
+fn asset_name_equal(name: AssetName, text: *u8) -> bool {
+    return asset_strcmp(name.text, text) == 0i32;
+}
+extern fn asset_strcmp(a: *u8, b: *u8) -> i32 = "strcmp";

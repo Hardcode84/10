@@ -1,0 +1,38 @@
+fn mask_box(x: f32, y: f32, low_x: f32, low_y: f32, high_x: f32, high_y: f32) -> bool {
+    return x >= low_x && y >= low_y && x <= high_x && y <= high_y;
+}
+fn mask_border(x: f32, y: f32, width: f32, height: f32, border: f32) -> bool {
+    return !mask_box(x, y, border, border, width - border, height - border);
+}
+record PanelMaterial {
+    colour: u32;
+    tile_metres: f32;
+    texels_per_metre: u32;
+    border: f32;
+    indicator: bool;
+}
+fn panel_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    if mask_border(x, y, material.tile_metres, material.tile_metres, material.border) {
+        return 12u32;
+    }
+    if material.indicator && mask_box(
+        x,
+        y,
+        0.2f32,
+        0.2f32,
+        material.tile_metres - 0.2f32,
+        0.24f32
+    ) {
+        return 248u32;
+    }
+    if mask_border(
+        x,
+        y,
+        material.tile_metres,
+        material.tile_metres,
+        material.border + 0.02f32
+    ) {
+        return 180u32;
+    }
+    return 132u32;
+}

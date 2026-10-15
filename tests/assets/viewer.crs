@@ -1,0 +1,55 @@
+fn asset_rebuild_checks(session: AssetSession) -> bool {
+    var asset: RoomAsset = room_asset_new();
+    var values: AssetValues = asset_values_new();
+    if !asset_values_allocate(mut values, room_parameter_count()) {
+        return false;
+    }
+    asset_parameters_reset(mut values);
+    if !room_build(read values, mut asset) || !asset_session_open(mut session) {
+        return false;
+    }
+    var range: MeshRange = mesh_empty_range();
+    if !asset_view_upload(mut session, read asset, mut range) {
+        return false;
+    }
+    var original: MeshRange = range;
+    var state: AssetViewState = asset_view_state(1u32);
+    var i: u32 = 0u32;
+    while i < 9u32 {
+        var good: bool = true;
+        asset = asset_view_edit(
+            mut session,
+            read state,
+            mut values,
+            move asset,
+            mut range,
+            45u32,
+            mut good
+        );
+        if !good {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if asset_value(read values, 0u32) != 4f32 || range.first != 0u32 || range.count != 44u32 || range.bounds[
+        3usize
+    ] >= original.bounds[3usize] * 0.5f32 {
+        return error(
+            "viewer rebuild did not replace the retained asset or restore rejected parameters"
+        );
+    }
+    if !hull_contains(read asset.hull, asset.spawn.position, 0.35f32) {
+        return error("rebuild lost spawn clearance");
+    }
+    {
+        var renderer: mut Renderer = asset_renderer(mut session);
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !asset_scene(mut input, read asset, range, state.camera) {
+            return false;
+        }
+    }
+    if !asset_session_draw(mut session) || !asset_view_test_pixels(read session) {
+        return false;
+    }
+    return asset_session_finish(mut session);
+}

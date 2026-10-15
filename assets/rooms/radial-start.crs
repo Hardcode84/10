@@ -1,0 +1,115 @@
+// Closed radial start room: an octagonal prism with a tapered upper section.
+// Both ends are closed. The room has no connections or props.
+// Dimensions use metres. The base centre is the origin; local +Y points up
+// toward the start cap. Radii extend to vertices, with a 22.5-degree phase.
+// Height sets the straight section; taper adds height above its shoulder.
+// The cap radius must be smaller than the main radius to keep the hull convex.
+// The player starts on the axis, one metre below the cap, with 0.35 m sphere
+// clearance. Forward points into the chamber along -Y; camera up is +Z.
+// Base, wall, taper, and start surfaces have separate material regions.
+// Panel tiles repeat every two metres at 64 texels per metre. Their borders
+// keep a fixed physical width when room dimensions change. The start cap has
+// full-bright indicator strips. These strips do not emit light.
+fn room_parameter_count() -> u32 {
+    return 4u32;
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 4f32,
+            maximum: 40f32,
+            initial: 12f32,
+            step: 1f32
+        };
+    }
+    if index == 1u32 {
+        return make AssetParameter {
+            minimum: 2f32,
+            maximum: 40f32,
+            initial: 10f32,
+            step: 1f32
+        };
+    }
+    if index == 2u32 {
+        return make AssetParameter {
+            minimum: 1f32,
+            maximum: 30f32,
+            initial: 6f32,
+            step: 1f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 1f32,
+        maximum: 12f32,
+        initial: 3f32,
+        step: 0.5f32
+    };
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !asset_parameters_valid(read parameters) {
+        return false;
+    }
+    var radius: f32 = asset_value(read parameters, 0u32);
+    var height: f32 = asset_value(read parameters, 1u32);
+    var taper: f32 = asset_value(read parameters, 2u32);
+    var cap: f32 = asset_value(read parameters, 3u32);
+    if cap >= radius {
+        return error("radial-start: cap-radius must be smaller than radius");
+    }
+    var profile: RegularProfile = make RegularProfile {
+        sides: 8u32,
+        phase: 0.3926990817f32
+    };
+    if !loft_allocate(mut asset.hull, profile, 3u32) {
+        return false;
+    }
+    loft_ring(mut asset.hull, profile, 0u32, 0f32, radius);
+    loft_ring(mut asset.hull, profile, 1u32, height, radius);
+    loft_ring(mut asset.hull, profile, 2u32, height + taper, cap);
+    loft_span(mut asset.hull, profile, 0u32, REGION_WALL);
+    loft_span(mut asset.hull, profile, 1u32, REGION_TAPER);
+    loft_caps(mut asset.hull, profile, 3u32, REGION_BASE, REGION_START);
+    asset.spawn = make AssetSpawn {
+        position: vec(0f32, height + taper - 1f32, 0f32),
+        basis: make Basis {
+            right: vec(1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(0f32, -1f32, 0f32)
+        }
+    };
+    return room_asset_finish(mut asset);
+}
+fn room_material(region: u32) -> PanelMaterial {
+    var colour: u32 = 0x827b65u32;
+    if region == REGION_BASE {
+        colour = 0x5a666cu32;
+    }
+    if region == REGION_TAPER {
+        colour = 0x9b947au32;
+    }
+    if region == REGION_START {
+        colour = 0x548babu32;
+    }
+    return make PanelMaterial {
+        colour: colour,
+        tile_metres: 2f32,
+        texels_per_metre: 64u32,
+        border: 0.025f32,
+        indicator: region == REGION_START
+    };
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("radius");
+    }
+    if index == 1u32 {
+        return asset_name("height");
+    }
+    if index == 2u32 {
+        return asset_name("taper");
+    }
+    return asset_name("cap-radius");
+}
+fn room_material_count() -> u32 {
+    return 4u32;
+}

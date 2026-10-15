@@ -1,0 +1,180 @@
+fn asset_test_face(hull: read AssetHull, face: HullFace) -> bool {
+    var frame: SurfaceFrame = hull_frame(read hull, face);
+    var i: u32 = 0u32;
+    while i < asset_vertex_count(read hull) {
+        if dot(frame.normal, sub(asset_vertex(read hull, i), frame.origin)) > 0.0001f32 {
+            return error("asset hull is not convex or faces point inward");
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < face.count {
+        if absf(
+            dot(frame.normal, sub(hull_corner(read hull, face, i), frame.origin))
+        ) > 0.0001f32 {
+            return error("asset polygon is not planar");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn asset_test_edge(hull: read AssetHull, a: u32, b: u32) -> bool {
+    var forward: u32 = 0u32;
+    var reverse: u32 = 0u32;
+    var f: u32 = 0u32;
+    while f < asset_face_count(read hull) {
+        var face: HullFace = asset_face(read hull, f);
+        var i: u32 = 0u32;
+        while i < face.count {
+            var x: u32 = asset_index(read hull, face.first + i);
+            var y: u32 = asset_index(read hull, face.first + (i + 1u32) % face.count);
+            if x == a && y == b {
+                forward = forward + 1u32;
+            }
+            if x == b && y == a {
+                reverse = reverse + 1u32;
+            }
+            i = i + 1u32;
+        }
+        f = f + 1u32;
+    }
+    return forward == 1u32 && reverse == 1u32 || error(
+        "asset edge is not closed with opposite winding"
+    );
+}
+fn asset_test_contacts(asset: read RoomAsset, face: HullFace, radius: f32) -> bool {
+    var center: Vec3 = vec(0f32, 0f32, 0f32);
+    var i: u32 = 0u32;
+    while i < face.count {
+        center = add(center, hull_corner(read asset.hull, face, i));
+        i = i + 1u32;
+    }
+    center = scale(center, 1f32 / face.count as f32);
+    var normal: Vec3 = hull_frame(read asset.hull, face).normal;
+    var contact: CollisionContact = collision_sweep(
+        read asset.collision,
+        0u32,
+        sub(center, scale(normal, 0.5f32)),
+        scale(normal, 2f32),
+        radius
+    );
+    if absf(contact.hit.time - (0.5f32 - radius) / 2f32) >= 0.0001f32 || dot(
+        contact.hit.normal,
+        normal
+    ) >= -0.999f32 {
+        asset_contact_report(
+            face.region,
+            radius,
+            contact.hit.time,
+            (0.5f32 - radius) / 2f32,
+            dot(contact.hit.normal, normal)
+        );
+        return error("room render face and sphere collision disagree");
+    }
+    return true;
+}
+fn asset_test_shell(asset: read RoomAsset) -> bool {
+    if asset_vertex_count(read asset.hull) != 24u32 || asset_face_count(read asset.hull) != 18u32 || mesh_triangle_count(
+        read asset.mesh
+    ) != 44u32 {
+        return error("radial room topology counts are incorrect");
+    }
+    var f: u32 = 0u32;
+    while f < asset_face_count(read asset.hull) {
+        var face: HullFace = asset_face(read asset.hull, f);
+        if !asset_test_face(read asset.hull, face) || !asset_test_contacts(
+            read asset,
+            face,
+            0.35f32
+        ) || !asset_test_contacts(read asset, face, 0.06f32) {
+            return false;
+        }
+        var i: u32 = 0u32;
+        while i < face.count {
+            if !asset_test_edge(
+                read asset.hull,
+                asset_index(read asset.hull, face.first + i),
+                asset_index(read asset.hull, face.first + (i + 1u32) % face.count)
+            ) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+        f = f + 1u32;
+    }
+    return hull_contains(read asset.hull, asset.spawn.position, 0.35f32) && collision_position_valid(
+        read asset.collision,
+        0u32,
+        asset.spawn.position,
+        0.35f32
+    ) && collision_rigid(asset.spawn.basis) || error("invalid asset spawn frame or clearance");
+}
+fn asset_test_variant(values: read AssetValues) -> bool {
+    var asset: RoomAsset = room_asset_new();
+    return room_build(read values, mut asset) && asset_test_shell(read asset) && asset_test_uv(
+        read asset
+    );
+}
+fn asset_test_invalid(values: mut AssetValues) -> bool {
+    asset_parameters_reset(mut values);
+    asset_value_set(mut values, 3u32, 12f32);
+    var asset: RoomAsset = room_asset_new();
+    if room_build(read values, mut asset) {
+        return error("non-contracting cap was accepted");
+    }
+    asset_parameters_reset(mut values);
+    asset_value_set(mut values, 0u32, 0f32);
+    if room_build(read values, mut asset) {
+        return error("zero radius was accepted");
+    }
+    return true;
+}
+fn asset_tests() -> bool {
+    var values: AssetValues = asset_values_new();
+    if !asset_values_allocate(mut values, room_parameter_count()) {
+        return false;
+    }
+    asset_parameters_reset(mut values);
+    if !asset_test_variant(read values) {
+        return false;
+    }
+    var variant: u32 = 0u32;
+    while variant < 2u32 {
+        var i: u32 = 0u32;
+        while i < room_parameter_count() {
+            var parameter: AssetParameter = room_parameter(i);
+            var value: f32 = parameter.minimum;
+            if variant == 1u32 {
+                value = parameter.maximum;
+            }
+            asset_value_set(mut values, i, value);
+            i = i + 1u32;
+        }
+        if !asset_test_variant(read values) {
+            return false;
+        }
+        variant = variant + 1u32;
+    }
+    return asset_test_invalid(mut values);
+}
+fn asset_test_uv(asset: read RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read asset.mesh) {
+        var primitive: MeshTriangle = mesh_triangle(read asset.mesh, i);
+        var j: usize = 0usize;
+        while j < 3usize {
+            var a: MeshVertex = primitive.vertices[j];
+            var b: MeshVertex = primitive.vertices[(j + 1usize) % 3usize];
+            var edge: Vec3 = vec(b.x - a.x, b.y - a.y, b.z - a.z);
+            var u: f32 = (b.u - a.u) * asset.tile_metres;
+            var v: f32 = (b.v - a.v) * asset.tile_metres;
+            var square: f32 = dot(edge, edge);
+            if absf(square - u * u - v * v) > (square + 1f32) * 0.00001f32 {
+                return error("surface UV scale does not preserve physical texture density");
+            }
+            j = j + 1usize;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

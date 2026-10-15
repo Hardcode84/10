@@ -1,0 +1,25 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    if !asset_tests() {
+        return 1i32;
+    }
+    puts(
+        "asset checks passed: parameter variants, closed convex topology, player/hook contacts, spawn, rejection"
+    );
+    return 0i32;
+}
+fn asset_contact_report(
+    region: u32,
+    radius: f32,
+    actual: f32,
+    expected: f32,
+    alignment: f32
+) -> unit {
+    puts(
+        "contact failure: region / radius mm / actual millionths / expected millionths / normal dot millionths"
+    );
+    print_number(region as i64);
+    print_number((radius * 1000f32) as i64);
+    print_number((actual * 1000000f32) as i64);
+    print_number((expected * 1000000f32) as i64);
+    print_number((alignment * 1000000f32) as i64);
+}

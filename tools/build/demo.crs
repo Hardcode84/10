@@ -1,15 +1,16 @@
 fn demo_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 7] = make [*u8; 7] {
+    var files: [*u8; 8] = make [*u8; 8] {
         "src/demo/host/main.crs",
         "src/demo/host/config.crs",
         "src/demo/host/playback.crs",
         "src/demo/scene/tour.crs",
         "src/demo/scene/tour-assets.crs",
         "src/app/geometry.crs",
+        "src/app/colour.crs",
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 7usize {
+    while i < 8usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

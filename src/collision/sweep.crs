@@ -26,12 +26,23 @@ fn collision_inside(f: CollisionFace, p: Vec3) -> bool {
     while i < 3u32 {
         var a: Vec3 = collision_corner(f, i);
         var b: Vec3 = collision_corner(f, (i + 1u32) % 3u32);
-        if dot(cross(sub(b, a), sub(p, a)), f.normal) < 0f32 {
+        var edge: Vec3 = sub(b, a);
+        var side: f32 = dot(cross(edge, sub(p, a)), f.normal);
+        var tolerance: f32 = 0f32;
+        if f.neighbours[i as usize] != 0xffffffffu32 {
+            tolerance = 0.000001f32 * collision_l1(edge) * (
+                collision_l1(a) + collision_l1(b) + collision_l1(p)
+            );
+        }
+        if side < -tolerance {
             return false;
         }
         i = i + 1u32;
     }
     return true;
+}
+fn collision_l1(p: Vec3) -> f32 {
+    return absf(p.x) + absf(p.y) + absf(p.z);
 }
 fn collision_closest_edge(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
     var centre: Vec3 = add(scale(a, 0.5f32), scale(b, 0.5f32));

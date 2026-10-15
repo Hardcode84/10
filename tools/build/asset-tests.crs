@@ -1,0 +1,47 @@
+fn run_asset_checks(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> i32 {
+    if root -> argc != 1i32 &&!(
+        root -> argc == 2i32 && cache_strcmp(root -> argv[1usize], "--build-only") == 0i32
+    ) {
+        native_error(root -> context, "asset checks accept only --build-only");
+        return 2i32;
+    }
+    var sources: [*u8; 64] = uninit;
+    var providers: [*u8; 16] = uninit;
+    var count: usize = asset_sources(root, &sources[0usize]);
+    count = count + asset_collision_sources(root, &sources[count]);
+    sources[count] = host_path(root, "assets/rooms/radial-start.crs");
+    sources[count + 1usize] = host_path(root, "tests/assets/room.crs");
+    count = count + 2usize;
+    var provider_count: usize = asset_providers(root, &providers[0usize]);
+    provider_count = provider_count + asset_collision_providers(
+        root,
+        &providers[provider_count]
+    );
+    providers[provider_count] = host_path(root, "src/app/io.crs");
+    providers[provider_count + 1usize] = host_path(root, "src/render/host/mesh.crs");
+    providers[provider_count + 2usize] = host_path(root, "tests/assets/entry.crs");
+    provider_count = provider_count + 3usize;
+    sources[count] = "-o";
+    sources[count + 1usize] = host_path(root, "build/tests-assets");
+    sources[count + 2usize] = "--cflag";
+    sources[count + 3usize] = "-O2";
+    sources[count + 4usize] = "--ldflag";
+    sources[count + 5usize] = "-lm";
+    if ownership_sources(
+        root,
+        emit,
+        (count + 6usize) as i32,
+        &sources[0usize],
+        &providers[0usize],
+        provider_count,
+        null(*u8)
+    ) != 0i32 {
+        return 1i32;
+    }
+    root -> argc = root -> argc - 1i32;
+    root -> argv = root -> argv + 1isize;
+    return launch_application(root, "build/tests-assets");
+}

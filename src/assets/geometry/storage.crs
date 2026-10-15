@@ -1,0 +1,67 @@
+record HullFace {
+    first: u32;
+    count: u32;
+    region: u32;
+}
+resource AssetHull {
+    vertices: *Vec3;
+    faces: *HullFace;
+    indices: *u32;
+    vertex_count: u32;
+    face_count: u32;
+    index_count: u32;
+}
+opaque drop asset_hull_drop;
+fn asset_hull_new() -> AssetHull {
+    return make AssetHull {
+        vertices: null(*Vec3),
+        faces: null(*HullFace),
+        indices: null(*u32),
+        vertex_count: 0u32,
+        face_count: 0u32,
+        index_count: 0u32
+    };
+}
+fn asset_hull_drop(hull: mut AssetHull) -> unit {
+    free(hull.vertices as *u8);
+    free(hull.faces as *u8);
+    free(hull.indices as *u8);
+}
+fn asset_hull_allocate(hull: mut AssetHull, vertices: u32, faces: u32, indices: u32) -> bool {
+    free(hull.vertices as *u8);
+    free(hull.faces as *u8);
+    free(hull.indices as *u8);
+    hull.vertices = malloc(vertices as usize * sizeof(Vec3)) as *Vec3;
+    hull.faces = malloc(faces as usize * sizeof(HullFace)) as *HullFace;
+    hull.indices = malloc(indices as usize * sizeof(u32)) as *u32;
+    hull.vertex_count = vertices;
+    hull.face_count = faces;
+    hull.index_count = indices;
+    return hull.vertices != null(*Vec3) && hull.faces != null(*HullFace) && hull.indices != null(
+        *u32
+    ) || error("asset hull allocation failed");
+}
+fn asset_vertex(hull: read AssetHull, i: u32) -> Vec3 {
+    return hull.vertices[i as usize];
+}
+fn asset_face(hull: read AssetHull, i: u32) -> HullFace {
+    return hull.faces[i as usize];
+}
+fn asset_index(hull: read AssetHull, i: u32) -> u32 {
+    return hull.indices[i as usize];
+}
+fn asset_vertex_set(hull: mut AssetHull, i: u32, p: Vec3) -> unit {
+    hull.vertices[i as usize] = p;
+}
+fn asset_face_set(hull: mut AssetHull, i: u32, face: HullFace) -> unit {
+    hull.faces[i as usize] = face;
+}
+fn asset_index_set(hull: mut AssetHull, i: u32, index: u32) -> unit {
+    hull.indices[i as usize] = index;
+}
+fn asset_vertex_count(hull: read AssetHull) -> u32 {
+    return hull.vertex_count;
+}
+fn asset_face_count(hull: read AssetHull) -> u32 {
+    return hull.face_count;
+}

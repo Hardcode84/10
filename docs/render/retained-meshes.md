@@ -56,30 +56,27 @@ and portal-capacity tasks.
 
 ## Shared game assets
 
-The game and viewer call `game_static_build`. It generates room wall panels,
+The game and retained-instance test call `game_static_build`. It generates room wall panels,
 solid faces, and pipe faces once, from the same descriptions used by the game.
 The generated library contains 230 triangles for the current expedition.
 Gameplay markers, the hook, and other changing geometry remain dynamic.
-Collision queries still use the game collision descriptions; this change does
-not add mesh collision or cache collision queries.
+Collision meshes come from the same game geometry descriptions.
 
 ## Viewer
 
 Build from the root source file:
 
 ```sh
-crust viewer.crs
-crust viewer.crs --asset 0 --capture build/room.ppm
-crust viewer.crs --asset 0 --copies 256 --frames 60 --capture build/instances.ppm
+crust viewer.crs assets/rooms/radial-start.crs
+crust viewer.crs assets/rooms/radial-start.crs --view outside --capture build/room.ppm
+crust tests.crs assets
 crust tests.crs viewer
 ```
 
-Left and Right select an asset. Space pauses camera rotation. Esc closes the
-window. Room shells use a camera inside their bounds. Other assets use an
-orbit camera. `--capture` selects headless output. `--width` and `--height`
-set image size. Capture defaults to one frame; window mode runs until closed.
-`--copies` repeats the selected mesh on a grid without duplicating mesh storage.
-An invalid asset index or zero copy count reports an error.
+The viewer compiles the supplied Crust recipe. See the
+[room viewer contract](../content/parametric-assets.md#implemented-recipe-workflow) for parameter controls,
+camera modes, and captures. The retained-instance check keeps its separate
+game-asset fixture with 256 copies; it does not define the recipe interface.
 
 ## Checks and measurements
 
@@ -104,13 +101,14 @@ was corrected. A controlled build that kept the old vertex order produced
 winding; the change in interpolation arithmetic can change a texture sample
 or quantized light value near a boundary.
 
-The viewer reports CPU submission time and total render/readback time in
+The retained-instance fixture reports CPU submission time and total render/readback time in
 nanoseconds. It excludes the first frame. It also reports retained triangle
 count, instance count, frame upload bytes, and mesh upload bytes. Use the same
-camera, resolution, driver, and frame count for comparisons. Use `crust viewer.crs` for timing. The `crust tests.crs viewer` check draws each
+camera, resolution, driver, and frame count for comparisons. The `crust tests.crs viewer` check draws each
 frame twice and reads debug data.
 
-A 60-frame capture at 960 by 540 on RADV with a Radeon PRO W7900 gave:
+The earlier game-asset viewer measured a 60-frame capture at 960 by 540 on
+RADV with a Radeon PRO W7900:
 
 | Instances | CPU submission mean | Render and readback mean | Frame upload | Mesh upload after first frame |
 | --- | --- | --- | --- | --- |

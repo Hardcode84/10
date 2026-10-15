@@ -7,7 +7,7 @@ program with the Crust ownership stage. Device programs use the shader stage.
 | --- | --- |
 | `crust main.crs` | Play the expedition. Use `--trial` for the flight course. |
 | `crust demo.crs` | Run the automatic rendering demo. |
-| `crust viewer.crs` | Inspect generated meshes. |
+| `crust viewer.crs ROOM.crs` | Build and inspect a Crust room recipe. |
 | `crust tests.crs` | Run all automated checks. |
 
 Use `--build-only` to build without execution. The application roots do not
@@ -33,12 +33,15 @@ application functions as the applications.
 | `src/game/view/` | Game geometry submission, HUD, and path markers |
 | `src/game/host/` | Game entry, input, options, saves, replay, and session |
 | `src/viewer/` | Prefab viewer |
+| `src/assets/` | Parametric hull, surface, material, and room bundle operations |
+| `assets/rooms/` | Room recipes in normal Crust source files |
 | `tools/build/` | Shared application setup, component source lists, and native providers |
 | `tests/render/` | Renderer fixtures, CPU reference, and image checks |
 | `tests/demo/` | Demo playback checks |
 | `tests/collision/` | Mesh sweep fixtures and analytic comparison |
 | `tests/game/` | Simulation, save, course, and expedition checks |
 | `tests/viewer/` | Viewer instance visibility checks |
+| `tests/assets/` | Generated room topology, spawn, and collision checks |
 | `tests/ownership/` | Ownership acceptance and rejection cases |
 
 ## Documents
@@ -63,6 +66,8 @@ application functions as the applications.
 crust tests.crs
 crust tests.crs ownership
 crust tests.crs collision
+crust tests.crs assets
+crust tests.crs asset-viewer
 crust tests.crs collision --sanitize
 crust tests.crs game
 crust tests.crs review --width 320 --height 180

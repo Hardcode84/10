@@ -1,0 +1,57 @@
+fn asset_sources(root: *CrustRun, args: **u8) -> usize {
+    var files: [*u8; 5] = make [*u8; 5] {
+        "src/assets/geometry/loft.crs",
+        "src/assets/geometry/surfaces.crs",
+        "src/assets/room.crs",
+        "src/assets/parameters.crs",
+        "src/assets/materials/masks.crs"
+    };
+    var i: usize = 0usize;
+    while i < 5usize {
+        args[i] = host_path(root, files[i]);
+        i = i + 1usize;
+    }
+    return i;
+}
+fn asset_providers(root: *CrustRun, args: **u8) -> usize {
+    args[0usize] = host_path(root, "src/assets/geometry/storage.crs");
+    args[1usize] = host_path(root, "src/assets/parameter-storage.crs");
+    return 2usize;
+}
+fn asset_collision_sources(root: *CrustRun, args: **u8) -> usize {
+    var files: [*u8; 13] = make [*u8; 13] {
+        "src/collision/primitives.crs",
+        "src/collision/topology.crs",
+        "src/collision/sweep.crs",
+        "src/collision/query.crs",
+        "src/collision/volume.crs",
+        "src/collision/contact-query.crs",
+        "src/collision/contact-solve.crs",
+        "src/collision/motion.crs",
+        "src/collision/kinematics.crs",
+        "src/collision/kinematic-sweep.crs",
+        "src/collision/kinematic-contacts.crs",
+        "src/collision/kinematic-motion.crs",
+        "src/app/math.crs"
+    };
+    var i: usize = 0usize;
+    while i < 13usize {
+        args[i] = host_path(root, files[i]);
+        i = i + 1usize;
+    }
+    return i;
+}
+fn asset_collision_providers(root: *CrustRun, args: **u8) -> usize {
+    var files: [*u8; 4] = make [*u8; 4] {
+        "src/collision/storage.crs",
+        "src/collision/index-build.crs",
+        "src/collision/adjacency-build.crs",
+        "src/collision/contact-storage.crs"
+    };
+    var i: usize = 0usize;
+    while i < 4usize {
+        args[i] = host_path(root, files[i]);
+        i = i + 1usize;
+    }
+    return i;
+}

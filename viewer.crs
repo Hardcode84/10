@@ -12,9 +12,21 @@ if !project_render(run, stages, &backend) {
     return 1i32;
 };
 
-host_source(run, "tools/build/game.crs");
+host_source(run, "tools/build/assets.crs");
 host_source(run, "tools/build/viewer.crs");
-if !check_renderer(run) || !build_viewer(run, backend.emit) || !build_render_shaders(run) {
+if run -> argc < 1i32 || run -> argv[0usize][0usize] == 45u8 {
+    native_error(
+        run -> context,
+        "usage: crust viewer.crs ROOM.crs [--set NAME METRES] [--view inside|outside|start] [--capture FILE]"
+    );
+    return 2i32;
+};
+var recipe: *u8 = host_path(run, run -> argv[0usize]);
+run -> argv = run -> argv + 1isize;
+run -> argc = run -> argc - 1i32;
+if !check_renderer(run) || !build_viewer(run, backend.emit, recipe, false) || !build_render_shaders(
+    run
+) {
     return 1i32;
 };
 return launch_application(run, "build/viewer");

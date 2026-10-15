@@ -1,0 +1,6 @@
+fn camera_row(v: mut FrameInput, row: usize, axis: Vec3, position: Vec3) -> unit {
+    input_set_float(mut v, row, axis.x);
+    input_set_float(mut v, row + 1usize, axis.y);
+    input_set_float(mut v, row + 2usize, axis.z);
+    input_set_float(mut v, row + 3usize, -dot(axis, position));
+}

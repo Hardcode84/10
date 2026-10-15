@@ -1,0 +1,37 @@
+fn asset_view_window(session: mut AssetSession) -> unit {
+    if session.window.handle != null(*u8) {
+        SDL_SetWindowTitle(
+            session.window.handle,
+            "SPINWARD room viewer | Tab view | arrows orbit | [ ] parameter | - + adjust | Esc close"
+        );
+    }
+}
+fn asset_build_report(asset: read RoomAsset, elapsed: u64) -> unit {
+    puts("asset vertices / polygons / triangles / collision bytes / build nanoseconds:");
+    print_number(asset_vertex_count(read asset.hull) as i64);
+    print_number(asset_face_count(read asset.hull) as i64);
+    print_number(asset.mesh.count as i64);
+    print_number(collision_bytes(read asset.collision) as i64);
+    print_number(elapsed as i64);
+}
+fn asset_view_rejected(session: mut AssetSession) -> unit {
+    if session.window.handle != null(*u8) {
+        SDL_SetWindowTitle(
+            session.window.handle,
+            "Room rebuild rejected; previous successful asset remains visible"
+        );
+    }
+}
+fn asset_view_event() -> u32 {
+    var event: [u64; 8] = uninit;
+    while SDL_PollEvent(&event as *u8) != 0i32 {
+        var kind: u32 = (&event as *u32)[0usize];
+        if kind == 256u32 {
+            return 27u32;
+        }
+        if kind == 768u32 {
+            return (&event as *u32)[5usize];
+        }
+    }
+    return 0u32;
+}

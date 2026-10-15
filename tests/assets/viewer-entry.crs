@@ -1,0 +1,32 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    if argc != 1i32 {
+        error("asset-viewer check takes no options");
+        return 2i32;
+    }
+    var launch: ViewerLaunch = make ViewerLaunch {
+        width: 320u32,
+        height: 240u32,
+        capture: "build/test-assets-viewer.ppm"
+    };
+    if !asset_rebuild_checks(asset_session(&launch)) {
+        return 1i32;
+    }
+    puts("asset viewer checks passed: replacement, rejected edit, retained range, final pixels");
+    return 0i32;
+}
+fn asset_view_test_pixels(session: read AssetSession) -> bool {
+    if session.renderer.state.mesh_count != 44u32 {
+        return error("rebuild accumulated retained meshes");
+    }
+    var pixels: *u32 = session.renderer.state.mapped as *u32;
+    var base: u32 = pixels[PRESENT_PIXELS as usize];
+    var visible: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < session.launch.width * session.launch.height {
+        if pixels[(base + i) as usize] != 0xff181410u32 {
+            visible = visible + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return visible > 1000u32 || error("rebuilt room did not produce visible pixels");
+}

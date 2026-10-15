@@ -1,0 +1,71 @@
+// Builds indexed surface materials from the recipe, with one 256-colour palette each.
+fn room_materials(input: mut FrameInput) -> bool {
+    var payload: u32 = 0u32;
+    var region: u32 = 0u32;
+    while region < room_material_count() {
+        var material: PanelMaterial = room_material(region);
+        var size: u32 = (material.tile_metres * material.texels_per_metre as f32) as u32;
+        payload = payload + size * size + PALETTE_COLORS * LIGHT_STATES;
+        region = region + 1u32;
+    }
+    if !input_assets(mut input, room_material_count(), payload) {
+        return false;
+    }
+    var offset: u32 = room_material_count() * MATERIAL_WORDS;
+    region = 0u32;
+    while region < room_material_count() {
+        var material: PanelMaterial = room_material(region);
+        var size: u32 = (material.tile_metres * material.texels_per_metre as f32) as u32;
+        if !panel_upload(mut input, region, offset, size, material) {
+            return false;
+        }
+        offset = offset + size * size + PALETTE_COLORS * LIGHT_STATES;
+        region = region + 1u32;
+    }
+    return true;
+}
+fn panel_upload(
+    input: mut FrameInput,
+    region: u32,
+    offset: u32,
+    size: u32,
+    panel: PanelMaterial
+) -> bool {
+    var palette: u32 = offset + size * size;
+    var material: Material = make Material {
+        texture: offset,
+        width: size,
+        height: size,
+        stride: size,
+        palette: palette,
+        style: 0u32,
+        unlit: 0u32,
+        address_u: ADDRESS_REPEAT,
+        address_v: ADDRESS_REPEAT,
+        transparent_index: 0u32
+    };
+    if !input_material(mut input, region, material) {
+        return false;
+    }
+    var index: u32 = 0u32;
+    while index < 256u32 {
+        var state: u32 = 0u32;
+        while state < LIGHT_STATES {
+            input_asset_set(
+                mut input,
+                palette + index * LIGHT_STATES + state,
+                palette_entry(panel.colour, index, state, index >= 248u32)
+            );
+            state = state + 1u32;
+        }
+        index = index + 1u32;
+    }
+    index = 0u32;
+    while index < size * size {
+        var x: f32 = ((index % size) as f32 + 0.5f32) / panel.texels_per_metre as f32;
+        var y: f32 = ((index / size) as f32 + 0.5f32) / panel.texels_per_metre as f32;
+        input_texel(mut input, offset + index, panel_sample(panel, x, y));
+        index = index + 1u32;
+    }
+    return true;
+}

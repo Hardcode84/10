@@ -12,7 +12,14 @@ fn build_application(
     provider_count: usize,
     reference: bool
 ) -> bool {
-    var args: [*u8; 96] = uninit;
+    var args: **u8 = crust_try_alloc(
+        root -> context,
+        (source_count + 13usize) * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if args == null(**u8) {
+        return false;
+    }
     args[0usize] = "-o";
     args[1usize] = host_path(root, output);
     args[2usize] = host_path(root, "src/render/interface.crs");

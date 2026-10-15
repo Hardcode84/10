@@ -7,7 +7,19 @@ fn ownership_sources(
     count: usize,
     expected: *u8
 ) -> i32 {
-    var trusted: [CrustSource; 64] = uninit;
+    var trusted: *CrustSource = crust_try_alloc(
+        root -> context,
+        (count + 1usize) * sizeof(CrustSource),
+        alignof(CrustSource)
+    ) as *CrustSource;
+    var args: **u8 = crust_try_alloc(
+        root -> context,
+        (argc as usize + 1usize) * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if trusted == null(*CrustSource) || args == null(**u8) {
+        return 1i32;
+    }
     var i: usize = 0usize;
     while i < count {
         if !cache_read(root -> context, providers[i], &trusted[i]) {
@@ -16,7 +28,6 @@ fn ownership_sources(
         trusted[i].identity = 100u64 + i as u64;
         i = i + 1usize;
     }
-    var args: [*u8; 96] = uninit;
     var total: usize = 0usize;
     i = 0usize;
     while i < argc as usize {

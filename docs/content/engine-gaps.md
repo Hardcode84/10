@@ -85,7 +85,9 @@ the selected spatial path contract, not a global-coordinate shortcut.
 64 temporary panels per face, and translation-only instances. Port matching
 uses exact world-coordinate equality. The [expedition layout](../../src/game/expedition/expedition-layout.crs)
 contains five fixed room instances and five links. Containment tests use box
-volumes. The [convex room format](room-format.md) is not implemented.
+volumes. The [radial start asset](../../assets/rooms/radial-start.crs) supplies a closed convex hull,
+local spawn, and shared render/collision geometry in the viewer. The expedition
+does not yet consume that bundle. Named connections and assembly are not implemented.
 
 **Change:** implement convex hull rooms in separate local spaces. Use named
 connection profiles, local port frames, and declared rotation counts. Names
@@ -130,12 +132,13 @@ cable or portal view still refers to its assets.
 
 ### T1. Viewer and build lifecycle — asset proof
 
-The [mesh viewer](../render/retained-meshes.md) displays shared generated meshes.
-It has no parameter-editing, asset-registry, generated-asset-cache, or
-source-reload contract. The demo and game provide reusable window and capture
-helpers, but their scenes and controls are application-specific.
+The [recipe viewer](parametric-assets.md#implemented-recipe-workflow) compiles a selected Crust file, edits its
+dimensions, replaces generated room bundles, and captures interior, exterior,
+and spawn views. It does not yet provide asset caching, source reload within
+the running process, free-flight inspection, or the diagnostic overlays in the
+asset design. Source edits require the root command again.
 
-**Change:** implement the independent viewer in the asset design. Keep asset
+**Change:** complete the inspection and source-reload controls in the asset design. Keep asset
 ownership, parameter metadata, compilation, GPU upload, and inspection modes
 separate. Validate public inputs and report failed rebuilds explicitly.
 

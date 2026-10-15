@@ -155,11 +155,11 @@ fn build_viewer_tests(
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + game_providers(root, &providers[provider_count]);
-    sources[source_count] = host_path(root, "src/viewer/scene.crs");
+    sources[source_count] = host_path(root, "tests/viewer/retained-scene.crs");
     source_count = source_count + 1usize;
     providers[provider_count] = host_path(root, "tests/viewer/entry.crs");
     provider_count = provider_count + 1usize;
-    providers[provider_count] = host_path(root, "src/viewer/platform.crs");
+    providers[provider_count] = host_path(root, "tests/viewer/retained-platform.crs");
     provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/render/visibility.crs");
     provider_count = provider_count + 1usize;

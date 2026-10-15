@@ -159,7 +159,7 @@ fn run_tests(root: *CrustRun) -> i32 {
 extern fn test_puts(text: *u8) -> i32 = "puts";
 fn test_help() -> i32 {
     test_puts(
-        "SPINWARD checks: crust tests.crs [collision|all|ownership|game|review|viewer|render N|--build-only]"
+        "SPINWARD checks: crust tests.crs [assets|asset-viewer|collision|all|ownership|game|review|viewer|render N|--build-only]"
     );
     test_puts(
         "render 1..9: palette, portals, playback, lighting, geometry, textures, retained views, portal capacity, image capacity/resize"

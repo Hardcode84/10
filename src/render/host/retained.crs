@@ -194,3 +194,9 @@ fn input_instances(input: mut FrameInput, list: read InstanceList) -> bool {
     }
     return true;
 }
+// Invalidates all retained mesh ranges. Requires an idle input borrow and no submitted instances.
+fn input_clear_meshes(input: mut FrameInput) -> unit {
+    input_frame(mut input);
+    input.storage.mesh_count = 0u32;
+    input.storage.mesh_dirty = true;
+}
