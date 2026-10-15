@@ -88,6 +88,7 @@ fn asset_view_help() -> unit {
     puts("crust viewer.crs ROOM.crs [--set NAME METRES] [--view inside|outside|start]");
     puts("  --width N --height N --frames N --capture FILE");
     puts("Tab: view; arrows: look/orbit; W/S: zoom; Space: auto rotate; Esc: close");
+    puts("Left/right drag: look/orbit; mouse wheel: exterior zoom; spawn view stays fixed");
     puts("[/]: select parameter; -/+: change; R: reset selected parameter");
     puts("Recipe parameters (metres):");
     var i: u32 = 0u32;

@@ -101,8 +101,15 @@ fn asset_view_run(
     var frame: u32 = 0u32;
     while state.running && (options.frames == 0u32 || frame < options.frames) {
         if !headless {
-            var key: u32 = asset_view_event();
-            while key != 0u32 {
+            var event: AssetViewEvent = make AssetViewEvent {
+                key: 0u32,
+                dx: 0f32,
+                dy: 0f32,
+                wheel: 0f32
+            };
+            while asset_view_event(mut event) {
+                var key: u32 = event.key;
+                asset_view_mouse(mut state, event);
                 asset_view_adjust(mut state, key);
                 var good: bool = true;
                 asset = asset_view_edit(
@@ -117,7 +124,6 @@ fn asset_view_run(
                 if !good {
                     return 1i32;
                 }
-                key = asset_view_event();
             }
         }
         {

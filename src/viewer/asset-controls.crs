@@ -1,3 +1,28 @@
+record AssetViewEvent {
+    key: u32;
+    dx: f32;
+    dy: f32;
+    wheel: f32;
+}
+fn asset_view_mouse(state: mut AssetViewState, event: AssetViewEvent) -> unit {
+    if state.camera.view == 2u32 {
+        return;
+    }
+    var direction: f32 = 1f32;
+    if state.camera.view == 1u32 {
+        direction = -1f32;
+        state.camera.zoom = clamp(state.camera.zoom - event.wheel * 0.1f32, 0.55f32, 5f32);
+    }
+    state.camera.yaw = state.camera.yaw + event.dx * direction * 0.005f32;
+    state.camera.pitch = clamp(
+        state.camera.pitch - event.dy * direction * 0.005f32,
+        -1.45f32,
+        1.45f32
+    );
+    if event.dx != 0f32 || event.dy != 0f32 {
+        state.rotating = false;
+    }
+}
 record AssetViewState {
     camera: AssetCamera;
     selected: u32;

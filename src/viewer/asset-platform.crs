@@ -2,7 +2,7 @@ fn asset_view_window(session: mut AssetSession) -> unit {
     if session.window.handle != null(*u8) {
         SDL_SetWindowTitle(
             session.window.handle,
-            "SPINWARD room viewer | Tab view | arrows orbit | [ ] parameter | - + adjust | Esc close"
+            "SPINWARD room viewer | drag look/orbit | wheel zoom | Tab view | [ ] parameter | - + adjust | Esc close"
         );
     }
 }
@@ -22,16 +22,36 @@ fn asset_view_rejected(session: mut AssetSession) -> unit {
         );
     }
 }
-fn asset_view_event() -> u32 {
+fn asset_view_event(output: mut AssetViewEvent) -> bool {
     var event: [u64; 8] = uninit;
+    output = make AssetViewEvent {
+        key: 0u32,
+        dx: 0f32,
+        dy: 0f32,
+        wheel: 0f32
+    };
     while SDL_PollEvent(&event as *u8) != 0i32 {
         var kind: u32 = (&event as *u32)[0usize];
         if kind == 256u32 {
-            return 27u32;
+            output.key = 27u32;
+            return true;
         }
         if kind == 768u32 {
-            return (&event as *u32)[5usize];
+            output.key = (&event as *u32)[5usize];
+            return true;
+        }
+        if kind == 1024u32 && ((&event as *u32)[4usize] & 5u32) != 0u32 {
+            output.dx = (&event as *i32)[7usize] as f32;
+            output.dy = (&event as *i32)[8usize] as f32;
+            return true;
+        }
+        if kind == 1027u32 {
+            output.wheel = (&event as *i32)[5usize] as f32;
+            if (&event as *u32)[6usize] == 1u32 {
+                output.wheel = -output.wheel;
+            }
+            return true;
         }
     }
-    return 0u32;
+    return false;
 }

@@ -108,6 +108,8 @@ Parameter edits rebuild the asset without recompiling source.
 | --- | --- |
 | Tab | Cycle interior, exterior, and spawn views |
 | Arrow keys | Change the interior look direction or exterior orbit |
+| Left or right mouse drag | Look inside or orbit outside; stop automatic rotation |
+| Mouse wheel | Change exterior orbit distance |
 | W / S | Change exterior orbit distance |
 | Space | Start or stop automatic rotation |
 | `[` / `]` | Select a parameter; print its name |
