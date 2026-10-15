@@ -207,24 +207,25 @@ geometry constant. They measure active simulation ticks and prediction paths
 separately. Ownership and replacement checks cover consumed builders, empty
 scenes, and failed builds.
 
-### C3. Contact solving and overlap — asset proof
+### C3. Contact solving and overlap — implemented
 
-`move_drone` handles at most four successive slide contacts, then discards
-remaining travel. Each contact adds a fixed 0.0001 m normal offset. Mesh queries
-report initial surface overlap, and movement applies its separation
-depth. They do not classify a sphere fully inside a closed solid when it does
-not touch a surface. The solver does not supply general volume recovery.
-Stationary cases in the current tests do not prove arbitrary overlap recovery.
-Sequential sliding is not a persistent multi-contact solver.
+[Sphere motion](../collision/motion.md) replaces the four-contact slide loop.
+It solves the nearby contact half-spaces together, separates stationary overlap,
+and uses a radius- and coordinate-dependent margin. Each step consumes travel
+or returns an explicit failure with the contact and remaining travel. The game
+stops on failure. It does not silently truncate the step.
 
-**Change:** define initial-overlap handling for spawn, reload, and moving
-geometry. Preserve valid remaining motion or report a solver failure with a
-specific contact case. Define scale-aware tolerances and a contact-set rule
-for corners. Do not silently accept an invalid embedded state.
+Explicit solid instances provide volume classification. Open or inconsistently
+wound solids fail construction. Spawn and load reject embedded or overlapping
+bodies. A replacement scene requires body validation before use. Moving
+colliders require the relative-motion contract in C4, not snapshot recovery.
 
-**Check:** more than four contacts in a step, acute corners, coplanar seams,
-resting contact, an invalid spawn inside geometry, and repeated sliding along
-a generated elbow. Record the witness before selecting a replacement solver.
+The baseline elbow discarded 13.518690 m after four contacts. The new solver
+completes it through eight contacts. Checks cover acute corners, three-plane
+separation, conflicting constraints, coplanar seams, resting contact, solid
+containment, transformed instances, and 2400 repeated elbow slide steps.
+See the motion contract for failure statuses, numerical tolerances, storage,
+and dense-contact cost.
 
 ### C4. Contact identity and moving anchors — world feature
 

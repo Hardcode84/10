@@ -18,7 +18,7 @@ fn collision_build_world(scene: mut CollisionBuilder, world: u32) -> bool {
     i = 0u32;
     while i < world_solid_count(world) {
         var mesh: Mesh = mesh_new();
-        if !static_solid(mut mesh, world_solid(world, i), world_solid_faces(world, i)) || !collision_append(
+        if !static_solid(mut mesh, world_solid(world, i), 63u32) || !collision_append_solid(
             mut scene,
             read mesh,
             world,
@@ -32,7 +32,7 @@ fn collision_build_world(scene: mut CollisionBuilder, world: u32) -> bool {
     i = 0u32;
     while i < world_pipe_count(world) {
         var mesh: Mesh = mesh_new();
-        if !static_pipe(mut mesh, world_pipe(world, i)) || !collision_append(
+        if !static_pipe(mut mesh, world_pipe(world, i)) || !collision_append_solid(
             mut scene,
             read mesh,
             world,

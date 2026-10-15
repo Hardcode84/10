@@ -78,7 +78,12 @@ The correctness checks compare every contact field against an exhaustive mesh
 scan. They include actual game geometry, 17 rotated instances with concave
 openings and curved surfaces, sparse space IDs, overlapping spaces, stationary
 overlap, high-speed impacts, equal-time contacts, and empty scenes. Sorted edge
-adjacency is also compared with an exhaustive construction check. A rejected
+adjacency is also compared with an exhaustive construction check. Every game
+triangle and every triangle of one rotated curved mesh has a targeted query.
+The 17-placement test uses eight evenly spaced faces per instance, including
+the first and last face. Each scene also has 128 deterministic queries spread
+through the position, radius, and space cases. This avoids repeating the same
+full-mesh comparison for every triangle in every copy. A rejected
 replacement must leave the previous scene queryable.
 
 Ownership rejection checks prevent scene copies and use of a consumed builder.
@@ -103,6 +108,9 @@ cost in the largest case. The controlled run produced these times:
 | 74 | 1,448 | 17.06 / 1.71 | 43.52 / 0.48 | 662.27 / 7.08 |
 | 298 | 6,440 | 224.46 / 6.38 | 169.66 / 0.47 | 2,545.14 / 7.02 |
 
+These measurements precede C3, which adds complete solid boundaries and volume
+classification. See [sphere motion](motion.md) for its measurements.
+
 These values measure the stated CPU workload. They are not frame-rate claims.
 Both indices keep the largest prediction case close to the smallest one while
 the number of distant surfaces grows. Rendering work is unchanged.
@@ -115,3 +123,7 @@ build releases the new one. An empty scene needs no index allocation.
 The full suite passed. The game suite also passed AddressSanitizer,
 UndefinedBehaviorSanitizer, and leak checks. A headless expedition completed
 with the same state summary and byte-identical final image as the C1 baseline.
+
+The game test executable took 14.15 s with the repeated full-mesh comparisons
+and 1.25 s with this coverage split in an optimized build. Both expedition
+routes and the C3 contact regressions remain in the default suite.

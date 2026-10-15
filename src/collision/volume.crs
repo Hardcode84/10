@@ -1,0 +1,66 @@
+fn collision_winding(scene: read CollisionScene, item: CollisionInstance, p: Vec3) -> f32 {
+    var sum: f32 = 0f32;
+    var compensation: f32 = 0f32;
+    var i: u32 = 0u32;
+    while i < item.count {
+        var f: CollisionFace = collision_face(read scene, item.first + i);
+        var a: Vec3 = collision_normal(sub(f.a, p));
+        var b: Vec3 = collision_normal(sub(f.b, p));
+        var c: Vec3 = collision_normal(sub(f.c, p));
+        var angle: f32 = 2f32 * atan2f(
+            dot(a, cross(b, c)),
+            1f32 + dot(a, b) + dot(b, c) + dot(c, a)
+        );
+        var corrected: f32 = angle - compensation;
+        var next: f32 = sum + corrected;
+        compensation = (next - sum) - corrected;
+        sum = next;
+        i = i + 1u32;
+    }
+    return sum;
+}
+fn collision_inside_solid(scene: read CollisionScene, index: u32, p: Vec3) -> bool {
+    var item: CollisionInstance = collision_instance(read scene, index);
+    if !item.solid {
+        return false;
+    }
+    var local: Vec3 = collision_local(item.basis, sub(p, item.origin));
+    if !collision_aabb(local, vec(0f32, 0f32, 0f32), 0f32, item.low, item.high) {
+        return false;
+    }
+    return absf(collision_winding(read scene, item, local)) > 6.283185307f32;
+}
+// Returns an enclosing solid instance, or 0xffffffff if the centre is outside all solids.
+fn collision_embedded(scene: read CollisionScene, space: u32, p: Vec3) -> u32 {
+    var range: CollisionSpace = collision_space(read scene, space);
+    var i: u32 = range.root;
+    while i < range.end {
+        var node: CollisionNode = collision_node(read scene, i);
+        if !collision_aabb(p, vec(0f32, 0f32, 0f32), 0f32, node.low, node.high) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 && collision_inside_solid(read scene, node.leaf, p) {
+                return node.leaf;
+            }
+            i = i + 1u32;
+        }
+    }
+    return 0xffffffffu32;
+}
+// Rejects an embedded centre or surface overlap. Use after spawn, load, or scene replacement.
+fn collision_position_valid(scene: read CollisionScene, space: u32, p: Vec3, radius: f32) -> bool {
+    if !collision_finite(p) ||!(radius > 0f32 && radius < 3.4028234e38f32) {
+        return false;
+    }
+    if collision_embedded(read scene, space, p) != 0xffffffffu32 {
+        return false;
+    }
+    var hit: CollisionContact = collision_sweep(
+        read scene,
+        space,
+        p,
+        vec(0f32, 0f32, 0f32),
+        radius
+    );
+    return hit.penetration <= collision_tolerance(p, radius) * 0.25f32;
+}

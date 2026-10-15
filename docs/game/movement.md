@@ -127,8 +127,11 @@ smoothstep over radii from zero through 4000 m.
 The drone has a 0.35 m collision radius. Each course solid supplies both the
 visible box and the collision box. Sweeps test faces, rounded edges, and
 corners. The two pipes use six-sided prisms for both drawing and collision.
-Their sweeps test side faces, end caps, and rounded edges. Contact removes inward velocity and permits sliding. A step resolves
-up to four contacts; excess travel stops at the last safe contact point.
+Their sweeps test side faces, end caps, and rounded edges. The
+[contact-set solver](../collision/motion.md) removes inward velocity and keeps
+feasible sliding motion. It separates surface overlap even at rest. A step
+consumes its travel or reports the unresolved contact and stops the run.
+Spawn and load reject embedded bodies.
 
 Press and hold the tether action to launch one hook. The hook starts at the
 drone position. It inherits drone velocity and adds 60 m/s along the view.

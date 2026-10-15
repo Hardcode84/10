@@ -1,0 +1,100 @@
+fn build_collision_checks(root: *CrustRun, sanitize: bool, output: *u8) -> bool {
+    var files: [*u8; 11] = make [*u8; 11] {
+        "src/app/math.crs",
+        "src/collision/primitives.crs",
+        "src/collision/topology.crs",
+        "src/collision/sweep.crs",
+        "src/collision/query.crs",
+        "src/collision/contact-query.crs",
+        "src/collision/contact-solve.crs",
+        "src/collision/motion.crs",
+        "src/collision/volume.crs",
+        "tests/collision/fixtures.crs",
+        "tests/collision/motion.crs"
+    };
+    var native: [*u8; 8] = make [*u8; 8] {
+        "src/app/io.crs",
+        "src/render/host/mesh.crs",
+        "src/collision/storage.crs",
+        "src/collision/index-build.crs",
+        "src/collision/adjacency-build.crs",
+        "src/collision/contact-storage.crs",
+        "tests/collision/check-host.crs",
+        "tests/collision/entry.crs"
+    };
+    var args: [*u8; 32] = uninit;
+    var providers: [*u8; 8] = uninit;
+    var i: usize = 0usize;
+    while i < 11usize {
+        args[i] = host_path(root, files[i]);
+        i = i + 1usize;
+    }
+    i = 0usize;
+    while i < 8usize {
+        providers[i] = host_path(root, native[i]);
+        i = i + 1usize;
+    }
+    args[11usize] = "-o";
+    args[12usize] = host_path(root, output);
+    args[13usize] = "--cflag";
+    args[14usize] = "-O2";
+    args[15usize] = "--ldflag";
+    args[16usize] = "-lm";
+    var count: usize = 17usize;
+    if sanitize {
+        args[14usize] = "-O1";
+        args[17usize] = "--cflag";
+        args[18usize] = "-g";
+        args[19usize] = "--cflag";
+        args[20usize] = "-fsanitize=address,undefined";
+        args[21usize] = "--ldflag";
+        args[22usize] = "-fsanitize=address,undefined";
+        args[23usize] = "--cflag";
+        args[24usize] = "-fno-sanitize-recover=all";
+        count = 25usize;
+    }
+    return ownership_sources(
+        root,
+        count as i32,
+        &args[0usize],
+        &providers[0usize],
+        8usize,
+        null(*u8)
+    ) == 0i32;
+}
+fn run_collision_checks(root: *CrustRun) -> i32 {
+    if !cache_directory(root -> context, host_path(root, "build")) {
+        return 1i32;
+    }
+    var sanitize: bool = false;
+    var execute: bool = true;
+    var i: usize = 1usize;
+    while i < root -> argc as usize {
+        if cache_strcmp(root -> argv[i], "--sanitize") == 0i32 {
+            sanitize = true;
+        } else if cache_strcmp(root -> argv[i], "--build-only") == 0i32 {
+            execute = false;
+        } else {
+            native_error(root -> context, "collision checks accept --sanitize and --build-only");
+            return 2i32;
+        }
+        i = i + 1usize;
+    }
+    var output: *u8 = "build/tests-collision";
+    if sanitize {
+        output = "build/tests-collision-asan";
+    }
+    if !build_collision_checks(root, sanitize, output) {
+        return 1i32;
+    }
+    if !execute {
+        return 0i32;
+    }
+    var args: [*u8; 2] = make [*u8; 2] {
+        host_path(root, output),
+        null(*u8)
+    };
+    build_execv(args[0usize], &args[0usize]);
+    native_error(root -> context, "cannot launch collision checks");
+    return 1i32;
+}

@@ -34,11 +34,14 @@ fn collision_inside(f: CollisionFace, p: Vec3) -> bool {
     return true;
 }
 fn collision_closest_edge(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
-    var edge: Vec3 = sub(b, a);
-    return add(
-        a,
-        scale(edge, clamp(dot(sub(p, a), edge) / dot(edge, edge), 0f32, 1f32))
+    var centre: Vec3 = add(scale(a, 0.5f32), scale(b, 0.5f32));
+    var half: Vec3 = sub(scale(b, 0.5f32), scale(a, 0.5f32));
+    var fraction: f32 = clamp(
+        dot(sub(p, centre), half) / dot(half, half),
+        -1f32,
+        1f32
     );
+    return add(centre, scale(half, fraction));
 }
 fn collision_closest(f: CollisionFace, p: Vec3) -> Vec3 {
     var plane: Vec3 = sub(p, scale(f.normal, dot(sub(p, f.a), f.normal)));
@@ -105,15 +108,12 @@ fn collision_miss(space: u32) -> CollisionContact {
 }
 fn collision_surface(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> CollisionContact {
     var contact: CollisionContact = collision_miss(0u32);
-    var point: Vec3 = collision_closest(f, p);
-    var offset: Vec3 = sub(p, point);
-    var distance: f32 = length(offset);
+    var proximity: CollisionProximity = collision_proximity(f, p);
+    var point: Vec3 = proximity.point;
+    var distance: f32 = proximity.distance;
     if distance < radius {
         contact.penetration = radius - distance;
-        var normal: Vec3 = f.normal;
-        if distance > 0f32 {
-            normal = scale(offset, 1f32 / distance);
-        }
+        var normal: Vec3 = proximity.normal;
         if distance == 0f32 && dot(normal, d) > 0f32 {
             normal = scale(normal, -1f32);
         }
@@ -130,4 +130,35 @@ fn collision_surface(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> Collisi
     }
     contact.local_point = point;
     return contact;
+}
+record CollisionProximity {
+    point: Vec3;
+    normal: Vec3;
+    distance: f32;
+}
+fn collision_proximity(f: CollisionFace, p: Vec3) -> CollisionProximity {
+    var distance: f32 = dot(sub(p, f.a), f.normal);
+    var point: Vec3 = sub(p, scale(f.normal, distance));
+    var normal: Vec3 = f.normal;
+    if distance < 0f32 {
+        normal = scale(normal, -1f32);
+    }
+    if collision_inside(f, point) {
+        return make CollisionProximity {
+            point: point,
+            normal: normal,
+            distance: absf(distance)
+        };
+    }
+    point = collision_closest(f, p);
+    var offset: Vec3 = sub(p, point);
+    distance = length(offset);
+    if distance > 0f32 {
+        normal = collision_normal(offset);
+    }
+    return make CollisionProximity {
+        point: point,
+        normal: normal,
+        distance: distance
+    };
 }

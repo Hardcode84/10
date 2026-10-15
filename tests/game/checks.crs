@@ -165,9 +165,9 @@ fn test_short_press() -> bool {
 }
 
 fn test_collision_suite(collision: read CollisionScene) -> bool {
-    return test_collision_scaling() && test_collision_index(read collision) && test_forces() && test_collision_samples(
+    return test_collision_motion() && test_collision_scaling() && test_collision_index(
         read collision
-    ) && test_collision_measure(read collision) && test_mesh_collision() && test_collision(
+    ) && test_forces() && test_collision_samples(read collision) && test_collision_measure(
         read collision
-    );
+    ) && test_mesh_collision() && test_collision(read collision);
 }

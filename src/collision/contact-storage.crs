@@ -1,0 +1,76 @@
+record CollisionPlane {
+    normal: Vec3;
+    offset: f32;
+}
+resource CollisionPlanes {
+    local: [CollisionPlane; 8];
+    extra: *CollisionPlane;
+    count: u32;
+    capacity: u32;
+}
+opaque drop collision_planes_drop;
+fn collision_planes_new() -> CollisionPlanes {
+    var local: [CollisionPlane; 8] = uninit;
+    return make CollisionPlanes {
+        local: local,
+        extra: null(*CollisionPlane),
+        count: 0u32,
+        capacity: 8u32
+    };
+}
+fn collision_planes_drop(planes: mut CollisionPlanes) -> unit {
+    free(planes.extra as *u8);
+}
+fn collision_plane_count(planes: read CollisionPlanes) -> u32 {
+    return planes.count;
+}
+fn collision_plane(planes: read CollisionPlanes, index: u32) -> CollisionPlane {
+    if planes.extra != null(*CollisionPlane) {
+        return planes.extra[index as usize];
+    }
+    return planes.local[index as usize];
+}
+fn collision_planes_clear(planes: mut CollisionPlanes) -> unit {
+    planes.count = 0u32;
+}
+fn collision_plane_store(planes: mut CollisionPlanes, index: u32, plane: CollisionPlane) -> unit {
+    if planes.extra != null(*CollisionPlane) {
+        planes.extra[index as usize] = plane;
+    } else {
+        planes.local[index as usize] = plane;
+    }
+}
+fn collision_plane_add(planes: mut CollisionPlanes, plane: CollisionPlane) -> bool {
+    var i: u32 = 0u32;
+    while i < planes.count {
+        var old: CollisionPlane = collision_plane(read planes, i);
+        if collision_equal(old.normal, plane.normal) {
+            if plane.offset > old.offset {
+                collision_plane_store(mut planes, i, plane);
+            }
+            return true;
+        }
+        i = i + 1u32;
+    }
+    if planes.count == planes.capacity {
+        var capacity: u64 = planes.capacity as u64 * 2u64;
+        if capacity > 0xffffffffu64 {
+            return error("collision contact storage exceeds address range");
+        }
+        var next: *CollisionPlane = malloc(capacity as usize * sizeof(CollisionPlane)) as *CollisionPlane;
+        if next == null(*CollisionPlane) {
+            return error("collision contact allocation failed");
+        }
+        i = 0u32;
+        while i < planes.count {
+            next[i as usize] = collision_plane(read planes, i);
+            i = i + 1u32;
+        }
+        free(planes.extra as *u8);
+        planes.extra = next;
+        planes.capacity = capacity as u32;
+    }
+    collision_plane_store(mut planes, planes.count, plane);
+    planes.count = planes.count + 1u32;
+    return true;
+}

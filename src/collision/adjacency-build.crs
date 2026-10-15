@@ -98,8 +98,24 @@ fn collision_build_adjacency(faces: *CollisionFace, instance: CollisionInstance)
         while i < count && collision_compare_edge_key(edges[start], edges[i]) == 0i32 {
             i = i + 1usize;
         }
+        if instance.solid && !collision_closed_edge(faces, &edges[start], i - start) {
+            free(edges as *u8);
+            return error("solid collision mesh needs two opposite faces per edge");
+        }
         collision_connect_edges(faces, &edges[start], i - start);
     }
     free(edges as *u8);
     return true;
+}
+
+fn collision_closed_edge(faces: *CollisionFace, edges: *CollisionEdge, count: usize) -> bool {
+    if count != 2usize {
+        return false;
+    }
+    var a: CollisionFace = faces[edges[0usize].face as usize];
+    var b: CollisionFace = faces[edges[1usize].face as usize];
+    return collision_equal(
+        collision_corner(a, edges[0usize].edge),
+        collision_corner(b, (edges[1usize].edge + 1u32) % 3u32)
+    );
 }

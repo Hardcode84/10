@@ -1,0 +1,161 @@
+fn collision_divide(v: Vec3, divisor: f32) -> Vec3 {
+    return vec(v.x / divisor, v.y / divisor, v.z / divisor);
+}
+record CollisionProjection {
+    value: Vec3;
+    found: bool;
+}
+fn collision_plane_offset(plane: CollisionPlane, separate: bool) -> f32 {
+    if separate {
+        return plane.offset;
+    }
+    return 0f32;
+}
+fn collision_feasible(
+    planes: read CollisionPlanes,
+    v: Vec3,
+    separate: bool,
+    tolerance: f32
+) -> bool {
+    var i: u32 = 0u32;
+    while i < collision_plane_count(read planes) {
+        var plane: CollisionPlane = collision_plane(read planes, i);
+        if dot(v, plane.normal) < collision_plane_offset(plane, separate) - tolerance {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return collision_finite(v);
+}
+fn collision_candidate(
+    planes: read CollisionPlanes,
+    desired: Vec3,
+    v: Vec3,
+    separate: bool,
+    tolerance: f32,
+    best: mut CollisionProjection
+) -> unit {
+    var gain: f32 = dot(
+        sub(v, best.value),
+        add(sub(v, desired), sub(best.value, desired))
+    );
+    if (!best.found || gain < 0f32) && collision_feasible(read planes, v, separate, tolerance) {
+        best.value = v;
+        best.found = true;
+    }
+}
+fn collision_project_triples(
+    planes: read CollisionPlanes,
+    desired: Vec3,
+    separate: bool,
+    tolerance: f32,
+    i: u32,
+    j: u32,
+    best: mut CollisionProjection
+) -> unit {
+    if !separate {
+        return;
+    }
+    var a: CollisionPlane = collision_plane(read planes, i);
+    var b: CollisionPlane = collision_plane(read planes, j);
+    var ab: Vec3 = cross(a.normal, b.normal);
+    var k: u32 = j + 1u32;
+    while k < collision_plane_count(read planes) {
+        var c: CollisionPlane = collision_plane(read planes, k);
+        var determinant: f32 = dot(ab, c.normal);
+        if determinant != 0f32 {
+            var v: Vec3 = collision_divide(
+                add(
+                    add(
+                        scale(cross(b.normal, c.normal), a.offset),
+                        scale(cross(c.normal, a.normal), b.offset)
+                    ),
+                    scale(ab, c.offset)
+                ),
+                determinant
+            );
+            collision_candidate(read planes, desired, v, separate, tolerance, mut best);
+        }
+        k = k + 1u32;
+    }
+}
+fn collision_project_pairs(
+    planes: read CollisionPlanes,
+    desired: Vec3,
+    separate: bool,
+    tolerance: f32,
+    i: u32,
+    best: mut CollisionProjection
+) -> unit {
+    var a: CollisionPlane = collision_plane(read planes, i);
+    var j: u32 = i + 1u32;
+    while j < collision_plane_count(read planes) {
+        var b: CollisionPlane = collision_plane(read planes, j);
+        var axis: Vec3 = cross(a.normal, b.normal);
+        var determinant: f32 = length(axis);
+        if determinant > 0f32 {
+            axis = collision_divide(axis, determinant);
+            var origin: Vec3 = collision_divide(
+                add(
+                    scale(cross(b.normal, axis), collision_plane_offset(a, separate)),
+                    scale(cross(axis, a.normal), collision_plane_offset(b, separate))
+                ),
+                determinant
+            );
+            var v: Vec3 = add(origin, scale(axis, dot(sub(desired, origin), axis)));
+            collision_candidate(read planes, desired, v, separate, tolerance, mut best);
+            collision_project_triples(
+                read planes,
+                desired,
+                separate,
+                tolerance,
+                i,
+                j,
+                mut best
+            );
+        }
+        j = j + 1u32;
+    }
+}
+// Returns the nearest vector that meets every contact half-space, or found=false.
+fn collision_project(
+    planes: read CollisionPlanes,
+    desired: Vec3,
+    separate: bool,
+    tolerance: f32
+) -> CollisionProjection {
+    var best: CollisionProjection = make CollisionProjection {
+        value: vec(0f32, 0f32, 0f32),
+        found: false
+    };
+    collision_candidate(read planes, desired, desired, separate, tolerance, mut best);
+    if best.found {
+        return best;
+    }
+    collision_candidate(
+        read planes,
+        desired,
+        vec(0f32, 0f32, 0f32),
+        separate,
+        tolerance,
+        mut best
+    );
+    var i: u32 = 0u32;
+    while i < collision_plane_count(read planes) {
+        var a: CollisionPlane = collision_plane(read planes, i);
+        var v: Vec3 = add(
+            desired,
+            scale(
+                a.normal,
+                (collision_plane_offset(a, separate) - dot(a.normal, desired)) / dot(
+                    a.normal,
+                    a.normal
+                )
+            )
+        );
+        collision_candidate(read planes, desired, v, separate, tolerance, mut best);
+        collision_project_pairs(read planes, desired, separate, tolerance, i, mut best);
+        i = i + 1u32;
+    }
+    return best;
+}

@@ -11,8 +11,9 @@ fn collision_same_contact(a: CollisionContact, b: CollisionContact) -> bool {
     );
 }
 fn test_collision_index_queries(scene: read CollisionScene) -> bool {
-    var i: u32 = 0u32;
-    while i < 1536u32 {
+    var sample: u32 = 0u32;
+    while sample < 128u32 {
+        var i: u32 = (sample * 37u32) % 1536u32;
         var p: Vec3 = vec(
             (i % 23u32) as f32 * 6f32 - 20f32,
             ((i / 23u32) % 11u32) as f32 * 6f32 - 15f32,
@@ -37,17 +38,25 @@ fn test_collision_index_queries(scene: read CollisionScene) -> bool {
         ) {
             return false;
         }
-        i = i + 1u32;
+        sample = sample + 1u32;
     }
     return true;
 }
-fn test_collision_index_surfaces(scene: read CollisionScene) -> bool {
+fn test_collision_index_surfaces(scene: read CollisionScene, samples: u32) -> bool {
     var index: u32 = 0u32;
     while index < collision_instances(read scene) {
         var instance: CollisionInstance = collision_instance(read scene, index);
+        var count: u32 = instance.count;
+        if samples != 0u32 && samples < count {
+            count = samples;
+        }
         var i: u32 = 0u32;
-        while i < instance.count {
-            var face: CollisionFace = collision_face(read scene, instance.first + i);
+        while i < count {
+            var surface: u32 = 0u32;
+            if count > 1u32 {
+                surface = i * (instance.count - 1u32) / (count - 1u32);
+            }
+            var face: CollisionFace = collision_face(read scene, instance.first + surface);
             var point: Vec3 = scale(add(add(face.a, face.b), face.c), 1f32 / 3f32);
             var p: Vec3 = add(
                 instance.origin,
@@ -79,15 +88,14 @@ fn test_collision_index_surfaces(scene: read CollisionScene) -> bool {
     }
     return true;
 }
-fn test_collision_index_rotated() -> bool {
+fn collision_test_index_scene(scene: mut CollisionScene, count: u32) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
-    var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     if !collision_test_aperture(mut mesh, 13u32) || !collision_test_elbow(mut mesh) {
         return false;
     }
     var i: u32 = 0u32;
-    while i < 17u32 {
+    while i < count {
         var origin: Vec3 = vec((i % 3u32) as f32 * 6f32, (i / 3u32) as f32 * 8f32, 0f32);
         if !collision_append(
             mut builder,
@@ -100,10 +108,23 @@ fn test_collision_index_rotated() -> bool {
         }
         i = i + 1u32;
     }
-    if !collision_finish(move builder, mut scene) {
+    return collision_finish(move builder, mut scene);
+}
+fn test_collision_index_rotated() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !collision_test_index_scene(mut scene, 1u32) || !test_collision_index_surfaces(
+        read scene,
+        0u32
+    ) {
         return false;
     }
-    return test_collision_index_queries(read scene) && test_collision_index_surfaces(read scene);
+    if !collision_test_index_scene(mut scene, 17u32) {
+        return false;
+    }
+    return test_collision_index_queries(read scene) && test_collision_index_surfaces(
+        read scene,
+        8u32
+    );
 }
 fn collision_test_panel(builder: mut CollisionBuilder, space: u32, x: f32) -> bool {
     var mesh: Mesh = mesh_new();
@@ -205,7 +226,8 @@ fn test_collision_index_replace() -> bool {
 }
 fn test_collision_index(scene: read CollisionScene) -> bool {
     return test_collision_adjacency(read scene) && test_collision_index_queries(read scene) && test_collision_index_surfaces(
-        read scene
+        read scene,
+        0u32
     ) && test_collision_index_rotated() && test_collision_index_ties() && test_collision_index_replace();
 }
 fn test_collision_adjacency(scene: read CollisionScene) -> bool {

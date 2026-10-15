@@ -1,0 +1,127 @@
+record CollisionMotion {
+    position: Vec3;
+    velocity: Vec3;
+    remaining: Vec3;
+    contact: CollisionContact;
+    contacts: u32;
+    status: u32;
+}
+fn collision_motion_begin(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    travel: Vec3,
+    velocity: Vec3
+) -> CollisionMotion {
+    var result: CollisionMotion = make CollisionMotion {
+        position: p,
+        velocity: velocity,
+        remaining: travel,
+        contact: collision_miss(space),
+        contacts: 0u32,
+        status: 0u32
+    };
+    var embedded: u32 = collision_embedded(read scene, space, p);
+    if embedded != 0xffffffffu32 {
+        result.status = 4u32;
+        result.contact.instance = embedded;
+        return result;
+    }
+    return result;
+}
+// Advances through one contact. Returns true on completion or failure.
+fn collision_motion_step(
+    scene: read CollisionScene,
+    space: u32,
+    radius: f32,
+    planes: mut CollisionPlanes,
+    result: mut CollisionMotion
+) -> bool {
+    if result.status != 0u32 {
+        return true;
+    }
+    if result.contacts == 1024u32 {
+        result.status = 3u32;
+        return true;
+    }
+    var hit: CollisionContact = collision_sweep(
+        read scene,
+        space,
+        result.position,
+        result.remaining,
+        radius
+    );
+    result.contact = hit;
+    if hit.hit.time > 1f32 {
+        result.position = add(result.position, result.remaining);
+        result.remaining = vec(0f32, 0f32, 0f32);
+        return true;
+    }
+    result.position = add(result.position, scale(result.remaining, hit.hit.time));
+    result.remaining = scale(result.remaining, 1f32 - hit.hit.time);
+    var skin: f32 = collision_tolerance(result.position, radius);
+    if !collision_contacts(read scene, space, result.position, radius, skin, mut planes) {
+        result.status = 1u32;
+        return true;
+    }
+    var correction: CollisionProjection = collision_project(
+        read planes,
+        vec(0f32, 0f32, 0f32),
+        true,
+        skin * 0.125f32
+    );
+    if !correction.found || collision_plane_count(read planes) == 0u32 {
+        result.status = 2u32;
+        return true;
+    }
+    var blocked: CollisionContact = collision_query(
+        read scene,
+        space,
+        result.position,
+        correction.value,
+        radius,
+        true
+    );
+    if blocked.hit.time <= 1f32 {
+        result.status = 5u32;
+        result.contact = blocked;
+        return true;
+    }
+    result.position = add(result.position, correction.value);
+    result.remaining = collision_project(
+        read planes,
+        result.remaining,
+        false,
+        length(result.remaining) * 0.000001f32
+    ).value;
+    result.velocity = collision_project(
+        read planes,
+        result.velocity,
+        false,
+        length(result.velocity) * 0.000001f32
+    ).value;
+    result.contacts = result.contacts + 1u32;
+    return false;
+}
+// Returns complete motion with status=0. A failure retains the unconsumed travel and contact.
+// Status 1: contact allocation; 2: infeasible separation; 3: progress limit;
+// 4: embedded solid; 5: separation crosses another surface. Radius must be positive.
+fn collision_move(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    travel: Vec3,
+    velocity: Vec3,
+    radius: f32
+) -> CollisionMotion {
+    var result: CollisionMotion = collision_motion_begin(
+        read scene,
+        space,
+        p,
+        travel,
+        velocity
+    );
+    var planes: CollisionPlanes = collision_planes_new();
+    while !collision_motion_step(read scene, space, radius, mut planes, mut result) {}
+    return result;
+}

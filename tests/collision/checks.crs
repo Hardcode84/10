@@ -381,7 +381,13 @@ fn test_mesh_flight() -> bool {
         length(
             sub(
                 drone.position,
-                add(point, scale(face.normal, DRONE_RADIUS + 0.0001f32))
+                add(
+                    point,
+                    scale(
+                        face.normal,
+                        DRONE_RADIUS + collision_tolerance(point, DRONE_RADIUS)
+                    )
+                )
             )
         ) < 0.00002f32 && length(drone.velocity) < 0.0001f32,
         "drone must stop at the curved mesh with full sphere clearance"

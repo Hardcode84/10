@@ -3,9 +3,9 @@ fn collision_test_triangle(mesh: mut Mesh, a: Vec3, b: Vec3, c: Vec3) -> bool {
         mut mesh,
         make MeshTriangle {
             vertices: make [MeshVertex; 3] {
-                mesh_vertex(a, 0f32, 0f32),
-                mesh_vertex(b, 1f32, 0f32),
-                mesh_vertex(c, 0f32, 1f32)
+                collision_test_vertex(a, 0f32, 0f32),
+                collision_test_vertex(b, 1f32, 0f32),
+                collision_test_vertex(c, 0f32, 1f32)
             },
             material: 0u32,
             portal: 0u32,
@@ -32,15 +32,13 @@ fn collision_test_aperture_vertex(i: u32, count: u32, outer: bool) -> Vec3 {
 fn collision_test_aperture(mesh: mut Mesh, count: u32) -> bool {
     var i: u32 = 0u32;
     while i < count {
-        if !static_quad(
+        if !collision_test_quad(
             mut mesh,
-            0u32,
             collision_test_aperture_vertex(i, count, true),
             collision_test_aperture_vertex(i + 1u32, count, true),
             collision_test_aperture_vertex(i + 1u32, count, false),
             collision_test_aperture_vertex(i, count, false),
-            vec(0f32, 0f32, 1f32),
-            3u32
+            vec(0f32, 0f32, 1f32)
         ) {
             return false;
         }
@@ -63,21 +61,106 @@ fn collision_test_elbow(mesh: mut Mesh) -> bool {
             var b: Vec3 = collision_test_elbow_vertex(ring + 1u32, side);
             var c: Vec3 = collision_test_elbow_vertex(ring + 1u32, side + 1u32);
             var d: Vec3 = collision_test_elbow_vertex(ring, side + 1u32);
-            if !static_quad(
+            if !collision_test_quad(
                 mut mesh,
-                0u32,
                 a,
                 b,
                 c,
                 d,
-                cross(sub(b, a), sub(c, a)),
-                3u32
+                cross(sub(b, a), sub(c, a))
             ) {
                 return false;
             }
             side = side + 1u32;
         }
         ring = ring + 1u32;
+    }
+    return true;
+}
+fn collision_test_elbow_cap(mesh: mut Mesh, ring: u32) -> bool {
+    var angle: f32 = ring as f32 * 1.570796327f32 / 12f32;
+    var centre: Vec3 = vec(4f32 * cosf(angle), 4f32 * sinf(angle), 0f32);
+    var n: Vec3 = vec(-sinf(angle), cosf(angle), 0f32);
+    if ring == 0u32 {
+        n = scale(n, -1f32);
+    }
+    var i: u32 = 0u32;
+    while i < 12u32 {
+        var a: Vec3 = collision_test_elbow_vertex(ring, i);
+        var b: Vec3 = collision_test_elbow_vertex(ring, i + 1u32);
+        if dot(cross(sub(a, centre), sub(b, centre)), n) < 0f32 {
+            var swap: Vec3 = a;
+            a = b;
+            b = swap;
+        }
+        if !collision_test_triangle(mut mesh, centre, a, b) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+const COLLISION_TEST_RADIUS: f32 = 0.35f32;
+fn collision_test_near(a: f32, b: f32, tolerance: f32) -> bool {
+    return absf(a - b) <= tolerance;
+}
+fn collision_test_vertex(p: Vec3, u: f32, v: f32) -> MeshVertex {
+    return make MeshVertex {
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        u: u,
+        v: v
+    };
+}
+fn collision_test_quad(
+    mesh: mut Mesh,
+    a: Vec3,
+    b: Vec3,
+    c: Vec3,
+    d: Vec3,
+    normal: Vec3
+) -> bool {
+    if dot(cross(sub(b, a), sub(c, a)), normal) < 0f32 {
+        return collision_test_triangle(mut mesh, a, c, b) && collision_test_triangle(
+            mut mesh,
+            a,
+            d,
+            c
+        );
+    }
+    return collision_test_triangle(mut mesh, a, b, c) && collision_test_triangle(
+        mut mesh,
+        a,
+        c,
+        d
+    );
+}
+fn collision_test_box(mesh: mut Mesh, low: Vec3, high: Vec3) -> bool {
+    var face: u32 = 0u32;
+    while face < 6u32 {
+        var axis: u32 = face / 2u32;
+        var a: u32 = (axis + 1u32) % 3u32;
+        var b: u32 = (axis + 2u32) % 3u32;
+        var u: Vec3 = scale(axis_vector(a), component(sub(high, low), a));
+        var v: Vec3 = scale(axis_vector(b), component(sub(high, low), b));
+        var p: Vec3 = low;
+        var sign: f32 = -1f32;
+        if face % 2u32 != 0u32 {
+            p = add(p, scale(axis_vector(axis), component(sub(high, low), axis)));
+            sign = 1f32;
+        }
+        if !collision_test_quad(
+            mut mesh,
+            p,
+            add(p, u),
+            add(add(p, u), v),
+            add(p, v),
+            scale(axis_vector(axis), sign)
+        ) {
+            return false;
+        }
+        face = face + 1u32;
     }
     return true;
 }

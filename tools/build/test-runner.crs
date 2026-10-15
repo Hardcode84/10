@@ -155,7 +155,7 @@ fn run_tests(root: *CrustRun) -> i32 {
 extern fn test_puts(text: *u8) -> i32 = "puts";
 fn test_help() -> i32 {
     test_puts(
-        "SPINWARD checks: crust tests.crs [all|ownership|game|review|viewer|render N|--build-only]"
+        "SPINWARD checks: crust tests.crs [collision|all|ownership|game|review|viewer|render N|--build-only]"
     );
     test_puts(
         "render 1..9: palette, portals, playback, lighting, geometry, textures, retained views, portal capacity, image capacity/resize"
@@ -164,6 +164,7 @@ fn test_help() -> i32 {
     test_puts("render 10: window and swapchain resize (requires a display)");
     test_puts("render 11: light capacity, bulkhead shadows and cutout visibility");
     test_puts("render 12: production transfers, debug status, replacement and retirement");
+    test_puts("collision: standalone contact checks; accepts --sanitize and --build-only");
     test_puts("review and viewer accept --width N --height N");
     return 0i32;
 }

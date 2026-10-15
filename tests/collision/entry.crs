@@ -1,0 +1,3 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    return (!test_collision_motion()) as i32;
+}

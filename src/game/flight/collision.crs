@@ -1,33 +1,49 @@
 fn course_hit(collision: read CollisionScene, world: u32, p: Vec3, d: Vec3, radius: f32) -> Hit {
     return collision_sweep(read collision, world, p, d, radius).hit;
 }
-fn slide_velocity(v: Vec3, normal: Vec3) -> Vec3 {
-    return sub(v, scale(normal, clamp(dot(v, normal), -100000f32, 0f32)));
-}
-// Stops at contact and consumes the remaining travel along the contact surfaces.
+// Applies sphere motion. Invalid geometry or unresolved contacts terminate the run.
 fn move_drone(collision: read CollisionScene, drone: mut Drone, travel: Vec3) -> unit {
-    var remaining: Vec3 = travel;
-    var count: u32 = 0u32;
-    while count < 4u32 && length(remaining) > 0.000001f32 {
-        remaining = tether_travel(read drone, remaining);
-        var contact: CollisionContact = collision_sweep(
+    var motion: CollisionMotion = collision_motion_begin(
+        read collision,
+        drone.world,
+        drone.position,
+        travel,
+        drone.velocity
+    );
+    var planes: CollisionPlanes = collision_planes_new();
+    var done: bool = false;
+    while !done {
+        motion.remaining = tether_travel(read drone, motion.remaining);
+        done = collision_motion_step(
             read collision,
             drone.world,
-            drone.position,
-            remaining,
-            DRONE_RADIUS
+            DRONE_RADIUS,
+            mut planes,
+            mut motion
         );
-        var hit: Hit = contact.hit;
-        if hit.time > 1f32 {
-            drone.position = add(drone.position, remaining);
-            return;
-        }
-        drone.position = add(
-            add(drone.position, scale(remaining, hit.time)),
-            scale(hit.normal, contact.penetration + 0.0001f32)
-        );
-        drone.velocity = slide_velocity(drone.velocity, hit.normal);
-        remaining = slide_velocity(scale(remaining, 1f32 - hit.time), hit.normal);
-        count = count + 1u32;
+        drone.position = motion.position;
     }
+    if motion.status != 0u32 {
+        game_collision_failure(motion);
+    }
+    drone.velocity = motion.velocity;
+}
+fn game_collision_spawn(collision: read CollisionScene, trial: read Trial) -> bool {
+    if !collision_position_valid(
+        read collision,
+        trial.drone.world,
+        trial.drone.position,
+        DRONE_RADIUS
+    ) {
+        return error("drone spawn intersects collision geometry");
+    }
+    if trial.expedition.has_parked && !collision_position_valid(
+        read collision,
+        1u32,
+        trial.expedition.parked,
+        DRONE_RADIUS
+    ) {
+        return error("saved drone intersects collision geometry");
+    }
+    return true;
 }

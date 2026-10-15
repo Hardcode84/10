@@ -1,0 +1,79 @@
+fn collision_contacts_instance(
+    scene: read CollisionScene,
+    index: u32,
+    p: Vec3,
+    radius: f32,
+    skin: f32,
+    planes: mut CollisionPlanes
+) -> bool {
+    var item: CollisionInstance = collision_instance(read scene, index);
+    var local: Vec3 = collision_local(item.basis, sub(p, item.origin));
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    var i: u32 = item.root;
+    while i < item.end {
+        var node: CollisionNode = collision_node(read scene, i);
+        if !collision_aabb(local, still, radius + skin * 2f32, node.low, node.high) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 {
+                var f: CollisionFace = collision_face(read scene, item.first + node.leaf);
+                var proximity: CollisionProximity = collision_proximity(f, local);
+                var distance: f32 = proximity.distance;
+                if distance <= radius + skin * 2f32 {
+                    var n: Vec3 = proximity.normal;
+                    var plane: CollisionPlane = make CollisionPlane {
+                        normal: collision_normal(basis_vector(item.basis, n)),
+                        offset: radius + skin - distance
+                    };
+                    if !collision_plane_add(mut planes, plane) {
+                        return false;
+                    }
+                }
+            }
+            i = i + 1u32;
+        }
+    }
+    return true;
+}
+fn collision_contacts(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    radius: f32,
+    skin: f32,
+    planes: mut CollisionPlanes
+) -> bool {
+    collision_planes_clear(mut planes);
+    var range: CollisionSpace = collision_space(read scene, space);
+    var i: u32 = range.root;
+    while i < range.end {
+        var node: CollisionNode = collision_node(read scene, i);
+        if !collision_aabb(
+            p,
+            vec(0f32, 0f32, 0f32),
+            radius + skin * 2f32,
+            node.low,
+            node.high
+        ) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 && !collision_contacts_instance(
+                read scene,
+                node.leaf,
+                p,
+                radius,
+                skin,
+                mut planes
+            ) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+    }
+    return true;
+}
+fn collision_tolerance(p: Vec3, radius: f32) -> f32 {
+    var size: f32 = clamp(absf(p.x), absf(p.y), 3.4028234e38f32);
+    size = clamp(size, absf(p.z), 3.4028234e38f32);
+    return radius * 0.00002f32 + size * 0.0000005f32;
+}

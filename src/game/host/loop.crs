@@ -128,7 +128,10 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
         return 1i32;
     }
     loop.trial.full_spin = game_initial_spin(read session);
-    if !game_restore(mut session, mut loop.trial) {
+    if !game_restore(mut session, mut loop.trial) || !game_collision_spawn(
+        read collision,
+        read loop.trial
+    ) {
         return 1i32;
     }
     {

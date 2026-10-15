@@ -79,6 +79,8 @@ fn build_game_tests(root: *CrustRun) -> bool {
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + game_providers(root, &providers[provider_count]);
+    sources[source_count] = host_path(root, "tests/collision/motion.crs");
+    source_count = source_count + 1usize;
     sources[source_count] = host_path(root, "tests/collision/index.crs");
     source_count = source_count + 1usize;
     sources[source_count] = host_path(root, "tests/collision/scaling.crs");
@@ -121,7 +123,7 @@ fn build_game_tests(root: *CrustRun) -> bool {
     provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/render/visibility.crs");
     provider_count = provider_count + 1usize;
-    providers[provider_count] = host_path(root, "tests/game/check-host.crs");
+    providers[provider_count] = host_path(root, "tests/collision/check-host.crs");
     provider_count = provider_count + 1usize;
     return build_application(
         root,

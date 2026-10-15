@@ -1,0 +1,412 @@
+fn motion_plane(mesh: mut Mesh, normal: Vec3, centre: Vec3, extent: f32) -> bool {
+    var reference: Vec3 = vec(0f32, 0f32, 1f32);
+    if absf(normal.z) > 0.9f32 {
+        reference = vec(0f32, 1f32, 0f32);
+    }
+    var a: Vec3 = scale(collision_normal(cross(normal, reference)), extent);
+    var b: Vec3 = scale(collision_normal(cross(normal, a)), extent);
+    return collision_test_quad(
+        mut mesh,
+        sub(sub(centre, a), b),
+        add(sub(centre, b), a),
+        add(add(centre, a), b),
+        add(sub(centre, a), b),
+        normal
+    );
+}
+fn motion_fixture(
+    mesh: read Mesh,
+    scene: mut CollisionScene,
+    basis: Basis,
+    origin: Vec3,
+    solid_volume: bool
+) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var good: bool = true;
+    if solid_volume {
+        good = collision_append_solid(mut builder, read mesh, 17u32, origin, basis);
+    } else {
+        good = collision_append(mut builder, read mesh, 17u32, origin, basis);
+    }
+    if !good {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn test_motion_rest(scale_factor: f32, origin: Vec3, basis: Basis) -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var radius: f32 = COLLISION_TEST_RADIUS * scale_factor;
+    if !motion_plane(
+        mut mesh,
+        vec(0f32, 1f32, 0f32),
+        vec(0f32, 0f32, 0f32),
+        10f32 * scale_factor
+    ) || !motion_fixture(read mesh, mut scene, basis, origin, false) {
+        return false;
+    }
+    var p: Vec3 = add(
+        origin,
+        basis_vector(basis, vec(0f32, 0.1f32 * scale_factor, 0f32))
+    );
+    var v: Vec3 = vec(0f32, 0f32, 0f32);
+    var first: CollisionMotion = collision_move(read scene, 17u32, p, v, v, radius);
+    if !game_check(
+        first.status == 0u32 && collision_position_valid(
+            read scene,
+            17u32,
+            first.position,
+            radius
+        ),
+        "stationary surface overlap was not resolved"
+    ) {
+        return false;
+    }
+    p = first.position;
+    var i: u32 = 0u32;
+    while i < 200u32 {
+        var next: CollisionMotion = collision_move(read scene, 17u32, p, v, v, radius);
+        if !game_check(
+            next.status == 0u32 && collision_equal(next.position, p),
+            "resting contact drifts"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var travel: Vec3 = basis_vector(basis, vec(scale_factor, 0f32, 0f32));
+    var slide: CollisionMotion = collision_move(read scene, 17u32, p, travel, travel, radius);
+    return game_check(
+        slide.status == 0u32 && length(sub(slide.position, add(p, travel))) < collision_tolerance(
+            p,
+            radius
+        ) * 4f32,
+        "coplanar seam blocked tangent travel"
+    );
+}
+fn test_motion_corner(slope: f32) -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var n: Vec3 = collision_normal(vec(-1f32, slope, 0f32));
+    var a: Vec3 = vec(1f32, 0f32, 0f32);
+    if !motion_plane(mut mesh, a, vec(0f32, 0f32, 0f32), 100f32 / slope) || !motion_plane(
+        mut mesh,
+        n,
+        vec(0f32, 0f32, 0f32),
+        100f32 / slope
+    ) || !motion_fixture(
+        read mesh,
+        mut scene,
+        identity_basis(),
+        vec(0f32, 0f32, 0f32),
+        false
+    ) {
+        return false;
+    }
+    var travel: Vec3 = vec(0f32, -4f32 / slope, 7f32);
+    var motion: CollisionMotion = collision_move(
+        read scene,
+        17u32,
+        vec(1f32, 2f32 / slope, 0f32),
+        travel,
+        travel,
+        COLLISION_TEST_RADIUS
+    );
+    return game_check(
+        motion.status == 0u32 && collision_test_near(motion.position.z, 7f32, 0.0001f32) && dot(
+            motion.position,
+            a
+        ) >= COLLISION_TEST_RADIUS - 0.0001f32 && dot(motion.position, n) >= COLLISION_TEST_RADIUS - 0.0001f32 && absf(
+            motion.velocity.x
+        ) < 0.0001f32 && absf(motion.velocity.y) < 0.0001f32,
+        "acute corner must retain motion along its crease"
+    );
+}
+fn test_motion_conflict() -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var n: Vec3 = vec(0f32, 1f32, 0f32);
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !motion_plane(mut mesh, n, vec(0f32, -0.2f32, 0f32), 10f32) || !motion_plane(
+        mut mesh,
+        n,
+        vec(0f32, 0.2f32, 0f32),
+        10f32
+    ) || !motion_fixture(read mesh, mut scene, identity_basis(), still, false) {
+        return false;
+    }
+    var result: CollisionMotion = collision_move(
+        read scene,
+        17u32,
+        still,
+        vec(0f32, 0f32, 5f32),
+        still,
+        COLLISION_TEST_RADIUS
+    );
+    return game_check(
+        result.status == 2u32 && result.remaining.z == 5f32 && result.contact.space == 17u32 && result.contact.instance == 0u32 && result.contact.surface != 0xffffffffu32,
+        "conflicting overlap must report its contact and preserve travel"
+    );
+}
+fn test_motion_volume() -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var basis: Basis = collision_test_basis();
+    var origin: Vec3 = vec(100f32, -40f32, 30f32);
+    if !collision_test_box(
+        mut mesh,
+        vec(-3f32, -3f32, -3f32),
+        vec(3f32, 3f32, 3f32)
+    ) || !motion_fixture(read mesh, mut scene, basis, origin, true) {
+        return false;
+    }
+    var travel: Vec3 = vec(0f32, 1f32, 0f32);
+    var motion: CollisionMotion = collision_move(
+        read scene,
+        17u32,
+        origin,
+        travel,
+        travel,
+        COLLISION_TEST_RADIUS
+    );
+    return game_check(
+        motion.status == 4u32 && motion.contact.instance == 0u32 && collision_equal(
+            motion.position,
+            origin
+        ) && collision_equal(motion.remaining, travel) && !collision_position_valid(
+            read scene,
+            17u32,
+            origin,
+            COLLISION_TEST_RADIUS
+        ) && collision_position_valid(read scene, 18u32, origin, COLLISION_TEST_RADIUS) && collision_position_valid(
+            read scene,
+            17u32,
+            add(origin, basis_vector(basis, vec(4f32, 0f32, 0f32))),
+            COLLISION_TEST_RADIUS
+        ),
+        "solid containment must reject embedded states in the correct space"
+    );
+}
+fn test_motion_elbow() -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !collision_test_elbow(mut mesh) || !motion_fixture(
+        read mesh,
+        mut scene,
+        identity_basis(),
+        still,
+        false
+    ) {
+        return false;
+    }
+    var travel: Vec3 = vec(0f32, 20f32, 0f32);
+    var result: CollisionMotion = collision_move(
+        read scene,
+        17u32,
+        vec(4f32, 0.1f32, 0f32),
+        travel,
+        travel,
+        COLLISION_TEST_RADIUS
+    );
+    puts("C3 elbow contacts:");
+    print_number(result.contacts as i64);
+    if !game_check(
+        result.status == 0u32 && result.contacts > 4u32 && result.position.x < -5f32 && length(
+            result.remaining
+        ) == 0f32,
+        "elbow discarded valid travel after four contacts"
+    ) {
+        return false;
+    }
+    var p: Vec3 = vec(4.6f32, 0.3f32, 0f32);
+    var direction: f32 = 1f32;
+    var i: u32 = 0u32;
+    while i < 2400u32 {
+        if p.x < 0.6f32 {
+            direction = -1f32;
+        }
+        if p.y < 0.6f32 {
+            direction = 1f32;
+        }
+        travel = scale(collision_normal(vec(-p.y, p.x, 0f32)), direction * 0.02f32);
+        result = collision_move(read scene, 17u32, p, travel, travel, COLLISION_TEST_RADIUS);
+        if !game_check(
+            result.status == 0u32 && collision_position_valid(
+                read scene,
+                17u32,
+                result.position,
+                COLLISION_TEST_RADIUS
+            ) && length(sub(result.position, p)) > 0.015f32,
+            "repeated elbow sliding stopped or penetrated"
+        ) {
+            return false;
+        }
+        p = result.position;
+        i = i + 1u32;
+    }
+    return true;
+}
+fn test_collision_motion() -> bool {
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    return test_motion_rest(1f32, still, identity_basis()) && test_motion_rest(
+        0.01f32,
+        still,
+        collision_test_basis()
+    ) && test_motion_rest(
+        100f32,
+        vec(10000f32, -5000f32, 3000f32),
+        collision_test_basis()
+    ) && test_motion_corner(0.2f32) && test_motion_corner(0.00005f32) && test_motion_conflict() && test_motion_volume() && test_motion_elbow() && test_motion_overlap_cases();
+}
+fn test_motion_three_planes() -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !motion_plane(mut mesh, vec(1f32, 0f32, 0f32), still, 10f32) || !motion_plane(
+        mut mesh,
+        vec(0f32, 1f32, 0f32),
+        still,
+        10f32
+    ) || !motion_plane(mut mesh, vec(0f32, 0f32, 1f32), still, 10f32) || !motion_fixture(
+        read mesh,
+        mut scene,
+        identity_basis(),
+        still,
+        false
+    ) {
+        return false;
+    }
+    var result: CollisionMotion = collision_move(
+        read scene,
+        17u32,
+        vec(0.1f32, 0.1f32, 0.1f32),
+        still,
+        still,
+        COLLISION_TEST_RADIUS
+    );
+    return game_check(
+        result.status == 0u32 && result.position.x >= COLLISION_TEST_RADIUS && result.position.y >= COLLISION_TEST_RADIUS && result.position.z >= COLLISION_TEST_RADIUS && collision_position_valid(
+            read scene,
+            17u32,
+            result.position,
+            COLLISION_TEST_RADIUS
+        ),
+        "three-plane overlap needs a simultaneous separation"
+    );
+}
+fn test_motion_blocked_recovery() -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !motion_plane(mut mesh, vec(1f32, 0f32, 0f32), still, 10f32) || !motion_plane(
+        mut mesh,
+        collision_normal(vec(-1f32, 0.2f32, 0f32)),
+        still,
+        10f32
+    ) || !motion_plane(mut mesh, vec(0f32, 1f32, 0f32), vec(0f32, 2f32, 0f32), 10f32) || !motion_fixture(
+        read mesh,
+        mut scene,
+        identity_basis(),
+        still,
+        false
+    ) {
+        return false;
+    }
+    var result: CollisionMotion = collision_move(
+        read scene,
+        17u32,
+        vec(0.1f32, 1f32, 0f32),
+        still,
+        still,
+        COLLISION_TEST_RADIUS
+    );
+    return game_check(
+        result.status == 5u32 && result.contact.surface >= 4u32 && result.position.y < 2f32,
+        "overlap recovery crossed a separate wall"
+    );
+}
+fn test_motion_many_planes() -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    var i: u32 = 0u32;
+    while i < 12u32 {
+        var angle: f32 = i as f32 * 6.283185307f32 / 12f32;
+        var n: Vec3 = vec(cosf(angle), sinf(angle), 0f32);
+        if !motion_plane(mut mesh, n, scale(n, 0.2f32), 10f32) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if !motion_fixture(read mesh, mut scene, identity_basis(), still, false) {
+        return false;
+    }
+    var result: CollisionMotion = collision_move(
+        read scene,
+        17u32,
+        still,
+        still,
+        still,
+        COLLISION_TEST_RADIUS
+    );
+    return game_check(
+        result.status == 2u32,
+        "more than eight contact planes must grow storage and report the conflict"
+    );
+}
+fn test_motion_solid_contract() -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !motion_plane(mut mesh, vec(0f32, 1f32, 0f32), still, 10f32) {
+        return false;
+    }
+    if !game_check(
+        !motion_fixture(read mesh, mut scene, identity_basis(), still, true),
+        "an open mesh was accepted as a solid"
+    ) {
+        return false;
+    }
+    var cube_mesh: Mesh = mesh_new();
+    if !collision_test_box(
+        mut cube_mesh,
+        vec(-3f32, -3f32, -3f32),
+        vec(3f32, 3f32, 3f32)
+    ) || !motion_fixture(read cube_mesh, mut scene, identity_basis(), still, false) {
+        return false;
+    }
+    return game_check(
+        collision_position_valid(read scene, 17u32, still, COLLISION_TEST_RADIUS),
+        "closed room surfaces were mistaken for filled volume"
+    );
+}
+fn test_motion_overlap_cases() -> bool {
+    return test_motion_concave_volume() && test_motion_three_planes() && test_motion_blocked_recovery() && test_motion_many_planes() && test_motion_solid_contract();
+}
+fn test_motion_concave_volume() -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var basis: Basis = collision_test_basis();
+    var origin: Vec3 = vec(200f32, -100f32, 50f32);
+    if !collision_test_elbow(mut mesh) || !collision_test_elbow_cap(mut mesh, 0u32) || !collision_test_elbow_cap(
+        mut mesh,
+        12u32
+    ) || !motion_fixture(read mesh, mut scene, basis, origin, true) {
+        return false;
+    }
+    var inside: Vec3 = add(
+        origin,
+        basis_vector(basis, vec(2.828427125f32, 2.828427125f32, 0f32))
+    );
+    var outside: Vec3 = add(origin, basis_vector(basis, vec(1f32, 1f32, 0f32)));
+    return game_check(
+        !collision_position_valid(read scene, 17u32, inside, COLLISION_TEST_RADIUS) && collision_position_valid(
+            read scene,
+            17u32,
+            outside,
+            COLLISION_TEST_RADIUS
+        ),
+        "concave solid containment must follow the mesh, not its bounds"
+    );
+}

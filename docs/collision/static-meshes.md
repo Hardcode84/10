@@ -16,7 +16,8 @@ Do not submit a renderer portal surface as a solid collision surface.
 `CollisionScene` owns local triangles, static instance records, and a
 [spatial index](spatial-index.md). The root
 session owns the scene. Simulation and prediction receive checked read borrows.
-They do not allocate, rebuild geometry, or access a global collision cache.
+Surface queries do not allocate, rebuild geometry, or access a global collision
+cache. The motion solver owns separate contact storage.
 The native provider owns allocation and exposes value records to checked code.
 
 `collision_append` copies a mesh into a `CollisionBuilder` and appends an
@@ -34,7 +35,7 @@ The game builds room panels, solids, and pipe surfaces before simulation starts.
 The build records shared coplanar edges from equal construction coordinates.
 An edge is internal only when its adjacent triangles cover opposite sides of
 that edge in the same plane. Internal edges do not produce capsule contacts.
-Boundary edges and non-coplanar edges remain contact features. Duplicate or
+Boundary edges and non-coplanar edges remain contact features. For surface instances, duplicate or
 non-manifold surfaces are treated as a union of two-sided triangle surfaces;
 they do not define an inside volume.
 
@@ -64,11 +65,9 @@ the travel line to avoid subtracting large squared terms at high speed.
 Instance bounds reject a query before triangle tests. Both query endpoints
 remain part of the continuous interval; high speed does not skip a thin wall.
 
-The surface contract does not infer solid volume. A sphere fully inside a closed
-shell can be clear of every triangle. Spawn and reload must provide a valid
-position until C3 adds volume classification and a multi-contact recovery rule.
-Movement uses the reported overlap depth, but its four-contact slide loop is
-still the C3 solver. This change does not claim general overlap recovery.
+The surface query does not infer solid volume. C3 adds explicit solid instances,
+volume classification, and a contact-set motion solver. See [sphere motion](motion.md)
+for spawn validation, overlap recovery, and failure handling.
 
 ## Rooms and portals
 

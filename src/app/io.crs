@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: Apache-2.0
+
+extern fn exit(status: i32) -> unit = "exit";
+extern fn puts(text: *u8) -> i32 = "puts";
+extern fn memset(bytes: *u8, value: i32, size: usize) -> *u8 = "memset";
+extern fn memcmp(left: *u8, right: *u8, size: usize) -> i32 = "memcmp";
+extern fn malloc(size: usize) -> *u8 = "malloc";
+extern fn memcpy(dest: *u8, source: *u8, size: usize) -> *u8 = "memcpy";
+extern fn free(bytes: *u8) -> unit = "free";
+
+fn zero(bytes: *u8, size: usize) -> unit {
+    memset(bytes, 0i32, size);
+}
+
+fn error(message: *u8) -> bool {
+    puts(message);
+    return false;
+}
+
+fn print_number(value: i64) -> unit {
+    var buffer: [u8; 22] = uninit;
+    var index: usize = 21usize;
+    buffer[index] = 0u8;
+    var number: u64 = value as u64;
+    if value < 0i64 {
+        number = 0u64 - number;
+    }
+    while true {
+        index = index - 1usize;
+        buffer[index] = (number % 10u64) as u8 + 48u8;
+        number = number / 10u64;
+        if number == 0u64 {
+            break;
+        }
+    }
+    if value < 0i64 {
+        index = index - 1usize;
+        buffer[index] = 45u8;
+    }
+    puts(&buffer[index]);
+}
