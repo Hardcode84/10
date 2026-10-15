@@ -44,7 +44,9 @@ fn review_material_capacity(session: mut GameSession, config: GameConfig) -> boo
         var input: FrameInput = renderer_inputs(mut renderer);
         game_scene(mut input, read trial, config);
         input_set_word(mut input, OVERLAY_ENABLED as usize, 0u32);
-        var material: u32 = MAX_MATERIALS - 1u32;
+        var material: u32 = GAME_MATERIALS - 1u32;
+        var texture: u32 = app_texture(read input, material);
+        var palette: u32 = app_palette(read input);
         var i: u32 = 0u32;
         while i < input_word(read input, 3usize) {
             input_set_word(mut input, (META + i * 4u32 + 1u32) as usize, material);
@@ -52,20 +54,12 @@ fn review_material_capacity(session: mut GameSession, config: GameConfig) -> boo
         }
         i = 0u32;
         while i < 64u32 {
-            input_set_word(
-                mut input,
-                (MATERIAL_TEXTURE + material * 64u32 + i) as usize,
-                3u32
-            );
+            input_texel(mut input, texture + i, 255u32);
             i = i + 1u32;
         }
         i = 0u32;
         while i < 512u32 {
-            input_set_word(
-                mut input,
-                (LIT_PALETTE + (material * 4u32 + 3u32) * 512u32 + i) as usize,
-                0xff5173b9u32
-            );
+            input_asset_set(mut input, palette + 255u32 * LIGHT_STATES + i, 0xff5173b9u32);
             i = i + 1u32;
         }
     }

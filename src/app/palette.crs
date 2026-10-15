@@ -8,3 +8,36 @@ fn palette_entry(base: u32, shade: u32, state: u32, full_bright: bool) -> u32 {
     var b: u32 = ((base >> 16u32) & 255u32) * shade / 255u32 * (light / 64u32) / 7u32;
     return r | (g << 8u32) | (b << 16u32) | 0xff000000u32;
 }
+// The current demo assets share one palette and use one 8 by 8 tile per material.
+fn app_assets(v: mut FrameInput, count: u32) -> unit {
+    if !input_assets(mut v, count, count * 64u32 + PALETTE_COLORS * LIGHT_STATES) {
+        scene_overflow();
+        return;
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        var material: Material = make Material {
+            texture: count * MATERIAL_WORDS + i * 64u32,
+            width: 8u32,
+            height: 8u32,
+            stride: 8u32,
+            palette: count * (MATERIAL_WORDS + 64u32),
+            style: 0u32,
+            unlit: 0u32,
+            address_u: ADDRESS_REPEAT,
+            address_v: ADDRESS_REPEAT,
+            transparent_index: i * 4u32
+        };
+        if !input_material(mut v, i, material) {
+            scene_overflow();
+            return;
+        }
+        i = i + 1u32;
+    }
+}
+fn app_texture(v: read FrameInput, mat: u32) -> u32 {
+    return input_asset_word(read v, mat * MATERIAL_WORDS);
+}
+fn app_palette(v: read FrameInput) -> u32 {
+    return input_asset_word(read v, 4u32);
+}

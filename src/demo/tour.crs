@@ -341,8 +341,9 @@ fn light_band_scene(v: mut FrameInput) -> unit {
     input_set_word(mut v, LIGHT_COUNT as usize, 1u32);
     tour_light(mut v, 0u32, 0u32, 0f32, 0f32, 3.8f32, 25f32, 1f32, 1f32, 1f32);
     var i: u32 = 0u32;
+    var texture: u32 = app_texture(read v, 0u32);
     while i < 64u32 {
-        input_set_word(mut v, (MATERIAL_TEXTURE + i) as usize, 0u32);
+        input_texel(mut v, texture + i, 0u32);
         i = i + 1u32;
     }
     tour_face(mut v, 0u32, 0u32, 2u32, 4f32, -10f32, 10f32, -10f32, 10f32);

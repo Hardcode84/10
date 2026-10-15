@@ -3,7 +3,7 @@ fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
     var clip: u64 = projected + capacity as u64 * v -> view_capacity as u64 * MAX_FAN as u64 * 20u64;
     var floats: u64 = (clip + capacity as u64 * v -> view_capacity as u64 * 144u64 + 64u64) / 64u64 * 64u64 - 1u64;
     var words: u64 = (
-        META as u64 + capacity as u64 * (4u64 + v -> view_capacity as u64 * MAX_FAN as u64) + 64u64
+        META as u64 + capacity as u64 * (4u64 + v -> view_capacity as u64 * MAX_FAN as u64) + v -> asset_capacity as u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
     if (words + 1u64) * 4u64 > v -> storage_limit as u64 || (floats + 1u64) * 4u64 > v -> storage_limit as u64 {
         return error("geometry storage exceeds device maxStorageBufferRange");
@@ -20,6 +20,7 @@ fn geometry_header(v: *Vulkan) -> unit {
     w[PROJECTED_OFFSET as usize] = GEOMETRY + capacity * 15u32;
     w[CLIP_OFFSET as usize] = w[PROJECTED_OFFSET as usize] + capacity * v -> view_capacity * MAX_FAN * 20u32;
     w[COMPACT_OFFSET as usize] = META + capacity * 4u32;
+    w[ASSET_OFFSET as usize] = w[COMPACT_OFFSET as usize] + capacity * v -> view_capacity * MAX_FAN;
     w[WORD_COUNT as usize] = v -> words;
     w[FLOAT_COUNT as usize] = v -> floats;
 }
@@ -36,6 +37,11 @@ fn geometry_copy(v: *Vulkan, old: *Vulkan) -> unit {
         (GEOMETRY as usize + old -> triangle_capacity as usize * 15usize) * 4usize
     );
     geometry_header(v);
+    memcpy(
+        v -> mapped + (v -> mapped as *u32)[ASSET_OFFSET as usize] as isize * 4isize,
+        old -> mapped + (old -> mapped as *u32)[ASSET_OFFSET as usize] as isize * 4isize,
+        old -> asset_capacity as usize * 4usize
+    );
 }
 fn geometry_reserve(v: *Vulkan, required: u32) -> bool {
     if required <= v -> triangle_capacity {
@@ -53,6 +59,10 @@ fn geometry_reserve(v: *Vulkan, required: u32) -> bool {
     if !geometry_layout(&next, capacity) {
         return false;
     }
+    return storage_replace(v, &next);
+}
+fn storage_replace(v: *Vulkan, planned: *Vulkan) -> bool {
+    var next: Vulkan = *planned;
     next.buffer = null(*u8);
     next.memory = null(*u8);
     next.staging = null(*u8);
@@ -73,10 +83,10 @@ fn geometry_reserve(v: *Vulkan, required: u32) -> bool {
 }
 fn geometry_limit(v: *Vulkan) -> u32 {
     var elements: u64 = (v -> storage_limit as u64 / 256u64) * 64u64 - 1u64;
-    if elements <= META as u64 {
+    if elements <= META as u64 + v -> asset_capacity as u64 {
         return 0u32;
     }
-    var word_limit: u64 = (elements - META as u64) / (
+    var word_limit: u64 = (elements - META as u64 - v -> asset_capacity as u64) / (
         4u64 + v -> view_capacity as u64 * MAX_FAN as u64
     );
     var float_limit: u64 = (elements - GEOMETRY as u64) / (

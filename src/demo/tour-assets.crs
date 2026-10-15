@@ -79,9 +79,12 @@ fn tour_full_bright(mat: u32, tex: u32) -> bool {
     return (mat == 7u32 || mat == 12u32) && tex == 3u32;
 }
 fn tour_palettes(v: mut FrameInput) -> unit {
+    app_assets(mut v, 16u32);
+    var palette: u32 = app_palette(read v);
     var mat: u32 = 0u32;
     while mat < 16u32 {
         var base: u32 = tour_base(mat);
+        var texture: u32 = app_texture(read v, mat);
         var tex: u32 = 0u32;
         while tex < 4u32 {
             var shade: u32 = 120u32 + tex * 45u32;
@@ -95,9 +98,9 @@ fn tour_palettes(v: mut FrameInput) -> unit {
                 if full_bright {
                     color = 0xe8ba32u32;
                 }
-                input_set_word(
+                input_asset_set(
                     mut v,
-                    (LIT_PALETTE + (mat * 4u32 + tex) * 512u32 + state) as usize,
+                    palette + (mat * 4u32 + tex) * LIGHT_STATES + state,
                     palette_entry(color, shade, state, full_bright)
                 );
                 state = state + 1u32;
@@ -106,18 +109,18 @@ fn tour_palettes(v: mut FrameInput) -> unit {
         }
         tex = 0u32;
         while tex < 64u32 {
-            input_set_word(
+            input_texel(
                 mut v,
-                (MATERIAL_TEXTURE + mat * 64u32 + tex) as usize,
-                tour_texel(mat, tex % 8u32, tex / 8u32)
+                texture + tex,
+                mat * 4u32 + tour_texel(mat, tex % 8u32, tex / 8u32)
             );
             tex = tex + 1u32;
         }
-        input_set_float(mut v, (MATERIAL_LIGHT + mat * 4u32) as usize, 0f32);
+
         mat = mat + 1u32;
     }
-    input_set_float(mut v, (MATERIAL_LIGHT + 5u32 * 4u32) as usize, 1f32);
-    input_set_float(mut v, (MATERIAL_LIGHT + 6u32 * 4u32) as usize, 1f32);
+    input_asset_set(mut v, 5u32 * MATERIAL_WORDS + 6u32, 1u32);
+    input_asset_set(mut v, 6u32 * MATERIAL_WORDS + 6u32, 1u32);
 }
 fn tour_portal(
     v: mut FrameInput,

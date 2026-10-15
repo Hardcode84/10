@@ -2,6 +2,7 @@
 
 record Vulkan {
     timestamp_mask: u64;
+    asset_capacity: u32;
     words: u32;
     floats: u32;
     triangle_capacity: u32;

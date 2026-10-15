@@ -15,15 +15,15 @@ fn project_fan(scratch: u32, output: u32, count: u32, tri: u32) -> unit {
                 PROJECTION
             );
             var py: f32 = h - floats_load(src + 1u32) * iz * h / floats_load(PROJECTION);
-            if (words_load(MATERIAL_STYLE + words_load(META + tri * 4u32 + 1u32)) & 4u32) != 0u32 {
+            if (material_field(words_load(META + tri * 4u32 + 1u32), 5u32) & 4u32) != 0u32 {
                 px = ((px + 0.5f32) as i32) as f32;
                 py = ((py + 0.5f32) as i32) as f32;
             }
             floats_store(dst, px);
             floats_store(dst + 1u32, py);
             floats_store(dst + 2u32, iz);
-            floats_store(dst + 3u32, floats_load(src + 3u32) * iz);
-            floats_store(dst + 4u32, floats_load(src + 4u32) * iz);
+            floats_store(dst + 3u32, floats_load(src + 3u32));
+            floats_store(dst + 4u32, floats_load(src + 4u32));
             vertex = vertex + 1u32;
         }
         var p: u32 = output + fan * 20u32;

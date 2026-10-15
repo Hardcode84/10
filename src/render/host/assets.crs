@@ -1,0 +1,91 @@
+// Replaces the asset layout. Existing material and texture references become invalid.
+// The caller must fill all referenced words before submitting a frame.
+fn input_assets(input: mut FrameInput, materials: u32, payload_words: u32) -> bool {
+    var total: u64 = materials as u64 * MATERIAL_WORDS as u64 + payload_words as u64;
+    if total > 0xffffffffu64 {
+        return error("asset layout exceeds address range");
+    }
+    var next: Vulkan = input.storage;
+    if total > next.asset_capacity as u64 {
+        next.asset_capacity = total as u32;
+        if !geometry_layout(&next, next.triangle_capacity) || !storage_replace(
+            &input.storage,
+            &next
+        ) {
+            return false;
+        }
+    }
+    input_set_word(mut input, MATERIAL_COUNT as usize, materials);
+    input_set_word(mut input, ASSET_WORDS as usize, total as u32);
+    return true;
+}
+fn input_asset_word(input: read FrameInput, offset: u32) -> u32 {
+    if offset >= input_word(read input, ASSET_WORDS as usize) {
+        trap;
+    }
+    return input_word(
+        read input,
+        (input_word(read input, ASSET_OFFSET as usize) + offset) as usize
+    );
+}
+fn input_asset_set(input: mut FrameInput, offset: u32, value: u32) -> unit {
+    if offset >= input_word(read input, ASSET_WORDS as usize) {
+        trap;
+    }
+    input_set_word(
+        mut input,
+        (input_word(read input, ASSET_OFFSET as usize) + offset) as usize,
+        value
+    );
+}
+// Texture coordinates are normalized to this region. Stride is the source row width.
+// Repeat wraps each axis; clamp selects its nearest edge. Cutouts discard transparent_index.
+record Material {
+    texture: u32;
+    width: u32;
+    height: u32;
+    stride: u32;
+    palette: u32;
+    style: u32;
+    unlit: u32;
+    address_u: u32;
+    address_v: u32;
+    transparent_index: u32;
+}
+fn input_material(input: mut FrameInput, index: u32, material: Material) -> bool {
+    var end: u64 = material.texture as u64 + (material.height as u64 - 1u64) * material.stride as u64 + material.width as u64;
+    var words: u64 = input_word(read input, ASSET_WORDS as usize) as u64;
+    if index >= input_word(read input, MATERIAL_COUNT as usize) || material.width == 0u32 || material.height == 0u32 || material.stride < material.width || end > words {
+        return error("material texture region exceeds asset storage");
+    }
+    if material.palette as u64 + PALETTE_COLORS as u64 * LIGHT_STATES as u64 > words || material.address_u > ADDRESS_CLAMP || material.address_v > ADDRESS_CLAMP || material.transparent_index > 255u32 || material.style > 6u32 || (
+        material.style & 3u32
+    ) == 3u32 || material.unlit > 1u32 {
+        return error("invalid palette or material sampling mode");
+    }
+    var values: [u32; 10] = make [u32; 10] {
+        material.texture,
+        material.width,
+        material.height,
+        material.stride,
+        material.palette,
+        material.style,
+        material.unlit,
+        material.address_u,
+        material.address_v,
+        material.transparent_index
+    };
+    var i: u32 = 0u32;
+    while i < MATERIAL_WORDS {
+        input_asset_set(mut input, index * MATERIAL_WORDS + i, values[i as usize]);
+        i = i + 1u32;
+    }
+    return true;
+}
+// Stores one 8-bit palette index in a four-byte texture element.
+fn input_texel(input: mut FrameInput, offset: u32, index: u32) -> unit {
+    if index >= PALETTE_COLORS {
+        trap;
+    }
+    input_asset_set(mut input, offset, index);
+}

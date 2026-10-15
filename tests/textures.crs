@@ -1,0 +1,264 @@
+fn texture_pattern(x: u32, y: u32, width: u32, height: u32) -> u32 {
+    if x < 2u32 || x >= width + 2u32 || y == 0u32 || y > height {
+        return 247u32;
+    }
+    if x == width + 1u32 {
+        return 255u32;
+    }
+    return ((x - 2u32) * 17u32 + (y - 1u32) * 31u32) % 256u32;
+}
+fn texture_dimensions(index: u32, axis: u32) -> u32 {
+    if index == 3u32 {
+        if axis == 0u32 {
+            return 3u32;
+        }
+        return 11u32;
+    }
+    if index == 4u32 {
+        if axis == 0u32 {
+            return 257u32;
+        }
+        return 129u32;
+    }
+    if index == 5u32 {
+        if axis == 0u32 {
+            return 1u32;
+        }
+        return 17u32;
+    }
+    if axis == 0u32 {
+        return 13u32;
+    }
+    return 7u32;
+}
+fn texture_assets(v: mut FrameInput, index: u32) -> unit {
+    var width: u32 = texture_dimensions(index, 0u32);
+    var height: u32 = texture_dimensions(index, 1u32);
+    var stride: u32 = width + 4u32;
+    var texture: u32 = 32u32 * MATERIAL_WORDS;
+    var palette: u32 = texture + stride * (height + 2u32);
+    if !input_assets(mut v, 32u32, stride * (height + 2u32) + PALETTE_COLORS * LIGHT_STATES) {
+        scene_overflow();
+        return;
+    }
+    var i: u32 = 0u32;
+    while i < stride * (height + 2u32) {
+        input_texel(
+            mut v,
+            texture + i,
+            texture_pattern(i % stride, i / stride, width, height)
+        );
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < PALETTE_COLORS * LIGHT_STATES {
+        var color: u32 = i / LIGHT_STATES;
+        var rgb: u32 = color | (((color * 37u32) % 256u32) << 8u32) | (
+            ((color * 73u32) % 256u32) << 16u32
+        );
+        input_asset_set(
+            mut v,
+            palette + i,
+            palette_entry(rgb, 255u32, i % LIGHT_STATES, color >= 248u32)
+        );
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 32u32 {
+        var mode: u32 = ADDRESS_REPEAT;
+        if index == 1u32 || index == 7u32 {
+            mode = ADDRESS_CLAMP;
+        }
+        var m: Material = make Material {
+            texture: texture + stride + 2u32,
+            width: width,
+            height: height,
+            stride: stride,
+            palette: palette,
+            style: 0u32,
+            unlit: 0u32,
+            address_u: mode,
+            address_v: mode,
+            transparent_index: 0u32
+        };
+        if index == 8u32 {
+            m.style = 1u32;
+        }
+        if index == 9u32 {
+            m.style = 2u32;
+        }
+        if index == 3u32 {
+            m.address_v = ADDRESS_CLAMP;
+        }
+        if index == 2u32 && i == 31u32 {
+            m.texture = m.texture + 3u32;
+            m.width = 5u32;
+            m.height = 3u32;
+        }
+        if !input_material(mut v, i, m) {
+            scene_overflow();
+            return;
+        }
+        i = i + 1u32;
+    }
+}
+fn texture_scene(v: mut FrameInput, index: u32) -> unit {
+    texture_assets(mut v, index);
+    if index == 7u32 && !texture_rejections(mut v) {
+        trap;
+    }
+    input_set_word(mut v, 3usize, 0u32);
+    input_set_word(mut v, 4usize, 0u32);
+    input_set_word(mut v, 20usize, 0u32);
+    input_set_word(mut v, 2usize, index % 2u32);
+    input_set_word(mut v, LIGHT_MODEL as usize, 1u32);
+    input_set_word(mut v, LIGHT_COUNT as usize, 0u32);
+    input_set_word(mut v, BACKGROUND as usize, 0xff182022u32);
+    input_set_float(mut v, CAMERA_LIGHT as usize, 0f32);
+    input_set_float(mut v, SPACE_LIGHT as usize, 0.47f32);
+    input_set_float(mut v, (SPACE_LIGHT + 1u32) as usize, 0.7f32);
+    input_set_float(mut v, (SPACE_LIGHT + 2u32) as usize, 0.9f32);
+    var i: u32 = 0u32;
+    while i < 12u32 {
+        var value: f32 = 0f32;
+        if i == 0u32 || i == 5u32 || i == 10u32 {
+            value = 1f32;
+        }
+        input_set_float(mut v, i as usize, value);
+        i = i + 1u32;
+    }
+    var low: f32 = -1.2f32;
+    var high: f32 = 2.4f32;
+    if index == 6u32 {
+        low = -16777216f32;
+        high = -16777216f32;
+    }
+    if index == 7u32 {
+        low = 17f32;
+        high = 32f32;
+    }
+    if index == 8u32 {
+        low = 1f32;
+        high = 1f32;
+    }
+    if index == 9u32 {
+        low = -1f32;
+        high = -1f32;
+    }
+    if index == 10u32 {
+        low = -0.25f32;
+        high = -0.25f32;
+    }
+    triangle_uv(
+        mut v,
+        0u32,
+        1u32,
+        0u32,
+        0u32,
+        -6f32,
+        -4f32,
+        3f32,
+        6f32,
+        -4f32,
+        5f32,
+        6f32,
+        4f32,
+        5f32,
+        low,
+        high,
+        high,
+        high,
+        high,
+        low
+    );
+    triangle_uv(
+        mut v,
+        0u32,
+        31u32,
+        0u32,
+        0u32,
+        -6f32,
+        -4f32,
+        3f32,
+        6f32,
+        4f32,
+        5f32,
+        -6f32,
+        4f32,
+        3f32,
+        low,
+        high,
+        high,
+        low,
+        low,
+        low
+    );
+    if index < 6u32 {
+        triangle_uv(
+            mut v,
+            0u32,
+            31u32,
+            0u32,
+            1u32,
+            -2f32,
+            -1f32,
+            2f32,
+            2f32,
+            -1f32,
+            2f32,
+            0f32,
+            2f32,
+            1f32,
+            -0.3f32,
+            0.7f32,
+            1.2f32,
+            0.9f32,
+            0.4f32,
+            -0.2f32
+        );
+    }
+}
+fn texture_rejections(v: mut FrameInput) -> bool {
+    var texture: u32 = input_asset_word(read v, 0u32);
+    var palette: u32 = input_asset_word(read v, 4u32);
+    var m: Material = make Material {
+        texture: texture,
+        width: 13u32,
+        height: 7u32,
+        stride: 17u32,
+        palette: palette,
+        style: 0u32,
+        unlit: 0u32,
+        address_u: ADDRESS_REPEAT,
+        address_v: ADDRESS_REPEAT,
+        transparent_index: 0u32
+    };
+    m.width = 0u32;
+    if input_material(mut v, 0u32, m) {
+        return false;
+    }
+    m.width = 13u32;
+    m.stride = 12u32;
+    if input_material(mut v, 0u32, m) {
+        return false;
+    }
+    m.stride = 17u32;
+    m.texture = 0xffffffffu32;
+    if input_material(mut v, 0u32, m) {
+        return false;
+    }
+    m.texture = texture;
+    m.palette = 0xffffffffu32;
+    if input_material(mut v, 0u32, m) {
+        return false;
+    }
+    m.palette = palette;
+    m.address_u = 2u32;
+    if input_material(mut v, 0u32, m) {
+        return false;
+    }
+    if input_assets(mut v, 32u32, 0xffffffffu32 - 32u32 * MATERIAL_WORDS) {
+        return false;
+    }
+    return input_asset_word(read v, 0u32) == texture && input_asset_word(read v, 4u32) == palette;
+}

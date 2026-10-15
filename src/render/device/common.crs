@@ -41,10 +41,7 @@ fn covered(ax: f32, ay: f32, bx: f32, by: f32, x: f32, y: f32) -> bool {
     return e > 0f32 || (e == 0f32 && top_left(ax, ay, bx, by));
 }
 fn light_color(mat: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
-    var tx: u32 = ((u * 8f32) as i32 as u32) & 7u32;
-    var ty: u32 = ((v * 8f32) as i32 as u32) & 7u32;
-    var tex: u32 = words_load(TEXTURE + tx + ty * 8u32);
-    var color: u32 = mat * 4u32 + tex;
+    var color: u32 = material_texel(mat, u, v);
     var light: f32 = floats_load(RENDER_STYLE + 2u32) - z * floats_load(RENDER_STYLE + 3u32);
     if light < floats_load(RENDER_STYLE + 1u32) {
         light = floats_load(RENDER_STYLE + 1u32);
@@ -53,7 +50,7 @@ fn light_color(mat: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
     if (light - level as f32) * 16f32 > threshold(x, y, words_load(2u32)) as f32 && level < 63u32 {
         level = level + 1u32;
     }
-    return words_load(PALETTE + color * 64u32 + level);
+    return words_load(material_palette(mat) + color * LIGHT_STATES + level);
 }
 
 fn light_normal(tri: u32, axis: u32) -> f32 {
@@ -171,7 +168,7 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
     return light_state(red, green, blue, mat);
 }
 fn light_state(red: f32, green: f32, blue: f32, mat: u32) -> u32 {
-    var emission: f32 = floats_load(MATERIAL_LIGHT + mat * 4u32);
+    var emission: f32 = material_field(mat, 6u32) as f32;
     return light_quantize(red + emission) + light_quantize(green + emission) * 8u32 + light_quantize(
         blue + emission
     ) * 64u32;
@@ -227,14 +224,43 @@ fn light_quantize(value: f32) -> u32 {
     }
     return (value * 7f32 + 0.5f32) as u32;
 }
-fn material_texel(mat: u32, u: f32, v: f32) -> u32 {
-    var tx: u32 = ((u * 8f32) as i32 as u32) & 7u32;
-    var ty: u32 = ((v * 8f32) as i32 as u32) & 7u32;
-    var base: u32 = TEXTURE;
-    if words_load(LIGHT_MODEL) == 1u32 {
-        base = MATERIAL_TEXTURE + mat * 64u32;
+fn material_field(mat: u32, field: u32) -> u32 {
+    return words_load(words_load(ASSET_OFFSET) + mat * MATERIAL_WORDS + field);
+}
+fn material_palette(mat: u32) -> u32 {
+    return words_load(ASSET_OFFSET) + material_field(mat, 4u32);
+}
+fn texture_axis(uv: f32, size: u32, mode: u32) -> u32 {
+    if mode == ADDRESS_CLAMP {
+        if uv <= 0f32 {
+            return 0u32;
+        }
+        if uv >= 1f32 {
+            return size - 1u32;
+        }
+    } else {
+        // All finite binary32 values at this magnitude are integers.
+        if uv >= 8388608f32 || uv <= -8388608f32 {
+            return 0u32;
+        }
+        var whole: f32 = (uv as i32) as f32;
+        if whole > uv {
+            whole = whole - 1f32;
+        }
+        uv = uv - whole;
     }
-    return words_load(base + tx + ty * 8u32);
+    var texel: u32 = (uv * size as f32) as u32;
+    if texel >= size {
+        return size - 1u32;
+    }
+    return texel;
+}
+fn material_texel(mat: u32, u: f32, v: f32) -> u32 {
+    var x: u32 = texture_axis(u, material_field(mat, 1u32), material_field(mat, 7u32));
+    var y: u32 = texture_axis(v, material_field(mat, 2u32), material_field(mat, 8u32));
+    return words_load(
+        words_load(ASSET_OFFSET) + material_field(mat, 0u32) + x + y * material_field(mat, 3u32)
+    );
 }
 fn surface_color(tri: u32, view: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
     var mat: u32 = words_load(META + tri * 4u32 + 1u32);
@@ -243,7 +269,7 @@ fn surface_color(tri: u32, view: u32, u: f32, v: f32, z: f32, x: u32, y: u32) ->
     }
     var state: u32 = lit_state(tri, view, x, y);
     return words_load(
-        LIT_PALETTE + (mat * 4u32 + material_texel(mat, u, v)) * 512u32 + state
+        material_palette(mat) + material_texel(mat, u, v) * LIGHT_STATES + state
     );
 }
 

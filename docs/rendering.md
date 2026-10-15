@@ -81,10 +81,10 @@ Lighting, fog, effects, UI, and borders can contribute additional colours. Keep
 their appearance consistent with the palette and dithering style. Output alpha
 is opaque.
 
-Palette sizes, light-state counts, and index widths are asset and shader-interface
-choices. Do not impose a fixed eight-bit width on all indices. Select GPU storage
-formats from the required range and measured bandwidth. Packed writes must have
-one owner per word.
+Each source palette has 256 colour entries. Texture indices are from zero
+through 255. Geometry, material, and storage indices are independent of this
+colour range. Select GPU storage formats from measured bandwidth and access
+cost. Packed writes must have one owner per word.
 
 Lighting and fog can use higher precision for intermediate calculations. Preserve
 discrete light levels in scene shading. Any enabled blending operation can work
@@ -403,12 +403,16 @@ unused ports remain closed. Drawing and collision use the same wall panels.
 The game builds these panels. The rendering core remains independent of room
 templates and mission rules.
 
-### Material table capacity
+### Material storage
 
-The current shared buffer supports `MAX_MATERIALS` (20) material records.
-Each material has 64 texture indices, four palettes of 512 colours, one style
-word, and four light values. The host uploads all records before dispatch.
-The game uses 19 records. Room appearance data stays in the game sources.
-The GPU review renders the last supported material and checks every output
-pixel against its supplied palette colour. This checks the upload boundary
-as well as texture and palette lookup.
+Material descriptors, texture data, and shared palette tables use dynamic
+storage. Each descriptor selects a texture region with its own dimensions and
+row stride. Textures need not be square or powers of two. Each vertex supplies
+its own normalized UV coordinates. Repeat wraps out-of-range coordinates,
+including negative values. Clamp is available per axis. Texture regions can
+refer to subregions of one atlas without copying texels.
+
+Each palette contains 256 colours with 512 light states per colour. Multiple
+materials can use the same table. The game uses 19 materials; the renderer has
+no fixed material count. Device memory and storage range bound the allocation.
+The [texture interface](textures.md) defines the host API and validation rules.

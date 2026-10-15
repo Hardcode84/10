@@ -158,8 +158,8 @@ fn test_room_content() -> bool {
 }
 fn test_content_materials() -> bool {
     if !game_check(
-        GAME_MATERIALS <= MAX_MATERIALS && MATERIAL_LIGHT + MAX_MATERIALS * 4u32 <= SPACE_LIGHT && MATERIAL_TEXTURE + MAX_MATERIALS * 64u32 <= LIT_PALETTE && LIT_PALETTE + MAX_MATERIALS * 2048u32 <= OVERLAY_CELLS,
-        "material tables must fit the shared buffer layout"
+        GAME_MATERIALS * 4u32 <= PALETTE_COLORS,
+        "game colour groups must fit their shared palette"
     ) {
         return false;
     }

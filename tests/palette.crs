@@ -1,3 +1,5 @@
+const PALETTE: u32 = 256u32;
+const TEXTURE: u32 = 64u32;
 fn palette_pixels(v: *Vulkan, mode: u32) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var good: bool = true;

@@ -8,16 +8,23 @@ fn terrain_height(x: f32, z: f32) -> f32 {
 extern fn sinf(x: f32) -> f32 foreign(scalar) = "sinf";
 extern fn cosf(x: f32) -> f32 foreign(scalar) = "cosf";
 fn palettes(v: mut FrameInput) -> unit {
-    var i: u32 = 0u32;
-    while i < 64u32 {
-        input_set_word(
-            mut v,
-            (TEXTURE + i) as usize,
-            ((i % 8u32) / 2u32 + (i / 8u32) / 2u32) % 4u32
-        );
-        i = i + 1u32;
+    app_assets(mut v, 16u32);
+    var palette: u32 = app_palette(read v);
+    var texture_material: u32 = 0u32;
+    while texture_material < 16u32 {
+        var texture: u32 = app_texture(read v, texture_material);
+        var texel: u32 = 0u32;
+        while texel < 64u32 {
+            input_texel(
+                mut v,
+                texture + texel,
+                texture_material * 4u32 + ((texel % 8u32) / 2u32 + (texel / 8u32) / 2u32) % 4u32
+            );
+            texel = texel + 1u32;
+        }
+        texture_material = texture_material + 1u32;
     }
-    i = 0u32;
+    var i: u32 = 0u32;
     while i < 64u32 {
         var mat: u32 = i / 4u32;
         var tex: u32 = i % 4u32;
@@ -49,9 +56,9 @@ fn palettes(v: mut FrameInput) -> unit {
         }
         var light: u32 = 0u32;
         while light < 64u32 {
-            input_set_word(
+            input_asset_set(
                 mut v,
-                (PALETTE + i * 64u32 + light) as usize,
+                palette + i * LIGHT_STATES + light,
                 (r * light / 63u32) | ((g * light / 63u32) << 8u32) | (
                     (b * light / 63u32) << 16u32
                 ) | 0xff000000u32

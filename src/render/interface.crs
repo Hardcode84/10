@@ -1,7 +1,13 @@
 // Shared buffer layout. All offsets and lengths count four-byte elements.
 const PIXELS: u32 = 8192u32;
-const PALETTE: u32 = 256u32;
-const TEXTURE: u32 = 64u32;
+const MATERIAL_COUNT: u32 = 47u32;
+const ASSET_OFFSET: u32 = 48u32;
+const ASSET_WORDS: u32 = 49u32;
+const MATERIAL_WORDS: u32 = 10u32;
+const PALETTE_COLORS: u32 = 256u32;
+const LIGHT_STATES: u32 = 512u32;
+const ADDRESS_REPEAT: u32 = 0u32;
+const ADDRESS_CLAMP: u32 = 1u32;
 const SCENE_CAPACITY: u32 = 41u32;
 const PROJECTED_OFFSET: u32 = 42u32;
 const CLIP_OFFSET: u32 = 43u32;
@@ -26,7 +32,6 @@ const LOCAL_SIZE: u32 = 64u32;
 const MAX_INVOCATIONS: u32 = 2097152u32;
 const WORDS_LENGTH: u32 = 16777216u32;
 const PRESENT_PIXELS: u32 = 5000000u32;
-const MATERIAL_STYLE: u32 = 2635200u32;
 const TASK_ERRORS: u32 = 2636000u32;
 const COMPACT_COUNT: u32 = 2790000u32;
 const TASK_PREFIX: u32 = 2900000u32;
@@ -41,16 +46,11 @@ const RENDER_STYLE: u32 = 16u32;
 // Light records contain local position, radius squared, RGB intensity, and space.
 const LIGHT_COUNT: u32 = 35u32;
 const LIGHT_MODEL: u32 = 36u32;
-const MAX_MATERIALS: u32 = 20u32;
 const MAX_LIGHTS: u32 = 8u32;
 const LIGHT_DATA: u32 = 704u32;
-const MATERIAL_LIGHT: u32 = 800u32;
 const SPACE_LIGHT: u32 = 880u32;
-const MATERIAL_TEXTURE: u32 = 2700000u32;
 // Camera light: radius squared (zero disables), followed by non-negative RGB intensity.
 const CAMERA_LIGHT: u32 = 1008u32;
-
-const LIT_PALETTE: u32 = 2702048u32;
 
 // Positive tangent of half the vertical field of view; setup defaults to 1.
 const PROJECTION: u32 = 20u32;

@@ -44,26 +44,27 @@ The scan cost still grows with the number of visible candidates per view.
 Before adding spatial indexing, measure a detailed room assembly against this
 complete scan and require equal coverage, depth, and cutout results.
 
-### R2. Texture and material storage — asset proof
+### R2. Texture and material storage — implemented
 
-[Texture lookup](../src/render/device/common.crs), in `material_texel`, assumes
-an 8 by 8 tile, masks coordinates with 7, and uses a 64-word stride.
-`surface_color` assumes four colour indices per material and 512 light states.
-The layout permits 20 materials; the game uses 19.
-[Scene UV generation](../src/game/scene.crs), in `surface_quad`, repeats a tile
-every four metres. Each solid face starts a new local mapping. Shell mapping
-uses world coordinates. Neither path exposes generated surface regions.
+Materials select a texture region, a shared 256-entry palette, and independent
+address modes for U and V. Each region has a word offset, width, height, and row
+stride. Width and height can differ and need not be powers of two. Asset storage
+grows with the submitted data and is bounded by device storage range and memory.
+There is no fixed material count or texture dimension limit.
 
-**Change:** add texture descriptors, explicit palette ranges, region UVs,
-and addressing rules. Separate texture identity from palette/light response.
-Support generated trim and unique regions at selected resolutions. A full
-256-colour by 512-state RGBA table costs 512 KiB; share tables by palette
-instead of duplicating one for each texture.
+Each triangle vertex has independent finite UV coordinates. Repeat uses the
+fractional part of each coordinate, including negative coordinates. Clamp selects
+the nearest region edge. The same sample rule applies to colour and cutout tests.
+The asset generator controls texel density and border UVs when geometry changes.
 
-**Check:** render non-square textures, atlas boundaries, the last supported
-colour index, repeated trims, and multiple textures sharing one palette.
-Change physical dimensions without stretching borders or changing texel size.
-Preserve full-bright behaviour and both dither patterns.
+Each palette has 256 colours and 512 light states. Textures can share the same
+table. A full-bright entry has one colour in every state; it emits no light.
+See the [texture interface](textures.md) for layout and submission rules.
+
+**Check:** `crust demo.crs --test 6` compares NPOT textures, atlas regions,
+repeat and clamp modes, independent vertex UVs, shared palettes, index 255,
+cutouts, full-bright entries, and both dither patterns with the CPU reference.
+It also checks invalid descriptors and device-range rejection.
 
 ### R3. Asset submission and visibility — asset proof, then room scale
 

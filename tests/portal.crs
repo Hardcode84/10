@@ -100,8 +100,18 @@ fn tour_visibility_check(v: *Vulkan) -> bool {
 fn full_bright_palette_check(w: *u32) -> bool {
     var state: u32 = 0u32;
     while state < 512u32 {
-        if w[(LIT_PALETTE + (7u32 * 4u32 + 3u32) * 512u32 + state) as usize] != 0xffe8ba32u32 || w[
-            (LIT_PALETTE + (12u32 * 4u32 + 3u32) * 512u32 + state) as usize
+        if w[
+            (
+                (
+                    w[ASSET_OFFSET as usize] + w[(w[ASSET_OFFSET as usize] + 4u32) as usize]
+                ) + (7u32 * 4u32 + 3u32) * 512u32 + state
+            ) as usize
+        ] != 0xffe8ba32u32 || w[
+            (
+                (
+                    w[ASSET_OFFSET as usize] + w[(w[ASSET_OFFSET as usize] + 4u32) as usize]
+                ) + (12u32 * 4u32 + 3u32) * 512u32 + state
+            ) as usize
         ] != 0xffe8ba32u32 {
             return error("full-bright pipe colour must be constant across all light states");
         }
@@ -188,7 +198,15 @@ fn light_band_check(v: *Vulkan) -> bool {
         var color: u32 = w[(PIXELS + pixel) as usize];
         var level: u32 = 0u32;
         while level < 8u32 {
-            if color == w[(LIT_PALETTE + level * 73u32) as usize] {
+            if color == w[
+                (
+                    (
+                        w[ASSET_OFFSET as usize] + w[
+                            (w[ASSET_OFFSET as usize] + 4u32) as usize
+                        ]
+                    ) + level * 73u32
+                ) as usize
+            ] {
                 mask = mask | (1u32 << level);
             }
             level = level + 1u32;
@@ -246,4 +264,31 @@ fn capacity_failure_check(v: *Vulkan) -> bool {
     return (v -> mapped == before && v -> triangle_capacity == capacity) || error(
         "failed geometry reservation changed the live allocation"
     );
+}
+fn texture_constant_check(v: *Vulkan, index: u32) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var expected: u32 = 0xff000000u32;
+    if index == 7u32 {
+        expected = 0xffb7dbffu32;
+    }
+    if index == 10u32 {
+        expected = 0xffb55e16u32;
+    }
+    var covered: u32 = 0u32;
+    var pixel: u32 = 0u32;
+    while pixel < w[0usize] * w[1usize] {
+        if w[(DEBUG_VALUES + pixel * 4u32) as usize] != 0xffffffffu32 {
+            if w[(PIXELS + pixel) as usize] != expected {
+                print_number(index as i64);
+                print_number(pixel as i64);
+                print_number(w[(PIXELS + pixel) as usize] as i64);
+                print_number(expected as i64);
+                print_number(w[(DEBUG_VALUES + pixel * 4u32 + 1u32) as usize] as i64);
+                return error("constant UV sample must match the exact palette colour");
+            }
+            covered = covered + 1u32;
+        }
+        pixel = pixel + 1u32;
+    }
+    return covered > 1000u32 || error("texture test must cover the output");
 }

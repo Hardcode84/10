@@ -251,26 +251,21 @@ fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
     vkCmdCopyBuffer(v -> commands, src, dst, 1u32, &copy);
 }
 fn upload_scene(v: *Vulkan) -> unit {
+    if v -> asset_capacity != 0u32 {
+        copy_region(
+            v,
+            v -> staging,
+            v -> buffer,
+            (1u64 + (v -> mapped as *u32)[ASSET_OFFSET as usize] as u64) * 4u64,
+            v -> asset_capacity as u64 * 4u64
+        );
+    }
     copy_region(
         v,
         v -> staging,
         v -> buffer,
         4u64 + OVERLAY_CELLS as u64 * 4u64,
         2024u64 * 4u64
-    );
-    copy_region(
-        v,
-        v -> staging,
-        v -> buffer,
-        4u64 + LIT_PALETTE as u64 * 4u64,
-        MAX_MATERIALS as u64 * 2048u64 * 4u64
-    );
-    copy_region(
-        v,
-        v -> staging,
-        v -> buffer,
-        4u64 + MATERIAL_TEXTURE as u64 * 4u64,
-        MAX_MATERIALS as u64 * 64u64 * 4u64
     );
     copy_region(v, v -> staging, v -> buffer, 0u64, 8193u64 * 4u64);
     copy_region(
@@ -279,13 +274,6 @@ fn upload_scene(v: *Vulkan) -> unit {
         v -> buffer,
         4u64 + META as u64 * 4u64,
         v -> triangle_capacity as u64 * 16u64
-    );
-    copy_region(
-        v,
-        v -> staging,
-        v -> buffer,
-        4u64 + (MATERIAL_STYLE as u64) * 4u64,
-        MAX_MATERIALS as u64 * 4u64
     );
     copy_region(
         v,

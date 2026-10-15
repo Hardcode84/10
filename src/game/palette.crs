@@ -1,6 +1,7 @@
 const PREVIEW_MATERIAL: u32 = 8u32;
 const HOOK_PREVIEW_MATERIAL: u32 = 9u32;
 fn game_palette(v: mut FrameInput) -> unit {
+    app_assets(mut v, GAME_MATERIALS);
     var colors: [u32; 19] = make [u32; 19] {
         0x687876u32,
         0x82949du32,
@@ -22,15 +23,17 @@ fn game_palette(v: mut FrameInput) -> unit {
         0x565b5eu32,
         0x82949du32
     };
+    var palette: u32 = app_palette(read v);
     var mat: u32 = 0u32;
     while mat < GAME_MATERIALS {
+        var texture: u32 = app_texture(read v, mat);
         var tex: u32 = 0u32;
         while tex < 4u32 {
             var state: u32 = 0u32;
             while state < 512u32 {
-                input_set_word(
+                input_asset_set(
                     mut v,
-                    (LIT_PALETTE + (mat * 4u32 + tex) * 512u32 + state) as usize,
+                    palette + (mat * 4u32 + tex) * LIGHT_STATES + state,
                     game_material_color(colors[mat as usize], mat, tex, state)
                 );
                 state = state + 1u32;
@@ -39,10 +42,10 @@ fn game_palette(v: mut FrameInput) -> unit {
         }
         var i: u32 = 0u32;
         while i < 64u32 {
-            input_set_word(
+            input_texel(
                 mut v,
-                (MATERIAL_TEXTURE + mat * 64u32 + i) as usize,
-                game_material_texel(mat, i % 8u32, i / 8u32)
+                texture + i,
+                mat * 4u32 + game_material_texel(mat, i % 8u32, i / 8u32)
             );
             i = i + 1u32;
         }

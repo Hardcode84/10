@@ -108,13 +108,14 @@ fn build_shader(root: *CrustRun, name: *u8, output: *u8, llvm: *u8, validator: *
     return good;
 }
 fn render_sources(root: *CrustRun, args: **u8) -> usize {
-    var sources: [*u8; 11] = make [*u8; 11] {
+    var sources: [*u8; 12] = make [*u8; 12] {
         "src/render/interface.crs",
         "src/render/host/vulkan.crs",
         "src/render/host/io.crs",
         "src/render/host/device.crs",
         "src/render/host/resources.crs",
         "src/render/host/geometry.crs",
+        "src/render/host/assets.crs",
         "src/render/host/dispatch.crs",
         "src/render/host/timing.crs",
         "src/render/host/present.crs",
@@ -122,14 +123,14 @@ fn render_sources(root: *CrustRun, args: **u8) -> usize {
         "src/render/host/owner.crs"
     };
     var i: usize = 0usize;
-    while i < 11usize {
+    while i < 12usize {
         args[i] = host_path(root, sources[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn check_renderer(root: *CrustRun) -> bool {
-    var args: [*u8; 14] = uninit;
+    var args: [*u8; 15] = uninit;
     args[0usize] = "crust-c";
     args[1usize] = "--check";
     args[2usize] = "--library";
@@ -137,12 +138,12 @@ fn check_renderer(root: *CrustRun) -> bool {
     return ownership_host(root, count as i32 - 1i32, &args[1usize], true, null(*u8)) == 0i32;
 }
 fn build_host(root: *CrustRun) -> bool {
-    var args: [*u8; 47] = uninit;
+    var args: [*u8; 49] = uninit;
     args[0usize] = "crust-c";
     args[1usize] = "-o";
     args[2usize] = host_path(root, "build/spinward");
     var count: usize = 3usize + render_sources(root, &args[3usize]);
-    var application: [*u8; 33] = make [*u8; 33] {
+    var application: [*u8; 34] = make [*u8; 34] {
         host_path(root, "src/demo/main.crs"),
         host_path(root, "src/demo/config.crs"),
         host_path(root, "src/demo/playback.crs"),
@@ -164,6 +165,7 @@ fn build_host(root: *CrustRun) -> bool {
         host_path(root, "tests/playback.crs"),
         host_path(root, "tests/portal.crs"),
         host_path(root, "tests/geometry-capacity.crs"),
+        host_path(root, "tests/textures.crs"),
         "--ldflag",
         host_path(root, "build/reference.o"),
         "--cflag",
@@ -178,7 +180,7 @@ fn build_host(root: *CrustRun) -> bool {
         "-lm"
     };
     var i: usize = 0usize;
-    while i < 33usize {
+    while i < 34usize {
         args[count] = application[i];
         count = count + 1usize;
         i = i + 1usize;
@@ -215,12 +217,13 @@ fn build_reference(root: *CrustRun) -> bool {
 }
 
 fn ownership_host(root: *CrustRun, argc: i32, argv: **u8, core: bool, expected: *u8) -> i32 {
-    var providers: [*u8; 22] = make [*u8; 22] {
+    var providers: [*u8; 23] = make [*u8; 23] {
         "src/render/host/vulkan.crs",
         "src/render/host/io.crs",
         "src/render/host/device.crs",
         "src/render/host/resources.crs",
         "src/render/host/geometry.crs",
+        "src/render/host/assets.crs",
         "src/render/host/dispatch.crs",
         "src/render/host/timing.crs",
         "src/render/host/present.crs",
@@ -239,9 +242,9 @@ fn ownership_host(root: *CrustRun, argc: i32, argv: **u8, core: bool, expected: 
         "tests/playback.crs",
         "tests/portal.crs"
     };
-    var count: usize = 22usize;
+    var count: usize = 23usize;
     if core {
-        count = 10usize;
+        count = 11usize;
     }
     return ownership_sources(root, argc, argv, &providers[0usize], count, expected);
 }

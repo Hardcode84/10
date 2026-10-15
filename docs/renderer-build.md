@@ -170,7 +170,8 @@ intensity is (0.55, 0.55, 0.60). The camera light has a squared falloff radius
 of 36 and RGB intensity (1, 1, 1). It follows the camera in all spaces and has
 no beam cone. These radii compensate for the faster decay of the new curve.
 
-Each material has an 8 by 8 indexed texture with four base colours. The GPU
+The demo assets use 8 by 8 indexed textures. The renderer accepts arbitrary
+positive dimensions and a 256-entry palette. The GPU
 selects one of 512 RGB light states: eight levels for each channel. After the
 lights are added, each channel rounds to its nearest level. The material table
 combines these states with its base colours. The output has no frame palette
@@ -178,12 +179,12 @@ limit.
 
 `palette_entry` takes a full-bright flag for each source palette entry. It
 stores the full colour in all 512 light states when the flag is set. The pipe
-materials mark entry 3 as full-bright cyan. The other entries use normal
+materials mark their fourth colour as full-bright cyan. The other entries use normal
 lighting. The strips do not create point lights or light nearby surfaces.
 No palette index range is reserved by the rendering core.
-`LIT_PALETTE` contains 16 by 4 by 512 packed colours (128 KiB). The root
-creates this table in Crust. It occupies a separate range from the 64-state
-distance-shading table used by the original regression scene.
+Each shared palette contains 256 by 512 packed colours (512 KiB). The root
+creates this table in Crust. Distance shading uses states zero through 63 of
+each entry. Coloured lighting uses all 512 states.
 
 `LIGHT_MODEL` selects distance shading (0) or coloured point lighting (1). The
 regression scene uses distance shading. `LIGHT_COUNT` gives the active count,
@@ -197,11 +198,9 @@ same attenuation and incidence rule as point lights. Each portal view has
 its own transformed camera position; no extra point-light records are needed.
 
 `SPACE_LIGHT` has one four-float record per space; its first three values give
-non-negative ambient RGB intensity. `MATERIAL_LIGHT` has one four-float record
-per material; its first value gives non-negative emission. There are 16
-materials. `MATERIAL_TEXTURE` holds 64 word indices per material, each from zero
-through three. These inputs use reserved buffer ranges and have no per-frame
-allocation. The demo owns texture, palette, and light generation.
+non-negative ambient RGB intensity. A material can select unlit shading.
+Material descriptors, texture regions, and shared palettes occupy dynamic asset
+storage. The demo owns their generation. See the [texture interface](textures.md).
 
 ## Frame contract
 
@@ -472,3 +471,7 @@ The geometry capacity gate is `crust demo.crs --test 5`. It checks growth,
 reuse after scene shrink, empty scenes, clipping, cutouts, equal-depth ties,
 and 4,097 overlapping source triangles against the CPU reference. It also
 checks rejection at the device storage boundary without changing live buffers.
+
+Run `crust demo.crs --test 6` for texture dimensions, atlas regions, palette
+sharing, addressing, and vertex UV checks. The test also grows asset storage
+after geometry submission and checks storage reuse with smaller textures.

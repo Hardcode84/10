@@ -1,3 +1,5 @@
+const PALETTE: u32 = 256u32;
+const TEXTURE: u32 = 64u32;
 fn compute() -> unit {
     var i: u32 = shader_global_x();
     var width: u32 = words_load(0u32);

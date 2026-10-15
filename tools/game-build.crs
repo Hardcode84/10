@@ -64,12 +64,13 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
     return i;
 }
 fn build_game(root: *CrustRun) -> bool {
-    var providers: [*u8; 25] = make [*u8; 25] {
+    var providers: [*u8; 26] = make [*u8; 26] {
         "src/render/host/vulkan.crs",
         "src/render/host/io.crs",
         "src/render/host/device.crs",
         "src/render/host/resources.crs",
         "src/render/host/geometry.crs",
+        "src/render/host/assets.crs",
         "src/render/host/dispatch.crs",
         "src/render/host/timing.crs",
         "src/render/host/present.crs",
@@ -119,7 +120,7 @@ fn build_game(root: *CrustRun) -> bool {
         count as i32,
         &args[0usize],
         &providers[0usize],
-        25usize,
+        26usize,
         null(*u8)
     ) == 0i32;
 }
