@@ -1,8 +1,8 @@
 # Rendering
 
 See the [parametric asset design](../content/parametric-assets.md) for generated content
-and the [engine gap register](../content/engine-gaps.md) for source-verified capacity,
-collision, and world-state changes needed to support it.
+and the [engine gap register](../content/engine-gaps.md) for remaining physics,
+world-state, and tool work.
 
 ## Status and decisions
 

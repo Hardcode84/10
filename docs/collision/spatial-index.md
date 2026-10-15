@@ -2,7 +2,7 @@
 
 ## Contract
 
-The C2 index selects candidate instances and triangles for the C1
+The index selects candidate instances and triangles for the
 [sphere query](static-meshes.md). It does not change the contact equation.
 The game uses it for movement, hook flight, reeling, and both predictions.
 
@@ -12,10 +12,10 @@ A `CollisionBuilder` accepts generated meshes and static rigid poses.
 the previous scene. A successful finish replaces and releases the previous
 scene. Queries cannot receive a builder or change a scene.
 
-Dynamic poses do not modify this static index. C4 must supply a separate
-kinematic instance update contract, with swept bounds and surface velocity.
-Until that contract is implemented, a changed static assembly requires a new
-builder and a complete scene replacement before the next query.
+Dynamic poses do not modify this static index. The [kinematic contract](kinematic-meshes.md)
+supplies interval queries with swept bounds and surface velocity. A change to
+static geometry requires a new builder and complete scene replacement before
+the next query.
 
 ## Storage and selection
 
@@ -59,7 +59,7 @@ Adjacency construction sorts undirected edges by their endpoint coordinates.
 It compares only faces that share an edge. Manifold meshes therefore take
 O(e log e) construction work instead of comparing each face with every face.
 For a non-manifold edge with k incident faces, contact adjacency still tests
-up to k-squared face pairs. This preserves C1's first coplanar neighbour rule.
+up to k-squared face pairs. This preserves the first coplanar neighbour rule.
 Meshes with many faces on one edge must split that topology or use a grouped
 plane/side index to reduce this specific cost; distant triangles no longer
 participate in it.
@@ -98,7 +98,7 @@ use a different space. Each row measures 256 independent active ticks and
 16 independent prediction paths of 240 simulation ticks. Both use the actual
 `simulate` function. Final positions must remain equal across all rows.
 
-The baseline is the C1 linear mesh scan. Both versions use the C backend at O2.
+The baseline is the linear mesh scan. Both versions use the C backend at O2.
 The acceptance target was equal results and at least four times lower prediction
 cost in the largest case. The controlled run produced these times:
 
@@ -108,8 +108,8 @@ cost in the largest case. The controlled run produced these times:
 | 74 | 1,448 | 17.06 / 1.71 | 43.52 / 0.48 | 662.27 / 7.08 |
 | 298 | 6,440 | 224.46 / 6.38 | 169.66 / 0.47 | 2,545.14 / 7.02 |
 
-These measurements precede C3, which adds complete solid boundaries and volume
-classification. See [sphere motion](motion.md) for its measurements.
+These measurements precede the addition of complete solid boundaries and
+volume classification. See [sphere motion](motion.md) for its measurements.
 
 These values measure the stated CPU workload. They are not frame-rate claims.
 Both indices keep the largest prediction case close to the smallest one while
@@ -122,8 +122,8 @@ build releases the new one. An empty scene needs no index allocation.
 
 The full suite passed. The game suite also passed AddressSanitizer,
 UndefinedBehaviorSanitizer, and leak checks. A headless expedition completed
-with the same state summary and byte-identical final image as the C1 baseline.
+with the same state summary and byte-identical final image as the linear-scan baseline.
 
 The game test executable took 14.15 s with the repeated full-mesh comparisons
 and 1.25 s with this coverage split in an optimized build. Both expedition
-routes and the C3 contact regressions remain in the default suite.
+routes and the contact-solver regressions remain in the default suite.

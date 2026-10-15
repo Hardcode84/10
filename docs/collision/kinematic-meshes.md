@@ -2,7 +2,7 @@
 
 ## Motion contract
 
-C4 uses prescribed kinematic bodies. Each instance has a reference origin and
+Moving meshes use prescribed kinematic bodies. Each instance has a reference origin and
 basis, a constant centre velocity, and a constant angular velocity. All values
 use the instance's collision space. Time is in seconds. Angular velocity is in
 radians per second. The reference pose is at time zero.

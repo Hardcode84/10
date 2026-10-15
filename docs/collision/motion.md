@@ -2,8 +2,8 @@
 
 ## Contract
 
-C3 supplies static sphere motion in one collision space.
-[C4](kinematic-meshes.md) extends it with moving surfaces and time intervals.
+The static solver supplies sphere motion in one collision space.
+[Interval queries](kinematic-meshes.md) add moving surfaces and time intervals.
 The game uses the interval solver for flight, reeling, and prediction. The collision component has no drone,
 input, frame, or level data. The game applies the cable travel constraint before
 each contact step.
@@ -98,8 +98,9 @@ The game builds complete collision volumes for solid parts and capped pipes.
 Render face masks can omit hidden faces; they do not remove volume boundaries
 from collision. Room panels remain surface instances.
 
-Use `collision_position_valid` after spawn, load, or scene replacement. It
-rejects non-finite positions, invalid radii, embedded centres, and surface
+Use `collision_position_valid` for a static scene after spawn, load, or scene
+replacement. Use `collision_position_valid_at` when the scene has moving meshes.
+These queries reject non-finite positions, invalid radii, embedded centres, and surface
 overlap greater than one quarter of the margin. The game checks the spawn and
 saved parked position after load. Restart uses the same checked spawn in the
 same immutable scene. Each motion call also rejects an embedded centre.
@@ -107,9 +108,9 @@ same immutable scene. Each motion call also rejects an embedded centre.
 An externally supplied invalid position is rejected, not moved to a guessed
 free location. Ordinary surface overlap during motion uses contact recovery.
 For a replacement scene, validate all body positions before simulation resumes.
-The current scene has no moving transforms. C4 must add relative motion and
-surface velocity before a moving collider can enter a simulation interval;
-rebuilding a static snapshot does not provide that contract.
+[Kinematic interval queries](kinematic-meshes.md) supply relative motion and
+surface velocity for moving colliders. A rebuilt static snapshot does not
+provide that contract.
 
 ## Storage and cost
 
@@ -125,12 +126,12 @@ the storage growth and infeasible-set path.
 
 ## Witness and checks
 
-Before C3, the generated elbow witness started at `(4, 0.1, 0)` with travel
+The generated elbow witness starts at `(4, 0.1, 0)` with travel
 `(0, 20, 0)` and a 0.35 m radius. The four-contact loop discarded 13.518690 m of
-remaining travel. C3 completes the step through eight contacts and leaves the
-open elbow exit. The stationary plane witness started 0.1 m from the plane;
-the old loop left 0.25 m of penetration. C3 separates this state with zero input
-travel.
+remaining travel. The contact-set solver completes the step through eight
+contacts and leaves the open elbow exit. The stationary plane witness started 0.1 m from the plane;
+the old loop left 0.25 m of penetration. The contact-set solver separates this
+state with zero input travel.
 
 Run the focused checks with `crust tests.crs collision`. This target builds the
 collision component, shared math, mesh storage, and small geometry fixtures.
@@ -147,12 +148,12 @@ The checks cover:
 - Embedded spawns in a box and a closed concave elbow, plus an empty room.
 - Rejection of an open mesh supplied as a solid.
 
-The component target is the C3 regression gate. Game layout and expedition
+The component target checks the contact solver. Game layout and expedition
 completion are separate checks.
 
-During implementation, the scaling witness uses 16 predictions of 240 ticks. Its largest case took
-about 7 ms before C3 and about 8 ms with C3 in an optimized build. This checks
-the production path; it does not bound the cost of a dense local contact set.
+The scaling witness used 16 predictions of 240 ticks. Its largest case took
+about 7 ms with the four-contact loop and about 8 ms with the contact-set
+solver in an optimized build. This checks the production path; it does not bound the cost of a dense local contact set.
 
 The standalone executable takes 0.04 s in the optimized build and 1.04 s with
 sanitizers in the measured run. The first sanitizer build plus execution took

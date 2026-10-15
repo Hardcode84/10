@@ -120,5 +120,6 @@ A 60-frame capture at 960 by 540 on RADV with a Radeon PRO W7900 gave:
 
 These runs used asset 0 and no verification pass. Each added instance increased
 upload by 92 bytes. The fixed 574,944-byte transfer includes palettes and other
-frame data; R7 covers its reduction. These measurements establish submission
-and upload scaling. They do not establish a speedup over the old renderer.
+frame data. The [transfer contract](transfers.md) records the reduced uploads.
+These measurements establish submission and upload scaling. They do not
+establish a speedup over the old renderer.

@@ -2,8 +2,8 @@
 
 ## Scope
 
-C1 supplies continuous sphere queries for static triangle surfaces. The game
-uses these queries for drone movement, hook flight, reeling, and prediction.
+The collision core supplies continuous sphere queries for static triangle
+surfaces. The game uses these queries for drone movement, hook flight, reeling, and prediction.
 The drone radius is 0.35 m. The hook radius is 0.06 m.
 
 Build collision from the same construction data as the visible mesh. A surface
@@ -65,9 +65,9 @@ the travel line to avoid subtracting large squared terms at high speed.
 Instance bounds reject a query before triangle tests. Both query endpoints
 remain part of the continuous interval; high speed does not skip a thin wall.
 
-The surface query does not infer solid volume. C3 adds explicit solid instances,
-volume classification, and a contact-set motion solver. See [sphere motion](motion.md)
-for spawn validation, overlap recovery, and failure handling.
+The surface query does not infer solid volume. The [motion solver](motion.md)
+uses explicit solid instances and volume classification for spawn validation,
+overlap recovery, and failure handling.
 
 ## Rooms and portals
 
@@ -85,8 +85,9 @@ A collision query does not transfer a body between spaces. W2 must split movemen
 at a portal crossing, transfer state, and continue in the destination. It must
 also query destination surfaces while a sphere overlaps the opening. This
 includes the interval before its centre crosses the portal plane. W2 must apply
-the same path to the hook, cable, prediction, and rendering. C1 supplies the
-space-local surface query for that work; it does not flatten the portal graph.
+the same path to the hook, cable, prediction, and rendering. The collision core
+supplies the space-local surface query for that work; it does not flatten the
+portal graph.
 
 ## Checks and measured cost
 
@@ -114,9 +115,9 @@ The two worlds contain 41 instances and 534 triangles. Collision payload is
 There is no query allocation. Existing flight and expedition test summaries,
 including their deterministic state hashes, matched the baseline run.
 
-C2 replaces both linear scans with spatial indices and replaces pairwise
-adjacency construction with sorted edges. The measurements above record the
-C1 baseline. See the [index measurements](spatial-index.md#evidence-and-checks)
+The [spatial index](spatial-index.md) replaces both linear scans and uses
+sorted edges for adjacency construction. The measurements above record the
+linear-scan baseline. See the [index measurements](spatial-index.md#evidence-and-checks)
 for current storage and query behaviour.
 
 For prescribed translation and rotation, use the
