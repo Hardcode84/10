@@ -27,6 +27,9 @@ fn retained_upload(v: *Vulkan) -> unit {
         retained_transfer(v, MESH_META, v -> mesh_count * 4u32, false, true);
         v -> mesh_upload_bytes = v -> mesh_count as u64 * 76u64;
     }
+    if !v -> instance_dirty {
+        return;
+    }
     var count: u32 = (v -> mapped as *u32)[INSTANCE_COUNT as usize];
     retained_transfer(v, INSTANCE_FLOAT, count * 18u32, true, true);
     retained_transfer(v, INSTANCE_META, count * 5u32, false, true);

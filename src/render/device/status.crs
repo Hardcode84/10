@@ -1,0 +1,46 @@
+fn compute() -> unit {
+    var lane: u32 = shader_local_x();
+    var first: u32 = 0xffffffffu32;
+    var count: u32 = 0u32;
+    var flags: u32 = 0u32;
+    var i: u32 = shader_global_x();
+    while i < MAX_INVOCATIONS {
+        var value: u32 = status_load(i);
+        if value != 0u32 {
+            if first == 0xffffffffu32 {
+                first = i;
+            }
+            count = count + 1u32;
+            flags = flags | value;
+        }
+        i = i + STATUS_GROUPS * LOCAL_SIZE;
+    }
+    shared_store(lane, first);
+    shared_store(64u32 + lane, count);
+    shared_store(128u32 + lane, flags);
+    shader_barrier();
+    if lane == 0u32 {
+        var j: u32 = 0u32;
+        first = 0xffffffffu32;
+        count = 0u32;
+        flags = 0u32;
+        while j < LOCAL_SIZE {
+            var candidate: u32 = shared_load(j);
+            if candidate < first {
+                first = candidate;
+            }
+            count = count + shared_load(64u32 + j);
+            flags = flags | shared_load(128u32 + j);
+            j = j + 1u32;
+        }
+        var code: u32 = 0u32;
+        if first != 0xffffffffu32 {
+            code = status_load(first);
+        }
+        var p: u32 = STATUS_REPORT + (shader_global_x() / LOCAL_SIZE) * 4u32;
+        words_store(p, first);
+        words_store(p + 1u32, code);
+        words_store(p + 2u32, count);
+        words_store(p + 3u32, flags);
+    }
+}

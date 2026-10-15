@@ -19,7 +19,7 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         "opaque fields are private to the trusted implementation",
         "access conflicts with an active payload loan"
     };
-    var providers: [*u8; 16] = uninit;
+    var providers: [*u8; 17] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
     var good: bool = true;
     var i: usize = 0usize;

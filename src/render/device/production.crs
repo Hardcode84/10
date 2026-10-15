@@ -1,0 +1,1 @@
+fn render_debug_assert(condition: bool) -> unit {}

@@ -1,7 +1,7 @@
 fn compute() -> unit {
     var i: u32 = shader_global_x();
     if i == 0u32 {
-        shader_require(words_load(33u32) == 0u32);
+        render_debug_assert(words_load(33u32) == 0u32);
     }
     var width: u32 = words_load(0u32);
     var height: u32 = words_load(1u32);

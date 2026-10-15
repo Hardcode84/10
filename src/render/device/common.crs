@@ -292,7 +292,7 @@ fn portal_facing(view: u32, portal: u32) -> bool {
     if portal == 0u32 {
         return true;
     }
-    shader_require(portal <= words_load(PORTAL_CAPACITY));
+    render_debug_assert(portal <= words_load(PORTAL_CAPACITY));
     if portal > words_load(PORTAL_CAPACITY) {
         return false;
     }

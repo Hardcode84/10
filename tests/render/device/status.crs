@@ -1,0 +1,4 @@
+fn compute() -> unit {
+    var i: u32 = shader_global_x();
+    shader_require(i != words_load(33u32) && i != 63u32 && i != MAX_INVOCATIONS - 1u32);
+}

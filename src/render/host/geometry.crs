@@ -88,7 +88,9 @@ fn geometry_reserve(v: *Vulkan, required: u32) -> bool {
     return storage_replace(v, &next);
 }
 fn storage_replace(v: *Vulkan, planned: *Vulkan) -> bool {
+    retirement_wait(v);
     var next: Vulkan = *planned;
+    next.submitted = false;
     next.buffer = null(*u8);
     next.memory = null(*u8);
     next.staging = null(*u8);
@@ -97,6 +99,10 @@ fn storage_replace(v: *Vulkan, planned: *Vulkan) -> bool {
     if !buffer_create(&next) {
         buffers_close(&next);
         return false;
+    }
+    var peak: u64 = next.device_bytes + next.staging_bytes + v -> device_bytes + v -> staging_bytes;
+    if peak > next.peak_buffer_bytes {
+        next.peak_buffer_bytes = peak;
     }
     geometry_copy(&next, v);
     buffers_close(v);

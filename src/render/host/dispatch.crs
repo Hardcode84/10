@@ -35,7 +35,7 @@ fn commands_create(v: *Vulkan) -> bool {
     info.commandPool = v -> command_pool;
     info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     info.commandBufferCount = 1u32;
-    return vk_ok(
+    return retirement_create(v) && vk_ok(
         vkAllocateCommandBuffers(v -> device, &info, &v -> commands),
         "vkAllocateCommandBuffers"
     );
@@ -51,13 +51,15 @@ fn commands_record(v: *Vulkan) -> bool {
     vkCmdResetQueryPool(v -> commands, v -> query_pool, 0u32, v -> query_count);
     vkCmdWriteTimestamp(v -> commands, 1u32, v -> query_pool, 0u32);
     upload_scene(v);
-    vkCmdFillBuffer(
-        v -> commands,
-        v -> buffer,
-        (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
-        MAX_INVOCATIONS as u64 * 4u64,
-        0u32
-    );
+    if v -> shader_checks {
+        vkCmdFillBuffer(
+            v -> commands,
+            v -> buffer,
+            (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
+            MAX_INVOCATIONS as u64 * 4u64,
+            0u32
+        );
+    }
     frame_barrier(v, 4096u32, 0x1000u32, 2048u32, 96u32);
     vkCmdBindDescriptorSets(
         v -> commands,
@@ -111,6 +113,10 @@ fn commands_record(v: *Vulkan) -> bool {
         depth = depth + 1u32;
     }
     retained_dispatch(v, 4usize, (v -> output_width * v -> output_height + 63u32) / 64u32);
+    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+    if v -> shader_checks {
+        retained_dispatch(v, 10usize, STATUS_GROUPS);
+    }
     var barrier: VkMemoryBarrier = uninit;
     zero(&barrier as *u8, sizeof(VkMemoryBarrier));
     barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
@@ -134,22 +140,31 @@ fn commands_record(v: *Vulkan) -> bool {
     return vk_ok(vkEndCommandBuffer(v -> commands), "vkEndCommandBuffer");
 }
 fn dispatch(v: *Vulkan) -> bool {
+    if !dispatch_submit(v) {
+        return false;
+    }
+    retirement_wait(v);
+    return true;
+}
+fn dispatch_submit(v: *Vulkan) -> bool {
+    retirement_wait(v);
     var submit: VkSubmitInfo = uninit;
     zero(&submit as *u8, sizeof(VkSubmitInfo));
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit.commandBufferCount = 1u32;
     submit.pCommandBuffers = &v -> commands;
-    if !vk_ok(vkQueueSubmit(v -> queue, 1u32, &submit, null(*u8)), "vkQueueSubmit") {
+    if !vk_ok(
+        vkResetFences(v -> device, 1u32, &v -> retired),
+        "reset renderer retirement fence"
+    ) || !vk_ok(vkQueueSubmit(v -> queue, 1u32, &submit, v -> retired), "vkQueueSubmit") {
         return false;
     }
-    if !vk_ok(vkQueueWaitIdle(v -> queue), "vkQueueWaitIdle") {
-        exit(1i32);
-        return false;
-    }
+    v -> submitted = true;
     return true;
 }
 fn device_close(v: *Vulkan) -> unit {
     if v -> device != null(*u8) {
+        retirement_close(v);
         if v -> queue != null(*u8) && !vk_ok(
             vkQueueWaitIdle(v -> queue),
             "wait before device close"
@@ -220,96 +235,6 @@ fn frame_barrier(
         0u32,
         null(*VkImageMemoryBarrier)
     );
-}
-
-fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
-    if size == 0u64 {
-        return;
-    }
-    if src == v -> staging {
-        v -> frame_upload_bytes = v -> frame_upload_bytes + size;
-    }
-    var copy: VkBufferCopy = make VkBufferCopy {
-        srcOffset: offset,
-        dstOffset: offset,
-        size: size
-    };
-    vkCmdCopyBuffer(v -> commands, src, dst, 1u32, &copy);
-}
-fn upload_scene(v: *Vulkan) -> unit {
-    retained_upload(v);
-    retained_transfer(
-        v,
-        LIGHT_DATA,
-        (v -> mapped as *u32)[LIGHT_COUNT as usize] * 8u32,
-        true,
-        true
-    );
-    if v -> asset_capacity != 0u32 {
-        copy_region(
-            v,
-            v -> staging,
-            v -> buffer,
-            (1u64 + (v -> mapped as *u32)[ASSET_OFFSET as usize] as u64) * 4u64,
-            v -> asset_capacity as u64 * 4u64
-        );
-    }
-    copy_region(v, v -> staging, v -> buffer, 0u64, 8193u64 * 4u64);
-    copy_region(
-        v,
-        v -> staging,
-        v -> buffer,
-        4u64 + (v -> mapped as *u32)[META as usize] as u64 * 4u64,
-        (v -> mapped as *u32)[DYNAMIC_COUNT as usize] as u64 * 16u64
-    );
-    retained_transfer(v, PORTAL_META, v -> portal_capacity * 4u32, false, true);
-    retained_transfer(v, PORTAL_FLOAT, v -> portal_capacity * 16u32, true, true);
-    copy_region(
-        v,
-        v -> staging,
-        v -> buffer,
-        (v -> words as u64 + 1u64) * 4u64,
-        (
-            1u64 + GEOMETRY as u64 + (v -> mapped as *u32)[DYNAMIC_COUNT as usize] as u64 * 15u64
-        ) * 4u64
-    );
-}
-fn readback(v: *Vulkan) -> unit {
-    retained_readback(v);
-    copy_region(v, v -> buffer, v -> staging, 0u64, 83u64 * 4u64);
-    copy_region(
-        v,
-        v -> buffer,
-        v -> staging,
-        (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
-        MAX_INVOCATIONS as u64 * 4u64
-    );
-    if v -> read_pixels {
-        copy_region(
-            v,
-            v -> buffer,
-            v -> staging,
-            4u64 + PIXELS as u64 * 4u64,
-            v -> width as u64 * v -> height as u64 * 4u64
-        );
-        copy_region(
-            v,
-            v -> buffer,
-            v -> staging,
-            4u64 + ((v -> mapped as *u32)[PRESENT_PIXELS as usize] as u64) * 4u64,
-            v -> output_width as u64 * v -> output_height as u64 * 4u64
-        );
-    }
-    if (v -> mapped as *u32)[26usize] != 0u32 {
-        copy_region(
-            v,
-            v -> buffer,
-            v -> staging,
-            4u64 + ((v -> mapped as *u32)[DEBUG_VALUES as usize] as u64) * 4u64,
-            (v -> mapped as *u32)[0usize] as u64 * (v -> mapped as *u32)[1usize] as u64 * 16u64
-        );
-    }
-    frame_barrier(v, 4096u32, 4096u32, 16384u32, 8192u32);
 }
 
 fn task_dispatch(v: *Vulkan, pipeline: usize, field: u32) -> unit {

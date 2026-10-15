@@ -2,24 +2,12 @@ fn demo_renderer_configured(v: *Vulkan, config: *RenderConfig, window: *u8) -> b
     if !window_instance(v, window) {
         return false;
     }
-    var paths: [*u8; 10] = make [*u8; 10] {
-        "build/init.spv",
-        "build/transform.spv",
-        "build/raster.spv",
-        "build/advance.spv",
-        "build/compose.spv",
-        "build/compact.spv",
-        "build/scan.spv",
-        "build/fill.spv",
-        "build/instances.spv",
-        "build/visibility.spv"
-    };
-    var shaders: [ShaderCode; 10] = uninit;
-    zero(&shaders as *u8, sizeof([ShaderCode; 10]));
+    var shaders: [ShaderCode; 11] = uninit;
+    zero(&shaders as *u8, sizeof([ShaderCode; 11]));
     var good: bool = true;
     var i: usize = 0usize;
-    while good && i < PIPELINE_COUNT as usize {
-        good = read_input(paths[i], &shaders[i]);
+    while good && i < (10usize + (config -> shader_checks) as usize) {
+        good = read_input(render_shader_path(i, config -> shader_checks), &shaders[i]);
         i = i + 1usize;
     }
     if good {
@@ -38,6 +26,7 @@ fn demo_render_config(o: *Options) -> RenderConfig {
         height: o -> height,
         output_width: o -> window_width,
         output_height: o -> window_height,
+        shader_checks: o -> debug_shaders != 0u32 || o -> debug_pixels != 0u32 || o -> fault != 0u32,
         read_pixels: o -> capture != null(*u8) || o -> debug_pixels != 0u32,
         debug_pixels: o -> debug_pixels,
         baseline: o -> baseline,

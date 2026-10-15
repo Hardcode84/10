@@ -56,19 +56,31 @@ fn build_tests(root: *CrustRun) -> bool {
         root
     ) && build_viewer_tests(root) && build_render_shaders(root) && build_shader(
         root,
+        "tests/render/device/status.crs",
+        "build/status-test.spv",
+        llvm,
+        validator,
+        SHADER_WORKGROUP_U32,
+        0u32,
+        false,
+        true
+    ) && build_shader(
+        root,
         "tests/render/device/palette.crs",
         "build/palette.spv",
         llvm,
         validator,
         SHADER_WORKGROUP_F32,
-        512u32
+        512u32,
+        false,
+        true
     );
 }
 fn all_tests(root: *CrustRun) -> bool {
     if !check_host_ownership(root) {
         return false;
     }
-    var cases: [*u8; 10] = make [*u8; 10] {
+    var cases: [*u8; 11] = make [*u8; 11] {
         "1",
         "2",
         "3",
@@ -78,10 +90,11 @@ fn all_tests(root: *CrustRun) -> bool {
         "7",
         "8",
         "9",
-        "11"
+        "11",
+        "12"
     };
     var i: usize = 0usize;
-    while i < 10usize {
+    while i < 11usize {
         if !test_process(root, "build/tests-render", 1usize, &cases[i]) {
             return false;
         }
@@ -150,6 +163,7 @@ fn test_help() -> i32 {
     test_puts("render 0 --capture FILE --frames N: custom demo sequence with CPU reference");
     test_puts("render 10: window and swapchain resize (requires a display)");
     test_puts("render 11: light capacity, bulkhead shadows and cutout visibility");
+    test_puts("render 12: production transfers, debug status, replacement and retirement");
     test_puts("review and viewer accept --width N --height N");
     return 0i32;
 }

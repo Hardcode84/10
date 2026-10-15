@@ -1,0 +1,236 @@
+fn transfer_test(base: *Options) -> bool {
+    var o: Options = *base;
+    o.width = 320u32;
+    o.height = 180u32;
+    o.window_width = 320u32;
+    o.window_height = 180u32;
+    var renderer: Renderer = renderer_new();
+    var config: RenderConfig = demo_render_config(&o);
+    config.read_pixels = false;
+    config.shader_checks = false;
+    config.debug_pixels = 0u32;
+    if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
+        return false;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        tour_assets(mut input);
+        tour_scene(mut input, 320u32, 180u32, 0u32, 1u32);
+        retain_scene(mut input);
+    }
+    if !transfer_measure(&renderer.state) {
+        return false;
+    }
+    renderer.state.read_pixels = true;
+    (renderer.state.mapped as *u32)[26usize] = 1u32;
+    if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) || !transfer_assets(
+        mut renderer
+    ) || !transfer_debug(base) {
+        return false;
+    }
+    return transfer_shutdown(&renderer.state);
+}
+fn transfer_measure(v: *Vulkan) -> bool {
+    var wait: u64 = 0u64;
+    var gpu: u64 = 0u64;
+    var elapsed: u64 = 0u64;
+    var first: u64 = 0u64;
+    var i: u32 = 0u32;
+    var query: *u64 = malloc(v -> query_count as usize * 8usize) as *u64;
+    if query == null(*u64) {
+        return error("transfer timing allocation failed");
+    }
+    var good: bool = true;
+    while good && i < 41u32 {
+        var start: u64 = render_now();
+        good = renderer_draw(v);
+        var duration: u64 = render_now() - start;
+        if good {
+            good = queries_read(v, query);
+        }
+        if i == 0u32 {
+            first = v -> frame_upload_bytes;
+        }
+        if i > 0u32 && good {
+            if v -> asset_upload_bytes != 0u64 || v -> mesh_upload_bytes != 0u64 || v -> instance_dirty || v -> frame_readback_bytes != 4u64 {
+                free(query as *u8);
+                return error(
+                    "production frame transferred unchanged assets or shader diagnostics"
+                );
+            }
+            wait = wait + v -> frame_wait_ns;
+            elapsed = elapsed + duration;
+            gpu = gpu + (
+                (
+                    (query[v -> query_count as usize - 1usize] - query[0usize]) & v -> timestamp_mask
+                ) as f32 * v -> timestamp_period
+            ) as u64;
+        }
+        i = i + 1u32;
+    }
+    free(query as *u8);
+    puts(
+        "transfer benchmark: first upload, steady upload, readback, CPU wait ns, GPU ns, draw ns, current buffer bytes, peak buffer bytes"
+    );
+    print_number(first as i64);
+    print_number(v -> frame_upload_bytes as i64);
+    print_number(v -> frame_readback_bytes as i64);
+    print_number((wait / 40u64) as i64);
+    print_number((gpu / 40u64) as i64);
+    print_number((elapsed / 40u64) as i64);
+    print_number((v -> device_bytes + v -> staging_bytes) as i64);
+    print_number(v -> peak_buffer_bytes as i64);
+    return good;
+}
+fn transfer_hash(v: *Vulkan) -> u32 {
+    var hash: u32 = 2166136261u32;
+    var w: *u32 = v -> mapped as *u32;
+    var i: u32 = 0u32;
+    while i < v -> width * v -> height {
+        hash = (hash ^ w[(PIXELS + i) as usize]) * 16777619u32;
+        i = i + 1u32;
+    }
+    return hash;
+}
+fn transfer_assets(renderer: mut Renderer) -> bool {
+    var previous: u32 = transfer_hash(&renderer.state);
+    var iteration: u32 = 0u32;
+    while iteration < 3u32 {
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            var palette: u32 = input_asset_word(read input, 4u32);
+            var i: u32 = 0u32;
+            while i < PALETTE_COLORS * LIGHT_STATES {
+                input_asset_set(mut input, palette + i, 0xff221144u32 + iteration * 0x112233u32);
+                i = i + 1u32;
+            }
+        }
+        if !renderer_draw(&renderer.state) || renderer.state.asset_upload_bytes != PALETTE_COLORS as u64 * LIGHT_STATES as u64 * 4u64 || !reference_check(
+            renderer.state.mapped
+        ) {
+            return error("changed palette was not uploaded exactly once");
+        }
+        var current: u32 = transfer_hash(&renderer.state);
+        if current == previous {
+            return error("palette replacement did not change the image");
+        }
+        previous = current;
+        if !renderer_draw(&renderer.state) || renderer.state.asset_upload_bytes != 0u64 || transfer_hash(
+            &renderer.state
+        ) != previous {
+            return error("unchanged assets were transferred or changed the image");
+        }
+        iteration = iteration + 1u32;
+    }
+    var mapped: *u8 = renderer.state.mapped;
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if input_assets(mut input, 0xffffffffu32, 0u32) {
+            return error("invalid asset allocation was accepted");
+        }
+    }
+    if mapped != renderer.state.mapped || !renderer_draw(&renderer.state) || transfer_hash(
+        &renderer.state
+    ) != previous {
+        return error("failed asset allocation lost the active frame");
+    }
+    return true;
+}
+fn transfer_shutdown(v: *Vulkan) -> bool {
+    if !vk_ok(vkResetCommandBuffer(v -> commands, 0u32), "reset pending-close check") || !commands_record(
+        v
+    ) || !dispatch_submit(v) {
+        return false;
+    }
+    return v -> submitted;
+}
+fn transfer_debug(base: *Options) -> bool {
+    var renderer: Renderer = renderer_new();
+    var config: RenderConfig = demo_render_config(base);
+    config.width = 64u32;
+    config.height = 48u32;
+    config.output_width = 64u32;
+    config.output_height = 48u32;
+    config.shader_checks = true;
+    config.debug_pixels = 0u32;
+    config.read_pixels = false;
+    config.view_budget = 1u32;
+    config.portal_budget = 0u32;
+    config.task_budget = 64u32;
+    config.crossing_limit = 0u32;
+    if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
+        return false;
+    }
+    var v: *Vulkan = &renderer.state;
+    vkDestroyPipeline(v -> device, v -> pipelines[0usize], null(*u8));
+    vkDestroyShaderModule(v -> device, v -> modules[0usize], null(*u8));
+    v -> pipelines[0usize] = null(*u8);
+    v -> modules[0usize] = null(*u8);
+    if !load_pipeline(v, "build/status-test.spv", 0usize) || !transfer_debug_record(v) || !dispatch(
+        v
+    ) {
+        return false;
+    }
+    var w: *u32 = v -> mapped as *u32;
+    var count: u32 = 0u32;
+    var first: u32 = 0xffffffffu32;
+    var i: u32 = 0u32;
+    while i < STATUS_GROUPS {
+        var p: usize = (STATUS_REPORT + i * 4u32) as usize;
+        if w[p] < first {
+            first = w[p];
+        }
+        count = count + w[p + 2usize];
+        if w[p + 2usize] != 0u32 && (w[p + 1usize] != 1u32 || w[p + 3usize] != 1u32) {
+            return error("debug status lost failure bits");
+        }
+        i = i + 1u32;
+    }
+    if first != 0u32 || count != 4u32 || frame_valid(v) {
+        return error("debug status did not preserve first, last and accumulated failures");
+    }
+    return true;
+}
+fn transfer_debug_record(v: *Vulkan) -> bool {
+    if !vk_ok(vkResetCommandBuffer(v -> commands, 0u32), "reset debug fixture") {
+        return false;
+    }
+    var begin: VkCommandBufferBeginInfo = uninit;
+    zero(&begin as *u8, sizeof(VkCommandBufferBeginInfo));
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    if !vk_ok(vkBeginCommandBuffer(v -> commands, &begin), "begin debug fixture") {
+        return false;
+    }
+    upload_scene(v);
+    vkCmdFillBuffer(
+        v -> commands,
+        v -> buffer,
+        (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
+        MAX_INVOCATIONS as u64 * 4u64,
+        0u32
+    );
+    vkCmdBindDescriptorSets(
+        v -> commands,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        v -> pipeline_layout,
+        0u32,
+        1u32,
+        &v -> set,
+        0u32,
+        null(*u32)
+    );
+    var pass: u32 = 0u32;
+    while pass < 2u32 {
+        frame_barrier(v, 2048u32 | 4096u32, 96u32 | 4096u32, 4096u32, 4096u32);
+        var fault: u32 = pass * 17u32;
+        vkCmdUpdateBuffer(v -> commands, v -> buffer, 34u64 * 4u64, 4u64, &fault as *u8);
+        frame_barrier(v, 4096u32 | 2048u32, 4096u32 | 64u32, 2048u32, 96u32);
+        retained_dispatch(v, 0usize, MAX_INVOCATIONS / LOCAL_SIZE);
+        pass = pass + 1u32;
+    }
+    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+    retained_dispatch(v, 10usize, STATUS_GROUPS);
+    frame_barrier(v, 2048u32, 64u32, 4096u32, 2048u32);
+    readback(v);
+    return vk_ok(vkEndCommandBuffer(v -> commands), "end debug fixture");
+}

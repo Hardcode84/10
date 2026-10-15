@@ -118,10 +118,11 @@ root space, crossing limit, triangles, portals, textures, light tables, and
 material styles. Word `BACKGROUND` holds the RGBA background colour. Floats
 `RENDER_STYLE` through `RENDER_STYLE + 3` hold the positive geometry near distance,
 minimum light level, initial light level, and non-negative distance attenuation.
-Light levels must stay in the table range, zero through 63. Image dimensions
-and readback options stay fixed for the lifetime of the renderer.
+Light levels must stay in the table range, zero through 63. Use the resize API to change image dimensions. Shader-check mode stays fixed
+for the lifetime of the renderer.
 
-`renderer_draw` completes upload, compute, readback, and status checks. On
+`renderer_draw` completes upload, compute, selected readback, and capacity checks.
+Shader-failure checks run only in debug mode. On
 success, the caller can use the output pixels or call `present` for its surface.
 `queries_read` returns `Vulkan.query_count` GPU timestamps into caller-provided
 storage. The count follows the configured crossing limit; the caller chooses
@@ -220,7 +221,8 @@ GPU compute performs transforms, clipping, coverage, depth, portal traversal,
 texture lookup, lighting, dithering, and image scaling. There are no graphics
 pipelines. SDL2 creates the window and Vulkan surface only.
 
-1. Upload scene inputs and clear invocation status.
+1. Upload frame inputs and changed persistent ranges. Clear invocation status
+   only in checked-shader mode.
 2. Initialize root view tasks and the background image.
 3. For each of four view depths, transform and clip geometry. Compact valid
    projected triangles per view. Each pixel scans the complete candidate list.
@@ -239,18 +241,20 @@ portal paths retain separate camera transforms, even when they reach the same
 space. Each child view has a destination clip plane. At the crossing limit,
 portal pixels receive a terminal material at the portal surface.
 
-Crust's shader entry preserves invocation failures across ordered dispatches.
-The host reads error status after the frame. An error rejects the frame before
-presentation or capture. The host does not read visibility or task counts to
+Checked shader entries preserve invocation failures across ordered dispatches.
+Debug mode reads their reduced status after the frame. Production shaders have
+no invocation status. Task or view exhaustion rejects the frame before
+presentation or capture in both modes. The host does not read visibility or task counts to
 control rendering. Compute, indirect-command, transfer, and host accesses have
 explicit memory dependencies. The current demo uses one queue and one frame
 in flight.
 
 The host and shaders compile the same [buffer constants](../../src/render/interface.crs).
 The interface uses four-byte words and floats, not host record layout. There
-are three storage bindings: words, floats, and invocation status. Words and
-floats use runtime lengths. Status uses 8 MiB. One device-local buffer and one
-staging buffer each own the complete layout. Image ranges use the configured
+are two production storage bindings: words and floats, each with a count header.
+Checked shaders add an 8 MiB invocation-status binding on the device. Staging
+does not contain invocation status. The [transfer contract](transfers.md) defines
+persistent ranges, frame transfers, debug reports, and retirement fences. Image ranges use the configured
 dimensions; geometry metadata, projected vertices, clipping scratch, and compact indices
 follow the checked layout in `src/render/host/geometry.crs`.
 
@@ -259,9 +263,9 @@ limit. If geometric growth would exceed that limit, allocate the requested
 size. Each words or floats binding starts with its payload element count.
 Offsets and descriptor ranges include that header. The host preserves scene
 inputs across growth, updates descriptors, and records commands again. The
-synchronous frame API guarantees that no GPU work uses the old buffer during
+submission fence guarantees that no rendering work uses the old buffer during
 replacement. Reserve calls can fail due to device limits, allocation, or Vulkan
-command errors. They must not run while GPU work is pending.
+command errors. Replacement waits for pending rendering work to retire.
 
 Staging memory must be host-visible, coherent, and cached. Device creation reports an error if the profile cannot
 be met. The Vulkan owner releases buffers, memory, pipelines, queries, commands,
@@ -314,6 +318,7 @@ crust tests.crs render 4 --dither 0
 crust tests.crs render 9
 crust tests.crs render 10 # requires a display
 crust tests.crs render 11 # light capacity and geometry visibility
+crust tests.crs render 12 # transfers, diagnostics and retirement
 crust demo.crs --capture build/native.ppm --width 1920 --height 1080 --frames 601
 crust demo.crs --capture build/baseline.ppm --width 1920 --height 1080 --frames 601 --baseline 1
 cmp build/native.ppm build/baseline.ppm

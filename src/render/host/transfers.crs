@@ -1,0 +1,157 @@
+fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
+    if size == 0u64 {
+        return;
+    }
+    if src == v -> staging {
+        v -> frame_upload_bytes = v -> frame_upload_bytes + size;
+    }
+    if dst == v -> staging {
+        v -> frame_readback_bytes = v -> frame_readback_bytes + size;
+    }
+    var copy: VkBufferCopy = make VkBufferCopy {
+        srcOffset: offset,
+        dstOffset: offset,
+        size: size
+    };
+    vkCmdCopyBuffer(v -> commands, src, dst, 1u32, &copy);
+}
+fn upload_scene(v: *Vulkan) -> unit {
+    retained_upload(v);
+    retained_transfer(
+        v,
+        LIGHT_DATA,
+        (v -> mapped as *u32)[LIGHT_COUNT as usize] * 8u32,
+        true,
+        true
+    );
+    persistent_upload(v);
+    copy_region(v, v -> staging, v -> buffer, 0u64, 84u64 * 4u64);
+    if (v -> mapped as *u32)[OVERLAY_ENABLED as usize] != 0u32 {
+        copy_region(
+            v,
+            v -> staging,
+            v -> buffer,
+            (OVERLAY_CELLS as u64 + 1u64) * 4u64,
+            480u64 * 4u64
+        );
+    }
+    copy_region(
+        v,
+        v -> staging,
+        v -> buffer,
+        4u64 + (v -> mapped as *u32)[META as usize] as u64 * 4u64,
+        (v -> mapped as *u32)[DYNAMIC_COUNT as usize] as u64 * 16u64
+    );
+    retained_transfer(v, PORTAL_META, v -> portal_capacity * 4u32, false, true);
+    retained_transfer(v, PORTAL_FLOAT, v -> portal_capacity * 16u32, true, true);
+    var base: u64 = (v -> words as u64 + 1u64) * 4u64;
+    copy_region(v, v -> staging, v -> buffer, base, 22u64 * 4u64);
+    copy_region(
+        v,
+        v -> staging,
+        v -> buffer,
+        base + (SPACE_LIGHT as u64 + 1u64) * 4u64,
+        132u64 * 4u64
+    );
+    copy_region(
+        v,
+        v -> staging,
+        v -> buffer,
+        base + (GEOMETRY as u64 + 1u64) * 4u64,
+        (v -> mapped as *u32)[DYNAMIC_COUNT as usize] as u64 * 60u64
+    );
+
+}
+fn readback(v: *Vulkan) -> unit {
+    retained_readback(v);
+    if (v -> mapped as *u32)[26usize] != 0u32 {
+        copy_region(v, v -> buffer, v -> staging, 0u64, 83u64 * 4u64);
+    } else {
+        copy_region(v, v -> buffer, v -> staging, 24u64, 4u64);
+    }
+    if v -> shader_checks {
+        copy_region(
+            v,
+            v -> buffer,
+            v -> staging,
+            (STATUS_REPORT as u64 + 1u64) * 4u64,
+            STATUS_GROUPS as u64 * 16u64
+        );
+    }
+    if v -> read_pixels {
+        copy_region(
+            v,
+            v -> buffer,
+            v -> staging,
+            4u64 + PIXELS as u64 * 4u64,
+            v -> width as u64 * v -> height as u64 * 4u64
+        );
+        copy_region(
+            v,
+            v -> buffer,
+            v -> staging,
+            4u64 + ((v -> mapped as *u32)[PRESENT_PIXELS as usize] as u64) * 4u64,
+            v -> output_width as u64 * v -> output_height as u64 * 4u64
+        );
+    }
+    if (v -> mapped as *u32)[26usize] != 0u32 {
+        copy_region(
+            v,
+            v -> buffer,
+            v -> staging,
+            4u64 + ((v -> mapped as *u32)[DEBUG_VALUES as usize] as u64) * 4u64,
+            (v -> mapped as *u32)[0usize] as u64 * (v -> mapped as *u32)[1usize] as u64 * 16u64
+        );
+    }
+    frame_barrier(v, 4096u32, 4096u32, 16384u32, 8192u32);
+}
+
+fn input_word_dirty(input: mut FrameInput, index: u32) -> unit {
+    var first: u32 = input_word(read input, ASSET_OFFSET as usize);
+    if index >= first && index - first < input.storage.asset_capacity {
+        var offset: u32 = index - first;
+        if input.storage.asset_dirty_end == 0u32 || offset < input.storage.asset_dirty_begin {
+            input.storage.asset_dirty_begin = offset;
+        }
+        if offset >= input.storage.asset_dirty_end {
+            input.storage.asset_dirty_end = offset + 1u32;
+        }
+    }
+    var mesh: u32 = input_word(read input, MESH_META as usize);
+    if index >= mesh && index - mesh < input.storage.mesh_capacity * 4u32 {
+        input.storage.mesh_dirty = true;
+    }
+    var instances: u32 = input_word(read input, INSTANCE_META as usize);
+    if index >= instances && index - instances < input.storage.instance_capacity * 5u32 {
+        input.storage.instance_dirty = true;
+    }
+    if index >= OVERLAY_FONT && index < OVERLAY_FONT + 1024u32 {
+        input.storage.font_dirty = true;
+    }
+}
+fn persistent_upload(v: *Vulkan) -> unit {
+    if v -> asset_dirty_end > v -> asset_dirty_begin {
+        var offset: u64 = (v -> mapped as *u32)[ASSET_OFFSET as usize] as u64 + v -> asset_dirty_begin as u64 + 1u64;
+        v -> asset_upload_bytes = (v -> asset_dirty_end - v -> asset_dirty_begin) as u64 * 4u64;
+        copy_region(v, v -> staging, v -> buffer, offset * 4u64, v -> asset_upload_bytes);
+    }
+    if v -> font_dirty {
+        copy_region(
+            v,
+            v -> staging,
+            v -> buffer,
+            (OVERLAY_FONT as u64 + 1u64) * 4u64,
+            1024u64 * 4u64
+        );
+    }
+}
+fn input_float_dirty(input: mut FrameInput, index: u32) -> unit {
+    var mesh: u32 = input_word(read input, MESH_FLOAT as usize);
+    if index >= mesh && index - mesh < input.storage.mesh_capacity * 15u32 {
+        input.storage.mesh_dirty = true;
+    }
+    var instances: u32 = input_word(read input, INSTANCE_FLOAT as usize);
+    if index >= instances && index - instances < input.storage.instance_capacity * 18u32 {
+        input.storage.instance_dirty = true;
+    }
+}

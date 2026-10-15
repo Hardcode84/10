@@ -10,7 +10,7 @@ The upstream history also includes the device enumeration correction.
 - LLVM field and element access uses typed addressing.
 - The external shader stage generates compute entries, buffer and R32f image
   bindings, workgroup storage, invocation IDs, and barriers.
-- The renderer selects `SHADER_CHECKED` execution. Its storage buffers use
+- Production selects `SHADER_RAW`; debug runs select `SHADER_CHECKED`. Storage buffers use
   `SHADER_COUNTED` layout, with a count header before the payload. Workgroup
   arrays use `SHADER_FIXED` layout.
 - The shader stage supplies `shader_sqrt(f32) -> f32` for finite, non-negative

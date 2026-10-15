@@ -17,6 +17,7 @@ fn renderer_drop(renderer: mut Renderer) -> unit {
 }
 // Requires successful renderer setup. The input borrow keeps the renderer alive.
 fn renderer_inputs(renderer: mut Renderer) -> FrameInput from renderer {
+    retirement_wait(&renderer.state);
     return make FrameInput {
         storage: mut renderer.state
     };
@@ -39,15 +40,24 @@ fn input_set_word(input: mut FrameInput, index: usize, value: u32) -> unit {
     if index >= input.storage.words as usize {
         trap;
     }
+    var old: u32 = (input.storage.mapped as *u32)[index];
     (input.storage.mapped as *u32)[index] = value;
+    if old != value {
+        input_word_dirty(mut input, index as u32);
+    }
 }
 fn input_set_float(input: mut FrameInput, index: usize, value: f32) -> unit {
     if index >= input.storage.floats as usize {
         trap;
     }
-    (
-        (input.storage.mapped + (input.storage.words as isize + 1isize) * 4isize) as *f32
-    )[index] = value;
+    var address: *f32 = (
+        input.storage.mapped + (input.storage.words as isize + 1isize) * 4isize
+    ) as *f32;
+    var previous: u32 = (address as *u32)[index];
+    address[index] = value;
+    if previous != (address as *u32)[index] {
+        input_float_dirty(mut input, index as u32);
+    }
 }
 // Existing frame data is preserved. Failure leaves no usable frame to submit.
 fn input_reserve_triangles(input: mut FrameInput, required: u32) -> bool {

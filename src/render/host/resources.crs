@@ -50,6 +50,11 @@ fn allocate_buffer(
     if !memory_allocate(v, &req, flags, memory) {
         return false;
     }
+    if flags == 1u32 {
+        v -> device_bytes = req.size;
+    } else {
+        v -> staging_bytes = req.size;
+    }
     return vk_ok(
         vkBindBufferMemory(v -> device, *buffer, *memory, 0u64),
         "vkBindBufferMemory"
@@ -62,10 +67,11 @@ fn buffer_create(v: *Vulkan) -> bool {
     if v -> triangle_capacity == 0u32 && !geometry_layout(v, 1u32) {
         return false;
     }
-    var size: u64 = (v -> words as u64 + v -> floats as u64 + 2u64 + MAX_INVOCATIONS as u64) * 4u64;
+    var staging_size: u64 = (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64;
+    var size: u64 = staging_size + v -> shader_checks as u64 * MAX_INVOCATIONS as u64 * 4u64;
     if !allocate_buffer(v, size, 35u32 | 256u32, 1u32, &v -> buffer, &v -> memory) || !allocate_buffer(
         v,
-        size,
+        staging_size,
         3u32,
         14u32,
         &v -> staging,
@@ -74,23 +80,38 @@ fn buffer_create(v: *Vulkan) -> bool {
         return false;
     }
     if !vk_ok(
-        vkMapMemory(v -> device, v -> staging_memory, 0u64, size, 0u32, &v -> mapped),
+        vkMapMemory(
+            v -> device,
+            v -> staging_memory,
+            0u64,
+            staging_size,
+            0u32,
+            &v -> mapped
+        ),
         "vkMapMemory"
     ) {
         return false;
     }
-    zero(v -> mapped, size as usize);
+    zero(v -> mapped, (staging_size) as usize);
     (v -> mapped as *u32)[0usize] = v -> words;
     (v -> mapped as *u32)[(v -> words + 1u32) as usize] = v -> floats;
     v -> mapped = v -> mapped + 4isize;
     geometry_header(v);
+    v -> asset_dirty_begin = 0u32;
+    v -> asset_dirty_end = v -> asset_capacity;
+    v -> font_dirty = true;
+    v -> instance_dirty = true;
+    var bytes: u64 = v -> device_bytes + v -> staging_bytes;
+    if bytes > v -> peak_buffer_bytes {
+        v -> peak_buffer_bytes = bytes;
+    }
     return true;
 }
 fn layout_create(v: *Vulkan) -> bool {
     var bindings: [VkDescriptorSetLayoutBinding; 3] = uninit;
     zero(&bindings as *u8, sizeof([VkDescriptorSetLayoutBinding; 3]));
     var i: usize = 0usize;
-    while i < 3usize {
+    while i < 2usize + v -> shader_checks as usize {
         bindings[i].binding = i as u32;
         bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         bindings[i].descriptorCount = 1u32;
@@ -100,7 +121,7 @@ fn layout_create(v: *Vulkan) -> bool {
     var info: VkDescriptorSetLayoutCreateInfo = uninit;
     zero(&info as *u8, sizeof(VkDescriptorSetLayoutCreateInfo));
     info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    info.bindingCount = 3u32;
+    info.bindingCount = 2u32 + v -> shader_checks as u32;
     info.pBindings = &bindings[0usize];
     if !vk_ok(
         vkCreateDescriptorSetLayout(v -> device, &info, null(*u8), &v -> layout),
@@ -212,5 +233,11 @@ fn descriptors_update(v: *Vulkan) -> unit {
         writes[i].pBufferInfo = &buffers[i];
         i = i + 1usize;
     }
-    vkUpdateDescriptorSets(v -> device, 3u32, &writes[0usize], 0u32, null(*u8));
+    vkUpdateDescriptorSets(
+        v -> device,
+        2u32 + v -> shader_checks as u32,
+        &writes[0usize],
+        0u32,
+        null(*u8)
+    );
 }

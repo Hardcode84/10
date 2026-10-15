@@ -37,7 +37,7 @@ fn palette_inputs(v: *Vulkan) -> unit {
 fn palette_run(v: *Vulkan) -> bool {
     palette_inputs(v);
     var w: *u32 = v -> mapped as *u32;
-    var good: bool = palette_record(v);
+    var good: bool = true;
     var mode: u32 = 0u32;
     while good && mode < 2u32 {
         w[2usize] = mode;
@@ -45,7 +45,7 @@ fn palette_run(v: *Vulkan) -> bool {
         if mode == 1u32 {
             w[21usize] = 44u32;
         }
-        good = dispatch(v) && frame_valid(v) && presentation_check(v);
+        good = palette_dispatch(v) && frame_valid(v) && presentation_check(v);
         if good {
             good = palette_pixels(v, mode);
         }
@@ -54,7 +54,7 @@ fn palette_run(v: *Vulkan) -> bool {
         }
         if good && mode == 1u32 {
             w[21usize] = 37u32;
-            good = dispatch(v) && frame_valid(v) && presentation_check(v);
+            good = palette_dispatch(v) && frame_valid(v) && presentation_check(v);
         }
         if good {
             if mode == 0u32 {
@@ -75,6 +75,13 @@ fn palette_record(v: *Vulkan) -> bool {
         return false;
     }
     upload_scene(v);
+    copy_region(
+        v,
+        v -> staging,
+        v -> buffer,
+        (TEXTURE as u64 + 1u64) * 4u64,
+        (PALETTE as u64 + 4096u64 - TEXTURE as u64) * 4u64
+    );
     vkCmdFillBuffer(
         v -> commands,
         v -> buffer,
@@ -98,6 +105,9 @@ fn palette_record(v: *Vulkan) -> bool {
     frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
     vkCmdBindPipeline(v -> commands, VK_PIPELINE_BIND_POINT_COMPUTE, v -> pipelines[1usize]);
     vkCmdDispatch(v -> commands, 14543u32, 1u32, 1u32);
+    frame_barrier(v, 2048u32, 64u32, 4096u32, 2048u32);
+    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+    retained_dispatch(v, 10usize, STATUS_GROUPS);
     frame_barrier(v, 2048u32, 64u32, 4096u32, 2048u32);
     readback(v);
     return vk_ok(vkEndCommandBuffer(v -> commands), "vkEndCommandBuffer palette");
@@ -139,6 +149,7 @@ fn palette_test() -> bool {
     var v: Vulkan = uninit;
     zero(&v as *u8, sizeof(Vulkan));
     v.read_pixels = true;
+    v.shader_checks = true;
     v.width = 641u32;
     v.height = 363u32;
     v.output_width = 1282u32;
@@ -147,9 +158,11 @@ fn palette_test() -> bool {
         &v
     ) && load_pipeline(&v, "build/palette.spv", 0usize) && load_pipeline(
         &v,
-        "build/compose.spv",
+        "build/compose.debug.spv",
         1usize
-    ) && descriptors_create(&v) && commands_create(&v);
+    ) && load_pipeline(&v, "build/status.debug.spv", 10usize) && descriptors_create(&v) && commands_create(
+        &v
+    );
     if good {
         good = palette_run(&v) && overlay_test(&v);
     }
@@ -259,11 +272,11 @@ fn overlay_test(v: *Vulkan) -> bool {
     while scale <= 2u32 {
         w[OVERLAY_SCALE as usize] = scale;
         w[21usize] = 37u32;
-        if !dispatch(v) || !frame_valid(v) || !overlay_pixels(v, 37u32, scale) {
+        if !palette_dispatch(v) || !frame_valid(v) || !overlay_pixels(v, 37u32, scale) {
             return false;
         }
         w[21usize] = 44u32;
-        if !dispatch(v) || !frame_valid(v) || !overlay_pixels(v, 44u32, scale) {
+        if !palette_dispatch(v) || !frame_valid(v) || !overlay_pixels(v, 44u32, scale) {
             return false;
         }
         scale = scale + 1u32;
@@ -293,4 +306,10 @@ fn presentation_expected(w: *u32, x: u32, y: u32) -> u32 {
     var sx: u64 = (x as u64 - left) * w[0usize] as u64 / width;
     var sy: u64 = (y as u64 - top) * w[1usize] as u64 / height;
     return w[(PIXELS as u64 + sy * w[0usize] as u64 + sx) as usize];
+}
+
+fn palette_dispatch(v: *Vulkan) -> bool {
+    return vk_ok(vkResetCommandBuffer(v -> commands, 0u32), "reset palette commands") && palette_record(
+        v
+    ) && dispatch(v);
 }

@@ -147,26 +147,23 @@ space isolation, retained blockers, distant lamps, full-bright texels, and
 17 lights with the CPU reference. It checks rejected growth and recovery.
 Test 4 and the viewer checks retain the faceted-pipe and lighting regressions.
 
-### R7. Memory, upload, and synchronization — room scale
+### R7. Memory, upload, and synchronization — implemented
 
-[Resource allocation](../../src/render/host/resources.crs) allocates one packed
-device buffer and an equally sized staging buffer. Each has dimension-dependent
-image storage, 8 MiB of status, and geometry-dependent storage, before other Vulkan
-resources. Geometry offsets follow the allocated capacity. [Frame dispatch](../../src/render/host/dispatch.crs)
-uploads fixed scene/table ranges each frame and reads back the 8 MiB invocation
-status region. [Frame validation](../../src/render/host/renderer.crs) scans that
-region and waits for GPU completion before returning.
+Production shaders use raw execution. They do not allocate, clear, reduce,
+or read invocation status. Checked shaders are an explicit debug option.
+Their complete status reduction preserves the first failed invocation and
+failure count. Production reads only the four-byte task/view capacity result;
+captures and debug pixel checks select their additional readback.
 
-**Change:** measure the baseline before altering synchronization. Separate
-persistent asset data from frame data. Upload changed assets once. Define
-owned allocation ranges and retirement fences. Replace full status readback
-with a complete compact failure report if measurements justify it. Preserve
-exact diagnostics and the rule that failed output is not presented.
+Persistent asset, mesh, instance, and font ranges are separate from frame
+inputs. Changed ranges are uploaded once. A submission fence governs staging
+access, storage replacement, and destruction. The draw API remains synchronous.
 
-**Check:** repeated unchanged frames, repeated asset replacement, failed
-allocation, and shutdown with submitted work. Report CPU wait, upload bytes,
-GPU time, and peak memory separately. Do not claim faster rendering from a
-lower triangle count alone.
+The [transfer contract](../render/transfers.md) records the baseline, owned ranges,
+failure rules, and measurements. Test 12 uses the retained production demo,
+repeated unchanged frames, palette replacement, rejected allocation, pending
+shutdown, and debug failures at the first and last invocation. The full test
+suite retains image, traversal, and resize checks.
 
 ## Collision and physical state
 

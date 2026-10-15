@@ -1,7 +1,7 @@
 fn main(argc: i32, argv: **u8) -> i32 {
     var test: u32 = 0u32;
-    if argc < 2i32 || !parse_number(argv[1usize], &test) || test > 11u32 {
-        error("render tests require a case number from 0 through 11");
+    if argc < 2i32 || !parse_number(argv[1usize], &test) || test > 12u32 {
+        error("render tests require a case number from 0 through 12");
         return 2i32;
     }
     var o: Options = uninit;
@@ -16,6 +16,9 @@ fn main(argc: i32, argv: **u8) -> i32 {
     return render_test(&o, test);
 }
 fn render_test(o: *Options, test: u32) -> i32 {
+    if test == 12u32 {
+        return (!transfer_test(o)) as i32;
+    }
     if test == 11u32 {
         return (!lighting_test(o)) as i32;
     }

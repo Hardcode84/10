@@ -1,0 +1,3 @@
+fn render_debug_assert(condition: bool) -> unit {
+    shader_require(condition);
+}

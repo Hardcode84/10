@@ -10,7 +10,7 @@ fn report(samples: *u64, count: u32) -> unit {
         samples[j] = value;
         i = i + 1usize;
     }
-    puts("steady frame CPU submission + GPU + status readback p50 / p99 (microseconds):");
+    puts("steady frame CPU submission + GPU + selected readback p50 / p99 (microseconds):");
     print_number((samples[(count / 2u32) as usize] / 1000u64) as i64);
     print_number((samples[((count * 99u32 - 1u32) / 100u32) as usize] / 1000u64) as i64);
 }
