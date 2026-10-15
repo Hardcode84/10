@@ -1,0 +1,16 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    if argc == 1i32 {
+        return (!game_tests()) as i32;
+    }
+    if strcmp(argv[1usize], "review") != 0i32 {
+        error("game tests accept only review and its image dimensions");
+        return 2i32;
+    }
+    var o: Launch = uninit;
+    if !game_options(argc - 1i32, &argv[1usize], &o) {
+        return 2i32;
+    }
+    o.config.headless = true;
+    o.capture = "build/review.ppm";
+    return review_run(game_session(&o), o.config);
+}

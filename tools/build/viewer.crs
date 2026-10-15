@@ -1,0 +1,22 @@
+fn build_viewer(root: *CrustRun) -> bool {
+    var sources: [*u8; 64] = uninit;
+    var providers: [*u8; 32] = uninit;
+    var source_count: usize = game_sources(root, &sources[0usize]);
+    var provider_count: usize = render_providers(root, &providers[0usize]);
+    provider_count = provider_count + game_providers(root, &providers[provider_count]);
+    sources[source_count] = host_path(root, "src/viewer/scene.crs");
+    source_count = source_count + 1usize;
+    providers[provider_count] = host_path(root, "src/viewer/entry.crs");
+    provider_count = provider_count + 1usize;
+    providers[provider_count] = host_path(root, "src/viewer/platform.crs");
+    provider_count = provider_count + 1usize;
+    return build_application(
+        root,
+        "build/viewer",
+        &sources[0usize],
+        source_count,
+        &providers[0usize],
+        provider_count,
+        false
+    );
+}

@@ -6,19 +6,13 @@ fn main(argc: i32, argv: **u8) -> i32 {
     var selected: u32 = 0u32;
     var copies: u32 = 1u32;
     var frames: u32 = 0u32;
-    var verify: bool = false;
     var i: usize = 1usize;
     while i < argc as usize {
         if strcmp(argv[i], "--help") == 0i32 {
             puts(
-                "Prefab viewer: --asset N --copies N --frames N --width N --height N --capture FILE --check"
+                "Prefab viewer: --asset N --copies N --frames N --width N --height N --capture FILE"
             );
             return 0i32;
-        }
-        if strcmp(argv[i], "--check") == 0i32 {
-            verify = true;
-            i = i + 1usize;
-            continue;
         }
         if i + 1usize >= argc as usize {
             error("viewer option requires a value");
@@ -49,15 +43,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
             frames = 1u32;
         }
     }
-    launch.config.review = verify;
-    return viewer_run(
-        game_session(&launch),
-        launch.config,
-        selected,
-        copies,
-        frames,
-        verify
-    );
+    return viewer_run(game_session(&launch), launch.config, selected, copies, frames);
 }
 
 fn viewer_value(

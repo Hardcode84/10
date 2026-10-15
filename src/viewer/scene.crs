@@ -76,8 +76,7 @@ fn viewer_run(
     config: GameConfig,
     selected: u32,
     copies: u32,
-    frames: u32,
-    verify: bool
+    frames: u32
 ) -> i32 {
     var input: InputState = input_new();
     if !game_open(mut session, mut input) || !viewer_open(mut session, selected) {
@@ -99,14 +98,7 @@ fn viewer_run(
         if !config.headless && !viewer_events(mut session, mut state) {
             return 1i32;
         }
-        if !viewer_render(
-            mut session,
-            mut metrics,
-            state.selected,
-            state.tick,
-            copies,
-            verify
-        ) {
+        if !viewer_render(mut session, mut metrics, state.selected, state.tick, copies) {
             return 1i32;
         }
         if !config.headless {

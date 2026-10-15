@@ -1,0 +1,72 @@
+fn ownership_sources(
+    root: *CrustRun,
+    argc: i32,
+    argv: **u8,
+    providers: **u8,
+    count: usize,
+    expected: *u8
+) -> i32 {
+    var trusted: [CrustSource; 32] = uninit;
+    var i: usize = 0usize;
+    while i < count {
+        if !cache_read(root -> context, providers[i], &trusted[i]) {
+            return 1i32;
+        }
+        trusted[i].identity = 100u64 + i as u64;
+        i = i + 1usize;
+    }
+    var args: [*u8; 96] = uninit;
+    var total: usize = 0usize;
+    i = 0usize;
+    while i < argc as usize {
+        var provider: bool = false;
+        var j: usize = 0usize;
+        while j < count {
+            if cache_strcmp(argv[i], trusted[j].path) == 0i32 {
+                provider = true;
+            }
+            j = j + 1usize;
+        }
+        if !provider {
+            args[total] = argv[i];
+            total = total + 1usize;
+        }
+        i = i + 1usize;
+    }
+    var context: CrustContext = uninit;
+    crust_context_init(&context, null(*CrustAllocator));
+    var request: CrustBuild = make CrustBuild {
+        context: &context,
+        source: null(*CrustSource),
+        target_begin: 0usize,
+        argc: total as i32,
+        argv: &args[0usize]
+    };
+    var result: i32 = ownership_program(
+        &request,
+        &trusted[0usize],
+        count,
+        c_backend_build
+    );
+    if expected != null(*u8) {
+        if result != 0i32 && context.error_count != 0usize && cache_strcmp(
+            &context.error[0usize],
+            expected
+        ) == 0i32 {
+            result = 0i32;
+        } else {
+            if context.error_count != 0usize {
+                crust_run_diagnostic(&context);
+            }
+            native_error(
+                root -> context,
+                "ownership rejection did not match the expected diagnostic"
+            );
+            result = 1i32;
+        }
+    } else if context.error_count != 0usize {
+        crust_run_diagnostic(&context);
+    }
+    crust_context_destroy(&context);
+    return result;
+}

@@ -23,8 +23,7 @@ fn viewer_render(
     metrics: mut ViewerMetrics,
     selected: u32,
     tick: u32,
-    copies: u32,
-    verify: bool
+    copies: u32
 ) -> bool {
     var start: u64 = now();
     {
@@ -39,12 +38,7 @@ fn viewer_render(
         );
     }
     var submitted: u64 = now();
-    var good: bool = true;
-    if verify {
-        good = visibility_compare(&session.renderer.state, copies > 1u32 && tick == 0u32);
-    } else {
-        good = game_draw(mut session);
-    }
+    var good: bool = game_draw(mut session);
     if metrics.measured_frames != 0u64 {
         metrics.submission_ns = metrics.submission_ns + submitted - start;
         metrics.render_ns = metrics.render_ns + now() - submitted;

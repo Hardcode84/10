@@ -1,0 +1,81 @@
+extern fn build_access(path: *u8, mode: i32) -> i32 = "access";
+extern fn build_getenv(name: *u8) -> *u8 = "getenv";
+extern fn build_chdir(path: *u8) -> i32 = "chdir";
+extern fn build_execv(path: *u8, args: **u8) -> i32 = "execv";
+fn build_application(
+    root: *CrustRun,
+    output: *u8,
+    sources: **u8,
+    source_count: usize,
+    providers: **u8,
+    provider_count: usize,
+    reference: bool
+) -> bool {
+    var args: [*u8; 96] = uninit;
+    args[0usize] = "-o";
+    args[1usize] = host_path(root, output);
+    args[2usize] = host_path(root, "src/render/interface.crs");
+    var count: usize = 3usize;
+    var i: usize = 0usize;
+    while i < source_count {
+        args[count] = sources[i];
+        count = count + 1usize;
+        i = i + 1usize;
+    }
+    var flags: [*u8; 8] = make [*u8; 8] {
+        "--cflag",
+        "-O2",
+        "--ldflag",
+        "-Wl,-l:libvulkan.so.1",
+        "--ldflag",
+        "-Wl,-l:libSDL2-2.0.so.0",
+        "--ldflag",
+        "-lm"
+    };
+    i = 0usize;
+    while i < 8usize {
+        args[count] = flags[i];
+        count = count + 1usize;
+        i = i + 1usize;
+    }
+    if reference {
+        args[count] = "--ldflag";
+        args[count + 1usize] = host_path(root, "build/reference.o");
+        count = count + 2usize;
+    }
+    return ownership_sources(
+        root,
+        count as i32,
+        &args[0usize],
+        providers,
+        provider_count,
+        null(*u8)
+    ) == 0i32;
+}
+fn launch_application(root: *CrustRun, output: *u8) -> i32 {
+    if root -> argc == 1i32 && cache_strcmp(root -> argv[0usize], "--build-only") == 0i32 {
+        return 0i32;
+    }
+    var args: **u8 = crust_try_alloc(
+        root -> context,
+        (root -> argc as usize + 2usize) * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if args == null(**u8) {
+        return 1i32;
+    }
+    args[0usize] = host_path(root, output);
+    var i: usize = 0usize;
+    while i < root -> argc as usize {
+        args[i + 1usize] = root -> argv[i];
+        i = i + 1usize;
+    }
+    args[i + 1usize] = null(*u8);
+    if build_chdir(host_path(root, ".")) != 0i32 {
+        native_error(root -> context, "cannot enter the project directory");
+        return 1i32;
+    }
+    build_execv(args[0usize], args);
+    native_error(root -> context, "cannot launch application");
+    return 1i32;
+}

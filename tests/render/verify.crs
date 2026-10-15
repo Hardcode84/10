@@ -1,0 +1,65 @@
+extern fn reference_check(mapped: *u8) -> bool = "reference_check";
+fn regression_verify(v: *Vulkan, index: u32, frame: u32) -> bool {
+    if !portal_plane_check(v) {
+        return false;
+    }
+    if index == 0u32 && (v -> mapped as *u32)[11usize] < 3u32 {
+        return error("two transformed portal views were not created");
+    }
+    if index == 7u32 && (v -> mapped as *u32)[11usize] != 1u32 {
+        return error("hidden portal created child work");
+    }
+    if frame == 523u32 && !crossing_face_check(v) {
+        return false;
+    }
+    if (frame == 367u32 || frame == 368u32) && !distant_cube_check(v, frame) {
+        return false;
+    }
+    return true;
+}
+fn session_verify(session: read DemoSession, index: u32, frame: u32, test: u32) -> bool {
+    var v: *Vulkan = &session.renderer.state;
+    var o: *Options = &session.options;
+    if test == 6u32 && index >= 6u32 && !texture_constant_check(v, index) {
+        return false;
+    }
+    if test == 5u32 && index == 7u32 && !capacity_failure_check(v) {
+        return false;
+    }
+    if test == 4u32 && !tour_verify(v, index) {
+        return false;
+    }
+    if (test == 2u32 || test == 7u32) && !regression_verify(v, index, frame) {
+        return false;
+    }
+    return o -> debug_pixels == 0u32 || (
+        reference_check(v -> mapped) && presentation_check(v)
+    );
+}
+fn tour_verify(v: *Vulkan, index: u32) -> bool {
+    if !portal_plane_check(v) {
+        return false;
+    }
+    if index == 0u32 {
+        return tour_visibility_check(v);
+    }
+    if index == 37u32 {
+        return full_bright_check(v);
+    }
+    if index == 46u32 {
+        return camera_light_check(v);
+    }
+    if index == 47u32 {
+        return light_band_check(v);
+    }
+    if index == 44u32 || index == 45u32 {
+        return tour_turn_check(v, index);
+    }
+    return true;
+}
+fn regression_draw(session: mut DemoSession, test: u32) -> bool {
+    if test == 7u32 {
+        return visibility_compare(&session.renderer.state, false);
+    }
+    return session_draw(mut session);
+}

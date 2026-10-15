@@ -130,21 +130,6 @@ fn test_replay() -> bool {
 fn game_tests() -> bool {
     return test_hook() && test_winch() && test_short_press() && test_mouse_accumulation() && test_swing() && test_forces() && test_collision() && test_tether() && test_trial() && test_input() && test_replay() && test_course_flight() && test_prefabs() && test_expedition() && test_progress_store();
 }
-fn smoke_command(trial: read Trial, tick: u32) -> Command {
-    var c: Command = idle_command();
-    c.burst = tick == 0u32;
-    c.thrust = vec(0f32, 0.2f32, 0.5f32);
-    c.tether = tick >= 100u32 && tick < 200u32;
-    c.reel = tick == 110u32;
-    c.brake = tick == 230u32;
-    c.spin = tick == 300u32;
-    if tick >= 301u32 {
-        c.thrust = vec(0.2f32, 1f32, 0.5f32);
-    }
-    c.burst = c.burst || tick == 301u32;
-    c.brake = c.brake || tick == 530u32;
-    return c;
-}
 
 fn test_mouse_accumulation() -> bool {
     var input: InputState = input_new();

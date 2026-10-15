@@ -4,28 +4,30 @@ A 6DOF exploration game in a rotating megastructure.
 
 ## Design and language
 
-- Read the [game design](../SPINWARD.md) and [rendering design](docs/rendering.md).
-- Use the [room catalogue](docs/room-catalogue.md) for biomes and room content.
-- Follow the [parametric asset design](docs/parametric-assets.md) for generated
-  models, textures, and the prefab viewer. Track its [engine gaps](docs/engine-gaps.md).
+- Read the [game design](../SPINWARD.md) and [rendering design](docs/render/rendering.md).
+- Use the [room catalogue](docs/content/room-catalogue.md) for biomes and room content.
+- Follow the [parametric asset design](docs/content/parametric-assets.md) for generated
+  models, textures, and the prefab viewer. Track its [engine gaps](docs/content/engine-gaps.md).
 - Use [Crust](https://github.com/hardcode84/9) for host and device code (`.crs`).
   Follow its language specification and examples.
 - Keep Crust as a pinned Git submodule in `crust/`. Bootstrap its seed from source
-  with the host C compiler. See [bootstrap instructions](docs/bootstrap.md).
+  with the host C compiler. See [bootstrap instructions](docs/build/bootstrap.md).
 - Develop Crust alongside the game. If a required feature is missing or broken,
   implement or fix it in Crust. Do not add workarounds in the game.
 - Use Vulkan compute with SPIR-V input for rendering.
 - Use the Crust ownership stage for host code. Keep native providers explicit
   in the root build. Expose owned resources and scoped borrows to checked code.
-- See the [shader compiler investigation](docs/crust-spirv.md) before device work.
+- See the [shader compiler investigation](docs/build/crust-spirv.md) before device work.
 - Keep design contracts current in the same commit as code changes.
 
 ## Implementation
 
 - Run the rendering demo with `crust demo.crs`. Use the root `main.crs`
   entry point for the playable expedition. Use `--trial` for the movement course.
-  See [expedition rules](docs/expedition.md). Run `crust viewer.crs` to inspect
-  the shared generated meshes. See [retained meshes](docs/retained-meshes.md).
+  See [expedition rules](docs/game/expedition.md). Run `crust viewer.crs` to inspect
+  the shared generated meshes. See [retained meshes](docs/render/retained-meshes.md).
+- Run `crust tests.crs` for automated checks. Keep test entry points and fixtures
+  out of application builds. See the [component map](docs/README.md).
 - Build playable slices. Follow the game design's prototype gates.
 - Keep ownership, memory costs, synchronization, and failure paths explicit.
 - Keep `src/render/` independent of demo and test sources. Put scene generation,

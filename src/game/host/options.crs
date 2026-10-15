@@ -1,0 +1,198 @@
+record GameConfig {
+    width: u32;
+    height: u32;
+    fov: f32;
+    ticks: u32;
+    headless: bool;
+    smoke: bool;
+    tour: bool;
+    full_spin: bool;
+    slow: bool;
+    trial: bool;
+    fresh: bool;
+    shortcut: bool;
+}
+record Launch {
+    config: GameConfig;
+    capture: *u8;
+    record_path: *u8;
+    replay_path: *u8;
+    bindings_path: *u8;
+    save_path: *u8;
+}
+opaque;
+extern fn strcmp(a: *u8, b: *u8) -> i32 = "strcmp";
+fn game_number(text: *u8, result: *u32) -> bool {
+    var i: usize = 0usize;
+    var n: u32 = 0u32;
+    while text[i] != 0u8 {
+        if text[i] < 48u8 || text[i] > 57u8 || n > 1000000u32 {
+            return error("invalid numeric option");
+        }
+        n = n * 10u32 + (text[i] - 48u8) as u32;
+        i = i + 1usize;
+    }
+    * result = n;
+    return i > 0usize;
+}
+fn game_value(o: *Launch, key: *u8, value: *u8) -> bool {
+    if strcmp(key, "--capture") == 0i32 {
+        o -> capture = value;
+        o -> config.headless = true;
+        return true;
+    }
+    if strcmp(key, "--record") == 0i32 {
+        o -> record_path = value;
+        return true;
+    }
+    if strcmp(key, "--replay") == 0i32 {
+        o -> replay_path = value;
+        return true;
+    }
+    if strcmp(key, "--bindings") == 0i32 {
+        o -> bindings_path = value;
+        return true;
+    }
+    if strcmp(key, "--save") == 0i32 {
+        o -> save_path = value;
+        return true;
+    }
+    var n: u32 = 0u32;
+    if !game_number(value, &n) {
+        return false;
+    }
+    if strcmp(key, "--width") == 0i32 {
+        o -> config.width = n;
+        return true;
+    }
+    if strcmp(key, "--height") == 0i32 {
+        o -> config.height = n;
+        return true;
+    }
+    if strcmp(key, "--fov") == 0i32 {
+        o -> config.fov = n as f32;
+        return true;
+    }
+    if strcmp(key, "--ticks") == 0i32 {
+        o -> config.ticks = n;
+        return true;
+    }
+    return error("unknown option; use --help");
+}
+fn game_flag(o: *Launch, key: *u8) -> bool {
+    if strcmp(key, "--shortcut") == 0i32 {
+        o -> config.shortcut = true;
+        return true;
+    }
+    if strcmp(key, "--trial") == 0i32 {
+        o -> config.trial = true;
+        return true;
+    }
+    if strcmp(key, "--fresh") == 0i32 {
+        o -> config.fresh = true;
+        return true;
+    }
+    if strcmp(key, "--tour") == 0i32 {
+        o -> config.tour = true;
+        return true;
+    }
+    if strcmp(key, "--full-spin") == 0i32 {
+        o -> config.full_spin = true;
+        return true;
+    }
+    if strcmp(key, "--headless") == 0i32 {
+        o -> config.headless = true;
+        return true;
+    }
+    if strcmp(key, "--smoke") == 0i32 {
+        o -> config.smoke = true;
+        return true;
+    }
+    if strcmp(key, "--slow") == 0i32 {
+        o -> config.slow = true;
+        return true;
+    }
+    return false;
+}
+fn game_options(argc: i32, argv: **u8, o: *Launch) -> bool {
+    *o = make Launch {
+        config: make GameConfig {
+            width: 960u32,
+            height: 540u32,
+            fov: 90f32,
+            ticks: 0u32,
+            headless: false,
+            smoke: false,
+            tour: false,
+            full_spin: false,
+            slow: false,
+            trial: false,
+            fresh: false,
+            shortcut: false
+        },
+        capture: null(*u8),
+        record_path: null(*u8),
+        replay_path: null(*u8),
+        bindings_path: null(*u8),
+        save_path: null(*u8)
+    };
+    var i: usize = 1usize;
+    while i < argc as usize {
+        if game_flag(o, argv[i]) {
+            i = i + 1usize;
+            continue;
+        }
+        if i + 1usize >= argc as usize {
+            return error("option needs a value");
+        }
+        if !game_value(o, argv[i], argv[i + 1usize]) {
+            return false;
+        }
+        i = i + 2usize;
+    }
+    return game_options_valid(o);
+}
+fn game_options_valid(o: *Launch) -> bool {
+    if o -> config.shortcut && !o -> config.tour {
+        return error("--shortcut requires --tour");
+    }
+    if o -> config.width < 320u32 || o -> config.height < 180u32 || o -> config.width > 1920u32 || o -> config.height > 1080u32 {
+        return error("image dimensions must be 320x180 through 1920x1080");
+    }
+    if o -> config.fov < 70f32 || o -> config.fov > 110f32 {
+        return error("FOV must be 70 through 110 degrees");
+    }
+    if o -> record_path != null(*u8) && o -> replay_path != null(*u8) {
+        return error("record and replay are mutually exclusive");
+    }
+    return game_input_options(o);
+}
+fn game_input_options(o: *Launch) -> bool {
+    if o -> config.full_spin || o -> config.smoke {
+        o -> config.trial = true;
+    }
+    if o -> config.full_spin && o -> replay_path != null(*u8) {
+        return error("replay restores the recorded spin mode; omit --full-spin");
+    }
+    if (o -> config.smoke && o -> config.tour) || (
+        (o -> config.smoke || o -> config.tour) && o -> replay_path != null(*u8)
+    ) {
+        return error("smoke, tour and replay are mutually exclusive");
+    }
+    if o -> config.headless && o -> config.ticks == 0u32 && o -> replay_path == null(*u8) && !o -> config.tour {
+        o -> config.ticks = 1u32;
+    }
+    return game_progress_options(o);
+}
+fn game_progress_options(o: *Launch) -> bool {
+    var isolated: bool = o -> config.trial || o -> config.tour || o -> record_path != null(*u8) || o -> replay_path != null(
+        *u8
+    );
+    if isolated && (o -> save_path != null(*u8) || o -> config.fresh) {
+        return error("--save and --fresh require ordinary expedition play");
+    }
+    if o -> config.shortcut && o -> config.trial {
+        return error("--shortcut requires an expedition tour");
+    }
+    return true;
+}

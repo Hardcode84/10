@@ -1,0 +1,39 @@
+host_source(run, "crust/stages/build/load.crs");
+if !stage_setup(run, "crust") {
+    return 1i32;
+};
+var stages: *StageSession = stage_open(run, "crust", "build/stage-cache");
+if stages == null(*StageSession) || !stage_load(stages, "stages/ownership/package.crs") || !stage_load(
+    stages,
+    "stages/shader/package.crs"
+) {
+    return 1i32;
+};
+host_source(run, "crust/stages/shader/model.crs");
+host_source(run, "crust/stages/shader/api.crs");
+host_source(run, "src/render/interface.crs");
+host_source(run, "crust/stages/ownership/api.crs");
+host_source(run, "crust/stages/ownership/build.crs");
+host_source(run, "tools/build/ownership.crs");
+host_source(run, "tools/build/common.crs");
+host_source(run, "tools/build/render.crs");
+host_source(run, "tools/build/shaders.crs");
+if !cache_directory(run -> context, host_path(run, "build")) {
+    return 1i32;
+};
+
+host_source(run, "tools/build/demo.crs");
+host_source(run, "tools/build/game.crs");
+host_source(run, "tools/build/tests.crs");
+host_source(run, "tools/build/ownership-tests.crs");
+host_source(run, "tools/build/test-runner.crs");
+if run -> argc == 1i32 && cache_strcmp(run -> argv[0usize], "ownership") == 0i32 {
+    return (!check_host_ownership(run)) as i32;
+};
+if run -> argc == 1i32 && cache_strcmp(run -> argv[0usize], "--help") == 0i32 {
+    return test_help();
+};
+if !build_tests(run) {
+    return 1i32;
+};
+return run_tests(run);

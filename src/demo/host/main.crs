@@ -1,0 +1,66 @@
+fn demo_assets(inputs: mut FrameInput, o: DemoConfig) -> unit {
+    tour_assets(mut inputs);
+    var material: u32 = 0u32;
+    while material < 16u32 {
+        input_asset_set(
+            mut inputs,
+            material * MATERIAL_WORDS + 5u32,
+            o.mapping | (o.snap * 4u32)
+        );
+        material = material + 1u32;
+    }
+}
+fn demo_output(session: mut DemoSession, playback: mut Playback, o: DemoConfig, index: u32) -> bool {
+    var good: bool = true;
+    if o.capture {
+        if index + 1u32 == o.frames {
+            good = session_capture(read session);
+        }
+    } else {
+        good = session_present(mut session) && playback_print(read playback);
+        if good && index + 1u32 < o.frames {
+            good = playback_next(mut playback);
+        }
+    }
+    return good;
+}
+
+fn demo_run(session: DemoSession, o: DemoConfig) -> i32 {
+    var good: bool = session_open(mut session);
+    if good {
+        var renderer: mut Renderer = session_renderer(mut session);
+        var inputs: FrameInput = renderer_inputs(mut renderer);
+        demo_assets(mut inputs, o);
+    }
+    var index: u32 = 0u32;
+    var playback: Playback = make Playback {
+        frame: o.frame,
+        paused: false,
+        running: true
+    };
+    if good && !o.capture {
+        demo_controls();
+    }
+    while good && playback.running && index < o.frames {
+        var start: u64 = now();
+        var frame: u32 = o.frame + index;
+        if !o.capture {
+            frame = playback.frame;
+        }
+        {
+            var renderer: mut Renderer = session_renderer(mut session);
+            var inputs: FrameInput = renderer_inputs(mut renderer);
+            tour_scene(mut inputs, o.width, o.height, frame, o.dither);
+        }
+        good = session_draw(mut session);
+        session_sample(mut session, index, now() - start);
+        if good {
+            good = demo_output(mut session, mut playback, o, index);
+        }
+        index = index + 1u32;
+    }
+    if good {
+        good = session_report(mut session);
+    }
+    return (!good) as i32;
+}

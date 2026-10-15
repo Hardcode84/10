@@ -1,0 +1,34 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var o: Launch = uninit;
+    if !game_options(argc, argv, &o) {
+        return 2i32;
+    }
+    o.config.headless = true;
+    o.capture = "build/test-viewer.ppm";
+    return viewer_check(game_session(&o));
+}
+fn viewer_check(session: GameSession) -> i32 {
+    var input: InputState = input_new();
+    if !game_open(mut session, mut input) || !viewer_open(mut session, 8u32) {
+        return 1i32;
+    }
+    var tick: u32 = 0u32;
+    while tick < 2u32 {
+        {
+            var frame: FrameInput = renderer_inputs(mut session.renderer);
+            viewer_scene(
+                mut frame,
+                read session.world,
+                session.launch.config,
+                8u32,
+                tick,
+                256u32
+            );
+        }
+        if !visibility_compare(&session.renderer.state, tick == 0u32) {
+            return 1i32;
+        }
+        tick = tick + 1u32;
+    }
+    return (!game_finish(mut session)) as i32;
+}

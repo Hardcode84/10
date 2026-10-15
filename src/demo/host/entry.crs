@@ -1,0 +1,15 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    if argc == 2i32 && strcmp(argv[1usize], "--help") == 0i32 {
+        puts("SPINWARD automatic compute demo");
+        puts("--capture FILE --width N --height N --window-width N --window-height N");
+        puts("--frame N --frames N --dither 0|1 --mapping 0|1|2 --snap 0|1");
+        puts("--debug-pixels 1 --baseline 1 --view-budget N --fault 1");
+        puts("Window keys: Esc closes; Space pauses/resumes; Left/Right step one frame and pause");
+        return 0i32;
+    }
+    var o: Options = uninit;
+    if !options(argc, argv, &o) {
+        return 2i32;
+    }
+    return demo_run(session_new(&o), config_from_options(&o));
+}

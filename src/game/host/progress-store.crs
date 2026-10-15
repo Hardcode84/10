@@ -1,0 +1,172 @@
+extern fn progress_errno() -> *i32 = "__errno_location";
+extern fn progress_rename(old: *u8, next: *u8) -> i32 = "rename";
+extern fn progress_fileno(file: *u8) -> i32 = "fileno";
+extern fn progress_fsync(fd: i32) -> i32 = "fsync";
+fn progress_revision(m: Expedition) -> u32 {
+    var h: u32 = hash_word(2166136261u32, m.progress);
+    h = hash_word(h, m.rescues);
+    h = hash_word(h, m.has_parked as u32);
+    h = hash_word(h, m.shortcut as u32);
+    h = hash_word(h, m.elapsed);
+    h = hash_word(h, float_bits(m.spent));
+    return hash_vec(h, m.parked);
+}
+fn progress_path(o: *Launch) -> *u8 {
+    if o -> config.trial || o -> record_path != null(*u8) || o -> replay_path != null(*u8) || o -> config.tour {
+        return null(*u8);
+    }
+    if o -> save_path != null(*u8) {
+        return o -> save_path;
+    }
+    if o -> config.headless {
+        return null(*u8);
+    }
+    return "spinward.save";
+}
+fn progress_read(path: *u8, mission: *Expedition) -> bool {
+    var file: *u8 = fopen(path, "rb");
+    if file == null(*u8) {
+        if *progress_errno() == 2i32 {
+            return true;
+        }
+        return error("cannot open expedition save");
+    }
+    var data: [u32; 12] = uninit;
+    var extra: u8 = 0u8;
+    var good: bool = fread(&data as *u8, 48usize, 1usize, file) == 1usize;
+    good = good && fread(&extra, 1usize, 1usize, file) == 0usize && ferror(file) == 0i32;
+    var closed: bool = fclose(file) == 0i32;
+    if !good || !closed {
+        return error("truncated expedition save or read failure");
+    }
+    return progress_decode(&data as *u32, mission);
+}
+fn progress_decode(data: *u32, mission: *Expedition) -> bool {
+    if data[1usize] != 3u32 {
+        return error(
+            "expedition save uses another level version; use --fresh to start this level"
+        );
+    }
+    if data[0usize] != 0x53505744u32 || !progress_valid(data[2usize]) || data[4usize] > 1u32 {
+        return error("invalid expedition save header");
+    }
+    var m: Expedition = new_expedition();
+    m.progress = data[2usize];
+    m.rescues = data[3usize];
+    m.has_parked = data[4usize] != 0u32;
+    m.parked = vec(
+        bits_float(data[5usize]),
+        bits_float(data[6usize]),
+        bits_float(data[7usize])
+    );
+    var i: usize = 5usize;
+    while i < 8usize {
+        var value: f32 = bits_float(data[i]);
+        if!(value >= -1000000f32 && value <= 1000000f32) {
+            return error("invalid parked drone coordinates");
+        }
+        i = i + 1usize;
+    }
+    m.elapsed = data[8usize];
+    if m.has_parked && !expedition_contains(m.parked) {
+        return error("saved drone is outside the expedition rooms");
+    }
+    m.spent = bits_float(data[9usize]);
+    if!(m.spent >= 0f32 && m.spent <= 1000000000f32) {
+        return error("invalid saved charge total");
+    }
+    if data[10usize] > 1u32 {
+        return error("invalid saved route flag");
+    }
+    m.shortcut = data[10usize] != 0u32;
+    if progress_revision(m) != data[11usize] {
+        return error("expedition save checksum differs");
+    }
+    m.relight = 2400u32;
+    *mission = m;
+    return true;
+}
+fn progress_write(path: *u8, m: Expedition) -> bool {
+    var temp: [u8; 4096] = uninit;
+    var count: usize = 0usize;
+    while path[count] != 0u8 {
+        if count >= 4091usize {
+            return error("expedition save path is too long");
+        }
+        temp[count] = path[count];
+        count = count + 1usize;
+    }
+    temp[count] = 46u8;
+    temp[count + 1usize] = 116u8;
+    temp[count + 2usize] = 109u8;
+    temp[count + 3usize] = 112u8;
+    temp[count + 4usize] = 0u8;
+    var file: *u8 = fopen(&temp as *u8, "wb");
+    if file == null(*u8) {
+        return error("cannot create expedition save");
+    }
+    var data: [u32; 12] = make [u32; 12] {
+        0x53505744u32,
+        3u32,
+        m.progress,
+        m.rescues,
+        m.has_parked as u32,
+        float_bits(m.parked.x),
+        float_bits(m.parked.y),
+        float_bits(m.parked.z),
+        m.elapsed,
+        float_bits(m.spent),
+        m.shortcut as u32,
+        progress_revision(m)
+    };
+    var good: bool = fwrite(&data as *u8, 48usize, 1usize, file) == 1usize;
+    good = good && fflush(file) == 0i32 && progress_fsync(progress_fileno(file)) == 0i32;
+    var closed: bool = fclose(file) == 0i32;
+    if !good || !closed {
+        return error("cannot flush expedition save");
+    }
+    return progress_rename(&temp as *u8, path) == 0i32 || error("cannot replace expedition save");
+}
+fn game_restore(session: mut GameSession, trial: mut Trial) -> bool {
+    if session.launch.config.trial {
+        return true;
+    }
+    start_expedition(mut trial);
+    var path: *u8 = progress_path(&session.launch);
+    if path != null(*u8) && !session.launch.config.fresh {
+        if !progress_read(path, &trial.expedition) {
+            return false;
+        }
+    }
+    if path != null(*u8) && session.launch.config.fresh {
+        if !progress_write(path, trial.expedition) {
+            return false;
+        }
+    }
+    trial.finished = (trial.expedition.progress & 4u32) != 0u32;
+    session.saved_revision = progress_event(trial.expedition);
+    return true;
+}
+fn game_save(session: mut GameSession, trial: read Trial) -> bool {
+    var path: *u8 = progress_path(&session.launch);
+    if path == null(*u8) {
+        return true;
+    }
+    var revision: u64 = progress_event(trial.expedition);
+    if revision == session.saved_revision {
+        return true;
+    }
+    if !progress_write(path, trial.expedition) {
+        return false;
+    }
+    session.saved_revision = revision;
+    return true;
+}
+
+fn progress_event(m: Expedition) -> u64 {
+    return ((m.rescues as u64) << 32u64) | m.progress as u64;
+}
+
+fn progress_valid(value: u32) -> bool {
+    return value == 0u32 || value == 1u32 || value == 3u32 || value == 7u32;
+}

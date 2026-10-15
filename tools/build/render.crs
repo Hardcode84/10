@@ -1,0 +1,41 @@
+fn render_providers(root: *CrustRun, args: **u8) -> usize {
+    var files: [*u8; 14] = make [*u8; 14] {
+        "src/render/host/vulkan.crs",
+        "src/render/host/io.crs",
+        "src/render/host/device.crs",
+        "src/render/host/resources.crs",
+        "src/render/host/geometry.crs",
+        "src/render/host/assets.crs",
+        "src/render/host/mesh.crs",
+        "src/render/host/retained.crs",
+        "src/render/host/retained-io.crs",
+        "src/render/host/dispatch.crs",
+        "src/render/host/timing.crs",
+        "src/render/host/present.crs",
+        "src/render/host/renderer.crs",
+        "src/render/host/owner.crs"
+    };
+    var i: usize = 0usize;
+    while i < 14usize {
+        args[i] = host_path(root, files[i]);
+        i = i + 1usize;
+    }
+    return i;
+}
+fn check_renderer(root: *CrustRun) -> bool {
+    var providers: [*u8; 14] = uninit;
+    var count: usize = render_providers(root, &providers[0usize]);
+    var args: [*u8; 3] = make [*u8; 3] {
+        "--check",
+        "--library",
+        host_path(root, "src/render/interface.crs")
+    };
+    return ownership_sources(
+        root,
+        3i32,
+        &args[0usize],
+        &providers[0usize],
+        count,
+        null(*u8)
+    ) == 0i32;
+}

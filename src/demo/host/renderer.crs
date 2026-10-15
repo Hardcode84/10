@@ -1,0 +1,55 @@
+fn demo_renderer_configured(v: *Vulkan, config: *RenderConfig, window: *u8) -> bool {
+    if !window_instance(v, window) {
+        return false;
+    }
+    var paths: [*u8; 10] = make [*u8; 10] {
+        "build/init.spv",
+        "build/transform.spv",
+        "build/raster.spv",
+        "build/advance.spv",
+        "build/compose.spv",
+        "build/compact.spv",
+        "build/scan.spv",
+        "build/fill.spv",
+        "build/instances.spv",
+        "build/visibility.spv"
+    };
+    var shaders: [ShaderCode; 10] = uninit;
+    zero(&shaders as *u8, sizeof([ShaderCode; 10]));
+    var good: bool = true;
+    var i: usize = 0usize;
+    while good && i < PIPELINE_COUNT as usize {
+        good = read_input(paths[i], &shaders[i]);
+        i = i + 1usize;
+    }
+    if good {
+        good = renderer_open(v, config, &shaders[0usize]);
+    }
+    i = 0usize;
+    while i < PIPELINE_COUNT as usize {
+        free(shaders[i].bytes);
+        i = i + 1usize;
+    }
+    return good;
+}
+fn demo_render_config(o: *Options) -> RenderConfig {
+    var config: RenderConfig = make RenderConfig {
+        width: o -> width,
+        height: o -> height,
+        output_width: o -> window_width,
+        output_height: o -> window_height,
+        read_pixels: o -> capture != null(*u8) || o -> debug_pixels != 0u32,
+        debug_pixels: o -> debug_pixels,
+        baseline: o -> baseline,
+        view_budget: o -> view_budget,
+        portal_budget: 4u32,
+        task_budget: 32768u32,
+        crossing_limit: 3u32,
+        fault: o -> fault
+    };
+    return config;
+}
+fn demo_renderer_open(v: *Vulkan, o: *Options, window: *u8) -> bool {
+    var config: RenderConfig = demo_render_config(o);
+    return demo_renderer_configured(v, &config, window);
+}

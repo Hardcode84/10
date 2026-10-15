@@ -1,0 +1,151 @@
+fn test_process(root: *CrustRun, output: *u8, count: usize, arguments: **u8) -> bool {
+    var args: **u8 = crust_try_alloc(
+        root -> context,
+        (count + 2usize) * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if args == null(**u8) {
+        return false;
+    }
+    args[0usize] = host_path(root, output);
+    var i: usize = 0usize;
+    while i < count {
+        args[i + 1usize] = arguments[i];
+        i = i + 1usize;
+    }
+    args[count + 1usize] = null(*u8);
+    var pid: i32 = native_fork();
+    if pid < 0i32 {
+        return native_error(root -> context, "cannot start test process");
+    }
+    if pid == 0i32 {
+        if build_chdir(host_path(root, ".")) != 0i32 {
+            native_exit(126i32);
+            trap;
+        }
+        build_execv(args[0usize], args);
+        native_exit(127i32);
+        trap;
+    }
+    var status: i32 = 0i32;
+    while true {
+        var result: i32 = native_waitpid(pid, &status, 0i32);
+        if result == pid {
+            break;
+        }
+        if result < 0i32 && *native_errno() == 4i32 {
+            continue;
+        }
+        return native_error(root -> context, "cannot wait for test process");
+    }
+    if status != 0i32 {
+        return native_error(root -> context, "test process failed");
+    }
+    return true;
+}
+fn build_tests(root: *CrustRun) -> bool {
+    var llvm: *u8 = build_getenv("LLVM_DIRECTORY");
+    var validator: *u8 = build_getenv("SPIRV_VAL");
+    if llvm == null(*u8) {
+        llvm = host_path(root, "build/toolchain/llvm");
+    }
+    if validator == null(*u8) {
+        validator = host_path(root, "build/toolchain/spirv-val");
+    }
+    return check_renderer(root) && build_reference(root) && build_render_tests(root) && build_game_tests(
+        root
+    ) && build_viewer_tests(root) && build_render_shaders(root) && build_shader(
+        root,
+        "tests/render/device/palette.crs",
+        "build/palette.spv",
+        llvm,
+        validator,
+        SHADER_WORKGROUP_F32,
+        512u32
+    );
+}
+fn all_tests(root: *CrustRun) -> bool {
+    if !check_host_ownership(root) {
+        return false;
+    }
+    var cases: [*u8; 8] = make [*u8; 8] {
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8"
+    };
+    var i: usize = 0usize;
+    while i < 8usize {
+        if !test_process(root, "build/tests-render", 1usize, &cases[i]) {
+            return false;
+        }
+        i = i + 1usize;
+    }
+    var args: [*u8; 5] = make [*u8; 5] {
+        "review",
+        "--width",
+        "320",
+        "--height",
+        "180"
+    };
+    return test_process(root, "build/tests-game", 0usize, null(**u8)) && test_process(
+        root,
+        "build/tests-game",
+        5usize,
+        &args[0usize]
+    ) && test_process(root, "build/tests-viewer", 4usize, &args[1usize]);
+}
+fn run_tests(root: *CrustRun) -> i32 {
+    if root -> argc == 0i32 {
+        return (!all_tests(root)) as i32;
+    }
+    var suite: *u8 = root -> argv[0usize];
+    if cache_strcmp(suite, "--build-only") == 0i32 && root -> argc == 1i32 {
+        return 0i32;
+    }
+    if cache_strcmp(suite, "all") == 0i32 && root -> argc == 1i32 {
+        return (!all_tests(root)) as i32;
+    }
+    var output: *u8 = null(*u8);
+    var skip: usize = 1usize;
+    if cache_strcmp(suite, "render") == 0i32 {
+        output = "build/tests-render";
+    }
+    if cache_strcmp(suite, "game") == 0i32 {
+        output = "build/tests-game";
+    }
+    if cache_strcmp(suite, "review") == 0i32 {
+        output = "build/tests-game";
+        skip = 0usize;
+    }
+    if cache_strcmp(suite, "viewer") == 0i32 {
+        output = "build/tests-viewer";
+    }
+    if output == null(*u8) {
+        native_error(
+            root -> context,
+            "tests.crs: use all, render 0..8, game, review, viewer, ownership, or --build-only"
+        );
+        return 2i32;
+    }
+    return (
+        !test_process(root, output, root -> argc as usize - skip, &root -> argv[skip])
+    ) as i32;
+}
+
+extern fn test_puts(text: *u8) -> i32 = "puts";
+fn test_help() -> i32 {
+    test_puts(
+        "SPINWARD checks: crust tests.crs [all|ownership|game|review|viewer|render N|--build-only]"
+    );
+    test_puts(
+        "render 1..8: palette, portals, playback, lighting, geometry, textures, retained views, portal capacity"
+    );
+    test_puts("render 0 --capture FILE --frames N: custom demo sequence with CPU reference");
+    test_puts("review and viewer accept --width N --height N");
+    return 0i32;
+}

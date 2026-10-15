@@ -1,0 +1,63 @@
+fn game_renderer_open(v: *Vulkan, o: *Launch, window: *u8) -> bool {
+    if !window_instance(v, window) {
+        return false;
+    }
+    var paths: [*u8; 10] = make [*u8; 10] {
+        "build/init.spv",
+        "build/transform.spv",
+        "build/raster.spv",
+        "build/advance.spv",
+        "build/compose.spv",
+        "build/compact.spv",
+        "build/scan.spv",
+        "build/fill.spv",
+        "build/instances.spv",
+        "build/visibility.spv"
+    };
+    var shaders: [ShaderCode; 10] = uninit;
+    zero(&shaders as *u8, sizeof([ShaderCode; 10]));
+    var good: bool = true;
+    var i: usize = 0usize;
+    while good && i < PIPELINE_COUNT as usize {
+        good = read_input(paths[i], &shaders[i]);
+        i = i + 1usize;
+    }
+    var c: RenderConfig = make RenderConfig {
+        width: o -> config.width,
+        height: o -> config.height,
+        output_width: o -> config.width,
+        output_height: o -> config.height,
+        read_pixels: o -> capture != null(*u8),
+        debug_pixels: 0u32,
+        baseline: 0u32,
+        view_budget: 1u32,
+        portal_budget: 0u32,
+        task_budget: ((o -> config.width + 7u32) / 8u32) * (
+            (o -> config.height + 7u32) / 8u32
+        ),
+        crossing_limit: 0u32,
+        fault: 0u32
+    };
+    if good {
+        good = renderer_open(v, &c, &shaders[0usize]);
+    }
+    i = 0usize;
+    while i < PIPELINE_COUNT as usize {
+        free(shaders[i].bytes);
+        i = i + 1usize;
+    }
+    return good;
+}
+fn game_draw(session: mut GameSession) -> bool {
+    return renderer_draw(&session.renderer.state);
+}
+fn game_present(session: mut GameSession) -> bool {
+    if session.launch.config.headless {
+        return true;
+    }
+    return present(
+        &session.renderer.state,
+        session.launch.config.width,
+        session.launch.config.height
+    );
+}
