@@ -5,7 +5,12 @@ record GameLoop {
     credit: u64;
     running: bool;
 }
-fn game_tick(session: mut GameSession, loop: mut GameLoop, config: GameConfig) -> bool {
+fn game_tick(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop,
+    config: GameConfig
+) -> bool {
     var command: Command = input_consume(mut loop.input);
     if config.smoke {
         command = smoke_command(read loop.trial, loop.ticks);
@@ -28,7 +33,7 @@ fn game_tick(session: mut GameSession, loop: mut GameLoop, config: GameConfig) -
         return true;
     }
     var finished: bool = loop.trial.finished;
-    trial_step(mut loop.trial, command);
+    trial_step(read collision, mut loop.trial, command);
     if loop.trial.finished && !finished {
         game_message(1u32);
         if config.tour {
@@ -45,8 +50,13 @@ fn game_tick(session: mut GameSession, loop: mut GameLoop, config: GameConfig) -
         trial_hash(read loop.trial)
     );
 }
-fn game_render(session: mut GameSession, loop: read GameLoop, config: GameConfig) -> bool {
-    game_scene_frame(mut session, read loop.trial, config);
+fn game_render(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig
+) -> bool {
+    game_scene_frame(read collision, mut session, read loop.trial, config);
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var inputs: FrameInput = renderer_inputs(mut renderer);
@@ -63,6 +73,7 @@ fn game_render(session: mut GameSession, loop: read GameLoop, config: GameConfig
     return game_draw(mut session) && game_present(mut session);
 }
 fn game_advance(
+    collision: read CollisionScene,
     session: mut GameSession,
     loop: mut GameLoop,
     config: GameConfig,
@@ -76,7 +87,7 @@ fn game_advance(
         return true;
     }
     if config.headless {
-        return game_tick(mut session, mut loop, config);
+        return game_tick(read collision, mut session, mut loop, config);
     }
     if elapsed > 1000000000u64 {
         loop.input.paused = true;
@@ -94,7 +105,7 @@ fn game_advance(
     }
     loop.credit = loop.credit + elapsed * rate;
     while loop.credit >= 1000000000u64 && loop.running {
-        if !game_tick(mut session, mut loop, config) {
+        if !game_tick(read collision, mut session, mut loop, config) {
             return false;
         }
         loop.credit = loop.credit - 1000000000u64;
@@ -102,6 +113,10 @@ fn game_advance(
     return true;
 }
 fn game_run(session: GameSession, config: GameConfig) -> i32 {
+    var collision: CollisionScene = collision_new();
+    if !collision_build_game(mut collision) {
+        return 1i32;
+    }
     var loop: GameLoop = make GameLoop {
         trial: new_trial(),
         input: input_new(),
@@ -125,7 +140,7 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
     if !game_static_open(mut session, loop.trial.drone.world) {
         return 1i32;
     }
-    if !config.headless && !game_render(mut session, read loop, config) {
+    if !config.headless && !game_render(read collision, mut session, read loop, config) {
         return 1i32;
     }
     var previous: u64 = now();
@@ -133,17 +148,17 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
         var current: u64 = now();
         var elapsed: u64 = current - previous;
         previous = current;
-        if !game_advance(mut session, mut loop, config, elapsed) {
+        if !game_advance(read collision, mut session, mut loop, config, elapsed) {
             return 1i32;
         }
-        if !config.headless && !game_render(mut session, read loop, config) {
+        if !config.headless && !game_render(read collision, mut session, read loop, config) {
             return 1i32;
         }
         if !config.headless {
             game_wait();
         }
     }
-    if config.headless && !game_render(mut session, read loop, config) {
+    if config.headless && !game_render(read collision, mut session, read loop, config) {
         return 1i32;
     }
     game_summary(read loop.trial);

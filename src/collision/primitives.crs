@@ -1,0 +1,54 @@
+record Hit {
+    time: f32;
+    normal: Vec3;
+}
+fn miss() -> Hit {
+    return make Hit {
+        time: 2f32,
+        normal: vec(0f32, 0f32, 0f32)
+    };
+}
+fn nearest(a: Hit, b: Hit) -> Hit {
+    if b.time < a.time {
+        return b;
+    }
+    return a;
+}
+fn sphere_hit(p: Vec3, d: Vec3, center: Vec3, radius: f32) -> Hit {
+    var offset: Vec3 = sub(p, center);
+    var speed2: f32 = dot(d, d);
+    var approach: f32 = dot(offset, d);
+    if speed2 == 0f32 || approach >= 0f32 {
+        return miss();
+    }
+    var closest_time: f32 = -approach / speed2;
+    var closest: Vec3 = add(offset, scale(d, closest_time));
+    var distance2: f32 = radius * radius - dot(closest, closest);
+    if distance2 < 0f32 {
+        return miss();
+    }
+    var half_interval: f32 = sqrtf(distance2 / speed2);
+    var time: f32 = closest_time - half_interval;
+    if time < 0f32 || time > 1f32 {
+        return miss();
+    }
+    return make Hit {
+        time: time,
+        normal: collision_normal(sub(closest, scale(d, half_interval)))
+    };
+}
+fn edge_hit(p: Vec3, d: Vec3, a: Vec3, b: Vec3, radius: f32) -> Hit {
+    var axis: Vec3 = collision_normal(sub(b, a));
+    var offset: Vec3 = sub(p, a);
+    var side: Vec3 = sub(offset, scale(axis, dot(offset, axis)));
+    var travel: Vec3 = sub(d, scale(axis, dot(d, axis)));
+    var hit: Hit = sphere_hit(side, travel, vec(0f32, 0f32, 0f32), radius);
+    var along: f32 = dot(add(offset, scale(d, hit.time)), axis);
+    if along < 0f32 || along > length(sub(b, a)) {
+        hit = miss();
+    }
+    return nearest(
+        hit,
+        nearest(sphere_hit(p, d, a, radius), sphere_hit(p, d, b, radius))
+    );
+}

@@ -19,7 +19,7 @@ fn test_forces() -> bool {
         "force equation or Coriolis sign differs"
     );
 }
-fn test_collision() -> bool {
+fn test_collision(collision: read CollisionScene) -> bool {
     var s: Solid = solid(vec(-1f32, -1f32, -1f32), vec(1f32, 1f32, 1f32), 0u32);
     var face: Hit = sweep_box(
         vec(0f32, 0f32, -10f32),
@@ -42,17 +42,17 @@ fn test_collision() -> bool {
     var drone: Drone = new_drone();
     drone.position = vec(0f32, 5f32, 40f32);
     drone.velocity = vec(10f32, 0f32, 1000f32);
-    move_drone(mut drone, vec(1f32, 0f32, 30f32));
+    move_drone(read collision, mut drone, vec(1f32, 0f32, 30f32));
     return game_check(
         near(face.time, 0.4325f32, 0.00001f32) && corner.time > 1f32 && edge.time < 0.45f32 && drone.position.z < 54.651f32 && drone.position.x > 0.99f32 && drone.velocity.z == 0f32,
         "swept sphere face/edge/corner or sliding failed"
     );
 }
-fn test_trial() -> bool {
+fn test_trial(collision: read CollisionScene) -> bool {
     var t: Trial = new_trial();
     var c: Command = idle_command();
     c.burst = true;
-    trial_step(mut t, c);
+    trial_step(read collision, mut t, c);
     if !game_check(
         t.started && t.tick == 1u32 && t.drone.velocity.z > 14f32,
         "burst did not start trial"
@@ -61,7 +61,7 @@ fn test_trial() -> bool {
     }
     c = idle_command();
     c.brake = true;
-    trial_step(mut t, c);
+    trial_step(read collision, mut t, c);
     if !game_check(
         length(t.drone.velocity) < 0.0001f32 && t.drone.brake_speed > 14f32,
         "brake failed"
@@ -70,7 +70,7 @@ fn test_trial() -> bool {
     }
     c = idle_command();
     c.spin = true;
-    trial_step(mut t, c);
+    trial_step(read collision, mut t, c);
     if !game_check(
         t.full_spin && t.tick == 0u32 && !t.started,
         "spin selection must reset the attempt"
@@ -106,7 +106,7 @@ fn test_input() -> bool {
     next = input_consume(mut input);
     return game_check(c.tether && next.tether, "tether toggle did not remain active");
 }
-fn test_replay() -> bool {
+fn test_replay(collision: read CollisionScene) -> bool {
     var a: Trial = new_trial();
     var b: Trial = new_trial();
     var i: u32 = 0u32;
@@ -118,8 +118,8 @@ fn test_replay() -> bool {
         c.brake = i % 113u32 == 0u32;
         c.tether = i % 80u32 < 40u32;
         c.spin = i == 600u32;
-        trial_step(mut a, c);
-        trial_step(mut b, c);
+        trial_step(read collision, mut a, c);
+        trial_step(read collision, mut b, c);
         if trial_hash(read a) != trial_hash(read b) {
             return game_check(false, "identical input streams diverged");
         }
@@ -128,7 +128,17 @@ fn test_replay() -> bool {
     return true;
 }
 fn game_tests() -> bool {
-    return test_hook() && test_winch() && test_short_press() && test_mouse_accumulation() && test_swing() && test_forces() && test_collision() && test_tether() && test_trial() && test_input() && test_replay() && test_course_flight() && test_prefabs() && test_expedition() && test_progress_store();
+    var collision: CollisionScene = collision_new();
+    if !collision_build_game(mut collision) {
+        return false;
+    }
+    return test_collision_suite(read collision) && test_hook(read collision) && test_winch(
+        read collision
+    ) && test_short_press() && test_mouse_accumulation() && test_swing(read collision) && test_tether(
+        read collision
+    ) && test_trial(read collision) && test_input() && test_replay(read collision) && test_course_flight(
+        read collision
+    ) && test_prefabs(read collision) && test_expedition(read collision) && test_progress_store();
 }
 
 fn test_mouse_accumulation() -> bool {
@@ -152,4 +162,10 @@ fn test_short_press() -> bool {
         c.burst && !again.burst,
         "press and release between frames was lost or repeated"
     );
+}
+
+fn test_collision_suite(collision: read CollisionScene) -> bool {
+    return test_forces() && test_collision_samples(read collision) && test_collision_measure(
+        read collision
+    ) && test_mesh_collision() && test_collision(read collision);
 }

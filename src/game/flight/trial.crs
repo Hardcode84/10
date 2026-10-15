@@ -34,9 +34,9 @@ fn trial_progress(trial: mut Trial, before: Vec3) -> unit {
         trial.finished = true;
     }
 }
-fn trial_step(trial: mut Trial, command: Command) -> unit {
+fn trial_step(collision: read CollisionScene, trial: mut Trial, command: Command) -> unit {
     if trial.drone.world == 1u32 {
-        expedition_step(mut trial, command);
+        expedition_step(read collision, mut trial, command);
         return;
     }
     if command.spin {
@@ -63,7 +63,13 @@ fn trial_step(trial: mut Trial, command: Command) -> unit {
         return;
     }
     var before: Vec3 = trial.drone.position;
-    simulate(mut trial.drone, command, trial.full_spin, trial.auto_level);
+    simulate(
+        read collision,
+        mut trial.drone,
+        command,
+        trial.full_spin,
+        trial.auto_level
+    );
     advance_preview_phase(mut trial, before);
     trial.tick = trial.tick + 1u32;
     trial_progress(mut trial, before);

@@ -4,3 +4,17 @@ fn game_check(good: bool, message: *u8) -> bool {
     }
     return true;
 }
+fn collision_measure_report(scene: read CollisionScene, reference: u64, mesh: u64) -> unit {
+    puts("collision: instances / faces / bytes / analytic ns / mesh ns (2048 queries)");
+    print_number(scene.instance_count as i64);
+    print_number(scene.face_count as i64);
+    print_number(
+        (
+            scene.instance_count as usize * sizeof(CollisionInstance) + scene.face_count as usize * sizeof(
+                CollisionFace
+            )
+        ) as i64
+    );
+    print_number(reference as i64);
+    print_number(mesh as i64);
+}

@@ -1,0 +1,425 @@
+fn test_mesh_features() -> bool {
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    if !collision_test_triangle(
+        mut mesh,
+        vec(0f32, 0f32, 0f32),
+        vec(4f32, 0f32, 0f32),
+        vec(0f32, 4f32, 0f32)
+    ) || !collision_append(
+        mut scene,
+        read mesh,
+        7u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var sign: f32 = i as f32 * 2f32 - 1f32;
+        var d: Vec3 = vec(0f32, 0f32, -10000f32 * sign);
+        var face: CollisionContact = collision_sweep(
+            read scene,
+            7u32,
+            vec(1f32, 1f32, 5f32 * sign),
+            d,
+            0.35f32
+        );
+        var edge: CollisionContact = collision_sweep(
+            read scene,
+            7u32,
+            vec(2f32, -0.2f32, 5f32 * sign),
+            d,
+            0.35f32
+        );
+        var vertex: CollisionContact = collision_sweep(
+            read scene,
+            7u32,
+            vec(-0.2f32, -0.2f32, 5f32 * sign),
+            d,
+            0.35f32
+        );
+        if !game_check(
+            near(face.hit.time * 10000f32, 4.65f32, 0.00001f32) && near(
+                edge.hit.time * 10000f32,
+                5f32 - sqrtf(0.1225f32 - 0.04f32),
+                0.00001f32
+            ) && near(
+                vertex.hit.time * 10000f32,
+                5f32 - sqrtf(0.1225f32 - 0.08f32),
+                0.00001f32
+            ),
+            "mesh face, edge or vertex high-speed sweep missed from one side"
+        ) {
+            return false;
+        }
+        if !game_check(
+            absf(face.point.z) < 0.00001f32 && length(
+                sub(edge.point, vec(2f32, 0f32, 0f32))
+            ) < 0.00001f32 && length(vertex.point) < 0.00001f32,
+            "mesh contact point differs from the visible surface"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var overlap: CollisionContact = collision_sweep(
+        read scene,
+        7u32,
+        vec(1f32, 1f32, 0.1f32),
+        vec(0f32, 0f32, 0f32),
+        0.35f32
+    );
+    var tangent: CollisionContact = collision_sweep(
+        read scene,
+        7u32,
+        vec(-1f32, -0.35f32, 0f32),
+        vec(2f32, 0f32, 0f32),
+        0.35f32
+    );
+    return game_check(
+        overlap.hit.time == 0f32 && near(overlap.penetration, 0.25f32, 0.00001f32) && near(
+            tangent.hit.time,
+            0.5f32,
+            0.00001f32
+        ) && collision_sweep(
+            read scene,
+            8u32,
+            vec(1f32, 1f32, 5f32),
+            vec(0f32, 0f32, -10f32),
+            0.35f32
+        ).hit.time > 1f32,
+        "initial overlap, tangent contact or space isolation failed"
+    );
+}
+fn test_mesh_seam() -> bool {
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    if !static_quad(
+        mut mesh,
+        0u32,
+        vec(-5f32, -5f32, 0f32),
+        vec(5f32, -5f32, 0f32),
+        vec(5f32, 5f32, 0f32),
+        vec(-5f32, 5f32, 0f32),
+        vec(0f32, 0f32, 1f32),
+        3u32
+    ) || !collision_append(
+        mut scene,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var along: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        vec(-2f32, 0f32, 0.35f32),
+        vec(4f32, 0f32, 0f32),
+        0.35f32
+    );
+    var seam: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        vec(0f32, 0f32, 5f32),
+        vec(0f32, 0f32, -10f32),
+        0.35f32
+    );
+    return game_check(
+        collision_face(read scene, 0u32).neighbours[2usize] == 1u32 && along.hit.time > 1f32 && near(
+            seam.hit.time,
+            0.465f32,
+            0.00001f32
+        ),
+        "coplanar adjacency must not create a collision ridge"
+    );
+}
+fn test_mesh_aperture(count: u32) -> bool {
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    var basis: Basis = collision_test_basis();
+    var origin: Vec3 = vec(13f32, -7f32, 21f32);
+    if !collision_test_aperture(mut mesh, count) || !collision_append(
+        mut scene,
+        read mesh,
+        19u32,
+        origin,
+        basis
+    ) || !collision_append(mut scene, read mesh, 20u32, origin, identity_basis()) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        var a: Vec3 = collision_test_aperture_vertex(i, count, false);
+        var b: Vec3 = collision_test_aperture_vertex(i + 1u32, count, false);
+        var midpoint: Vec3 = scale(add(a, b), 0.5f32);
+        var local: Vec3 = add(midpoint, vec(0f32, 0f32, -10f32));
+        var point: Vec3 = add(origin, basis_vector(basis, local));
+        var hit: CollisionContact = collision_sweep(
+            read scene,
+            19u32,
+            point,
+            basis_vector(basis, vec(0f32, 0f32, 20f32)),
+            HOOK_RADIUS
+        );
+        if !game_check(
+            hit.instance == 0u32 && near(
+                hit.hit.time,
+                (10f32 - HOOK_RADIUS) / 20f32,
+                0.00001f32
+            ) && length(sub(hit.local_point, midpoint)) < 0.00003f32,
+            "rotated concave aperture rim must match the hook contact surface"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 2u32 {
+        var sign: f32 = i as f32 * 2f32 - 1f32;
+        var hit: CollisionContact = collision_sweep(
+            read scene,
+            19u32,
+            add(origin, basis_vector(basis, vec(0f32, 0f32, 10f32 * sign))),
+            basis_vector(basis, vec(0f32, 0f32, -20f32 * sign)),
+            DRONE_RADIUS
+        );
+        if !game_check(
+            hit.hit.time > 1f32,
+            "open polygonal portal must pass the drone in both directions"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn test_mesh_elbow() -> bool {
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    if !collision_test_elbow(mut mesh) || !collision_append(
+        mut scene,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var ring: u32 = 0u32;
+    while ring < 12u32 {
+        var side: u32 = 0u32;
+        while side < 12u32 {
+            var face: CollisionFace = collision_face(read scene, ring * 24u32 + side * 2u32);
+            var point: Vec3 = scale(add(add(face.a, face.b), face.c), 1f32 / 3f32);
+            var hit: CollisionContact = collision_sweep(
+                read scene,
+                0u32,
+                add(point, scale(face.normal, 0.2f32)),
+                scale(face.normal, -0.4f32),
+                HOOK_RADIUS
+            );
+            if !game_check(
+                near(hit.hit.time, 0.35f32, 0.00002f32) && length(sub(hit.point, point)) < 0.00001f32,
+                "swept/revolved elbow contact differs from its generated mesh"
+            ) {
+                return false;
+            }
+            side = side + 1u32;
+        }
+        ring = ring + 1u32;
+    }
+    return true;
+}
+fn test_mesh_collision() -> bool {
+    return test_mesh_flight() && test_mesh_clearance() && test_mesh_features() && test_mesh_rigid_equivalence() && test_mesh_rejection() && test_mesh_seam() && test_mesh_aperture(
+        7u32
+    ) && test_mesh_aperture(8u32) && test_mesh_aperture(13u32) && test_mesh_elbow();
+}
+fn test_mesh_rigid_equivalence() -> bool {
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    var shape: Solid = solid(
+        vec(-0.2f32, -3f32, -0.4f32),
+        vec(0.2f32, 3f32, 0.4f32),
+        0u32
+    );
+    var basis: Basis = collision_test_basis();
+    var origin: Vec3 = vec(19f32, -11f32, 8f32);
+    if !static_solid(mut mesh, shape, 63u32) || !collision_append(
+        mut scene,
+        read mesh,
+        3u32,
+        origin,
+        basis
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 729u32 {
+        var p: Vec3 = vec(
+            (i % 9u32) as f32 - 4f32,
+            ((i / 9u32) % 9u32) as f32 - 4f32,
+            ((i / 81u32) % 9u32) as f32 - 4f32
+        );
+        if length(p) > 3.5f32 {
+            var d: Vec3 = scale(p, -2f32);
+            var expected: Hit = sweep_box(p, d, shape, DRONE_RADIUS);
+            var actual: CollisionContact = collision_sweep(
+                read scene,
+                3u32,
+                add(origin, basis_vector(basis, p)),
+                basis_vector(basis, d),
+                DRONE_RADIUS
+            );
+            if !game_check(
+                near(actual.hit.time, expected.time, 0.00001f32) && length(
+                    sub(actual.hit.normal, basis_vector(basis, expected.normal))
+                ) < 0.0001f32,
+                "diagonal brace mesh differs from the analytic rigid-box sweep"
+            ) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn test_mesh_rejection() -> bool {
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    if !collision_test_triangle(
+        mut mesh,
+        vec(0f32, 0f32, 0f32),
+        vec(1f32, 0f32, 0f32),
+        vec(0f32, 1f32, 0f32)
+    ) || !collision_append(
+        mut scene,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var scaled: Basis = identity_basis();
+    scaled.right.x = 2f32;
+    if !game_check(
+        !collision_append(mut scene, read mesh, 0u32, vec(0f32, 0f32, 0f32), scaled) && collision_instances(
+            read scene
+        ) == 1u32,
+        "non-rigid instance must fail without modifying the collision scene"
+    ) {
+        return false;
+    }
+    if !collision_test_triangle(
+        mut mesh,
+        vec(0f32, 0f32, 0f32),
+        vec(0f32, 0f32, 0f32),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    return game_check(
+        !collision_append(
+            mut scene,
+            read mesh,
+            0u32,
+            vec(0f32, 0f32, 0f32),
+            identity_basis()
+        ) && collision_instances(read scene) == 1u32,
+        "degenerate collision mesh must fail without modifying the scene"
+    );
+}
+fn test_mesh_flight() -> bool {
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    if !collision_test_elbow(mut mesh) || !collision_append(
+        mut scene,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var face: CollisionFace = collision_face(read scene, 56u32);
+    var point: Vec3 = scale(add(add(face.a, face.b), face.c), 1f32 / 3f32);
+    var drone: Drone = new_drone();
+    drone.position = add(point, scale(face.normal, 0.8f32));
+    drone.velocity = scale(face.normal, -120f32);
+    move_drone(read scene, mut drone, scale(face.normal, -2f32));
+    if !game_check(
+        length(
+            sub(
+                drone.position,
+                add(point, scale(face.normal, DRONE_RADIUS + 0.0001f32))
+            )
+        ) < 0.00002f32 && length(drone.velocity) < 0.0001f32,
+        "drone must stop at the curved mesh with full sphere clearance"
+    ) {
+        return false;
+    }
+    drone.position = add(point, face.normal);
+    drone.velocity = vec(0f32, 0f32, 0f32);
+    drone.basis.forward = scale(face.normal, -1f32);
+    hook_launch(mut drone);
+    drone.cable.velocity = scale(face.normal, -600f32);
+    hook_step(read scene, mut drone, false);
+    return game_check(
+        drone.cable.phase == CABLE_ATTACHED && length(
+            sub(drone.cable.anchor, add(point, scale(face.normal, HOOK_RADIUS)))
+        ) < 0.00002f32,
+        "launched hook must attach to the curved mesh surface"
+    );
+}
+fn test_mesh_clearance() -> bool {
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    if !collision_test_aperture(mut mesh, 8u32) || !collision_append(
+        mut scene,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var a: Vec3 = collision_test_aperture_vertex(0u32, 8u32, false);
+    var b: Vec3 = collision_test_aperture_vertex(1u32, 8u32, false);
+    var inward: Vec3 = unit_vector(cross(vec(0f32, 0f32, 1f32), sub(b, a)));
+    var midpoint: Vec3 = scale(add(a, b), 0.5f32);
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var radius: f32 = DRONE_RADIUS;
+        if i != 0u32 {
+            radius = HOOK_RADIUS;
+        }
+        var clear: Vec3 = add(
+            add(midpoint, scale(inward, radius + 0.01f32)),
+            vec(0f32, 0f32, -2f32)
+        );
+        var blocked: Vec3 = add(
+            add(midpoint, scale(inward, radius - 0.01f32)),
+            vec(0f32, 0f32, -2f32)
+        );
+        var travel: Vec3 = vec(0f32, 0f32, 4f32);
+        if !game_check(
+            collision_sweep(read scene, 0u32, clear, travel, radius).hit.time > 1f32 && collision_sweep(
+                read scene,
+                0u32,
+                blocked,
+                travel,
+                radius
+            ).hit.time < 1f32,
+            "polygonal opening must preserve the drone and hook radius at its rim"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

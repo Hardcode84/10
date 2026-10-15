@@ -1,156 +1,30 @@
-record Hit {
-    time: f32;
-    normal: Vec3;
-}
-fn miss() -> Hit {
-    return make Hit {
-        time: 2f32,
-        normal: vec(0f32, 0f32, 0f32)
-    };
-}
-fn nearest(a: Hit, b: Hit) -> Hit {
-    if b.time < a.time {
-        return b;
-    }
-    return a;
-}
-fn sphere_hit(p: Vec3, d: Vec3, center: Vec3, radius: f32) -> Hit {
-    var offset: Vec3 = sub(p, center);
-    var a: f32 = dot(d, d);
-    var b: f32 = dot(offset, d);
-    var c: f32 = dot(offset, offset) - radius * radius;
-    var disc: f32 = b * b - a * c;
-    if a < 0.00000001f32 || b >= 0f32 || disc < 0f32 {
-        return miss();
-    }
-    var t: f32 = (-b - sqrtf(disc)) / a;
-    if t < -0.00001f32 || t > 1f32 {
-        return miss();
-    }
-    t = clamp(t, 0f32, 1f32);
-    return make Hit {
-        time: t,
-        normal: unit_vector(sub(add(p, scale(d, t)), center))
-    };
-}
-fn edge_hit(p: Vec3, d: Vec3, a: Vec3, b: Vec3, radius: f32) -> Hit {
-    var axis: Vec3 = unit_vector(sub(b, a));
-    var offset: Vec3 = sub(p, a);
-    var side: Vec3 = sub(offset, scale(axis, dot(offset, axis)));
-    var travel: Vec3 = sub(d, scale(axis, dot(d, axis)));
-    var hit: Hit = sphere_hit(side, travel, vec(0f32, 0f32, 0f32), radius);
-    var along: f32 = dot(add(offset, scale(d, hit.time)), axis);
-    if along < 0f32 || along > length(sub(b, a)) {
-        hit = miss();
-    }
-    return nearest(
-        hit,
-        nearest(sphere_hit(p, d, a, radius), sphere_hit(p, d, b, radius))
-    );
-}
-fn box_face_hit(p: Vec3, d: Vec3, s: Solid, axis: u32, side: f32, radius: f32) -> Hit {
-    var normal: Vec3 = scale(axis_vector(axis), side);
-    var speed: f32 = dot(d, normal);
-    if speed >= -0.0000001f32 {
-        return miss();
-    }
-    var plane: f32 = component(s.low, axis);
-    if side > 0f32 {
-        plane = component(s.high, axis);
-    }
-    var t: f32 = (plane + side * radius - component(p, axis)) / component(d, axis);
-    if t < -0.00001f32 || t > 1f32 {
-        return miss();
-    }
-    t = clamp(t, 0f32, 1f32);
-    var at: Vec3 = add(p, scale(d, t));
-    var j: u32 = 1u32;
-    while j < 3u32 {
-        var k: u32 = (axis + j) % 3u32;
-        if component(at, k) < component(s.low, k) || component(at, k) > component(s.high, k) {
-            return miss();
-        }
-        j = j + 1u32;
-    }
-    return make Hit {
-        time: t,
-        normal: normal
-    };
-}
-fn box_edge(s: Solid, axis: u32, index: u32) -> Vec3 {
-    var a: u32 = (axis + 1u32) % 3u32;
-    var b: u32 = (axis + 2u32) % 3u32;
-    var point: Vec3 = s.low;
-    if index % 2u32 != 0u32 {
-        point = add(
-            point,
-            scale(axis_vector(a), component(sub(s.high, s.low), a))
-        );
-    }
-    if index / 2u32 != 0u32 {
-        point = add(
-            point,
-            scale(axis_vector(b), component(sub(s.high, s.low), b))
-        );
-    }
-    return point;
-}
-fn sweep_box(p: Vec3, d: Vec3, s: Solid, radius: f32) -> Hit {
-    var hit: Hit = miss();
-    var axis: u32 = 0u32;
-    while axis < 3u32 {
-        hit = nearest(hit, box_face_hit(p, d, s, axis, -1f32, radius));
-        hit = nearest(hit, box_face_hit(p, d, s, axis, 1f32, radius));
-        if radius > 0f32 {
-            var edge: u32 = 0u32;
-            while edge < 4u32 {
-                var a: Vec3 = box_edge(s, axis, edge);
-                var b: Vec3 = add(
-                    a,
-                    scale(axis_vector(axis), component(sub(s.high, s.low), axis))
-                );
-                hit = nearest(hit, edge_hit(p, d, a, b, radius));
-                edge = edge + 1u32;
-            }
-        }
-        axis = axis + 1u32;
-    }
-    return hit;
-}
-fn course_hit(world: u32, p: Vec3, d: Vec3, radius: f32) -> Hit {
-    var hit: Hit = miss();
-    if world == 1u32 {
-        hit = expedition_shell_hit(p, d, radius);
-    }
-    var i: u32 = 0u32;
-    while i < world_solid_count(world) {
-        hit = nearest(hit, sweep_box(p, d, world_solid(world, i), radius));
-        i = i + 1u32;
-    }
-    i = 0u32;
-    while i < world_pipe_count(world) {
-        hit = nearest(hit, sweep_pipe(p, d, world_pipe(world, i), radius));
-        i = i + 1u32;
-    }
-    return hit;
+fn course_hit(collision: read CollisionScene, world: u32, p: Vec3, d: Vec3, radius: f32) -> Hit {
+    return collision_sweep(read collision, world, p, d, radius).hit;
 }
 fn slide_velocity(v: Vec3, normal: Vec3) -> Vec3 {
     return sub(v, scale(normal, clamp(dot(v, normal), -100000f32, 0f32)));
 }
 // Stops at contact and consumes the remaining travel along the contact surfaces.
-fn move_drone(drone: mut Drone, travel: Vec3) -> unit {
+fn move_drone(collision: read CollisionScene, drone: mut Drone, travel: Vec3) -> unit {
     var remaining: Vec3 = travel;
     var count: u32 = 0u32;
     while count < 4u32 && length(remaining) > 0.000001f32 {
         remaining = tether_travel(read drone, remaining);
-        var hit: Hit = course_hit(drone.world, drone.position, remaining, DRONE_RADIUS);
+        var contact: CollisionContact = collision_sweep(
+            read collision,
+            drone.world,
+            drone.position,
+            remaining,
+            DRONE_RADIUS
+        );
+        var hit: Hit = contact.hit;
         if hit.time > 1f32 {
             drone.position = add(drone.position, remaining);
             return;
         }
         drone.position = add(
             add(drone.position, scale(remaining, hit.time)),
-            scale(hit.normal, 0.0001f32)
+            scale(hit.normal, contact.penetration + 0.0001f32)
         );
         drone.velocity = slide_velocity(drone.velocity, hit.normal);
         remaining = slide_velocity(scale(remaining, 1f32 - hit.time), hit.normal);

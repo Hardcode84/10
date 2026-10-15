@@ -1,4 +1,8 @@
-fn expedition_review(session: mut GameSession, config: GameConfig) -> bool {
+fn expedition_review(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    config: GameConfig
+) -> bool {
     var trial: Trial = new_trial();
     start_expedition(mut trial);
     trial.drone.position = vec(40f32, 104f32, 150f32);
@@ -12,13 +16,13 @@ fn expedition_review(session: mut GameSession, config: GameConfig) -> bool {
         up: cross(forward, right)
     };
     trial.drone.velocity = scale(forward, 20f32);
-    if !review_frame(mut session, read trial, config, 0u32) {
+    if !review_frame(read collision, mut session, read trial, config, 0u32) {
         return false;
     }
     trial.expedition.progress = 3u32;
     trial.expedition.return_link = true;
     trial.expedition.relight = 2400u32;
-    if !review_frame(mut session, read trial, config, 1u32) {
+    if !review_frame(read collision, mut session, read trial, config, 1u32) {
         return false;
     }
     trial.expedition.has_parked = true;
@@ -26,26 +30,33 @@ fn expedition_review(session: mut GameSession, config: GameConfig) -> bool {
     trial.drone.cable.phase = CABLE_ATTACHED;
     trial.drone.cable.anchor = vec(18f32, 112f32, 100f32);
     trial.drone.cable.extent = 30f32;
-    if !review_frame(mut session, read trial, config, 2u32) {
+    if !review_frame(read collision, mut session, read trial, config, 2u32) {
         return false;
     }
     trial.expedition = new_expedition();
     trial.drone.charge = 0f32;
-    return review_frame(mut session, read trial, config, 3u32) && review_content_views(
+    return review_frame(read collision, mut session, read trial, config, 3u32) && review_content_views(
+        read collision,
         mut session,
         config
-    ) && review_assembly_views(mut session, config) && review_room_shells(mut session, config) && review_port_shells(
+    ) && review_assembly_views(read collision, mut session, config) && review_room_shells(
+        read collision,
         mut session,
         config
-    ) && review_material_capacity(mut session, config);
+    ) && review_port_shells(read collision, mut session, config) && review_material_capacity(
+        read collision,
+        mut session,
+        config
+    );
 }
 fn review_frame(
+    collision: read CollisionScene,
     session: mut GameSession,
     trial: read Trial,
     config: GameConfig,
     index: u32
 ) -> bool {
-    game_scene_frame(mut session, read trial, config);
+    game_scene_frame(read collision, mut session, read trial, config);
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var input: FrameInput = renderer_inputs(mut renderer);
@@ -65,7 +76,11 @@ fn review_frame(
         index
     );
 }
-fn review_room_shells(session: mut GameSession, config: GameConfig) -> bool {
+fn review_room_shells(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    config: GameConfig
+) -> bool {
     var trial: Trial = new_trial();
     start_expedition(mut trial);
     var room: u32 = 0u32;
@@ -87,7 +102,7 @@ fn review_room_shells(session: mut GameSession, config: GameConfig) -> bool {
                 right: cross(up, forward),
                 up: up
             };
-            game_scene_frame(mut session, read trial, config);
+            game_scene_frame(read collision, mut session, read trial, config);
             {
                 var renderer: mut Renderer = game_renderer(mut session);
                 var input: FrameInput = renderer_inputs(mut renderer);
@@ -103,7 +118,11 @@ fn review_room_shells(session: mut GameSession, config: GameConfig) -> bool {
     }
     return true;
 }
-fn review_assembly_views(session: mut GameSession, config: GameConfig) -> bool {
+fn review_assembly_views(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    config: GameConfig
+) -> bool {
     var trial: Trial = new_trial();
     start_expedition(mut trial);
     trial.expedition.progress = 3u32;
@@ -130,14 +149,18 @@ fn review_assembly_views(session: mut GameSession, config: GameConfig) -> bool {
             right: right,
             up: cross(forward, right)
         };
-        if !review_frame(mut session, read trial, config, i + 4u32) {
+        if !review_frame(read collision, mut session, read trial, config, i + 4u32) {
             return false;
         }
         i = i + 1u32;
     }
     return true;
 }
-fn review_port_shells(session: mut GameSession, config: GameConfig) -> bool {
+fn review_port_shells(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    config: GameConfig
+) -> bool {
     var trial: Trial = new_trial();
     start_expedition(mut trial);
     var i: u32 = 0u32;
@@ -162,7 +185,7 @@ fn review_port_shells(session: mut GameSession, config: GameConfig) -> bool {
                 right: cross(up, forward),
                 up: up
             };
-            if !review_shell_view(mut session, read trial, config) {
+            if !review_shell_view(read collision, mut session, read trial, config) {
                 return false;
             }
             sample = sample + 1u32;
@@ -171,8 +194,13 @@ fn review_port_shells(session: mut GameSession, config: GameConfig) -> bool {
     }
     return true;
 }
-fn review_shell_view(session: mut GameSession, trial: read Trial, config: GameConfig) -> bool {
-    game_scene_frame(mut session, read trial, config);
+fn review_shell_view(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    trial: read Trial,
+    config: GameConfig
+) -> bool {
+    game_scene_frame(read collision, mut session, read trial, config);
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var input: FrameInput = renderer_inputs(mut renderer);
@@ -181,7 +209,11 @@ fn review_shell_view(session: mut GameSession, trial: read Trial, config: GameCo
     }
     return review_draw(mut session) && review_no_void(mut session);
 }
-fn review_content_views(session: mut GameSession, config: GameConfig) -> bool {
+fn review_content_views(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    config: GameConfig
+) -> bool {
     var trial: Trial = new_trial();
     start_expedition(mut trial);
     var eyes: [Vec3; 6] = make [Vec3; 6] {
@@ -218,7 +250,7 @@ fn review_content_views(session: mut GameSession, config: GameConfig) -> bool {
             right: right,
             up: cross(forward, right)
         };
-        if !review_frame(mut session, read trial, config, i + 8u32) {
+        if !review_frame(read collision, mut session, read trial, config, i + 8u32) {
             return false;
         }
         i = i + 1u32;

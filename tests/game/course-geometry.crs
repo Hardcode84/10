@@ -52,6 +52,6 @@ fn test_pipe_collision() -> bool {
         "pipe faces and end caps must collide without a phantom box around the hexagon"
     );
 }
-fn test_course_geometry() -> bool {
-    return test_course_gates() && test_pipe_collision() && test_preview_stability();
+fn test_course_geometry(collision: read CollisionScene) -> bool {
+    return test_course_gates() && test_pipe_collision() && test_preview_stability(read collision);
 }

@@ -1,5 +1,5 @@
 const REEL_SPEED: f32 = 40f32;
-fn tether_winch(drone: mut Drone) -> unit {
+fn tether_winch(collision: read CollisionScene, drone: mut Drone) -> unit {
     if drone.cable.phase != CABLE_ATTACHED {
         return;
     }
@@ -12,7 +12,11 @@ fn tether_winch(drone: mut Drone) -> unit {
     var offset: Vec3 = sub(drone.position, drone.cable.anchor);
     var distance: f32 = length(offset);
     if distance > extent {
-        move_drone(mut drone, scale(unit_vector(offset), extent - distance));
+        move_drone(
+            read collision,
+            mut drone,
+            scale(unit_vector(offset), extent - distance)
+        );
         extent = clamp(
             length(sub(drone.position, drone.cable.anchor)),
             extent,

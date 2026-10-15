@@ -168,13 +168,13 @@ drum coordinates, and attached cables.
 
 | Files | Responsibility |
 | --- | --- |
-| `src/game/flight/math.crs`, `flight/state.crs` | Value types and initial state |
+| `src/app/math.crs`, `flight/state.crs` | Value types and initial state |
 | `course/course.crs`, `course/course-route.crs` | Solids, directional gates, dock, and drum placement |
-| `course/course-pipes.crs`, `flight/pipe-collision.crs`, `pipe-view.crs` | Pipe shape, contact, and drawing |
+| `course/course-pipes.crs`, `content/geometry.crs`, `../collision/sweep.crs` | Pipe shape, drawing, and mesh contact |
 | `course/course-tour.crs` | Input controllers for automatic course flights |
 | `course/course-appearance.crs`, `course/course-view.crs` | Surface patterns, lights, and route indicator |
 | `flight/physics.crs`, `flight/orientation.crs` | Forces, integration, and attitude |
-| `flight/collision.crs` | Sweeps and contact response |
+| `flight/collision.crs` | Collision scene query and contact response |
 | `flight/hook.crs` | Launch, recoil, projectile flight, contact, and range snaps |
 | `flight/tether.crs` | Cable length, winch, and release |
 | `view/tether-view.crs` | Cable, hook body, and direction indicator |

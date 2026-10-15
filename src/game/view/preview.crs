@@ -89,18 +89,29 @@ fn draw_preview_segment(
     }
     trail.distance = trail.distance + segment;
 }
-fn draw_preview(v: mut FrameInput, trial: read Trial, config: GameConfig) -> unit {
+fn draw_preview(
+    collision: read CollisionScene,
+    v: mut FrameInput,
+    trial: read Trial,
+    config: GameConfig
+) -> unit {
     var hook_ready: bool = trial.drone.cable.phase == CABLE_READY && trial.preview_enabled;
     var limit: u32 = PREVIEW_MARKERS;
     if hook_ready {
         limit = PREVIEW_MARKERS / 2u32;
     }
-    var used: u32 = draw_drone_preview(mut v, read trial, config, limit);
+    var used: u32 = draw_drone_preview(read collision, mut v, read trial, config, limit);
     if hook_ready {
-        draw_hook_preview(mut v, read trial, config, PREVIEW_MARKERS - used);
+        draw_hook_preview(read collision, mut v, read trial, config, PREVIEW_MARKERS - used);
     }
 }
-fn draw_drone_preview(v: mut FrameInput, trial: read Trial, config: GameConfig, limit: u32) -> u32 {
+fn draw_drone_preview(
+    collision: read CollisionScene,
+    v: mut FrameInput,
+    trial: read Trial,
+    config: GameConfig,
+    limit: u32
+) -> u32 {
     if !trial.preview_enabled {
         return 0u32;
     }
@@ -111,7 +122,7 @@ fn draw_drone_preview(v: mut FrameInput, trial: read Trial, config: GameConfig, 
     var trail: PreviewTrail = preview_trail(limit, PREVIEW_MATERIAL, trial.preview_phase);
     while i < 240u32 && trail.markers < trail.limit {
         var before: Vec3 = drone.position;
-        simulate(mut drone, command, trial.full_spin, trial.auto_level);
+        simulate(read collision, mut drone, command, trial.full_spin, trial.auto_level);
         draw_preview_segment(
             mut v,
             mut trail,

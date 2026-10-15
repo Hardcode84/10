@@ -1,6 +1,11 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 44] = make [*u8; 44] {
-        "src/game/flight/math.crs",
+    var files: [*u8; 49] = make [*u8; 49] {
+        "src/app/math.crs",
+        "src/collision/primitives.crs",
+        "src/collision/topology.crs",
+        "src/collision/sweep.crs",
+        "src/game/content/collision.crs",
+        "src/game/content/geometry.crs",
         "src/game/flight/state.crs",
         "src/game/content/prefab.crs",
         "src/game/expedition/expedition-layout.crs",
@@ -23,7 +28,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/course/course-tour.crs",
         "src/game/course/course-view.crs",
         "src/game/course/course-pipes.crs",
-        "src/game/flight/pipe-collision.crs",
+        "src/game/content/box-geometry.crs",
         "src/game/course/course-appearance.crs",
         "src/game/flight/collision.crs",
         "src/game/flight/orientation.crs",
@@ -46,15 +51,16 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 44usize {
+    while i < 49usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 12] = make [*u8; 12] {
+    var files: [*u8; 13] = make [*u8; 13] {
         "src/app/window.crs",
+        "src/collision/storage.crs",
         "src/app/clock.crs",
         "src/app/shaders.crs",
         "src/game/host/platform.crs",
@@ -68,7 +74,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/text.crs"
     };
     var i: usize = 0usize;
-    while i < 12usize {
+    while i < 13usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

@@ -1,0 +1,222 @@
+// Sweeps a sphere against a two-sided triangle surface. The radius is nonnegative.
+fn collision_face_hit(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> Hit {
+    var n: Vec3 = f.normal;
+    if dot(sub(p, f.a), n) < 0f32 {
+        n = scale(n, -1f32);
+    }
+    var speed: f32 = dot(d, n);
+    if speed >= 0f32 {
+        return miss();
+    }
+    var time: f32 = (radius - dot(sub(p, f.a), n)) / speed;
+    if time < 0f32 || time > 1f32 {
+        return miss();
+    }
+    var point: Vec3 = sub(add(p, scale(d, time)), scale(n, radius));
+    if !collision_inside(f, point) {
+        return miss();
+    }
+    return make Hit {
+        time: time,
+        normal: n
+    };
+}
+fn collision_inside(f: CollisionFace, p: Vec3) -> bool {
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var a: Vec3 = collision_corner(f, i);
+        var b: Vec3 = collision_corner(f, (i + 1u32) % 3u32);
+        if dot(cross(sub(b, a), sub(p, a)), f.normal) < 0f32 {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn collision_closest_edge(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
+    var edge: Vec3 = sub(b, a);
+    return add(
+        a,
+        scale(edge, clamp(dot(sub(p, a), edge) / dot(edge, edge), 0f32, 1f32))
+    );
+}
+fn collision_closest(f: CollisionFace, p: Vec3) -> Vec3 {
+    var plane: Vec3 = sub(p, scale(f.normal, dot(sub(p, f.a), f.normal)));
+    if collision_inside(f, plane) {
+        return plane;
+    }
+    var closest: Vec3 = f.a;
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var q: Vec3 = collision_closest_edge(
+            p,
+            collision_corner(f, i),
+            collision_corner(f, (i + 1u32) % 3u32)
+        );
+        if dot(sub(q, p), sub(q, p)) < dot(sub(closest, p), sub(closest, p)) {
+            closest = q;
+        }
+        i = i + 1u32;
+    }
+    return closest;
+}
+fn collision_triangle(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> Hit {
+    var hit: Hit = collision_face_hit(p, d, f, radius);
+    if radius == 0f32 {
+        return hit;
+    }
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        if f.neighbours[i as usize] == 0xffffffffu32 {
+            hit = nearest(
+                hit,
+                edge_hit(
+                    p,
+                    d,
+                    collision_corner(f, i),
+                    collision_corner(f, (i + 1u32) % 3u32),
+                    radius
+                )
+            );
+        }
+        i = i + 1u32;
+    }
+    return hit;
+}
+record CollisionContact {
+    hit: Hit;
+    point: Vec3;
+    local_point: Vec3;
+    penetration: f32;
+    instance: u32;
+    surface: u32;
+    space: u32;
+}
+fn collision_miss(space: u32) -> CollisionContact {
+    return make CollisionContact {
+        hit: miss(),
+        point: vec(0f32, 0f32, 0f32),
+        local_point: vec(0f32, 0f32, 0f32),
+        penetration: 0f32,
+        instance: 0xffffffffu32,
+        surface: 0xffffffffu32,
+        space: space
+    };
+}
+fn collision_bounds(p: Vec3, d: Vec3, radius: f32, item: CollisionInstance) -> bool {
+    var lo: f32 = 0f32;
+    var hi: f32 = 1f32;
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        var start: f32 = component(p, axis);
+        var delta: f32 = component(d, axis);
+        var low: f32 = component(item.low, axis) - radius;
+        var high: f32 = component(item.high, axis) + radius;
+        if delta == 0f32 {
+            if start < low || start > high {
+                return false;
+            }
+        } else {
+            var a: f32 = (low - start) / delta;
+            var b: f32 = (high - start) / delta;
+            if a > b {
+                var swap: f32 = a;
+                a = b;
+                b = swap;
+            }
+            if a > lo {
+                lo = a;
+            }
+            if b < hi {
+                hi = b;
+            }
+            if lo > hi {
+                return false;
+            }
+        }
+        axis = axis + 1u32;
+    }
+    return true;
+}
+fn collision_surface(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> CollisionContact {
+    var contact: CollisionContact = collision_miss(0u32);
+    var point: Vec3 = collision_closest(f, p);
+    var offset: Vec3 = sub(p, point);
+    var distance: f32 = length(offset);
+    if distance < radius {
+        contact.penetration = radius - distance;
+        var normal: Vec3 = f.normal;
+        if distance > 0f32 {
+            normal = scale(offset, 1f32 / distance);
+        }
+        if distance == 0f32 && dot(normal, d) > 0f32 {
+            normal = scale(normal, -1f32);
+        }
+        contact.hit = make Hit {
+            time: 0f32,
+            normal: normal
+        };
+    } else {
+        contact.hit = collision_triangle(p, d, f, radius);
+        point = sub(
+            add(p, scale(d, contact.hit.time)),
+            scale(contact.hit.normal, radius)
+        );
+    }
+    contact.local_point = point;
+    return contact;
+}
+fn collision_sweep_instance(
+    scene: read CollisionScene,
+    index: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32
+) -> CollisionContact {
+    var item: CollisionInstance = collision_instance(read scene, index);
+    var local_p: Vec3 = collision_local(item.basis, sub(p, item.origin));
+    var local_d: Vec3 = collision_local(item.basis, d);
+    var result: CollisionContact = collision_miss(item.space);
+    if !collision_bounds(local_p, local_d, radius, item) {
+        return result;
+    }
+    var i: u32 = 0u32;
+    while i < item.count {
+        var next: CollisionContact = collision_surface(
+            local_p,
+            local_d,
+            collision_face(read scene, item.first + i),
+            radius
+        );
+        if next.hit.time < result.hit.time || (
+            next.hit.time == result.hit.time && next.penetration > result.penetration
+        ) {
+            result = next;
+            result.instance = index;
+            result.surface = i;
+        }
+        i = i + 1u32;
+    }
+    result.space = item.space;
+    result.point = add(item.origin, basis_vector(item.basis, result.local_point));
+    result.hit.normal = basis_vector(item.basis, result.hit.normal);
+    return result;
+}
+// Returns the earliest surface contact in one space, including initial surface overlap.
+// Instances use proper rigid transforms. The query does not cross a portal plane.
+fn collision_sweep(scene: read CollisionScene, space: u32, p: Vec3, d: Vec3, radius: f32) -> CollisionContact {
+    var result: CollisionContact = collision_miss(space);
+    var i: u32 = 0u32;
+    while i < collision_instances(read scene) {
+        if collision_instance(read scene, i).space == space {
+            var next: CollisionContact = collision_sweep_instance(read scene, i, p, d, radius);
+            if next.hit.time < result.hit.time || (
+                next.hit.time == result.hit.time && next.penetration > result.penetration
+            ) {
+                result = next;
+            }
+        }
+        i = i + 1u32;
+    }
+    return result;
+}

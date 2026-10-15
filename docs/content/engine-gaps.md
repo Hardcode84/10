@@ -167,43 +167,52 @@ suite retains image, traversal, and resize checks.
 
 ## Collision and physical state
 
-### C1. Shape representation — asset proof
+### C1. Shape representation — implemented
 
-[Collision queries](../../src/game/flight/collision.crs) sweep spheres against axis-aligned
-boxes. [Pipe collision](../../src/game/flight/pipe-collision.crs) supports straight,
-axis-aligned six-sided prisms. [Shell collision](../../src/game/expedition/expedition-shell.crs)
-uses rectangular panels. The drone radius is 0.35 m; the hook radius is 0.06 m.
-There is no arbitrary generated mesh collider or rotated prefab collider.
+The [static mesh collision core](../collision/static-meshes.md) sweeps spheres
+against two-sided triangle faces, edges, and vertices. Each static instance
+has a rigid pose and a space ID. The game builds collision from the same room,
+solid, and pipe generators as the retained render meshes. Movement, reeling,
+hook flight, and both predictions borrow the built scene.
 
-**Change:** implement the static mesh collision contract in the asset design:
-continuous sphere sweeps, face/edge/vertex contacts, adjacency, and transformed
-instances. Generate collision from the same construction data as the mesh.
-Do not approximate every curve with overlapping boxes.
+Contacts report time, normal, instance, surface, local point, and surface
+overlap depth. Coplanar shared edges have adjacency records. They do not form
+collision ridges. Portal openings are holes in the wall surface. Queries select
+one space and do not assume a global embedding of connected rooms. Body transfer
+through transformed portals remains the separate W2 contract.
 
-**Check:** swept and revolved parts, diagonal braces, concave openings, tangent
-contacts, seams, and high-speed approaches from both directions. Verify the
-hook contact against the visible surface. Preserve drone clearance.
+**Check:** `crust tests.crs game` checks high-speed face, edge, and vertex
+contacts from both sides, tangent contact, shared seams, surface overlap,
+rotated braces, concave openings, and a generated curved pipe. It checks all
+expedition connections in both directions and high-speed room containment.
+The movement, hook, winch, prediction, and expedition completion checks use
+baked mesh collision.
 
-### C2. Query cost and repeated construction — asset proof, then room scale
+### C2. Query cost and repeated construction — construction implemented
 
-`course_hit` in [collision code](../../src/game/flight/collision.crs) scans all solids
-and pipes. `expedition_shell_hit` scans every room and rebuilds cut wall panels
-for each query. Hook flight, movement, and prediction all use these queries.
-No spatial acceleration structure selects nearby candidate geometry.
+The game builds collision once. Queries do not allocate or reconstruct panels.
+They reject instances with a swept local-space bounding-box test, then test
+all triangles of each remaining instance. Instance selection still scans the
+instance list. The build also compares triangle edges within each mesh to find
+coplanar adjacency. These costs grow with instance and mesh size.
 
-**Change:** bake static collision and shell panels. Build a spatial index over
-instances and their surfaces. Keep dynamic instance updates separate from
-static construction. Queries must consume built data without allocation.
+**Change:** measure larger generated rooms against the current scan. Build a
+spatial index over instances and surfaces when that witness requires one.
+Use indexed construction edges to replace pairwise adjacency search for large
+meshes. Keep dynamic updates separate from static construction.
 
 **Check:** compare indexed results with exhaustive queries. Increase room and
 instance count while holding the nearby geometry constant. Measure active
-tick and prediction query costs separately.
+tick and prediction query costs separately. The current controlled query
+measurement is in the [collision contract](../collision/static-meshes.md).
 
 ### C3. Contact solving and overlap — asset proof
 
 `move_drone` handles at most four successive slide contacts, then discards
-remaining travel. Each contact adds a fixed 0.0001 m normal offset. The sweep
-routines do not supply a general initial-penetration resolution contract.
+remaining travel. Each contact adds a fixed 0.0001 m normal offset. Mesh queries
+report initial surface overlap, and movement applies its separation
+depth. They do not classify a sphere fully inside a closed solid when it does
+not touch a surface. The solver does not supply general volume recovery.
 Stationary cases in the current tests do not prove arbitrary overlap recovery.
 Sequential sliding is not a persistent multi-contact solver.
 
@@ -218,12 +227,13 @@ a generated elbow. Record the witness before selecting a replacement solver.
 
 ### C4. Contact identity and moving anchors — world feature
 
-[Hit records](../../src/game/flight/collision.crs) contain only time and normal.
+[Mesh contacts](../../src/collision/sweep.crs) include instance/surface identity
+and a local contact point. The flight adapter currently consumes time and normal.
 [Hook attachment](../../src/game/flight/hook.crs) stores a position in `Cable.anchor`.
 [Drone state](../../src/game/flight/state.crs) has no collider or body identity for that
 attachment. Collision geometry has no velocity or motion interval.
 
-**Change:** return stable instance/surface identity and a local contact point.
+**Change:** retain the mesh contact identity and local point in the hook state.
 For moving machines, add kinematic poses, surface velocity, relative swept
 queries, and attachment updates. Couple winch work and momentum to the selected
 moving-anchor model. A rotating visual mesh alone is not a moving machine.

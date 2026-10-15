@@ -90,7 +90,12 @@ fn game_static_open(session: mut GameSession, world: u32) -> bool {
     var input: FrameInput = renderer_inputs(mut session.renderer);
     return game_static_build(mut input, mut session.world, world);
 }
-fn game_scene_frame(session: mut GameSession, trial: read Trial, config: GameConfig) -> unit {
+fn game_scene_frame(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    trial: read Trial,
+    config: GameConfig
+) -> unit {
     var input: FrameInput = renderer_inputs(mut session.renderer);
-    game_scene(mut input, read trial, config, read session.world);
+    game_scene(read collision, mut input, read trial, config, read session.world);
 }

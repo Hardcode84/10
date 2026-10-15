@@ -24,7 +24,13 @@ fn flight_impulses(drone: mut Drone, command: Command) -> unit {
         }
     }
 }
-fn simulate(drone: mut Drone, command: Command, full_spin: bool, auto_level: bool) -> unit {
+fn simulate(
+    collision: read CollisionScene,
+    drone: mut Drone,
+    command: Command,
+    full_spin: bool,
+    auto_level: bool
+) -> unit {
     orient(mut drone, command.look, auto_level);
     flight_impulses(mut drone, command);
     tether_input(mut drone, command);
@@ -38,7 +44,7 @@ fn simulate(drone: mut Drone, command: Command, full_spin: bool, auto_level: boo
     );
     drone.velocity = add(drone.velocity, scale(acceleration, STEP));
     var travel: Vec3 = scale(drone.velocity, STEP);
-    move_drone(mut drone, travel);
-    hook_step(mut drone, full_spin);
-    powered_winch(mut drone);
+    move_drone(read collision, mut drone, travel);
+    hook_step(read collision, mut drone, full_spin);
+    powered_winch(read collision, mut drone);
 }

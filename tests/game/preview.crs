@@ -1,11 +1,17 @@
-fn test_preview_station(trial: read Trial, index: u32) -> Vec3 {
+fn test_preview_station(collision: read CollisionScene, trial: read Trial, index: u32) -> Vec3 {
     var drone: Drone = trial.drone;
     var distance: f32 = trial.preview_phase;
     var station: f32 = index as f32 * PREVIEW_SPACING;
     var i: u32 = 0u32;
     while i < 240u32 {
         var before: Vec3 = drone.position;
-        simulate(mut drone, idle_command(), trial.full_spin, trial.auto_level);
+        simulate(
+            read collision,
+            mut drone,
+            idle_command(),
+            trial.full_spin,
+            trial.auto_level
+        );
         var segment: f32 = length(sub(drone.position, before));
         if segment > 0f32 && distance + segment >= station {
             return preview_station(before, drone.position, distance, station);
@@ -15,25 +21,25 @@ fn test_preview_station(trial: read Trial, index: u32) -> Vec3 {
     }
     trap;
 }
-fn test_preview_continuation(spin: bool) -> bool {
+fn test_preview_continuation(collision: read CollisionScene, spin: bool) -> bool {
     var trial: Trial = new_trial();
     trial.drone.position = vec(0f32, 150f32, 0f32);
     trial.drone.velocity = vec(3f32, 30f32, 20f32);
     trial.full_spin = spin;
     trial.started = true;
     var index: u32 = 4u32;
-    var first: Vec3 = test_preview_station(read trial, index);
+    var first: Vec3 = test_preview_station(read collision, read trial, index);
     var i: u32 = 0u32;
     while i < 120u32 && index > 0u32 {
         var phase: f32 = trial.preview_phase;
-        trial_step(mut trial, idle_command());
+        trial_step(read collision, mut trial, idle_command());
         if trial.preview_phase < phase {
             index = index - 1u32;
         }
         if index == 0u32 {
             break;
         }
-        var next: Vec3 = test_preview_station(read trial, index);
+        var next: Vec3 = test_preview_station(read collision, read trial, index);
         if !game_check(
             length(sub(first, next)) < 0.001f32,
             "coasting prediction markers must stay at the same world position"
@@ -47,7 +53,7 @@ fn test_preview_continuation(spin: bool) -> bool {
     }
     trial.preview_enabled = false;
     var before: f32 = trial.preview_phase;
-    trial_step(mut trial, idle_command());
+    trial_step(read collision, mut trial, idle_command());
     if !game_check(
         trial.preview_phase != before,
         "hidden predictions must retain their travel phase"
@@ -60,22 +66,25 @@ fn test_preview_continuation(spin: bool) -> bool {
         "retry must reset the flight prediction phase"
     );
 }
-fn test_preview_stability() -> bool {
-    return test_preview_continuation(false) && test_preview_continuation(true) && test_preview_toggle();
+fn test_preview_stability(collision: read CollisionScene) -> bool {
+    return test_preview_continuation(read collision, false) && test_preview_continuation(
+        read collision,
+        true
+    ) && test_preview_toggle(read collision);
 }
 
-fn test_preview_toggle() -> bool {
+fn test_preview_toggle(collision: read CollisionScene) -> bool {
     var trial: Trial = new_trial();
     var command: Command = idle_command();
     command.preview = true;
-    trial_step(mut trial, command);
+    trial_step(read collision, mut trial, command);
     if !game_check(!trial.preview_enabled, "one preview press must hide both paths") {
         return false;
     }
-    trial_step(mut trial, idle_command());
+    trial_step(read collision, mut trial, idle_command());
     if !game_check(!trial.preview_enabled, "preview must stay off until the next press") {
         return false;
     }
-    trial_step(mut trial, command);
+    trial_step(read collision, mut trial, command);
     return game_check(trial.preview_enabled, "the next preview press must restore both paths");
 }

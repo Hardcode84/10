@@ -1,4 +1,10 @@
-fn draw_hook_preview(v: mut FrameInput, trial: read Trial, config: GameConfig, limit: u32) -> unit {
+fn draw_hook_preview(
+    collision: read CollisionScene,
+    v: mut FrameInput,
+    trial: read Trial,
+    config: GameConfig,
+    limit: u32
+) -> unit {
     var drone: Drone = trial.drone;
     var command: Command = idle_command();
     command.tether = true;
@@ -6,7 +12,7 @@ fn draw_hook_preview(v: mut FrameInput, trial: read Trial, config: GameConfig, l
     var before: Vec3 = drone.position;
     var i: u32 = 0u32;
     while i < 240u32 && trail.markers < trail.limit {
-        simulate(mut drone, command, trial.full_spin, trial.auto_level);
+        simulate(read collision, mut drone, command, trial.full_spin, trial.auto_level);
         if drone.cable.phase == CABLE_SNAPPED {
             return;
         }

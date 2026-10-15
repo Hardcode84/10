@@ -36,10 +36,14 @@ fn review_no_void(session: mut GameSession) -> bool {
     }
     return true;
 }
-fn review_material_capacity(session: mut GameSession, config: GameConfig) -> bool {
+fn review_material_capacity(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    config: GameConfig
+) -> bool {
     var trial: Trial = new_trial();
     start_expedition(mut trial);
-    game_scene_frame(mut session, read trial, config);
+    game_scene_frame(read collision, mut session, read trial, config);
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var input: FrameInput = renderer_inputs(mut renderer);

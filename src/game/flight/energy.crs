@@ -31,9 +31,9 @@ fn recharge_expedition(trial: mut Trial) -> unit {
         i = i + 1u32;
     }
 }
-fn powered_winch(drone: mut Drone) -> unit {
+fn powered_winch(collision: read CollisionScene, drone: mut Drone) -> unit {
     var candidate: Drone = drone;
-    tether_winch(mut candidate);
+    tether_winch(read collision, mut candidate);
     tether_constraint(mut candidate);
     var cost: f32 = (candidate.winch_work - drone.winch_work) * WINCH_CHARGE_PER_WORK;
     if drone.world != 0u32 && cost > drone.charge {

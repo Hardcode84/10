@@ -22,7 +22,7 @@ fn hook_range_time(position: Vec3, travel: Vec3, origin: Vec3) -> f32 {
     var b: f32 = dot(offset, travel);
     return clamp((-b + sqrtf(b * b - a * c)) / a, 0f32, 1f32);
 }
-fn hook_step(drone: mut Drone, full_spin: bool) -> unit {
+fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) -> unit {
     if drone.cable.phase != CABLE_FLYING {
         return;
     }
@@ -34,7 +34,13 @@ fn hook_step(drone: mut Drone, full_spin: bool) -> unit {
     drone.cable.velocity = add(drone.cable.velocity, scale(acceleration, STEP));
     var travel: Vec3 = scale(drone.cable.velocity, STEP);
     var limit: f32 = hook_range_time(drone.cable.anchor, travel, drone.position);
-    var hit: Hit = course_hit(drone.world, drone.cable.anchor, travel, HOOK_RADIUS);
+    var hit: Hit = course_hit(
+        read collision,
+        drone.world,
+        drone.cable.anchor,
+        travel,
+        HOOK_RADIUS
+    );
     if hit.time <= limit {
         drone.cable.anchor = add(drone.cable.anchor, scale(travel, hit.time));
         drone.cable.velocity = vec(0f32, 0f32, 0f32);

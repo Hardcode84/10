@@ -1,10 +1,10 @@
-fn test_expedition_flight(shortcut: bool) -> bool {
+fn test_expedition_flight(collision: read CollisionScene, shortcut: bool) -> bool {
     var trial: Trial = new_trial();
     start_expedition(mut trial);
     var i: u32 = 0u32;
     while i < 50000u32 && !trial.finished {
         var command: Command = expedition_pilot(read trial, shortcut);
-        trial_step(mut trial, command);
+        trial_step(read collision, mut trial, command);
         if !game_check(
             expedition_contains(trial.drone.position),
             "expedition flight escaped its connected rooms"
@@ -25,7 +25,7 @@ fn test_expedition_flight(shortcut: bool) -> bool {
         "finite-charge expedition must restore both stations and return home"
     );
 }
-fn test_expedition_power() -> bool {
+fn test_expedition_power(collision: read CollisionScene) -> bool {
     var drone: Drone = new_drone();
     drone.world = 1u32;
     drone.charge = 7f32;
@@ -51,13 +51,13 @@ fn test_expedition_power() -> bool {
     drone.charge = 0f32;
     command = idle_command();
     command.thrust.z = 1f32;
-    simulate(mut drone, command, false, true);
+    simulate(read collision, mut drone, command, false, true);
     return game_check(
         drone.velocity.z > 0f32 && drone.charge == 0f32,
         "free maneuver must remain available at zero charge"
     );
 }
-fn test_expedition_recovery() -> bool {
+fn test_expedition_recovery(collision: read CollisionScene) -> bool {
     var trial: Trial = new_trial();
     start_expedition(mut trial);
     trial.expedition.progress = 3u32;
@@ -66,13 +66,13 @@ fn test_expedition_recovery() -> bool {
     trial.drone.charge = 0f32;
     var command: Command = idle_command();
     command.restart = true;
-    trial_step(mut trial, command);
+    trial_step(read collision, mut trial, command);
     return game_check(
         trial.expedition.progress == 3u32 && mission_goal(trial.expedition) == 2u32 && trial.expedition.has_parked && trial.expedition.parked.z == 80f32 && trial.drone.charge == 100f32 && trial.expedition.rescues == 1u32 && trial.drone.world == 1u32,
         "recovery must preserve station light and mark the parked drone"
     );
 }
-fn test_expedition_winch() -> bool {
+fn test_expedition_winch(collision: read CollisionScene) -> bool {
     var drone: Drone = new_drone();
     drone.world = 1u32;
     drone.position = vec(40f32, 90f32, 100f32);
@@ -81,7 +81,7 @@ fn test_expedition_winch() -> bool {
     drone.cable.anchor = vec(40f32, 90f32, 130f32);
     drone.cable.extent = 30f32;
     drone.charge = 0.01f32;
-    powered_winch(mut drone);
+    powered_winch(read collision, mut drone);
     if !game_check(
         drone.position.z == 100f32 && drone.velocity.z == 0f32 && drone.charge == 0.01f32,
         "unaffordable winch work must not move or accelerate the drone"
@@ -89,18 +89,23 @@ fn test_expedition_winch() -> bool {
         return false;
     }
     drone.charge = 100f32;
-    powered_winch(mut drone);
+    powered_winch(read collision, mut drone);
     return game_check(
         drone.velocity.z > 39f32 && drone.charge < 100f32 && drone.winch_work > 0f32,
         "loaded reeling must give real acceleration and consume charge"
     );
 }
-fn test_expedition() -> bool {
-    return test_room_content() && test_expedition_docking() && test_expedition_power() && test_expedition_recovery() && test_expedition_winch() && test_expedition_stalled_reel() && test_expedition_flight(
-        false
-    ) && test_expedition_flight(true);
+fn test_expedition(collision: read CollisionScene) -> bool {
+    return test_room_content(read collision) && test_expedition_docking() && test_expedition_power(
+        read collision
+    ) && test_expedition_recovery(read collision) && test_expedition_winch(read collision) && test_expedition_stalled_reel(
+        read collision
+    ) && test_expedition_flight(read collision, false) && test_expedition_flight(
+        read collision,
+        true
+    );
 }
-fn test_expedition_stalled_reel() -> bool {
+fn test_expedition_stalled_reel(collision: read CollisionScene) -> bool {
     var drone: Drone = new_drone();
     drone.world = 1u32;
     drone.position = vec(0f32, 4f32, 35f32);
@@ -113,12 +118,12 @@ fn test_expedition_stalled_reel() -> bool {
     command.reel = true;
     var i: u32 = 0u32;
     while i < 600u32 {
-        simulate(mut drone, command, false, true);
+        simulate(read collision, mut drone, command, false, true);
         i = i + 1u32;
     }
     var charge: f32 = drone.charge;
     var work: f32 = drone.winch_work;
-    simulate(mut drone, command, false, true);
+    simulate(read collision, mut drone, command, false, true);
     return game_check(
         drone.cable.phase == CABLE_ATTACHED && drone.cable.reeling && absf(
             drone.cable.reel_speed

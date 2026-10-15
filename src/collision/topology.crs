@@ -1,0 +1,79 @@
+fn collision_finite(v: Vec3) -> bool {
+    return v.x - v.x == 0f32 && v.y - v.y == 0f32 && v.z - v.z == 0f32;
+}
+fn collision_rigid(b: Basis) -> bool {
+    return collision_finite(b.right) && collision_finite(b.up) && collision_finite(b.forward) && absf(
+        dot(b.right, b.right) - 1f32
+    ) < 0.00001f32 && absf(dot(b.up, b.up) - 1f32) < 0.00001f32 && absf(
+        dot(b.forward, b.forward) - 1f32
+    ) < 0.00001f32 && absf(dot(b.right, b.up)) < 0.00001f32 && length(
+        sub(cross(b.right, b.up), b.forward)
+    ) < 0.00001f32;
+}
+fn collision_local(b: Basis, v: Vec3) -> Vec3 {
+    return vec(dot(b.right, v), dot(b.up, v), dot(b.forward, v));
+}
+fn collision_corner(f: CollisionFace, i: u32) -> Vec3 {
+    if i == 0u32 {
+        return f.a;
+    }
+    if i == 1u32 {
+        return f.b;
+    }
+    return f.c;
+}
+fn collision_equal(a: Vec3, b: Vec3) -> bool {
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+fn collision_shared(a: CollisionFace, edge: u32, b: CollisionFace) -> bool {
+    var p: Vec3 = collision_corner(a, edge);
+    var q: Vec3 = collision_corner(a, (edge + 1u32) % 3u32);
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var r: Vec3 = collision_corner(b, i);
+        var s: Vec3 = collision_corner(b, (i + 1u32) % 3u32);
+        if (collision_equal(p, r) && collision_equal(q, s)) || (
+            collision_equal(p, s) && collision_equal(q, r)
+        ) {
+            var side: Vec3 = cross(sub(q, p), a.normal);
+            var opposite: Vec3 = sub(collision_corner(b, (i + 2u32) % 3u32), p);
+            return dot(a.normal, opposite) == 0f32 && dot(
+                side,
+                sub(collision_corner(a, (edge + 2u32) % 3u32), p)
+            ) * dot(side, opposite) < 0f32;
+        }
+        i = i + 1u32;
+    }
+    return false;
+}
+fn collision_adjacency(scene: mut CollisionScene, instance: CollisionInstance) -> unit {
+    var i: u32 = instance.first;
+    while i < instance.first + instance.count {
+        var a: CollisionFace = collision_face(read scene, i);
+        var edge: u32 = 0u32;
+        while edge < 3u32 {
+            var j: u32 = instance.first;
+            while j < instance.first + instance.count {
+                var b: CollisionFace = collision_face(read scene, j);
+                if i != j && absf(dot(a.normal, b.normal)) > 0.999999f32 && collision_shared(
+                    a,
+                    edge,
+                    b
+                ) {
+                    collision_neighbour(mut scene, i, edge, j);
+                    break;
+                }
+                j = j + 1u32;
+            }
+            edge = edge + 1u32;
+        }
+        i = i + 1u32;
+    }
+}
+fn collision_normal(n: Vec3) -> Vec3 {
+    var size: f32 = length(n);
+    if size == 0f32 {
+        return vec(0f32, 0f32, 0f32);
+    }
+    return vec(n.x / size, n.y / size, n.z / size);
+}

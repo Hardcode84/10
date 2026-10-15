@@ -1,0 +1,50 @@
+fn collision_build_world(scene: mut CollisionScene, world: u32) -> bool {
+    var i: u32 = 0u32;
+    if world == 1u32 {
+        while i < ROOM_COUNT {
+            var mesh: Mesh = mesh_new();
+            if !static_room(mut mesh, i) || !collision_append(
+                mut scene,
+                read mesh,
+                world,
+                vec(0f32, 0f32, 0f32),
+                identity_basis()
+            ) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+    }
+    i = 0u32;
+    while i < world_solid_count(world) {
+        var mesh: Mesh = mesh_new();
+        if !static_solid(mut mesh, world_solid(world, i), world_solid_faces(world, i)) || !collision_append(
+            mut scene,
+            read mesh,
+            world,
+            vec(0f32, 0f32, 0f32),
+            identity_basis()
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < world_pipe_count(world) {
+        var mesh: Mesh = mesh_new();
+        if !static_pipe(mut mesh, world_pipe(world, i)) || !collision_append(
+            mut scene,
+            read mesh,
+            world,
+            vec(0f32, 0f32, 0f32),
+            identity_basis()
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn collision_build_game(scene: mut CollisionScene) -> bool {
+    return collision_build_world(mut scene, 0u32) && collision_build_world(mut scene, 1u32);
+}

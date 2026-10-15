@@ -1,10 +1,10 @@
-fn test_course_spin() -> bool {
+fn test_course_spin(collision: read CollisionScene) -> bool {
     var trial: Trial = new_trial();
     trial.full_spin = true;
     var i: u32 = 0u32;
     while i < 90000u32 && !trial.finished {
         var c: Command = spin_pilot_command(read trial);
-        trial_step(mut trial, c);
+        trial_step(read collision, mut trial, c);
         i = i + 1u32;
     }
     game_summary(read trial);

@@ -1,4 +1,4 @@
-fn test_hook_launch() -> bool {
+fn test_hook_launch(collision: read CollisionScene) -> bool {
     var d: Drone = new_drone();
     d.position = vec(0f32, 4f32, 35f32);
     d.velocity = vec(3f32, 2f32, 1f32);
@@ -17,13 +17,13 @@ fn test_hook_launch() -> bool {
     }
     var command: Command = idle_command();
     command.tether = true;
-    simulate(mut d, command, false, true);
+    simulate(read collision, mut d, command, false, true);
     return game_check(
         d.cable.phase == CABLE_FLYING && d.cable.anchor.z > 35f32 && d.cable.anchor.z < 36f32,
         "hook must travel before it attaches"
     );
 }
-fn test_hook_forces(full_spin: bool) -> bool {
+fn test_hook_forces(collision: read CollisionScene, full_spin: bool) -> bool {
     var d: Drone = new_drone();
     d.position = vec(20f32, 40f32, 0f32);
     d.velocity = vec(3f32, 20f32, 5f32);
@@ -35,8 +35,8 @@ fn test_hook_forces(full_spin: bool) -> bool {
     command.tether = true;
     var i: u32 = 0u32;
     while i < 120u32 {
-        simulate(mut reference, idle_command(), full_spin, false);
-        simulate(mut d, command, full_spin, false);
+        simulate(read collision, mut reference, idle_command(), full_spin, false);
+        simulate(read collision, mut d, command, full_spin, false);
         if !game_check(
             d.cable.phase == CABLE_FLYING && length(
                 sub(d.cable.anchor, reference.position)
@@ -49,12 +49,12 @@ fn test_hook_forces(full_spin: bool) -> bool {
     }
     return true;
 }
-fn test_hook_sweep() -> bool {
+fn test_hook_sweep(collision: read CollisionScene) -> bool {
     var d: Drone = new_drone();
     d.position = vec(0f32, 4f32, 35f32);
     hook_launch(mut d);
     d.cable.velocity = vec(0f32, 0f32, 30000f32);
-    hook_step(mut d, false);
+    hook_step(read collision, mut d, false);
     return game_check(
         d.cable.phase == CABLE_ATTACHED && near(
             d.cable.anchor.z,
@@ -64,7 +64,7 @@ fn test_hook_sweep() -> bool {
         "hook must hit the first surface even when a tick exceeds maximum range"
     );
 }
-fn test_hook_range() -> bool {
+fn test_hook_range(collision: read CollisionScene) -> bool {
     var d: Drone = new_drone();
     d.position = vec(100f32, 100f32, 0f32);
     var c: Command = idle_command();
@@ -72,7 +72,7 @@ fn test_hook_range() -> bool {
     c.reel = true;
     var i: u32 = 0u32;
     while i < 1200u32 && d.cable.phase != CABLE_SNAPPED {
-        simulate(mut d, c, false, false);
+        simulate(read collision, mut d, c, false, false);
         if d.cable.phase == CABLE_FLYING && length(sub(d.position, d.cable.anchor)) > CABLE_REACH + 0.001f32 {
             return game_check(false, "flying hook exceeded cable reach");
         }
@@ -84,23 +84,23 @@ fn test_hook_range() -> bool {
     ) {
         return false;
     }
-    simulate(mut d, c, false, false);
+    simulate(read collision, mut d, c, false, false);
     if !game_check(
         d.cable.phase == CABLE_SNAPPED && !d.cable.reeling,
         "holding after a snap must not fire or retain reeling"
     ) {
         return false;
     }
-    simulate(mut d, idle_command(), false, false);
+    simulate(read collision, mut d, idle_command(), false, false);
     c.reel = false;
-    simulate(mut d, c, false, false);
+    simulate(read collision, mut d, c, false, false);
     if !game_check(
         d.cable.phase == CABLE_FLYING && !d.cable.reeling,
         "release must permit a new launch with the reel off"
     ) {
         return false;
     }
-    simulate(mut d, idle_command(), false, false);
+    simulate(read collision, mut d, idle_command(), false, false);
     return game_check(
         d.cable.phase == CABLE_READY,
         "release during flight must recall the hook"
@@ -122,6 +122,9 @@ fn test_hook_hash() -> bool {
         "replay hash must include projectile velocity, cable phase and latched reeling"
     );
 }
-fn test_hook() -> bool {
-    return test_hook_launch() && test_hook_forces(false) && test_hook_forces(true) && test_hook_sweep() && test_hook_range() && test_hook_hash();
+fn test_hook(collision: read CollisionScene) -> bool {
+    return test_hook_launch(read collision) && test_hook_forces(read collision, false) && test_hook_forces(
+        read collision,
+        true
+    ) && test_hook_sweep(read collision) && test_hook_range(read collision) && test_hook_hash();
 }

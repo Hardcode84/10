@@ -1,4 +1,4 @@
-fn test_prefab_ports() -> bool {
+fn test_prefab_ports(collision: read CollisionScene) -> bool {
     var i: u32 = 0u32;
     while i < ROOM_LINK_COUNT {
         var link: RoomLink = expedition_link(i);
@@ -16,12 +16,16 @@ fn test_prefab_ports() -> bool {
             a.prefab.ports[link.port_a as usize].face / 2u32
         );
         var step: Vec3 = scale(normal, 4f32);
-        var forward: Hit = expedition_shell_hit(
+        var forward: Hit = course_hit(
+            read collision,
+            1u32,
             sub(center, step),
             scale(step, 2f32),
             DRONE_RADIUS
         );
-        var backward: Hit = expedition_shell_hit(
+        var backward: Hit = course_hit(
+            read collision,
+            1u32,
             add(center, step),
             scale(step, -2f32),
             DRONE_RADIUS
@@ -55,7 +59,7 @@ fn test_prefab_ports() -> bool {
         "an unconnected prefab port must remain capped"
     );
 }
-fn test_prefab_enclosure() -> bool {
+fn test_prefab_enclosure(collision: read CollisionScene) -> bool {
     var room: u32 = 0u32;
     var triangles: u32 = 0u32;
     while room < ROOM_COUNT {
@@ -85,7 +89,9 @@ fn test_prefab_enclosure() -> bool {
                         sample / 5u32
                     ) as f32 / 4f32
                 );
-                var hit: Hit = expedition_shell_hit(
+                var hit: Hit = course_hit(
+                    read collision,
+                    1u32,
                     center,
                     scale(unit_vector(sub(p, center)), 1000f32),
                     0f32
@@ -101,10 +107,27 @@ fn test_prefab_enclosure() -> bool {
     }
     return game_check(triangles == 116u32, "prefab shell must contain exactly 116 triangles");
 }
-fn test_prefabs() -> bool {
-    return test_prefab_definitions() && test_prefab_ports() && test_prefab_enclosure() && test_prefab_impacts();
+fn test_prefabs(collision: read CollisionScene) -> bool {
+    var shells: CollisionScene = collision_new();
+    var i: u32 = 0u32;
+    while i < ROOM_COUNT {
+        var mesh: Mesh = mesh_new();
+        if !static_room(mut mesh, i) || !collision_append(
+            mut shells,
+            read mesh,
+            1u32,
+            vec(0f32, 0f32, 0f32),
+            identity_basis()
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return test_prefab_definitions() && test_prefab_ports(read shells) && test_prefab_enclosure(
+        read shells
+    ) && test_prefab_impacts(read collision);
 }
-fn test_prefab_impacts() -> bool {
+fn test_prefab_impacts(collision: read CollisionScene) -> bool {
     var room: u32 = 0u32;
     while room < ROOM_COUNT {
         var instance: RoomInstance = expedition_room(room);
@@ -121,7 +144,7 @@ fn test_prefab_impacts() -> bool {
             drone.position = center;
             drone.velocity = scale(direction, 2000f32);
             var travel: Vec3 = drone.velocity;
-            move_drone(mut drone, travel);
+            move_drone(read collision, mut drone, travel);
             if !game_check(
                 expedition_contains(drone.position),
                 "high-speed face or corner impact escaped the prefab shell"

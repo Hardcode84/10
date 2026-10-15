@@ -91,6 +91,7 @@ fn camera_row(v: mut FrameInput, row: usize, axis: Vec3, position: Vec3) -> unit
     input_set_float(mut v, row + 3usize, -dot(axis, position));
 }
 fn game_scene(
+    collision: read CollisionScene,
     v: mut FrameInput,
     trial: read Trial,
     config: GameConfig,
@@ -113,7 +114,7 @@ fn game_scene(
         draw_course_gates(mut v, read trial);
     }
     draw_cable(mut v, trial.drone, config);
-    draw_preview(mut v, read trial, config);
+    draw_preview(read collision, mut v, read trial, config);
     draw_frame(mut v, trial.drone, config);
     draw_route_indicator(mut v, read trial, config);
     if !input_instances(mut v, read world) {

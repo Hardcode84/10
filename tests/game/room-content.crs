@@ -1,4 +1,4 @@
-fn test_content_hook(position: Vec3, ceiling: f32) -> bool {
+fn test_content_hook(collision: read CollisionScene, position: Vec3, ceiling: f32) -> bool {
     var drone: Drone = new_drone();
     drone.world = 1u32;
     drone.position = position;
@@ -11,7 +11,7 @@ fn test_content_hook(position: Vec3, ceiling: f32) -> bool {
     command.tether = true;
     var i: u32 = 0u32;
     while i < 120u32 && drone.cable.phase != CABLE_ATTACHED {
-        simulate(mut drone, command, false, false);
+        simulate(read collision, mut drone, command, false, false);
         i = i + 1u32;
     }
     return game_check(
@@ -50,14 +50,16 @@ fn test_content_supports() -> bool {
     }
     return true;
 }
-fn test_room_content() -> bool {
+fn test_room_content(collision: read CollisionScene) -> bool {
     var berth: Hit = course_hit(
+        read collision,
         1u32,
         vec(0f32, 4f32, -4f32),
         vec(0f32, 0f32, 65f32),
         DRONE_RADIUS
     );
     var shaft: Hit = course_hit(
+        read collision,
         1u32,
         vec(116f32, 16f32, 150f32),
         vec(0f32, 118f32, 0f32),
@@ -67,9 +69,11 @@ fn test_room_content() -> bool {
         berth.time > 1f32 && shaft.time > 1f32,
         "authored features must preserve the central flight lanes and connected exits"
     ) && test_content_supports() && test_content_materials() && test_content_hook(
+        read collision,
         vec(0f32, 4f32, 18f32),
         12f32
-    ) && test_content_hook(vec(105f32, 32f32, 150f32), 40f32) && test_content_hook(
+    ) && test_content_hook(read collision, vec(105f32, 32f32, 150f32), 40f32) && test_content_hook(
+        read collision,
         vec(127f32, 76f32, 150f32),
         84f32
     );
