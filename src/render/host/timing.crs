@@ -3,7 +3,7 @@ fn queries_create(v: *Vulkan) -> bool {
     zero(&info as *u8, sizeof(VkQueryPoolCreateInfo));
     info.sType = 11u32;
     info.queryType = 2u32;
-    info.queryCount = 20u32;
+    info.queryCount = v -> query_count;
     return vk_ok(
         vkCreateQueryPool(v -> device, &info, null(*u8), &v -> query_pool),
         "vkCreateQueryPool"
@@ -15,8 +15,8 @@ fn queries_read(v: *Vulkan, values: *u64) -> bool {
             v -> device,
             v -> query_pool,
             0u32,
-            20u32,
-            sizeof([u64; 20]),
+            v -> query_count,
+            v -> query_count as usize * 8usize,
             values as *u8,
             8u64,
             3u32

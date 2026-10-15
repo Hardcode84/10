@@ -1,5 +1,5 @@
 fn render_config_valid(config: *RenderConfig) -> bool {
-    if config -> width == 0u32 || config -> height == 0u32 || config -> width > 1920u32 || config -> height > 1080u32 || config -> output_width == 0u32 || config -> output_height == 0u32 || config -> output_width > 1920u32 || config -> output_height > 1080u32 || config -> view_budget == 0u32 || config -> view_budget > MAX_VIEWS {
+    if config -> width == 0u32 || config -> height == 0u32 || config -> width > 1920u32 || config -> height > 1080u32 || config -> output_width == 0u32 || config -> output_height == 0u32 || config -> output_width > 1920u32 || config -> output_height > 1080u32 || config -> view_budget == 0u32 || config -> task_budget == 0u32 || config -> crossing_limit > 0x3ffffffdu32 {
         return error("render configuration exceeds image or view capacity");
     }
     return true;
@@ -16,8 +16,12 @@ fn frame_valid(v: *Vulkan) -> bool {
         }
         i = i + 1usize;
     }
-    if (v -> mapped as *u32)[5usize] != 0u32 {
-        return error("frame work budget exceeded; output rejected");
+    var failure: u32 = (v -> mapped as *u32)[5usize];
+    if failure == 1u32 {
+        return error("portal task budget exhausted; output rejected");
+    }
+    if failure == 2u32 {
+        return error("portal view budget exhausted; output rejected");
     }
     return true;
 }
@@ -30,6 +34,9 @@ record RenderConfig {
     debug_pixels: u32;
     baseline: u32;
     view_budget: u32;
+    portal_budget: u32;
+    task_budget: u32;
+    crossing_limit: u32;
     fault: u32;
 }
 // Requires an instance and an optional surface. Shader bytes are borrowed for this call.
@@ -40,22 +47,18 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
     }
     v -> read_pixels = config -> read_pixels;
     v -> view_capacity = config -> view_budget;
-    if !device_open(v) || !buffer_create(v) || !layout_create(v) {
+    v -> portal_capacity = config -> portal_budget;
+    v -> task_capacity = config -> task_budget;
+    v -> crossing_limit = config -> crossing_limit;
+    v -> query_count = 4u32 + (config -> crossing_limit + 1u32) * 4u32;
+    if !device_open(v) || !traversal_valid(v) || !buffer_create(v) || !layout_create(v) {
         return false;
     }
-    var slot: usize = 0usize;
-    while slot < PIPELINE_COUNT as usize {
-        if shaders[slot].size < 20usize || shaders[slot].size % 4usize != 0usize || (
-            shaders[slot].bytes as *u32
-        )[0usize] != 0x07230203u32 {
-            return error("invalid SPIR-V module");
-        }
-        if !pipeline_create(v, &shaders[slot], slot) {
-            return false;
-        }
-        slot = slot + 1usize;
+    if !renderer_pipelines(v, shaders) {
+        return false;
     }
     var w: *u32 = v -> mapped as *u32;
+    w[4usize] = config -> crossing_limit;
     w[0usize] = config -> width;
     w[1usize] = config -> height;
     w[22usize] = config -> output_width;
@@ -78,6 +81,9 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
 // Returns after GPU completion and status readback. A failed frame must not be presented.
 fn renderer_draw(v: *Vulkan) -> bool {
     var w: *u32 = v -> mapped as *u32;
+    if w[4usize] > v -> crossing_limit {
+        return error("frame crossing limit exceeds configured traversal depth");
+    }
     if w[INSTANCE_COUNT as usize] == 0u32 {
         w[DYNAMIC_COUNT as usize] = w[3usize];
     }
@@ -89,5 +95,29 @@ fn renderer_draw(v: *Vulkan) -> bool {
         return false;
     }
     v -> mesh_dirty = false;
+    return true;
+}
+
+fn traversal_valid(v: *Vulkan) -> bool {
+    var elements: u32 = v -> storage_limit / 4u32;
+    if v -> portal_capacity > elements || v -> task_capacity > elements || v -> view_capacity > elements || v -> view_capacity as u64 * v -> portal_capacity as u64 > elements as u64 {
+        return error("traversal capacities exceed device storage range");
+    }
+    return true;
+}
+
+fn renderer_pipelines(v: *Vulkan, shaders: *ShaderCode) -> bool {
+    var slot: usize = 0usize;
+    while slot < PIPELINE_COUNT as usize {
+        if shaders[slot].size < 20usize || shaders[slot].size % 4usize != 0usize || (
+            shaders[slot].bytes as *u32
+        )[0usize] != 0x07230203u32 {
+            return error("invalid SPIR-V module");
+        }
+        if !pipeline_create(v, &shaders[slot], slot) {
+            return false;
+        }
+        slot = slot + 1usize;
+    }
     return true;
 }

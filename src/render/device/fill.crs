@@ -1,13 +1,15 @@
 fn compute() -> unit {
-    var i: u32 = shader_global_x();
+    var i: u32 = shader_global_x() + words_load(DISPATCH_BASE);
     if words_load(5u32) == 0u32 && i < words_load(27u32) {
-        var offset: u32 = words_load(GROUP_PREFIX + i / 64u32) + words_load(TASK_PREFIX + i);
+        var offset: u32 = words_load(words_load(GROUP_PREFIX) + i / 64u32) + words_load(
+            words_load(TASK_PREFIX) + i
+        );
         var source: u32 = other_tasks() + i * 4u32;
         var parent: u32 = words_load(source + 1u32);
         var tile: u32 = words_load(source);
         var portal: u32 = 0u32;
-        while portal < MAX_PORTALS {
-            var p: u32 = CANDIDATES + (i * MAX_PORTALS + portal) * 2u32;
+        while portal < words_load(PORTAL_CAPACITY) {
+            var p: u32 = words_load(CANDIDATES) + (i * words_load(PORTAL_CAPACITY) + portal) * 2u32;
             var lo: u32 = words_load(p);
             var hi: u32 = words_load(p + 1u32);
             if (lo | hi) != 0u32 {
@@ -15,7 +17,9 @@ fn compute() -> unit {
                 words_store(target, tile);
                 words_store(
                     target + 1u32,
-                    words_load(VIEW_MAP + parent * MAX_PORTALS + portal)
+                    words_load(
+                        words_load(VIEW_MAP) + parent * words_load(PORTAL_CAPACITY) + portal
+                    )
                 );
                 words_store(target + 2u32, lo);
                 words_store(target + 3u32, hi);

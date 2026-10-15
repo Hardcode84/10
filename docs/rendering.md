@@ -275,6 +275,10 @@ The game generates static room shells once.
 10. Encode the completed colour image for presentation. Scale only when
     resolutions differ.
 
+The current capacity and overflow contract is specified in
+[portal capacity](portal-capacity.md). It sizes portal records and path views
+from caller budgets and records the selected crossing depth.
+
 Use GPU work counts and indirect dispatch where work depends on visibility. Put
 explicit memory dependencies between producers, indirect command reads, and
 consumers. A workgroup barrier does not synchronize separate workgroups.

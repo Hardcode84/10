@@ -1059,3 +1059,11 @@ extern fn vkGetQueryPoolResults(
     stride: u64,
     flags: u32
 ) -> i32 = "vkGetQueryPoolResults";
+
+extern fn vkCmdUpdateBuffer(
+    command: *u8,
+    buffer: *u8,
+    offset: u64,
+    size: u64,
+    data: *u8
+) -> unit = "vkCmdUpdateBuffer";

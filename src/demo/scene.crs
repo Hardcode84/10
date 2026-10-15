@@ -69,19 +69,21 @@ fn palettes(v: mut FrameInput) -> unit {
     }
 }
 fn portal_setup(v: mut FrameInput) -> unit {
+    var portal_float: u32 = input_word(read v, PORTAL_FLOAT as usize);
+    var portal_meta: u32 = input_word(read v, PORTAL_META as usize);
     var i: u32 = 0u32;
-    while i < MAX_PORTALS {
-        var p: usize = (PORTAL_FLOAT + i * 16u32) as usize;
+    while i < 4u32 {
+        var p: usize = (portal_float + i * 16u32) as usize;
         input_set_float(mut v, p, 1f32);
         input_set_float(mut v, p + 5usize, 1f32);
         input_set_float(mut v, p + 10usize, 1f32);
         input_set_float(mut v, p + 14usize, 1f32);
-        input_set_word(mut v, (PORTAL_META + i * 4u32 + 1u32) as usize, 1u32);
+        input_set_word(mut v, (portal_meta + i * 4u32 + 1u32) as usize, 1u32);
         i = i + 1u32;
     }
-    input_set_float(mut v, (PORTAL_FLOAT + 11u32) as usize, 9f32);
-    input_set_float(mut v, (PORTAL_FLOAT + 15u32) as usize, 0f32);
-    var p: usize = (PORTAL_FLOAT + 16u32) as usize;
+    input_set_float(mut v, (portal_float + 11u32) as usize, 9f32);
+    input_set_float(mut v, (portal_float + 15u32) as usize, 0f32);
+    var p: usize = (portal_float + 16u32) as usize;
     input_set_float(mut v, p, 0f32);
     input_set_float(mut v, p + 2usize, 1f32);
     input_set_float(mut v, p + 3usize, 4f32);
@@ -91,12 +93,12 @@ fn portal_setup(v: mut FrameInput) -> unit {
     input_set_float(mut v, p + 12usize, -1f32);
     input_set_float(mut v, p + 14usize, 0f32);
     input_set_float(mut v, p + 15usize, 0f32);
-    p = (PORTAL_FLOAT + 32u32) as usize;
+    p = (portal_float + 32u32) as usize;
     input_set_float(mut v, p + 11usize, 26f32);
     input_set_float(mut v, p + 14usize, 1f32);
     input_set_float(mut v, p + 15usize, 8f32);
-    input_set_word(mut v, (PORTAL_META + 2u32 * 4u32) as usize, 1u32);
-    input_set_word(mut v, (PORTAL_META + 2u32 * 4u32 + 1u32) as usize, 0u32);
+    input_set_word(mut v, (portal_meta + 2u32 * 4u32) as usize, 1u32);
+    input_set_word(mut v, (portal_meta + 2u32 * 4u32 + 1u32) as usize, 0u32);
 }
 fn scene(v: mut FrameInput, width: u32, height: u32, frame: u32, mode: u32) -> unit {
     input_set_word(mut v, 0usize, width);

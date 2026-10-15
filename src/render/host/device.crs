@@ -13,6 +13,10 @@ record Vulkan {
     floats: u32;
     triangle_capacity: u32;
     view_capacity: u32;
+    portal_capacity: u32;
+    task_capacity: u32;
+    crossing_limit: u32;
+    query_count: u32;
     storage_limit: u32;
     properties: VkPhysicalDeviceMemoryProperties;
     instance: *u8;

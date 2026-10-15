@@ -48,7 +48,7 @@ fn commands_record(v: *Vulkan) -> bool {
     if !vk_ok(vkBeginCommandBuffer(v -> commands, &begin), "vkBeginCommandBuffer") {
         return false;
     }
-    vkCmdResetQueryPool(v -> commands, v -> query_pool, 0u32, 20u32);
+    vkCmdResetQueryPool(v -> commands, v -> query_pool, 0u32, v -> query_count);
     vkCmdWriteTimestamp(v -> commands, 1u32, v -> query_pool, 0u32);
     upload_scene(v);
     vkCmdFillBuffer(
@@ -81,7 +81,7 @@ fn commands_record(v: *Vulkan) -> bool {
     frame_barrier(v, 2048u32, 64u32, 2048u32 | 2u32, 96u32 | 1u32);
     vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 1u32);
     var depth: u32 = 0u32;
-    while depth < 4u32 {
+    while depth <= v -> crossing_limit {
         retained_dispatch(
             v,
             9usize,
@@ -96,28 +96,13 @@ fn commands_record(v: *Vulkan) -> bool {
         vkCmdDispatchIndirect(v -> commands, v -> buffer, 68u64);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 2u32 + depth * 4u32);
-        vkCmdBindPipeline(
-            v -> commands,
-            VK_PIPELINE_BIND_POINT_COMPUTE,
-            v -> pipelines[5usize]
-        );
-        vkCmdDispatch(v -> commands, 1u32, 1u32, 1u32);
+        retained_dispatch(v, 5usize, (v -> view_capacity + 63u32) / 64u32);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 3u32 + depth * 4u32);
-        vkCmdBindPipeline(
-            v -> commands,
-            VK_PIPELINE_BIND_POINT_COMPUTE,
-            v -> pipelines[2usize]
-        );
-        vkCmdDispatchIndirect(v -> commands, v -> buffer, 56u64);
+        task_dispatch(v, 2usize, 0u32);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 4u32 + depth * 4u32);
-        vkCmdBindPipeline(
-            v -> commands,
-            VK_PIPELINE_BIND_POINT_COMPUTE,
-            v -> pipelines[6usize]
-        );
-        vkCmdDispatch(v -> commands, MAX_TASKS / 64u32, 1u32, 1u32);
+        task_dispatch(v, 6usize, 3u32);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdBindPipeline(
             v -> commands,
@@ -126,12 +111,7 @@ fn commands_record(v: *Vulkan) -> bool {
         );
         vkCmdDispatch(v -> commands, 1u32, 1u32, 1u32);
         frame_barrier(v, 2048u32, 64u32, 2048u32 | 2u32, 96u32 | 1u32);
-        vkCmdBindPipeline(
-            v -> commands,
-            VK_PIPELINE_BIND_POINT_COMPUTE,
-            v -> pipelines[7usize]
-        );
-        vkCmdDispatchIndirect(v -> commands, v -> buffer, 116u64);
+        task_dispatch(v, 7usize, 6u32);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 5u32 + depth * 4u32);
         depth = depth + 1u32;
@@ -160,9 +140,9 @@ fn commands_record(v: *Vulkan) -> bool {
         0u32,
         null(*VkImageMemoryBarrier)
     );
-    vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 18u32);
+    vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, v -> query_count - 2u32);
     readback(v);
-    vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 19u32);
+    vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, v -> query_count - 1u32);
     return vk_ok(vkEndCommandBuffer(v -> commands), "vkEndCommandBuffer");
 }
 fn dispatch(v: *Vulkan) -> bool {
@@ -290,13 +270,8 @@ fn upload_scene(v: *Vulkan) -> unit {
         4u64 + META as u64 * 4u64,
         (v -> mapped as *u32)[DYNAMIC_COUNT as usize] as u64 * 16u64
     );
-    copy_region(
-        v,
-        v -> staging,
-        v -> buffer,
-        4u64 + PORTAL_META as u64 * 4u64,
-        MAX_PORTALS as u64 * 16u64
-    );
+    retained_transfer(v, PORTAL_META, v -> portal_capacity * 4u32, false, true);
+    retained_transfer(v, PORTAL_FLOAT, v -> portal_capacity * 16u32, true, true);
     copy_region(
         v,
         v -> staging,
@@ -309,7 +284,7 @@ fn upload_scene(v: *Vulkan) -> unit {
 }
 fn readback(v: *Vulkan) -> unit {
     retained_readback(v);
-    copy_region(v, v -> buffer, v -> staging, 0u64, 65u64 * 4u64);
+    copy_region(v, v -> buffer, v -> staging, 0u64, 77u64 * 4u64);
     copy_region(
         v,
         v -> buffer,
@@ -343,4 +318,33 @@ fn readback(v: *Vulkan) -> unit {
         );
     }
     frame_barrier(v, 4096u32, 4096u32, 16384u32, 8192u32);
+}
+
+fn task_dispatch(v: *Vulkan, pipeline: usize, field: u32) -> unit {
+    vkCmdBindPipeline(
+        v -> commands,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        v -> pipelines[pipeline]
+    );
+    var base: u32 = 0u32;
+    var batch: u32 = 0u32;
+    var commands: u32 = (v -> mapped as *u32)[TASK_COMMANDS as usize];
+    while base < v -> task_capacity {
+        frame_barrier(v, 2048u32 | 4096u32, 96u32 | 4096u32, 4096u32, 4096u32);
+        vkCmdUpdateBuffer(
+            v -> commands,
+            v -> buffer,
+            (DISPATCH_BASE as u64 + 1u64) * 4u64,
+            4u64,
+            &base as *u8
+        );
+        frame_barrier(v, 4096u32 | 2048u32, 4096u32 | 64u32, 2048u32 | 2u32, 32u32 | 1u32);
+        vkCmdDispatchIndirect(
+            v -> commands,
+            v -> buffer,
+            (commands as u64 + 1u64 + batch as u64 * 9u64 + field as u64) * 4u64
+        );
+        base = base + MAX_INVOCATIONS / LOCAL_SIZE;
+        batch = batch + 1u32;
+    }
 }

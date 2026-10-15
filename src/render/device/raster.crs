@@ -153,7 +153,7 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
     var cols: u32 = (width + 7u32) / 8u32;
     var x: u32 = tile % cols * 8u32 + lane % 8u32;
     var y: u32 = tile / cols * 8u32 + lane / 8u32;
-    shared_store(320u32 + lane, 0f32);
+    shared_store(320u32 + lane, 0u32);
     if !raster_active(base, lane, x, y, width) {
         return;
     }
@@ -165,7 +165,7 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
     var i: u32 = 0u32;
     var px: f32 = x as f32 + 0.5f32;
     var py: f32 = y as f32 + 0.5f32;
-    var count: u32 = words_load(COMPACT_COUNT + view);
+    var count: u32 = words_load(words_load(COMPACT_COUNT) + view);
     if words_load(25u32) != 0u32 {
         count = words_load(3u32) * MAX_FAN;
     }
@@ -200,7 +200,7 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
         vv = sample_uv(p, px, py, 4u32, style);
         var portal: u32 = words_load(META + winner * 4u32 + 2u32);
         if portal != 0u32 && words_load(12u32) < words_load(4u32) {
-            shared_store(320u32 + lane, portal as f32);
+            shared_store(320u32 + lane, portal);
         }
         color = surface_color(winner, view, uu, vv, 1f32 / best, x, y);
     }
@@ -222,7 +222,7 @@ fn child_masks(task: u32, portal: u32) -> unit {
     var hi: u32 = 0u32;
     var lane: u32 = 0u32;
     while lane < 64u32 {
-        if shared_load(320u32 + lane) as u32 == portal {
+        if shared_load(320u32 + lane) == portal {
             if lane < 32u32 {
                 lo = lo | (1u32 << lane);
             } else {
@@ -231,21 +231,24 @@ fn child_masks(task: u32, portal: u32) -> unit {
         }
         lane = lane + 1u32;
     }
-    var out: u32 = CANDIDATES + (task * MAX_PORTALS + portal - 1u32) * 2u32;
+    var out: u32 = words_load(CANDIDATES) + (
+        task * words_load(PORTAL_CAPACITY) + portal - 1u32
+    ) * 2u32;
     words_store(out, lo);
     words_store(out + 1u32, hi);
 }
 fn compute() -> unit {
     var lane: u32 = shader_local_x();
-    var task: u32 = shader_global_x() / 64u32;
-    if lane == 0u32 && task < words_load(6u32) {
-        words_store(TASK_ERRORS + task, 0u32);
-    }
+    var task: u32 = shader_global_x() / 64u32 + words_load(DISPATCH_BASE);
     if task < words_load(6u32) && words_load(5u32) == 0u32 {
         raster_pixel(task, lane);
     }
     shader_barrier();
-    if lane < MAX_PORTALS && task < words_load(6u32) && words_load(5u32) == 0u32 {
-        child_masks(task, lane + 1u32);
+    if task < words_load(6u32) && words_load(5u32) == 0u32 {
+        var portal: u32 = lane;
+        while portal < words_load(PORTAL_CAPACITY) {
+            child_masks(task, portal + 1u32);
+            portal = portal + 64u32;
+        }
     }
 }

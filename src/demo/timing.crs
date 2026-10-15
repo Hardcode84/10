@@ -16,15 +16,19 @@ fn report(samples: *u64, count: u32) -> unit {
 }
 
 fn queries_report(v: *Vulkan) -> bool {
-    var values: [u64; 20] = uninit;
+    var values: *u64 = malloc(v -> query_count as usize * 8usize) as *u64;
+    if values == null(*u64) {
+        return error("timestamp report allocation failed");
+    }
     if !queries_read(v, &values[0usize]) {
+        free(values as *u8);
         return false;
     }
     puts(
         "last frame GPU intervals in microseconds: upload/init; transform/compact/raster/advance per depth; compose; readback"
     );
     var i: usize = 1usize;
-    while i < 20usize {
+    while i < v -> query_count as usize {
         print_number(
             (
                 ((values[i] - values[i - 1usize]) & v -> timestamp_mask) as f32 * v -> timestamp_period / 1000f32
@@ -32,5 +36,6 @@ fn queries_report(v: *Vulkan) -> bool {
         );
         i = i + 1usize;
     }
+    free(values as *u8);
     return true;
 }

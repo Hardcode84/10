@@ -31,8 +31,14 @@ fn demo_renderer_open(v: *Vulkan, o: *Options, window: *u8) -> bool {
         debug_pixels: o -> verify,
         baseline: o -> baseline,
         view_budget: o -> view_budget,
+        portal_budget: 4u32,
+        task_budget: 32768u32,
+        crossing_limit: 3u32,
         fault: o -> fault
     };
+    if o -> test == 8u32 {
+        traversal_config(&config, o -> frame);
+    }
     if good {
         good = renderer_open(v, &config, &shaders[0usize]);
     }

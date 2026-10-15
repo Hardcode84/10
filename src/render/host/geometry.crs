@@ -2,12 +2,14 @@ fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
     var projected: u64 = GEOMETRY as u64 + capacity as u64 * 15u64;
     var clip: u64 = projected + capacity as u64 * v -> view_capacity as u64 * MAX_FAN as u64 * 20u64;
     var floats: u64 = (
-        clip + capacity as u64 * v -> view_capacity as u64 * 144u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + 64u64
+        clip + capacity as u64 * v -> view_capacity as u64 * 144u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
+            v
+        ) + 64u64
     ) / 64u64 * 64u64 - 1u64;
     var words: u64 = (
         META as u64 + capacity as u64 * (5u64 + v -> view_capacity as u64 * MAX_FAN as u64) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
             5u64 + v -> view_capacity as u64
-        ) + 64u64
+        ) + traversal_words(v) + 64u64
     ) / 64u64 * 64u64 - 1u64;
     if (words + 1u64) * 4u64 > v -> storage_limit as u64 || (floats + 1u64) * 4u64 > v -> storage_limit as u64 {
         return error("geometry storage exceeds device maxStorageBufferRange");
@@ -31,6 +33,7 @@ fn geometry_header(v: *Vulkan) -> unit {
     w[INSTANCE_VISIBLE as usize] = w[INSTANCE_META as usize] + v -> instance_capacity * 5u32;
     w[MESH_FLOAT as usize] = w[CLIP_OFFSET as usize] + capacity * v -> view_capacity * 144u32;
     w[INSTANCE_FLOAT as usize] = w[MESH_FLOAT as usize] + v -> mesh_capacity * 15u32;
+    traversal_header(v);
     w[WORD_COUNT as usize] = v -> words;
     w[FLOAT_COUNT as usize] = v -> floats;
 }
@@ -48,6 +51,8 @@ fn geometry_copy(v: *Vulkan, old: *Vulkan) -> unit {
     );
     geometry_header(v);
     retained_copy(v, old);
+    retained_copy_region(v, old, PORTAL_META, old -> portal_capacity * 4u32, false);
+    retained_copy_region(v, old, PORTAL_FLOAT, old -> portal_capacity * 16u32, true);
     memcpy(
         v -> mapped + (v -> mapped as *u32)[ASSET_OFFSET as usize] as isize * 4isize,
         old -> mapped + (old -> mapped as *u32)[ASSET_OFFSET as usize] as isize * 4isize,
@@ -97,8 +102,10 @@ fn geometry_limit(v: *Vulkan) -> u32 {
     var elements: u64 = (v -> storage_limit as u64 / 256u64) * 64u64 - 1u64;
     var fixed_words: u64 = META as u64 + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
         5u64 + v -> view_capacity as u64
+    ) + traversal_words(v);
+    var fixed_floats: u64 = GEOMETRY as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
+        v
     );
-    var fixed_floats: u64 = GEOMETRY as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64;
     if elements <= fixed_words || elements <= fixed_floats {
         return 0u32;
     }
@@ -112,4 +119,38 @@ fn geometry_limit(v: *Vulkan) -> u32 {
         return word_limit as u32;
     }
     return float_limit as u32;
+}
+
+fn traversal_floats(v: *Vulkan) -> u64 {
+    return (v -> portal_capacity as u64 + v -> view_capacity as u64) * 16u64;
+}
+fn traversal_words(v: *Vulkan) -> u64 {
+    return v -> task_capacity as u64 * (9u64 + v -> portal_capacity as u64 * 2u64) + (
+        (v -> task_capacity as u64 + 63u64) / 64u64
+    ) * 2u64 + v -> view_capacity as u64 * (5u64 + v -> portal_capacity as u64) + v -> portal_capacity as u64 * 4u64 + (
+        (v -> task_capacity as u64 + 32767u64) / 32768u64
+    ) * 9u64 + ((v -> task_capacity as u64 + 63u64) / 64u64) * (
+        (v -> view_capacity as u64 * v -> portal_capacity as u64 + 31u64) / 32u64
+    );
+}
+fn traversal_header(v: *Vulkan) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    w[TASK_A as usize] = w[INSTANCE_VISIBLE as usize] + v -> instance_capacity * v -> view_capacity;
+    w[TASK_B as usize] = w[TASK_A as usize] + v -> task_capacity * 4u32;
+    w[CANDIDATES as usize] = w[TASK_B as usize] + v -> task_capacity * 4u32;
+    w[VIEW_MAP as usize] = w[CANDIDATES as usize] + v -> task_capacity * v -> portal_capacity * 2u32;
+    w[VIEW_META as usize] = w[VIEW_MAP as usize] + v -> view_capacity * v -> portal_capacity;
+    w[PORTAL_META as usize] = w[VIEW_META as usize] + v -> view_capacity * 4u32;
+    w[COMPACT_COUNT as usize] = w[PORTAL_META as usize] + v -> portal_capacity * 4u32;
+    w[TASK_PREFIX as usize] = w[COMPACT_COUNT as usize] + v -> view_capacity;
+    w[GROUP_COUNTS as usize] = w[TASK_PREFIX as usize] + v -> task_capacity;
+    w[GROUP_PREFIX as usize] = w[GROUP_COUNTS as usize] + (v -> task_capacity + 63u32) / 64u32;
+    w[TASK_COMMANDS as usize] = w[GROUP_PREFIX as usize] + (v -> task_capacity + 63u32) / 64u32;
+    w[VIEW_KEYS as usize] = w[TASK_COMMANDS as usize] + (
+        (v -> task_capacity + 32767u32) / 32768u32
+    ) * 9u32;
+    w[VIEW_FLOAT as usize] = w[INSTANCE_FLOAT as usize] + v -> instance_capacity * 18u32;
+    w[PORTAL_FLOAT as usize] = w[VIEW_FLOAT as usize] + v -> view_capacity * 16u32;
+    w[PORTAL_CAPACITY as usize] = v -> portal_capacity;
+    w[TASK_CAPACITY as usize] = v -> task_capacity;
 }

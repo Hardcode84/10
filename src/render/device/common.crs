@@ -6,15 +6,15 @@ fn geometry_groups(count: u32) -> u32 {
 }
 fn task_base() -> u32 {
     if words_load(8u32) == 0u32 {
-        return TASK_A;
+        return words_load(TASK_A);
     }
-    return TASK_B;
+    return words_load(TASK_B);
 }
 fn other_tasks() -> u32 {
     if words_load(8u32) == 0u32 {
-        return TASK_B;
+        return words_load(TASK_B);
     }
-    return TASK_A;
+    return words_load(TASK_A);
 }
 fn threshold(x: u32, y: u32, mode: u32) -> u32 {
     if mode == 0u32 {
@@ -64,7 +64,7 @@ fn light_normal(tri: u32, axis: u32) -> f32 {
     );
 }
 fn view_position(view: u32, z: f32, x: u32, y: u32, axis: u32) -> f32 {
-    var p: u32 = VIEW_FLOAT + view * 16u32;
+    var p: u32 = words_load(VIEW_FLOAT) + view * 16u32;
     var h: f32 = words_load(1u32) as f32;
     var a: f32 = ((2f32 * (x as f32 + 0.5f32) - words_load(0u32) as f32) / h) * floats_load(
         PROJECTION
@@ -277,7 +277,11 @@ fn portal_facing(view: u32, portal: u32) -> bool {
     if portal == 0u32 {
         return true;
     }
-    var p: u32 = PORTAL_FLOAT + (portal - 1u32) * 16u32;
+    shader_require(portal <= words_load(PORTAL_CAPACITY));
+    if portal > words_load(PORTAL_CAPACITY) {
+        return false;
+    }
+    var p: u32 = words_load(PORTAL_FLOAT) + (portal - 1u32) * 16u32;
     var x: f32 = view_position(view, 0f32, 0u32, 0u32, 0u32) - floats_load(p + 3u32);
     var y: f32 = view_position(view, 0f32, 0u32, 0u32, 1u32) - floats_load(p + 7u32);
     var z: f32 = view_position(view, 0f32, 0u32, 0u32, 2u32) - floats_load(p + 11u32);
@@ -315,4 +319,41 @@ fn triangle_visible(tri: u32, view: u32) -> bool {
         axis = axis + 1u32;
     }
     return distance > 0f32;
+}
+
+fn task_commands(tasks: u32, previous: u32) -> unit {
+    var base: u32 = 0u32;
+    var batch: u32 = 0u32;
+    while base < words_load(TASK_CAPACITY) {
+        var count: u32 = 0u32;
+        if tasks > base {
+            count = tasks - base;
+        }
+        if count > MAX_INVOCATIONS / LOCAL_SIZE {
+            count = MAX_INVOCATIONS / LOCAL_SIZE;
+        }
+        var fill: u32 = 0u32;
+        if previous > base {
+            fill = previous - base;
+        }
+        if fill > MAX_INVOCATIONS / LOCAL_SIZE {
+            fill = MAX_INVOCATIONS / LOCAL_SIZE;
+        }
+        var p: u32 = words_load(TASK_COMMANDS) + batch * 9u32;
+        words_store(p, count);
+        words_store(p + 1u32, 1u32);
+        words_store(p + 2u32, 1u32);
+        words_store(p + 3u32, (count + 63u32) / 64u32);
+        words_store(p + 4u32, 1u32);
+        words_store(p + 5u32, 1u32);
+        words_store(p + 6u32, (fill + 63u32) / 64u32);
+        words_store(p + 7u32, 1u32);
+        words_store(p + 8u32, 1u32);
+        base = base + MAX_INVOCATIONS / LOCAL_SIZE;
+        batch = batch + 1u32;
+    }
+}
+
+fn view_key_words() -> u32 {
+    return (words_load(31u32) * words_load(PORTAL_CAPACITY) + 31u32) / 32u32;
 }

@@ -73,7 +73,15 @@ fn vertex(f: *f32, index: usize) -> Vec {
         z: f[index + 2usize]
     };
 }
-fn intersect(f: *f32, tri: u32, ray: Ray, minimum: f32, clip: u32, hit: *Hit) -> bool {
+fn intersect(
+    w: *u32,
+    f: *f32,
+    tri: u32,
+    ray: Ray,
+    minimum: f32,
+    clip: u32,
+    hit: *Hit
+) -> bool {
     var p: usize = (GEOMETRY + tri * 15u32) as usize;
     var a: Vec = vertex(f, p);
     var b: Vec = vertex(f, p + 5usize);
@@ -100,7 +108,7 @@ fn intersect(f: *f32, tri: u32, ray: Ray, minimum: f32, clip: u32, hit: *Hit) ->
         return false;
     }
     if clip != 0xffffffffu32 {
-        var plane: usize = (PORTAL_FLOAT + clip * 16u32 + 12u32) as usize;
+        var plane: usize = (w[PORTAL_FLOAT as usize] + clip * 16u32 + 12u32) as usize;
         var normal: Vec = vertex(f, plane);
         var da: f32 = dot(normal, a) + f[plane + 3usize];
         var db: f32 = dot(normal, b) + f[plane + 3usize];
@@ -131,8 +139,8 @@ fn intersect(f: *f32, tri: u32, ray: Ray, minimum: f32, clip: u32, hit: *Hit) ->
     hit -> triangle = tri;
     return true;
 }
-fn through(ray: Ray, f: *f32, portal: u32) -> Ray {
-    var p: usize = (PORTAL_FLOAT + portal * 16u32) as usize;
+fn through(ray: Ray, w: *u32, f: *f32, portal: u32) -> Ray {
+    var p: usize = (w[PORTAL_FLOAT as usize] + portal * 16u32) as usize;
     var o: Vec = sub(
         ray.origin,
         make Vec {
@@ -321,10 +329,10 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
             return reference_color(w, f, hit, x, y);
         }
         portal = portal - 1u32;
-        ray = through(ray, f, portal);
-        right = through(right, f, portal);
-        up = through(up, f, portal);
-        space = w[(PORTAL_META + portal * 4u32 + 1u32) as usize];
+        ray = through(ray, w, f, portal);
+        right = through(right, w, f, portal);
+        up = through(up, w, f, portal);
+        space = w[(w[PORTAL_META as usize] + portal * 4u32 + 1u32) as usize];
         clip = portal;
         depth = depth + 1u32;
     }
@@ -701,13 +709,13 @@ fn reference_intersect(
     }
     var portal: u32 = w[(META + tri * 4u32 + 2u32) as usize];
     if portal != 0u32 {
-        var destination: Ray = through(ray, f, portal - 1u32);
-        var plane: usize = (PORTAL_FLOAT + (portal - 1u32) * 16u32 + 12u32) as usize;
+        var destination: Ray = through(ray, w, f, portal - 1u32);
+        var plane: usize = (w[PORTAL_FLOAT as usize] + (portal - 1u32) * 16u32 + 12u32) as usize;
         if dot(destination.origin, vertex(f, plane)) + f[plane + 3usize] >= 0f32 {
             return false;
         }
     }
-    return intersect(f, tri, ray, minimum, clip, hit);
+    return intersect(w, f, tri, ray, minimum, clip, hit);
 }
 
 // Accept only light states within one millionth of the calculated threshold.

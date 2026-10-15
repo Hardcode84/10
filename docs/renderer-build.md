@@ -73,7 +73,7 @@ demo waits for input and does not use the remaining frame count. Use
 | `--frame N` | Initial frame number |
 | `--verify 1` | Compare geometry and output with the Crust CPU reference |
 | `--baseline 1` | Scan all projected slots instead of the compact list |
-| `--view-budget N` | Reduce the view capacity for an overflow test |
+| `--view-budget N` | Select total path-view capacity, including the root |
 | `--fault 1` | Inject a shader failure for an error-path test |
 
 The verifier requires perspective mapping with vertex snapping disabled.
@@ -121,7 +121,9 @@ and readback options stay fixed for the lifetime of the renderer.
 
 `renderer_draw` completes upload, compute, readback, and status checks. On
 success, the caller can use the output pixels or call `present` for its surface.
-`queries_read` returns GPU timestamps; the caller chooses how to report them.
+`queries_read` returns `Vulkan.query_count` GPU timestamps into caller-provided
+storage. The count follows the configured crossing limit; the caller chooses
+how to report them.
 The renderer drop operation calls `device_close`. The demo session owns its
 window and renderer in that field order. Crust drops these fields in reverse
 order, so Vulkan resources are released before the SDL window. The checked
@@ -130,6 +132,9 @@ The demo owns event processing and application timing.
 
 See [retained meshes and the viewer](retained-meshes.md) for mesh ownership,
 instance submission, per-view culling, and shared game assets.
+
+See [portal capacity](portal-capacity.md) for runtime view and task budgets,
+terminal depth, and the `--test 8` capacity checks.
 
 ## Demo lighting
 

@@ -1,6 +1,6 @@
 fn compute() -> unit {
     var index: u32 = shader_global_x();
-    if index < words_load(10u32) && words_load(5u32) == 0u32 {
+    while index < words_load(10u32) && words_load(5u32) == 0u32 {
         var view: u32 = words_load(9u32) + index;
         var count: u32 = 0u32;
         var i: u32 = 0u32;
@@ -16,6 +16,7 @@ fn compute() -> unit {
             }
             i = i + 1u32;
         }
-        words_store(COMPACT_COUNT + view, count);
+        words_store(words_load(COMPACT_COUNT) + view, count);
+        index = index + MAX_INVOCATIONS;
     }
 }

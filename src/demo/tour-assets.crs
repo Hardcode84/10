@@ -135,7 +135,13 @@ fn tour_portal(
     nz: f32,
     d: f32
 ) -> unit {
-    var p: usize = (PORTAL_FLOAT + index * 16u32) as usize;
+    if index >= input_word(read v, PORTAL_CAPACITY as usize) {
+        scene_overflow();
+        return;
+    }
+    var portal_float: u32 = input_word(read v, PORTAL_FLOAT as usize);
+    var portal_meta: u32 = input_word(read v, PORTAL_META as usize);
+    var p: usize = (portal_float + index * 16u32) as usize;
     var i: usize = 0usize;
     while i < 16usize {
         input_set_float(mut v, p + i, 0f32);
@@ -151,8 +157,8 @@ fn tour_portal(
     input_set_float(mut v, p + 12usize, nx);
     input_set_float(mut v, p + 14usize, nz);
     input_set_float(mut v, p + 15usize, d);
-    input_set_word(mut v, (PORTAL_META + index * 4u32) as usize, source);
-    input_set_word(mut v, (PORTAL_META + index * 4u32 + 1u32) as usize, dest);
+    input_set_word(mut v, (portal_meta + index * 4u32) as usize, source);
+    input_set_word(mut v, (portal_meta + index * 4u32 + 1u32) as usize, dest);
 }
 fn tour_light(
     v: mut FrameInput,

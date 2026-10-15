@@ -9,17 +9,21 @@ fn compute() -> unit {
     if i < width * height {
         words_store(PIXELS + i, words_load(BACKGROUND));
     }
-    if i < tiles {
-        words_store(TASK_A + i * 4u32, i);
-        words_store(TASK_A + i * 4u32 + 1u32, 0u32);
-        words_store(TASK_A + i * 4u32 + 2u32, 0xffffffffu32);
-        words_store(TASK_A + i * 4u32 + 3u32, 0xffffffffu32);
-    }
-    if i < MAX_VIEWS * MAX_PORTALS {
-        words_store(VIEW_MAP + i, 0xffffffffu32);
+    if i < tiles && tiles <= words_load(TASK_CAPACITY) {
+        words_store(words_load(TASK_A) + i * 4u32, i);
+        words_store(words_load(TASK_A) + i * 4u32 + 1u32, 0u32);
+        words_store(words_load(TASK_A) + i * 4u32 + 2u32, 0xffffffffu32);
+        words_store(words_load(TASK_A) + i * 4u32 + 3u32, 0xffffffffu32);
     }
     if i == 0u32 {
-        words_store(5u32, 0u32);
+        var bad: u32 = 0u32;
+        if tiles > words_load(TASK_CAPACITY) {
+            bad = 1u32;
+            tiles = 0u32;
+        }
+        words_store(PEAK_TASKS, tiles);
+        task_commands(tiles, 0u32);
+        words_store(5u32, bad);
         words_store(6u32, tiles);
         words_store(7u32, 1u32);
         words_store(8u32, 0u32);
@@ -27,21 +31,18 @@ fn compute() -> unit {
         words_store(10u32, 1u32);
         words_store(11u32, 1u32);
         words_store(12u32, 0u32);
-        words_store(13u32, tiles);
-        words_store(14u32, 1u32);
-        words_store(15u32, 1u32);
         words_store(16u32, geometry_groups(words_load(3u32)));
         words_store(17u32, 1u32);
         words_store(18u32, 1u32);
-        words_store(VIEW_META, words_load(20u32));
+        words_store(words_load(VIEW_META), words_load(20u32));
         var j: u32 = 0u32;
         while j < 12u32 {
-            floats_store(VIEW_FLOAT + j, floats_load(j));
+            floats_store(words_load(VIEW_FLOAT) + j, floats_load(j));
             j = j + 1u32;
         }
-        floats_store(VIEW_FLOAT + 12u32, 0f32);
-        floats_store(VIEW_FLOAT + 13u32, 0f32);
-        floats_store(VIEW_FLOAT + 14u32, 0f32);
-        floats_store(VIEW_FLOAT + 15u32, 1f32);
+        floats_store(words_load(VIEW_FLOAT) + 12u32, 0f32);
+        floats_store(words_load(VIEW_FLOAT) + 13u32, 0f32);
+        floats_store(words_load(VIEW_FLOAT) + 14u32, 0f32);
+        floats_store(words_load(VIEW_FLOAT) + 15u32, 1f32);
     }
 }

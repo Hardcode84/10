@@ -89,22 +89,25 @@ expansion and projected storage scale with the sum of submitted mesh triangle
 counts. Culling avoids clipping rejected instances; it does not remove their
 expansion or reserved projection storage.
 
-### R4. Portal and work limits — world feature
+### R4. Portal and work limits — implemented
 
-The [layout](../src/render/interface.crs) permits four portal records,
-32 views, and 32,768 tasks. [Command recording](../src/render/host/dispatch.crs)
-executes four render-depth passes. [View expansion](../src/render/device/advance.crs)
-uses a 128-bit parent-view/portal key set. These limits are coupled. The
-renderer already supports transformed views; the game does not yet supply
-playable transformed connections.
+Portal records, path views, task lists, coverage masks, lookup tables, and key
+bitsets use the capacities selected in `RenderConfig`. The renderer checks
+layout arithmetic and the device storage range before allocation. Traversal
+records one pass per configured depth. Task dispatches use multiple batches
+when needed; batch size does not limit total work.
 
-**Change:** derive portal/view lookup and work storage from the selected
-capacity. Keep explicit depth termination and distinguish it from work overflow.
-Budget visible view instances, not only distinct physical rooms.
+A view represents a portal path. Distinct paths into one space remain distinct.
+The crossing limit shades a terminal portal surface. Task and view exhaustion
+instead reject the frame with separate errors. The next valid frame can reuse
+the renderer. See the [portal capacity contract](portal-capacity.md).
 
-**Check:** nested and cyclic connections, multiple views of one space,
-translated and rotated portals, and deliberate work exhaustion. Preserve
-correct destination clipping and reject incomplete overflow frames.
+`crust demo.crs --test 8` checks 80 portals, 81 views, an 80-crossing cycle,
+65,536 masked tasks, deliberate exhaustion and recovery, invalid IDs, and
+storage-range rejection. Successful images match the CPU reference on AMD
+and Intel. Test 7 retains the translated and rotated portal regression.
+The game still needs gameplay traversal rules before it can use transformed
+connections for the player, hook, or collision queries.
 
 ### R5. Image capacity and resize — viewer and room scale
 

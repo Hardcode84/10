@@ -75,6 +75,9 @@ fn build_shader(root: *CrustRun, name: *u8, output: *u8, llvm: *u8, validator: *
             height: 0u32
         }
     };
+    if cache_strcmp(name, "raster.crs") == 0i32 || cache_strcmp(name, "scan.crs") == 0i32 {
+        resources[2usize].kind = SHADER_WORKGROUP_U32;
+    }
     var resource_count: usize = 2usize;
     if cache_strcmp(name, "palette.crs") == 0i32 || cache_strcmp(name, "raster.crs") == 0i32 || cache_strcmp(
         name,
@@ -141,12 +144,12 @@ fn check_renderer(root: *CrustRun) -> bool {
     return ownership_host(root, count as i32 - 1i32, &args[1usize], true, null(*u8)) == 0i32;
 }
 fn build_host(root: *CrustRun) -> bool {
-    var args: [*u8; 54] = uninit;
+    var args: [*u8; 56] = uninit;
     args[0usize] = "crust-c";
     args[1usize] = "-o";
     args[2usize] = host_path(root, "build/spinward");
     var count: usize = 3usize + render_sources(root, &args[3usize]);
-    var application: [*u8; 36] = make [*u8; 36] {
+    var application: [*u8; 38] = make [*u8; 38] {
         host_path(root, "src/demo/main.crs"),
         host_path(root, "src/demo/config.crs"),
         host_path(root, "src/demo/playback.crs"),
@@ -171,6 +174,8 @@ fn build_host(root: *CrustRun) -> bool {
         host_path(root, "tests/textures.crs"),
         host_path(root, "tests/retained.crs"),
         host_path(root, "tests/visibility.crs"),
+        host_path(root, "tests/traversal-host.crs"),
+        host_path(root, "tests/traversal.crs"),
         "--ldflag",
         host_path(root, "build/reference.o"),
         "--cflag",
@@ -185,7 +190,7 @@ fn build_host(root: *CrustRun) -> bool {
         "-lm"
     };
     var i: usize = 0usize;
-    while i < 36usize {
+    while i < 38usize {
         args[count] = application[i];
         count = count + 1usize;
         i = i + 1usize;
@@ -222,7 +227,7 @@ fn build_reference(root: *CrustRun) -> bool {
 }
 
 fn ownership_host(root: *CrustRun, argc: i32, argv: **u8, core: bool, expected: *u8) -> i32 {
-    var providers: [*u8; 27] = make [*u8; 27] {
+    var providers: [*u8; 28] = make [*u8; 28] {
         "src/render/host/vulkan.crs",
         "src/render/host/io.crs",
         "src/render/host/device.crs",
@@ -249,9 +254,10 @@ fn ownership_host(root: *CrustRun, argc: i32, argv: **u8, core: bool, expected: 
         "tests/palette.crs",
         "tests/playback.crs",
         "tests/portal.crs",
-        "tests/visibility.crs"
+        "tests/visibility.crs",
+        "tests/traversal-host.crs"
     };
-    var count: usize = 27usize;
+    var count: usize = 28usize;
     if core {
         count = 14usize;
     }

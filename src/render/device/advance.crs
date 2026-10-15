@@ -1,7 +1,7 @@
 fn child_view(parent: u32, portal: u32, view: u32) -> unit {
-    var src: u32 = VIEW_FLOAT + parent * 16u32;
-    var transform: u32 = PORTAL_FLOAT + portal * 16u32;
-    var dst: u32 = VIEW_FLOAT + view * 16u32;
+    var src: u32 = words_load(VIEW_FLOAT) + parent * 16u32;
+    var transform: u32 = words_load(PORTAL_FLOAT) + portal * 16u32;
+    var dst: u32 = words_load(VIEW_FLOAT) + view * 16u32;
     var r: u32 = 0u32;
     while r < 3u32 {
         var c: u32 = 0u32;
@@ -24,87 +24,86 @@ fn child_view(parent: u32, portal: u32, view: u32) -> unit {
         floats_store(dst + 12u32 + r, floats_load(transform + 12u32 + r));
         r = r + 1u32;
     }
-    words_store(VIEW_META + view * 4u32, words_load(PORTAL_META + portal * 4u32 + 1u32));
+    words_store(
+        words_load(VIEW_META) + view * 4u32,
+        words_load(words_load(PORTAL_META) + portal * 4u32 + 1u32)
+    );
 }
-fn key_used(key: u32, a: u32, b: u32, c: u32, d: u32) -> bool {
-    var mask: u32 = d;
-    if key < 32u32 {
-        mask = a;
-    } else {
-        if key < 64u32 {
-            mask = b;
-        } else {
-            if key < 96u32 {
-                mask = c;
+fn allocate_key_word(word: u32, mask: u32, views: u32) -> u32 {
+    var next: u32 = views;
+    var bit: u32 = 0u32;
+    while bit < 32u32 {
+        if (mask & (1u32 << bit)) != 0u32 {
+            if next == words_load(31u32) {
+                words_store(5u32, 2u32);
+                return next;
             }
+            var key: u32 = word * 32u32 + bit;
+            words_store(words_load(VIEW_MAP) + key, next);
+            child_view(
+                key / words_load(PORTAL_CAPACITY),
+                key % words_load(PORTAL_CAPACITY),
+                next
+            );
+            next = next + 1u32;
         }
+        bit = bit + 1u32;
     }
-    return (mask & (1u32 << (key % 32u32))) != 0u32;
+    return next;
+}
+fn allocate_views(tasks: u32, views: u32) -> u32 {
+    var next: u32 = views;
+    var word: u32 = words_load(9u32) * words_load(PORTAL_CAPACITY) / 32u32;
+    var end: u32 = (
+        (words_load(9u32) + words_load(10u32)) * words_load(PORTAL_CAPACITY) + 31u32
+    ) / 32u32;
+    while word < end && words_load(5u32) == 0u32 {
+        var mask: u32 = 0u32;
+        var group: u32 = 0u32;
+        while group < (tasks + 63u32) / 64u32 {
+            mask = mask | words_load(words_load(VIEW_KEYS) + group * view_key_words() + word);
+            group = group + 1u32;
+        }
+        next = allocate_key_word(word, mask, next);
+        word = word + 1u32;
+    }
+    return next;
 }
 fn advance() -> unit {
+    task_commands(0u32, 0u32);
+    words_store(16u32, 0u32);
+    if words_load(5u32) != 0u32 {
+        return;
+    }
     var tasks: u32 = words_load(6u32);
     var groups: u32 = (tasks + 63u32) / 64u32;
     var count: u32 = 0u32;
-    var a: u32 = 0u32;
-    var b: u32 = 0u32;
-    var c: u32 = 0u32;
-    var d: u32 = 0u32;
     var i: u32 = 0u32;
-    var bad: u32 = words_load(5u32);
     while i < groups {
-        var p: u32 = GROUP_COUNTS + i * 5u32;
-        var n: u32 = words_load(p);
-        if (n & 0x80000000u32) != 0u32 {
-            bad = 1u32;
-        }
-        words_store(GROUP_PREFIX + i, count);
-        count = count + (n & 0x7fffffffu32);
-        a = a | words_load(p + 1u32);
-        b = b | words_load(p + 2u32);
-        c = c | words_load(p + 3u32);
-        d = d | words_load(p + 4u32);
+        words_store(words_load(GROUP_PREFIX) + i, count);
+        count = count + words_load(words_load(GROUP_COUNTS) + i);
         i = i + 1u32;
     }
-    var oldviews: u32 = words_load(11u32);
-    var views: u32 = oldviews;
-    i = 0u32;
-    while i < 128u32 {
-        if key_used(i, a, b, c, d) {
-            views = views + 1u32;
-        }
-        i = i + 1u32;
+    if count > words_load(PEAK_TASKS) {
+        words_store(PEAK_TASKS, count);
     }
-    if count > MAX_TASKS || views > words_load(31u32) {
-        bad = 2u32;
-    }
-    words_store(5u32, bad);
-    words_store(13u32, 0u32);
-    words_store(16u32, 0u32);
-    words_store(28u32, 0u32);
-    words_store(29u32, 1u32);
-    words_store(30u32, 1u32);
-    if bad != 0u32 {
+    if count > words_load(TASK_CAPACITY) {
+        words_store(5u32, 1u32);
         return;
     }
-    views = oldviews;
-    i = 0u32;
-    while i < 128u32 {
-        if key_used(i, a, b, c, d) {
-            words_store(VIEW_MAP + i, views);
-            child_view(i / MAX_PORTALS, i % MAX_PORTALS, views);
-            views = views + 1u32;
-        }
-        i = i + 1u32;
+    var oldviews: u32 = words_load(11u32);
+    var views: u32 = allocate_views(tasks, oldviews);
+    if words_load(5u32) != 0u32 {
+        return;
     }
+    task_commands(count, tasks);
     words_store(27u32, tasks);
-    words_store(28u32, groups);
     words_store(6u32, count);
     words_store(8u32, 1u32 - words_load(8u32));
     words_store(9u32, oldviews);
     words_store(10u32, views - oldviews);
     words_store(11u32, views);
     words_store(12u32, words_load(12u32) + 1u32);
-    words_store(13u32, count);
     words_store(16u32, geometry_groups((views - oldviews) * words_load(3u32)));
 }
 fn compute() -> unit {

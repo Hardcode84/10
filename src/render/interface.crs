@@ -14,29 +14,25 @@ const CLIP_OFFSET: u32 = 43u32;
 const COMPACT_OFFSET: u32 = 44u32;
 const WORD_COUNT: u32 = 45u32;
 const FLOAT_COUNT: u32 = 46u32;
-const MAX_VIEWS: u32 = 32u32;
-const MAX_TASKS: u32 = 32768u32;
-const MAX_PORTALS: u32 = 4u32;
 const MAX_FAN: u32 = 8u32;
 const META: u32 = 16777216u32;
-const TASK_A: u32 = 2108000u32;
-const TASK_B: u32 = 2239072u32;
-const CANDIDATES: u32 = 2370144u32;
-const VIEW_MAP: u32 = 2633000u32;
-const VIEW_META: u32 = 2634000u32;
-const PORTAL_META: u32 = 2635000u32;
-const VIEW_FLOAT: u32 = 64u32;
-const PORTAL_FLOAT: u32 = 600u32;
+const TASK_A: u32 = 59u32;
+const TASK_B: u32 = 60u32;
+const CANDIDATES: u32 = 61u32;
+const VIEW_MAP: u32 = 62u32;
+const VIEW_META: u32 = 63u32;
+const PORTAL_META: u32 = 64u32;
+const VIEW_FLOAT: u32 = 65u32;
+const PORTAL_FLOAT: u32 = 66u32;
 const GEOMETRY: u32 = 1024u32;
 const LOCAL_SIZE: u32 = 64u32;
 const MAX_INVOCATIONS: u32 = 2097152u32;
 const WORDS_LENGTH: u32 = 16777216u32;
 const PRESENT_PIXELS: u32 = 5000000u32;
-const TASK_ERRORS: u32 = 2636000u32;
-const COMPACT_COUNT: u32 = 2790000u32;
-const TASK_PREFIX: u32 = 2900000u32;
-const GROUP_COUNTS: u32 = 2940000u32;
-const GROUP_PREFIX: u32 = 2950000u32;
+const COMPACT_COUNT: u32 = 67u32;
+const TASK_PREFIX: u32 = 68u32;
+const GROUP_COUNTS: u32 = 69u32;
+const GROUP_PREFIX: u32 = 70u32;
 const DEBUG_VALUES: u32 = 8000000u32;
 
 // Caller-supplied scene appearance. Colours are packed RGBA; style values are floats.
@@ -74,3 +70,13 @@ const INSTANCE_COUNT: u32 = 56u32;
 const DYNAMIC_COUNT: u32 = 57u32;
 const CULL_DISABLED: u32 = 58u32;
 const PIPELINE_COUNT: u32 = 10u32;
+
+const PORTAL_CAPACITY: u32 = 71u32;
+const TASK_CAPACITY: u32 = 72u32;
+
+const DISPATCH_BASE: u32 = 73u32;
+const TASK_COMMANDS: u32 = 74u32;
+
+const PEAK_TASKS: u32 = 75u32;
+
+const VIEW_KEYS: u32 = 76u32;

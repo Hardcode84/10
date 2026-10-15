@@ -1,66 +1,60 @@
 fn compute() -> unit {
-    var i: u32 = shader_global_x();
+    var i: u32 = shader_global_x() + words_load(DISPATCH_BASE);
     var lane: u32 = shader_local_x();
+    var tasks: u32 = words_load(6u32);
+    var first: u32 = words_load(9u32) * words_load(PORTAL_CAPACITY) / 32u32;
+    var end: u32 = (
+        (words_load(9u32) + words_load(10u32)) * words_load(PORTAL_CAPACITY) + 31u32
+    ) / 32u32;
+    var key: u32 = first + lane;
+    while key < end {
+        words_store(words_load(VIEW_KEYS) + (i / 64u32) * view_key_words() + key, 0u32);
+        key = key + 64u32;
+    }
     var n: u32 = 0u32;
-    var mask: u32 = 0u32;
-    if i < words_load(6u32) {
+    if i < tasks {
         var portal: u32 = 0u32;
-        while portal < MAX_PORTALS {
-            var p: u32 = CANDIDATES + (i * MAX_PORTALS + portal) * 2u32;
+        while portal < words_load(PORTAL_CAPACITY) {
+            var p: u32 = words_load(CANDIDATES) + (i * words_load(PORTAL_CAPACITY) + portal) * 2u32;
             if (words_load(p) | words_load(p + 1u32)) != 0u32 {
                 n = n + 1u32;
-                mask = mask | (1u32 << portal);
             }
             portal = portal + 1u32;
         }
     }
-    shared_store(lane, n as f32);
-    shared_store(64u32 + lane, mask as f32);
+    shared_store(lane, n);
     shader_barrier();
-    if i < words_load(6u32) {
-        var j: u32 = 0u32;
-        var offset: u32 = 0u32;
-        while j < lane {
-            offset = offset + shared_load(j) as u32;
-            j = j + 1u32;
-        }
-        words_store(TASK_PREFIX + i, offset);
+    var j: u32 = 0u32;
+    var offset: u32 = 0u32;
+    while j < lane {
+        offset = offset + shared_load(j);
+        j = j + 1u32;
+    }
+    if i < tasks {
+        words_store(words_load(TASK_PREFIX) + i, offset);
     }
     if lane == 0u32 {
-        var total: u32 = 0u32;
-        var a: u32 = 0u32;
-        var b: u32 = 0u32;
-        var c: u32 = 0u32;
-        var d: u32 = 0u32;
-        var j: u32 = 0u32;
-        while j < 64u32 && i + j < words_load(6u32) {
-            total = total + shared_load(j) as u32;
-            var parent: u32 = words_load(task_base() + (i + j) * 4u32 + 1u32);
-            var m: u32 = shared_load(64u32 + j) as u32;
-            var bits: u32 = m << ((parent % 8u32) * 4u32);
-            if parent < 8u32 {
-                a = a | bits;
-            } else {
-                if parent < 16u32 {
-                    b = b | bits;
-                } else {
-                    if parent < 24u32 {
-                        c = c | bits;
-                    } else {
-                        d = d | bits;
-                    }
-                }
+        group_keys(i, tasks);
+    }
+    if lane == 63u32 {
+        words_store(words_load(GROUP_COUNTS) + i / 64u32, offset + n);
+    }
+}
+
+fn group_keys(first: u32, tasks: u32) -> unit {
+    var i: u32 = first;
+    while i < first + 64u32 && i < tasks {
+        var parent: u32 = words_load(task_base() + i * 4u32 + 1u32);
+        var portal: u32 = 0u32;
+        while portal < words_load(PORTAL_CAPACITY) {
+            var p: u32 = words_load(CANDIDATES) + (i * words_load(PORTAL_CAPACITY) + portal) * 2u32;
+            if (words_load(p) | words_load(p + 1u32)) != 0u32 {
+                var key: u32 = parent * words_load(PORTAL_CAPACITY) + portal;
+                var slot: u32 = words_load(VIEW_KEYS) + (first / 64u32) * view_key_words() + key / 32u32;
+                words_store(slot, words_load(slot) | (1u32 << (key % 32u32)));
             }
-            if words_load(TASK_ERRORS + i + j) != 0u32 {
-                total = total | 0x80000000u32;
-            }
-            j = j + 1u32;
+            portal = portal + 1u32;
         }
-        var p: u32 = GROUP_COUNTS + (i / 64u32) * 5u32;
-        words_store(p, total);
-        words_store(p + 1u32, a);
-        words_store(p + 2u32, b);
-        words_store(p + 3u32, c);
-        words_store(p + 4u32, d);
+        i = i + 1u32;
     }
 }
