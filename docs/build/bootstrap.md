@@ -39,8 +39,12 @@ Vulkan requirements, capture commands, and checks.
 
 All application and test roots use Crust's `application_setup` helper.
 `tools/build/setup.crs` opens one stage session, selects the host backend,
-and loads the ownership package with `application_load`. Rendering roots also
-load the shader package. The focused collision target loads no shader package.
+and imports the ownership package with `application_load`. Rendering roots also
+import the shader package. Each setup loads the consumer declarations before
+the import. The import binds those declarations to that package's native library.
+Loading a library alone does not expose its symbols. Declarations added after
+the import are not bound by that import. The focused collision target imports
+no shader package.
 
 Component files retain explicit checked sources and native providers. The
 ownership stage checks host code before it calls the selected emitter. The
