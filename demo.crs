@@ -70,6 +70,12 @@ if !check_renderer(run) || !build_reference(run) || !build_host(run) || !build_s
     "build/fill.spv",
     llvm,
     validator
+) || !build_shader(run, "instances.crs", "build/instances.spv", llvm, validator) || !build_shader(
+    run,
+    "visibility.crs",
+    "build/visibility.spv",
+    llvm,
+    validator
 ) {
     return 1i32;
 };

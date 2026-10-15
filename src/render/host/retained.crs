@@ -1,0 +1,196 @@
+fn retained_copy_region(v: *Vulkan, old: *Vulkan, slot: u32, count: u32, floats: bool) -> unit {
+    var destination: u32 = (v -> mapped as *u32)[slot as usize];
+    var source: u32 = (old -> mapped as *u32)[slot as usize];
+    if floats {
+        destination = destination + v -> words + 1u32;
+        source = source + old -> words + 1u32;
+    }
+    memcpy(
+        v -> mapped + destination as isize * 4isize,
+        old -> mapped + source as isize * 4isize,
+        count as usize * 4usize
+    );
+}
+fn retained_copy(v: *Vulkan, old: *Vulkan) -> unit {
+    retained_copy_region(v, old, MESH_META, old -> mesh_count * 4u32, false);
+    retained_copy_region(v, old, MESH_FLOAT, old -> mesh_count * 15u32, true);
+    retained_copy_region(v, old, INSTANCE_META, old -> instance_capacity * 5u32, false);
+    retained_copy_region(v, old, INSTANCE_FLOAT, old -> instance_capacity * 18u32, true);
+}
+fn retained_reserve(v: *Vulkan, meshes: u32, instances: u32) -> bool {
+    if meshes <= v -> mesh_capacity && instances <= v -> instance_capacity {
+        return true;
+    }
+    var next: Vulkan = *v;
+    if meshes > next.mesh_capacity {
+        next.mesh_capacity = meshes;
+    }
+    if instances > next.instance_capacity {
+        next.instance_capacity = instances;
+    }
+    var exact: Vulkan = next;
+    if meshes > v -> mesh_capacity && meshes < 0x40000000u32 {
+        next.mesh_capacity = meshes * 2u32;
+    }
+    if instances > v -> instance_capacity && instances < 0x40000000u32 {
+        next.instance_capacity = instances * 2u32;
+    }
+    if geometry_limit(&next) < next.triangle_capacity {
+        next = exact;
+    }
+    if !geometry_layout(&next, next.triangle_capacity) {
+        return false;
+    }
+    return storage_replace(v, &next);
+}
+fn mesh_empty_range() -> MeshRange {
+    return make MeshRange {
+        first: 0u32,
+        count: 0u32,
+        bounds: make [f32; 6] {
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32
+        }
+    };
+}
+// Copies a mesh into renderer-owned storage. The returned range belongs to this renderer.
+fn input_mesh(input: mut FrameInput, mesh: read Mesh, result: mut MeshRange) -> bool {
+    var total: u64 = input.storage.mesh_count as u64 + mesh.count as u64;
+    if total > 0xffffffffu64 || !retained_reserve(
+        &input.storage,
+        total as u32,
+        input.storage.instance_capacity
+    ) {
+        return error("retained mesh storage exhausted");
+    }
+    result.first = input.storage.mesh_count;
+    result.count = mesh.count;
+    result.bounds = mesh.bounds;
+    var first: u32 = input_word(read input, MESH_FLOAT as usize) + result.first * 15u32;
+    var metadata: u32 = input_word(read input, MESH_META as usize) + result.first * 4u32;
+    var i: u32 = 0u32;
+    while i < mesh.count {
+        var t: MeshTriangle = mesh.triangles[i as usize];
+        var j: u32 = 0u32;
+        while j < 3u32 {
+            var vertex: MeshVertex = t.vertices[j as usize];
+            var values: [f32; 5] = make [f32; 5] {
+                vertex.x,
+                vertex.y,
+                vertex.z,
+                vertex.u,
+                vertex.v
+            };
+            var k: u32 = 0u32;
+            while k < 5u32 {
+                input_set_float(
+                    mut input,
+                    (first + i * 15u32 + j * 5u32 + k) as usize,
+                    values[k as usize]
+                );
+                k = k + 1u32;
+            }
+            j = j + 1u32;
+        }
+        input_set_word(mut input, (metadata + i * 4u32) as usize, t.material);
+        input_set_word(mut input, (metadata + i * 4u32 + 1u32) as usize, t.portal);
+        input_set_word(mut input, (metadata + i * 4u32 + 2u32) as usize, t.flags);
+        i = i + 1u32;
+    }
+    input.storage.mesh_count = total as u32;
+    input.storage.mesh_dirty = true;
+    return true;
+}
+fn instance_bounds(input: mut FrameInput, offset: u32, instance: MeshInstance) -> unit {
+    var row: usize = 0usize;
+    while row < 3usize {
+        var low: f32 = instance.transform[row * 4usize + 3usize];
+        var high: f32 = low;
+        var magnitude: f32 = low;
+        if magnitude < 0f32 {
+            magnitude = -magnitude;
+        }
+        var axis: usize = 0usize;
+        while axis < 3usize {
+            var a: f32 = instance.transform[row * 4usize + axis] * instance.mesh.bounds[axis];
+            var b: f32 = instance.transform[row * 4usize + axis] * instance.mesh.bounds[
+                axis + 3usize
+            ];
+            if a > b {
+                var swap: f32 = a;
+                a = b;
+                b = swap;
+            }
+            var aa: f32 = a;
+            var bb: f32 = b;
+            if aa < 0f32 {
+                aa = -aa;
+            }
+            if bb < 0f32 {
+                bb = -bb;
+            }
+            magnitude = magnitude + aa + bb;
+            low = low + a;
+            high = high + b;
+            axis = axis + 1usize;
+        }
+        var padding: f32 = (magnitude + 1f32) * 0.00001f32;
+        input_set_float(mut input, (offset + 12u32) as usize + row, low - padding);
+        input_set_float(mut input, (offset + 15u32) as usize + row, high + padding);
+        row = row + 1usize;
+    }
+}
+// Begin a frame before writing dynamic triangles. Submit retained instances after them.
+fn input_frame(input: mut FrameInput) -> unit {
+    input_set_word(mut input, 3usize, 0u32);
+    input_set_word(mut input, INSTANCE_COUNT as usize, 0u32);
+    input_set_word(mut input, DYNAMIC_COUNT as usize, 0u32);
+}
+fn input_instance(input: mut FrameInput, instance: MeshInstance) -> bool {
+    var index: u32 = input_word(read input, INSTANCE_COUNT as usize);
+    var first: u32 = input_word(read input, 3usize);
+    var total: u64 = first as u64 + instance.mesh.count as u64;
+    if total > 0xffffffffu64 || !retained_reserve(
+        &input.storage,
+        input.storage.mesh_count,
+        index + 1u32
+    ) || !input_reserve_triangles(mut input, total as u32) {
+        return error("instance storage exhausted");
+    }
+    if index == 0u32 {
+        input_set_word(mut input, DYNAMIC_COUNT as usize, first);
+    }
+    var p: u32 = input_word(read input, INSTANCE_META as usize) + index * 5u32;
+    input_set_word(mut input, p as usize, instance.mesh.first);
+    input_set_word(mut input, (p + 1u32) as usize, instance.mesh.count);
+    input_set_word(mut input, (p + 2u32) as usize, first);
+    input_set_word(mut input, (p + 3u32) as usize, instance.space);
+    input_set_word(mut input, (p + 4u32) as usize, instance.material);
+    p = input_word(read input, INSTANCE_FLOAT as usize) + index * 18u32;
+    var i: u32 = 0u32;
+    while i < 12u32 {
+        input_set_float(mut input, (p + i) as usize, instance.transform[i as usize]);
+        i = i + 1u32;
+    }
+    instance_bounds(mut input, p, instance);
+    input_set_word(mut input, INSTANCE_COUNT as usize, index + 1u32);
+    input_set_word(mut input, 3usize, total as u32);
+    return true;
+}
+fn input_instances(input: mut FrameInput, list: read InstanceList) -> bool {
+    if !retained_reserve(&input.storage, input.storage.mesh_count, list.count) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < list.count {
+        if !input_instance(mut input, list.values[i as usize]) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

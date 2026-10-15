@@ -7,6 +7,7 @@ opaque drop game_window_drop;
 record GameSession {
     window: GameWindow;
     renderer: Renderer;
+    world: InstanceList;
     launch: Launch;
     stream: Recording;
     saved_revision: u64;
@@ -26,6 +27,7 @@ fn game_session(o: *Launch) -> GameSession {
             focused: false
         },
         renderer: renderer_new(),
+        world: instances_new(),
         launch: *o,
         stream: recording_new(),
         saved_revision: 0u64
@@ -82,4 +84,13 @@ fn game_message(code: u32) -> unit {
 }
 fn game_initial_spin(session: read GameSession) -> bool {
     return session.launch.config.full_spin;
+}
+
+fn game_static_open(session: mut GameSession, world: u32) -> bool {
+    var input: FrameInput = renderer_inputs(mut session.renderer);
+    return game_static_build(mut input, mut session.world, world);
+}
+fn game_scene_frame(session: mut GameSession, trial: read Trial, config: GameConfig) -> unit {
+    var input: FrameInput = renderer_inputs(mut session.renderer);
+    game_scene(mut input, read trial, config, read session.world);
 }

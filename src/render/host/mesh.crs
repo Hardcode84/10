@@ -1,0 +1,176 @@
+record MeshVertex {
+    x: f32;
+    y: f32;
+    z: f32;
+    u: f32;
+    v: f32;
+}
+record MeshTriangle {
+    vertices: [MeshVertex; 3];
+    material: u32;
+    portal: u32;
+    flags: u32;
+}
+record MeshRange {
+    first: u32;
+    count: u32;
+    bounds: [f32; 6];
+}
+resource Mesh {
+    triangles: *MeshTriangle;
+    count: u32;
+    capacity: u32;
+    bounds: [f32; 6];
+}
+opaque drop mesh_drop;
+fn mesh_drop(mesh: mut Mesh) -> unit {
+    free(mesh.triangles as *u8);
+}
+fn mesh_new() -> Mesh {
+    return make Mesh {
+        triangles: null(*MeshTriangle),
+        count: 0u32,
+        capacity: 0u32,
+        bounds: make [f32; 6] {
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32
+        }
+    };
+}
+fn mesh_grow(mesh: mut Mesh) -> bool {
+    if mesh.count < mesh.capacity {
+        return true;
+    }
+    var capacity: u64 = mesh.capacity as u64 * 2u64 + 1u64;
+    if capacity > 0xffffffffu64 {
+        return error("mesh count exceeds address range");
+    }
+    var triangles: *MeshTriangle = malloc(capacity as usize * sizeof(MeshTriangle)) as *MeshTriangle;
+    if triangles == null(*MeshTriangle) {
+        return error("mesh allocation failed");
+    }
+    if mesh.count != 0u32 {
+        memcpy(
+            triangles as *u8,
+            mesh.triangles as *u8,
+            mesh.count as usize * sizeof(MeshTriangle)
+        );
+    }
+    free(mesh.triangles as *u8);
+    mesh.triangles = triangles;
+    mesh.capacity = capacity as u32;
+    return true;
+}
+fn mesh_bounds(mesh: mut Mesh, vertex: MeshVertex, first: bool) -> unit {
+    var values: [f32; 3] = make [f32; 3] {
+        vertex.x,
+        vertex.y,
+        vertex.z
+    };
+    var axis: usize = 0usize;
+    while axis < 3usize {
+        var value: f32 = values[axis];
+        if first || value < mesh.bounds[axis] {
+            mesh.bounds[axis] = value;
+        }
+        if first || value > mesh.bounds[axis + 3usize] {
+            mesh.bounds[axis + 3usize] = value;
+        }
+        axis = axis + 1usize;
+    }
+}
+// The mesh owns a copy of all vertices. Flag bit 0 enables cutout; bit 1 enables one-sided coverage.
+fn mesh_append(mesh: mut Mesh, primitive: MeshTriangle) -> bool {
+    if !mesh_grow(mut mesh) {
+        return false;
+    }
+    var i: usize = 0usize;
+    while i < 3usize {
+        mesh_bounds(mut mesh, primitive.vertices[i], mesh.count == 0u32 && i == 0usize);
+        i = i + 1usize;
+    }
+    mesh.triangles[mesh.count as usize] = primitive;
+    mesh.count = mesh.count + 1u32;
+    return true;
+}
+record MeshInstance {
+    mesh: MeshRange;
+    transform: [f32; 12];
+    space: u32;
+    material: u32;
+}
+resource InstanceList {
+    values: *MeshInstance;
+    count: u32;
+    capacity: u32;
+}
+opaque drop instances_drop;
+fn instances_drop(list: mut InstanceList) -> unit {
+    free(list.values as *u8);
+}
+fn instances_new() -> InstanceList {
+    return make InstanceList {
+        values: null(*MeshInstance),
+        count: 0u32,
+        capacity: 0u32
+    };
+}
+fn instances_append(list: mut InstanceList, value: MeshInstance) -> bool {
+    if list.count == list.capacity {
+        var capacity: u64 = list.capacity as u64 * 2u64 + 1u64;
+        if capacity > 0xffffffffu64 {
+            return error("instance count exceeds address range");
+        }
+        var values: *MeshInstance = malloc(capacity as usize * sizeof(MeshInstance)) as *MeshInstance;
+        if values == null(*MeshInstance) {
+            return error("instance allocation failed");
+        }
+        if list.count != 0u32 {
+            memcpy(
+                values as *u8,
+                list.values as *u8,
+                list.count as usize * sizeof(MeshInstance)
+            );
+        }
+        free(list.values as *u8);
+        list.values = values;
+        list.capacity = capacity as u32;
+    }
+    list.values[list.count as usize] = value;
+    list.count = list.count + 1u32;
+    return true;
+}
+fn instances_count(list: read InstanceList) -> u32 {
+    return list.count;
+}
+fn instances_get(list: read InstanceList, index: u32) -> MeshInstance {
+    if index >= list.count {
+        trap;
+    }
+    return list.values[index as usize];
+}
+fn mesh_identity(mesh: MeshRange, space: u32) -> MeshInstance {
+    return make MeshInstance {
+        mesh: mesh,
+        transform: make [f32; 12] {
+            1f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            1f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            1f32,
+            0f32
+        },
+        space: space,
+        material: 0xffffffffu32
+    };
+}

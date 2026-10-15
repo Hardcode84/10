@@ -66,22 +66,28 @@ repeat and clamp modes, independent vertex UVs, shared palettes, index 255,
 cutouts, full-bright entries, and both dither patterns with the CPU reference.
 It also checks invalid descriptors and device-range rejection.
 
-### R3. Asset submission and visibility — asset proof, then room scale
+### R3. Asset submission and visibility — implemented
 
-[Scene submission](../src/game/scene.crs) rebuilds triangles from every room,
-solid, and pipe each frame, with face-side rejection. There is no retained
-asset mesh or instance submission API. The game sets the portal count to zero.
-[Shell submission](../src/game/expedition-shell.crs) reconstructs wall panels
-while drawing. The current assembly is not a room-visibility system.
+The game generates room shells, solids, and pipes once. The renderer retains
+mesh vertices, UVs, and face data. Each frame submits instance transforms,
+space IDs, material overrides, and conservative bounds. The standalone
+[viewer](retained-meshes.md) uses the same generated asset library as the game.
 
-**Change:** let the game retain generated meshes and submit instances with
-bounds and transforms. Build shell panels once. Establish a correct visibility
-contract for connected rooms and transformed views. Add instance or room
-culling only with a proof that it preserves visible surfaces.
+The GPU expands instances into world-space triangles. It tests each instance
+bound against each active view, including transformed portal views. One-sided
+faces use the camera in that view. Connected rooms share a space; a room is
+not rejected because the camera is in another room. This is frustum culling,
+not an occlusion query or room-graph traversal.
 
-**Check:** use the same asset data in the viewer and game. Compare culled and
-unculled images at doors, turns, and portal crossings. Measure submission and
-upload cost as instance count increases.
+The room review compares enabled and disabled culling at doors and turns.
+Test 7 also compares both paths and the CPU reference at 25 portal states.
+The viewer checks repeated instances and measures submission and upload cost.
+See [retained mesh checks](retained-meshes.md#checks-and-measurements).
+
+R7 still covers frame synchronization and fixed transfers. Instance
+expansion and projected storage scale with the sum of submitted mesh triangle
+counts. Culling avoids clipping rejected instances; it does not remove their
+expansion or reserved projection storage.
 
 ### R4. Portal and work limits — world feature
 

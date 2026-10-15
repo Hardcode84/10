@@ -134,6 +134,9 @@ fn prepare_triangle(index: u32) -> unit {
     ) {
         return;
     }
+    if !triangle_visible(tri, view) {
+        return;
+    }
     if !portal_facing(view, words_load(META + tri * 4u32 + 2u32)) {
         return;
     }

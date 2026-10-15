@@ -102,8 +102,9 @@ setup failure. A renderer cannot be copied.
 The native setup provider calls `instance_open` with the required
 instance extensions. For a window, the caller creates a Vulkan surface and gives
 ownership of that surface to the renderer. The demo uses SDL for this step.
-`renderer_open` takes a `RenderConfig` and eight `ShaderCode` byte ranges, in
-init, transform, raster, advance, compose, compact, scan, and fill order. The
+`renderer_open` takes a `RenderConfig` and ten `ShaderCode` byte ranges, in
+init, transform, raster, advance, compose, compact, scan, fill, instance
+expansion, and instance visibility order. The
 shader bytes remain owned by the caller and can be released after this call.
 The core does not choose shader file paths.
 
@@ -126,6 +127,9 @@ window and renderer in that field order. Crust drops these fields in reverse
 order, so Vulkan resources are released before the SDL window. The checked
 demo loop owns the session and releases it on success or an error return.
 The demo owns event processing and application timing.
+
+See [retained meshes and the viewer](retained-meshes.md) for mesh ownership,
+instance submission, per-view culling, and shared game assets.
 
 ## Demo lighting
 

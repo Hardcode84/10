@@ -1,0 +1,98 @@
+fn viewer_open(session: mut GameSession, selected: u32) -> bool {
+    if !game_static_open(mut session, 1u32) {
+        return false;
+    }
+    if selected >= instances_count(read session.world) {
+        return error("viewer asset index is outside the library");
+    }
+    var input: FrameInput = renderer_inputs(mut session.renderer);
+    game_palette(mut input);
+    if session.window.handle != null(*u8) {
+        SDL_SetWindowTitle(
+            session.window.handle,
+            "SPINWARD prefab viewer | Left/Right asset | Space pause | Esc close"
+        );
+        if SDL_SetRelativeMouseMode(0i32) != 0i32 {
+            return error(SDL_GetError());
+        }
+    }
+    return true;
+}
+fn viewer_render(
+    session: mut GameSession,
+    metrics: mut ViewerMetrics,
+    selected: u32,
+    tick: u32,
+    copies: u32,
+    verify: bool
+) -> bool {
+    var start: u64 = now();
+    {
+        var input: FrameInput = renderer_inputs(mut session.renderer);
+        viewer_scene(
+            mut input,
+            read session.world,
+            session.launch.config,
+            selected,
+            tick,
+            copies
+        );
+    }
+    var submitted: u64 = now();
+    var good: bool = true;
+    if verify {
+        good = visibility_compare(&session.renderer.state, copies > 1u32 && tick == 0u32);
+    } else {
+        good = game_draw(mut session);
+    }
+    if metrics.measured_frames != 0u64 {
+        metrics.submission_ns = metrics.submission_ns + submitted - start;
+        metrics.render_ns = metrics.render_ns + now() - submitted;
+    }
+    metrics.measured_frames = metrics.measured_frames + 1u64;
+    return good && game_present(mut session);
+}
+fn viewer_events(session: mut GameSession, state: mut ViewerState) -> bool {
+    var event: [u64; 8] = uninit;
+    while SDL_PollEvent(&event as *u8) != 0i32 {
+        var kind: u32 = (&event as *u32)[0usize];
+        if kind == 256u32 {
+            state.running = false;
+        }
+        if kind == 768u32 && (&event as *u8)[13usize] == 0u8 {
+            var key: u32 = (&event as *u32)[5usize];
+            if key == 27u32 {
+                state.running = false;
+            }
+            if key == 32u32 {
+                state.paused = !state.paused;
+            }
+            var count: u32 = instances_count(read session.world);
+            if key == 1073741903u32 {
+                state.selected = (state.selected + 1u32) % count;
+            }
+            if key == 1073741904u32 {
+                state.selected = (state.selected + count - 1u32) % count;
+            }
+        }
+    }
+    return true;
+}
+fn viewer_report(session: read GameSession, metrics: read ViewerMetrics) -> unit {
+    viewer_timing(read metrics);
+    puts("retained triangles / submitted instances / frame upload bytes / mesh upload bytes:");
+    print_number(session.renderer.state.mesh_count as i64);
+    print_number(
+        (session.renderer.state.mapped as *u32)[INSTANCE_COUNT as usize] as i64
+    );
+    print_number(session.renderer.state.frame_upload_bytes as i64);
+    print_number(session.renderer.state.mesh_upload_bytes as i64);
+}
+
+fn viewer_timing(metrics: read ViewerMetrics) -> unit {
+    if metrics.measured_frames > 1u64 {
+        puts("mean CPU submission / render and readback nanoseconds (first frame excluded):");
+        print_number((metrics.submission_ns / (metrics.measured_frames - 1u64)) as i64);
+        print_number((metrics.render_ns / (metrics.measured_frames - 1u64)) as i64);
+    }
+}

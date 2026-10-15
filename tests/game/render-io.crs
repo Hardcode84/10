@@ -39,12 +39,23 @@ fn review_no_void(session: mut GameSession) -> bool {
 fn review_material_capacity(session: mut GameSession, config: GameConfig) -> bool {
     var trial: Trial = new_trial();
     start_expedition(mut trial);
+    game_scene_frame(mut session, read trial, config);
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var input: FrameInput = renderer_inputs(mut renderer);
-        game_scene(mut input, read trial, config);
         input_set_word(mut input, OVERLAY_ENABLED as usize, 0u32);
         var material: u32 = GAME_MATERIALS - 1u32;
+        var instance: u32 = 0u32;
+        var instance_meta: u32 = input_word(read input, INSTANCE_META as usize);
+        var instance_count: u32 = input_word(read input, INSTANCE_COUNT as usize);
+        while instance < instance_count {
+            input_set_word(
+                mut input,
+                (instance_meta + instance * 5u32 + 4u32) as usize,
+                material
+            );
+            instance = instance + 1u32;
+        }
         var texture: u32 = app_texture(read input, material);
         var palette: u32 = app_palette(read input);
         var i: u32 = 0u32;
@@ -63,7 +74,7 @@ fn review_material_capacity(session: mut GameSession, config: GameConfig) -> boo
             i = i + 1u32;
         }
     }
-    if !game_draw(mut session) {
+    if !review_draw(mut session) {
         return false;
     }
     var words: *u32 = session.renderer.state.mapped as *u32;
@@ -75,4 +86,8 @@ fn review_material_capacity(session: mut GameSession, config: GameConfig) -> boo
         i = i + 1u32;
     }
     return true;
+}
+
+fn review_draw(session: mut GameSession) -> bool {
+    return visibility_compare(&session.renderer.state, false);
 }

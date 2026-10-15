@@ -25,7 +25,6 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/course-view.crs",
         "src/game/course-pipes.crs",
         "src/game/pipe-collision.crs",
-        "src/game/pipe-view.crs",
         "src/game/course-appearance.crs",
         "src/game/collision.crs",
         "src/game/orientation.crs",
@@ -35,6 +34,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/physics.crs",
         "src/game/trial.crs",
         "src/game/scene.crs",
+        "src/game/static-mesh.crs",
         "src/game/input.crs",
         "src/game/loop.crs",
         "src/game/hud.crs",
@@ -63,14 +63,17 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
     }
     return i;
 }
-fn build_game(root: *CrustRun) -> bool {
-    var providers: [*u8; 26] = make [*u8; 26] {
+fn build_game(root: *CrustRun, viewer: bool) -> bool {
+    var providers: [*u8; 32] = make [*u8; 32] {
         "src/render/host/vulkan.crs",
         "src/render/host/io.crs",
         "src/render/host/device.crs",
         "src/render/host/resources.crs",
         "src/render/host/geometry.crs",
         "src/render/host/assets.crs",
+        "src/render/host/mesh.crs",
+        "src/render/host/retained.crs",
+        "src/render/host/retained-io.crs",
         "src/render/host/dispatch.crs",
         "src/render/host/timing.crs",
         "src/render/host/present.crs",
@@ -90,15 +93,36 @@ fn build_game(root: *CrustRun) -> bool {
         "src/game/bindings.crs",
         "src/game/entry.crs",
         "src/app/capture.crs",
-        "src/game/text.crs"
+        "src/game/text.crs",
+        "tests/visibility.crs",
+        "tests/game/check-host.crs",
+        "src/viewer/platform.crs"
     };
-    var args: [*u8; 96] = uninit;
+    var provider_count: usize = 31usize;
+    var entry: usize = 0usize;
+    if viewer {
+        provider_count = 32usize;
+        while entry < provider_count {
+            if cache_strcmp(providers[entry], "src/game/entry.crs") == 0i32 {
+                providers[entry] = "src/viewer/entry.crs";
+            }
+            entry = entry + 1usize;
+        }
+    }
+    var args: [*u8; 128] = uninit;
     args[0usize] = "-o";
     args[1usize] = host_path(root, "build/game");
+    if viewer {
+        args[1usize] = host_path(root, "build/viewer");
+    }
     var count: usize = 2usize;
     args[count] = host_path(root, "src/render/interface.crs");
     count = count + 1usize;
     count = count + game_sources(root, &args[count]);
+    if viewer {
+        args[count] = host_path(root, "src/viewer/scene.crs");
+        count = count + 1usize;
+    }
     var flags: [*u8; 8] = make [*u8; 8] {
         "--cflag",
         "-O2",
@@ -120,7 +144,7 @@ fn build_game(root: *CrustRun) -> bool {
         count as i32,
         &args[0usize],
         &providers[0usize],
-        26usize,
+        provider_count,
         null(*u8)
     ) == 0i32;
 }

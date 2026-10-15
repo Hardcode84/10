@@ -188,10 +188,10 @@ and a guide pipe. Both use the same solids for collision and drawing. Cabinet
 indicators and ledge marks stay visible in darkness but do not emit light.
 The riser uses low-contrast wall panels to keep the ledges distinct.
 
-The complete scene has a conservative bound of 252 submitted triangles.
-Tests check each interval between shell and prop planes on each axis. The
-sum of the three maxima bounds all camera positions. Faces on the eye plane
-have no projected area and are not submitted.
+The renderer retains 230 static triangles for the expedition. It generates
+shells, solids, and pipes once and submits placements each frame. Changing
+markers and gameplay objects use dynamic triangles. Per-view bounds and
+one-sided face tests preserve visible room connections.
 
 The simulation checks pass both complete routes, three new hook contacts,
 and the clear central lanes. AMD and Intel pass all 60 enclosure views and
@@ -204,11 +204,10 @@ not through a second list of world coordinates. Keep the biome appearance,
 authored geometry, connection layout, mission state, and rendering core in
 separate files. Use the same solid for visible structure and collision.
 
-Before adding content beyond the renderer's current triangle capacity, prove
-its actual submission bound. Do not hide an over-budget case or remove nearby
-structure based on an arbitrary distance. Preserve the closed shell and both
-prediction paths. The first batch must fit the current renderer or stop at a
-concrete capacity failure before more content is added.
+Before adding content, measure its geometry storage and render cost. Do not
+remove nearby structure based on an arbitrary distance. Preserve the closed
+shell and both prediction paths. Storage grows with demand; a device-range
+or allocation failure must stop the frame with a diagnostic.
 
 Check both complete expedition routes, all connection views, room containment,
 new hook contacts, and clean central lanes. Capture the rooms from entry,

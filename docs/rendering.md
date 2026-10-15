@@ -256,6 +256,11 @@ must not round independently: both triangles can otherwise reject an edge pixel
 and expose geometry behind the surface. Keep texture and depth interpolation
 separate from this coverage decision.
 
+The current retained path is specified in [retained meshes](retained-meshes.md).
+It uploads mesh changes and instance placements, then expands instances in
+compute. Each active view tests instance bounds before triangle clipping.
+The game generates static room shells once.
+
 ### Frame sequence
 
 1. Upload scene changes and initialize root coverage and defined background values.

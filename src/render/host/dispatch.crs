@@ -69,6 +69,8 @@ fn commands_record(v: *Vulkan) -> bool {
         0u32,
         null(*u32)
     );
+    retained_dispatch(v, 8usize, v -> instance_capacity);
+    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
     vkCmdBindPipeline(v -> commands, VK_PIPELINE_BIND_POINT_COMPUTE, v -> pipelines[0usize]);
     vkCmdDispatch(
         v -> commands,
@@ -80,6 +82,12 @@ fn commands_record(v: *Vulkan) -> bool {
     vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 1u32);
     var depth: u32 = 0u32;
     while depth < 4u32 {
+        retained_dispatch(
+            v,
+            9usize,
+            (v -> instance_capacity * v -> view_capacity + 63u32) / 64u32
+        );
+        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdBindPipeline(
             v -> commands,
             VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -190,7 +198,7 @@ fn device_close(v: *Vulkan) -> unit {
             vkDestroyDescriptorPool(v -> device, v -> pool, null(*u8));
         }
         var i: usize = 0usize;
-        while i < 8usize {
+        while i < PIPELINE_COUNT as usize {
             if v -> pipelines[i] != null(*u8) {
                 vkDestroyPipeline(v -> device, v -> pipelines[i], null(*u8));
             }
@@ -243,6 +251,12 @@ fn frame_barrier(
 }
 
 fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
+    if size == 0u64 {
+        return;
+    }
+    if src == v -> staging {
+        v -> frame_upload_bytes = v -> frame_upload_bytes + size;
+    }
     var copy: VkBufferCopy = make VkBufferCopy {
         srcOffset: offset,
         dstOffset: offset,
@@ -251,6 +265,7 @@ fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
     vkCmdCopyBuffer(v -> commands, src, dst, 1u32, &copy);
 }
 fn upload_scene(v: *Vulkan) -> unit {
+    retained_upload(v);
     if v -> asset_capacity != 0u32 {
         copy_region(
             v,
@@ -273,7 +288,7 @@ fn upload_scene(v: *Vulkan) -> unit {
         v -> staging,
         v -> buffer,
         4u64 + META as u64 * 4u64,
-        v -> triangle_capacity as u64 * 16u64
+        (v -> mapped as *u32)[DYNAMIC_COUNT as usize] as u64 * 16u64
     );
     copy_region(
         v,
@@ -287,10 +302,13 @@ fn upload_scene(v: *Vulkan) -> unit {
         v -> staging,
         v -> buffer,
         (v -> words as u64 + 1u64) * 4u64,
-        (1u64 + GEOMETRY as u64 + v -> triangle_capacity as u64 * 15u64) * 4u64
+        (
+            1u64 + GEOMETRY as u64 + (v -> mapped as *u32)[DYNAMIC_COUNT as usize] as u64 * 15u64
+        ) * 4u64
     );
 }
 fn readback(v: *Vulkan) -> unit {
+    retained_readback(v);
     copy_region(v, v -> buffer, v -> staging, 0u64, 65u64 * 4u64);
     copy_region(
         v,

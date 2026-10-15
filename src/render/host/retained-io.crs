@@ -1,0 +1,60 @@
+fn retained_dispatch(v: *Vulkan, pipeline: usize, groups: u32) -> unit {
+    var count: u32 = groups;
+    if count > MAX_INVOCATIONS / LOCAL_SIZE {
+        count = MAX_INVOCATIONS / LOCAL_SIZE;
+    }
+    vkCmdBindPipeline(
+        v -> commands,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        v -> pipelines[pipeline]
+    );
+    vkCmdDispatch(v -> commands, count, 1u32, 1u32);
+}
+fn retained_transfer(v: *Vulkan, slot: u32, count: u32, floats: bool, upload: bool) -> unit {
+    var offset: u64 = (v -> mapped as *u32)[slot as usize] as u64 + 1u64;
+    if floats {
+        offset = offset + v -> words as u64 + 1u64;
+    }
+    if upload {
+        copy_region(v, v -> staging, v -> buffer, offset * 4u64, count as u64 * 4u64);
+    } else {
+        copy_region(v, v -> buffer, v -> staging, offset * 4u64, count as u64 * 4u64);
+    }
+}
+fn retained_upload(v: *Vulkan) -> unit {
+    if v -> mesh_dirty {
+        retained_transfer(v, MESH_FLOAT, v -> mesh_count * 15u32, true, true);
+        retained_transfer(v, MESH_META, v -> mesh_count * 4u32, false, true);
+        v -> mesh_upload_bytes = v -> mesh_count as u64 * 76u64;
+    }
+    var count: u32 = (v -> mapped as *u32)[INSTANCE_COUNT as usize];
+    retained_transfer(v, INSTANCE_FLOAT, count * 18u32, true, true);
+    retained_transfer(v, INSTANCE_META, count * 5u32, false, true);
+}
+fn retained_readback(v: *Vulkan) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    if w[26usize] == 0u32 || w[INSTANCE_COUNT as usize] == 0u32 {
+        return;
+    }
+    retained_transfer(
+        v,
+        INSTANCE_VISIBLE,
+        v -> view_capacity * w[INSTANCE_COUNT as usize],
+        false,
+        false
+    );
+    copy_region(
+        v,
+        v -> buffer,
+        v -> staging,
+        (GEOMETRY as u64 + v -> words as u64 + 2u64) * 4u64,
+        w[3usize] as u64 * 60u64
+    );
+    copy_region(
+        v,
+        v -> buffer,
+        v -> staging,
+        (META as u64 + 1u64) * 4u64,
+        w[3usize] as u64 * 16u64
+    );
+}

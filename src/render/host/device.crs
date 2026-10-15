@@ -2,6 +2,12 @@
 
 record Vulkan {
     timestamp_mask: u64;
+    mesh_capacity: u32;
+    mesh_count: u32;
+    instance_capacity: u32;
+    mesh_dirty: bool;
+    frame_upload_bytes: u64;
+    mesh_upload_bytes: u64;
     asset_capacity: u32;
     words: u32;
     floats: u32;
@@ -21,8 +27,8 @@ record Vulkan {
     read_pixels: bool;
     layout: *u8;
     pipeline_layout: *u8;
-    modules: [*u8; 8];
-    pipelines: [*u8; 8];
+    modules: [*u8; 10];
+    pipelines: [*u8; 10];
     pool: *u8;
     set: *u8;
     command_pool: *u8;

@@ -90,8 +90,13 @@ fn camera_row(v: mut FrameInput, row: usize, axis: Vec3, position: Vec3) -> unit
     input_set_float(mut v, row + 2usize, axis.z);
     input_set_float(mut v, row + 3usize, -dot(axis, position));
 }
-fn game_scene(v: mut FrameInput, trial: read Trial, config: GameConfig) -> unit {
-    input_set_word(mut v, 3usize, 0u32);
+fn game_scene(
+    v: mut FrameInput,
+    trial: read Trial,
+    config: GameConfig,
+    world: read InstanceList
+) -> unit {
+    input_frame(mut v);
     input_set_word(mut v, 4usize, 0u32);
     input_set_word(mut v, 20usize, 0u32);
     input_set_word(mut v, BACKGROUND as usize, 0xff0d0906u32);
@@ -102,24 +107,6 @@ fn game_scene(v: mut FrameInput, trial: read Trial, config: GameConfig) -> unit 
     camera_row(mut v, 4usize, trial.drone.basis.up, trial.drone.position);
     camera_row(mut v, 8usize, trial.drone.basis.forward, trial.drone.position);
     if trial.drone.world == 1u32 {
-        draw_expedition_shell(mut v, trial.drone.position);
-    }
-    var i: u32 = 0u32;
-    while i < world_solid_count(trial.drone.world) {
-        draw_solid_faces(
-            mut v,
-            world_solid(trial.drone.world, i),
-            trial.drone.position,
-            world_solid_faces(trial.drone.world, i)
-        );
-        i = i + 1u32;
-    }
-    i = 0u32;
-    while i < world_pipe_count(trial.drone.world) {
-        draw_pipe(mut v, world_pipe(trial.drone.world, i), trial.drone.position);
-        i = i + 1u32;
-    }
-    if trial.drone.world == 1u32 {
         expedition_scene(mut v, read trial);
         expedition_lights(mut v, read trial);
     } else {
@@ -129,6 +116,9 @@ fn game_scene(v: mut FrameInput, trial: read Trial, config: GameConfig) -> unit 
     draw_preview(mut v, read trial, config);
     draw_frame(mut v, trial.drone, config);
     draw_route_indicator(mut v, read trial, config);
+    if !input_instances(mut v, read world) {
+        scene_overflow();
+    }
 }
 
 fn surface_quad(v: mut FrameInput, mat: u32, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> unit {

@@ -1,0 +1,55 @@
+fn retained_vertex(v: read FrameInput, source: usize) -> MeshVertex {
+    return make MeshVertex {
+        x: input_float(read v, source + 2usize) / 2f32,
+        y: input_float(read v, source + 1usize),
+        z: -input_float(read v, source) / 2f32,
+        u: input_float(read v, source + 3usize),
+        v: input_float(read v, source + 4usize)
+    };
+}
+fn retain_scene(v: mut FrameInput) -> unit {
+    var count: u32 = input_word(read v, 3usize);
+    input_frame(mut v);
+    var i: u32 = 0u32;
+    while i < count {
+        var p: usize = (GEOMETRY + i * 15u32) as usize;
+        var meta: usize = (META + i * 4u32) as usize;
+        var face: MeshTriangle = make MeshTriangle {
+            vertices: make [MeshVertex; 3] {
+                retained_vertex(read v, p),
+                retained_vertex(read v, p + 5usize),
+                retained_vertex(read v, p + 10usize)
+            },
+            material: input_word(read v, meta + 1usize),
+            portal: input_word(read v, meta + 2usize),
+            flags: input_word(read v, meta + 3usize)
+        };
+        var space: u32 = input_word(read v, meta);
+        var mesh: Mesh = mesh_new();
+        var range: MeshRange = mesh_empty_range();
+        if !mesh_append(mut mesh, face) || !input_mesh(mut v, read mesh, mut range) {
+            scene_overflow();
+            return;
+        }
+        var instance: MeshInstance = mesh_identity(range, space);
+        instance.transform = make [f32; 12] {
+            0f32,
+            0f32,
+            -2f32,
+            0f32,
+            0f32,
+            1f32,
+            0f32,
+            0f32,
+            2f32,
+            0f32,
+            0f32,
+            0f32
+        };
+        if !input_instance(mut v, instance) {
+            scene_overflow();
+            return;
+        }
+        i = i + 1u32;
+    }
+}

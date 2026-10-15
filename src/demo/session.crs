@@ -59,6 +59,9 @@ fn session_open(session: mut DemoSession) -> bool {
     return demo_renderer_open(&session.renderer.state, o, session.window.handle);
 }
 fn session_draw(session: mut DemoSession) -> bool {
+    if session.options.test == 7u32 {
+        return visibility_compare(&session.renderer.state, false);
+    }
     return renderer_draw(&session.renderer.state);
 }
 fn session_verify(session: read DemoSession, index: u32, frame: u32) -> bool {
@@ -73,7 +76,7 @@ fn session_verify(session: read DemoSession, index: u32, frame: u32) -> bool {
     if o -> test == 4u32 && !tour_verify(v, index) {
         return false;
     }
-    if o -> test == 2u32 && !regression_verify(v, index, frame) {
+    if (o -> test == 2u32 || o -> test == 7u32) && !regression_verify(v, index, frame) {
         return false;
     }
     return o -> verify == 0u32 || (reference_check(v -> mapped) && presentation_check(v));

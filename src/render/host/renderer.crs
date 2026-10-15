@@ -44,7 +44,7 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
         return false;
     }
     var slot: usize = 0usize;
-    while slot < 8usize {
+    while slot < PIPELINE_COUNT as usize {
         if shaders[slot].size < 20usize || shaders[slot].size % 4usize != 0usize || (
             shaders[slot].bytes as *u32
         )[0usize] != 0x07230203u32 {
@@ -77,5 +77,17 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
 // Consumes the caller's camera, geometry, portals, textures, and lighting in the input buffer.
 // Returns after GPU completion and status readback. A failed frame must not be presented.
 fn renderer_draw(v: *Vulkan) -> bool {
-    return dispatch(v) && frame_valid(v);
+    var w: *u32 = v -> mapped as *u32;
+    if w[INSTANCE_COUNT as usize] == 0u32 {
+        w[DYNAMIC_COUNT as usize] = w[3usize];
+    }
+    v -> frame_upload_bytes = 0u64;
+    v -> mesh_upload_bytes = 0u64;
+    if !vk_ok(vkResetCommandBuffer(v -> commands, 0u32), "reset frame commands") || !commands_record(
+        v
+    ) || !dispatch(v) || !frame_valid(v) {
+        return false;
+    }
+    v -> mesh_dirty = false;
+    return true;
 }

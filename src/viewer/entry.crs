@@ -1,0 +1,91 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var launch: Launch = uninit;
+    if !game_options(1i32, argv, &launch) {
+        return 2i32;
+    }
+    var selected: u32 = 0u32;
+    var copies: u32 = 1u32;
+    var frames: u32 = 0u32;
+    var verify: bool = false;
+    var i: usize = 1usize;
+    while i < argc as usize {
+        if strcmp(argv[i], "--help") == 0i32 {
+            puts(
+                "Prefab viewer: --asset N --copies N --frames N --width N --height N --capture FILE --check"
+            );
+            return 0i32;
+        }
+        if strcmp(argv[i], "--check") == 0i32 {
+            verify = true;
+            i = i + 1usize;
+            continue;
+        }
+        if i + 1usize >= argc as usize {
+            error("viewer option requires a value");
+            return 2i32;
+        }
+        if !viewer_value(
+            &launch,
+            argv[i],
+            argv[i + 1usize],
+            &selected,
+            &copies,
+            &frames
+        ) {
+            return 2i32;
+        }
+        i = i + 2usize;
+    }
+    if copies == 0u32 {
+        error("viewer copy count must be positive");
+        return 2i32;
+    }
+    if !game_options_valid(&launch) {
+        return 2i32;
+    }
+    if launch.capture != null(*u8) {
+        launch.config.headless = true;
+        if frames == 0u32 {
+            frames = 1u32;
+        }
+    }
+    launch.config.review = verify;
+    return viewer_run(
+        game_session(&launch),
+        launch.config,
+        selected,
+        copies,
+        frames,
+        verify
+    );
+}
+
+fn viewer_value(
+    launch: *Launch,
+    key: *u8,
+    value: *u8,
+    selected: *u32,
+    copies: *u32,
+    frames: *u32
+) -> bool {
+    if strcmp(key, "--asset") == 0i32 {
+        return game_number(value, selected);
+    }
+    if strcmp(key, "--copies") == 0i32 {
+        return game_number(value, copies);
+    }
+    if strcmp(key, "--frames") == 0i32 {
+        return game_number(value, frames);
+    }
+    if strcmp(key, "--width") == 0i32 {
+        return game_number(value, &launch -> config.width);
+    }
+    if strcmp(key, "--height") == 0i32 {
+        return game_number(value, &launch -> config.height);
+    }
+    if strcmp(key, "--capture") == 0i32 {
+        launch -> capture = value;
+        return true;
+    }
+    return error("unknown viewer option");
+}

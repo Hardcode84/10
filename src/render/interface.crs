@@ -63,3 +63,14 @@ const OVERLAY_COLOR: u32 = 38u32;
 
 // Integer text pixel scale; zero and one both select the native glyph size.
 const OVERLAY_SCALE: u32 = 40u32;
+
+const MESH_FLOAT: u32 = 50u32;
+const MESH_META: u32 = 51u32;
+const INSTANCE_FLOAT: u32 = 52u32;
+const INSTANCE_META: u32 = 53u32;
+const INSTANCE_OWNER: u32 = 54u32;
+const INSTANCE_VISIBLE: u32 = 55u32;
+const INSTANCE_COUNT: u32 = 56u32;
+const DYNAMIC_COUNT: u32 = 57u32;
+const CULL_DISABLED: u32 = 58u32;
+const PIPELINE_COUNT: u32 = 10u32;

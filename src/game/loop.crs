@@ -46,10 +46,10 @@ fn game_tick(session: mut GameSession, loop: mut GameLoop, config: GameConfig) -
     );
 }
 fn game_render(session: mut GameSession, loop: read GameLoop, config: GameConfig) -> bool {
+    game_scene_frame(mut session, read loop.trial, config);
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var inputs: FrameInput = renderer_inputs(mut renderer);
-        game_scene(mut inputs, read loop.trial, config);
         game_hud(mut inputs, read loop.trial, loop.input.paused);
         var hud_scale: u32 = 1u32;
         if loop.trial.drone.world == 1u32 {
@@ -121,6 +121,9 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
         var inputs: FrameInput = renderer_inputs(mut renderer);
         game_palette(mut inputs);
         hud_font(mut inputs);
+    }
+    if !game_static_open(mut session, loop.trial.drone.world) {
+        return 1i32;
     }
     if config.review {
         return (!expedition_review(mut session, config)) as i32;

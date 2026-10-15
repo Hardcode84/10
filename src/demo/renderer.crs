@@ -2,7 +2,7 @@ fn demo_renderer_open(v: *Vulkan, o: *Options, window: *u8) -> bool {
     if !window_instance(v, window) {
         return false;
     }
-    var paths: [*u8; 8] = make [*u8; 8] {
+    var paths: [*u8; 10] = make [*u8; 10] {
         "build/init.spv",
         "build/transform.spv",
         "build/raster.spv",
@@ -10,13 +10,15 @@ fn demo_renderer_open(v: *Vulkan, o: *Options, window: *u8) -> bool {
         "build/compose.spv",
         "build/compact.spv",
         "build/scan.spv",
-        "build/fill.spv"
+        "build/fill.spv",
+        "build/instances.spv",
+        "build/visibility.spv"
     };
-    var shaders: [ShaderCode; 8] = uninit;
-    zero(&shaders as *u8, sizeof([ShaderCode; 8]));
+    var shaders: [ShaderCode; 10] = uninit;
+    zero(&shaders as *u8, sizeof([ShaderCode; 10]));
     var good: bool = true;
     var i: usize = 0usize;
-    while good && i < 8usize {
+    while good && i < PIPELINE_COUNT as usize {
         good = read_input(paths[i], &shaders[i]);
         i = i + 1usize;
     }
@@ -35,7 +37,7 @@ fn demo_renderer_open(v: *Vulkan, o: *Options, window: *u8) -> bool {
         good = renderer_open(v, &config, &shaders[0usize]);
     }
     i = 0usize;
-    while i < 8usize {
+    while i < PIPELINE_COUNT as usize {
         free(shaders[i].bytes);
         i = i + 1usize;
     }

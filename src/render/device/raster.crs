@@ -131,7 +131,7 @@ fn candidate_depth(p: u32, px: f32, py: f32) -> f32 {
 }
 fn candidate_opaque(id: u32, p: u32, px: f32, py: f32) -> bool {
     var meta: u32 = META + (id / MAX_FAN) * 4u32;
-    if words_load(meta + 3u32) == 0u32 {
+    if (words_load(meta + 3u32) & 1u32) == 0u32 {
         return true;
     }
     var mat: u32 = words_load(meta + 1u32);

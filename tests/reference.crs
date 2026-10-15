@@ -283,7 +283,7 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
                 }
                 if reference_intersect(w, f, tri, ray, minimum, clip, &next) {
                     var accept: bool = true;
-                    if w[(META + tri * 4u32 + 3u32) as usize] != 0u32 {
+                    if (w[(META + tri * 4u32 + 3u32) as usize] & 1u32) != 0u32 {
                         accept = accept && reference_texel(
                             w,
                             w[(META + tri * 4u32 + 1u32) as usize],
@@ -688,6 +688,17 @@ fn reference_intersect(
     clip: u32,
     hit: *Hit
 ) -> bool {
+    if (w[(META + tri * 4u32 + 3u32) as usize] & 2u32) != 0u32 {
+        var p: usize = (GEOMETRY + tri * 15u32) as usize;
+        var a: Vec = vertex(f, p);
+        var normal: Vec = cross(
+            sub(vertex(f, p + 5usize), a),
+            sub(vertex(f, p + 10usize), a)
+        );
+        if dot(normal, sub(ray.origin, a)) <= 0f32 {
+            return false;
+        }
+    }
     var portal: u32 = w[(META + tri * 4u32 + 2u32) as usize];
     if portal != 0u32 {
         var destination: Ray = through(ray, f, portal - 1u32);

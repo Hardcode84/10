@@ -1,0 +1,6 @@
+fn game_check(good: bool, message: *u8) -> bool {
+    if !good {
+        return error(message);
+    }
+    return true;
+}

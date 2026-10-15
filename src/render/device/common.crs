@@ -293,3 +293,26 @@ fn portal_facing(view: u32, portal: u32) -> bool {
     }
     return distance < 0f32;
 }
+fn triangle_visible(tri: u32, view: u32) -> bool {
+    if tri >= words_load(DYNAMIC_COUNT) {
+        var instance: u32 = words_load(words_load(INSTANCE_OWNER) + tri);
+        if words_load(
+            words_load(INSTANCE_VISIBLE) + view * words_load(INSTANCE_COUNT) + instance
+        ) == 0u32 {
+            return false;
+        }
+    }
+    if (words_load(META + tri * 4u32 + 3u32) & 2u32) == 0u32 {
+        return true;
+    }
+    var p: u32 = GEOMETRY + tri * 15u32;
+    var distance: f32 = 0f32;
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        distance = distance + light_normal(tri, axis) * (
+            view_position(view, 0f32, 0u32, 0u32, axis) - floats_load(p + axis)
+        );
+        axis = axis + 1u32;
+    }
+    return distance > 0f32;
+}

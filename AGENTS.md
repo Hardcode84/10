@@ -24,7 +24,8 @@ A 6DOF exploration game in a rotating megastructure.
 
 - Run the rendering demo with `crust demo.crs`. Use the root `main.crs`
   entry point for the playable expedition. Use `--trial` for the movement course.
-  See [expedition rules](docs/expedition.md).
+  See [expedition rules](docs/expedition.md). Run `crust viewer.crs` to inspect
+  the shared generated meshes. See [retained meshes](docs/retained-meshes.md).
 - Build playable slices. Follow the game design's prototype gates.
 - Keep ownership, memory costs, synchronization, and failure paths explicit.
 - Keep `src/render/` independent of demo and test sources. Put scene generation,

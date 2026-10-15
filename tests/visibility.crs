@@ -1,0 +1,43 @@
+fn visibility_compare(v: *Vulkan, require_rejection: bool) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var debug: u32 = w[26usize];
+    w[26usize] = 1u32;
+    w[CULL_DISABLED as usize] = 0u32;
+    if !renderer_draw(v) {
+        return false;
+    }
+    var bytes: usize = w[0usize] as usize * w[1usize] as usize * 4usize;
+    var pixels: *u8 = malloc(bytes);
+    if pixels == null(*u8) {
+        return error("visibility reference allocation failed");
+    }
+    memcpy(pixels, v -> mapped + PIXELS as isize * 4isize, bytes);
+    if require_rejection && !visibility_rejected(v) {
+        free(pixels);
+        return error("visibility test did not reject an instance");
+    }
+    w[CULL_DISABLED as usize] = 1u32;
+    var good: bool = renderer_draw(v);
+    if good && memcmp(pixels, v -> mapped + PIXELS as isize * 4isize, bytes) != 0i32 {
+        good = error("instance culling changed the image");
+    }
+    if good && v -> mesh_upload_bytes != 0u64 {
+        good = error("unchanged retained meshes were uploaded again");
+    }
+    w[CULL_DISABLED as usize] = 0u32;
+    w[26usize] = debug;
+    free(pixels);
+    return good;
+}
+
+fn visibility_rejected(v: *Vulkan) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var i: u32 = 0u32;
+    while i < w[INSTANCE_COUNT as usize] {
+        if w[(w[INSTANCE_VISIBLE as usize] + i) as usize] == 0u32 {
+            return true;
+        }
+        i = i + 1u32;
+    }
+    return false;
+}

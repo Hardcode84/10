@@ -1,0 +1,122 @@
+fn viewer_scene(
+    input: mut FrameInput,
+    assets: read InstanceList,
+    config: GameConfig,
+    selected: u32,
+    tick: u32,
+    copies: u32
+) -> unit {
+    input_frame(mut input);
+    input_set_word(mut input, 4usize, 0u32);
+    input_set_word(mut input, 20usize, 0u32);
+    input_set_word(mut input, LIGHT_MODEL as usize, 1u32);
+    input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
+    input_set_word(mut input, BACKGROUND as usize, 0xff181410u32);
+    input_set_float(mut input, RENDER_STYLE as usize, 0.04f32);
+    input_set_float(mut input, PROJECTION as usize, 1f32);
+    input_set_float(mut input, CAMERA_LIGHT as usize, 2500f32);
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        input_set_float(mut input, (SPACE_LIGHT + axis) as usize, 0.25f32);
+        axis = axis + 1u32;
+    }
+    var instance: MeshInstance = instances_get(read assets, selected);
+    var low: Vec3 = vec(
+        instance.mesh.bounds[0usize],
+        instance.mesh.bounds[1usize],
+        instance.mesh.bounds[2usize]
+    );
+    var high: Vec3 = vec(
+        instance.mesh.bounds[3usize],
+        instance.mesh.bounds[4usize],
+        instance.mesh.bounds[5usize]
+    );
+    var center: Vec3 = scale(add(low, high), 0.5f32);
+    var size: f32 = length(sub(high, low));
+    var angle: f32 = tick as f32 * 0.008f32;
+    var eye: Vec3 = add(
+        center,
+        scale(vec(sinf(angle), 0.3f32, cosf(angle)), size * 1.1f32)
+    );
+    var target: Vec3 = center;
+    if selected < ROOM_COUNT {
+        eye = center;
+        target = add(center, vec(sinf(angle), 0.1f32, cosf(angle)));
+    }
+    var forward: Vec3 = unit_vector(sub(target, eye));
+    var right: Vec3 = unit_vector(cross(vec(0f32, 1f32, 0f32), forward));
+    camera_row(mut input, 0usize, right, eye);
+    camera_row(mut input, 4usize, cross(forward, right), eye);
+    camera_row(mut input, 8usize, forward, eye);
+    var i: u32 = 0u32;
+    while i < copies {
+        var item: MeshInstance = instance;
+        item.transform[3usize] = (i % 16u32) as f32 * (size + 4f32);
+        item.transform[11usize] = (i / 16u32) as f32 * (size + 4f32);
+        if !input_instance(mut input, item) {
+            scene_overflow();
+            return;
+        }
+        i = i + 1u32;
+    }
+}
+record ViewerMetrics {
+    submission_ns: u64;
+    render_ns: u64;
+    measured_frames: u64;
+}
+record ViewerState {
+    selected: u32;
+    tick: u32;
+    running: bool;
+    paused: bool;
+}
+fn viewer_run(
+    session: GameSession,
+    config: GameConfig,
+    selected: u32,
+    copies: u32,
+    frames: u32,
+    verify: bool
+) -> i32 {
+    var input: InputState = input_new();
+    if !game_open(mut session, mut input) || !viewer_open(mut session, selected) {
+        return 1i32;
+    }
+    var state: ViewerState = make ViewerState {
+        selected: selected,
+        tick: 0u32,
+        running: true,
+        paused: false
+    };
+    var metrics: ViewerMetrics = make ViewerMetrics {
+        submission_ns: 0u64,
+        render_ns: 0u64,
+        measured_frames: 0u64
+    };
+    var frame: u32 = 0u32;
+    while state.running && (frames == 0u32 || frame < frames) {
+        if !config.headless && !viewer_events(mut session, mut state) {
+            return 1i32;
+        }
+        if !viewer_render(
+            mut session,
+            mut metrics,
+            state.selected,
+            state.tick,
+            copies,
+            verify
+        ) {
+            return 1i32;
+        }
+        if !config.headless {
+            game_wait();
+        }
+        if !state.paused {
+            state.tick = state.tick + 1u32;
+        }
+        frame = frame + 1u32;
+    }
+    viewer_report(read session, read metrics);
+    return (!game_finish(mut session)) as i32;
+}

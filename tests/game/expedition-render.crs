@@ -45,19 +45,22 @@ fn review_frame(
     config: GameConfig,
     index: u32
 ) -> bool {
+    game_scene_frame(mut session, read trial, config);
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var input: FrameInput = renderer_inputs(mut renderer);
-        game_scene(mut input, read trial, config);
         input_set_word(mut input, OVERLAY_ENABLED as usize, 0u32);
         if !game_check(
-            input_word(read input, 3usize) <= content_triangle_bound(),
-            "expedition submission exceeds its calculated content bound"
+            input_word(read input, INSTANCE_COUNT as usize) > 0u32 && input_word(
+                read input,
+                DYNAMIC_COUNT as usize
+            ) < input_word(read input, 3usize),
+            "expedition static geometry must use retained instances"
         ) {
             return false;
         }
     }
-    return game_draw(mut session) && review_no_void(mut session) && review_capture(
+    return review_draw(mut session) && review_no_void(mut session) && review_capture(
         mut session,
         index
     );
@@ -84,14 +87,14 @@ fn review_room_shells(session: mut GameSession, config: GameConfig) -> bool {
                 right: cross(up, forward),
                 up: up
             };
+            game_scene_frame(mut session, read trial, config);
             {
                 var renderer: mut Renderer = game_renderer(mut session);
                 var input: FrameInput = renderer_inputs(mut renderer);
-                game_scene(mut input, read trial, config);
                 input_set_word(mut input, BACKGROUND as usize, 0xffe11ae3u32);
                 input_set_word(mut input, OVERLAY_ENABLED as usize, 0u32);
             }
-            if !game_draw(mut session) || !review_no_void(mut session) {
+            if !review_draw(mut session) || !review_no_void(mut session) {
                 return false;
             }
             face = face + 1u32;
@@ -169,14 +172,14 @@ fn review_port_shells(session: mut GameSession, config: GameConfig) -> bool {
     return true;
 }
 fn review_shell_view(session: mut GameSession, trial: read Trial, config: GameConfig) -> bool {
+    game_scene_frame(mut session, read trial, config);
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var input: FrameInput = renderer_inputs(mut renderer);
-        game_scene(mut input, read trial, config);
         input_set_word(mut input, BACKGROUND as usize, 0xffe11ae3u32);
         input_set_word(mut input, OVERLAY_ENABLED as usize, 0u32);
     }
-    return game_draw(mut session) && review_no_void(mut session);
+    return review_draw(mut session) && review_no_void(mut session);
 }
 fn review_content_views(session: mut GameSession, config: GameConfig) -> bool {
     var trial: Trial = new_trial();
