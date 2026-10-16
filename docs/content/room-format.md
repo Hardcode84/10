@@ -14,6 +14,10 @@ lights, and gameplay objects. All of these use room-local coordinates.
 Crust recipes generate this data. This contract defines its meaning, not a
 binary file layout or a new text language.
 
+The radial asset implements named hexagonal ports, local frames, and closed
+unused openings. The viewer draws port IDs and profile names. This asset does
+not yet have room links or cross-room traversal.
+
 ## Data model
 
 | Record | Required data |

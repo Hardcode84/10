@@ -7,6 +7,7 @@ resource AssetHull {
     vertices: *Vec3;
     faces: *HullFace;
     indices: *u32;
+    surfaces: *SurfaceFrame;
     vertex_count: u32;
     face_count: u32;
     index_count: u32;
@@ -17,6 +18,7 @@ fn asset_hull_new() -> AssetHull {
         vertices: null(*Vec3),
         faces: null(*HullFace),
         indices: null(*u32),
+        surfaces: null(*SurfaceFrame),
         vertex_count: 0u32,
         face_count: 0u32,
         index_count: 0u32
@@ -26,20 +28,23 @@ fn asset_hull_drop(hull: mut AssetHull) -> unit {
     free(hull.vertices as *u8);
     free(hull.faces as *u8);
     free(hull.indices as *u8);
+    free(hull.surfaces as *u8);
 }
 fn asset_hull_allocate(hull: mut AssetHull, vertices: u32, faces: u32, indices: u32) -> bool {
     free(hull.vertices as *u8);
     free(hull.faces as *u8);
     free(hull.indices as *u8);
+    free(hull.surfaces as *u8);
     hull.vertices = malloc(vertices as usize * sizeof(Vec3)) as *Vec3;
+    hull.surfaces = malloc(faces as usize * sizeof(SurfaceFrame)) as *SurfaceFrame;
     hull.faces = malloc(faces as usize * sizeof(HullFace)) as *HullFace;
     hull.indices = malloc(indices as usize * sizeof(u32)) as *u32;
     hull.vertex_count = vertices;
     hull.face_count = faces;
     hull.index_count = indices;
-    return hull.vertices != null(*Vec3) && hull.faces != null(*HullFace) && hull.indices != null(
-        *u32
-    ) || error("asset hull allocation failed");
+    return hull.surfaces != null(*SurfaceFrame) && hull.vertices != null(*Vec3) && hull.faces != null(
+        *HullFace
+    ) && hull.indices != null(*u32) || error("asset hull allocation failed");
 }
 fn asset_vertex(hull: read AssetHull, i: u32) -> Vec3 {
     return hull.vertices[i as usize];
@@ -64,4 +69,38 @@ fn asset_vertex_count(hull: read AssetHull) -> u32 {
 }
 fn asset_face_count(hull: read AssetHull) -> u32 {
     return hull.face_count;
+}
+
+fn asset_index_count(hull: read AssetHull) -> u32 {
+    return hull.index_count;
+}
+fn asset_surface(hull: read AssetHull, face: u32) -> SurfaceFrame {
+    return hull.surfaces[face as usize];
+}
+fn asset_surface_set(hull: mut AssetHull, face: u32, frame: SurfaceFrame) -> unit {
+    hull.surfaces[face as usize] = frame;
+}
+// Exchanges two owned hulls. Both remain valid and retain sole ownership.
+fn asset_hull_swap(a: mut AssetHull, b: mut AssetHull) -> unit {
+    var old_vertices: *Vec3 = a.vertices;
+    a.vertices = b.vertices;
+    b.vertices = old_vertices;
+    var old_faces: *HullFace = a.faces;
+    a.faces = b.faces;
+    b.faces = old_faces;
+    var old_indices: *u32 = a.indices;
+    a.indices = b.indices;
+    b.indices = old_indices;
+    var old_surfaces: *SurfaceFrame = a.surfaces;
+    a.surfaces = b.surfaces;
+    b.surfaces = old_surfaces;
+    var old_vertex_count: u32 = a.vertex_count;
+    a.vertex_count = b.vertex_count;
+    b.vertex_count = old_vertex_count;
+    var old_face_count: u32 = a.face_count;
+    a.face_count = b.face_count;
+    b.face_count = old_face_count;
+    var old_index_count: u32 = a.index_count;
+    a.index_count = b.index_count;
+    b.index_count = old_index_count;
 }

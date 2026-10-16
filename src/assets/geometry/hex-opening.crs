@@ -1,0 +1,193 @@
+// Copies a hull and reserves storage for a rectangular face with a hexagonal inset.
+fn hex_partition_copy(source: read AssetHull, target: mut AssetHull) -> bool {
+    var vertices: u32 = asset_vertex_count(read source);
+    var faces: u32 = asset_face_count(read source);
+    var indices: u32 = asset_index_count(read source);
+    if vertices > 0xfffffff9u32 || faces > 0xfffffff7u32 || indices > 0xffffffdfu32 {
+        return error("hexagonal subdivision exceeds hull address range");
+    }
+    if !asset_hull_allocate(mut target, vertices + 6u32, faces + 8u32, indices + 32u32) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < vertices {
+        asset_vertex_set(mut target, i, asset_vertex(read source, i));
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < faces {
+        asset_face_set(mut target, i, asset_face(read source, i));
+        asset_surface_set(mut target, i, asset_surface(read source, i));
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < indices {
+        asset_index_set(mut target, i, asset_index(read source, i));
+        i = i + 1u32;
+    }
+    return true;
+}
+fn hex_surround_face(
+    hull: mut AssetHull,
+    face: u32,
+    first: u32,
+    region: u32,
+    a: u32,
+    b: u32,
+    c: u32,
+    d: u32
+) -> u32 {
+    var count: u32 = 3u32;
+    if d != c {
+        count = 4u32;
+    }
+    asset_face_set(
+        mut hull,
+        face,
+        make HullFace {
+            first: first,
+            count: count,
+            region: region
+        }
+    );
+    asset_index_set(mut hull, first, a);
+    asset_index_set(mut hull, first + 1u32, b);
+    asset_index_set(mut hull, first + 2u32, c);
+    if count == 4u32 {
+        asset_index_set(mut hull, first + 3u32, d);
+    }
+    return first + count;
+}
+// The source face is a rectangle ordered bottom-right, top-right, top-left,
+// bottom-left in the port frame. The centred hexagon must fit strictly inside.
+// The original face ID becomes the closure; all outer boundary IDs stay intact.
+fn hull_hex_partition(
+    source: read AssetHull,
+    target: mut AssetHull,
+    port: RoomPort,
+    closure_region: u32
+) -> bool {
+    if !hex_partition_copy(read source, mut target) {
+        return false;
+    }
+    var face: HullFace = asset_face(read source, port.face);
+    var base: u32 = asset_vertex_count(read source);
+    var first: u32 = asset_index_count(read source);
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        asset_vertex_set(mut target, base + i, connection_point(port, i));
+        asset_index_set(mut target, first + i, base + i);
+        i = i + 1u32;
+    }
+    asset_face_set(
+        mut target,
+        port.face,
+        make HullFace {
+            first: first,
+            count: 6u32,
+            region: closure_region
+        }
+    );
+    first = first + 6u32;
+    var br: u32 = asset_index(read source, face.first);
+    var tr: u32 = asset_index(read source, face.first + 1u32);
+    var tl: u32 = asset_index(read source, face.first + 2u32);
+    var bl: u32 = asset_index(read source, face.first + 3u32);
+    var next: u32 = asset_face_count(read source);
+    first = hex_surround_face(
+        mut target,
+        next,
+        first,
+        face.region,
+        tr,
+        tl,
+        base + 2u32,
+        base + 1u32
+    );
+    first = hex_surround_face(
+        mut target,
+        next + 1u32,
+        first,
+        face.region,
+        bl,
+        br,
+        base + 5u32,
+        base + 4u32
+    );
+    first = hex_surround_face(
+        mut target,
+        next + 2u32,
+        first,
+        face.region,
+        tl,
+        bl,
+        base + 3u32,
+        base + 3u32
+    );
+    first = hex_surround_face(
+        mut target,
+        next + 3u32,
+        first,
+        face.region,
+        tl,
+        base + 3u32,
+        base + 2u32,
+        base + 2u32
+    );
+    first = hex_surround_face(
+        mut target,
+        next + 4u32,
+        first,
+        face.region,
+        bl,
+        base + 4u32,
+        base + 3u32,
+        base + 3u32
+    );
+    first = hex_surround_face(
+        mut target,
+        next + 5u32,
+        first,
+        face.region,
+        br,
+        tr,
+        base,
+        base
+    );
+    first = hex_surround_face(
+        mut target,
+        next + 6u32,
+        first,
+        face.region,
+        tr,
+        base + 1u32,
+        base,
+        base
+    );
+    first = hex_surround_face(
+        mut target,
+        next + 7u32,
+        first,
+        face.region,
+        br,
+        base,
+        base + 5u32,
+        base + 5u32
+    );
+    i = 0u32;
+    while i < 8u32 {
+        asset_surface_set(mut target, next + i, asset_surface(read source, port.face));
+        i = i + 1u32;
+    }
+    asset_surface_set(
+        mut target,
+        port.face,
+        make SurfaceFrame {
+            origin: port.position,
+            right: port.basis.right,
+            up: port.basis.up,
+            normal: port.basis.forward
+        }
+    );
+    return true;
+}

@@ -2,6 +2,7 @@ fn asset_scene(
     input: mut FrameInput,
     asset: read RoomAsset,
     mesh: MeshRange,
+    labels: MeshRange,
     camera: AssetCamera
 ) -> bool {
     input_frame(mut input);
@@ -20,13 +21,31 @@ fn asset_scene(
         i = i + 1u32;
     }
     asset_camera(mut input, read asset, mesh, camera);
-    return input_instance(mut input, mesh_identity(mesh, 0u32));
+    return input_instance(mut input, mesh_identity(mesh, 0u32)) && input_instance(
+        mut input,
+        mesh_identity(labels, 0u32)
+    );
 }
 fn asset_view_upload(session: mut AssetSession, asset: read RoomAsset, range: mut MeshRange) -> bool {
-    var renderer: mut Renderer = asset_renderer(mut session);
-    var input: FrameInput = renderer_inputs(mut renderer);
-    input_clear_meshes(mut input);
-    return input_mesh(mut input, read asset.mesh, mut range) && room_materials(mut input);
+    var labels: Mesh = mesh_new();
+    if !asset_labels_build(read asset, mut labels) {
+        return false;
+    }
+    var label_range: MeshRange = mesh_empty_range();
+    {
+        var renderer: mut Renderer = asset_renderer(mut session);
+        var input: FrameInput = renderer_inputs(mut renderer);
+        input_clear_meshes(mut input);
+        if !input_mesh(mut input, read asset.mesh, mut range) || !input_mesh(
+            mut input,
+            read labels,
+            mut label_range
+        ) || !asset_view_materials(mut input) {
+            return false;
+        }
+    }
+    asset_label_range_set(mut session, label_range);
+    return true;
 }
 fn asset_view_run(
     session: AssetSession,
@@ -88,10 +107,11 @@ fn asset_view_run(
         if !headless {
             asset_flight_move(mut state.camera, asset_flight_input(), seconds);
         }
+        var labels: MeshRange = asset_label_range(read session);
         {
             var renderer: mut Renderer = asset_renderer(mut session);
             var output: FrameInput = renderer_inputs(mut renderer);
-            if !asset_scene(mut output, read asset, range, state.camera) {
+            if !asset_scene(mut output, read asset, range, labels, state.camera) {
                 return 1i32;
             }
         }

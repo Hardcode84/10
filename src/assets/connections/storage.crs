@@ -1,0 +1,61 @@
+record ConnectionProfile {
+    name: AssetName;
+    shape: RegularProfile;
+    radius: f32;
+    rotations: u32;
+    clearance: f32;
+}
+record RoomPort {
+    id: AssetName;
+    profile: ConnectionProfile;
+    face: u32;
+    position: Vec3;
+    basis: Basis;
+}
+resource AssetPorts {
+    data: *RoomPort;
+    count: u32;
+    capacity: u32;
+}
+opaque drop asset_ports_drop;
+fn asset_ports_new() -> AssetPorts {
+    return make AssetPorts {
+        data: null(*RoomPort),
+        count: 0u32,
+        capacity: 0u32
+    };
+}
+fn asset_ports_drop(ports: mut AssetPorts) -> unit {
+    free(ports.data as *u8);
+}
+fn asset_port_count(ports: read AssetPorts) -> u32 {
+    return ports.count;
+}
+fn asset_port(ports: read AssetPorts, index: u32) -> RoomPort {
+    return ports.data[index as usize];
+}
+fn asset_port_append(ports: mut AssetPorts, port: RoomPort) -> bool {
+    if ports.count == ports.capacity {
+        var capacity: u64 = ports.capacity as u64 * 2u64 + 1u64;
+        if capacity > 0xffffffffu64 {
+            return error("port count exceeds address range");
+        }
+        var data: *RoomPort = malloc(capacity as usize * sizeof(RoomPort)) as *RoomPort;
+        if data == null(*RoomPort) {
+            return error("port allocation failed");
+        }
+        if ports.count != 0u32 {
+            memcpy(
+                data as *u8,
+                ports.data as *u8,
+                ports.count as usize * sizeof(RoomPort)
+            );
+        }
+        free(ports.data as *u8);
+        ports.data = data;
+        ports.capacity = capacity as u32;
+    }
+    ports.data[ports.count as usize] = port;
+    ports.count = ports.count + 1u32;
+    return true;
+}

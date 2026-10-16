@@ -1,5 +1,5 @@
 // Builds indexed surface materials from the recipe, with one 256-colour palette each.
-fn room_materials(input: mut FrameInput) -> bool {
+fn room_material_payload() -> u32 {
     var payload: u32 = 0u32;
     var region: u32 = 0u32;
     while region < room_material_count() {
@@ -8,11 +8,11 @@ fn room_materials(input: mut FrameInput) -> bool {
         payload = payload + size * size + PALETTE_COLORS * LIGHT_STATES;
         region = region + 1u32;
     }
-    if !input_assets(mut input, room_material_count(), payload) {
-        return false;
-    }
-    var offset: u32 = room_material_count() * MATERIAL_WORDS;
-    region = 0u32;
+    return payload;
+}
+// The caller reserves the complete material table and payload before upload.
+fn room_materials(input: mut FrameInput, offset: u32) -> bool {
+    var region: u32 = 0u32;
     while region < room_material_count() {
         var material: PanelMaterial = room_material(region);
         var size: u32 = (material.tile_metres * material.texels_per_metre as f32) as u32;

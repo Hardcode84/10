@@ -50,6 +50,8 @@ fn loft_span(hull: mut AssetHull, profile: RegularProfile, ring: u32, region: u3
         asset_index_set(mut hull, face * 4u32 + 1u32, (ring + 1u32) * profile.sides + i);
         asset_index_set(mut hull, face * 4u32 + 2u32, (ring + 1u32) * profile.sides + next);
         asset_index_set(mut hull, face * 4u32 + 3u32, ring * profile.sides + next);
+        var surface: SurfaceFrame = hull_frame(read hull, asset_face(read hull, face));
+        asset_surface_set(mut hull, face, surface);
         i = i + 1u32;
     }
 }
@@ -90,4 +92,8 @@ fn loft_caps(
         );
         i = i + 1u32;
     }
+    var base_frame: SurfaceFrame = hull_frame(read hull, asset_face(read hull, count));
+    asset_surface_set(mut hull, count, base_frame);
+    var cap_frame: SurfaceFrame = hull_frame(read hull, asset_face(read hull, count + 1u32));
+    asset_surface_set(mut hull, count + 1u32, cap_frame);
 }

@@ -1,0 +1,23 @@
+// Regular hexagon: 2 m across corners, horizontal corner pair, six roll choices.
+fn service_hex_profile() -> ConnectionProfile {
+    return make ConnectionProfile {
+        name: asset_name("HEX-2M"),
+        shape: make RegularProfile {
+            sides: 6u32,
+            phase: 0f32
+        },
+        radius: 1f32,
+        rotations: 6u32,
+        clearance: 0.7f32
+    };
+}
+fn connection_point(port: RoomPort, corner: u32) -> Vec3 {
+    var angle: f32 = port.profile.shape.phase + 6.28318530718f32 * corner as f32 / port.profile.shape.sides as f32;
+    return add(
+        port.position,
+        add(
+            scale(port.basis.right, port.profile.radius * cosf(angle)),
+            scale(port.basis.up, port.profile.radius * sinf(angle))
+        )
+    );
+}

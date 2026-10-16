@@ -1,0 +1,144 @@
+fn asset_label_vertex(point: Vec3, u: f32, v: f32) -> MeshVertex {
+    return make MeshVertex {
+        x: point.x,
+        y: point.y,
+        z: point.z,
+        u: u,
+        v: v
+    };
+}
+fn asset_label_glyph(mesh: mut Mesh, origin: Vec3, right: Vec3, up: Vec3, character: u32) -> bool {
+    if character >= 128u32 {
+        return error("viewer port labels require ASCII names");
+    }
+    var u: f32 = character as f32 / 128f32;
+    var width: f32 = 1f32 / 128f32;
+    var a: MeshVertex = asset_label_vertex(origin, u, 1f32);
+    var b: MeshVertex = asset_label_vertex(add(origin, right), u + width, 1f32);
+    var c: MeshVertex = asset_label_vertex(add(add(origin, right), up), u + width, 0f32);
+    var d: MeshVertex = asset_label_vertex(add(origin, up), u, 0f32);
+    return asset_label_quad(mut mesh, a, b, c, d, 1u32);
+}
+fn asset_label_quad(
+    mesh: mut Mesh,
+    a: MeshVertex,
+    b: MeshVertex,
+    c: MeshVertex,
+    d: MeshVertex,
+    flags: u32
+) -> bool {
+    return mesh_append(
+        mut mesh,
+        make MeshTriangle {
+            vertices: make [MeshVertex; 3] {
+                a,
+                b,
+                c
+            },
+            material: room_material_count(),
+            portal: 0u32,
+            flags: flags
+        }
+    ) && mesh_append(
+        mut mesh,
+        make MeshTriangle {
+            vertices: make [MeshVertex; 3] {
+                a,
+                c,
+                d
+            },
+            material: room_material_count(),
+            portal: 0u32,
+            flags: flags
+        }
+    );
+}
+fn asset_label_line(
+    mesh: mut Mesh,
+    name: AssetName,
+    port: RoomPort,
+    side: f32,
+    height: f32
+) -> bool {
+    var count: u32 = asset_name_length(name);
+    var size: f32 = 0.22f32;
+    if count > 10u32 {
+        size = 2.2f32 / count as f32;
+    }
+    var right: Vec3 = scale(port.basis.right, -side * size);
+    var up: Vec3 = scale(port.basis.up, size);
+    var position: Vec3 = add(
+        add(port.position, scale(port.basis.forward, side * 0.004f32)),
+        scale(port.basis.up, height)
+    );
+    position = sub(position, scale(right, count as f32 * 0.375f32));
+    var i: u32 = 0u32;
+    while i < count {
+        if !asset_label_glyph(
+            mut mesh,
+            position,
+            right,
+            up,
+            asset_name_character(name, i)
+        ) {
+            return false;
+        }
+        position = add(position, scale(right, 0.75f32));
+        i = i + 1u32;
+    }
+    return true;
+}
+fn asset_labels_build(asset: read RoomAsset, mesh: mut Mesh) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_port_count(read asset.ports) {
+        var port: RoomPort = asset_port(read asset.ports, i);
+        if !asset_port_outline(mut mesh, read asset, port, -1f32) || !asset_port_outline(
+            mut mesh,
+            read asset,
+            port,
+            1f32
+        ) || !asset_label_line(mut mesh, port.id, port, -1f32, 0.12f32) || !asset_label_line(
+            mut mesh,
+            port.profile.name,
+            port,
+            -1f32,
+            -0.16f32
+        ) || !asset_label_line(mut mesh, port.id, port, 1f32, 0.12f32) || !asset_label_line(
+            mut mesh,
+            port.profile.name,
+            port,
+            1f32,
+            -0.16f32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn asset_port_outline(mesh: mut Mesh, asset: read RoomAsset, port: RoomPort, side: f32) -> bool {
+    var offset: Vec3 = scale(port.basis.forward, side * 0.006f32);
+    var i: u32 = 0u32;
+    var face: HullFace = asset_face(read asset.hull, port.face);
+    while i < face.count {
+        var a: Vec3 = hull_corner(read asset.hull, face, i);
+        var b: Vec3 = hull_corner(read asset.hull, face, (i + 1u32) % face.count);
+        var c: Vec3 = add(port.position, scale(sub(b, port.position), 0.975f32));
+        var d: Vec3 = add(port.position, scale(sub(a, port.position), 0.975f32));
+        var u: f32 = (72f32 * 8f32 + 0.5f32) / 1024f32;
+        var v: f32 = 1.5f32 / 8f32;
+        if !asset_label_quad(
+            mut mesh,
+            asset_label_vertex(add(a, offset), u, v),
+            asset_label_vertex(add(b, offset), u, v),
+            asset_label_vertex(add(c, offset), u, v),
+            asset_label_vertex(add(d, offset), u, v),
+            1u32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

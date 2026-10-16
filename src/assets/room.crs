@@ -4,6 +4,7 @@ record AssetSpawn {
 }
 record RoomAsset {
     hull: AssetHull;
+    ports: AssetPorts;
     mesh: Mesh;
     collision: CollisionScene;
     spawn: AssetSpawn;
@@ -12,6 +13,7 @@ record RoomAsset {
 fn room_asset_new() -> RoomAsset {
     return make RoomAsset {
         hull: asset_hull_new(),
+        ports: asset_ports_new(),
         mesh: mesh_new(),
         collision: collision_new(),
         spawn: make AssetSpawn {

@@ -37,10 +37,17 @@ fn asset_rebuild_checks(session: AssetSession) -> bool {
     if !asset_rebuild_result(read asset, read values, range, original) {
         return false;
     }
+    var port: RoomPort = asset_port(read asset.ports, 0u32);
+    state.camera.view = 3u32;
+    state.camera.flight = make AssetSpawn {
+        position: sub(port.position, scale(port.basis.forward, 2f32)),
+        basis: port.basis
+    };
+    var labels: MeshRange = asset_label_range(read session);
     {
         var renderer: mut Renderer = asset_renderer(mut session);
         var input: FrameInput = renderer_inputs(mut renderer);
-        if !asset_scene(mut input, read asset, range, state.camera) {
+        if !asset_scene(mut input, read asset, range, labels, state.camera) {
             return false;
         }
     }
@@ -55,7 +62,7 @@ fn asset_rebuild_result(
     range: MeshRange,
     original: MeshRange
 ) -> bool {
-    if asset_value(read values, 0u32) != 4f32 || range.first != 0u32 || range.count != 44u32 || range.bounds[
+    if asset_value(read values, 0u32) != 4f32 || range.first != 0u32 || range.count != 140u32 || range.bounds[
         3usize
     ] >= original.bounds[3usize] * 0.5f32 {
         return error(

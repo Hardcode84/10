@@ -41,3 +41,18 @@ fn asset_name_equal(name: AssetName, text: *u8) -> bool {
     return asset_strcmp(name.text, text) == 0i32;
 }
 extern fn asset_strcmp(a: *u8, b: *u8) -> i32 = "strcmp";
+
+fn asset_name_length(name: AssetName) -> u32 {
+    var count: u32 = 0u32;
+    while name.text[count as usize] != 0u8 {
+        count = count + 1u32;
+    }
+    return count;
+}
+fn asset_name_character(name: AssetName, index: u32) -> u32 {
+    return name.text[index as usize] as u32;
+}
+
+fn asset_names_equal(a: AssetName, b: AssetName) -> bool {
+    return asset_strcmp(a.text, b.text) == 0i32;
+}

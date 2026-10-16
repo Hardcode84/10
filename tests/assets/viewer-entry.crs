@@ -15,18 +15,26 @@ fn main(argc: i32, argv: **u8) -> i32 {
     return 0i32;
 }
 fn asset_view_test_pixels(session: read AssetSession) -> bool {
-    if session.renderer.state.mesh_count != 44u32 {
+    if session.renderer.state.mesh_count != 140u32 + session.labels.count {
         return error("rebuild accumulated retained meshes");
     }
     var pixels: *u32 = session.renderer.state.mapped as *u32;
     var base: u32 = pixels[PRESENT_PIXELS as usize];
     var visible: u32 = 0u32;
+    var label_pixels: u32 = 0u32;
     var i: u32 = 0u32;
     while i < session.launch.width * session.launch.height {
         if pixels[(base + i) as usize] != 0xff181410u32 {
             visible = visible + 1u32;
         }
+        var x: u32 = i % session.launch.width;
+        var y: u32 = i / session.launch.width;
+        if x > 110u32 && x < 210u32 && y > 90u32 && y < 150u32 && pixels[(base + i) as usize] == 0xffb8f4ffu32 {
+            label_pixels = label_pixels + 1u32;
+        }
         i = i + 1u32;
     }
-    return visible > 1000u32 || error("rebuilt room did not produce visible pixels");
+    return visible > 1000u32 && label_pixels > 20u32 || error(
+        "rebuilt room or its port labels did not produce visible pixels"
+    );
 }

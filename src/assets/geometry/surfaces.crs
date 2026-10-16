@@ -47,7 +47,7 @@ fn hull_mesh(hull: read AssetHull, mesh: mut Mesh, tile_metres: f32) -> bool {
     var i: u32 = 0u32;
     while i < asset_face_count(read hull) {
         var face: HullFace = asset_face(read hull, i);
-        var frame: SurfaceFrame = hull_frame(read hull, face);
+        var frame: SurfaceFrame = asset_surface(read hull, i);
         var corner: u32 = 1u32;
         while corner + 1u32 < face.count {
             var primitive: MeshTriangle = make MeshTriangle {

@@ -139,6 +139,20 @@ turns the free-flight camera about its local axes. It can look past vertical.
 Movement uses elapsed time and passes through geometry. Rebuilding the asset
 keeps the camera position. Space and arrow keys do not change the flight camera.
 
+The viewer draws each port's local ID and compatibility name on its closure,
+with an outline of the actual hull polygon. Labels are readable from either
+side and use depth testing. They are viewer geometry, not collision surfaces.
+The font atlas is generated from the shared bitmap font in Crust. Label names
+must use ASCII. Unlinked ports stay closed; an outline does not create a link.
+
+Room bundles own a variable-size list of ports. Each port records its local ID,
+shared profile, hull face ID, and rigid frame. The hexagonal inset operation
+partitions a rectangular wall into a closure and eight convex surround faces.
+It preserves shared outer edges and the wall's texture frame. The shared
+profile supplies the opening vertices and allowed rotations. Names determine
+compatibility; no polygon comparison selects a connection.
+
+
 ### Focused checks
 
 ```sh
@@ -160,7 +174,7 @@ path. It checks rejected-edit recovery, retained mesh replacement, and visible
 pixels after the final upload. It does not run the expedition.
 
 Inspect interior, exterior, and spawn captures before adding detail. This proof
-covers a closed generated room and its collision data. Connected rooms, props,
+covers a generated room, its closed named ports, and collision data. Connected rooms, props,
 and gameplay transfer still require the checks in the room-format document.
 
 ## Authoring layers
@@ -385,7 +399,8 @@ reproduce a result.
 
 Start with the [closed radial room](../../assets/rooms/radial-start.crs). Prove its parametric hull,
 materials, local spawn, and collision output in the standalone viewer. This is
-the first asset selected for implementation. It has no portals yet.
+the first asset selected for implementation. Its prism faces have named hexagonal
+ports with closed unused openings. Room links are a separate assembly step.
 
 Before a room-wide component library, extend that proof to a connected assembly:
 

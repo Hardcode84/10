@@ -1,0 +1,40 @@
+fn asset_view_materials(input: mut FrameInput) -> bool {
+    var count: u32 = room_material_count() + 1u32;
+    var room_words: u32 = room_material_payload();
+    if !input_assets(mut input, count, room_words + 8192u32 + PALETTE_COLORS * LIGHT_STATES) {
+        return false;
+    }
+    var offset: u32 = count * MATERIAL_WORDS;
+    if !room_materials(mut input, offset) {
+        return false;
+    }
+    offset = offset + room_words;
+    var material: Material = make Material {
+        texture: offset,
+        width: 1024u32,
+        height: 8u32,
+        stride: 1024u32,
+        palette: offset + 8192u32,
+        style: 0u32,
+        unlit: 1u32,
+        address_u: ADDRESS_CLAMP,
+        address_v: ADDRESS_CLAMP,
+        transparent_index: 0u32
+    };
+    if !input_material(mut input, room_material_count(), material) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 8192u32 {
+        var x: u32 = i % 1024u32;
+        var bit: u32 = (font_glyph(x / 8u32) >> ((i / 1024u32) * 8u32 + x % 8u32) as u64) as u32 & 1u32;
+        input_texel(mut input, offset + i, bit);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < PALETTE_COLORS * LIGHT_STATES {
+        input_asset_set(mut input, material.palette + i, 0xffb8f4ffu32);
+        i = i + 1u32;
+    }
+    return true;
+}

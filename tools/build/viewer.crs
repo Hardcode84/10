@@ -14,12 +14,15 @@ fn build_viewer(
         &providers[provider_count]
     );
     provider_count = provider_count + asset_providers(root, &providers[provider_count]);
-    var files: [*u8; 7] = make [*u8; 7] {
+    var files: [*u8; 10] = make [*u8; 10] {
         "src/viewer/asset-controls.crs",
         "src/viewer/asset-camera.crs",
         "src/viewer/asset-flight.crs",
         "src/app/camera.crs",
         "src/app/colour.crs",
+        "src/app/font.crs",
+        "src/viewer/asset-labels.crs",
+        "src/viewer/asset-label-material.crs",
         "src/viewer/asset-scene.crs",
         "src/assets/materials/upload.crs"
     };
@@ -43,7 +46,7 @@ fn build_viewer(
         output = "build/tests-assets-viewer";
     }
     var i: usize = 0usize;
-    while i < 7usize {
+    while i < 10usize {
         sources[source_count] = host_path(root, files[i]);
         source_count = source_count + 1usize;
         i = i + 1usize;

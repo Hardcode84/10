@@ -51,10 +51,16 @@ fn asset_test_contacts(asset: read RoomAsset, face: HullFace, radius: f32) -> bo
     }
     center = scale(center, 1f32 / face.count as f32);
     var normal: Vec3 = hull_frame(read asset.hull, face).normal;
+    var start: Vec3 = sub(center, scale(normal, 0.5f32));
+    if !hull_contains(read asset.hull, start, radius) {
+        return !collision_position_valid(read asset.collision, 0u32, start, radius) || error(
+            "narrow surround accepted a sphere that overlaps another hull face"
+        );
+    }
     var contact: CollisionContact = collision_sweep(
         read asset.collision,
         0u32,
-        sub(center, scale(normal, 0.5f32)),
+        start,
         scale(normal, 2f32),
         radius
     );
@@ -74,9 +80,9 @@ fn asset_test_contacts(asset: read RoomAsset, face: HullFace, radius: f32) -> bo
     return true;
 }
 fn asset_test_shell(asset: read RoomAsset) -> bool {
-    if asset_vertex_count(read asset.hull) != 24u32 || asset_face_count(read asset.hull) != 18u32 || mesh_triangle_count(
+    if asset_vertex_count(read asset.hull) != 72u32 || asset_face_count(read asset.hull) != 82u32 || mesh_triangle_count(
         read asset.mesh
-    ) != 44u32 {
+    ) != 140u32 {
         return error("radial room topology counts are incorrect");
     }
     var f: u32 = 0u32;
@@ -111,9 +117,9 @@ fn asset_test_shell(asset: read RoomAsset) -> bool {
 }
 fn asset_test_variant(values: read AssetValues) -> bool {
     var asset: RoomAsset = room_asset_new();
-    return room_build(read values, mut asset) && asset_test_shell(read asset) && asset_test_uv(
+    return room_build(read values, mut asset) && asset_test_shell(read asset) && asset_test_ports(
         read asset
-    );
+    ) && asset_test_uv(read asset);
 }
 fn asset_test_invalid(values: mut AssetValues) -> bool {
     asset_parameters_reset(mut values);

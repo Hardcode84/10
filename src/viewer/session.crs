@@ -9,6 +9,7 @@ record AssetSession {
     window: AssetWindow;
     renderer: Renderer;
     launch: ViewerLaunch;
+    labels: MeshRange;
 }
 opaque;
 fn asset_session(launch: *ViewerLaunch) -> AssetSession {
@@ -17,7 +18,8 @@ fn asset_session(launch: *ViewerLaunch) -> AssetSession {
             handle: null(*u8)
         },
         renderer: renderer_new(),
-        launch: *launch
+        launch: *launch,
+        labels: mesh_empty_range()
     };
 }
 fn asset_renderer(session: mut AssetSession) -> mut Renderer from session {
@@ -72,3 +74,10 @@ fn asset_session_wait() -> unit {
 }
 extern fn SDL_Delay(milliseconds: u32) -> unit = "SDL_Delay";
 extern fn SDL_SetWindowTitle(window: *u8, title: *u8) -> unit = "SDL_SetWindowTitle";
+
+fn asset_label_range(session: read AssetSession) -> MeshRange {
+    return session.labels;
+}
+fn asset_label_range_set(session: mut AssetSession, range: MeshRange) -> unit {
+    session.labels = range;
+}

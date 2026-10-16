@@ -87,7 +87,9 @@ uses exact world-coordinate equality. The [expedition layout](../../src/game/exp
 contains five fixed room instances and five links. Containment tests use box
 volumes. The [radial start asset](../../assets/rooms/radial-start.crs) supplies a closed convex hull,
 local spawn, and shared render/collision geometry in the viewer. The expedition
-does not yet consume that bundle. Named connections and assembly are not implemented.
+does not yet consume that bundle. The asset now has named hexagonal ports,
+local frames, six roll choices, and closed unused openings. Linking room
+instances and removing their matched closures are not implemented.
 
 **Change:** implement convex hull rooms in separate local spaces. Use named
 connection profiles, local port frames, and declared rotation counts. Names

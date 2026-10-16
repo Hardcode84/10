@@ -11,48 +11,6 @@ fn hud_text(v: mut FrameInput, x: u32, y: u32, text: *u8) -> unit {
 }
 fn hud_font(v: mut FrameInput) -> unit {
     var characters: *u8 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/-%.|";
-    var rows: [u64; 40] = make [u64; 40] {
-        0x11111f11110e00u64,
-        0x0f11110f110f00u64,
-        0x0e110101110e00u64,
-        0x0f111111110f00u64,
-        0x1f01010f011f00u64,
-        0x0101010f011f00u64,
-        0x0e111901110e00u64,
-        0x1111111f111100u64,
-        0x0e040404040e00u64,
-        0x06110908081c00u64,
-        0x11090503091100u64,
-        0x1f010101010100u64,
-        0x1111151b111100u64,
-        0x11111915131100u64,
-        0x0e111111110e00u64,
-        0x01010f11110f00u64,
-        0x16191511110e00u64,
-        0x11090f11110f00u64,
-        0x0f10100e011e00u64,
-        0x04040404041f00u64,
-        0x0e111111111100u64,
-        0x040a1111111100u64,
-        0x111b1515111100u64,
-        0x110a04040a1100u64,
-        0x0404040a111100u64,
-        0x1f020408101f00u64,
-        0x0e131515190e00u64,
-        0x0e040404060400u64,
-        0x1f020408110e00u64,
-        0x0e11100c100f00u64,
-        0x08081f090a0c00u64,
-        0x0e1110100f1f00u64,
-        0x0e11110f010e00u64,
-        0x04040408101f00u64,
-        0x0e11110e110e00u64,
-        0x0e101e11110e00u64,
-        0x01020204081000u64,
-        0x0000001f000000u64,
-        0x19190204131300u64,
-        0x04040000000000u64
-    };
     var i: usize = 0usize;
     while i < 40usize {
         var y: u32 = 0u32;
@@ -60,7 +18,7 @@ fn hud_font(v: mut FrameInput) -> unit {
             input_set_word(
                 mut v,
                 (OVERLAY_FONT + (characters[i] as u32) * 8u32 + y) as usize,
-                ((rows[i] >> (y * 8u32) as u64) & 31u64) as u32
+                ((font_glyph(characters[i] as u32) >> (y * 8u32) as u64) & 31u64) as u32
             );
             y = y + 1u32;
         }

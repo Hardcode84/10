@@ -1,0 +1,76 @@
+// Returns eight rows of a five-pixel ASCII glyph, least significant pixel first.
+fn font_glyph(character: u32) -> u64 {
+    var rows: [u64; 40] = make [u64; 40] {
+        0x11111f11110e00u64,
+        0x0f11110f110f00u64,
+        0x0e110101110e00u64,
+        0x0f111111110f00u64,
+        0x1f01010f011f00u64,
+        0x0101010f011f00u64,
+        0x0e111901110e00u64,
+        0x1111111f111100u64,
+        0x0e040404040e00u64,
+        0x06110908081c00u64,
+        0x11090503091100u64,
+        0x1f010101010100u64,
+        0x1111151b111100u64,
+        0x11111915131100u64,
+        0x0e111111110e00u64,
+        0x01010f11110f00u64,
+        0x16191511110e00u64,
+        0x11090f11110f00u64,
+        0x0f10100e011e00u64,
+        0x04040404041f00u64,
+        0x0e111111111100u64,
+        0x040a1111111100u64,
+        0x111b1515111100u64,
+        0x110a04040a1100u64,
+        0x0404040a111100u64,
+        0x1f020408101f00u64,
+        0x0e131515190e00u64,
+        0x0e040404060400u64,
+        0x1f020408110e00u64,
+        0x0e11100c100f00u64,
+        0x08081f090a0c00u64,
+        0x0e1110100f1f00u64,
+        0x0e11110f010e00u64,
+        0x04040408101f00u64,
+        0x0e11110e110e00u64,
+        0x0e101e11110e00u64,
+        0x01020204081000u64,
+        0x0000001f000000u64,
+        0x19190204131300u64,
+        0x04040000000000u64
+    };
+    if character >= 97u32 && character <= 122u32 {
+        character = character - 32u32;
+    }
+    if character >= 65u32 && character <= 90u32 {
+        return rows[(character - 65u32) as usize];
+    }
+    if character >= 48u32 && character <= 57u32 {
+        return rows[(character - 48u32 + 26u32) as usize];
+    }
+    if character == 47u32 {
+        return rows[36usize];
+    }
+    if character == 45u32 {
+        return rows[37usize];
+    }
+    if character == 37u32 {
+        return rows[38usize];
+    }
+    if character == 46u32 {
+        return rows[39usize];
+    }
+    if character == 124u32 {
+        return 0x0404040404040404u64;
+    }
+    if character == 95u32 {
+        return 0x1f000000000000u64;
+    }
+    if character == 32u32 {
+        return 0u64;
+    }
+    return 0x0400040408110eu64;
+}
