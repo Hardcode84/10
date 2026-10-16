@@ -1,12 +1,26 @@
 // Copies a hull and reserves storage for a rectangular face with a hexagonal inset.
 fn hex_partition_copy(source: read AssetHull, target: mut AssetHull) -> bool {
+    return hull_partition_copy(read source, mut target, 6u32, 8u32, 32u32);
+}
+fn hull_partition_copy(
+    source: read AssetHull,
+    target: mut AssetHull,
+    extra_vertices: u32,
+    extra_faces: u32,
+    extra_indices: u32
+) -> bool {
     var vertices: u32 = asset_vertex_count(read source);
     var faces: u32 = asset_face_count(read source);
     var indices: u32 = asset_index_count(read source);
-    if vertices > 0xfffffff9u32 || faces > 0xfffffff7u32 || indices > 0xffffffdfu32 {
-        return error("hexagonal subdivision exceeds hull address range");
+    if vertices > 0xffffffffu32 - extra_vertices || faces > 0xffffffffu32 - extra_faces || indices > 0xffffffffu32 - extra_indices {
+        return error("polygon subdivision exceeds hull address range");
     }
-    if !asset_hull_allocate(mut target, vertices + 6u32, faces + 8u32, indices + 32u32) {
+    if !asset_hull_allocate(
+        mut target,
+        vertices + extra_vertices,
+        faces + extra_faces,
+        indices + extra_indices
+    ) {
         return false;
     }
     var i: u32 = 0u32;

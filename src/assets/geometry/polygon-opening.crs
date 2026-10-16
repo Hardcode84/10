@@ -1,0 +1,53 @@
+// Insets a smaller, concentric regular port in a regular polygon of the same
+// side count and phase. Both boundaries have matching outward corner order.
+// The original face ID becomes the closure; the surrounding wall stays solid.
+fn hull_polygon_partition(
+    source: read AssetHull,
+    target: mut AssetHull,
+    port: RoomPort,
+    closure_region: u32
+) -> bool {
+    var face: HullFace = asset_face(read source, port.face);
+    var count: u32 = face.count;
+    if count > 0xffffffffu32 / 5u32 {
+        return error("polygon inset exceeds hull address range");
+    }
+    if !hull_partition_copy(read source, mut target, count, count, count * 5u32) {
+        return false;
+    }
+    var base: u32 = asset_vertex_count(read source);
+    var first: u32 = asset_index_count(read source);
+    var i: u32 = 0u32;
+    while i < count {
+        asset_vertex_set(mut target, base + i, connection_point(port, i));
+        asset_index_set(mut target, first + i, base + i);
+        i = i + 1u32;
+    }
+    asset_face_set(
+        mut target,
+        port.face,
+        make HullFace {
+            first: first,
+            count: count,
+            region: closure_region
+        }
+    );
+    i = 0u32;
+    while i < count {
+        var next: u32 = (i + 1u32) % count;
+        var surround: u32 = asset_face_count(read source) + i;
+        hex_surround_face(
+            mut target,
+            surround,
+            first + count + i * 4u32,
+            face.region,
+            asset_index(read source, face.first + i),
+            asset_index(read source, face.first + next),
+            base + next,
+            base + i
+        );
+        asset_surface_set(mut target, surround, asset_surface(read source, port.face));
+        i = i + 1u32;
+    }
+    return true;
+}
