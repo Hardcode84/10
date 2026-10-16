@@ -20,17 +20,23 @@ fn hook_follow(scene: read CollisionScene, drone: mut Drone, time: f32) -> unit 
     if drone.cable.phase != CABLE_ATTACHED {
         return;
     }
-    drone.cable.anchor = collision_anchor(
-        read scene,
-        drone.cable.instance,
-        drone.cable.local_point,
-        time
+    drone.cable.anchor = space_point(
+        drone.cable.frame,
+        collision_anchor(
+            read scene,
+            drone.cable.instance,
+            drone.cable.local_point,
+            time
+        )
     );
-    drone.cable.velocity = collision_anchor_velocity(
-        read scene,
-        drone.cable.instance,
-        drone.cable.local_point,
-        time
+    drone.cable.velocity = basis_vector(
+        drone.cable.frame.basis,
+        collision_anchor_velocity(
+            read scene,
+            drone.cable.instance,
+            drone.cable.local_point,
+            time
+        )
     );
 }
 // Release preserves the velocity acquired from a machine or the winch.

@@ -15,3 +15,7 @@ fn game_collision_vector(message: *u8, value: Vec3) -> unit {
     print_number(float_bits(value.y) as i64);
     print_number(float_bits(value.z) as i64);
 }
+fn scene_motion_failure() -> unit {
+    error("portal motion did not converge");
+    exit(1i32);
+}

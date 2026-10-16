@@ -105,4 +105,5 @@ Run `crust main.crs` to build and start the expedition. See
 [the expedition guide](../game/expedition.md) for objectives and saved progress.
 Use `crust main.crs --trial` for the movement course and `crust tests.crs game`
 for all simulation checks. See [movement](../game/movement.md) for controls and replay
-commands. The renderer demo still starts with `crust demo.crs`.
+commands. The generated-room flight demo starts with `crust demo.crs`. It uses the same
+flight, tether, input, and fixed-step loop as the game.

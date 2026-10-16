@@ -6,7 +6,7 @@ program with the Crust ownership stage. Device programs use the shader stage.
 | Root | Program |
 | --- | --- |
 | `crust main.crs` | Play the expedition. Use `--trial` for the flight course. |
-| `crust demo.crs` | Run the automatic rendering demo. |
+| `crust demo.crs` | Fly through the generated room with game controls and linked portals. |
 | `crust viewer.crs ROOM.crs` | Build and inspect a Crust room recipe. |
 | `crust tests.crs` | Run all automated checks. |
 
@@ -24,8 +24,9 @@ application functions as the applications.
 | `src/render/interface.crs` | Shared host and device data definitions |
 | `src/collision/` | Mesh storage, kinematic poses, spatial indices, sphere queries, and contact solving |
 | `src/app/` | Shared window, clock, capture, shader, and asset helpers |
-| `src/demo/host/` | Demo options, playback, session, and main loop |
-| `src/demo/scene/` | Demo geometry, camera route, and textures |
+| `src/demo/room/` | Flight demo entry, room links, and material setup |
+| `src/demo/host/` | Automatic playback fixture used by renderer checks |
+| `src/demo/scene/` | Automatic scene fixture used by renderer checks |
 | `src/game/flight/` | Movement state, forces, collisions, and tether |
 | `src/game/course/` | Movement course and automatic pilot |
 | `src/game/expedition/` | Expedition state, layout, rules, and presentation |
@@ -65,6 +66,7 @@ application functions as the applications.
 ```sh
 crust tests.crs
 crust tests.crs ownership
+crust tests.crs portals --width 320 --height 180
 crust tests.crs collision
 crust tests.crs assets
 crust tests.crs asset-viewer

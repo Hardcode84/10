@@ -12,11 +12,14 @@ fn room_material_payload() -> u32 {
 }
 // The caller reserves the complete material table and payload before upload.
 fn room_materials(input: mut FrameInput, offset: u32) -> bool {
+    return room_materials_at(mut input, offset, 0u32);
+}
+fn room_materials_at(input: mut FrameInput, offset: u32, first: u32) -> bool {
     var region: u32 = 0u32;
     while region < room_material_count() {
         var material: PanelMaterial = room_material(region);
         var size: u32 = (material.tile_metres * material.texels_per_metre as f32) as u32;
-        if !panel_upload(mut input, region, offset, size, material) {
+        if !panel_upload(mut input, first + region, offset, size, material) {
             return false;
         }
         offset = offset + size * size + PALETTE_COLORS * LIGHT_STATES;

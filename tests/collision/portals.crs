@@ -1,0 +1,178 @@
+fn test_portal_scene(scene: mut CollisionScene) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var mesh: Mesh = mesh_new();
+    if !collision_test_quad(
+        mut mesh,
+        vec(-4f32, -4f32, 3f32),
+        vec(4f32, -4f32, 3f32),
+        vec(4f32, 4f32, 3f32),
+        vec(-4f32, 4f32, 3f32),
+        vec(0f32, 0f32, -1f32)
+    ) {
+        return false;
+    }
+    var transform: SpaceTransform = make SpaceTransform {
+        origin: vec(7f32, 2f32, -5f32),
+        basis: collision_test_basis()
+    };
+    if !collision_append(mut builder, read mesh, 1u32, transform.origin, transform.basis) {
+        return false;
+    }
+    var portal: CollisionPortal = make CollisionPortal {
+        space: 0u32,
+        destination: 1u32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        radius: 2f32,
+        sides: 6u32,
+        phase: 0f32,
+        transform: transform
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.space = 1u32;
+    portal.destination = 0u32;
+    portal.origin = transform.origin;
+    portal.basis = space_basis(
+        transform,
+        make Basis {
+            right: vec(-1f32, 0f32, 0f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(0f32, 0f32, -1f32)
+        }
+    );
+    portal.transform = space_inverse(transform);
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn test_portal_motion(scene: read CollisionScene) -> bool {
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -1f32);
+    drone.velocity = vec(0f32, 0f32, 3f32);
+    var t: SpaceTransform = collision_portal(read scene, 0u32).transform;
+    move_drone(read scene, mut drone, vec(0f32, 0f32, 2f32));
+    if drone.world != 1u32 || length(
+        sub(drone.position, space_point(t, vec(0f32, 0f32, 1f32)))
+    ) > 0.0001f32 || length(
+        sub(drone.velocity, basis_vector(t.basis, vec(0f32, 0f32, 3f32)))
+    ) > 0.0001f32 {
+        return error("portal must transform position, velocity, and remaining travel");
+    }
+    move_drone(read scene, mut drone, basis_vector(t.basis, vec(0f32, 0f32, -2f32)));
+    if drone.world != 0u32 || length(sub(drone.position, vec(0f32, 0f32, -1f32))) > 0.0001f32 {
+        return error("reverse portal must restore the source frame");
+    }
+    return true;
+}
+fn test_portal_hook(scene: read CollisionScene) -> bool {
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -1f32);
+    hook_launch(mut drone);
+    var i: u32 = 0u32;
+    while i < 12u32 && drone.cable.phase == CABLE_FLYING {
+        hook_step(read scene, mut drone, false);
+        drone.clock = drone.clock + 1u32;
+        i = i + 1u32;
+    }
+    if drone.cable.phase != CABLE_ATTACHED || drone.cable.space != 1u32 || length(
+        sub(drone.cable.anchor, vec(0f32, 0f32, 3f32))
+    ) > 0.001f32 {
+        return error("hook must attach beyond a transformed portal in the unfolded cable frame");
+    }
+    var extent: f32 = drone.cable.extent;
+    move_drone(read scene, mut drone, vec(0f32, 0f32, 2f32));
+    hook_follow(read scene, mut drone, 0f32);
+    var t: SpaceTransform = collision_portal(read scene, 0u32).transform;
+    if drone.world != 1u32 || absf(drone.cable.extent - extent) > 0.0001f32 || length(
+        sub(drone.cable.anchor, space_point(t, vec(0f32, 0f32, 3f32)))
+    ) > 0.001f32 {
+        return error("player crossing must preserve the attachment and cable extent");
+    }
+    drone.cable.reeling = true;
+    var before: f32 = length(sub(drone.position, drone.cable.anchor));
+    i = 0u32;
+    while i < 12u32 {
+        tether_winch(read scene, mut drone);
+        tether_constraint(mut drone);
+        i = i + 1u32;
+    }
+    if length(sub(drone.position, drone.cable.anchor)) >= before || length(drone.velocity) < 10f32 {
+        return error("reel must pull and accelerate through the shared tether code");
+    }
+    return true;
+}
+fn test_collision_portals() -> bool {
+    var scene: CollisionScene = collision_new();
+    return test_portal_scene(mut scene) && test_portal_motion(read scene) && test_portal_hook(
+        read scene
+    );
+}
+
+fn test_portal_player_first(scene: read CollisionScene) -> bool {
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -1f32);
+    hook_launch(mut drone);
+    move_drone(read scene, mut drone, vec(0f32, 0f32, 2f32));
+    if drone.world != 1u32 || drone.cable.space != 0u32 || absf(
+        length(sub(drone.position, drone.cable.anchor)) - 2f32
+    ) > 0.001f32 {
+        return error("player crossing must not teleport the flying hook");
+    }
+    var i: u32 = 0u32;
+    while i < 12u32 && drone.cable.phase == CABLE_FLYING {
+        hook_step(read scene, mut drone, false);
+        i = i + 1u32;
+    }
+    if drone.cable.phase != CABLE_ATTACHED || drone.cable.space != 1u32 || absf(
+        drone.cable.extent - 2f32
+    ) > 0.001f32 {
+        return error("hook crossing after the player must preserve unfolded length");
+    }
+    var velocity: Vec3 = drone.velocity;
+    hook_release(mut drone);
+    return drone.cable.phase == CABLE_READY && length(sub(velocity, drone.velocity)) < 0.0001f32;
+}
+fn test_portal_hook_range() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var portal: CollisionPortal = make CollisionPortal {
+        space: 0u32,
+        destination: 0u32,
+        origin: vec(0f32, 0f32, 1f32),
+        basis: identity_basis(),
+        radius: 2f32,
+        sides: 6u32,
+        phase: 0f32,
+        transform: make SpaceTransform {
+            origin: vec(0f32, 0f32, -2f32),
+            basis: identity_basis()
+        }
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.origin.z = -1f32;
+    portal.basis.right.x = -1f32;
+    portal.basis.forward.z = -1f32;
+    portal.transform.origin.z = 2f32;
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, 0f32);
+    hook_launch(mut drone);
+    var i: u32 = 0u32;
+    while i < 480u32 && drone.cable.phase == CABLE_FLYING {
+        hook_step(read scene, mut drone, false);
+        i = i + 1u32;
+    }
+    return drone.cable.phase == CABLE_SNAPPED || error(
+        "cyclic portal flight must use unfolded hook range"
+    );
+}

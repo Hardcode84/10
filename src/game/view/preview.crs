@@ -116,6 +116,7 @@ fn draw_drone_preview(
         return 0u32;
     }
     var drone: Drone = trial.drone;
+    var eye: Drone = trial.drone;
     var command: Command = idle_command();
     command.tether = drone.cable.phase == CABLE_ATTACHED || drone.cable.phase == CABLE_FLYING;
     var i: u32 = 0u32;
@@ -123,14 +124,16 @@ fn draw_drone_preview(
     while i < 240u32 && trail.markers < trail.limit {
         var before: Vec3 = drone.position;
         simulate(read collision, mut drone, command, trial.full_spin, trial.auto_level);
-        draw_preview_segment(
+        draw_portal_preview(
+            read collision,
             mut v,
             mut trail,
             before,
-            drone.position,
-            trial.drone,
+            space_point(space_inverse(drone.step_frame), drone.position),
+            eye,
             config
         );
+        eye = preview_eye(eye, drone.step_frame, drone.world);
         i = i + 1u32;
     }
     return trail.markers;
@@ -187,4 +190,43 @@ fn draw_frame(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
     );
     frame_rect(mut v, drone, config, -0.0005f32, -0.004f32, 0.001f32, 0.008f32, 4u32);
     frame_rect(mut v, drone, config, -0.004f32, -0.0005f32, 0.008f32, 0.001f32, 4u32);
+}
+
+fn preview_eye(eye: Drone, transform: SpaceTransform, space: u32) -> Drone {
+    eye.position = space_point(transform, eye.position);
+    eye.basis = space_basis(transform, eye.basis);
+    eye.world = space;
+    return eye;
+}
+fn draw_portal_preview(
+    collision: read CollisionScene,
+    v: mut FrameInput,
+    trail: mut PreviewTrail,
+    before: Vec3,
+    after: Vec3,
+    eye: Drone,
+    config: GameConfig
+) -> unit {
+    var crossings: u32 = 0u32;
+    while crossings < 1024u32 {
+        var travel: Vec3 = sub(after, before);
+        var crossing: PortalCrossing = portal_crossing(
+            read collision,
+            eye.world,
+            before,
+            travel
+        );
+        if crossing.time > 1f32 {
+            draw_preview_segment(mut v, mut trail, before, after, eye, config);
+            return;
+        }
+        var point: Vec3 = add(before, scale(travel, crossing.time));
+        draw_preview_segment(mut v, mut trail, before, point, eye, config);
+        var portal: CollisionPortal = collision_portal(read collision, crossing.index);
+        before = space_point(portal.transform, point);
+        after = space_point(portal.transform, after);
+        eye = preview_eye(eye, portal.transform, portal.destination);
+        crossings = crossings + 1u32;
+    }
+    scene_motion_failure();
 }

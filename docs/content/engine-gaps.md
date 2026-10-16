@@ -64,13 +64,14 @@ relative motion during each collision interval.
 [Tether code](../../src/game/flight/tether.crs) constrains a direct segment to one anchor.
 It has no wrapping or obstacle contact. The flying hook has a 120 m range;
 attached reeling is latched and uses a 40 m/s target with charge and collision
-constraints. These are deliberate game rules. The cable has no representation
-for a path through transformed spaces.
+constraints. These are deliberate game rules. The cable now stores its hook
+space and the rigid transform from that space to the player cable frame.
+Crossings preserve unfolded length, velocity, and local mesh attachment.
 [Moving mesh anchors](../collision/kinematic-meshes.md) retain local attachment
-points within one collision space.
+points in their owning collision space.
 
-**Change:** preserve the direct cable rule. Specify and implement cable state
-across portal crossings before that feature is playable.
+**Change:** preserve the direct cable rule when different room instances enter
+the expedition. Add persistent room identity to cable save state and residency.
 Do not add rope wrapping as an incidental collision fix.
 
 **Check:** player and hook on opposite sides of a transformed portal, crossing
@@ -88,8 +89,9 @@ contains five fixed room instances and five links. Containment tests use box
 volumes. The [radial start asset](../../assets/rooms/radial-start.crs) supplies a closed convex hull,
 local spawn, and shared render/collision geometry in the viewer. The expedition
 does not yet consume that bundle. The asset now has named hexagonal ports,
-local frames, six roll choices, and closed unused openings. Linking room
-instances and removing their matched closures are not implemented.
+local frames, six roll choices, and closed unused openings. The flight demo
+opens its ports and connects pairs back into the same room. General room
+assembly still needs explicit instance identity and a selected link table.
 
 **Change:** implement convex hull rooms in separate local spaces. Use named
 connection profiles, local port frames, and declared rotation counts. Names
@@ -102,16 +104,18 @@ closure, and non-box containment. Render and sweep both sides of every seam.
 
 ### W2. Gameplay portals — world feature
 
-The renderer has transformed portal support, but
-[game submission](../../src/game/view/scene.crs) sets portal count to zero. Movement
-uses one global scene coordinate system and does not transfer through portal
-planes. Ordinary matched room doors do not supply the promised transformed
-portal gameplay.
+[Game submission](../../src/game/view/scene.crs) now uses the collision link
+table for rendered portal transforms. Drone and hook motion resolve crossings
+before later contacts, transform the remaining motion, and retain cable state.
+The flight demo exercises cyclic links in one generated room. The expedition
+still uses its box layout and has no persistent portal-room identity.
 
-**Change:** use space-local instance and body state. Resolve a portal crossing
-at its time of impact, transform pose and velocity, and consume remaining
-motion in the destination. Apply the same topology to hook, cable, prediction,
-collision, rendering, and save state. Resolve frame velocities under P1.
+**Change:** connect distinct room instances to the shared link table. Include
+destination geometry in swept-sphere queries while a body overlaps both sides
+of a seam. Current queries change collision space when the centre crosses;
+a destination prop closer than the body radius to the portal needs both-space
+queries before that crossing. Store room identity in saves. Resolve frame
+velocities under P1.
 
 **Check:** translated, rotated, and cyclic spaces that cannot share one global
 embedding. Test crossings near edges, multiple crossings within a step, and
@@ -137,7 +141,7 @@ cable or portal view still refers to its assets.
 The [recipe viewer](parametric-assets.md#implemented-recipe-workflow) compiles a selected Crust file, edits its
 dimensions, replaces generated room bundles, and captures interior, exterior,
 and spawn views. It does not yet provide asset caching, source reload within
-the running process, free-flight inspection, or the diagnostic overlays in the
+the running process or the diagnostic overlays in the
 asset design. Source edits require the root command again.
 
 **Change:** complete the inspection and source-reload controls in the asset design. Keep asset
@@ -153,7 +157,7 @@ same bundle in the game, including its collision data.
 [Bootstrap support](../build/bootstrap.md) is Linux x86-64. The root uses Linux linker
 flags and native host operations. Vulkan portability alone does not provide a
 Windows build. [Recordings](../../src/game/host/recording.crs) use host binary words and
-version 11; saves use level version 3. Neither format identifies a generated
+version 12; saves use level version 3. Neither format identifies a generated
 recipe, parameter set, style revision, or content hash.
 
 **Change:** keep the current source bootstrap. Implement required Windows

@@ -5,6 +5,8 @@ const CABLE_FLYING: u32 = 1u32;
 const CABLE_ATTACHED: u32 = 2u32;
 const CABLE_SNAPPED: u32 = 3u32;
 record Cable {
+    frame: SpaceTransform;
+    space: u32;
     phase: u32;
     instance: u32;
     surface: u32;
@@ -17,6 +19,8 @@ record Cable {
 }
 fn empty_cable() -> Cable {
     return make Cable {
+        frame: space_identity(),
+        space: 0u32,
         phase: CABLE_READY,
         instance: 0xffffffffu32,
         surface: 0xffffffffu32,
@@ -29,6 +33,7 @@ fn empty_cable() -> Cable {
     };
 }
 record Drone {
+    step_frame: SpaceTransform;
     world: u32;
     clock: u32;
     machine_work: f32;
@@ -46,6 +51,7 @@ record Drone {
 }
 fn new_drone() -> Drone {
     return make Drone {
+        step_frame: space_identity(),
         world: 0u32,
         clock: 0u32,
         machine_work: 0f32,

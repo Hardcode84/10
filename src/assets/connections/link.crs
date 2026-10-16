@@ -1,0 +1,96 @@
+// Named profiles define compatibility. Roll selects an allowed mating rotation.
+fn connection_transform(a: RoomPort, b: RoomPort, roll: u32) -> SpaceTransform {
+    var angle: f32 = 6.28318530718f32 * roll as f32 / connection_rotations(a, b) as f32;
+    var c: f32 = cosf(angle);
+    var s: f32 = sinf(angle);
+    var mating: SpaceTransform = make SpaceTransform {
+        origin: b.position,
+        basis: make Basis {
+            right: add(scale(b.basis.right, c), scale(b.basis.up, s)),
+            up: sub(scale(b.basis.right, s), scale(b.basis.up, c)),
+            forward: scale(b.basis.forward, -1f32)
+        }
+    };
+    return space_compose(
+        mating,
+        space_inverse(
+            make SpaceTransform {
+                origin: a.position,
+                basis: a.basis
+            }
+        )
+    );
+}
+fn connection_link(
+    builder: mut CollisionBuilder,
+    a: RoomPort,
+    b: RoomPort,
+    space: u32,
+    destination: u32,
+    roll: u32
+) -> bool {
+    if !asset_names_equal(a.profile.name, b.profile.name) || roll >= connection_rotations(a, b) {
+        return error("connection profile or roll does not match");
+    }
+    return collision_portal_append(
+        mut builder,
+        make CollisionPortal {
+            space: space,
+            destination: destination,
+            origin: a.position,
+            basis: a.basis,
+            radius: a.profile.radius,
+            sides: a.profile.shape.sides,
+            phase: a.profile.shape.phase,
+            transform: connection_transform(a, b, roll)
+        }
+    );
+}
+// Linked faces become render portals and leave holes in the collision shell.
+fn room_linked_mesh(
+    asset: read RoomAsset,
+    render: mut Mesh,
+    collision: mut Mesh,
+    material_base: u32
+) -> bool {
+    var face: u32 = 0u32;
+    var primitive_index: u32 = 0u32;
+    while face < asset_face_count(read asset.hull) {
+        var portal: u32 = 0u32;
+        var i: u32 = 0u32;
+        while i < asset_port_count(read asset.ports) {
+            if asset_port(read asset.ports, i).face == face {
+                portal = i + 1u32;
+            }
+            i = i + 1u32;
+        }
+        var count: u32 = asset_face(read asset.hull, face).count - 2u32;
+        i = 0u32;
+        while i < count {
+            var t: MeshTriangle = mesh_triangle(read asset.mesh, primitive_index);
+            t.material = t.material + material_base;
+            t.portal = portal;
+            if !mesh_append(mut render, t) {
+                return false;
+            }
+            if portal == 0u32 && !mesh_append(mut collision, t) {
+                return false;
+            }
+            primitive_index = primitive_index + 1u32;
+            i = i + 1u32;
+        }
+        face = face + 1u32;
+    }
+    return true;
+}
+
+fn connection_rotations(a: RoomPort, b: RoomPort) -> u32 {
+    var x: u32 = a.profile.rotations;
+    var y: u32 = b.profile.rotations;
+    while y != 0u32 {
+        var remainder: u32 = x % y;
+        x = y;
+        y = remainder;
+    }
+    return x;
+}

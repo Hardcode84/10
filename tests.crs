@@ -37,6 +37,20 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "asset-viewer") == 0i
 
 host_source(run, "tools/build/demo.crs");
 host_source(run, "tools/build/game.crs");
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "portals") == 0i32 {
+    if !build_game_target(
+        run,
+        backend.emit,
+        "tests/game/portal-flight-entry.crs",
+        "build/tests-portals",
+        "tests/game/portal-flight.crs"
+    ) || !build_render_shaders(run) {
+        return 1i32;
+    }
+    run -> argc = run -> argc - 1i32;
+    run -> argv = run -> argv + 1isize;
+    return launch_application(run, "build/tests-portals");
+};
 host_source(run, "tools/build/tests.crs");
 host_source(run, "tools/build/ownership-tests.crs");
 host_source(run, "tools/build/test-runner.crs");

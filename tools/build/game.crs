@@ -1,7 +1,22 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 69] = make [*u8; 69] {
+    var files: [*u8; 84] = make [*u8; 84] {
+        "src/assets/geometry/loft.crs",
+        "src/assets/geometry/hex-opening.crs",
+        "src/assets/connections/profiles.crs",
+        "src/assets/connections/link.crs",
+        "src/assets/geometry/surfaces.crs",
+        "src/assets/room.crs",
+        "src/assets/parameters.crs",
+        "src/assets/materials/masks.crs",
+        "src/assets/materials/metal.crs",
+        "src/assets/materials/upload.crs",
+        "assets/rooms/radial-start.crs",
+        "src/demo/room/content.crs",
+        "src/demo/room/materials.crs",
+        "src/game/view/portals.crs",
         "src/app/math.crs",
         "src/collision/primitives.crs",
+        "src/collision/portals.crs",
         "src/collision/topology.crs",
         "src/collision/sweep.crs",
         "src/collision/query.crs",
@@ -71,23 +86,28 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 69usize {
+    while i < 84usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 18] = make [*u8; 18] {
+    var files: [*u8; 23] = make [*u8; 23] {
+        "src/assets/geometry/storage.crs",
+        "src/assets/parameter-storage.crs",
+        "src/assets/connections/storage.crs",
         "src/app/window.crs",
         "src/app/render-open.crs",
         "src/collision/storage.crs",
+        "src/collision/portal-storage.crs",
         "src/collision/contact-storage.crs",
         "src/collision/index-build.crs",
         "src/collision/adjacency-build.crs",
         "src/app/clock.crs",
         "src/app/shaders.crs",
         "src/game/host/platform.crs",
+        "src/game/host/world.crs",
         "src/game/host/collision-errors.crs",
         "src/game/host/progress-store.crs",
         "src/game/host/sdl-input.crs",
@@ -99,7 +119,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/text.crs"
     };
     var i: usize = 0usize;
-    while i < 18usize {
+    while i < 23usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
@@ -109,18 +129,39 @@ fn build_game(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    var sources: [*u8; 96] = uninit;
+    return build_game_entry(root, emit, "src/game/host/entry.crs", "build/game");
+}
+fn build_game_entry(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
+    entry: *u8,
+    output: *u8
+) -> bool {
+    return build_game_target(root, emit, entry, output, null(*u8));
+}
+fn build_game_target(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
+    entry: *u8,
+    output: *u8,
+    check: *u8
+) -> bool {
+    var sources: [*u8; 128] = uninit;
     var providers: [*u8; 96] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
+    if check != null(*u8) {
+        sources[source_count] = host_path(root, check);
+        source_count = source_count + 1usize;
+    }
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + game_providers(root, &providers[provider_count]);
 
-    providers[provider_count] = host_path(root, "src/game/host/entry.crs");
+    providers[provider_count] = host_path(root, entry);
     provider_count = provider_count + 1usize;
     return build_application(
         root,
         emit,
-        "build/game",
+        output,
         &sources[0usize],
         source_count,
         &providers[0usize],

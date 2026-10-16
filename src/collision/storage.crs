@@ -28,6 +28,8 @@ record CollisionData {
     instance_count: u32;
     instance_capacity: u32;
     moving: u32;
+    portals: *CollisionPortal;
+    portal_count: u32;
 }
 opaque;
 resource CollisionBuilder {
@@ -61,6 +63,8 @@ fn collision_empty_data() -> CollisionData {
         instances: null(*CollisionInstance),
         instance_count: 0u32,
         instance_capacity: 0u32,
+        portals: null(*CollisionPortal),
+        portal_count: 0u32,
         moving: 0xffffffffu32
     };
 }
@@ -70,10 +74,12 @@ fn collision_builder_new() -> CollisionBuilder {
     };
 }
 fn collision_builder_drop(builder: mut CollisionBuilder) -> unit {
+    free(builder.data.portals as *u8);
     free(builder.data.faces as *u8);
     free(builder.data.instances as *u8);
 }
 fn collision_drop(scene: mut CollisionScene) -> unit {
+    free(scene.data.portals as *u8);
     free(scene.data.faces as *u8);
     free(scene.data.instances as *u8);
     free(scene.nodes as *u8);
@@ -283,7 +289,7 @@ fn collision_bytes(scene: read CollisionScene) -> u64 {
     if scene.spaces != null(*CollisionSpace) {
         bytes = bytes + (scene.data.instance_count as u64 + 1u64) * sizeof(CollisionSpace) as u64;
     }
-    return bytes;
+    return bytes + scene.data.portal_count as u64 * sizeof(CollisionPortal) as u64;
 }
 
 // Appends a solid volume. Finish rejects open or inconsistently wound surfaces.

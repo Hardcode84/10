@@ -1,5 +1,5 @@
 fn reset_trial(trial: mut Trial) -> unit {
-    trial.drone = new_drone();
+    trial.drone = trial.spawn;
     trial.tick = 0u32;
     trial.preview_phase = 0f32;
     trial.gate = 0u32;
@@ -72,5 +72,7 @@ fn trial_step(collision: read CollisionScene, trial: mut Trial, command: Command
     );
     advance_preview_phase(mut trial, before);
     trial.tick = trial.tick + 1u32;
-    trial_progress(mut trial, before);
+    if !trial.free_flight {
+        trial_progress(mut trial, before);
+    }
 }

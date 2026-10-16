@@ -1,7 +1,7 @@
 const ROOM_COUNT: u32 = 5u32;
 const ROOM_LINK_COUNT: u32 = 5u32;
 fn berth_prefab() -> RoomPrefab {
-    var door: RoomPort = room_port(
+    var door: BoxRoomPort = room_port(
         5u32,
         vec(4f32, 4f32, 72f32),
         vec(20f32, 20f32, 72f32)
@@ -19,12 +19,12 @@ fn hall_prefab() -> RoomPrefab {
     );
 }
 fn shaft_prefab() -> RoomPrefab {
-    var lower: RoomPort = room_port(
+    var lower: BoxRoomPort = room_port(
         0u32,
         vec(0f32, 12f32, 12f32),
         vec(0f32, 36f32, 48f32)
     );
-    var upper: RoomPort = room_port(
+    var upper: BoxRoomPort = room_port(
         3u32,
         vec(4f32, 128f32, 12f32),
         vec(28f32, 128f32, 48f32)
@@ -39,12 +39,12 @@ fn shaft_prefab() -> RoomPrefab {
     );
 }
 fn crown_prefab() -> RoomPrefab {
-    var shaft: RoomPort = room_port(
+    var shaft: BoxRoomPort = room_port(
         2u32,
         vec(104f32, 0f32, 12f32),
         vec(128f32, 0f32, 48f32)
     );
-    var drop: RoomPort = room_port(
+    var drop: BoxRoomPort = room_port(
         2u32,
         vec(20f32, 0f32, 12f32),
         vec(60f32, 0f32, 48f32)
@@ -52,12 +52,12 @@ fn crown_prefab() -> RoomPrefab {
     return room_prefab(vec(132f32, 32f32, 60f32), 0u32, shaft, drop, drop, 2u32);
 }
 fn return_prefab() -> RoomPrefab {
-    var upper: RoomPort = room_port(
+    var upper: BoxRoomPort = room_port(
         3u32,
         vec(60f32, 56f32, 72f32),
         vec(100f32, 56f32, 108f32)
     );
-    var lower: RoomPort = room_port(
+    var lower: BoxRoomPort = room_port(
         2u32,
         vec(60f32, 0f32, 72f32),
         vec(100f32, 0f32, 108f32)

@@ -93,7 +93,10 @@ fn game_scene(
 ) -> unit {
     input_frame(mut v);
     input_set_word(mut v, 4usize, 0u32);
-    input_set_word(mut v, 20usize, 0u32);
+    if collision_portal_count(read collision) != 0u32 {
+        input_set_word(mut v, 4usize, 6u32);
+    }
+    render_portals(mut v, read collision);
     input_set_word(mut v, BACKGROUND as usize, 0xff0d0906u32);
     input_set_float(mut v, RENDER_STYLE as usize, 0.04f32);
     var angle: f32 = config.fov * 0.00872664626f32;
@@ -104,14 +107,18 @@ fn game_scene(
     if trial.drone.world == 1u32 {
         expedition_scene(mut v, read trial);
         expedition_lights(mut v, read trial);
-    } else {
+    } else if !trial.free_flight {
         draw_course_gates(mut v, read trial);
     }
-    draw_machines(read collision, mut v, trial.drone);
-    draw_cable(mut v, trial.drone, config);
+    if !trial.free_flight {
+        draw_machines(read collision, mut v, trial.drone);
+    }
+    draw_cable(read collision, mut v, trial.drone, config);
     draw_preview(read collision, mut v, read trial, config);
     draw_frame(mut v, trial.drone, config);
-    draw_route_indicator(mut v, read trial, config);
+    if !trial.free_flight {
+        draw_route_indicator(mut v, read trial, config);
+    }
     if !input_instances(mut v, read world) {
         scene_overflow();
     }

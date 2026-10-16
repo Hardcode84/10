@@ -9,8 +9,7 @@ crust main.crs --trial --width 1280 --height 720 --fov 90
 ```
 
 The root builds the host through the Crust ownership stage and builds the
-compute shaders. The executable is `build/game`. The renderer demonstration
-remains at `crust demo.crs` and `build/spinward`.
+compute shaders. The executable is `build/game`. The generated-room flight demo runs at `crust demo.crs` and `build/spinward`.
 
 ## Course
 
@@ -291,3 +290,36 @@ Esc exit. A physical gamepad has not been tested in this environment.
 The renderer passes 50 lit-tour reference states, including 70 and 110 degree
 fields of view, on AMD and Intel. The palette test also checks overlay bounds,
 transparent cells, glyph rows, and RGBA/BGRA presentation.
+
+## Generated-room flight demo
+
+Run `crust demo.crs`. The demo uses the game input, fixed-step simulation,
+collision solver, tether, HUD, and prediction code. The room recipe supplies
+its spawn, surfaces, and generated textures. Room-specific connections are
+specified in the demo content source. Backspace returns to the recipe spawn.
+The demo has no course gates, expedition save, or completion condition.
+
+Hold LMB to launch and retain the hook. R or Space starts fast reeling.
+Release LMB to release the hook. RMB applies a burst; F applies the brake.
+WASD and Ctrl/Space apply thrust. The mouse turns the drone. Q/E apply roll
+when level assist is off. L toggles level assist. P toggles prediction.
+Tab pauses; Esc closes the window. All bindings use the game binding file.
+
+A portal transfers position, orientation, velocity, and remaining motion.
+Wall and rim contacts before the centre crossing take priority. The hook
+uses the same link table. Its local mesh anchor remains in its owning space.
+The cable stores a rigid transform into the player frame. Length and reeling
+use this unfolded frame, not the short distance between two local positions
+in the same room. The cable passes through obstacles, as in the flight course.
+A flying hook still snaps at 120 m of unfolded distance. An attached cable
+retains its extent until the winch shortens it or the player releases it.
+
+The renderer shows up to six portal crossings. Reaching this view depth does
+not stop physical traversal. View storage is a separate render budget; an
+exhausted budget rejects the frame with an error. Recordings identify the demo
+scene and reject playback in the expedition or course.
+
+Use `crust tests.crs collision` for CPU crossing and tether checks.
+Use `crust tests.crs portals --width 320 --height 180` for a short check of the
+production room links, simulation, and GPU frames on both sides of a portal.
+This check does not run an expedition or assert room dimensions or mesh counts.

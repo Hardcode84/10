@@ -22,7 +22,7 @@ A 6DOF exploration game in a rotating megastructure.
 
 ## Implementation
 
-- Run the rendering demo with `crust demo.crs`. Use the root `main.crs`
+- Run the generated-room flight demo with `crust demo.crs`. Use the root `main.crs`
   entry point for the playable expedition. Use `--trial` for the movement course.
   See [expedition rules](docs/game/expedition.md). Run
   `crust viewer.crs assets/rooms/radial-start.crs` to inspect a Crust room recipe.

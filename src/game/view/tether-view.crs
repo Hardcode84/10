@@ -1,16 +1,21 @@
-fn draw_cable(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
+fn draw_cable(
+    collision: read CollisionScene,
+    v: mut FrameInput,
+    drone: Drone,
+    config: GameConfig
+) -> unit {
     if drone.cable.phase != CABLE_ATTACHED && drone.cable.phase != CABLE_FLYING {
         return;
     }
     var mat: u32 = 4u32;
     var size: Vec3 = vec(HOOK_RADIUS, HOOK_RADIUS, HOOK_RADIUS);
+    var physical: Vec3 = space_point(
+        space_inverse(drone.cable.frame),
+        drone.cable.anchor
+    );
     draw_solid(
         mut v,
-        solid(
-            sub(drone.cable.anchor, size),
-            add(drone.cable.anchor, size),
-            5u32
-        ),
+        solid(sub(physical, size), add(physical, size), 5u32),
         drone.position
     );
     var start: Vec3 = add(
@@ -27,8 +32,12 @@ fn draw_cable(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
         middle,
         scale(unit_vector(drum_position(drone.position)), slack * 0.5f32)
     );
-    draw_ribbon(mut v, start, middle, drone.position, 0.004f32, mat);
-    draw_ribbon(mut v, middle, drone.cable.anchor, drone.position, 0.004f32, mat);
+    if collision_portal_count(read collision) == 0u32 {
+        draw_ribbon(mut v, start, middle, drone.position, 0.004f32, mat);
+        draw_ribbon(mut v, middle, drone.cable.anchor, drone.position, 0.004f32, mat);
+    } else {
+        draw_portal_cable(read collision, mut v, drone, start, drone.cable.anchor, mat);
+    }
     var direction: Vec3 = unit_vector(sub(drone.cable.anchor, drone.position));
     if dot(direction, drone.basis.forward) < 0.5f32 {
         var x: f32 = dot(direction, drone.basis.right);
@@ -49,4 +58,34 @@ fn draw_cable(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
             mat
         );
     }
+}
+
+fn draw_portal_cable(
+    collision: read CollisionScene,
+    v: mut FrameInput,
+    drone: Drone,
+    start: Vec3,
+    end: Vec3,
+    material: u32
+) -> unit {
+    var space: u32 = drone.world;
+    var eye: Vec3 = drone.position;
+    var count: u32 = 0u32;
+    while count < 1024u32 {
+        var travel: Vec3 = sub(end, start);
+        var crossing: PortalCrossing = portal_crossing(read collision, space, start, travel);
+        if crossing.time > 1f32 {
+            draw_ribbon(mut v, start, end, eye, 0.004f32, material);
+            return;
+        }
+        var point: Vec3 = add(start, scale(travel, crossing.time));
+        draw_ribbon(mut v, start, point, eye, 0.004f32, material);
+        var portal: CollisionPortal = collision_portal(read collision, crossing.index);
+        start = space_point(portal.transform, point);
+        end = space_point(portal.transform, end);
+        eye = space_point(portal.transform, eye);
+        space = portal.destination;
+        count = count + 1u32;
+    }
+    scene_motion_failure();
 }

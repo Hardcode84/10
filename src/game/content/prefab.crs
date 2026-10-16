@@ -1,4 +1,4 @@
-record RoomPort {
+record BoxRoomPort {
     face: u32;
     low: Vec3;
     high: Vec3;
@@ -6,7 +6,7 @@ record RoomPort {
 record RoomPrefab {
     size: Vec3;
     material: u32;
-    ports: [RoomPort; 3];
+    ports: [BoxRoomPort; 3];
     count: u32;
 }
 record RoomInstance {
@@ -23,8 +23,8 @@ record WallPanels {
     panels: [Solid; 64];
     count: u32;
 }
-fn room_port(face: u32, low: Vec3, high: Vec3) -> RoomPort {
-    return make RoomPort {
+fn room_port(face: u32, low: Vec3, high: Vec3) -> BoxRoomPort {
+    return make BoxRoomPort {
         face: face,
         low: low,
         high: high
@@ -33,15 +33,15 @@ fn room_port(face: u32, low: Vec3, high: Vec3) -> RoomPort {
 fn room_prefab(
     size: Vec3,
     material: u32,
-    a: RoomPort,
-    b: RoomPort,
-    c: RoomPort,
+    a: BoxRoomPort,
+    b: BoxRoomPort,
+    c: BoxRoomPort,
     count: u32
 ) -> RoomPrefab {
     return make RoomPrefab {
         size: size,
         material: material,
-        ports: make [RoomPort; 3] {
+        ports: make [BoxRoomPort; 3] {
             a,
             b,
             c
@@ -211,7 +211,7 @@ fn panel_cut(walls: mut WallPanels, panel: Solid, hole: Solid, axis: u32) -> uni
     );
 }
 fn port_world(room: RoomInstance, index: u32) -> Solid {
-    var port: RoomPort = room.prefab.ports[index as usize];
+    var port: BoxRoomPort = room.prefab.ports[index as usize];
     return solid(
         add(room.origin, port.low),
         add(room.origin, port.high),
@@ -219,8 +219,8 @@ fn port_world(room: RoomInstance, index: u32) -> Solid {
     );
 }
 fn port_matches(a: RoomInstance, pa: u32, b: RoomInstance, pb: u32) -> bool {
-    var x: RoomPort = a.prefab.ports[pa as usize];
-    var y: RoomPort = b.prefab.ports[pb as usize];
+    var x: BoxRoomPort = a.prefab.ports[pa as usize];
+    var y: BoxRoomPort = b.prefab.ports[pb as usize];
     var first: Solid = port_world(a, pa);
     var second: Solid = port_world(b, pb);
     return x.face / 2u32 == y.face / 2u32 && x.face % 2u32 != y.face % 2u32 && length(

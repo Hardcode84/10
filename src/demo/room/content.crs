@@ -1,0 +1,49 @@
+// Adjacent sides connect in pairs: 0/1, 2/3, 4/5, and 6/7.
+// The half-roll keeps local +Y upright at each crossing.
+fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mut Mesh) -> bool {
+    var values: AssetValues = asset_values_new();
+    if !asset_values_allocate(mut values, room_parameter_count()) {
+        return false;
+    }
+    asset_parameters_reset(mut values);
+    if !room_build(read values, mut asset) {
+        return false;
+    }
+    var walls: Mesh = mesh_new();
+    if !room_linked_mesh(read asset, mut mesh, mut walls, GAME_MATERIALS) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_append(
+        mut builder,
+        read walls,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < asset_port_count(read asset.ports) {
+        if !connection_link(
+            mut builder,
+            asset_port(read asset.ports, i),
+            asset_port(read asset.ports, i ^ 1u32),
+            0u32,
+            0u32,
+            3u32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return collision_finish(move builder, mut collision);
+}
+fn demo_room_start(asset: read RoomAsset, trial: mut Trial) -> unit {
+    trial.free_flight = true;
+    trial.spawn = new_drone();
+    trial.spawn.position = asset.spawn.position;
+    trial.spawn.basis = asset.spawn.basis;
+    trial.auto_level = false;
+    reset_trial(mut trial);
+}

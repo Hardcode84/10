@@ -1,0 +1,14 @@
+fn demo_room_palette(input: mut FrameInput) -> bool {
+    var count: u32 = GAME_MATERIALS + room_material_count();
+    app_assets_extra(
+        mut input,
+        GAME_MATERIALS,
+        room_material_count(),
+        room_material_payload()
+    );
+    game_palette_fill(mut input);
+    input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
+    input_set_float(mut input, CAMERA_LIGHT as usize, 900f32);
+    var offset: u32 = count * MATERIAL_WORDS + GAME_MATERIALS * 64u32 + PALETTE_COLORS * LIGHT_STATES;
+    return room_materials_at(mut input, offset, GAME_MATERIALS);
+}

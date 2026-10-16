@@ -7,7 +7,10 @@ fn wrap_preview_phase(distance: f32) -> f32 {
     return phase;
 }
 fn advance_preview_phase(trial: mut Trial, before: Vec3) -> unit {
-    var travel: Vec3 = sub(trial.drone.position, before);
+    var travel: Vec3 = sub(
+        trial.drone.position,
+        space_point(trial.drone.step_frame, before)
+    );
     trial.preview_phase = wrap_preview_phase(trial.preview_phase + length(travel));
 
 }

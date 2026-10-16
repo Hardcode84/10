@@ -1,0 +1,80 @@
+fn space_identity() -> SpaceTransform {
+    return make SpaceTransform {
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis()
+    };
+}
+fn space_point(t: SpaceTransform, p: Vec3) -> Vec3 {
+    return add(t.origin, basis_vector(t.basis, p));
+}
+fn space_inverse(t: SpaceTransform) -> SpaceTransform {
+    var b: Basis = make Basis {
+        right: vec(t.basis.right.x, t.basis.up.x, t.basis.forward.x),
+        up: vec(t.basis.right.y, t.basis.up.y, t.basis.forward.y),
+        forward: vec(t.basis.right.z, t.basis.up.z, t.basis.forward.z)
+    };
+    return make SpaceTransform {
+        origin: basis_vector(b, scale(t.origin, -1f32)),
+        basis: b
+    };
+}
+fn space_basis(t: SpaceTransform, b: Basis) -> Basis {
+    return make Basis {
+        right: basis_vector(t.basis, b.right),
+        up: basis_vector(t.basis, b.up),
+        forward: basis_vector(t.basis, b.forward)
+    };
+}
+fn space_compose(a: SpaceTransform, b: SpaceTransform) -> SpaceTransform {
+    return make SpaceTransform {
+        origin: space_point(a, b.origin),
+        basis: space_basis(a, b.basis)
+    };
+}
+record PortalCrossing {
+    index: u32;
+    time: f32;
+}
+fn portal_inside(portal: CollisionPortal, point: Vec3) -> bool {
+    var offset: Vec3 = sub(point, portal.origin);
+    var x: f32 = dot(offset, portal.basis.right);
+    var y: f32 = dot(offset, portal.basis.up);
+    var step: f32 = 6.28318530718f32 / portal.sides as f32;
+    var limit: f32 = portal.radius * cosf(step * 0.5f32);
+    var i: u32 = 0u32;
+    while i < portal.sides {
+        var angle: f32 = portal.phase + (i as f32 + 0.5f32) * step;
+        if x * cosf(angle) + y * sinf(angle) > limit {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+// Finds the first outward centre crossing. Rim contacts are resolved separately.
+fn portal_crossing(scene: read CollisionScene, space: u32, position: Vec3, travel: Vec3) -> PortalCrossing {
+    var result: PortalCrossing = make PortalCrossing {
+        index: 0xffffffffu32,
+        time: 2f32
+    };
+    var i: u32 = 0u32;
+    while i < collision_portal_count(read scene) {
+        var p: CollisionPortal = collision_portal(read scene, i);
+        var speed: f32 = dot(p.basis.forward, travel);
+        var distance: f32 = dot(p.basis.forward, sub(position, p.origin));
+        if p.space == space && speed > 0f32 && distance <= 0.00001f32 {
+            var time: f32 = clamp(-distance / speed, 0f32, 2f32);
+            if time <= 1f32 && time < result.time && portal_inside(
+                p,
+                add(position, scale(travel, time))
+            ) {
+                result = make PortalCrossing {
+                    index: i,
+                    time: time
+                };
+            }
+        }
+        i = i + 1u32;
+    }
+    return result;
+}

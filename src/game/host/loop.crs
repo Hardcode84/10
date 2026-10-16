@@ -114,9 +114,7 @@ fn game_advance(
 }
 fn game_run(session: GameSession, config: GameConfig) -> i32 {
     var collision: CollisionScene = collision_new();
-    if !collision_build_game(mut collision) {
-        return 1i32;
-    }
+
     var loop: GameLoop = make GameLoop {
         trial: new_trial(),
         input: input_new(),
@@ -124,23 +122,7 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
         credit: 0u64,
         running: true
     };
-    if !game_open(mut session, mut loop.input) {
-        return 1i32;
-    }
-    loop.trial.full_spin = game_initial_spin(read session);
-    if !game_restore(mut session, mut loop.trial) || !game_collision_spawn(
-        read collision,
-        read loop.trial
-    ) {
-        return 1i32;
-    }
-    {
-        var renderer: mut Renderer = game_renderer(mut session);
-        var inputs: FrameInput = renderer_inputs(mut renderer);
-        game_palette(mut inputs);
-        hud_font(mut inputs);
-    }
-    if !game_static_open(mut session, loop.trial.drone.world) {
+    if !game_run_setup(mut session, mut collision, mut loop, config) {
         return 1i32;
     }
     if !config.headless && !game_render(read collision, mut session, read loop, config) {
@@ -166,4 +148,46 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
     }
     game_summary(read loop.trial);
     return (!game_finish(mut session)) as i32;
+}
+
+fn game_materials_open(session: mut GameSession, config: GameConfig) -> bool {
+    var renderer: mut Renderer = game_renderer(mut session);
+    var inputs: FrameInput = renderer_inputs(mut renderer);
+    if config.room_demo {
+        if !demo_room_palette(mut inputs) {
+            return false;
+        }
+    } else {
+        game_palette(mut inputs);
+    }
+    hud_font(mut inputs);
+    return true;
+}
+
+fn game_run_setup(
+    session: mut GameSession,
+    collision: mut CollisionScene,
+    loop: mut GameLoop,
+    config: GameConfig
+) -> bool {
+    if !game_world_open(mut session, mut collision, mut loop.trial) {
+        return false;
+    }
+    if !game_open(mut session, mut loop.input) {
+        return false;
+    }
+    loop.trial.full_spin = game_initial_spin(read session);
+    if !game_restore(mut session, mut loop.trial) || !game_collision_spawn(
+        read collision,
+        read loop.trial
+    ) {
+        return false;
+    }
+    if !game_materials_open(mut session, config) {
+        return false;
+    }
+    if !game_static_open(mut session, loop.trial.drone.world) {
+        return false;
+    }
+    return true;
 }

@@ -30,12 +30,18 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
     }
     hud_text(mut v, 12u32, 0u32, "TIME MS");
     hud_number(mut v, 20u32, 0u32, trial.tick * 1000u32 / 120u32);
-    hud_text(mut v, 28u32, 0u32, "GATES");
-    hud_number(mut v, 34u32, 0u32, trial.gate);
+    if !trial.free_flight {
+        hud_text(mut v, 28u32, 0u32, "GATES");
+        hud_number(mut v, 34u32, 0u32, trial.gate);
+    }
     hud_text(mut v, 42u32, 0u32, "SPEED");
     hud_number(mut v, 48u32, 0u32, length(trial.drone.velocity) as u32);
     hud_text(mut v, 56u32, 0u32, "M/S");
-    course_label(mut v, trial.gate);
+    if !trial.free_flight {
+        course_label(mut v, trial.gate);
+    } else {
+        hud_text(mut v, 61u32, 0u32, "ROOM FLIGHT");
+    }
     hud_text(mut v, 0u32, 1u32, "HOOK");
     hud_text(mut v, 5u32, 1u32, "READY");
     if trial.drone.cable.phase == CABLE_FLYING {
@@ -69,6 +75,14 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
         5u32,
         "BACKSPACE RETRY | TAB PAUSE | ESC EXIT | PASS CYAN GATES THEN LAND"
     );
+    if trial.free_flight {
+        hud_text(
+            mut v,
+            0u32,
+            5u32,
+            "BACKSPACE RESET | TAB PAUSE | ESC EXIT | FLY THROUGH HEX PORTALS    "
+        );
+    }
     if paused {
         hud_text(
             mut v,

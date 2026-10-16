@@ -25,6 +25,9 @@ fn move_drone_interval(
     var done: bool = false;
     while !done {
         motion.remaining = tether_travel(read drone, motion.remaining);
+        if drone_portal_step(read collision, mut drone, mut motion, time, duration) {
+            continue;
+        }
         done = collision_interval_step(
             read collision,
             drone.world,
@@ -42,4 +45,62 @@ fn move_drone_interval(
     }
     drone.velocity = motion.velocity;
     drone.contact_work = drone.contact_work + motion.contact_work;
+}
+
+fn drone_portal(drone: mut Drone, portal: CollisionPortal) -> unit {
+    var t: SpaceTransform = portal.transform;
+    drone.step_frame = space_compose(t, drone.step_frame);
+    drone.world = portal.destination;
+    drone.position = space_point(t, drone.position);
+    drone.velocity = basis_vector(t.basis, drone.velocity);
+    drone.basis = space_basis(t, drone.basis);
+    drone.cable.anchor = space_point(t, drone.cable.anchor);
+    drone.cable.velocity = basis_vector(t.basis, drone.cable.velocity);
+    drone.cable.frame = space_compose(t, drone.cable.frame);
+}
+fn drone_portal_step(
+    collision: read CollisionScene,
+    drone: mut Drone,
+    motion: mut CollisionMotion,
+    time: f32,
+    duration: f32
+) -> bool {
+    var crossing: PortalCrossing = portal_crossing(
+        read collision,
+        drone.world,
+        motion.position,
+        motion.remaining
+    );
+    if crossing.time > 1f32 {
+        return false;
+    }
+    var query: CollisionSweep = collision_sweep_interval(
+        read collision,
+        drone.world,
+        motion.position,
+        motion.remaining,
+        DRONE_RADIUS,
+        time + motion.elapsed,
+        duration - motion.elapsed
+    );
+    if query.status != 0u32 || query.contact.hit.time <= crossing.time {
+        return false;
+    }
+    var portal: CollisionPortal = collision_portal(read collision, crossing.index);
+    drone.position = add(motion.position, scale(motion.remaining, crossing.time));
+    drone.velocity = motion.velocity;
+    drone_portal(mut drone, portal);
+    motion.position = drone.position;
+    motion.velocity = drone.velocity;
+    motion.remaining = basis_vector(
+        portal.transform.basis,
+        scale(motion.remaining, 1f32 - crossing.time)
+    );
+    motion.elapsed = motion.elapsed + (duration - motion.elapsed) * crossing.time;
+    motion.contacts = motion.contacts + 1u32;
+    if motion.contacts >= 1024u32 {
+        motion.status = 3u32;
+        game_collision_failure(motion);
+    }
+    return true;
 }

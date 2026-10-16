@@ -9,21 +9,34 @@ fn draw_hook_preview(
     var command: Command = idle_command();
     command.tether = true;
     var trail: PreviewTrail = preview_trail(limit, HOOK_PREVIEW_MATERIAL, 0f32);
-    var before: Vec3 = drone.position;
+    var eye: Drone = trial.drone;
     var i: u32 = 0u32;
     while i < 240u32 && trail.markers < trail.limit {
+        var before: Vec3 = drone.position;
+        var frame: SpaceTransform = space_identity();
+        var space: u32 = drone.world;
+        if drone.cable.phase == CABLE_FLYING {
+            frame = drone.cable.frame;
+            space = drone.cable.space;
+        }
         simulate(read collision, mut drone, command, trial.full_spin, trial.auto_level);
         if drone.cable.phase == CABLE_SNAPPED {
             return;
         }
-        draw_preview_segment(
+        var inverse: SpaceTransform = space_inverse(frame);
+        draw_portal_preview(
+            read collision,
             mut v,
             mut trail,
-            before,
-            drone.cable.anchor,
-            trial.drone,
+            space_point(inverse, before),
+            space_point(
+                inverse,
+                space_point(space_inverse(drone.step_frame), drone.cable.anchor)
+            ),
+            preview_eye(eye, inverse, space),
             config
         );
+        eye = preview_eye(eye, drone.step_frame, drone.world);
         if drone.cable.phase == CABLE_ATTACHED {
             return;
         }

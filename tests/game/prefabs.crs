@@ -164,7 +164,7 @@ fn test_prefab_impacts(collision: read CollisionScene) -> bool {
 fn test_prefab_definition(room: RoomInstance) -> bool {
     var p: u32 = 0u32;
     while p < room.prefab.count {
-        var port: RoomPort = room.prefab.ports[p as usize];
+        var port: BoxRoomPort = room.prefab.ports[p as usize];
         var axis: u32 = port.face / 2u32;
         var plane: f32 = 0f32;
         if port.face % 2u32 != 0u32 {

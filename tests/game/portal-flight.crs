@@ -1,0 +1,79 @@
+fn portal_flight_crossings(scene: read CollisionScene) -> bool {
+    var i: u32 = 0u32;
+    while i < collision_portal_count(read scene) {
+        var portal: CollisionPortal = collision_portal(read scene, i);
+        var drone: Drone = new_drone();
+        drone.position = sub(portal.origin, portal.basis.forward);
+        drone.basis = portal.basis;
+        drone.velocity = scale(portal.basis.forward, 12f32);
+        var expected: Vec3 = space_point(
+            portal.transform,
+            add(portal.origin, portal.basis.forward)
+        );
+        move_drone(read scene, mut drone, scale(portal.basis.forward, 2f32));
+        if length(sub(drone.position, expected)) > 0.001f32 {
+            return error("linked room crossing differs from render transform");
+        }
+        var reverse: Vec3 = basis_vector(
+            portal.transform.basis,
+            scale(portal.basis.forward, -2f32)
+        );
+        move_drone(read scene, mut drone, reverse);
+        if length(sub(drone.position, sub(portal.origin, portal.basis.forward))) > 0.001f32 {
+            return error("linked room reverse crossing differs");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn portal_flight_capture(
+    session: mut GameSession,
+    scene: read CollisionScene,
+    loop: mut GameLoop,
+    config: GameConfig
+) -> bool {
+    var portal: CollisionPortal = collision_portal(read scene, 0u32);
+    loop.trial.drone.position = sub(portal.origin, scale(portal.basis.forward, 0.1f32));
+    loop.trial.drone.basis = portal.basis;
+    if !game_render(read scene, mut session, read loop, config) {
+        return false;
+    }
+    if !game_finish(mut session) {
+        return false;
+    }
+    var velocity: Vec3 = scale(portal.basis.forward, 24f32);
+    loop.trial.drone.velocity = velocity;
+    var command: Command = idle_command();
+    loop.trial.started = true;
+    trial_step(read scene, mut loop.trial, command);
+    var expected: Vec3 = space_point(
+        portal.transform,
+        add(portal.origin, scale(portal.basis.forward, 0.1f32))
+    );
+    if length(sub(loop.trial.drone.position, expected)) > 0.01f32 {
+        return error("production simulation did not cross the portal");
+    }
+    return game_render(read scene, mut session, read loop, config);
+}
+fn portal_flight_run(session: GameSession, config: GameConfig) -> i32 {
+    var scene: CollisionScene = collision_new();
+    var loop: GameLoop = make GameLoop {
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    if !game_world_open(mut session, mut scene, mut loop.trial) || !portal_flight_crossings(
+        read scene
+    ) {
+        return 1i32;
+    }
+    if !game_open(mut session, mut loop.input) || !game_materials_open(mut session, config) || !game_static_open(
+        mut session,
+        0u32
+    ) {
+        return 1i32;
+    }
+    return (!portal_flight_capture(mut session, read scene, mut loop, config)) as i32;
+}

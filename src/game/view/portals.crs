@@ -1,0 +1,32 @@
+fn render_portals(input: mut FrameInput, collision: read CollisionScene) -> unit {
+    var count: u32 = collision_portal_count(read collision);
+    input_set_word(mut input, 20usize, 0u32);
+    var i: u32 = 0u32;
+    while i < count {
+        var p: CollisionPortal = collision_portal(read collision, i);
+        var t: SpaceTransform = space_inverse(p.transform);
+        var meta: usize = (input_word(read input, PORTAL_META as usize) + i * 4u32) as usize;
+        input_set_word(mut input, meta, p.space);
+        input_set_word(mut input, meta + 1usize, p.destination);
+        var base: usize = (input_word(read input, PORTAL_FLOAT as usize) + i * 16u32) as usize;
+        var row: u32 = 0u32;
+        while row < 3u32 {
+            var offset: usize = base + (row * 4u32) as usize;
+            input_set_float(mut input, offset, component(t.basis.right, row));
+            input_set_float(mut input, offset + 1usize, component(t.basis.up, row));
+            input_set_float(mut input, offset + 2usize, component(t.basis.forward, row));
+            input_set_float(mut input, offset + 3usize, component(t.origin, row));
+            row = row + 1u32;
+        }
+        var normal: Vec3 = basis_vector(p.transform.basis, p.basis.forward);
+        input_set_float(mut input, base + 12usize, normal.x);
+        input_set_float(mut input, base + 13usize, normal.y);
+        input_set_float(mut input, base + 14usize, normal.z);
+        input_set_float(
+            mut input,
+            base + 15usize,
+            -dot(normal, space_point(p.transform, p.origin))
+        );
+        i = i + 1u32;
+    }
+}

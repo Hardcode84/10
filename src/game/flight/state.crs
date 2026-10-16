@@ -1,4 +1,6 @@
 record Trial {
+    free_flight: bool;
+    spawn: Drone;
     expedition: Expedition;
     drone: Drone;
     tick: u32;
@@ -13,6 +15,8 @@ record Trial {
 }
 fn new_trial() -> Trial {
     return make Trial {
+        free_flight: false,
+        spawn: new_drone(),
         expedition: new_expedition(),
         drone: new_drone(),
         tick: 0u32,

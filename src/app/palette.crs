@@ -1,17 +1,24 @@
 // The current demo assets share one palette and use one 8 by 8 tile per material.
 fn app_assets(v: mut FrameInput, count: u32) -> unit {
-    if !input_assets(mut v, count, count * 64u32 + PALETTE_COLORS * LIGHT_STATES) {
+    app_assets_extra(mut v, count, 0u32, 0u32);
+}
+fn app_assets_extra(v: mut FrameInput, count: u32, extra: u32, words: u32) -> unit {
+    if !input_assets(
+        mut v,
+        count + extra,
+        count * 64u32 + PALETTE_COLORS * LIGHT_STATES + words
+    ) {
         scene_overflow();
         return;
     }
     var i: u32 = 0u32;
     while i < count {
         var material: Material = make Material {
-            texture: count * MATERIAL_WORDS + i * 64u32,
+            texture: (count + extra) * MATERIAL_WORDS + i * 64u32,
             width: 8u32,
             height: 8u32,
             stride: 8u32,
-            palette: count * (MATERIAL_WORDS + 64u32),
+            palette: (count + extra) * MATERIAL_WORDS + count * 64u32,
             style: 0u32,
             unlit: 0u32,
             address_u: ADDRESS_REPEAT,

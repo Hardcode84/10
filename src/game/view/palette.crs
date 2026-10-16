@@ -2,6 +2,9 @@ const PREVIEW_MATERIAL: u32 = 8u32;
 const HOOK_PREVIEW_MATERIAL: u32 = 9u32;
 fn game_palette(v: mut FrameInput) -> unit {
     app_assets(mut v, GAME_MATERIALS);
+    game_palette_fill(mut v);
+}
+fn game_palette_fill(v: mut FrameInput) -> unit {
     var colors: [u32; 19] = make [u32; 19] {
         0x687876u32,
         0x82949du32,

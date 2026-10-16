@@ -5,6 +5,8 @@ resource GameWindow {
 }
 opaque drop game_window_drop;
 record GameSession {
+    room: RoomAsset;
+    room_mesh: Mesh;
     window: GameWindow;
     renderer: Renderer;
     world: InstanceList;
@@ -21,6 +23,8 @@ fn game_window_drop(window: mut GameWindow) -> unit {
 }
 fn game_session(o: *Launch) -> GameSession {
     return make GameSession {
+        room: room_asset_new(),
+        room_mesh: mesh_new(),
         window: make GameWindow {
             handle: null(*u8),
             controller: null(*u8),
@@ -53,7 +57,12 @@ fn game_open(session: mut GameSession, input: mut InputState) -> bool {
             return error(SDL_GetError());
         }
     }
-    return game_renderer_open(&session.renderer.state, o, session.window.handle);
+    return game_renderer_open(
+        &session.renderer.state,
+        o,
+        session.window.handle,
+        asset_port_count(read session.room.ports)
+    );
 }
 fn game_finish(session: mut GameSession) -> bool {
     var good: bool = recording_finish(&session.stream);
@@ -88,6 +97,9 @@ fn game_initial_spin(session: read GameSession) -> bool {
 
 fn game_static_open(session: mut GameSession, world: u32) -> bool {
     var input: FrameInput = renderer_inputs(mut session.renderer);
+    if session.launch.config.room_demo {
+        return static_upload(mut input, mut session.world, read session.room_mesh);
+    }
     return game_static_build(mut input, mut session.world, world);
 }
 fn game_scene_frame(

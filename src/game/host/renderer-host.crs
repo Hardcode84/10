@@ -1,4 +1,8 @@
-fn game_renderer_open(v: *Vulkan, o: *Launch, window: *u8) -> bool {
+fn game_renderer_open(v: *Vulkan, o: *Launch, window: *u8, portals: u32) -> bool {
+    var depth: u32 = 0u32;
+    if portals != 0u32 {
+        depth = 6u32;
+    }
     var c: RenderConfig = make RenderConfig {
         width: o -> config.width,
         height: o -> config.height,
@@ -8,12 +12,12 @@ fn game_renderer_open(v: *Vulkan, o: *Launch, window: *u8) -> bool {
         read_pixels: o -> capture != null(*u8),
         debug_pixels: 0u32,
         baseline: 0u32,
-        view_budget: 1u32,
-        portal_budget: 0u32,
+        view_budget: 1u32 + portals * 64u32,
+        portal_budget: portals,
         task_budget: ((o -> config.width + 7u32) / 8u32) * (
             (o -> config.height + 7u32) / 8u32
         ),
-        crossing_limit: 0u32,
+        crossing_limit: depth,
         fault: 0u32
     };
     return app_renderer_open(v, window, &c);

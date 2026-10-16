@@ -12,8 +12,13 @@ if !project_render(run, stages, &backend) {
     return 1i32;
 };
 
-host_source(run, "tools/build/demo.crs");
-if !check_renderer(run) || !build_demo(run, backend.emit) || !build_render_shaders(run) {
+host_source(run, "tools/build/game.crs");
+if !check_renderer(run) || !build_game_entry(
+    run,
+    backend.emit,
+    "src/demo/room/entry.crs",
+    "build/spinward"
+) || !build_render_shaders(run) {
     return 1i32;
 };
 return launch_application(run, "build/spinward");

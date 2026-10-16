@@ -108,7 +108,7 @@ the player's battery. The machine drive absorbs the opposite cable impulse.
 The trial and expedition each contain a rotating beam near the start. Its mesh
 is a solid collider. The visible beam and collider use the same dimensions and
 pose. Physics advances at 120 Hz. Reeling queries the final pose without
-advancing machine time again. Replay version 11 includes the simulation clock,
+advancing machine time again. Replay state includes the simulation clock,
 attachment identity, local point, and energy counters in its state hash.
 
 Run these focused checks:
