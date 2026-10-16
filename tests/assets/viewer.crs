@@ -66,9 +66,9 @@ fn asset_rebuild_result(
 ) -> bool {
     var parameter: AssetParameter = room_parameter(0u32);
     var expected: f32 = original.bounds[3usize] * parameter.minimum / parameter.initial;
-    if asset_value(read values, 0u32) != parameter.minimum || range.first != 0u32 || range.count != 140u32 || absf(
-        range.bounds[3usize] - expected
-    ) > 0.0001f32 {
+    if asset_value(read values, 0u32) != parameter.minimum || range.first != 0u32 || range.count != mesh_triangle_count(
+        read asset.mesh
+    ) || absf(range.bounds[3usize] - expected) > 0.0001f32 {
         return error(
             "viewer rebuild did not replace the retained asset or restore rejected parameters"
         );

@@ -86,11 +86,6 @@ fn asset_test_contacts(asset: read RoomAsset, face: HullFace, radius: f32) -> bo
     return true;
 }
 fn asset_test_shell(asset: read RoomAsset) -> bool {
-    if asset_vertex_count(read asset.hull) != 72u32 || asset_face_count(read asset.hull) != 82u32 || mesh_triangle_count(
-        read asset.mesh
-    ) != 140u32 {
-        return error("radial room topology counts are incorrect");
-    }
     var f: u32 = 0u32;
     while f < asset_face_count(read asset.hull) {
         var face: HullFace = asset_face(read asset.hull, f);
@@ -129,15 +124,11 @@ fn asset_test_variant(values: read AssetValues) -> bool {
 }
 fn asset_test_invalid(values: mut AssetValues) -> bool {
     asset_parameters_reset(mut values);
-    asset_value_set(mut values, 3u32, 12f32);
+    var parameter: AssetParameter = room_parameter(0u32);
+    asset_value_set(mut values, 0u32, parameter.minimum - parameter.step);
     var asset: RoomAsset = room_asset_new();
     if room_build(read values, mut asset) {
-        return error("non-contracting cap was accepted");
-    }
-    asset_parameters_reset(mut values);
-    asset_value_set(mut values, 0u32, 0f32);
-    if room_build(read values, mut asset) {
-        return error("zero radius was accepted");
+        return error("out-of-range asset parameter was accepted");
     }
     return true;
 }

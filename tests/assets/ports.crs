@@ -1,24 +1,18 @@
 fn asset_test_ports(asset: read RoomAsset) -> bool {
-    if asset_port_count(read asset.ports) != 8u32 {
-        return error("radial room must have eight ports");
-    }
     var i: u32 = 0u32;
-    while i < 8u32 {
+    while i < asset_port_count(read asset.ports) {
         var port: RoomPort = asset_port(read asset.ports, i);
         var face: HullFace = asset_face(read asset.hull, port.face);
-        if !asset_names_equal(port.id, radial_port_name(i)) || !asset_name_equal(
-            port.profile.name,
-            "HEX-4M"
-        ) || port.profile.rotations != 6u32 || face.count != 6u32 || !collision_rigid(
+        if asset_name_length(port.id) == 0u32 || asset_name_length(port.profile.name) == 0u32 || face.count != port.profile.shape.sides || !collision_rigid(
             port.basis
         ) {
-            return error("invalid radial connection identity, profile, or frame");
+            return error("invalid connection identity, profile, or frame");
         }
         if dot(hull_frame(read asset.hull, face).normal, port.basis.forward) < 0.9999f32 {
             return error("port frame does not point outward");
         }
         var j: u32 = 0u32;
-        while j < 6u32 {
+        while j < face.count {
             var point: Vec3 = hull_corner(read asset.hull, face, j);
             if length(sub(point, connection_point(port, j))) > 0.0001f32 || absf(
                 length(sub(point, port.position)) - port.profile.radius

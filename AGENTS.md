@@ -36,6 +36,8 @@ A 6DOF exploration game in a rotating megastructure.
   animation frame indices, palette generation, and user input in `src/demo/` or
   `src/game/`. Keep shared application helpers in `src/app/`.
 - Fix broken contracts. Handle unsupported cases completely or report an error.
+- Test shared generators and viewer behaviour. Do not add a test suite for each
+  asset or hard-code asset names, dimensions, or topology counts in tests.
 - Test actual game behaviour. Measure optimizations against a repeatable baseline.
 
 ## Style

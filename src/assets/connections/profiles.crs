@@ -1,14 +1,14 @@
-// Regular hexagon: 4 m across corners, horizontal corner pair, six roll choices.
+// Regular hexagon: 6 m across corners, horizontal corner pair, six roll choices.
 fn service_hex_profile() -> ConnectionProfile {
     return make ConnectionProfile {
-        name: asset_name("HEX-4M"),
+        name: asset_name("HEX-6M"),
         shape: make RegularProfile {
             sides: 6u32,
             phase: 0f32
         },
-        radius: 2f32,
+        radius: 3f32,
         rotations: 6u32,
-        clearance: 1.4f32
+        clearance: 2.1f32
     };
 }
 fn connection_point(port: RoomPort, corner: u32) -> Vec3 {

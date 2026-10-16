@@ -15,7 +15,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     return 0i32;
 }
 fn asset_view_test_pixels(session: read AssetSession) -> bool {
-    if session.renderer.state.mesh_count != 140u32 + session.labels.count {
+    if session.renderer.state.mesh_count != session.labels.first + session.labels.count {
         return error("rebuild accumulated retained meshes");
     }
     var pixels: *u32 = session.renderer.state.mapped as *u32;

@@ -164,7 +164,7 @@ crust tests.crs collision
 The asset checks build the production recipe at its default, minimum, and
 maximum dimensions. They check closed shared edges, convexity, planar faces,
 spawn clearance, physical UV scale, and player/hook sphere contacts against every polygon. They
-also reject invalid dimensions and a non-contracting cap. The small room checks
+also reject out-of-range parameters. The small room checks
 contacts on internal triangle diagonals. A rounding margin on shared coplanar
 edges prevents both adjacent faces from rejecting the same seam contact.
 Boundary edges retain their geometric tests.
