@@ -32,6 +32,7 @@ A room light (`LIGHT_ROOM`) affects only surfaces in its declared space. A line 
 the selected grid sample to the light must be clear. Any intervening triangle in that
 space blocks the segment from either side. Camera culling does not remove
 shadow blockers. This includes retained instances and their transformed geometry.
+Dynamic solids submit all selected faces, including faces hidden from the camera.
 
 A cutout triangle blocks light only where its texture sample is opaque. The
 shadow query uses the same UV interpolation, address modes, and transparent

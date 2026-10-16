@@ -53,12 +53,11 @@ fn graph_digit(v: mut FrameInput, port: RoomPort, digit: u32, position: f32, mat
         row = row + 1u32;
     }
 }
-fn graph_beacon(v: mut FrameInput, center: Vec3, mat: u32, tick: u32, eye: Vec3) -> unit {
+fn graph_beacon(v: mut FrameInput, center: Vec3, mat: u32, tick: u32) -> unit {
     var r: f32 = 0.6f32 + 0.08f32 * sinf(tick as f32 * STEP * 3f32);
     draw_solid(
         mut v,
-        solid(sub(center, vec(r, r, r)), add(center, vec(r, r, r)), mat),
-        eye
+        solid(sub(center, vec(r, r, r)), add(center, vec(r, r, r)), mat)
     );
 }
 fn graph_scene(
@@ -94,21 +93,9 @@ fn graph_scene(
     }
     game_dynamic_no_shadow(mut v, first);
     if trial.drone.world == trial.goal_world {
-        graph_beacon(
-            mut v,
-            vec(0f32, 18f32, 0f32),
-            4u32,
-            trial.tick,
-            trial.drone.position
-        );
+        graph_beacon(mut v, vec(0f32, 18f32, 0f32), 4u32, trial.tick);
     }
     if trial.drone.world == 0u32 {
-        graph_beacon(
-            mut v,
-            trial.spawn.position,
-            5u32,
-            trial.tick,
-            trial.drone.position
-        );
+        graph_beacon(mut v, trial.spawn.position, 5u32, trial.tick);
     }
 }

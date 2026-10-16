@@ -20,22 +20,16 @@ fn game_quad(v: mut FrameInput, mat: u32, a: Vec3, b: Vec3, c: Vec3, d: Vec3) ->
         d.z
     );
 }
-fn draw_solid(v: mut FrameInput, s: Solid, eye: Vec3) -> unit {
-    draw_solid_faces(mut v, s, eye, 63u32);
+fn draw_solid(v: mut FrameInput, s: Solid) -> unit {
+    draw_solid_faces(mut v, s, 63u32);
 }
-fn draw_solid_faces(v: mut FrameInput, s: Solid, eye: Vec3, faces: u32) -> unit {
-    var axis: u32 = 0u32;
-    while axis < 3u32 {
-        var side: f32 = component(eye, axis);
-        var face: u32 = axis * 2u32;
-        if side > component(s.high, axis) {
-            face = face + 1u32;
-        }
-        if (faces & (1u32 << face)) != 0u32 && (
-            side < component(s.low, axis) || side > component(s.high, axis)
-        ) {
+fn draw_solid_faces(v: mut FrameInput, s: Solid, faces: u32) -> unit {
+    var face: u32 = 0u32;
+    while face < 6u32 {
+        var axis: u32 = face / 2u32;
+        if (faces & (1u32 << face)) != 0u32 {
             var shift: Vec3 = vec(0f32, 0f32, 0f32);
-            if side > component(s.high, axis) {
+            if face % 2u32 != 0u32 {
                 shift = scale(
                     axis_vector(axis),
                     component(sub(s.high, s.low), axis)
@@ -50,7 +44,7 @@ fn draw_solid_faces(v: mut FrameInput, s: Solid, eye: Vec3, faces: u32) -> unit 
                 add(box_edge(s, axis, 2u32), shift)
             );
         }
-        axis = axis + 1u32;
+        face = face + 1u32;
     }
 }
 fn draw_ribbon(v: mut FrameInput, a: Vec3, b: Vec3, eye: Vec3, width: f32, mat: u32) -> unit {

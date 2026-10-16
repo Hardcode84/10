@@ -13,7 +13,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     }
     {
         var input: FrameInput = renderer_inputs(mut renderer);
-        if !prediction_shadow_flags(mut input, options.config) {
+        if !dynamic_shadow_geometry(mut input, options.config) {
             return 1i32;
         }
     }
@@ -56,7 +56,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
             camera_row(mut input, 0usize, vec(1f32, 0f32, 0f32), drone.position);
             camera_row(mut input, 4usize, vec(0f32, 1f32, 0f32), drone.position);
             camera_row(mut input, 8usize, vec(0f32, 0f32, 1f32), drone.position);
-            draw_solid(mut input, wall, drone.position);
+            draw_solid(mut input, wall);
             if !hook_light_transformed(read scene, mut input, drone) {
                 return 1i32;
             }
@@ -213,4 +213,71 @@ fn hook_wall_capture(v: *Vulkan) -> bool {
         return error("attached hook leaves the grazing wall patch too dark");
     }
     return capture(v, "build/test-hook-attached.ppm", 256u32, 192u32);
+}
+
+fn dynamic_shadow_geometry(input: mut FrameInput, config: GameConfig) -> bool {
+    return solid_shadow_faces(mut input) && prediction_shadow_flags(mut input, config);
+}
+
+fn solid_face_area(input: read FrameInput, axis: u32, plane: f32) -> f32 {
+    var area: f32 = 0f32;
+    var i: u32 = 0u32;
+    while i < input_word(read input, 3usize) {
+        var vertices: [Vec3; 3] = uninit;
+        var on_plane: bool = true;
+        var j: u32 = 0u32;
+        while j < 3u32 {
+            var p: usize = (GEOMETRY + i * 15u32 + j * 5u32) as usize;
+            vertices[j as usize] = vec(
+                input_float(read input, p),
+                input_float(read input, p + 1usize),
+                input_float(read input, p + 2usize)
+            );
+            on_plane = on_plane && component(vertices[j as usize], axis) == plane;
+            j = j + 1u32;
+        }
+        if on_plane {
+            area = area + length(
+                cross(
+                    sub(vertices[1usize], vertices[0usize]),
+                    sub(vertices[2usize], vertices[0usize])
+                )
+            ) * 0.5f32;
+        }
+        i = i + 1u32;
+    }
+    return area;
+}
+
+fn solid_shadow_faces(input: mut FrameInput) -> bool {
+    input_frame(mut input);
+    draw_solid(
+        mut input,
+        solid(vec(-1f32, -2f32, -3f32), vec(1f32, 2f32, 3f32), 0u32)
+    );
+    if input_word(read input, 3usize) != 12u32 {
+        return error("dynamic box must submit a closed surface for shadows");
+    }
+    var extent: [f32; 3] = make [f32; 3] {
+        1f32,
+        2f32,
+        3f32
+    };
+    var area: [f32; 3] = make [f32; 3] {
+        24f32,
+        12f32,
+        8f32
+    };
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        if solid_face_area(read input, axis, extent[axis as usize]) != area[axis as usize] || solid_face_area(
+            read input,
+            axis,
+            -extent[axis as usize]
+        ) != area[axis as usize] {
+            return error("dynamic box is missing a complete shadow face");
+        }
+        axis = axis + 1u32;
+    }
+    return true;
 }

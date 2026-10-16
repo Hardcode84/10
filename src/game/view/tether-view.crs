@@ -14,11 +14,7 @@ fn draw_cable(
         drone.cable.anchor
     );
     var first: u32 = input_word(read v, 3usize);
-    draw_solid(
-        mut v,
-        solid(sub(physical, size), add(physical, size), 5u32),
-        space_point(space_inverse(drone.cable.frame), drone.position)
-    );
+    draw_solid(mut v, solid(sub(physical, size), add(physical, size), 5u32));
     game_dynamic_space(mut v, first, drone.cable.space);
     var start: Vec3 = add(
         drone.position,
