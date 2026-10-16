@@ -1,0 +1,97 @@
+record GraphRoutePlan {
+    junctions: u32;
+    candidates: u32;
+}
+fn graph_open_socket(graph: read RoomGraph, room: u32) -> u32 {
+    var node: GraphNode = graph_node(read graph, room);
+    var socket: u32 = node.first;
+    while graph_socket(read graph, socket).peer != 0xffffffffu32 {
+        socket = socket + 1u32;
+    }
+    return socket;
+}
+fn graph_corridor_kind(graph: mut RoomGraph) -> u32 {
+    if graph_random(mut graph, 10u32) < 3u32 {
+        return 2u32;
+    }
+    return 1u32;
+}
+fn graph_route_kind(
+    graph: mut RoomGraph,
+    plan: mut GraphRoutePlan,
+    step: u32,
+    run_length: u32
+) -> u32 {
+    if step % 6u32 == 4u32 && step + 2u32 < run_length {
+        var selected: bool = graph_random(mut graph, plan.candidates) < plan.junctions;
+        plan.candidates = plan.candidates - 1u32;
+        if selected {
+            plan.junctions = plan.junctions - 1u32;
+            return 3u32;
+        }
+    }
+    return graph_corridor_kind(mut graph);
+}
+fn graph_main_route(
+    graph: mut RoomGraph,
+    plan: mut GraphRoutePlan,
+    root: u32,
+    run_length: u32
+) -> u32 {
+    var socket: u32 = root;
+    var step: u32 = 0u32;
+    while step < run_length {
+        var kind: u32 = graph_route_kind(mut graph, mut plan, step, run_length);
+        var child: u32 = graph_grow(mut graph, socket, kind);
+        socket = graph_open_socket(read graph, child);
+        step = step + 1u32;
+    }
+    return socket;
+}
+fn graph_side_routes(graph: mut RoomGraph) -> unit {
+    var count: u32 = graph_count(read graph);
+    var room: u32 = 1u32;
+    while room < count {
+        if graph_node(read graph, room).kind == 3u32 {
+            var socket: u32 = graph_open_socket(read graph, room);
+            var run_length: u32 = 4u32 + graph_random(mut graph, 3u32);
+            var step: u32 = 0u32;
+            while step < run_length {
+                var kind: u32 = graph_corridor_kind(mut graph);
+                var child: u32 = graph_grow(mut graph, socket, kind);
+                socket = graph_open_socket(read graph, child);
+                step = step + 1u32;
+            }
+        }
+        room = room + 1u32;
+    }
+}
+fn graph_routes(graph: mut RoomGraph, complexity: u32) -> unit {
+    var plan: GraphRoutePlan = make GraphRoutePlan {
+        junctions: complexity / 3u32 + 1u32,
+        candidates: 8u32 * ((complexity + 5u32) / 6u32)
+    };
+    var ends: [u32; 8] = make [u32; 8] {
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        0u32
+    };
+    var root: u32 = 0u32;
+    while root < 8u32 {
+        ends[root as usize] = graph_main_route(mut graph, mut plan, root, complexity + 6u32);
+        root = root + 1u32;
+    }
+    graph_side_routes(mut graph);
+    var terminal: u32 = graph_random(mut graph, 8u32);
+    graph_grow(mut graph, ends[terminal as usize], 5u32);
+    graph_pair(
+        mut graph,
+        ends[((terminal + 1u32) % 8u32) as usize],
+        ends[((terminal + 2u32) % 8u32) as usize]
+    );
+}

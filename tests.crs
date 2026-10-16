@@ -51,6 +51,20 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "benchmark") == 0i32 
     run -> argv = run -> argv + 1isize;
     return launch_application(run, "build/benchmark-graph");
 };
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "graph-layout") == 0i32 {
+    if !build_game_target(
+        run,
+        backend.emit,
+        "tests/game/graph-layout-entry.crs",
+        "build/tests-graph-layout",
+        "tests/game/graph.crs"
+    ) {
+        return 1i32;
+    }
+    run -> argc = run -> argc - 1i32;
+    run -> argv = run -> argv + 1isize;
+    return launch_application(run, "build/tests-graph-layout");
+};
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "graph") == 0i32 {
     if !build_game_target(
         run,

@@ -1,0 +1,28 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var options: Launch = uninit;
+    if !game_options(argc, argv, &options) || !graph_test_generation() {
+        return 1i32;
+    }
+    var graph: RoomGraph = graph_new();
+    if !graph_generate(mut graph, options.config.seed, options.config.complexity) || !graph_check_links(
+        read graph
+    ) || !graph_check_routes(read graph, options.config.complexity) {
+        return 1i32;
+    }
+    puts("rooms / T junctions / terminals / goal distance");
+    print_number(graph_count(read graph) as i64);
+    var junctions: u32 = 0u32;
+    var terminals: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var count: u32 = graph_node(read graph, i).count;
+        junctions = junctions + (count == 3u32) as u32;
+        terminals = terminals + (count == 1u32) as u32;
+        i = i + 1u32;
+    }
+    print_number(junctions as i64);
+    print_number(terminals as i64);
+    print_number(graph_node(read graph, graph_goal(read graph)).depth as i64);
+    puts("Graph generation, joins, route spacing and junction budgets passed.");
+    return 0i32;
+}

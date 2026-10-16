@@ -28,23 +28,36 @@ one global coordinate system or reject connections that overlap in such a
 system. Named HEX-6M profiles determine compatibility. Each link chooses one
 of six mating rolls. The reverse link is its inverse.
 
-The generator first builds a route of `complexity + 3` random tunnel pieces
-and a terminal room. It attaches branches to all other start ports. It joins
-two start branches, then adds `3 * complexity` pieces at random open sockets.
-It joins remaining sockets across branches at similar construction depths
-when possible. A dead end closes each remaining socket. Every declared port
-has a reciprocal connection; none opens into a void.
+Each of the eight start ports leads to a route of `complexity + 6` pieces.
+Corridor choices are 70% straight tunnels and 30% elbows. The generator
+places exactly `1 + floor(complexity / 3)` T junctions across these routes.
+It does not select X junctions. At the default complexity, this gives two
+T junctions in the whole graph.
 
-Pieces are the 10 m straight tunnel, elbow, T junction, X junction, and dead
-end. After all joins, insert a 10 m straight tunnel wherever two non-straight
+Junction positions have a fixed spacing: four corridor pieces before the
+first possible junction, then five corridor pieces between possible
+junctions. The generator selects positions from this set without retries.
+Each T side route has four to six corridor pieces before it can join or end.
+A join connects open route ends from different start branches. It does not
+add a junction room. Construction depth does not restrict joins.
+
+The generator reserves one terminal, joins two start routes, then pairs
+remaining route ends across branches where possible. Dead ends close the
+remaining sockets. Every port has a reciprocal connection; none opens into
+a void. Most wrong turns lead around a loop rather than directly into
+another fork.
+
+After all joins, insert a 10 m straight tunnel wherever two non-straight
 rooms connect directly. This includes start exits, joins, and terminal entries.
 An existing straight tunnel supplies the separation without another insertion.
-Bends and junctions therefore cannot connect directly to one another.
-After this spacing pass, the generator computes shortest graph distances from
-the start. It replaces a farthest terminal with the ending room. This room
-has one port. Collection requires travel to its far end, not just entry.
-Complexity increases route construction and branch count; joins can shorten
-the shortest path. It is not a prescribed travel time or difficulty rating.
+All paths between decision rooms have at least four two-port corridor rooms.
+The start room counts as a decision room.
+
+The generator then computes shortest graph distances from the start. It
+replaces a farthest terminal with the ending room. Collection requires travel
+to its far end. Complexity mainly increases route length; the junction budget
+increases once per three complexity steps. Joins can shorten the shortest
+path, so complexity does not prescribe travel time.
 
 Destination room numbers appear above port centres. Gold means unvisited;
 cyan means visited. A visit persists until restart. These marks help the
@@ -82,6 +95,7 @@ tick. `--ticks N` selects a longer run. Run progress is held in memory.
 | --- | --- |
 | `src/game/graph/storage.crs` | Owned room and socket arrays, seeded random state |
 | `src/game/graph/generate.crs` | Connectivity, rolls, and terminal selection |
+| `src/game/graph/routes.crs` | Corridor runs, junction quota, and side routes |
 | `src/game/graph/assemble.crs` | Room recipes, local meshes, and shared portal links |
 | `src/game/graph/progress.crs` | Collection, return, and visits |
 | `src/game/graph/view.crs` | Port numbers, beacons, and objective HUD |
@@ -100,13 +114,16 @@ All spaces use shared ambient light plus the camera lamp.
 ## Checks
 
 ```sh
+crust tests.crs graph-layout
 crust tests.crs flight
 crust tests.crs reel
 crust tests.crs graph --seed 42 --complexity 8 --width 640 --height 480
 crust tests.crs collision
 ```
 
-The graph check tests deterministic generation, connected rooms, cross-branch
+The fast `graph-layout` check tests generation without a GPU. It checks the
+junction quota, corridor density, and spacing across 101 seed and complexity
+combinations. The graph check also tests deterministic generation, connected rooms, cross-branch
 joins, reciprocal rolls, and terminal selection. It crosses each assembled
 portal in both directions, checks collection and return through the production
 step function, and renders every room with checked shaders. Objective checks

@@ -46,6 +46,9 @@ fn graph_test_seed(seed: u32, complexity: u32) -> bool {
     ) {
         return false;
     }
+    if !graph_check_routes(read a, complexity) {
+        return false;
+    }
     if graph_count(read a) != graph_count(read b) || graph_ports(read a) != graph_ports(read b) || graph_goal(
         read a
     ) != graph_goal(read b) {
@@ -182,4 +185,54 @@ fn graph_check_spacing(graph: read RoomGraph) -> bool {
         i = i + 1u32;
     }
     return true;
+}
+
+fn graph_check_route_run(graph: read RoomGraph, socket: u32) -> bool {
+    var next: u32 = socket;
+    var steps: u32 = 0u32;
+    while steps < 4u32 {
+        var arrival: u32 = graph_socket(read graph, next).peer;
+        var node: GraphNode = graph_node(
+            read graph,
+            graph_socket(read graph, arrival).room
+        );
+        if node.count != 2u32 {
+            if node.count >= 3u32 {
+                return error("route decisions need four corridor rooms between them");
+            }
+            return true;
+        }
+        next = node.first;
+        if next == arrival {
+            next = next + 1u32;
+        }
+        steps = steps + 1u32;
+    }
+    return true;
+}
+fn graph_check_routes(graph: read RoomGraph, complexity: u32) -> bool {
+    var junctions: u32 = 0u32;
+    var corridors: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, i);
+        if node.kind == 4u32 {
+            return error("route generator must not add X junctions");
+        }
+        junctions = junctions + (node.kind == 3u32) as u32;
+        corridors = corridors + (node.count == 2u32) as u32;
+        if node.count >= 3u32 {
+            var port: u32 = 0u32;
+            while port < node.count {
+                if !graph_check_route_run(read graph, node.first + port) {
+                    return false;
+                }
+                port = port + 1u32;
+            }
+        }
+        i = i + 1u32;
+    }
+    return junctions == complexity / 3u32 + 1u32 && corridors * 10u32 >= (
+        graph_count(read graph) - 1u32
+    ) * 9u32 || error("route graph exceeds its junction budget or corridor density");
 }
