@@ -192,11 +192,11 @@ fn test_reel_contact_case(frame: SpaceTransform) -> bool {
         return false;
     }
     hook_attach(read scene, mut drone, contact, 0f32);
-    // A cable can cross solid geometry. Its length can differ from contact
-    // clearance by a few float rounding units after a transformed crossing.
+    // A cable through a wall can request an unreachable position. Collision
+    // must finish without feeding the rejected pull back into the slide.
     drone.position = space_point(frame, vec(0f32, 0f32, 0.3501f32));
     drone.velocity = vec(0f32, 0f32, 0f32);
-    drone.cable.extent = 1.35f32;
+    drone.cable.extent = 1.34f32;
     move_drone(read scene, mut drone, vec(0f32, 0f32, 0f32));
     var command: Command = idle_command();
     command.tether = true;
@@ -213,7 +213,7 @@ fn test_reel_contact_case(frame: SpaceTransform) -> bool {
         i = i + 1u32;
     }
     return game_check(
-        drone.cable.phase == CABLE_ATTACHED && drone.cable.extent <= 1.35f32 && absf(
+        drone.cable.phase == CABLE_ATTACHED && drone.cable.extent <= 1.34f32 && absf(
             drone.cable.reel_speed
         ) < 0.001f32,
         "blocked reeling must stall without extending the cable"
@@ -226,4 +226,11 @@ fn test_reel_contact() -> bool {
             basis: collision_test_basis()
         }
     );
+}
+fn test_reel_suite() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !collision_build_game(mut scene) {
+        return false;
+    }
+    return test_winch(read scene) && test_swing(read scene);
 }

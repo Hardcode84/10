@@ -1,7 +1,8 @@
 fn course_hit(collision: read CollisionScene, world: u32, p: Vec3, d: Vec3, radius: f32) -> Hit {
     return collision_sweep(read collision, world, p, d, radius).hit;
 }
-// Applies sphere motion. Invalid geometry or unresolved contacts terminate the run.
+// Applies cable-limited motion with solid contact taking priority.
+// Invalid geometry or unresolved contacts terminate the run.
 fn move_drone(collision: read CollisionScene, drone: mut Drone, travel: Vec3) -> unit {
     move_drone_interval(read collision, mut drone, travel, 0f32);
 }
@@ -16,7 +17,7 @@ fn move_drone_interval(
         read collision,
         drone.world,
         drone.position,
-        travel,
+        tether_travel(read drone, travel),
         drone.velocity,
         time
     );
@@ -24,7 +25,6 @@ fn move_drone_interval(
     var speeds: CollisionPlanes = collision_planes_new();
     var done: bool = false;
     while !done {
-        motion.remaining = tether_travel(read drone, motion.remaining);
         if drone_portal_step(read collision, mut drone, mut motion, time, duration) {
             continue;
         }

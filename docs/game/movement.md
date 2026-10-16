@@ -158,11 +158,11 @@ There is no rewind delay.
 
 An attached cable cannot break. It passes through structure and does not wrap
 around corners. It has a hard maximum length, with no spring or stored tension.
-The player still collides with structure. Each collision-slide segment stays
-inside the cable length plus the collision contact clearance. This clearance
-is twice the position-scaled collision tolerance. It prevents a taut cable
-from repeatedly pulling a separated sphere back into a wall. It does not
-increase the stored cable length. Press reel once to start pulling at 40 m/s immediately.
+The player still collides with structure. The cable limits the requested
+motion before the collision solver starts. Solid contact takes priority when
+the cable target is blocked. Collision separation and sliding do not submit
+the rejected cable pull again. They do not increase the stored cable length.
+Press reel once to start pulling at 40 m/s immediately.
 There is no speed ramp. A taut cable gives the player an immediate velocity
 change toward the hook. The reel stays on when its button is released or
 pressed again. It cannot reverse. Only hook release clears it. A reel press
@@ -243,8 +243,9 @@ differs.
 
 Use `crust tests.crs flight` for short CPU checks of timed boost and brake,
 charge use, trial input, and deterministic simulation.
-Use `crust tests.crs reel` for the blocked-reeling regression with straight
-and rotated walls. This check does not run a course or an expedition.
+Use `crust tests.crs reel` for blocked reeling against straight and rotated
+walls, swing motion, reel controls, and attachment. These checks do not run
+a course or an expedition.
 
 `--ticks N` bounds a run. In headless mode, the simulation runs without wall
 clock pacing and renders the last state. `--smoke` supplies test commands for
