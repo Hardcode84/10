@@ -658,20 +658,19 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
     var i: u32 = 0u32;
     while hit.distance > 0f32 && i < w[LIGHT_COUNT as usize] {
         var l: usize = (w[LIGHT_DATA as usize] + i * 8u32) as usize;
-        if w[(w[LIGHT_SPACE as usize] + i) as usize] == space {
+        var transported: bool = f[l + 7usize] == LIGHT_VIEW as f32;
+        if transported || w[(w[LIGHT_SPACE as usize] + i) as usize] == space {
+            var position: Vec = reference_light_position(f, l, hit);
             var contribution: Vec = reference_point(
-                sub(vertex(f, l), hit.position),
+                sub(position, hit.position),
                 normal,
                 f[l + 3usize],
                 vertex(f, l + 4usize),
                 true
             );
-            if (contribution.x > 0f32 || contribution.y > 0f32 || contribution.z > 0f32) && !reference_light_visible(
-                w,
-                f,
-                surface,
-                vertex(f, l)
-            ) {
+            if !transported && (
+                contribution.x > 0f32 || contribution.y > 0f32 || contribution.z > 0f32
+            ) && !reference_light_visible(w, f, surface, vertex(f, l)) {
                 contribution = make Vec {
                     x: 0f32,
                     y: 0f32,
@@ -788,4 +787,17 @@ fn reference_light_visible(w: *u32, f: *f32, receiver: Hit, target: Vec) -> bool
         i = i + 1u32;
     }
     return true;
+}
+
+fn reference_light_position(f: *f32, p: usize, hit: Hit) -> Vec {
+    var point: Vec = vertex(f, p);
+    if f[p + 7usize] == LIGHT_ROOM as f32 {
+        return point;
+    }
+    var forward: Vec = cross(hit.right, hit.up);
+    return make Vec {
+        x: hit.eye.x + hit.right.x * point.x + hit.up.x * point.y + forward.x * point.z,
+        y: hit.eye.y + hit.right.y * point.x + hit.up.y * point.y + forward.y * point.z,
+        z: hit.eye.z + hit.right.z * point.x + hit.up.z * point.y + forward.z * point.z
+    };
 }

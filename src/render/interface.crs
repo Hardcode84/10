@@ -98,3 +98,6 @@ const SHADOW_BOUNDS: u32 = 88u32;
 const SHADOW_RESET: u32 = 89u32;
 const SHADOW_TOP: u32 = 90u32;
 const INSTANCE_CAPACITY: u32 = 91u32;
+
+const LIGHT_ROOM: u32 = 0u32;
+const LIGHT_VIEW: u32 = 1u32;

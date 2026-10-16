@@ -8,6 +8,7 @@ fn graph_room_lamp(input: mut FrameInput, space: u32, position: Vec3, radius: f3
     input_set_float(mut input, p + 4usize, 1.6f32);
     input_set_float(mut input, p + 5usize, 1.45f32);
     input_set_float(mut input, p + 6usize, 1.2f32);
+    input_set_float(mut input, p + 7usize, LIGHT_ROOM as f32);
     input_light_space(mut input, index, space);
     input_set_word(mut input, LIGHT_COUNT as usize, index + 1u32);
 }

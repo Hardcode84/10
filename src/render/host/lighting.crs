@@ -23,6 +23,10 @@ fn lighting_valid(v: *Vulkan) -> bool {
     var i: u32 = 0u32;
     while i < w[LIGHT_COUNT as usize] {
         var p: usize = (w[LIGHT_DATA as usize] + i * 8u32) as usize;
+        var mode: f32 = f[p + 7usize];
+        if mode != LIGHT_ROOM as f32 && mode != LIGHT_VIEW as f32 {
+            return error("light mode must be LIGHT_ROOM or LIGHT_VIEW");
+        }
         var j: usize = 0usize;
         while j < 7usize {
             var value: f32 = f[p + j];

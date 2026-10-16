@@ -185,6 +185,7 @@ fn tour_light(
     input_set_float(mut v, p + 4usize, r);
     input_set_float(mut v, p + 5usize, g);
     input_set_float(mut v, p + 6usize, b);
+    input_set_float(mut v, p + 7usize, LIGHT_ROOM as f32);
     input_light_space(mut v, index, space);
 }
 fn tour_assets(v: mut FrameInput) -> unit {

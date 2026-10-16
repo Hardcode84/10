@@ -113,9 +113,12 @@ on when the hook is released.
 
 Tunnel ambient light is zero. The camera lamp has a 6 m attenuation radius.
 The flying and attached hook adds a yellow point light with a 6 m attenuation
-radius in its current room. The attached lamp sits outside the contacted
-surface and follows its motion. Release or a snapped cable removes the lamp.
-Full-bright markings remain visible. Point lights do not pass through portals.
+radius. The attached lamp sits outside the contacted surface and follows its
+motion. Release or a snapped cable removes the lamp. Player and hook lamps
+are unshadowed and follow transformed portal views. Walls and props do not
+block them. The hook position uses the tether's portal transform when it is
+in another room. Fixed room lamps remain shadowed and local to their rooms.
+Full-bright markings remain visible.
 
 ## Checks
 

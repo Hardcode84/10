@@ -25,7 +25,7 @@ so the grid does not move a shadow across a wall edge.
 
 ## Visibility
 
-A point light affects only surfaces in its declared space. A line segment from
+A room light (`LIGHT_ROOM`) affects only surfaces in its declared space. A line segment from
 the surface pixel to the light must be clear. Any intervening triangle in that
 space blocks the segment from either side. Camera culling does not remove
 shadow blockers. This includes retained instances and their transformed geometry.
@@ -35,34 +35,48 @@ shadow query uses the same UV interpolation, address modes, and transparent
 palette index as the surface. Full-bright texels remain visible without light.
 They do not emit light. They block light like other opaque texels. Triangle
 flag bit 2 disables shadow casting. The hook uses this flag so its visible
-mesh does not block its own lamp. Prediction markers also use this flag.
+mesh does not cast shadows from room lamps. Prediction markers also use this flag.
 
 The receiver triangle is excluded from its own query. Segment fractions at or
 below 0.00001 and at or above 0.99999 are excluded to prevent endpoint contact
 from blocking the light. These tolerances scale with the segment length. Content
 must keep separate blocking surfaces outside that endpoint interval.
 
-Lights do not travel through transformed portal connections. A lamp must have
-a record in each space that it is to illuminate. Portal faces block local light
-segments. Ambient light has no visibility test. The camera light follows the
-visible camera ray, including transformed views; the visible surface has a clear
-camera path by the raster visibility contract.
+Room lights do not travel through portal connections. Portal faces block their
+local shadow segments. Ambient light has no visibility test.
+
+A portable light (`LIGHT_VIEW`) has no shadow test. Its position is supplied
+in root-camera coordinates: right, up, and forward. Each visible portal view
+transforms that position into its destination room. Translation, rotation,
+repeated rooms, and nested connections use the same composed view transform
+as geometry. Each surface receives one contribution from each portable lamp
+in its selected view. Portal cycles do not add duplicate contributions.
+This is view-path transport, not a room-graph light flood. Internal walls and
+props do not block portable lights. Distance attenuation and angular response
+still apply in the transformed room.
+
+The player lamp is the camera lamp. It is already unshadowed and uses the
+transformed camera position in each view. The hook uses `LIGHT_VIEW`. The game
+maps its physical position through the tether's portal transform into player
+space, then into camera coordinates. This also applies when the hook is in a
+different room from the player. Fixed start and end lamps use `LIGHT_ROOM`.
 
 ## Submission and storage
 
 Call `input_lights(input, count)` to select the active count and reserve storage.
 Fill all active records before drawing. `LIGHT_DATA` is a header word that gives
 the float offset of the records. Each record has an eight-float stride:
-seven light values and one unused slot. `LIGHT_SPACE` gives the word offset
+seven light values and a mode. `LIGHT_SPACE` gives the word offset
 of a separate array of unsigned 32-bit room IDs. Call `input_light_space`
-for each active light. Room IDs retain all 32 bits.
+for each active room light. Room IDs retain all 32 bits. Portable lights
+ignore this room ID and apply in each visible view.
 
 | Field | Meaning |
 | --- | --- |
-| 0, 1, 2 | Position in the declared space |
+| 0, 1, 2 | Room position for `LIGHT_ROOM`; camera coordinates for `LIGHT_VIEW` |
 | 3 | Radius squared; zero disables the light |
 | 4, 5, 6 | Non-negative RGB intensity |
-| 7 | Unused padding |
+| 7 | `LIGHT_ROOM` (0) or `LIGHT_VIEW` (1), stored as a float |
 
 Storage grows with the count. Eight records are allocated initially; eight is
 not a count limit. Growth, geometry allocation, and image resize preserve light
@@ -70,14 +84,14 @@ records. Device storage range and allocation failures return an error. Failed
 growth preserves the active allocation and count.
 
 Frame submission rejects a count outside the reserved storage, non-finite
-values, and negative radius or colour values. A failed frame
+values, negative radius or colour values, and unsupported modes. A failed frame
 must not be presented. Correct the input before submitting another frame.
 
 ## Cost and checks
 
 After instance expansion, the GPU uses two levels of bounding-volume trees.
-Each retained instance has a triangle tree. All lights share these trees.
-A small tree for each light selects instances in the light's room. A separate
+Each retained instance has a triangle tree. Room lights share these trees.
+A small tree for each room light selects instances in its room. A separate
 tree contains dynamic shadow-casting triangles in that room. A shadow ray
 visits intersected bounds and candidate leaves, not the scene triangle list.
 Each leaf contains at most four triangles or instances. Escape links avoid
@@ -90,9 +104,10 @@ retained trees. Triangle indices are relative to the retained geometry, so
 changes in the number of preceding dynamic triangles do not invalidate them.
 Instance room and material changes take effect through the current metadata.
 
-The per-light instance trees and dynamic trees are rebuilt each frame. They
-read instance metadata and dynamic triangles; they do not scan retained
-triangles. Retained trees build in parallel across instances. Each tree splits
+The room-light instance trees and dynamic trees are rebuilt each frame.
+These builds read instance metadata and dynamic triangles; they do not scan
+retained triangles. Portable lights skip both per-light tree construction and
+shadow queries. Retained trees build in parallel across instances. Each tree splits
 on the longest box axis. Unbalanced partitions use equal counts. Bounds are
 expanded conservatively for floating-point box intersection. Compute barriers
 make completed trees available to raster queries. There is no tree readback.
@@ -102,7 +117,7 @@ storage uses 84 * ((L + 1) * T + L * I) bytes in each buffer. Storage allocation
 and geometry limits include this cost. Available device storage limits the
 counts; the tree code does not impose a separate geometry cap.
 
-The raster pass rejects lights in other rooms and contributions below the
+The raster pass rejects room lights in other rooms and contributions below the
 first intensity band. Triangle intersection, cutout sampling, and endpoint
 rules remain the same. Prediction markers, cockpit display geometry, and
 portal number labels do not cast shadows. Physical room geometry, props,
@@ -132,15 +147,18 @@ shadow preparation, and image initialization together fell from 5.97 ms to
 and 3840 by 2160 output, the hook-lit start view averages 10.37 ms, with a
 10.85 ms maximum. This measurement also excludes window presentation.
 
-With the softened point-light response, the same native 1024 by 768 views
-average 9.22 ms, 10.82 ms, and 6.88 ms. The hook-lit view has an 11.28 ms
-maximum. Image values change with the new angular response.
+With the softened point-light response and unshadowed portable hook, the
+same native 1024 by 768 views average 9.60 ms, 9.38 ms, and 6.98 ms. The
+hook-lit view has a 10.08 ms maximum. Image values change with the angular
+response and portable-light visibility rules.
 
 Run `crust tests.crs render 11`. It checks a closed bulkhead, a transparent
 cutout, a blocker in another space, a transformed retained blocker, a distant
 lamp, full-bright texels without lamps, and a contributing seventeenth light, a non-shadow-casting surface, and a light
 in a room with an ID above the float exact-integer range.
 Extra off-screen blockers force multi-level tree traversal in each case.
+Two translated and rotated portal crossings check portable and player lamps.
+A bulkhead checks the portable-light shadow bypass. Unsupported modes are rejected.
 Each image is compared with the CPU reference. Repeated frames check tree reuse,
 changed dynamic counts, source flags, transforms, instance removal and return,
 and buffer replacement. It also checks rejected growth,

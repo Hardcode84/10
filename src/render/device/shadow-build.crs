@@ -32,7 +32,7 @@ fn compute() -> unit {
                 if words_load(SHADOW_RESET) != 0u32 {
                     shadow_instance(item);
                 }
-            } else {
+            } else if floats_load(words_load(LIGHT_DATA) + (item - instances) * 8u32 + 7u32) == LIGHT_ROOM as f32 {
                 var light: u32 = item - instances;
                 var first: u32 = (light + 1u32) * words_load(SCENE_CAPACITY);
                 var space: u32 = words_load(words_load(LIGHT_SPACE) + light);

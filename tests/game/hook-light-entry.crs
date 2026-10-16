@@ -97,6 +97,8 @@ fn hook_light_transformed(scene: read CollisionScene, input: mut FrameInput, dro
         forward: vec(1f32, 0f32, 0f32)
     };
     moved.cable.anchor = space_point(moved.cable.frame, drone.cable.anchor);
+    moved.position = vec(-2f32, 3f32, 5f32);
+    moved.basis = moved.cable.frame.basis;
     hook_light(read scene, mut input, moved);
     if drone.cable.phase != CABLE_FLYING && drone.cable.phase != CABLE_ATTACHED {
         return input_word(read input, LIGHT_COUNT as usize) == 0u32;
@@ -107,6 +109,11 @@ fn hook_light_transformed(scene: read CollisionScene, input: mut FrameInput, dro
         input_float(read input, p + 1usize),
         input_float(read input, p + 2usize)
     );
+    actual = space_point(
+        space_inverse(moved.cable.frame),
+        add(moved.position, basis_vector(moved.basis, actual))
+    );
+    hook_light(read scene, mut input, drone);
     return length(sub(expected, actual)) < 0.00001f32 || error(
         "hook light changed room-local position across a transformed connection"
     );

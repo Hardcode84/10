@@ -1,4 +1,7 @@
 fn shadow_top(light: u32) -> unit {
+    if floats_load(words_load(LIGHT_DATA) + light * 8u32 + 7u32) == LIGHT_VIEW as f32 {
+        return;
+    }
     var space: u32 = words_load(words_load(LIGHT_SPACE) + light);
     var first: u32 = words_load(SHADOW_TOP) + light * words_load(INSTANCE_CAPACITY);
     var count: u32 = 0u32;

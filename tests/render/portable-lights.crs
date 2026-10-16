@@ -1,0 +1,149 @@
+fn portable_scene(input: mut FrameInput, mode: u32) -> unit {
+    lighting_scene(mut input, 0u32);
+    input_frame(mut input);
+    input_set_word(mut input, 4usize, 2u32);
+    input_set_word(mut input, SHARED_AMBIENT as usize, 1u32);
+    input_set_word(mut input, LIGHT_COUNT as usize, 1u32);
+    tour_light(mut input, 0u32, 0u32, 1f32, 0f32, 2f32, 100f32, 2f32, 2f32, 2f32);
+    var p: usize = input_word(read input, LIGHT_DATA as usize) as usize;
+    if mode == 1u32 {
+        input_set_float(mut input, p + 7usize, LIGHT_VIEW as f32);
+    }
+    if mode == 2u32 {
+        input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
+        input_set_float(mut input, CAMERA_LIGHT as usize, 100f32);
+        input_set_float(mut input, (CAMERA_LIGHT + 1u32) as usize, 2f32);
+        input_set_float(mut input, (CAMERA_LIGHT + 2u32) as usize, 2f32);
+        input_set_float(mut input, (CAMERA_LIGHT + 3u32) as usize, 2f32);
+    }
+    tour_portal(
+        mut input,
+        0u32,
+        0u32,
+        1u32,
+        0f32,
+        -1f32,
+        0f32,
+        -10f32,
+        1f32,
+        0f32,
+        -13f32
+    );
+    tour_portal(mut input, 1u32, 1u32, 2u32, 0f32, 1f32, 15f32, 20f32, 0f32, 1f32, 0f32);
+    quad(
+        mut input,
+        0u32,
+        0u32,
+        1u32,
+        0u32,
+        -2f32,
+        -2f32,
+        3f32,
+        2f32,
+        -2f32,
+        3f32,
+        2f32,
+        2f32,
+        3f32,
+        -2f32,
+        2f32,
+        3f32
+    );
+    quad(
+        mut input,
+        1u32,
+        0u32,
+        2u32,
+        0u32,
+        15f32,
+        -2f32,
+        -2f32,
+        15f32,
+        -2f32,
+        2f32,
+        15f32,
+        2f32,
+        2f32,
+        15f32,
+        2f32,
+        -2f32
+    );
+    quad(
+        mut input,
+        2u32,
+        0u32,
+        0u32,
+        0u32,
+        17f32,
+        -3f32,
+        3f32,
+        23f32,
+        -3f32,
+        3f32,
+        23f32,
+        3f32,
+        3f32,
+        17f32,
+        3f32,
+        3f32
+    );
+}
+fn portable_shadow_test(renderer: mut Renderer) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_scene(mut input, 1u32);
+        var p: usize = (input_word(read input, LIGHT_DATA as usize) + 16u32 * 8u32) as usize;
+        input_set_float(mut input, p + 7usize, LIGHT_VIEW as f32);
+    }
+    if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
+        return false;
+    }
+    var w: *u32 = renderer.state.mapped as *u32;
+    if (w[(PIXELS + 24u32 * 64u32 + 32u32) as usize] & 0xffffffu32) == 0u32 {
+        return error("portable lamp was shadowed by the bulkhead");
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        var p: usize = input_word(read input, LIGHT_DATA as usize) as usize;
+        input_set_float(mut input, p + 7usize, 1.5f32);
+    }
+    return !renderer_draw(&renderer.state) || error("invalid light mode was accepted");
+}
+fn portable_lights_test(base: *Options) -> bool {
+    var o: Options = *base;
+    o.width = 64u32;
+    o.height = 48u32;
+    o.window_width = 64u32;
+    o.window_height = 48u32;
+    o.capture = "build/test-portable-lights.ppm";
+    var renderer: Renderer = renderer_new();
+    var config: RenderConfig = demo_render_config(&o);
+    config.view_budget = 3u32;
+    config.portal_budget = 2u32;
+    config.crossing_limit = 2u32;
+    config.task_budget = 64u32;
+    if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
+        return false;
+    }
+    var mode: u32 = 0u32;
+    while mode < 3u32 {
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            portable_scene(mut input, mode);
+        }
+        if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
+            return false;
+        }
+        var w: *u32 = renderer.state.mapped as *u32;
+        var pixel: u32 = 24u32 * 64u32 + 32u32;
+        var tri: u32 = w[(w[DEBUG_VALUES as usize] + pixel * 4u32) as usize] % w[3usize];
+        if w[(w[META as usize] + tri * 4u32) as usize] != 2u32 {
+            return error("portable light fixture did not cross both transformed portals");
+        }
+        if ((w[(PIXELS + pixel) as usize] & 0xffffffu32) != 0u32) != (mode != 0u32) {
+            return error("portable light did not reach the twice-transformed room");
+        }
+        mode = mode + 1u32;
+    }
+    return portable_shadow_test(mut renderer);
+}

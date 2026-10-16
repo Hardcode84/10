@@ -130,8 +130,9 @@ uses the camera position transformed through each visible portal path. Thus,
 it illuminates nearby surfaces on both sides of a doorway. The GPU computes
 each visible point and triangle normal in that space. Surfaces are two-sided:
 the normal faces the viewer, and light from behind that face contributes zero.
-The light weight is `max(0, cos(theta)) / (1 + d/R)^2`, where `d` is distance
-and `R` is the falloff radius. There is no minimum angular contribution.
+Point lights use `sqrt(max(0, cos(theta))) / (1 + d/R)^2`. The camera lamp
+uses the same distance falloff with the Lambert angle term. Here `d` is
+distance and `R` is the falloff radius. There is no minimum angular contribution.
 Point lights use GPU spatial trees for shadow visibility. See
 [light visibility](lighting.md). Material emission makes lamp surfaces visible
 without nearby lights.

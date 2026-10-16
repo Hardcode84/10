@@ -39,6 +39,8 @@ fn build_render_tests(
     provider_count = provider_count + demo_providers(root, &providers[provider_count]);
     providers[provider_count] = host_path(root, "tests/render/transfers.crs");
     provider_count = provider_count + 1usize;
+    providers[provider_count] = host_path(root, "tests/render/portable-lights.crs");
+    provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/render/lighting.crs");
     provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/render/image.crs");

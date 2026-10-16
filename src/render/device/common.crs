@@ -172,11 +172,12 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32, hx: u32, hy: u32) -> u3
     var i: u32 = 0u32;
     while i < words_load(LIGHT_COUNT) {
         var p: u32 = words_load(LIGHT_DATA) + i * 8u32;
-        if words_load(words_load(LIGHT_SPACE) + i) == space {
+        var transported: bool = floats_load(p + 7u32) == LIGHT_VIEW as f32;
+        if transported || words_load(words_load(LIGHT_SPACE) + i) == space {
             var amount: f32 = light_amount(
-                floats_load(p) - px,
-                floats_load(p + 1u32) - py,
-                floats_load(p + 2u32) - pz,
+                light_position(p, view, 0u32) - px,
+                light_position(p, view, 1u32) - py,
+                light_position(p, view, 2u32) - pz,
                 nx,
                 ny,
                 nz,
@@ -189,7 +190,7 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32, hx: u32, hy: u32) -> u3
                 floats_load(p + 5u32),
                 floats_load(p + 6u32)
             );
-            if amount > 0f32 && !light_visible(
+            if !transported && amount > 0f32 && !light_visible(
                 i,
                 tri,
                 sx,
@@ -478,4 +479,16 @@ fn low_bit(bits: u32) -> u32 {
         bit = bit + 2u32;
     }
     return bit + ((value & 1u32) == 0u32) as u32;
+}
+
+fn light_position(light: u32, view: u32, axis: u32) -> f32 {
+    if floats_load(light + 7u32) == LIGHT_ROOM as f32 {
+        return floats_load(light + axis);
+    }
+    var p: u32 = words_load(VIEW_FLOAT) + view * 16u32;
+    return floats_load(p + axis) * (floats_load(light) - floats_load(p + 3u32)) + floats_load(
+        p + 4u32 + axis
+    ) * (floats_load(light + 1u32) - floats_load(p + 7u32)) + floats_load(p + 8u32 + axis) * (
+        floats_load(light + 2u32) - floats_load(p + 11u32)
+    );
 }

@@ -123,7 +123,11 @@ fn hook_light(collision: read CollisionScene, input: mut FrameInput, drone: Dron
     if !active {
         return;
     }
-    var point: Vec3 = hook_light_position(read collision, drone);
+    var physical: Vec3 = hook_light_position(read collision, drone);
+    var point: Vec3 = collision_local(
+        drone.basis,
+        sub(space_point(drone.cable.frame, physical), drone.position)
+    );
     var p: usize = input_word(read input, LIGHT_DATA as usize) as usize;
     input_set_float(mut input, p, point.x);
     input_set_float(mut input, p + 1usize, point.y);
@@ -132,5 +136,6 @@ fn hook_light(collision: read CollisionScene, input: mut FrameInput, drone: Dron
     input_set_float(mut input, p + 4usize, 2f32);
     input_set_float(mut input, p + 5usize, 1.6f32);
     input_set_float(mut input, p + 6usize, 0.1f32);
+    input_set_float(mut input, p + 7usize, LIGHT_VIEW as f32);
     input_light_space(mut input, 0u32, drone.cable.space);
 }

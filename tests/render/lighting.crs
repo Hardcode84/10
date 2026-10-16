@@ -135,7 +135,9 @@ fn lighting_test(base: *Options) -> bool {
         }
         index = index + 1u32;
     }
-    if !lighting_cache_test(mut renderer) || !lighting_shared_ambient(mut renderer) {
+    if !portable_lights_test(base) || !lighting_cache_test(mut renderer) || !lighting_shared_ambient(
+        mut renderer
+    ) {
         return false;
     }
     puts(
