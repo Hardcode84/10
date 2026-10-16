@@ -100,3 +100,13 @@ fn game_dynamic_space(v: mut FrameInput, first: u32, space: u32) -> unit {
         i = i + 1u32;
     }
 }
+
+fn game_dynamic_no_shadow(v: mut FrameInput, first: u32) -> unit {
+    var i: u32 = first;
+    while i < input_word(read v, 3usize) {
+        var flags: usize = (input_word(read v, META as usize) + i * 4u32 + 3u32) as usize;
+        var value: u32 = input_word(read v, flags) | 4u32;
+        input_set_word(mut v, flags, value);
+        i = i + 1u32;
+    }
+}

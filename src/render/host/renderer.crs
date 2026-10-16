@@ -109,6 +109,11 @@ fn renderer_draw(v: *Vulkan) -> bool {
     if w[INSTANCE_COUNT as usize] == 0u32 {
         w[DYNAMIC_COUNT as usize] = w[3usize];
     }
+    w[SHADOW_RESET as usize] = (
+        v -> mesh_dirty || v -> shadow_dirty || v -> shadow_instances != w[
+            INSTANCE_COUNT as usize
+        ]
+    ) as u32;
     v -> frame_upload_bytes = 0u64;
     v -> frame_readback_bytes = 0u64;
     v -> mesh_upload_bytes = 0u64;
@@ -119,6 +124,8 @@ fn renderer_draw(v: *Vulkan) -> bool {
         return false;
     }
     v -> mesh_dirty = false;
+    v -> shadow_dirty = false;
+    v -> shadow_instances = (v -> mapped as *u32)[INSTANCE_COUNT as usize];
     v -> asset_dirty_begin = 0u32;
     v -> asset_dirty_end = 0u32;
     v -> font_dirty = false;
@@ -151,5 +158,5 @@ fn renderer_pipelines(v: *Vulkan, shaders: *ShaderCode) -> bool {
     return true;
 }
 fn renderer_pipeline_count(v: *Vulkan) -> usize {
-    return 12usize + v -> shader_checks as usize;
+    return 13usize + v -> shader_checks as usize;
 }

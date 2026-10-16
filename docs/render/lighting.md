@@ -32,7 +32,7 @@ shadow query uses the same UV interpolation, address modes, and transparent
 palette index as the surface. Full-bright texels remain visible without light.
 They do not emit light. They block light like other opaque texels. Triangle
 flag bit 2 disables shadow casting. The hook uses this flag so its visible
-mesh does not block its own lamp.
+mesh does not block its own lamp. Prediction markers also use this flag.
 
 The receiver triangle is excluded from its own query. Segment fractions at or
 below 0.00001 and at or above 0.99999 are excluded to prevent endpoint contact
@@ -72,51 +72,69 @@ must not be presented. Correct the input before submitting another frame.
 
 ## Cost and checks
 
-After instance expansion, a GPU pass builds a bounding-volume tree for each
-active light. Each tree contains all shadow-casting triangles in the light’s
-room, including dynamic triangles and instances outside the camera view.
-Construction reads scene metadata once per light per frame. It partitions
-triangle centres on the longest box axis. Unbalanced partitions use equal
-counts. Each leaf contains at most four triangles.
+After instance expansion, the GPU uses two levels of bounding-volume trees.
+Each retained instance has a triangle tree. All lights share these trees.
+A small tree for each light selects instances in the light's room. A separate
+tree contains dynamic shadow-casting triangles in that room. A shadow ray
+visits intersected bounds and candidate leaves, not the scene triangle list.
+Each leaf contains at most four triangles or instances. Escape links avoid
+a fixed-size traversal stack and a tree depth limit.
+
+Retained trees remain on the GPU between frames. Mesh data, instance mesh
+ranges, transforms, or instance count changes cause a rebuild. Buffer
+replacement also causes a rebuild. A changed light or camera does not rebuild
+retained trees. Triangle indices are relative to the retained geometry, so
+changes in the number of preceding dynamic triangles do not invalidate them.
+Instance room and material changes take effect through the current metadata.
+
+The per-light instance trees and dynamic trees are rebuilt each frame. They
+read instance metadata and dynamic triangles; they do not scan retained
+triangles. Retained trees build in parallel across instances. Each tree splits
+on the longest box axis. Unbalanced partitions use equal counts. Bounds are
+expanded conservatively for floating-point box intersection. Compute barriers
+make completed trees available to raster queries. There is no tree readback.
+
+For triangle capacity T, instance capacity I, and light capacity L, tree
+storage uses 84 * ((L + 1) * T + L * I) bytes in each buffer. Storage allocation
+and geometry limits include this cost. Available device storage limits the
+counts; the tree code does not impose a separate geometry cap.
 
 The raster pass rejects lights in other rooms and contributions below the
-first intensity band. A remaining shadow ray traverses intersected tree bounds
-and tests candidate leaf triangles. It does not scan the scene triangle list.
-Escape links permit traversal without a fixed-size stack or a depth limit.
-Triangle intersection, cutout sampling, and endpoint rules are unchanged.
-Bounds are expanded conservatively for floating-point box intersection.
-
-Trees are rebuilt each frame, after transformed geometry is ready. A compute
-barrier makes the completed trees available to the raster pass. The GPU keeps
-all tree data; the host does not read it back. Tree scratch storage reserves
-84 bytes per triangle-capacity unit per light-capacity unit in each buffer.
-Storage allocation and geometry limits include this cost. The number of
-lights and triangles is limited by available device storage, not a tree cap.
+first intensity band. Triangle intersection, cutout sampling, and endpoint
+rules remain the same. Prediction markers, cockpit display geometry, and
+portal number labels do not cast shadows. Physical room geometry, props,
+beacons, and cables still cast shadows.
 
 Measure the actual start, start with a flying hook, and ending-room views:
 
 ```sh
-crust tests.crs benchmark 3840 2160 --lit-rooms --width 960 --height 540
+crust tests.crs benchmark 1024 768 --lit-rooms --width 1024 --height 768
 ```
 
 On Intel Arc Pro B60, default seed and complexity, the same three views gave:
 
-| View | Linear scan mean | Tree mean | Tree maximum |
+| View | Per-light triangle rebuild mean | Shared trees mean | Shared trees maximum |
 | --- | --- | --- | --- |
-| Start | 31.36 ms | 14.55 ms | 15.10 ms |
-| Start with hook | 50.31 ms | 15.68 ms | 16.35 ms |
-| Ending room | 29.11 ms | 7.81 ms | 8.11 ms |
+| Start | 15.62 ms | 9.32 ms | 9.93 ms |
+| Start with hook | 17.39 ms | 10.22 ms | 10.76 ms |
+| Ending room | 8.57 ms | 6.63 ms | 6.95 ms |
 
 Each view uses four warm-up frames and eight measured frames. All three image
-hashes match the linear-scan control exactly. These are headless frame times;
-they exclude window presentation and compositor cost.
+hashes match the control exactly. These are headless frame times; they exclude
+window presentation and compositor cost. Start-room upload, instance expansion,
+shadow preparation, and image initialization together fell from 5.97 ms to
+0.24 ms. No resolution reduction is used. With the same internal resolution
+and 3840 by 2160 output, the hook-lit start view averages 10.37 ms, with a
+10.85 ms maximum. This measurement also excludes window presentation.
 
 Run `crust tests.crs render 11`. It checks a closed bulkhead, a transparent
 cutout, a blocker in another space, a transformed retained blocker, a distant
 lamp, full-bright texels without lamps, and a contributing seventeenth light, a non-shadow-casting surface, and a light
 in a room with an ID above the float exact-integer range.
 Extra off-screen blockers force multi-level tree traversal in each case.
-Each image is compared with the CPU reference. It also checks rejected growth,
+Each image is compared with the CPU reference. Repeated frames check tree reuse,
+changed dynamic counts, source flags, transforms, instance removal and return,
+and buffer replacement. It also checks rejected growth,
 invalid input, and recovery. With visibility disabled, the closed-bulkhead case
 reports 1,092 incorrectly lit pixels outside the reference edge band.
 

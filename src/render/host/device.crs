@@ -10,6 +10,8 @@ record Vulkan {
     mesh_count: u32;
     instance_capacity: u32;
     mesh_dirty: bool;
+    shadow_dirty: bool;
+    shadow_instances: u32;
     instance_dirty: bool;
     asset_dirty_begin: u32;
     asset_dirty_end: u32;
@@ -49,8 +51,8 @@ record Vulkan {
     shader_checks: bool;
     layout: *u8;
     pipeline_layout: *u8;
-    modules: [*u8; 13];
-    pipelines: [*u8; 13];
+    modules: [*u8; 14];
+    pipelines: [*u8; 14];
     pool: *u8;
     set: *u8;
     command_pool: *u8;

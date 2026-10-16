@@ -11,6 +11,12 @@ fn main(argc: i32, argv: **u8) -> i32 {
     if !game_renderer_open(&renderer.state, &options, null(*u8), 0u32) {
         return 1i32;
     }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !prediction_shadow_flags(mut input, options.config) {
+            return 1i32;
+        }
+    }
     var scene: CollisionScene = collision_new();
     var builder: CollisionBuilder = collision_builder_new();
     var mesh: Mesh = mesh_new();
@@ -134,6 +140,44 @@ fn hook_light_state(scene: read CollisionScene, drone: mut Drone, state: u32) ->
     }
     if state == 2u32 {
         drone.cable = empty_cable();
+    }
+    return true;
+}
+
+fn prediction_shadow_flags(input: mut FrameInput, config: GameConfig) -> bool {
+    input_frame(mut input);
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, 0f32);
+    drone.basis = identity_basis();
+    var kind: u32 = 0u32;
+    while kind < 2u32 {
+        var material: u32 = PREVIEW_MATERIAL;
+        if kind == 1u32 {
+            material = HOOK_PREVIEW_MATERIAL;
+        }
+        var trail: PreviewTrail = preview_trail(4u32, material, 0f32);
+        var first: u32 = input_word(read input, 3usize);
+        draw_preview_segment(
+            mut input,
+            mut trail,
+            drone.position,
+            vec(0f32, 0f32, 16f32),
+            drone,
+            config
+        );
+        var end: u32 = input_word(read input, 3usize);
+        if first == end {
+            return error("prediction fixture did not emit markers");
+        }
+        var i: u32 = first;
+        while i < end {
+            var flags: usize = (input_word(read input, META as usize) + i * 4u32 + 3u32) as usize;
+            if (input_word(read input, flags) & 4u32) == 0u32 {
+                return error("prediction marker casts shadows");
+            }
+            i = i + 1u32;
+        }
+        kind = kind + 1u32;
     }
     return true;
 }

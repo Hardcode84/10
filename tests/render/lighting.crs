@@ -135,7 +135,7 @@ fn lighting_test(base: *Options) -> bool {
         }
         index = index + 1u32;
     }
-    if !lighting_shared_ambient(mut renderer) {
+    if !lighting_cache_test(mut renderer) || !lighting_shared_ambient(mut renderer) {
         return false;
     }
     puts(
@@ -275,4 +275,138 @@ fn lighting_shadow_tree(input: mut FrameInput) -> unit {
         );
         i = i + 1u32;
     }
+}
+
+fn lighting_cache_shift(input: mut FrameInput) -> unit {
+    var instances: u32 = input_word(read input, INSTANCE_COUNT as usize);
+    var total: u32 = input_word(read input, 3usize);
+    input_frame(mut input);
+    quad(
+        mut input,
+        0u32,
+        0u32,
+        0u32,
+        4u32,
+        100f32,
+        0f32,
+        3f32,
+        101f32,
+        0f32,
+        3f32,
+        101f32,
+        1f32,
+        3f32,
+        100f32,
+        1f32,
+        3f32
+    );
+    input_set_word(mut input, DYNAMIC_COUNT as usize, 2u32);
+    input_set_word(mut input, INSTANCE_COUNT as usize, instances);
+    input_set_word(mut input, 3usize, total + 2u32);
+    var i: u32 = 0u32;
+    while i < instances {
+        var p: usize = (input_word(read input, INSTANCE_META as usize) + i * 5u32 + 2u32) as usize;
+        var first: u32 = input_word(read input, p);
+        input_set_word(mut input, p, first + 2u32);
+        i = i + 1u32;
+    }
+}
+fn lighting_cache_move(input: mut FrameInput) -> unit {
+    var count: u32 = input_word(read input, INSTANCE_COUNT as usize);
+    var i: u32 = count - 2u32;
+    while i < count {
+        var p: usize = (input_word(read input, INSTANCE_FLOAT as usize) + i * 18u32) as usize;
+        var x: f32 = input_float(read input, p + 3usize);
+        input_set_float(mut input, p + 3usize, x + 100f32);
+        var low: f32 = input_float(read input, p + 12usize);
+        var high: f32 = input_float(read input, p + 15usize);
+        input_set_float(mut input, p + 12usize, low + 100f32);
+        input_set_float(mut input, p + 15usize, high + 100f32);
+        i = i + 1u32;
+    }
+}
+fn lighting_cache_check(renderer: mut Renderer, rebuild: bool) -> bool {
+    if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
+        return false;
+    }
+    var w: *u32 = renderer.state.mapped as *u32;
+    return (w[SHADOW_RESET as usize] != 0u32) == rebuild || error(
+        "shadow tree reuse differs from the submission contract"
+    );
+}
+fn lighting_cache_test(renderer: mut Renderer) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_scene(mut input, 4u32);
+    }
+    if !lighting_cache_check(mut renderer, true) || !lighting_cache_check(mut renderer, false) {
+        return false;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_cache_shift(mut input);
+    }
+    if !lighting_cache_check(mut renderer, false) || !lighting_cache_source(mut renderer) {
+        return false;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_cache_move(mut input);
+    }
+    if !lighting_cache_check(mut renderer, true) || !lighting_cache_check(mut renderer, false) {
+        return false;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        var count: u32 = input_word(read input, INSTANCE_COUNT as usize);
+        input_set_word(mut input, INSTANCE_COUNT as usize, count - 2u32);
+        var total: u32 = input_word(read input, 3usize);
+        input_set_word(mut input, 3usize, total - 2u32);
+    }
+    if !lighting_cache_check(mut renderer, true) {
+        return false;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        var count: u32 = input_word(read input, INSTANCE_COUNT as usize);
+        input_set_word(mut input, INSTANCE_COUNT as usize, count + 2u32);
+        var total: u32 = input_word(read input, 3usize);
+        input_set_word(mut input, 3usize, total + 2u32);
+    }
+    if !lighting_cache_check(mut renderer, true) {
+        return false;
+    }
+    if !renderer_resize(&renderer.state, 65u32, 48u32, 65u32, 48u32) || !lighting_cache_check(
+        mut renderer,
+        true
+    ) {
+        return false;
+    }
+    return renderer_resize(&renderer.state, 64u32, 48u32, 64u32, 48u32);
+}
+
+fn lighting_cache_flags(input: mut FrameInput, flags: u32) -> unit {
+    var count: u32 = input_word(read input, INSTANCE_COUNT as usize);
+    var i: u32 = count - 2u32;
+    while i < count {
+        var p: usize = (input_word(read input, INSTANCE_META as usize) + i * 5u32) as usize;
+        var mesh: u32 = input_word(read input, p);
+        var meta: usize = (input_word(read input, MESH_META as usize) + mesh * 4u32 + 2u32) as usize;
+        input_set_word(mut input, meta, flags);
+        i = i + 1u32;
+    }
+}
+fn lighting_cache_source(renderer: mut Renderer) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_cache_flags(mut input, 6u32);
+    }
+    if !lighting_cache_check(mut renderer, true) {
+        return false;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_cache_flags(mut input, 2u32);
+    }
+    return lighting_cache_check(mut renderer, true);
 }

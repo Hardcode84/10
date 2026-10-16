@@ -101,6 +101,7 @@ fn shadow_leaf(
     first: u32,
     count: u32,
     receiver: u32,
+    shift: u32,
     ox: f32,
     oy: f32,
     oz: f32,
@@ -110,8 +111,74 @@ fn shadow_leaf(
 ) -> bool {
     var i: u32 = 0u32;
     while i < count {
-        var tri: u32 = words_load(words_load(SHADOW_INDEX) + first + i);
+        var tri: u32 = words_load(words_load(SHADOW_INDEX) + first + i) + shift;
         if tri != receiver && light_blocks(tri, ox, oy, oz, dx, dy, dz) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shadow_visible(
+    root: u32,
+    receiver: u32,
+    shift: u32,
+    ox: f32,
+    oy: f32,
+    oz: f32,
+    dx: f32,
+    dy: f32,
+    dz: f32
+) -> bool {
+    var node: u32 = root;
+    if words_load(words_load(SHADOW_NODES) + node * 4u32 + 1u32) == 0u32 {
+        return true;
+    }
+    while node != 0xffffffffu32 {
+        var p: u32 = words_load(SHADOW_NODES) + node * 4u32;
+        var next: u32 = words_load(p + 2u32);
+        if shadow_intersects(node, ox, oy, oz, dx, dy, dz) {
+            var child: u32 = words_load(p + 3u32);
+            if child != 0xffffffffu32 {
+                next = child;
+            } else if !shadow_leaf(
+                words_load(p),
+                words_load(p + 1u32),
+                receiver,
+                shift,
+                ox,
+                oy,
+                oz,
+                dx,
+                dy,
+                dz
+            ) {
+                return false;
+            }
+        }
+        node = next;
+    }
+    return true;
+}
+
+fn shadow_instances(
+    first: u32,
+    count: u32,
+    receiver: u32,
+    ox: f32,
+    oy: f32,
+    oz: f32,
+    dx: f32,
+    dy: f32,
+    dz: f32
+) -> bool {
+    var i: u32 = 0u32;
+    var shift: u32 = words_load(DYNAMIC_COUNT);
+    while i < count {
+        var instance: u32 = words_load(words_load(SHADOW_INDEX) + first + i);
+        var p: u32 = words_load(INSTANCE_META) + instance * 5u32;
+        var root: u32 = (words_load(p + 2u32) - shift) * 2u32;
+        if !shadow_visible(root, receiver, shift, ox, oy, oz, dx, dy, dz) {
             return false;
         }
         i = i + 1u32;
@@ -128,27 +195,34 @@ fn light_visible(
     ly: f32,
     lz: f32
 ) -> bool {
-    var node: u32 = light * words_load(SCENE_CAPACITY) * 2u32;
+    var dx: f32 = lx - ox;
+    var dy: f32 = ly - oy;
+    var dz: f32 = lz - oz;
+    var dynamic_root: u32 = (light + 1u32) * words_load(SCENE_CAPACITY) * 2u32;
+    if !shadow_visible(dynamic_root, receiver, 0u32, ox, oy, oz, dx, dy, dz) {
+        return false;
+    }
+    var node: u32 = (words_load(SHADOW_TOP) + light * words_load(INSTANCE_CAPACITY)) * 2u32;
     if words_load(words_load(SHADOW_NODES) + node * 4u32 + 1u32) == 0u32 {
         return true;
     }
     while node != 0xffffffffu32 {
         var p: u32 = words_load(SHADOW_NODES) + node * 4u32;
         var next: u32 = words_load(p + 2u32);
-        if shadow_intersects(node, ox, oy, oz, lx - ox, ly - oy, lz - oz) {
+        if shadow_intersects(node, ox, oy, oz, dx, dy, dz) {
             var child: u32 = words_load(p + 3u32);
             if child != 0xffffffffu32 {
                 next = child;
-            } else if !shadow_leaf(
+            } else if !shadow_instances(
                 words_load(p),
                 words_load(p + 1u32),
                 receiver,
                 ox,
                 oy,
                 oz,
-                lx - ox,
-                ly - oy,
-                lz - oz
+                dx,
+                dy,
+                dz
             ) {
                 return false;
             }

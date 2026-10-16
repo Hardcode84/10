@@ -1,0 +1,24 @@
+fn shadow_top(light: u32) -> unit {
+    var space: u32 = words_load(words_load(LIGHT_SPACE) + light);
+    var first: u32 = words_load(SHADOW_TOP) + light * words_load(INSTANCE_CAPACITY);
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < words_load(INSTANCE_COUNT) {
+        var p: u32 = words_load(INSTANCE_META) + i * 5u32;
+        if words_load(p + 3u32) == space && words_load(p + 1u32) != 0u32 {
+            words_store(words_load(SHADOW_INDEX) + first + count, i);
+            count = count + 1u32;
+        }
+        i = i + 1u32;
+    }
+    shadow_build(first, count, 0u32, true);
+}
+fn compute() -> unit {
+    if shader_local_x() == 0u32 {
+        var light: u32 = shader_global_x() / LOCAL_SIZE;
+        while light < words_load(LIGHT_COUNT) {
+            shadow_top(light);
+            light = light + MAX_INVOCATIONS / LOCAL_SIZE;
+        }
+    }
+}

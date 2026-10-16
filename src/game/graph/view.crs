@@ -67,6 +67,7 @@ fn graph_scene(
     trial: read Trial,
     config: GameConfig
 ) -> unit {
+    var first: u32 = input_word(read v, 3usize);
     var node: GraphNode = graph_node(read graph, trial.drone.world);
     var i: u32 = 0u32;
     while i < node.count {
@@ -91,6 +92,7 @@ fn graph_scene(
         }
         i = i + 1u32;
     }
+    game_dynamic_no_shadow(mut v, first);
     if trial.drone.world == trial.goal_world {
         graph_beacon(
             mut v,

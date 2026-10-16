@@ -20,13 +20,7 @@ fn draw_cable(
         space_point(space_inverse(drone.cable.frame), drone.position)
     );
     game_dynamic_space(mut v, first, drone.cable.space);
-    var hook_tri: u32 = first;
-    while hook_tri < input_word(read v, 3usize) {
-        var flags: usize = (input_word(read v, META as usize) + hook_tri * 4u32 + 3u32) as usize;
-        var value: u32 = input_word(read v, flags) | 4u32;
-        input_set_word(mut v, flags, value);
-        hook_tri = hook_tri + 1u32;
-    }
+    game_dynamic_no_shadow(mut v, first);
     var start: Vec3 = add(
         drone.position,
         basis_vector(drone.basis, vec(0f32, -0.12f32, 0.2f32))

@@ -86,6 +86,7 @@ fn draw_preview_segment(
         var first: u32 = input_word(read v, 3usize);
         draw_preview_marker(mut v, point, eye, config, trail.material);
         game_dynamic_space(mut v, first, eye.world);
+        game_dynamic_no_shadow(mut v, first);
         trail.markers = trail.markers + 1u32;
         next = (trail.markers + 1u32) as f32 * PREVIEW_SPACING;
     }
@@ -158,6 +159,7 @@ fn frame_rect(
     h: f32,
     mat: u32
 ) -> unit {
+    var first: u32 = input_word(read v, 3usize);
     game_quad(
         mut v,
         mat,
@@ -166,6 +168,7 @@ fn frame_rect(
         frame_point(drone, config, x + w, y + h),
         frame_point(drone, config, x, y + h)
     );
+    game_dynamic_no_shadow(mut v, first);
 }
 fn draw_frame(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
     var aspect: f32 = config.width as f32 / config.height as f32;

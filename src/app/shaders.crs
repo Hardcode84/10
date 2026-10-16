@@ -51,7 +51,7 @@ fn load_pipeline(v: *Vulkan, path: *u8, slot: usize) -> bool {
 
 extern fn fflush(file: *u8) -> i32 = "fflush";
 fn render_shader_path(slot: usize, checked: bool) -> *u8 {
-    var paths: [*u8; 25] = make [*u8; 25] {
+    var paths: [*u8; 27] = make [*u8; 27] {
         "build/init.spv",
         "build/transform.spv",
         "build/raster.spv",
@@ -64,6 +64,7 @@ fn render_shader_path(slot: usize, checked: bool) -> *u8 {
         "build/visibility.spv",
         "build/bin.spv",
         "build/shadow-build.spv",
+        "build/shadow-top.spv",
         "build/init.debug.spv",
         "build/transform.debug.spv",
         "build/raster.debug.spv",
@@ -76,7 +77,8 @@ fn render_shader_path(slot: usize, checked: bool) -> *u8 {
         "build/visibility.debug.spv",
         "build/bin.debug.spv",
         "build/shadow-build.debug.spv",
+        "build/shadow-top.debug.spv",
         "build/status.debug.spv"
     };
-    return paths[slot + checked as usize * 12usize];
+    return paths[slot + checked as usize * 13usize];
 }

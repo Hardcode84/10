@@ -4,14 +4,14 @@ fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
     var floats: u64 = (
         clip + capacity as u64 * v -> view_capacity as u64 * 144u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
             v
-        ) + v -> light_capacity as u64 * (8u64 + capacity as u64 * 12u64) + 64u64
+        ) + v -> light_capacity as u64 * 8u64 + shadow_elements(v, capacity) * 12u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
     var words: u64 = (
         image_words(v) + tile_bit_words(v, capacity) + capacity as u64 * (
             5u64 + v -> view_capacity as u64 * MAX_FAN as u64
         ) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
             5u64 + v -> view_capacity as u64
-        ) + traversal_words(v) + v -> light_capacity as u64 * (1u64 + capacity as u64 * 9u64) + 64u64
+        ) + traversal_words(v) + v -> light_capacity as u64 + shadow_elements(v, capacity) * 9u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
     if (words + 1u64) * 4u64 > v -> storage_limit as u64 || (floats + 1u64) * 4u64 > v -> storage_limit as u64 {
         return error("geometry storage exceeds device maxStorageBufferRange");
@@ -51,7 +51,9 @@ fn geometry_header(v: *Vulkan) -> unit {
     w[SHADOW_INDEX as usize] = w[VIEW_KEYS as usize] + ((v -> task_capacity + 63u32) / 64u32) * (
         (v -> view_capacity * v -> portal_capacity + 31u32) / 32u32
     );
-    w[SHADOW_NODES as usize] = w[SHADOW_INDEX as usize] + v -> light_capacity * capacity;
+    w[SHADOW_NODES as usize] = w[SHADOW_INDEX as usize] + shadow_elements(v, capacity) as u32;
+    w[SHADOW_TOP as usize] = (v -> light_capacity + 1u32) * capacity;
+    w[INSTANCE_CAPACITY as usize] = v -> instance_capacity;
     w[WORD_COUNT as usize] = v -> words;
     w[FLOAT_COUNT as usize] = v -> floats;
 }
@@ -128,21 +130,25 @@ fn geometry_limit(v: *Vulkan) -> u32 {
     var elements: u64 = (v -> storage_limit as u64 / 256u64) * 64u64 - 1u64;
     var fixed_words: u64 = image_words(v) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
         5u64 + v -> view_capacity as u64
-    ) + traversal_words(v) + v -> light_capacity as u64;
+    ) + traversal_words(v) + v -> light_capacity as u64 + v -> light_capacity as u64 * v -> instance_capacity as u64 * 9u64;
     var fixed_floats: u64 = GEOMETRY as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
         v
-    ) + v -> light_capacity as u64 * 8u64;
+    ) + v -> light_capacity as u64 * (8u64 + v -> instance_capacity as u64 * 12u64);
     if elements <= fixed_words || elements <= fixed_floats {
         return 0u32;
     }
     var lower: u64 = 0u64;
     var upper: u64 = (elements - fixed_floats) / (
-        15u64 + v -> view_capacity as u64 * (MAX_FAN as u64 * 20u64 + 144u64) + v -> light_capacity as u64 * 12u64
+        15u64 + v -> view_capacity as u64 * (MAX_FAN as u64 * 20u64 + 144u64) + (
+            v -> light_capacity as u64 + 1u64
+        ) * 12u64
     );
     while lower < upper {
         var middle: u64 = lower + (upper - lower + 1u64) / 2u64;
         var size: u64 = fixed_words + middle * (
-            5u64 + v -> view_capacity as u64 * MAX_FAN as u64 + v -> light_capacity as u64 * 9u64
+            5u64 + v -> view_capacity as u64 * MAX_FAN as u64 + (
+                v -> light_capacity as u64 + 1u64
+            ) * 9u64
         ) + tile_bit_words(v, middle as u32);
         if size <= elements {
             lower = middle;
@@ -191,4 +197,8 @@ fn traversal_header(v: *Vulkan) -> unit {
 
 fn tile_bit_words(v: *Vulkan, triangles: u32) -> u64 {
     return v -> task_capacity as u64 * ((triangles as u64 * MAX_FAN as u64 + 31u64) / 32u64);
+}
+
+fn shadow_elements(v: *Vulkan, triangles: u32) -> u64 {
+    return (v -> light_capacity as u64 + 1u64) * triangles as u64 + v -> light_capacity as u64 * v -> instance_capacity as u64;
 }

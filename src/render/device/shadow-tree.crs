@@ -1,0 +1,119 @@
+fn shadow_coordinate(item: u32, vertex: u32, axis: u32, shift: u32, top: bool) -> f32 {
+    if top {
+        var p: u32 = words_load(INSTANCE_FLOAT) + item * 18u32 + 12u32 + axis;
+        if vertex == 0u32 {
+            return floats_load(p);
+        }
+        if vertex == 1u32 {
+            return floats_load(p + 3u32);
+        }
+        return floats_load(p) * 0.5f32 + floats_load(p + 3u32) * 0.5f32;
+    }
+    return floats_load(GEOMETRY + (item + shift) * 15u32 + vertex * 5u32 + axis);
+}
+fn shadow_node_set(node: u32, first: u32, count: u32, escape: u32) -> unit {
+    var p: u32 = words_load(SHADOW_NODES) + node * 4u32;
+    words_store(p, first);
+    words_store(p + 1u32, count);
+    words_store(p + 2u32, escape);
+    words_store(p + 3u32, 0xffffffffu32);
+}
+fn shadow_node_bounds(node: u32, first: u32, count: u32, shift: u32, top: bool) -> unit {
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        var low: f32 = 3.4028234e38f32;
+        var high: f32 = -3.4028234e38f32;
+        var i: u32 = 0u32;
+        while i < count {
+            var tri: u32 = words_load(words_load(SHADOW_INDEX) + first + i);
+            var vertex: u32 = 0u32;
+            while vertex < 3u32 {
+                var value: f32 = shadow_coordinate(tri, vertex, axis, shift, top);
+                if value < low {
+                    low = value;
+                }
+                if value > high {
+                    high = value;
+                }
+                vertex = vertex + 1u32;
+            }
+            i = i + 1u32;
+        }
+        var padding: f32 = (shadow_abs(low) + shadow_abs(high) + 1f32) * 0.000001f32;
+        floats_store(words_load(SHADOW_BOUNDS) + node * 6u32 + axis, low - padding);
+        floats_store(words_load(SHADOW_BOUNDS) + node * 6u32 + 3u32 + axis, high + padding);
+        axis = axis + 1u32;
+    }
+}
+fn shadow_partition(
+    first: u32,
+    count: u32,
+    axis: u32,
+    split: f32,
+    shift: u32,
+    top: bool
+) -> u32 {
+    var left: u32 = 0u32;
+    var i: u32 = 0u32;
+    var base: u32 = words_load(SHADOW_INDEX) + first;
+    while i < count {
+        var tri: u32 = words_load(base + i);
+        var center: f32 = (
+            shadow_coordinate(tri, 0u32, axis, shift, top) / 3f32 + shadow_coordinate(
+                tri,
+                1u32,
+                axis,
+                shift,
+                top
+            ) / 3f32
+        ) + shadow_coordinate(tri, 2u32, axis, shift, top) / 3f32;
+        if center < split {
+            words_store(base + i, words_load(base + left));
+            words_store(base + left, tri);
+            left = left + 1u32;
+        }
+        i = i + 1u32;
+    }
+    if left < count / 4u32 || left > count - count / 4u32 {
+        return count / 2u32;
+    }
+    return left;
+}
+fn shadow_split(node: u32, first: u32, count: u32, shift: u32, top: bool) -> u32 {
+    var bounds: u32 = words_load(SHADOW_BOUNDS) + node * 6u32;
+    var axis: u32 = 0u32;
+    var i: u32 = 1u32;
+    while i < 3u32 {
+        if floats_load(bounds + i + 3u32) - floats_load(bounds + i) > floats_load(
+            bounds + axis + 3u32
+        ) - floats_load(bounds + axis) {
+            axis = i;
+        }
+        i = i + 1u32;
+    }
+    var split: f32 = floats_load(bounds + axis) * 0.5f32 + floats_load(bounds + axis + 3u32) * 0.5f32;
+    return shadow_partition(first, count, axis, split, shift, top);
+}
+fn shadow_build(begin: u32, count: u32, shift: u32, top: bool) -> unit {
+    var root: u32 = begin * 2u32;
+    shadow_node_set(root, begin, count, 0xffffffffu32);
+    if count == 0u32 {
+        return;
+    }
+    var node: u32 = root;
+    var next: u32 = root + 1u32;
+    while node < next {
+        var p: u32 = words_load(SHADOW_NODES) + node * 4u32;
+        var first: u32 = words_load(p);
+        var size: u32 = words_load(p + 1u32);
+        shadow_node_bounds(node, first, size, shift, top);
+        if size > 4u32 {
+            var left: u32 = shadow_split(node, first, size, shift, top);
+            shadow_node_set(next, first, left, next + 1u32);
+            shadow_node_set(next + 1u32, first + left, size - left, words_load(p + 2u32));
+            words_store(p + 3u32, next);
+            next = next + 2u32;
+        }
+        node = node + 1u32;
+    }
+}

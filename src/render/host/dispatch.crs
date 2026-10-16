@@ -73,7 +73,9 @@ fn commands_record(v: *Vulkan) -> bool {
     );
     retained_dispatch(v, 8usize, v -> instance_capacity);
     frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-    retained_dispatch(v, 11usize, v -> light_capacity);
+    retained_dispatch(v, 11usize, v -> instance_capacity + v -> light_capacity);
+    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+    retained_dispatch(v, 12usize, v -> light_capacity);
     frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
     retained_dispatch(v, 0usize, (v -> width * v -> height + 63u32) / 64u32);
     frame_barrier(v, 2048u32, 64u32, 2048u32 | 2u32, 96u32 | 1u32);

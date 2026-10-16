@@ -10,10 +10,9 @@ normals from transformed positions. Bit 2 disables shadow casting. Negative scal
 
 Call `input_mesh` with a scoped `FrameInput` borrow. It copies the mesh into
 renderer-owned storage and returns a `MeshRange`. The source mesh can then
-be released. The range stays valid until that renderer closes, including
-across storage growth. Use the range only with its originating renderer.
-Mesh storage is append-only for this lifetime. Close the renderer to release
-its mesh library.
+be released. The range stays valid until that renderer closes or
+`input_clear_meshes` is called, including across storage growth. Use the range
+only with its originating renderer. Mesh storage is append-only between clears.
 
 Call `input_frame` before each frame. Submit dynamic triangles first, then
 retained instances. Each `MeshInstance` contains a range, a row-major 3 by 4
@@ -32,10 +31,12 @@ unchanged mesh data is not uploaded again.
 ## Visibility and GPU work
 
 The host transforms each local bound into a world-space axis-aligned bound.
-It expands that bound for Float32 rounding. Each frame uploads 92 bytes per
+It expands that bound for Float32 rounding. Changed instance data uploads 92 bytes per
 instance: five words and eighteen floats. The GPU expands retained triangles
 once per instance before view traversal. Dynamic triangles and expanded
-triangles then use the same clipping, lighting, and raster passes.
+triangles then use the same clipping, lighting, and raster passes. Retained
+shadow trees are shared by lights and reused until geometry changes. See
+[light visibility](lighting.md#cost-and-checks) for the invalidation contract.
 
 At each portal depth, the GPU tests bounds against each actual view's camera
 and destination clip plane. It keeps bounds that touch a plane, with a rounding
