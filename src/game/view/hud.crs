@@ -87,3 +87,17 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
         );
     }
 }
+
+fn hud_fps(v: mut FrameInput, fps: u32, paused: bool) -> unit {
+    var i: u32 = 0u32;
+    while i < 80u32 {
+        input_set_word(mut v, (OVERLAY_CELLS + 400u32 + i) as usize, 0u32);
+        i = i + 1u32;
+    }
+    hud_text(mut v, 0u32, 5u32, "FPS");
+    hud_number(mut v, 4u32, 5u32, fps);
+    hud_text(mut v, 11u32, 5u32, "TAB PAUSE / ESC EXIT / BACKSPACE RESTART");
+    if paused {
+        hud_text(mut v, 11u32, 5u32, "PAUSED - TAB TO RESUME                 ");
+    }
+}

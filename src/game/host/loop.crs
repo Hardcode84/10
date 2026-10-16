@@ -39,10 +39,14 @@ fn game_render(
     config: GameConfig
 ) -> bool {
     game_scene_frame(read collision, mut session, read loop.trial, config);
+    var fps: u32 = game_fps(read session);
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var inputs: FrameInput = renderer_inputs(mut renderer);
         game_hud(mut inputs, read loop.trial, loop.input.paused);
+        if !config.headless {
+            hud_fps(mut inputs, fps, loop.input.paused);
+        }
         input_set_word(mut inputs, OVERLAY_SCALE as usize, 1u32);
     }
     return game_draw(mut session) && game_present(mut session);

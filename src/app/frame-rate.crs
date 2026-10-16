@@ -1,0 +1,26 @@
+record FrameRate {
+    start: u64;
+    frames: u64;
+    fps: u32;
+}
+fn frame_rate_new() -> FrameRate {
+    return make FrameRate {
+        start: 0u64,
+        frames: 0u64,
+        fps: 0u32
+    };
+}
+// Samples completed frames over at least half a second of wall-clock time.
+fn frame_rate_sample(rate: mut FrameRate, time: u64) -> unit {
+    if rate.start == 0u64 {
+        rate.start = time;
+        return;
+    }
+    rate.frames = rate.frames + 1u64;
+    var elapsed: u64 = time - rate.start;
+    if elapsed >= 500000000u64 {
+        rate.fps = ((rate.frames * 1000000000u64 + elapsed / 2u64) / elapsed) as u32;
+        rate.frames = 0u64;
+        rate.start = time;
+    }
+}

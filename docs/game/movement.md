@@ -83,6 +83,10 @@ still includes inherited velocity and forces. A change in aim changes the path.
 The cyan spacing phase updates while previews are hidden and resets on retry.
 Rendering reads that phase and cannot change it.
 
+The window HUD shows FPS, averaged over half-second wall-clock intervals.
+It continues to update while simulation is paused. Headless captures omit
+the counter so images remain reproducible.
+
 ## Simulation contract
 
 Simulation runs at 120 Hz, independent of presentation. Each tick consumes one
