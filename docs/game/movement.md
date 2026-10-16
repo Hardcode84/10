@@ -32,6 +32,16 @@ Charge is unlimited in Phase 0. The trial records burst count, total speed
 removed by braking, and winch work per unit mass. The exit report prints these
 values. Charge depletion and beacons belong to Phase 1.
 
+Boost and brake each run for 0.25 seconds (30 simulation steps). Boost applies
+60 m/s² along the current ship forward axis, for 15 m/s of total velocity
+change without other forces. Turning steers the boost.
+
+Brake sets its acceleration from the starting speed, up to 120 m/s². Each
+step applies it against the current velocity. It cannot reverse the ship.
+Charge is spent only for speed removed. Other forces, contacts, and portals
+remain active during both pulses. A repeated press cannot extend an active
+pulse of the same type. Boost and brake can run at the same time.
+
 ## Controls
 
 | Action | Keyboard and mouse | Gamepad |
@@ -221,11 +231,15 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 11 uses an on/off preview setting, stores the
-game mode and initial spin mode in its header and includes the cyan prediction phase in the
-state hash. Replay restores the mode and reproduces the marker motion. Earlier
-versions are rejected because their state contract differs. Version 11 also hashes
-the machine clock, mesh attachment identity, local anchor, and energy counters.
+format uses the current Linux host's word representation. Version 13 stores the
+game mode and initial spin mode in its header. The state hash includes active
+boost and brake pulses, prediction phase, machine clock, mesh attachment,
+local anchor, and energy counters. Replay restores the mode and reproduces
+the marker motion. Earlier versions are rejected because their state contract
+differs.
+
+Use `crust tests.crs flight` for short CPU checks of timed boost and brake,
+charge use, trial input, and deterministic simulation.
 
 `--ticks N` bounds a run. In headless mode, the simulation runs without wall
 clock pacing and renders the last state. `--smoke` supplies test commands for
@@ -279,13 +293,12 @@ playtest before starting the beacon and charge-economy slice.
 
 ## Implementation checks
 
-The automated stopped-course flight passes all 11 gates and lands in 18,488
-simulation ticks, with 13 bursts. The full-spin flight lands in 6,470 ticks,
-with 32 bursts. Force, collision, tether, winch, input, and
-replay checks pass. AMD and Intel replay both complete course recordings with matching simulation
-hashes. On AMD, record and replay captures match byte for byte. Invalid version
-and spin fields in recording headers are rejected. A private X11 window test with software Vulkan checks presentation and
-Esc exit. A physical gamepad has not been tested in this environment.
+The flight checks verify pulse duration, total velocity change, braking
+direction, charge use, trial input, and deterministic simulation. Course tests
+check all 11 gates and landing in stopped and full-spin modes. Recording
+checks compare simulation hashes and reject invalid version and spin fields.
+A private X11 window test with software Vulkan checks presentation and Esc
+exit. A physical gamepad has not been tested in this environment.
 
 The renderer passes 50 lit-tour reference states, including 70 and 110 degree
 fields of view, on AMD and Intel. The palette test also checks overlay bounds,

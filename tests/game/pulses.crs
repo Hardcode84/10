@@ -1,0 +1,77 @@
+fn test_boost_pulse(collision: read CollisionScene) -> bool {
+    var drone: Drone = new_drone();
+    var command: Command = idle_command();
+    command.burst = true;
+    flight_pulses(mut drone, command);
+    if !game_check(
+        near(drone.velocity.z, 0.5f32, 0.001f32),
+        "boost must accelerate over time"
+    ) {
+        return false;
+    }
+    var i: u32 = 1u32;
+    while i < FLIGHT_PULSE_TICKS {
+        // Repeated presses while active must not extend or stack the pulse.
+        flight_pulses(mut drone, command);
+        i = i + 1u32;
+    }
+    if !game_check(
+        drone.boost_ticks == 0u32 && drone.bursts == 1u32 && near(
+            drone.velocity.z,
+            15f32,
+            0.05f32
+        ),
+        "boost duration or total velocity change differs"
+    ) {
+        return false;
+    }
+    var speed: f32 = drone.velocity.z;
+    flight_pulses(mut drone, idle_command());
+    return game_check(drone.velocity.z <= speed, "boost continued after expiry");
+}
+fn test_brake_pulse(collision: read CollisionScene) -> bool {
+    var drone: Drone = new_drone();
+    drone.velocity = vec(40f32, 0f32, 0f32);
+    var command: Command = idle_command();
+    command.brake = true;
+    flight_pulses(mut drone, command);
+    if !game_check(
+        near(drone.velocity.x, 39f32, 0.01f32),
+        "brake must decelerate over time"
+    ) {
+        return false;
+    }
+    // A contact or portal can change the velocity direction during a pulse.
+    drone.velocity = vec(0f32, 0f32, length(drone.velocity));
+    var i: u32 = 1u32;
+    while i < FLIGHT_PULSE_TICKS {
+        flight_pulses(mut drone, command);
+        i = i + 1u32;
+    }
+    if !game_check(
+        drone.brake_ticks == 0u32 && near(drone.velocity.z, 10f32, 0.1f32) && near(
+            drone.brake_speed,
+            30f32,
+            0.001f32
+        ),
+        "brake must track velocity and remove at most 30 m/s per pulse"
+    ) {
+        return false;
+    }
+    drone.velocity = vec(0.1f32, 0f32, 0f32);
+    flight_pulses(mut drone, command);
+    // Contact stops the drone; braking must not push it backwards.
+    drone.velocity = vec(0f32, 0f32, 0f32);
+    flight_pulses(mut drone, idle_command());
+    return game_check(length(drone.velocity) == 0f32, "brake reversed a stopped drone");
+}
+fn test_flight_pulses() -> bool {
+    var collision: CollisionScene = collision_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_finish(move builder, mut collision) {
+        return false;
+    }
+    return test_boost_pulse(read collision) && test_brake_pulse(read collision) && test_expedition_power(
+        read collision
+    ) && test_trial(read collision) && test_replay(read collision);
+}

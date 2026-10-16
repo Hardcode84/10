@@ -54,6 +54,12 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "portals") == 0i32 {
 host_source(run, "tools/build/tests.crs");
 host_source(run, "tools/build/ownership-tests.crs");
 host_source(run, "tools/build/test-runner.crs");
+if run -> argc == 1i32 && cache_strcmp(run -> argv[0usize], "flight") == 0i32 {
+    if !build_game_tests(run, backend.emit) {
+        return 1i32;
+    }
+    return launch_application(run, "build/tests-game");
+};
 if run -> argc == 1i32 && cache_strcmp(run -> argv[0usize], "ownership") == 0i32 {
     return (!check_host_ownership(run)) as i32;
 };

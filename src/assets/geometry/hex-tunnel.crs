@@ -10,7 +10,7 @@ fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
     loft_span(mut asset.hull, profile.shape, 0u32, 0u32);
     loft_caps(mut asset.hull, profile.shape, 2u32, 0u32, 0u32);
     hex_tunnel_surfaces(mut asset.hull, profile.shape.sides, length_metres);
-    var near: RoomPort = make RoomPort {
+    var entry: RoomPort = make RoomPort {
         id: asset_name("ENTRY"),
         profile: profile,
         face: profile.shape.sides,
@@ -21,13 +21,13 @@ fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
             forward: vec(0f32, -1f32, 0f32)
         }
     };
-    var far: RoomPort = near;
+    var far: RoomPort = entry;
     far.id = asset_name("EXIT");
     far.face = far.face + 1u32;
     far.position.y = length_metres;
     far.basis.right.x = -1f32;
     far.basis.forward.y = 1f32;
-    if !asset_port_append(mut asset.ports, near) || !asset_port_append(mut asset.ports, far) {
+    if !asset_port_append(mut asset.ports, entry) || !asset_port_append(mut asset.ports, far) {
         return false;
     }
     asset.spawn = make AssetSpawn {

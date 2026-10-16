@@ -37,6 +37,9 @@ fn trial_hash(trial: read Trial) -> u32 {
     hash = hash_word(hash, d.cable.reeling as u32);
     hash = hash_word(hash, d.cable.phase);
     hash = hash_word(hash, d.bursts);
+    hash = hash_word(hash, d.boost_ticks);
+    hash = hash_word(hash, d.brake_ticks);
+    hash = hash_word(hash, float_bits(d.brake_rate));
     hash = hash_word(hash, float_bits(d.brake_speed));
     hash = hash_word(hash, float_bits(d.winch_work));
     hash = hash_word(hash, float_bits(trial.preview_phase));

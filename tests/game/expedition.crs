@@ -31,7 +31,7 @@ fn test_expedition_power(collision: read CollisionScene) -> bool {
     drone.charge = 7f32;
     var command: Command = idle_command();
     command.burst = true;
-    flight_impulses(mut drone, command);
+    flight_pulses(mut drone, command);
     if !game_check(
         drone.charge == 7f32 && drone.bursts == 0u32,
         "unaffordable bursts must not spend charge or add velocity"
@@ -41,9 +41,15 @@ fn test_expedition_power(collision: read CollisionScene) -> bool {
     drone.velocity = vec(20f32, 0f32, 0f32);
     command.burst = false;
     command.brake = true;
-    flight_impulses(mut drone, command);
+    flight_pulses(mut drone, command);
+    command.brake = false;
+    var i: u32 = 1u32;
+    while i < FLIGHT_PULSE_TICKS {
+        flight_pulses(mut drone, command);
+        i = i + 1u32;
+    }
     if !game_check(
-        near(drone.charge, 0f32, 0.0001f32) && length(drone.velocity) == 0f32,
+        near(drone.charge, 0f32, 0.0001f32) && length(drone.velocity) < 0.0001f32,
         "brake must charge for the actual speed removed"
     ) {
         return false;

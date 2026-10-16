@@ -1,16 +1,36 @@
-fn flight_impulses(drone: mut Drone, command: Command) -> unit {
-    if command.burst && burst_available(read drone) {
+const FLIGHT_PULSE_TICKS: u32 = 30u32;
+const FLIGHT_PULSE_SECONDS: f32 = 0.25f32;
+fn flight_pulses(drone: mut Drone, command: Command) -> unit {
+    if command.burst && drone.boost_ticks == 0u32 && burst_available(read drone) {
         use_charge(mut drone, BURST_CHARGE);
-        drone.velocity = add(drone.velocity, scale(drone.basis.forward, 15f32));
+        drone.boost_ticks = FLIGHT_PULSE_TICKS;
         drone.bursts = drone.bursts + 1u32;
     }
-    if command.brake {
+    if command.brake && drone.brake_ticks == 0u32 {
+        drone.brake_ticks = FLIGHT_PULSE_TICKS;
+        drone.brake_rate = brake_amount(read drone) / FLIGHT_PULSE_SECONDS;
+    }
+    if drone.boost_ticks > 0u32 {
+        drone.velocity = add(
+            drone.velocity,
+            scale(drone.basis.forward, 15f32 * STEP / FLIGHT_PULSE_SECONDS)
+        );
+        drone.boost_ticks = drone.boost_ticks - 1u32;
+    }
+    flight_brake(mut drone);
+}
+fn flight_brake(drone: mut Drone) -> unit {
+    if drone.brake_ticks > 0u32 {
         var speed: f32 = length(drone.velocity);
-        var removed: f32 = brake_amount(read drone);
+        var removed: f32 = clamp(drone.brake_rate * STEP, 0f32, brake_amount(read drone));
         use_charge(mut drone, removed * BRAKE_CHARGE_PER_SPEED);
         drone.brake_speed = drone.brake_speed + removed;
         if speed > 0f32 {
             drone.velocity = scale(drone.velocity, (speed - removed) / speed);
+        }
+        drone.brake_ticks = drone.brake_ticks - 1u32;
+        if drone.brake_ticks == 0u32 {
+            drone.brake_rate = 0f32;
         }
     }
 }
@@ -23,7 +43,7 @@ fn simulate(
 ) -> unit {
     drone.step_frame = space_identity();
     orient(mut drone, command.look, auto_level);
-    flight_impulses(mut drone, command);
+    flight_pulses(mut drone, command);
     tether_input(mut drone, command);
     var thrust: Vec3 = command.thrust;
     if length(thrust) > 1f32 {

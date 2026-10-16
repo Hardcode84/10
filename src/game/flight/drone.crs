@@ -46,6 +46,9 @@ record Drone {
     basis: Basis;
     cable: Cable;
     bursts: u32;
+    boost_ticks: u32;
+    brake_ticks: u32;
+    brake_rate: f32;
     brake_speed: f32;
     winch_work: f32;
 }
@@ -64,6 +67,9 @@ fn new_drone() -> Drone {
         basis: identity_basis(),
         cable: empty_cable(),
         bursts: 0u32,
+        boost_ticks: 0u32,
+        brake_ticks: 0u32,
+        brake_rate: 0f32,
         brake_speed: 0f32,
         winch_work: 0f32
     };

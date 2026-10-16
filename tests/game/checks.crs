@@ -54,14 +54,25 @@ fn test_trial(collision: read CollisionScene) -> bool {
     c.burst = true;
     trial_step(read collision, mut t, c);
     if !game_check(
-        t.started && t.tick == 1u32 && t.drone.velocity.z > 14f32,
+        t.started && t.tick == 1u32 && t.drone.velocity.z > 0f32 && t.drone.velocity.z < 1f32,
         "burst did not start trial"
     ) {
         return false;
     }
     c = idle_command();
+    var i: u32 = 1u32;
+    while i < FLIGHT_PULSE_TICKS {
+        trial_step(read collision, mut t, c);
+        i = i + 1u32;
+    }
     c.brake = true;
     trial_step(read collision, mut t, c);
+    c.brake = false;
+    i = 1u32;
+    while i < FLIGHT_PULSE_TICKS {
+        trial_step(read collision, mut t, c);
+        i = i + 1u32;
+    }
     if !game_check(
         length(t.drone.velocity) < 0.0001f32 && t.drone.brake_speed > 14f32,
         "brake failed"
@@ -136,7 +147,7 @@ fn game_tests() -> bool {
         read collision
     ) && test_short_press() && test_mouse_accumulation() && test_swing(read collision) && test_tether(
         read collision
-    ) && test_trial(read collision) && test_input() && test_replay(read collision) && test_course_flight(
+    ) && test_flight_pulses() && test_input() && test_replay(read collision) && test_course_flight(
         read collision
     ) && test_prefabs(read collision) && test_expedition(read collision) && test_progress_store();
 }

@@ -25,7 +25,7 @@ fn ownership_sources(
         if !cache_read(root -> context, providers[i], &trusted[i]) {
             return 1i32;
         }
-        trusted[i].identity = 100u64 + i as u64;
+        trusted[i].identity = argc as u64 + 1u64 + i as u64;
         i = i + 1usize;
     }
     var total: usize = 0usize;
