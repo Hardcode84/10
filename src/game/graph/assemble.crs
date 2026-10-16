@@ -68,6 +68,13 @@ fn graph_assemble_room(
     i = 0u32;
     while i < node.mesh.count {
         var primitive: MeshTriangle = mesh_triangle(read render, i);
+        if id != 0u32 {
+            if primitive.material == material {
+                primitive.material = material + node.style;
+            } else if primitive.material == material + 1u32 {
+                primitive.material = material + TUNNEL_STYLES;
+            }
+        }
         if primitive.portal != 0u32 {
             primitive.portal = primitive.portal + node.first;
         }

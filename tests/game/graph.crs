@@ -46,7 +46,10 @@ fn graph_test_seed(seed: u32, complexity: u32) -> bool {
     ) {
         return false;
     }
-    if !graph_check_goal_routes(mut a) || !graph_check_routes(read a, complexity) {
+    if !graph_check_styles(read a, read b) || !graph_check_goal_routes(mut a) || !graph_check_routes(
+        read a,
+        complexity
+    ) {
         return false;
     }
     if graph_count(read a) != graph_count(read b) || graph_ports(read a) != graph_ports(read b) || graph_goal(
@@ -73,7 +76,10 @@ fn graph_test_generation() -> bool {
         }
         seed = seed + 1u32;
     }
-    return graph_test_seed(1u32, 3u32) && graph_test_seed(0xffffffffu32, 20u32);
+    return graph_style_cycle() && graph_test_seed(1u32, 3u32) && graph_test_seed(
+        0xffffffffu32,
+        20u32
+    );
 }
 fn graph_test_crossings(scene: read CollisionScene) -> bool {
     var i: u32 = 0u32;
@@ -299,4 +305,52 @@ fn graph_goalward_exits(graph: read RoomGraph, node: GraphNode) -> u32 {
         port = port + 1u32;
     }
     return count;
+}
+
+fn graph_check_styles(a: read RoomGraph, b: read RoomGraph) -> bool {
+    var i: u32 = 0u32;
+    while i < graph_count(read a) {
+        var node: GraphNode = graph_node(read a, i);
+        if node.style >= TUNNEL_STYLES || node.style != graph_node(read b, i).style {
+            return error("corridor style is invalid or not deterministic");
+        }
+        var port: u32 = 0u32;
+        while port < node.count {
+            var peer: u32 = graph_socket(read a, node.first + port).peer;
+            var other: GraphNode = graph_node(read a, graph_socket(read a, peer).room);
+            if node.count == 2u32 && other.count == 2u32 && node.style != other.style {
+                return error("corridor style changes without a junction");
+            }
+            port = port + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn graph_style_cycle() -> bool {
+    var graph: RoomGraph = graph_new();
+    if !graph_allocate(mut graph, 4u32, 19u32) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        graph_add(mut graph, 1u32 + i % 2u32, 0u32, 0u32);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 4u32 {
+        graph_pair(mut graph, i * 2u32 + 1u32, ((i + 1u32) % 4u32) * 2u32);
+        i = i + 1u32;
+    }
+    graph_styles(mut graph, 19u32);
+    var style: u32 = graph_node(read graph, 0u32).style;
+    i = 0u32;
+    while i < 4u32 {
+        if graph_node(read graph, i).style != style || style >= TUNNEL_STYLES {
+            return error("closed corridor cycle must share one valid style");
+        }
+        i = i + 1u32;
+    }
+    return true;
 }

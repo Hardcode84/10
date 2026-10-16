@@ -4,6 +4,7 @@ record GraphNode {
     count: u32;
     depth: u32;
     branch: u32;
+    style: u32;
     mesh: MeshRange;
     visited: bool;
 }
@@ -102,6 +103,7 @@ fn graph_add(graph: mut RoomGraph, kind: u32, depth: u32, branch: u32) -> u32 {
         count: count,
         depth: depth,
         branch: branch,
+        style: 0u32,
         mesh: mesh_empty_range(),
         visited: false
     };

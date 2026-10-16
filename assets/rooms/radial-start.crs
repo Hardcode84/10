@@ -133,7 +133,8 @@ fn room_material(region: u32) -> PanelMaterial {
         panel_height: panel_height,
         texels_per_metre: 64u32,
         border: 0.025f32,
-        indicator: region == REGION_START
+        indicator: region == REGION_START,
+        marking: 0u32
     };
 }
 fn room_parameter_name(index: u32) -> AssetName {

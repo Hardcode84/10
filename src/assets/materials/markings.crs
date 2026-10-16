@@ -1,0 +1,36 @@
+// Markings repeat within the metal tile. Zero selects unmarked metal.
+// Narrow dark housings separate full-bright inserts from the lit plate.
+fn panel_mark_sample(panel: PanelMaterial, x: f32, y: f32) -> u32 {
+    if panel.marking == 0u32 {
+        return 0u32;
+    }
+    var along: f32 = absf(x - panel.tile_metres * 0.5f32);
+    var across: f32 = absf(
+        mask_repeat(y, panel.panel_height) - panel.panel_height * 0.5f32
+    );
+    var distance: f32 = across;
+    var half_length: f32 = 0.26f32;
+    var half_width: f32 = 0.045f32;
+    if panel.marking == 1u32 {
+        distance = absf(across - 0.16f32);
+        half_length = 0.40f32;
+        half_width = 0.032f32;
+    }
+    if panel.marking == 2u32 {
+        along = absf(along - 0.22f32);
+        half_length = 0.075f32;
+        half_width = 0.14f32;
+    }
+    if panel.marking == 3u32 {
+        along = absf(along - 0.46f32);
+        distance = across;
+        half_length = 0.045f32;
+    }
+    if along < half_length && distance < half_width {
+        return 248u32;
+    }
+    if along < half_length + 0.035f32 && distance < half_width + 0.035f32 {
+        return 32u32;
+    }
+    return 0u32;
+}

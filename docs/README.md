@@ -69,6 +69,8 @@ crust tests.crs assets
 crust tests.crs asset-viewer
 crust tests.crs collision --sanitize
 crust tests.crs game
+crust tests.crs graph-layout
+crust tests.crs tunnel-styles
 crust tests.crs graph --complexity 8 --width 320 --height 180
 crust tests.crs viewer --width 320 --height 180
 crust tests.crs render 8
@@ -83,6 +85,10 @@ textures; 7 checks retained portal views; 8 checks portal capacity; 9 checks ima
 Run case 10 on a display to check window and swapchain resize.
 Use case 0 with `--capture FILE --frames N` to compare a custom demo sequence
 with the CPU reference.
+
+The graph-layout check tests seeded topology and corridor style continuity without
+rendering the game. The tunnel-styles check renders the six shared materials with
+and without light. It saves lit previews as `build/tunnel-*.ppm`.
 
 The test runner preserves the environment. For example, set `VK_DRIVER_FILES`
 to select a Vulkan driver. A failed child process makes the test root fail.

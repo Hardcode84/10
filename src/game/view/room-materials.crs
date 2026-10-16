@@ -1,12 +1,12 @@
 fn game_room_palette(input: mut FrameInput) -> bool {
     var panel: PanelMaterial = hex_tunnel_material();
     var payload: u32 = panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
-    var count: u32 = GAME_MATERIALS + room_material_count() + 2u32;
+    var count: u32 = GAME_MATERIALS + room_material_count() + TUNNEL_STYLES + 1u32;
     app_assets_extra(
         mut input,
         GAME_MATERIALS,
-        room_material_count() + 2u32,
-        room_material_payload() + payload * 2u32
+        room_material_count() + TUNNEL_STYLES + 1u32,
+        room_material_payload() + payload * (TUNNEL_STYLES + 1u32)
     );
     game_palette_fill(mut input);
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
@@ -18,19 +18,24 @@ fn game_room_palette(input: mut FrameInput) -> bool {
     if !room_materials_at(mut input, offset, GAME_MATERIALS) {
         return false;
     }
-    if !panel_upload(
-        mut input,
-        count - 2u32,
-        offset + room_material_payload(),
-        panel_texture_width(panel),
-        panel
-    ) {
-        return false;
+    var style: u32 = 0u32;
+    while style < TUNNEL_STYLES {
+        var variant: PanelMaterial = hex_tunnel_style(style);
+        if !panel_upload(
+            mut input,
+            GAME_MATERIALS + room_material_count() + style,
+            offset + room_material_payload() + payload * style,
+            panel_texture_width(variant),
+            variant
+        ) {
+            return false;
+        }
+        style = style + 1u32;
     }
     return panel_upload(
         mut input,
         count - 1u32,
-        offset + room_material_payload() + payload,
+        offset + room_material_payload() + payload * TUNNEL_STYLES,
         panel_texture_width(panel),
         hex_bulkhead_material()
     );

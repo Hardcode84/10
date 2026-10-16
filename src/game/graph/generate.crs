@@ -48,6 +48,7 @@ fn graph_generate(graph: mut RoomGraph, seed: u32, complexity: u32) -> bool {
     graph_routes(mut graph, complexity);
     graph_space_connections(mut graph);
     graph_distances(mut graph);
+    graph_styles(mut graph, seed);
     return true;
 }
 // A straight tunnel separates each pair of non-straight rooms, including joins.

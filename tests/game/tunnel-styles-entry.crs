@@ -1,0 +1,104 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var options: Launch = uninit;
+    if !game_options(argc, argv, &options) {
+        return 1i32;
+    }
+    options.config.width = 320u32;
+    options.config.height = 240u32;
+    options.capture = "build/test-tunnel-style.ppm";
+    options.shader_checks = true;
+    var renderer: Renderer = renderer_new();
+    var asset: RoomAsset = room_asset_new();
+    if !game_renderer_open(&renderer.state, &options, null(*u8), 0u32) || !hex_tunnel_build(
+        10f32,
+        mut asset
+    ) {
+        return 1i32;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !game_room_palette(mut input) {
+            return 1i32;
+        }
+    }
+    var style: u32 = 0u32;
+    while style < TUNNEL_STYLES {
+        if !tunnel_style_image(mut renderer, read asset, style, false) || !tunnel_style_image(
+            mut renderer,
+            read asset,
+            style,
+            true
+        ) {
+            return 1i32;
+        }
+        style = style + 1u32;
+    }
+    puts("Tunnel material upload, lit captures and full-bright darkness checks passed.");
+    return 0i32;
+}
+fn tunnel_style_input(input: mut FrameInput, asset: read RoomAsset, style: u32, dark: bool) -> bool {
+    input_frame(mut input);
+    input_set_word(mut input, BACKGROUND as usize, 0xff000000u32);
+    var lamp: f32 = 36f32;
+    if dark {
+        lamp = 0f32;
+    }
+    input_set_float(mut input, CAMERA_LIGHT as usize, lamp);
+    var eye: Vec3 = vec(0f32, 1f32, 0f32);
+    camera_row(mut input, 0usize, vec(1f32, 0f32, 0f32), eye);
+    camera_row(mut input, 4usize, vec(0f32, 0f32, -1f32), eye);
+    camera_row(mut input, 8usize, vec(0f32, 1f32, 0f32), eye);
+    var mesh: Mesh = mesh_new();
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read asset.mesh) {
+        var face: MeshTriangle = mesh_triangle(read asset.mesh, i);
+        face.material = GAME_MATERIALS + room_material_count() + style;
+        if !mesh_append(mut mesh, face) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var range: MeshRange = mesh_empty_range();
+    if !input_mesh(mut input, read mesh, mut range) {
+        return false;
+    }
+    return input_instance(mut input, mesh_identity(range, 0u32));
+}
+fn tunnel_style_image(
+    renderer: mut Renderer,
+    asset: read RoomAsset,
+    style: u32,
+    dark: bool
+) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !tunnel_style_input(mut input, read asset, style, dark) {
+            return false;
+        }
+    }
+    if !renderer_draw(&renderer.state) {
+        return false;
+    }
+    var pixels: *u32 = renderer.state.mapped as *u32;
+    var visible: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < 320u32 * 240u32 {
+        visible = visible + ((pixels[(PIXELS + i) as usize] & 0xffffffu32) != 0u32) as u32;
+        i = i + 1u32;
+    }
+    if (visible != 0u32) != (!dark || hex_tunnel_style(style).marking != 0u32) {
+        return error("tunnel visibility differs from its light and full-bright material");
+    }
+    if !dark {
+        var paths: [*u8; 6] = make [*u8; 6] {
+            "build/tunnel-steel.ppm",
+            "build/tunnel-ribs.ppm",
+            "build/tunnel-tread.ppm",
+            "build/tunnel-strips.ppm",
+            "build/tunnel-bars.ppm",
+            "build/tunnel-studs.ppm"
+        };
+        return capture(&renderer.state, paths[style as usize], 320u32, 240u32);
+    }
+    return true;
+}

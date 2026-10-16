@@ -10,7 +10,8 @@ fn hex_tunnel_material() -> PanelMaterial {
         finish: METAL_PLATE,
         pitch: 0.25f32,
         seed: 293u32,
-        indicator: false
+        indicator: false,
+        marking: 0u32
     };
 }
 // A ribbed steel end wall, with no emissive indicator or connection outline.
@@ -20,4 +21,38 @@ fn hex_bulkhead_material() -> PanelMaterial {
     material.finish = METAL_RIBBED;
     material.pitch = 0.5f32;
     return material;
+}
+
+const TUNNEL_STYLES: u32 = 6u32;
+// Styles share tile dimensions. Full-bright markings do not emit light.
+// 0: steel plates; 1: folded ribs; 2: worn tread; 3: paired strips;
+// 4: split bars; 5: inset studs. Markings have no travel direction.
+fn hex_tunnel_style(style: u32) -> PanelMaterial {
+    var panel: PanelMaterial = hex_tunnel_material();
+    panel.seed = panel.seed + style * 7919u32;
+    if style == 1u32 {
+        panel.colour = 0x72878fu32;
+        panel.finish = METAL_RIBBED;
+        panel.pitch = 0.5f32;
+    }
+    if style == 2u32 {
+        panel.colour = 0xa28b70u32;
+        panel.finish = METAL_TREAD;
+        panel.pitch = 0.5f32;
+    }
+    if style >= 3u32 {
+        panel.marking = style - 2u32;
+        panel.colour = 0x78848fu32;
+        panel.emission = 0x939bc2u32;
+    }
+    if style == 4u32 {
+        panel.colour = 0x8d8179u32;
+        panel.emission = 0xb87c78u32;
+    }
+    if style == 5u32 {
+        panel.colour = 0x738680u32;
+        panel.finish = METAL_RIBBED;
+        panel.emission = 0xacb7a1u32;
+    }
+    return panel;
 }

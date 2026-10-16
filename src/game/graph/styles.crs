@@ -1,0 +1,90 @@
+// Each connected run of two-port rooms shares one style, including elbows.
+// Junctions and terminal rooms use plain steel. Style choice does not change topology.
+fn graph_styles(graph: mut RoomGraph, seed: u32) -> unit {
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, i);
+        node.style = 0u32;
+        if node.count == 2u32 {
+            node.style = 0xffffffffu32;
+        }
+        graph_node_set(mut graph, i, node);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, i);
+        if node.style == 0xffffffffu32 {
+            var style: u32 = metal_hash(i, seed, 0x7331u32) % TUNNEL_STYLES;
+            var used: u32 = graph_style_boundary(read graph, node.first) | graph_style_boundary(
+                read graph,
+                node.first + 1u32
+            );
+            var attempt: u32 = 0u32;
+            while attempt + 1u32 < TUNNEL_STYLES && (used & (1u32 << style)) != 0u32 {
+                style = (style + 1u32) % TUNNEL_STYLES;
+                attempt = attempt + 1u32;
+            }
+            node.style = style;
+            graph_node_set(mut graph, i, node);
+            var port: u32 = 0u32;
+            while port < node.count {
+                var peer: u32 = graph_socket(read graph, node.first + port).peer;
+                var room: u32 = graph_socket(read graph, peer).room;
+                graph_style_walk(mut graph, room, style);
+                port = port + 1u32;
+            }
+        }
+        i = i + 1u32;
+    }
+}
+fn graph_style_walk(graph: mut RoomGraph, room: u32, style: u32) -> unit {
+    var current: u32 = room;
+    while graph_node(read graph, current).style == 0xffffffffu32 {
+        var node: GraphNode = graph_node(read graph, current);
+        node.style = style;
+        graph_node_set(mut graph, current, node);
+        var port: u32 = 0u32;
+        while port < node.count {
+            var peer: u32 = graph_socket(read graph, node.first + port).peer;
+            var next: u32 = graph_socket(read graph, peer).room;
+            if graph_node(read graph, next).style == 0xffffffffu32 {
+                current = next;
+            }
+            port = port + 1u32;
+        }
+    }
+}
+
+fn graph_style_boundary(graph: read RoomGraph, socket: u32) -> u32 {
+    var start: u32 = graph_socket(read graph, socket).room;
+    var next: u32 = socket;
+    while true {
+        var peer: u32 = graph_socket(read graph, next).peer;
+        var end: GraphSocket = graph_socket(read graph, peer);
+        if end.room == start {
+            return 0u32;
+        }
+        var node: GraphNode = graph_node(read graph, end.room);
+        if node.count != 2u32 {
+            return graph_style_used(read graph, node);
+        }
+        next = node.first;
+        if next == peer {
+            next = next + 1u32;
+        }
+    }
+}
+fn graph_style_used(graph: read RoomGraph, node: GraphNode) -> u32 {
+    var used: u32 = 0u32;
+    var port: u32 = 0u32;
+    while port < node.count {
+        var peer: u32 = graph_socket(read graph, node.first + port).peer;
+        var other: GraphNode = graph_node(read graph, graph_socket(read graph, peer).room);
+        if other.count == 2u32 && other.style < TUNNEL_STYLES {
+            used = used | (1u32 << other.style);
+        }
+        port = port + 1u32;
+    }
+    return used;
+}

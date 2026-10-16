@@ -76,6 +76,13 @@ For different repeat widths and heights, scale each UV projection axis by
 the room UV unit divided by that material repeat extent. This keeps physical
 plate dimensions fixed and the same across all polygons around an opening.
 
+Tunnel recipes can select `hex_tunnel_style(style)` with a style index from 0 to 5.
+The styles share tile dimensions and texel density. The game uploads each style
+once and assigns its material to the rooms in a corridor run. It does not create
+a texture copy for each room. `PanelMaterial.marking` selects no marking (0),
+paired strips (1), split bars (2), or inset studs (3). The marking mask adds
+full-bright inserts and dark housings to the base metal texture.
+
 Metal materials specify panel height, relief pitch, a stable grain seed, and
 separate metal, accent, and indicator colours. Indices 0–223 form the metal
 ramp. Indices 224–247 form the accent ramp. Grain has low contrast; panel

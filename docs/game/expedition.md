@@ -21,6 +21,22 @@ integer, including zero. Complexity must be positive and fit the graph's
 address range. Allocation failure reports an error. The same options and
 build produce the same graph, port rolls, and room numbers.
 
+## Corridor styles
+
+Each connected run of two-port rooms uses one metal texture style. This includes
+straight tunnels, elbows, and straight sections inserted during assembly. Style
+changes occur at junctions. Start, end, and junction rooms keep their base materials.
+
+Six styles are available: steel plates, folded ribs, tread plates, paired strips,
+split bars, and inset studs. The last three have full-bright markings. These
+markings remain visible in darkness but do not emit light. They have no travel
+direction and do not indicate the goal or visited state.
+
+The seed determines style selection. Selection first tries styles not used by
+other corridors at either end. Styles can repeat elsewhere; they are not unique
+room identifiers. Style selection does not change graph edges or portal rolls.
+A closed run without a junction uses one style throughout.
+
 ## Graph construction
 
 Each room has a separate local space. The generator does not place rooms in
