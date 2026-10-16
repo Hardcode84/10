@@ -1,0 +1,88 @@
+// Flat-top hexagons repeat over a rectangular tile containing two plate centres.
+// Tile width is three plate radii; tile height is sqrt(3) plate radii.
+fn panel_tile_height(material: PanelMaterial) -> f32 {
+    if material.finish == METAL_HEX {
+        return material.tile_metres * 0.57735026919f32;
+    }
+    return material.tile_metres;
+}
+fn panel_pixel_extent(metres: f32, density: u32) -> u32 {
+    var exact: f32 = metres * density as f32;
+    var pixels: u32 = exact as u32;
+    if pixels as f32 < exact {
+        pixels = pixels + 1u32;
+    }
+    return pixels;
+}
+fn panel_texture_width(material: PanelMaterial) -> u32 {
+    return panel_pixel_extent(material.tile_metres, material.texels_per_metre);
+}
+fn panel_texture_height(material: PanelMaterial) -> u32 {
+    return panel_pixel_extent(panel_tile_height(material), material.texels_per_metre);
+}
+fn metal_hex_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var width: f32 = material.tile_metres;
+    var height: f32 = panel_tile_height(material);
+    var px: f32 = x;
+    var py: f32 = y;
+    if px > width * 0.5f32 {
+        px = px - width;
+    }
+    if py > height * 0.5f32 {
+        py = py - height;
+    }
+    var other_x: f32 = x - width * 0.5f32;
+    var other_y: f32 = y - height * 0.5f32;
+    var shade: f32 = 154f32;
+    if other_x * other_x + other_y * other_y < px * px + py * py {
+        px = other_x;
+        py = other_y;
+        shade = 159f32;
+    }
+    var apothem: f32 = height * 0.5f32;
+    var edge: f32 = absf(py);
+    var light: f32 = py;
+    var diagonal: f32 = absf(px) * 0.86602540378f32 + absf(py) * 0.5f32;
+    if diagonal > edge {
+        edge = diagonal;
+        light = px * 0.86602540378f32 + py * 0.5f32;
+    }
+    return metal_hex_plate(
+        material,
+        px,
+        py,
+        apothem - edge,
+        light,
+        shade,
+        metal_grain(material, x, y)
+    );
+}
+fn metal_hex_plate(
+    material: PanelMaterial,
+    x: f32,
+    y: f32,
+    edge: f32,
+    light: f32,
+    shade: f32,
+    grain: f32
+) -> u32 {
+    if edge < material.border * 0.5f32 {
+        return 30u32;
+    }
+    if edge < material.border * 0.5f32 + 0.025f32 {
+        if light > 0f32 {
+            return 192u32;
+        }
+        return 100u32;
+    }
+    var fastener_y: f32 = absf(y) - (panel_tile_height(material) * 0.5f32 - 0.12f32);
+    var screw: f32 = x * x + fastener_y * fastener_y;
+    if screw < 0.0016f32 {
+        if screw > 0.0009f32 || absf(fastener_y) < 0.008f32 {
+            return 70u32;
+        }
+        return 192u32;
+    }
+    shade = shade - 16f32 * (1f32 - clamp(edge / 0.15f32, 0f32, 1f32));
+    return clamp(shade + grain * 0.5f32, 1f32, 223f32) as u32;
+}

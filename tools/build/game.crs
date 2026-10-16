@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 84] = make [*u8; 84] {
+    var files: [*u8; 85] = make [*u8; 85] {
         "src/assets/geometry/loft.crs",
         "src/assets/geometry/hex-opening.crs",
         "src/assets/connections/profiles.crs",
@@ -8,6 +8,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/room.crs",
         "src/assets/parameters.crs",
         "src/assets/materials/masks.crs",
+        "src/assets/materials/hex-metal.crs",
         "src/assets/materials/metal.crs",
         "src/assets/materials/upload.crs",
         "assets/rooms/radial-start.crs",
@@ -86,7 +87,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 84usize {
+    while i < 85usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

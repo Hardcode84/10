@@ -1,5 +1,5 @@
 fn asset_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 8] = make [*u8; 8] {
+    var files: [*u8; 9] = make [*u8; 9] {
         "src/assets/geometry/loft.crs",
         "src/assets/geometry/hex-opening.crs",
         "src/assets/connections/profiles.crs",
@@ -7,10 +7,11 @@ fn asset_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/room.crs",
         "src/assets/parameters.crs",
         "src/assets/materials/masks.crs",
+        "src/assets/materials/hex-metal.crs",
         "src/assets/materials/metal.crs"
     };
     var i: usize = 0usize;
-    while i < 8usize {
+    while i < 9usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

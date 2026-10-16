@@ -11,10 +11,14 @@
 // The player starts on the axis, one metre below the cap, with 0.35 m sphere
 // clearance. Forward points into the chamber along -Y; camera up is +Z.
 // Base, wall, taper, and start surfaces have separate material regions.
-// Panel tiles repeat every two metres at 64 texels per metre. Their borders
+// Materials use 64 texels per metre. Their borders
 // keep a fixed physical width when room dimensions change. The start cap has
 // full-bright indicator strips. These strips do not emit light.
-// Walls use 2 by 1 metre brushed steel plates. The base uses raised tread.
+// Walls use flat-top hexagonal steel plates, with the same radius as the
+// ports. Each wall grid starts at its portal centre and follows the port axes.
+// The tile is rectangular so the plates keep regular hexagonal proportions.
+// Recessed joints, narrow bevels, and two fasteners define each plate.
+// The base uses raised tread.
 // The taper has continuous folded metal strips along the slope, at 0.5 m pitch.
 // It has no crosswise panel joints or bolts. The start cap uses warm metal
 // with pale green indicators.
@@ -94,6 +98,11 @@ fn room_material(region: u32) -> PanelMaterial {
     var finish: u32 = METAL_PLATE;
     var panel_height: f32 = 1f32;
     var pitch: f32 = 0.25f32;
+    var tile: f32 = 2f32;
+    if region == REGION_WALL || region == 4u32 {
+        finish = METAL_HEX;
+        tile = 3f32 * service_hex_profile().radius;
+    }
     if region == REGION_BASE {
         colour = 0xb4b3acu32;
         finish = METAL_TREAD;
@@ -120,7 +129,7 @@ fn room_material(region: u32) -> PanelMaterial {
         finish: finish,
         pitch: pitch,
         seed: 147u32 + region,
-        tile_metres: 2f32,
+        tile_metres: tile,
         panel_height: panel_height,
         texels_per_metre: 64u32,
         border: 0.025f32,
@@ -186,6 +195,14 @@ fn radial_connections(asset: mut RoomAsset) -> bool {
                 forward: frame.normal
             }
         };
+        var material: PanelMaterial = room_material(REGION_WALL);
+        var surface: SurfaceFrame = make SurfaceFrame {
+            origin: port.position,
+            right: scale(port.basis.right, asset.tile_metres / material.tile_metres),
+            up: scale(port.basis.up, asset.tile_metres / panel_tile_height(material)),
+            normal: port.basis.forward
+        };
+        asset_surface_set(mut asset.hull, i, surface);
         var next: AssetHull = asset_hull_new();
         if !hull_hex_partition(read asset.hull, mut next, port, 4u32) || !asset_port_append(
             mut asset.ports,
@@ -193,6 +210,7 @@ fn radial_connections(asset: mut RoomAsset) -> bool {
         ) {
             return false;
         }
+        asset_surface_set(mut next, i, surface);
         asset_hull_swap(mut asset.hull, mut next);
         i = i + 1u32;
     }

@@ -49,7 +49,7 @@ its inputs through a root Crust entry point.
 | Surface conversion | Triangulate convex polygons; preserve region IDs; derive planar UV coordinates at a fixed physical scale |
 | Room bundle | Own the hull, render mesh, collision index, and spawn frame |
 | Material masks | Reusable rectangle and border operations in metres |
-| Panel material | Repeated metal plates, tread, or ribs with grain, recessed joints, fasteners, and an optional full-bright strip |
+| Panel material | Repeated rectangular or hexagonal metal plates, tread, or ribs with grain, recessed joints, fasteners, and an optional full-bright strip |
 | Viewer session | Own the window and renderer; compile no game or expedition sources |
 
 The loft operations consume valid construction data. The recipe checks public
@@ -66,6 +66,13 @@ size, texture density, and border width. Size changes repeat the tile without
 changing its physical border width. Each material has a 256-entry palette.
 Indices 248–255 are full-bright and do not emit light. The renderer supplies
 lighting and screen-space dither.
+Hexagonal plates use a rectangular repeat: width is three plate radii and
+height is sqrt(3) plate radii. Texture dimensions round up at the requested
+texel density. Sampling spans the exact repeat extent on each axis.
+A recipe can align the surface origin and axes with a connection frame.
+For different repeat widths and heights, scale each UV projection axis by
+the room UV unit divided by that material repeat extent. This keeps physical
+plate dimensions fixed and the same across all polygons around an opening.
 
 Metal materials specify panel height, relief pitch, a stable grain seed, and
 separate metal, accent, and indicator colours. Indices 0–223 form the metal

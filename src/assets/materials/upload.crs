@@ -4,8 +4,9 @@ fn room_material_payload() -> u32 {
     var region: u32 = 0u32;
     while region < room_material_count() {
         var material: PanelMaterial = room_material(region);
-        var size: u32 = (material.tile_metres * material.texels_per_metre as f32) as u32;
-        payload = payload + size * size + PALETTE_COLORS * LIGHT_STATES;
+        var size: u32 = panel_texture_width(material);
+        var height: u32 = panel_texture_height(material);
+        payload = payload + size * height + PALETTE_COLORS * LIGHT_STATES;
         region = region + 1u32;
     }
     return payload;
@@ -18,11 +19,12 @@ fn room_materials_at(input: mut FrameInput, offset: u32, first: u32) -> bool {
     var region: u32 = 0u32;
     while region < room_material_count() {
         var material: PanelMaterial = room_material(region);
-        var size: u32 = (material.tile_metres * material.texels_per_metre as f32) as u32;
+        var size: u32 = panel_texture_width(material);
+        var height: u32 = panel_texture_height(material);
         if !panel_upload(mut input, first + region, offset, size, material) {
             return false;
         }
-        offset = offset + size * size + PALETTE_COLORS * LIGHT_STATES;
+        offset = offset + size * height + PALETTE_COLORS * LIGHT_STATES;
         region = region + 1u32;
     }
     return true;
@@ -34,11 +36,12 @@ fn panel_upload(
     size: u32,
     panel: PanelMaterial
 ) -> bool {
-    var palette: u32 = offset + size * size;
+    var height: u32 = panel_texture_height(panel);
+    var palette: u32 = offset + size * height;
     var material: Material = make Material {
         texture: offset,
         width: size,
-        height: size,
+        height: height,
         stride: size,
         palette: palette,
         style: 0u32,
@@ -64,9 +67,9 @@ fn panel_upload(
         index = index + 1u32;
     }
     index = 0u32;
-    while index < size * size {
-        var x: f32 = ((index % size) as f32 + 0.5f32) / panel.texels_per_metre as f32;
-        var y: f32 = ((index / size) as f32 + 0.5f32) / panel.texels_per_metre as f32;
+    while index < size * height {
+        var x: f32 = ((index % size) as f32 + 0.5f32) * panel.tile_metres / size as f32;
+        var y: f32 = ((index / size) as f32 + 0.5f32) * panel_tile_height(panel) / height as f32;
         input_texel(mut input, offset + index, panel_sample(panel, x, y));
         index = index + 1u32;
     }

@@ -169,8 +169,9 @@ fn asset_test_uv(asset: read RoomAsset) -> bool {
             var a: MeshVertex = primitive.vertices[j];
             var b: MeshVertex = primitive.vertices[(j + 1usize) % 3usize];
             var edge: Vec3 = vec(b.x - a.x, b.y - a.y, b.z - a.z);
-            var u: f32 = (b.u - a.u) * asset.tile_metres;
-            var v: f32 = (b.v - a.v) * asset.tile_metres;
+            var material: PanelMaterial = room_material(primitive.material);
+            var u: f32 = (b.u - a.u) * material.tile_metres;
+            var v: f32 = (b.v - a.v) * panel_tile_height(material);
             var square: f32 = dot(edge, edge);
             if absf(square - u * u - v * v) > (square + 1f32) * 0.00001f32 {
                 return error("surface UV scale does not preserve physical texture density");
