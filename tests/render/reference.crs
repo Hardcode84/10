@@ -769,7 +769,12 @@ fn reference_light_visible(w: *u32, f: *f32, receiver: Hit, target: Vec) -> bool
     var i: u32 = 0u32;
     while i < w[3usize] {
         var meta: usize = (w[META as usize] + i * 4u32) as usize;
-        if i != receiver.triangle && w[meta] == space && (w[meta + 3usize] & 4u32) == 0u32 {
+        if i != receiver.triangle && w[meta] == space && (w[meta + 3usize] & 4u32) == 0u32 && reference_shadow_facing(
+            w,
+            f,
+            i,
+            target
+        ) {
             var hit: Hit = receiver;
             hit.distance = 0.99999f32;
             if intersect(w, f, i, ray, 0.00001f32, 0xffffffffu32, &hit) {
@@ -799,4 +804,18 @@ fn reference_light_position(f: *f32, p: usize, hit: Hit) -> Vec {
         y: hit.eye.y + hit.right.y * point.x + hit.up.y * point.y + forward.y * point.z,
         z: hit.eye.z + hit.right.z * point.x + hit.up.z * point.y + forward.z * point.z
     };
+}
+
+fn reference_shadow_facing(w: *u32, f: *f32, tri: u32, light: Vec) -> bool {
+    var meta: usize = (w[META as usize] + tri * 4u32) as usize;
+    if (w[meta + 3usize] & 2u32) == 0u32 {
+        return true;
+    }
+    var p: usize = (GEOMETRY + tri * 15u32) as usize;
+    var a: Vec = vertex(f, p);
+    var normal: Vec = cross(
+        sub(vertex(f, p + 5usize), a),
+        sub(vertex(f, p + 10usize), a)
+    );
+    return dot(normal, sub(light, a)) > 0f32;
 }

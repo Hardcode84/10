@@ -13,6 +13,13 @@ fn lighting_wall(v: mut FrameInput, index: u32) -> unit {
     if index == 2u32 {
         flags = 3u32;
     }
+    var y: f32 = 20f32;
+    if index >= 9u32 {
+        y = -20f32;
+    }
+    if index == 10u32 {
+        flags = 0u32;
+    }
     quad(
         mut v,
         space,
@@ -20,16 +27,16 @@ fn lighting_wall(v: mut FrameInput, index: u32) -> unit {
         0u32,
         flags,
         2f32,
-        -20f32,
-        -20f32,
-        2f32,
-        20f32,
+        -y,
         -20f32,
         2f32,
-        20f32,
+        y,
+        -20f32,
+        2f32,
+        y,
         20f32,
         2f32,
-        -20f32,
+        -y,
         20f32
     );
 }
@@ -94,7 +101,7 @@ fn lighting_scene(v: mut FrameInput, index: u32) -> unit {
     if index == 8u32 {
         lighting_large_space(mut v);
     }
-    if index == 4u32 {
+    if index == 4u32 || index == 11u32 {
         retain_scene(mut v);
     }
 }
@@ -115,7 +122,7 @@ fn lighting_test(base: *Options) -> bool {
         return false;
     }
     var index: u32 = 0u32;
-    while index < 9u32 {
+    while index < 12u32 {
         {
             var input: FrameInput = renderer_inputs(mut renderer);
             lighting_scene(mut input, index);
@@ -125,7 +132,7 @@ fn lighting_test(base: *Options) -> bool {
         }
         var w: *u32 = renderer.state.mapped as *u32;
         var color: u32 = w[(PIXELS + 24u32 * 64u32 + 24u32) as usize] & 0xffffffu32;
-        var dark: bool = index == 1u32 || index == 4u32 || index == 5u32;
+        var dark: bool = index == 1u32 || index == 4u32 || index == 5u32 || index == 10u32;
         if (color == 0u32) != dark {
             print_number(index as i64);
             return error("bulkhead lighting differs from expected visibility");

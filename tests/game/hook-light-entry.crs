@@ -11,11 +11,8 @@ fn main(argc: i32, argv: **u8) -> i32 {
     if !game_renderer_open(&renderer.state, &options, null(*u8), 0u32) {
         return 1i32;
     }
-    {
-        var input: FrameInput = renderer_inputs(mut renderer);
-        if !dynamic_shadow_geometry(mut input, options.config) {
-            return 1i32;
-        }
+    if !dynamic_shadow_checks(mut renderer, options.config) {
+        return 1i32;
     }
     var scene: CollisionScene = collision_new();
     var builder: CollisionBuilder = collision_builder_new();
@@ -48,6 +45,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
             game_palette(mut input);
             input_frame(mut input);
             input_set_word(mut input, 20usize, drone.world);
+            input_set_word(mut input, BACKGROUND as usize, 0xff000000u32);
             input_set_word(mut input, SHARED_AMBIENT as usize, 1u32);
             input_set_float(mut input, CAMERA_LIGHT as usize, 0f32);
             input_set_float(mut input, SPACE_LIGHT as usize, 0f32);
@@ -216,7 +214,10 @@ fn hook_wall_capture(v: *Vulkan) -> bool {
 }
 
 fn dynamic_shadow_geometry(input: mut FrameInput, config: GameConfig) -> bool {
-    return solid_shadow_faces(mut input) && prediction_shadow_flags(mut input, config);
+    return solid_shadow_faces(mut input) && solid_shadow_winding(read input) && prediction_shadow_flags(
+        mut input,
+        config
+    );
 }
 
 fn solid_face_area(input: read FrameInput, axis: u32, plane: f32) -> f32 {
@@ -278,6 +279,72 @@ fn solid_shadow_faces(input: mut FrameInput) -> bool {
             return error("dynamic box is missing a complete shadow face");
         }
         axis = axis + 1u32;
+    }
+    return true;
+}
+
+fn solid_shadow_winding(input: read FrameInput) -> bool {
+    var i: u32 = 0u32;
+    while i < input_word(read input, 3usize) {
+        var vertices: [Vec3; 3] = uninit;
+        var j: u32 = 0u32;
+        while j < 3u32 {
+            var p: usize = (GEOMETRY + i * 15u32 + j * 5u32) as usize;
+            vertices[j as usize] = vec(
+                input_float(read input, p),
+                input_float(read input, p + 1usize),
+                input_float(read input, p + 2usize)
+            );
+            j = j + 1u32;
+        }
+        var normal: Vec3 = cross(
+            sub(vertices[1usize], vertices[0usize]),
+            sub(vertices[2usize], vertices[0usize])
+        );
+        var meta: usize = (input_word(read input, META as usize) + i * 4u32) as usize;
+        if (input_word(read input, meta + 3usize) & 2u32) == 0u32 || dot(
+            normal,
+            vertices[0usize]
+        ) <= 0f32 {
+            return error("solid faces must be one-sided and face away from the interior");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn dynamic_shadow_checks(renderer: mut Renderer, config: GameConfig) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !dynamic_shadow_geometry(mut input, config) {
+            return false;
+        }
+    }
+    var pose: u32 = 0u32;
+    while pose < 2u32 {
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            game_palette(mut input);
+            input_frame(mut input);
+            input_set_word(mut input, BACKGROUND as usize, 0xff123456u32);
+            var eye: Vec3 = vec(0f32, 0f32, -(pose as f32) * 10f32);
+            camera_row(mut input, 0usize, vec(1f32, 0f32, 0f32), eye);
+            camera_row(mut input, 4usize, vec(0f32, 1f32, 0f32), eye);
+            camera_row(mut input, 8usize, vec(0f32, 0f32, 1f32), eye);
+            draw_solid(
+                mut input,
+                solid(vec(-1f32, -2f32, -3f32), vec(1f32, 2f32, 3f32), 5u32)
+            );
+        }
+        if !renderer_draw(&renderer.state) {
+            return false;
+        }
+        var pixels: *u32 = renderer.state.mapped as *u32;
+        var center: u32 = pixels[(PIXELS + 96u32 * 256u32 + 128u32) as usize];
+        if (center == 0xff123456u32) != (pose == 0u32) {
+            return error("solid must be invisible from inside and visible from outside");
+        }
+        pose = pose + 1u32;
     }
     return true;
 }

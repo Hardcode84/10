@@ -30,9 +30,13 @@ actual pixel. Portable lights remain unshadowed.
 
 A room light (`LIGHT_ROOM`) affects only surfaces in its declared space. A line segment from
 the selected grid sample to the light must be clear. Any intervening triangle in that
-space blocks the segment from either side. Camera culling does not remove
+space blocks the segment if its front faces the light. Two-sided triangles block
+the segment from either side. Camera culling does not remove
 shadow blockers. This includes retained instances and their transformed geometry.
-Dynamic solids submit all selected faces, including faces hidden from the camera.
+Dynamic solids submit all selected faces with outward winding and one-sided
+coverage. The camera pass rejects faces that point away from the camera. The
+shadow pass rejects faces that point away from the light before the triangle
+intersection test. These tests use the same geometry and separate directions.
 
 A cutout triangle blocks light only where its texture sample is opaque. The
 shadow query uses the same UV interpolation, address modes, and transparent
@@ -165,6 +169,8 @@ Run `crust tests.crs render 11`. It checks a closed bulkhead, a transparent
 cutout, a blocker in another space, a transformed retained blocker, a distant
 lamp, full-bright texels without lamps, and a contributing seventeenth light, a non-shadow-casting surface, and a light
 in a room with an ID above the float exact-integer range.
+Reversed dynamic and retained faces check light-facing rejection. An explicit
+two-sided face must still block light from its back side.
 Extra off-screen blockers force multi-level tree traversal in each case.
 Two translated and rotated portal crossings check portable and player lamps.
 A bulkhead checks the portable-light shadow bypass. Unsupported modes are rejected.
@@ -175,7 +181,8 @@ and buffer replacement. It also checks rejected growth,
 invalid input, and recovery. Using pixel-position shadows instead of grid-corner shadows fails the
 bulkhead check outside the reference geometry-edge band.
 
-Run `crust tests.crs hook-light` for an attached-hook wall patch at grazing
+Run `crust tests.crs hook-light` to check that a solid is invisible from inside
+and visible from outside. It also checks an attached-hook wall patch at grazing
 incidence. The check uses the actual attachment and lamp code, with camera
 light disabled. It saves `build/test-hook-attached.ppm` for visual review.
 

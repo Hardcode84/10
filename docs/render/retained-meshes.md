@@ -5,7 +5,8 @@
 `Mesh` owns generated triangles and their bounds. Each vertex has a position
 and independent UV coordinates. Each triangle has a material, portal ID, and
 flags. Bit 0 enables cutout coverage. Bit 1 enables one-sided coverage: the
-cross product `(B - A) × (C - A)` points toward the visible side. Lighting uses
+cross product `(B - A) × (C - A)` points toward the visible side. A one-sided
+triangle casts a shadow only when this side faces the light. Lighting uses
 normals from transformed positions. Bit 2 disables shadow casting. Negative scale reverses winding.
 
 Call `input_mesh` with a scoped `FrameInput` borrow. It copies the mesh into

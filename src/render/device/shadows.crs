@@ -13,7 +13,8 @@ fn light_blocks(tri: u32, ox: f32, oy: f32, oz: f32, dx: f32, dy: f32, dz: f32) 
     var qy: f32 = dz * cx - dx * cz;
     var qz: f32 = dx * cy - dy * cx;
     var det: f32 = bx * qx + by * qy + bz * qz;
-    if det == 0f32 {
+    var meta: u32 = words_load(META) + tri * 4u32;
+    if det == 0f32 || ((words_load(meta + 3u32) & 2u32) != 0u32 && det > 0f32) {
         return false;
     }
     var tx: f32 = ox - ax;
@@ -34,7 +35,6 @@ fn light_blocks(tri: u32, ox: f32, oy: f32, oz: f32, dx: f32, dy: f32, dz: f32) 
     if t <= 0.00001f32 || t >= 0.99999f32 {
         return false;
     }
-    var meta: u32 = words_load(META) + tri * 4u32;
     if (words_load(meta + 3u32) & 1u32) == 0u32 {
         return true;
     }

@@ -35,13 +35,19 @@ fn draw_solid_faces(v: mut FrameInput, s: Solid, faces: u32) -> unit {
                     component(sub(s.high, s.low), axis)
                 );
             }
+            var b: u32 = 1u32;
+            var d: u32 = 2u32;
+            if face % 2u32 == 0u32 {
+                b = 2u32;
+                d = 1u32;
+            }
             surface_quad(
                 mut v,
                 s.material,
                 add(box_edge(s, axis, 0u32), shift),
-                add(box_edge(s, axis, 1u32), shift),
+                add(box_edge(s, axis, b), shift),
                 add(box_edge(s, axis, 3u32), shift),
-                add(box_edge(s, axis, 2u32), shift)
+                add(box_edge(s, axis, d), shift)
             );
         }
         face = face + 1u32;

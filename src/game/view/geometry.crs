@@ -142,6 +142,9 @@ fn static_solid(mesh: mut Mesh, item: Solid, faces: u32) -> bool {
 fn surface_quad(v: mut FrameInput, mat: u32, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> unit {
     var first: u32 = input_word(read v, 3usize);
     game_quad(mut v, mat, a, b, c, d);
+    var meta: usize = (input_word(read v, META as usize) + first * 4u32) as usize;
+    input_set_word(mut v, meta + 3usize, 2u32);
+    input_set_word(mut v, meta + 7usize, 2u32);
     var u: f32 = length(sub(b, a)) / 4f32;
     var w: f32 = length(sub(d, a)) / 4f32;
     var base: usize = (GEOMETRY + first * 15u32) as usize;
