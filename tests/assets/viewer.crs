@@ -13,6 +13,9 @@ fn asset_rebuild_checks(session: AssetSession) -> bool {
         return false;
     }
     var original: MeshRange = range;
+    if !asset_flight_checks(read asset, range) {
+        return false;
+    }
     var state: AssetViewState = asset_view_state(1u32);
     var i: u32 = 0u32;
     while i < 9u32 {
@@ -31,15 +34,8 @@ fn asset_rebuild_checks(session: AssetSession) -> bool {
         }
         i = i + 1u32;
     }
-    if asset_value(read values, 0u32) != 4f32 || range.first != 0u32 || range.count != 44u32 || range.bounds[
-        3usize
-    ] >= original.bounds[3usize] * 0.5f32 {
-        return error(
-            "viewer rebuild did not replace the retained asset or restore rejected parameters"
-        );
-    }
-    if !hull_contains(read asset.hull, asset.spawn.position, 0.35f32) {
-        return error("rebuild lost spawn clearance");
+    if !asset_rebuild_result(read asset, read values, range, original) {
+        return false;
     }
     {
         var renderer: mut Renderer = asset_renderer(mut session);
@@ -52,4 +48,22 @@ fn asset_rebuild_checks(session: AssetSession) -> bool {
         return false;
     }
     return asset_session_finish(mut session);
+}
+fn asset_rebuild_result(
+    asset: read RoomAsset,
+    values: read AssetValues,
+    range: MeshRange,
+    original: MeshRange
+) -> bool {
+    if asset_value(read values, 0u32) != 4f32 || range.first != 0u32 || range.count != 44u32 || range.bounds[
+        3usize
+    ] >= original.bounds[3usize] * 0.5f32 {
+        return error(
+            "viewer rebuild did not replace the retained asset or restore rejected parameters"
+        );
+    }
+    if !hull_contains(read asset.hull, asset.spawn.position, 0.35f32) {
+        return error("rebuild lost spawn clearance");
+    }
+    return true;
 }

@@ -2,7 +2,7 @@ fn asset_view_window(session: mut AssetSession) -> unit {
     if session.window.handle != null(*u8) {
         SDL_SetWindowTitle(
             session.window.handle,
-            "SPINWARD room viewer | drag look/orbit | wheel zoom | Tab view | [ ] parameter | - + adjust | Esc close"
+            "SPINWARD room viewer | drag look/orbit | wheel zoom | F fly: WASD Q/E Shift | Tab view | [ ] parameter | - + adjust | Esc close"
         );
     }
 }
@@ -38,6 +38,10 @@ fn asset_view_event(output: mut AssetViewEvent) -> bool {
         }
         if kind == 768u32 {
             output.key = (&event as *u32)[5usize];
+            if (&event as *u8)[13usize] != 0u8 && (output.key == 9u32 || output.key == 102u32) {
+                output.key = 0u32;
+                continue;
+            }
             return true;
         }
         if kind == 1024u32 && ((&event as *u32)[4usize] & 5u32) != 0u32 {
@@ -54,4 +58,24 @@ fn asset_view_event(output: mut AssetViewEvent) -> bool {
         }
     }
     return false;
+}
+extern fn SDL_GetKeyboardState(count: *i32) -> *u8 = "SDL_GetKeyboardState";
+extern fn SDL_GetKeyboardFocus() -> *u8 = "SDL_GetKeyboardFocus";
+fn asset_flight_input() -> AssetFlightInput {
+    var input: AssetFlightInput = make AssetFlightInput {
+        movement: vec(0f32, 0f32, 0f32),
+        boost: false
+    };
+    if SDL_GetKeyboardFocus() == null(*u8) {
+        return input;
+    }
+    var count: i32 = 0i32;
+    var keys: *u8 = SDL_GetKeyboardState(&count);
+    input.movement = vec(
+        keys[7usize] as f32 - keys[4usize] as f32,
+        keys[8usize] as f32 - keys[20usize] as f32,
+        keys[26usize] as f32 - keys[22usize] as f32
+    );
+    input.boost = keys[225usize] != 0u8 || keys[229usize] != 0u8;
+    return input;
 }

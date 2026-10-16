@@ -5,6 +5,10 @@ record AssetViewEvent {
     wheel: f32;
 }
 fn asset_view_mouse(state: mut AssetViewState, event: AssetViewEvent) -> unit {
+    if state.camera.view == 3u32 {
+        asset_flight_look(mut state.camera, event.dx, event.dy);
+        return;
+    }
     if state.camera.view == 2u32 {
         return;
     }
@@ -39,7 +43,11 @@ fn asset_view_state(view: u32) -> AssetViewState {
             view: view,
             yaw: 0.4f32,
             pitch: pitch,
-            zoom: 0.6f32
+            zoom: 0.6f32,
+            flight: make AssetSpawn {
+                position: vec(0f32, 0f32, 0f32),
+                basis: identity_basis()
+            }
         },
         selected: 0u32,
         running: true,
@@ -50,8 +58,9 @@ fn asset_view_adjust(state: mut AssetViewState, key: u32) -> unit {
     if key == 27u32 {
         state.running = false;
     }
-    if key == 9u32 {
-        state.camera.view = (state.camera.view + 1u32) % 3u32;
+    if state.camera.view == 3u32 {
+        asset_view_select(mut state, key);
+        return;
     }
     if key == 32u32 {
         state.rotating = !state.rotating;

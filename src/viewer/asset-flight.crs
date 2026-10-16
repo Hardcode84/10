@@ -1,0 +1,59 @@
+record AssetFlightInput {
+    movement: Vec3;
+    boost: bool;
+}
+fn asset_flight_look(camera: mut AssetCamera, dx: f32, dy: f32) -> unit {
+    var basis: Basis = camera.flight.basis;
+    basis.forward = rotate(basis.forward, basis.up, dx * 0.005f32);
+    basis.right = unit_vector(cross(basis.up, basis.forward));
+    basis.forward = unit_vector(rotate(basis.forward, basis.right, dy * 0.005f32));
+    basis.up = unit_vector(cross(basis.forward, basis.right));
+    camera.flight.basis = basis;
+}
+// Moves without collision. Input axes use the camera frame; time uses seconds.
+fn asset_flight_move(camera: mut AssetCamera, input: AssetFlightInput, seconds: f32) -> unit {
+    if camera.view != 3u32 {
+        return;
+    }
+    var movement: Vec3 = input.movement;
+    var magnitude: f32 = length(movement);
+    if magnitude == 0f32 {
+        return;
+    }
+    movement = scale(movement, 1f32 / magnitude);
+    var speed: f32 = 4f32;
+    if input.boost {
+        speed = 16f32;
+    }
+    var basis: Basis = camera.flight.basis;
+    var direction: Vec3 = add(
+        add(scale(basis.right, movement.x), scale(basis.up, movement.y)),
+        scale(basis.forward, movement.z)
+    );
+    camera.flight.position = add(
+        camera.flight.position,
+        scale(direction, speed * seconds)
+    );
+}
+fn asset_view_switch(
+    state: mut AssetViewState,
+    asset: read RoomAsset,
+    range: MeshRange,
+    key: u32
+) -> unit {
+    var next: u32 = state.camera.view;
+    if key == 9u32 {
+        next = (next + 1u32) % 4u32;
+    }
+    if key == 102u32 {
+        next = 3u32;
+        if state.camera.view == 3u32 {
+            next = 0u32;
+        }
+    }
+    if next == 3u32 && state.camera.view != 3u32 {
+        state.camera.flight = asset_camera_pose(read asset, range, state.camera);
+        state.rotating = false;
+    }
+    state.camera.view = next;
+}

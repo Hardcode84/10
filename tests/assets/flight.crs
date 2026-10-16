@@ -1,0 +1,38 @@
+fn asset_flight_checks(asset: read RoomAsset, range: MeshRange) -> bool {
+    var view: u32 = 0u32;
+    while view < 3u32 {
+        var state: AssetViewState = asset_view_state(view);
+        var before: AssetSpawn = asset_camera_pose(read asset, range, state.camera);
+        asset_view_switch(mut state, read asset, range, 102u32);
+        var after: AssetSpawn = asset_camera_pose(read asset, range, state.camera);
+        if length(sub(before.position, after.position)) > 0.0001f32 || length(
+            sub(before.basis.forward, after.basis.forward)
+        ) > 0.0001f32 {
+            return error("entering free flight changed the camera pose");
+        }
+        var input: AssetFlightInput = make AssetFlightInput {
+            movement: vec(1f32, 1f32, 1f32),
+            boost: false
+        };
+        var split: AssetCamera = state.camera;
+        asset_flight_move(mut state.camera, input, 0.1f32);
+        asset_flight_move(mut split, input, 0.04f32);
+        asset_flight_move(mut split, input, 0.06f32);
+        if absf(
+            length(sub(state.camera.flight.position, before.position)) - 0.4f32
+        ) > 0.0001f32 || length(
+            sub(split.flight.position, state.camera.flight.position)
+        ) > 0.0001f32 {
+            return error("free flight speed depends on frame count or diagonal input");
+        }
+        asset_flight_look(mut state.camera, 100f32, 400f32);
+        var basis: Basis = state.camera.flight.basis;
+        if absf(length(basis.forward) - 1f32) > 0.0001f32 || absf(
+            dot(basis.forward, basis.up)
+        ) > 0.0001f32 || length(sub(cross(basis.right, basis.up), basis.forward)) > 0.0001f32 {
+            return error("free flight look lost its orthonormal camera frame");
+        }
+        view = view + 1u32;
+    }
+    return true;
+}

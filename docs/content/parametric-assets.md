@@ -117,7 +117,11 @@ Parameter edits rebuild the asset without recompiling source.
 
 | Key | Action |
 | --- | --- |
-| Tab | Cycle interior, exterior, and spawn views |
+| Tab | Cycle interior, exterior, spawn, and free-flight views |
+| F | Enter free flight from the current camera pose; press again for interior view |
+| WASD | Move forward, left, back, and right in free flight |
+| Q / E | Move down / up in the camera frame in free flight |
+| Shift | Increase free-flight speed from 4 m/s to 16 m/s |
 | Arrow keys | Change the interior look direction or exterior orbit |
 | Left or right mouse drag | Look inside or orbit outside; stop automatic rotation |
 | Mouse wheel | Change exterior orbit distance |
@@ -130,6 +134,10 @@ Parameter edits rebuild the asset without recompiling source.
 
 The spawn view uses the recipe's exact frame. Interior and exterior views use
 neutral inspection light. There is no room-specific camera code in the viewer.
+Use `--view fly` to start free flight at the recipe's spawn frame. Mouse drag
+turns the free-flight camera about its local axes. It can look past vertical.
+Movement uses elapsed time and passes through geometry. Rebuilding the asset
+keeps the camera position. Space and arrow keys do not change the flight camera.
 
 ### Focused checks
 

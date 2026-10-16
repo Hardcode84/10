@@ -14,8 +14,10 @@ fn build_viewer(
         &providers[provider_count]
     );
     provider_count = provider_count + asset_providers(root, &providers[provider_count]);
-    var files: [*u8; 5] = make [*u8; 5] {
+    var files: [*u8; 7] = make [*u8; 7] {
         "src/viewer/asset-controls.crs",
+        "src/viewer/asset-camera.crs",
+        "src/viewer/asset-flight.crs",
         "src/app/camera.crs",
         "src/app/colour.crs",
         "src/viewer/asset-scene.crs",
@@ -36,11 +38,12 @@ fn build_viewer(
     if checks {
         native[5usize] = "tests/assets/viewer-entry.crs";
         sources[source_count] = host_path(root, "tests/assets/viewer.crs");
-        source_count = source_count + 1usize;
+        sources[source_count + 1usize] = host_path(root, "tests/assets/flight.crs");
+        source_count = source_count + 2usize;
         output = "build/tests-assets-viewer";
     }
     var i: usize = 0usize;
-    while i < 5usize {
+    while i < 7usize {
         sources[source_count] = host_path(root, files[i]);
         source_count = source_count + 1usize;
         i = i + 1usize;

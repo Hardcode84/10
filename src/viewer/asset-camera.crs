@@ -1,0 +1,58 @@
+record AssetCamera {
+    view: u32;
+    yaw: f32;
+    pitch: f32;
+    zoom: f32;
+    flight: AssetSpawn;
+}
+fn asset_camera_pose(asset: read RoomAsset, mesh: MeshRange, camera: AssetCamera) -> AssetSpawn {
+    if camera.view == 3u32 {
+        return camera.flight;
+    }
+    var eye: Vec3 = asset.spawn.position;
+    var basis: Basis = asset.spawn.basis;
+    if camera.view != 2u32 {
+        var low: Vec3 = vec(
+            mesh.bounds[0usize],
+            mesh.bounds[1usize],
+            mesh.bounds[2usize]
+        );
+        var high: Vec3 = vec(
+            mesh.bounds[3usize],
+            mesh.bounds[4usize],
+            mesh.bounds[5usize]
+        );
+        var center: Vec3 = scale(add(low, high), 0.5f32);
+        var direction: Vec3 = vec(
+            sinf(camera.yaw) * cosf(camera.pitch),
+            sinf(camera.pitch),
+            cosf(camera.yaw) * cosf(camera.pitch)
+        );
+        eye = center;
+        basis.forward = direction;
+        if camera.view == 1u32 {
+            eye = add(
+                center,
+                scale(direction, length(sub(high, low)) * camera.zoom)
+            );
+            basis.forward = scale(direction, -1f32);
+        }
+        basis.right = unit_vector(cross(vec(0f32, 1f32, 0f32), basis.forward));
+        basis.up = cross(basis.forward, basis.right);
+    }
+    return make AssetSpawn {
+        position: eye,
+        basis: basis
+    };
+}
+fn asset_camera(
+    input: mut FrameInput,
+    asset: read RoomAsset,
+    mesh: MeshRange,
+    camera: AssetCamera
+) -> unit {
+    var pose: AssetSpawn = asset_camera_pose(read asset, mesh, camera);
+    camera_row(mut input, 0usize, pose.basis.right, pose.position);
+    camera_row(mut input, 4usize, pose.basis.up, pose.position);
+    camera_row(mut input, 8usize, pose.basis.forward, pose.position);
+}
