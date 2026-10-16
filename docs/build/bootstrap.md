@@ -30,7 +30,7 @@ export PATH="$PWD/crust/build:$PATH"
 crust demo.crs
 ```
 
-The demo root builds host and device code, then starts the automatic demo.
+The demo root builds host and device code, then starts the interactive flight demo.
 Run `crust tests.crs` to build and run the tests. It generates palettes in Crust. Python is not part of the application
 build. See [renderer build](../render/renderer-build.md) for LLVM, SPIRV-Tools, SDL2, and
 Vulkan requirements, capture commands, and checks.
