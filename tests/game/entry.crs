@@ -1,4 +1,7 @@
 fn main(argc: i32, argv: **u8) -> i32 {
+    if argc == 2i32 && strcmp(argv[1usize], "reel") == 0i32 {
+        return (!test_reel_contact()) as i32;
+    }
     if argc == 2i32 && strcmp(argv[1usize], "flight") == 0i32 {
         return (!test_flight_pulses()) as i32;
     }

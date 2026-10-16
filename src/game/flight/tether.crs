@@ -46,7 +46,9 @@ fn tether_travel(drone: read Drone, travel: Vec3) -> Vec3 {
     }
     var endpoint: Vec3 = add(drone.position, travel);
     var offset: Vec3 = sub(endpoint, drone.cable.anchor);
-    if length(offset) <= drone.cable.extent {
+    // Keep the collision contact clearance when the cable is taut.
+    var clearance: f32 = collision_tolerance(endpoint, DRONE_RADIUS) * 2f32;
+    if length(offset) <= drone.cable.extent + clearance {
         return travel;
     }
     return sub(

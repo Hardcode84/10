@@ -71,7 +71,7 @@ fn test_blocked_winch(collision: read CollisionScene) -> bool {
     return game_check(
         near(drone.position.z, 61.3501f32, 0.001f32) && absf(drone.cable.reel_speed) < 0.001f32,
         "winch must stall at contact without shortening the cable through the player"
-    );
+    ) && test_reel_contact();
 }
 fn test_winch(collision: read CollisionScene) -> bool {
     var drone: Drone = attached_test_drone(read collision);
@@ -162,5 +162,68 @@ fn test_armed_winch(collision: read CollisionScene) -> bool {
     return game_check(
         drone.cable.phase == CABLE_ATTACHED && drone.cable.reeling && drone.velocity.z > 39f32,
         "armed reel must pull immediately on contact"
+    );
+}
+
+fn test_reel_contact_case(frame: SpaceTransform) -> bool {
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_test_box(
+        mut mesh,
+        vec(-5f32, -5f32, -1f32),
+        vec(5f32, 5f32, 0f32)
+    ) || !collision_append_solid(mut builder, read mesh, 0u32, frame.origin, frame.basis) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.position = space_point(frame, vec(0f32, 0f32, -2f32));
+    var contact: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        drone.position,
+        basis_vector(frame.basis, vec(0f32, 0f32, 2f32)),
+        HOOK_RADIUS
+    );
+    if !game_check(contact.hit.time <= 1f32, "reel fixture must attach to the wall") {
+        return false;
+    }
+    hook_attach(read scene, mut drone, contact, 0f32);
+    // A cable can cross solid geometry. Its length can differ from contact
+    // clearance by a few float rounding units after a transformed crossing.
+    drone.position = space_point(frame, vec(0f32, 0f32, 0.3501f32));
+    drone.velocity = vec(0f32, 0f32, 0f32);
+    drone.cable.extent = 1.35f32;
+    move_drone(read scene, mut drone, vec(0f32, 0f32, 0f32));
+    var command: Command = idle_command();
+    command.tether = true;
+    command.reel = true;
+    var i: u32 = 0u32;
+    while i < 60u32 {
+        simulate(read scene, mut drone, command, false, false);
+        if !game_check(
+            collision_position_valid(read scene, 0u32, drone.position, DRONE_RADIUS),
+            "reeling must preserve wall separation"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return game_check(
+        drone.cable.phase == CABLE_ATTACHED && drone.cable.extent <= 1.35f32 && absf(
+            drone.cable.reel_speed
+        ) < 0.001f32,
+        "blocked reeling must stall without extending the cable"
+    );
+}
+fn test_reel_contact() -> bool {
+    return test_reel_contact_case(space_identity()) && test_reel_contact_case(
+        make SpaceTransform {
+            origin: vec(-12f32, 9f32, 37f32),
+            basis: collision_test_basis()
+        }
     );
 }
