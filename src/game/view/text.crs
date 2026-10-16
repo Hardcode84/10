@@ -30,3 +30,26 @@ fn hud_font(v: mut FrameInput) -> unit {
         y = y + 1u32;
     }
 }
+
+// Returns a null-terminated duration in minutes and seconds.
+fn completion_time(ticks: u32) -> [u8; 32] {
+    var text: [u8; 32] = uninit;
+    var i: usize = 0usize;
+    while i < 32usize {
+        text[i] = 0u8;
+        i = i + 1usize;
+    }
+    snprintf(
+        &text[0usize],
+        32usize,
+        "TIME %uM %02uS",
+        ticks / 7200u32,
+        (ticks / 120u32) % 60u32
+    );
+    return text;
+}
+
+fn hud_completion(v: mut FrameInput, ticks: u32) -> unit {
+    var text: [u8; 32] = completion_time(ticks);
+    hud_text(mut v, 38u32, 0u32, &text[0usize]);
+}

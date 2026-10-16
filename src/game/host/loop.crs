@@ -24,7 +24,7 @@ fn game_tick(
     trial_step(read collision, mut loop.trial, command);
     game_graph_visit(mut session, read loop.trial, command.restart || command.spin);
     if loop.trial.finished && !finished {
-        game_message(1u32);
+        game_completion(loop.trial.tick);
     }
     loop.ticks = loop.ticks + 1u32;
     if config.ticks != 0u32 && loop.ticks >= config.ticks {
@@ -70,7 +70,7 @@ fn game_advance(
     }
     if elapsed > 1000000000u64 {
         loop.input.paused = true;
-        game_message(0u32);
+        game_clock_stall();
     }
     if loop.input.paused {
         loop.input.pending = idle_command();

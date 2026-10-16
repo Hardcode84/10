@@ -3,7 +3,10 @@
 Start in the radial room. Find the gold beacon near the closed end of the
 ending room. Enter its 2 m activation radius, then return to the cyan beacon
 at the start position. The HUD changes to RETURN after collection and shows
-ROUND TRIP COMPLETE on return. Backspace resets the run in the same graph.
+COMPLETE on return. The completion HUD and terminal show the run time in minutes
+and seconds. Time starts with the first thrust, boost, brake, or hook input.
+It excludes pauses and stops when the round trip is complete. It uses simulation
+time, so slow mode advances it at the slower simulation rate. Backspace resets the run in the same graph.
 
 ```sh
 crust main.crs --seed 42 --complexity 8

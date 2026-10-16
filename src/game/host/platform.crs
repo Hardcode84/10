@@ -92,13 +92,8 @@ fn scene_overflow() -> unit {
     error("game scene exceeds triangle capacity");
     exit(1i32);
 }
-fn game_message(code: u32) -> unit {
-    if code == 0u32 {
-        puts("Simulation paused after a clock stall. Tab resumes.");
-    }
-    if code == 1u32 {
-        puts("Run complete. Backspace starts a new run; Esc exits.");
-    }
+fn game_clock_stall() -> unit {
+    puts("Simulation paused after a clock stall. Tab resumes.");
 }
 fn game_initial_spin(session: read GameSession) -> bool {
     return session.launch.config.full_spin;
@@ -152,4 +147,10 @@ fn game_graph(session: read GameSession) -> read RoomGraph from session {
 
 fn game_fps(session: read GameSession) -> u32 {
     return session.frame_rate.fps;
+}
+
+fn game_completion(ticks: u32) -> unit {
+    puts("Run complete. Backspace starts a new run; Esc exits.");
+    var text: [u8; 32] = completion_time(ticks);
+    puts(&text[0usize]);
 }

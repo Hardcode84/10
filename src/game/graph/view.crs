@@ -5,6 +5,7 @@ fn graph_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
     }
     if trial.finished {
         hud_text(mut v, 0u32, 0u32, "COMPLETE - BACKSPACE TO RESTART      ");
+        hud_completion(mut v, trial.tick);
     }
     hud_text(mut v, 0u32, 1u32, "ROOM");
     hud_number(mut v, 5u32, 1u32, trial.drone.world);
