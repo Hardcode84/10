@@ -43,7 +43,9 @@ preserve the palette and dithering.
 Use small indexed textures, discrete light levels, and visible dithering. Keep
 depth calculations accurate. Colour precision must not reduce visibility accuracy.
 
-For point lights, use `max(0, cos(theta)) / (1 + d/R)^2` attenuation.
+For point lights, use `sqrt(max(0, cos(theta))) / (1 + d/R)^2`.
+The square root softens the angular response at grazing angles. The camera
+lamp keeps `max(0, cos(theta)) / (1 + d/R)^2`.
 Quantize each light to eight brightness levels before combining lights.
 Contributions below the first level are zero. Keep broad bands of constant
 brightness. Sample lighting on a 16 by 16 screen-space grid and dither between

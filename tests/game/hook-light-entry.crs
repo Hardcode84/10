@@ -70,6 +70,9 @@ fn main(argc: i32, argv: **u8) -> i32 {
         if !renderer_draw(&renderer.state) {
             return 1i32;
         }
+        if state == 1u32 && !hook_wall_capture(&renderer.state) {
+            return 1i32;
+        }
         var yellow: u32 = hook_light_yellow(renderer.state.mapped as *u32);
         if (yellow != 0u32) != (state != 2u32) {
             print_number(state as i64);
@@ -78,7 +81,9 @@ fn main(argc: i32, argv: **u8) -> i32 {
         }
         state = state + 1u32;
     }
-    puts("Hook states, transformed coordinates, and fixed start/goal lamps passed.");
+    puts(
+        "Hook states, grazing wall lighting, transformed coordinates, and fixed start/goal lamps passed."
+    );
     return 0i32;
 }
 
@@ -180,4 +185,25 @@ fn prediction_shadow_flags(input: mut FrameInput, config: GameConfig) -> bool {
         kind = kind + 1u32;
     }
     return true;
+}
+
+fn hook_wall_patch(pixels: *u32) -> u32 {
+    var sum: u32 = 0u32;
+    var y: u32 = 80u32;
+    while y < 112u32 {
+        var x: u32 = 152u32;
+        while x < 184u32 {
+            sum = sum + (pixels[(PIXELS + y * 256u32 + x) as usize] & 255u32);
+            x = x + 1u32;
+        }
+        y = y + 1u32;
+    }
+    return sum;
+}
+
+fn hook_wall_capture(v: *Vulkan) -> bool {
+    if hook_wall_patch(v -> mapped as *u32) < 4096u32 {
+        return error("attached hook leaves the grazing wall patch too dark");
+    }
+    return capture(v, "build/test-hook-attached.ppm", 256u32, 192u32);
 }

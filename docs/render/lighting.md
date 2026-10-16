@@ -7,10 +7,13 @@ submitted positions, after the instance transform. The visible side faces the
 camera. Curved parts keep their facets. No asset currently requires smooth
 vertex normals or a normal map.
 
-The light equation and palette response do not change. Each point light uses
-Lambert diffuse response and inverse-square attenuation:
+Point lights use a softened angular response and distance attenuation:
 
-`amount = max(dot(unit_normal, unit_to_light), 0) / (1 + distance / radius)^2`
+`amount = sqrt(max(dot(unit_normal, unit_to_light), 0)) / (1 + distance / radius)^2`
+
+This response increases light on surfaces at grazing angles. It reaches zero
+continuously at the light horizon. Back-facing surfaces receive no direct light.
+The camera lamp keeps the Lambert angle term, without the square root.
 
 The light record stores radius squared. A zero radius disables the light.
 Each light contribution is truncated to one of eight intensity bands before
@@ -111,7 +114,9 @@ Measure the actual start, start with a flying hook, and ending-room views:
 crust tests.crs benchmark 1024 768 --lit-rooms --width 1024 --height 768
 ```
 
-On Intel Arc Pro B60, default seed and complexity, the same three views gave:
+The following acceleration comparison used Lambert point-light response for
+both versions. On Intel Arc Pro B60, default seed and complexity, the same
+three views gave:
 
 | View | Per-light triangle rebuild mean | Shared trees mean | Shared trees maximum |
 | --- | --- | --- | --- |
@@ -127,6 +132,10 @@ shadow preparation, and image initialization together fell from 5.97 ms to
 and 3840 by 2160 output, the hook-lit start view averages 10.37 ms, with a
 10.85 ms maximum. This measurement also excludes window presentation.
 
+With the softened point-light response, the same native 1024 by 768 views
+average 9.22 ms, 10.82 ms, and 6.88 ms. The hook-lit view has an 11.28 ms
+maximum. Image values change with the new angular response.
+
 Run `crust tests.crs render 11`. It checks a closed bulkhead, a transparent
 cutout, a blocker in another space, a transformed retained blocker, a distant
 lamp, full-bright texels without lamps, and a contributing seventeenth light, a non-shadow-casting surface, and a light
@@ -137,6 +146,10 @@ changed dynamic counts, source flags, transforms, instance removal and return,
 and buffer replacement. It also checks rejected growth,
 invalid input, and recovery. With visibility disabled, the closed-bulkhead case
 reports 1,092 incorrectly lit pixels outside the reference edge band.
+
+Run `crust tests.crs hook-light` for an attached-hook wall patch at grazing
+incidence. The check uses the actual attachment and lamp code, with camera
+light disabled. It saves `build/test-hook-attached.ppm` for visual review.
 
 Run `crust tests.crs render 4` for the 50-frame lighting and faceted-pipe
 regression. The viewer and expedition checks also use the same generated

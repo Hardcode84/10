@@ -549,7 +549,7 @@ fn reference_quantize(value: f32, t: f32) -> u32 {
     }
     return (value * 7f32 + 0.5f32) as u32;
 }
-fn reference_point(delta: Vec, normal: Vec, radius: f32, color: Vec, t: f32) -> Vec {
+fn reference_point(delta: Vec, normal: Vec, radius: f32, color: Vec, soft: bool) -> Vec {
     var result: Vec = make Vec {
         x: 0f32,
         y: 0f32,
@@ -568,6 +568,9 @@ fn reference_point(delta: Vec, normal: Vec, radius: f32, color: Vec, t: f32) -> 
     }
     var distance: f32 = dot(delta, delta);
     var cosine: f32 = incidence / sqrtf(dot(normal, normal) * distance);
+    if soft {
+        cosine = sqrtf(cosine);
+    }
     var attenuation: f32 = 1f32 + sqrtf(distance / radius);
     var scaled: f32 = 7f32 * peak * (cosine / (attenuation * attenuation));
     var level: u32 = 7u32;
@@ -635,7 +638,6 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
     }
     var surface: Hit = hit;
     hit = reference_grid_hit(w, f, hit, normal, x, y);
-    var t: f32 = 0f32;
     var ambient: u32 = space;
     if w[SHARED_AMBIENT as usize] != 0u32 {
         ambient = 0u32;
@@ -647,7 +649,7 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
             normal,
             f[CAMERA_LIGHT as usize],
             vertex(f, (CAMERA_LIGHT + 1u32) as usize),
-            t
+            false
         );
         light.x = light.x + contribution.x;
         light.y = light.y + contribution.y;
@@ -662,7 +664,7 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
                 normal,
                 f[l + 3usize],
                 vertex(f, l + 4usize),
-                t
+                true
             );
             if (contribution.x > 0f32 || contribution.y > 0f32 || contribution.z > 0f32) && !reference_light_visible(
                 w,

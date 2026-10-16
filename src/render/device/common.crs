@@ -77,13 +77,25 @@ fn view_position(view: u32, z: f32, x: u32, y: u32, axis: u32) -> f32 {
         p + 8u32 + axis
     ) * c;
 }
-fn light_amount(dx: f32, dy: f32, dz: f32, nx: f32, ny: f32, nz: f32, radius: f32) -> f32 {
+fn light_amount(
+    dx: f32,
+    dy: f32,
+    dz: f32,
+    nx: f32,
+    ny: f32,
+    nz: f32,
+    radius: f32,
+    soft: bool
+) -> f32 {
     var distance: f32 = dx * dx + dy * dy + dz * dz;
     var incidence: f32 = dx * nx + dy * ny + dz * nz;
     if incidence <= 0f32 || radius <= 0f32 {
         return 0f32;
     }
     var diffuse: f32 = incidence / shader_sqrt((nx * nx + ny * ny + nz * nz) * distance);
+    if soft {
+        diffuse = shader_sqrt(diffuse);
+    }
     var attenuation: f32 = 1f32 + shader_sqrt(distance / radius);
     return diffuse / (attenuation * attenuation);
 }
@@ -137,7 +149,16 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32, hx: u32, hy: u32) -> u3
         nz = -nz;
     }
     if floats_load(CAMERA_LIGHT) > 0f32 {
-        var amount: f32 = light_amount(ex, ey, ez, nx, ny, nz, floats_load(CAMERA_LIGHT));
+        var amount: f32 = light_amount(
+            ex,
+            ey,
+            ez,
+            nx,
+            ny,
+            nz,
+            floats_load(CAMERA_LIGHT),
+            false
+        );
         amount = light_band(
             amount,
             floats_load(CAMERA_LIGHT + 1u32),
@@ -159,7 +180,8 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32, hx: u32, hy: u32) -> u3
                 nx,
                 ny,
                 nz,
-                floats_load(p + 3u32)
+                floats_load(p + 3u32),
+                true
             );
             amount = light_band(
                 amount,
