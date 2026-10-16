@@ -1,0 +1,20 @@
+// A wall for hook, reel, and swing checks. Coordinates keep the attachment and
+// blocked-reel witnesses independent of the generated level.
+fn collision_build_game(scene: mut CollisionScene) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var mesh: Mesh = mesh_new();
+    if !static_solid(
+        mut mesh,
+        solid(vec(-3f32, -8f32, 55f32), vec(3f32, 55f32, 61f32), 0u32),
+        63u32
+    ) || !collision_append_solid(
+        mut builder,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}

@@ -19,86 +19,7 @@ fn test_forces() -> bool {
         "force equation or Coriolis sign differs"
     );
 }
-fn test_collision(collision: read CollisionScene) -> bool {
-    var s: Solid = solid(vec(-1f32, -1f32, -1f32), vec(1f32, 1f32, 1f32), 0u32);
-    var face: Hit = sweep_box(
-        vec(0f32, 0f32, -10f32),
-        vec(0f32, 0f32, 20f32),
-        s,
-        0.35f32
-    );
-    var corner: Hit = sweep_box(
-        vec(1.3f32, 1.3f32, -10f32),
-        vec(0f32, 0f32, 20f32),
-        s,
-        0.35f32
-    );
-    var edge: Hit = sweep_box(
-        vec(1.2f32, 0f32, -10f32),
-        vec(0f32, 0f32, 20f32),
-        s,
-        0.35f32
-    );
-    var drone: Drone = new_drone();
-    drone.position = vec(0f32, 5f32, 40f32);
-    drone.velocity = vec(10f32, 0f32, 1000f32);
-    move_drone(read collision, mut drone, vec(1f32, 0f32, 30f32));
-    return game_check(
-        near(face.time, 0.4325f32, 0.00001f32) && corner.time > 1f32 && edge.time < 0.45f32 && drone.position.z < 54.651f32 && drone.position.x > 0.99f32 && drone.velocity.z == 0f32,
-        "swept sphere face/edge/corner or sliding failed"
-    );
-}
-fn test_trial(collision: read CollisionScene) -> bool {
-    var t: Trial = new_trial();
-    var c: Command = idle_command();
-    c.burst = true;
-    trial_step(read collision, mut t, c);
-    if !game_check(
-        t.started && t.tick == 1u32 && t.drone.velocity.z > 0f32 && t.drone.velocity.z < 1f32,
-        "burst did not start trial"
-    ) {
-        return false;
-    }
-    c = idle_command();
-    var i: u32 = 1u32;
-    while i < FLIGHT_PULSE_TICKS {
-        trial_step(read collision, mut t, c);
-        i = i + 1u32;
-    }
-    c.brake = true;
-    trial_step(read collision, mut t, c);
-    c.brake = false;
-    i = 1u32;
-    while i < FLIGHT_PULSE_TICKS {
-        trial_step(read collision, mut t, c);
-        i = i + 1u32;
-    }
-    if !game_check(
-        length(t.drone.velocity) < 0.0001f32 && t.drone.brake_speed > 14f32,
-        "brake failed"
-    ) {
-        return false;
-    }
-    c = idle_command();
-    c.spin = true;
-    trial_step(read collision, mut t, c);
-    if !game_check(
-        t.full_spin && t.tick == 0u32 && !t.started,
-        "spin selection must reset the attempt"
-    ) {
-        return false;
-    }
-    t.drone.position = vec(0f32, 4f32, 36f32);
-    trial_progress(mut t, vec(0f32, 4f32, 34f32));
-    if !game_check(t.gate == 1u32, "swept checkpoint crossing failed") {
-        return false;
-    }
-    t.gate = GATE_COUNT;
-    t.drone.position = add(course_finish(), vec(0f32, 0.5f32, 0f32));
-    var before: Vec3 = t.drone.position;
-    trial_progress(mut t, before);
-    return game_check(t.finished, "finish landing failed");
-}
+
 fn test_input() -> bool {
     var input: InputState = input_new();
     input.values[6usize] = 1f32;
@@ -138,19 +59,6 @@ fn test_replay(collision: read CollisionScene) -> bool {
     }
     return true;
 }
-fn game_tests() -> bool {
-    var collision: CollisionScene = collision_new();
-    if !collision_build_game(mut collision) {
-        return false;
-    }
-    return test_collision_suite(read collision) && test_hook(read collision) && test_winch(
-        read collision
-    ) && test_short_press() && test_mouse_accumulation() && test_swing(read collision) && test_tether(
-        read collision
-    ) && test_flight_pulses() && test_input() && test_replay(read collision) && test_course_flight(
-        read collision
-    ) && test_prefabs(read collision) && test_expedition(read collision) && test_progress_store();
-}
 
 fn test_mouse_accumulation() -> bool {
     var input: InputState = input_new();
@@ -175,10 +83,22 @@ fn test_short_press() -> bool {
     );
 }
 
-fn test_collision_suite(collision: read CollisionScene) -> bool {
+fn game_tests() -> bool {
+    var collision: CollisionScene = collision_new();
+    if !collision_build_game(mut collision) {
+        return false;
+    }
+    return test_reference_collision() && test_forces() && test_hook(read collision) && test_winch(
+        read collision
+    ) && test_swing(read collision) && test_tether(read collision) && test_flight_pulses() && test_input() && test_short_press() && test_mouse_accumulation();
+}
+
+fn test_reference_collision() -> bool {
+    var collision: CollisionScene = collision_new();
+    if !collision_build_reference(mut collision) {
+        return false;
+    }
     return test_collision_motion() && test_collision_scaling() && test_collision_index(
         read collision
-    ) && test_forces() && test_collision_samples(read collision) && test_collision_measure(
-        read collision
-    ) && test_mesh_collision() && test_collision(read collision);
+    ) && test_collision_samples(read collision) && test_collision_measure(read collision) && test_mesh_collision();
 }

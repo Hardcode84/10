@@ -401,9 +401,7 @@ fn test_mesh_flight() -> bool {
     drone.cable.velocity = scale(face.normal, -600f32);
     hook_step(read scene, mut drone, false);
     return game_check(
-        drone.cable.phase == CABLE_ATTACHED && length(
-            sub(drone.cable.anchor, add(point, scale(face.normal, HOOK_RADIUS)))
-        ) < 0.00002f32,
+        drone.cable.phase == CABLE_ATTACHED && length(sub(drone.cable.anchor, point)) < 0.00002f32,
         "launched hook must attach to the curved mesh surface"
     );
 }

@@ -1,10 +1,10 @@
 record Trial {
-    free_flight: bool;
+    graph_run: bool;
+    goal_world: u32;
+    returning: bool;
     spawn: Drone;
-    expedition: Expedition;
     drone: Drone;
     tick: u32;
-    gate: u32;
     finished: bool;
     started: bool;
     full_spin: bool;
@@ -15,12 +15,12 @@ record Trial {
 }
 fn new_trial() -> Trial {
     return make Trial {
-        free_flight: false,
+        graph_run: false,
+        goal_world: 0u32,
+        returning: false,
         spawn: new_drone(),
-        expedition: new_expedition(),
         drone: new_drone(),
         tick: 0u32,
-        gate: 0u32,
         finished: false,
         started: false,
         full_spin: false,

@@ -1,3 +1,35 @@
+record Solid {
+    low: Vec3;
+    high: Vec3;
+    material: u32;
+}
+fn solid(lo: Vec3, hi: Vec3, mat: u32) -> Solid {
+    return make Solid {
+        low: lo,
+        high: hi,
+        material: mat
+    };
+}
+
+fn box_edge(s: Solid, axis: u32, index: u32) -> Vec3 {
+    var a: u32 = (axis + 1u32) % 3u32;
+    var b: u32 = (axis + 2u32) % 3u32;
+    var point: Vec3 = s.low;
+    if index % 2u32 != 0u32 {
+        point = add(
+            point,
+            scale(axis_vector(a), component(sub(s.high, s.low), a))
+        );
+    }
+    if index / 2u32 != 0u32 {
+        point = add(
+            point,
+            scale(axis_vector(b), component(sub(s.high, s.low), b))
+        );
+    }
+    return point;
+}
+
 fn mesh_vertex(p: Vec3, u: f32, v: f32) -> MeshVertex {
     return make MeshVertex {
         x: p.x,
@@ -107,87 +139,16 @@ fn static_solid(mesh: mut Mesh, item: Solid, faces: u32) -> bool {
     }
     return true;
 }
-fn static_room(mesh: mut Mesh, room: u32) -> bool {
-    var instance: RoomInstance = expedition_room(room);
-    var mask: u32 = expedition_open_ports(room);
-    var face: u32 = 0u32;
-    while face < 6u32 {
-        var walls: WallPanels = prefab_wall(instance, face, mask);
-        var i: u32 = 0u32;
-        while i < walls.count {
-            var panel: Solid = walls.panels[i as usize];
-            var mat: u32 = panel.material;
-            if face == 2u32 {
-                mat = 0u32;
-            }
-            if face == 3u32 {
-                mat = 1u32;
-            }
-            var axis: u32 = face / 2u32;
-            var sign: f32 = 1f32;
-            if face % 2u32 != 0u32 {
-                sign = -1f32;
-            }
-            if !static_quad(
-                mut mesh,
-                mat,
-                box_edge(panel, axis, 0u32),
-                box_edge(panel, axis, 1u32),
-                box_edge(panel, axis, 3u32),
-                box_edge(panel, axis, 2u32),
-                scale(axis_vector(axis), sign),
-                axis
-            ) {
-                return false;
-            }
-            i = i + 1u32;
-        }
-        face = face + 1u32;
-    }
-    return true;
-}
-fn static_pipe_cap(mesh: mut Mesh, pipe: CoursePipe, end: f32) -> bool {
-    var sign: f32 = -1f32;
-    if end > 0f32 {
-        sign = 1f32;
-    }
-    var normal: Vec3 = scale(axis_vector(pipe.axis), sign);
-    return static_quad(
-        mut mesh,
-        1u32,
-        pipe_vertex(pipe, 0u32, end),
-        pipe_vertex(pipe, 1u32, end),
-        pipe_vertex(pipe, 2u32, end),
-        pipe_vertex(pipe, 3u32, end),
-        normal,
-        3u32
-    ) && static_quad(
-        mut mesh,
-        1u32,
-        pipe_vertex(pipe, 0u32, end),
-        pipe_vertex(pipe, 3u32, end),
-        pipe_vertex(pipe, 4u32, end),
-        pipe_vertex(pipe, 5u32, end),
-        normal,
-        3u32
-    );
-}
-fn static_pipe(mesh: mut Mesh, pipe: CoursePipe) -> bool {
-    var i: u32 = 0u32;
-    while i < 6u32 {
-        if !static_quad(
-            mut mesh,
-            pipe.material,
-            pipe_vertex(pipe, i, 0f32),
-            pipe_vertex(pipe, i + 1u32, 0f32),
-            pipe_vertex(pipe, i + 1u32, 1f32),
-            pipe_vertex(pipe, i, 1f32),
-            add(pipe_radial(pipe, i), pipe_radial(pipe, i + 1u32)),
-            3u32
-        ) {
-            return false;
-        }
-        i = i + 1u32;
-    }
-    return static_pipe_cap(mut mesh, pipe, 0f32) && static_pipe_cap(mut mesh, pipe, 1f32);
+fn surface_quad(v: mut FrameInput, mat: u32, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> unit {
+    var first: u32 = input_word(read v, 3usize);
+    game_quad(mut v, mat, a, b, c, d);
+    var u: f32 = length(sub(b, a)) / 4f32;
+    var w: f32 = length(sub(d, a)) / 4f32;
+    var base: usize = (GEOMETRY + first * 15u32) as usize;
+    input_set_float(mut v, base + 8usize, u);
+    input_set_float(mut v, base + 13usize, u);
+    input_set_float(mut v, base + 14usize, w);
+    input_set_float(mut v, base + 23usize, u);
+    input_set_float(mut v, base + 24usize, w);
+    input_set_float(mut v, base + 29usize, w);
 }

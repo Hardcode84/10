@@ -102,7 +102,7 @@ Implement these changes in Crust before using Windows as a build host.
 ## Play the game
 
 Run `crust main.crs` to build and start the expedition. See
-[the expedition guide](../game/expedition.md) for objectives and saved progress.
+[the expedition guide](../game/expedition.md) for objectives, seeds, and recording.
 Use `crust main.crs --trial` for the movement course and `crust tests.crs game`
 for all simulation checks. See [movement](../game/movement.md) for controls and replay
 commands. The generated-room flight demo starts with `crust demo.crs`. It uses the same

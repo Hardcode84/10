@@ -1,46 +1,14 @@
-# Movement trial
+# Flight controls and physics
 
-This is the Phase 0 slice from the [game design](../../../SPINWARD.md).
-The default game is now the [expedition](expedition.md). Run the movement trial with:
+Run `crust main.crs` for [There and Back](expedition.md), or `crust demo.crs`
+for the linked-room flight demo. Both use the same input and physics code.
 
-```sh
-crust main.crs --trial
-crust main.crs --trial --width 1280 --height 720 --fov 90
-```
-
-The root builds the host through the Crust ownership stage and builds the
-compute shaders. The executable is `build/game`. The generated-room flight demo runs at `crust demo.crs` and `build/spinward`.
-
-## Course
-
-Start on the small platform. Pass 11 gates in order. The route goes through a
-launch gallery, a machinery court, a vertical shaft, an upper crossing, and a
-return duct. Each gate has a required crossing direction. The current gate is
-cyan; the next gate is dim. A cyan arrow points toward a gate outside the view.
-Land on the amber finish platform at less than 2 m/s. See the
-[course plan](flight-course.md) for geometry, lights, and route details.
-The timer stops when the drone is above that platform, less than one metre from
-its top. Backspace starts another attempt. There is no frame limit in window
-mode.
-
-The course has one physical space. Its origin is 750 m from the drum axis.
-Local positive Y points toward the axis. The drum turns about local Z.
-F4 selects stopped or full spin and resets the attempt. It does not apply a
-bearing-ring velocity change to a drone already in flight.
-
-Charge is unlimited in Phase 0. The trial records burst count, total speed
-removed by braking, and winch work per unit mass. The exit report prints these
-values. Charge depletion and beacons belong to Phase 1.
-
-Boost and brake each run for 0.15 seconds (18 simulation steps). Boost applies
-100 m/s² along the current ship forward axis, for 15 m/s of total velocity
-change without other forces. Turning steers the boost.
-
-Brake sets its acceleration from the starting speed, up to 200 m/s². Each
-step applies it against the current velocity. It cannot reverse the ship.
-Charge is spent only for speed removed. Other forces, contacts, and portals
-remain active during both pulses. A repeated press cannot extend an active
-pulse of the same type. Boost and brake can run at the same time.
+Boost applies 100 m/s² along the current forward axis for 0.15 seconds.
+It adds 15 m/s without other forces. Brake applies acceleration against the
+current velocity for 0.15 seconds, removing at most 30 m/s. It cannot reverse
+the drone. Both have unlimited uses and share a three-second cooldown from
+the accepted press. Presses during cooldown do not queue or extend a pulse.
+Brake wins if both actions arrive in the same ready tick.
 
 ## Controls
 
@@ -60,12 +28,12 @@ pulse of the same type. Boost and brake can run at the same time.
 | Pause / resume | Tab | Start |
 | Exit | Esc | Close the window |
 
-Focus loss pauses the trial and clears held toggle actions. Resume with Tab.
-A clock stall longer than one second also pauses the trial and prints a
+Focus loss pauses the run and clears held toggle actions. Resume with Tab.
+A clock stall longer than one second also pauses the run and prints a
 message. The game does not skip simulation steps to catch up. Use `--slow`
 for 70 percent game speed.
 
-Auto-level is on by default. It rolls toward the inward radial direction at
+Auto-level is off by default in the graph game. When enabled, it rolls toward the inward radial direction at
 no more than 90 degrees per second. At a view parallel to that direction, it
 keeps the current roll. Manual roll is available with auto-level off, together
 with the design's 30 percent turn gain. Total look rotation is capped at
@@ -115,11 +83,6 @@ still includes inherited velocity and forces. A change in aim changes the path.
 The cyan spacing phase updates while previews are hidden and resets on retry.
 Rendering reads that phase and cannot change it.
 
-The HUD shows time, gates, air-relative speed, hook state, cable length, burst
-count, and assist settings. The cable is cyan. A small amber body shows the
-hook in flight and at the attachment point. A frame notch shows a hook or
-anchor outside the forward view.
-
 ## Simulation contract
 
 Simulation runs at 120 Hz, independent of presentation. Each tick consumes one
@@ -133,14 +96,13 @@ correction. Drag uses the authored density curve, with initial coefficients
 `c1/m = 0.08 s^-1` and `c2/m = 0.012 m^-1`. Density rises from 0.05 to 1 with
 smoothstep over radii from zero through 4000 m.
 
-The drone has a 0.35 m collision radius. Each course solid supplies both the
-visible box and the collision box. Sweeps test faces, rounded edges, and
-corners. The two pipes use six-sided prisms for both drawing and collision.
-Their sweeps test side faces, end caps, and rounded edges. The
+The drone has a 0.35 m collision radius. Room hulls supply both visible
+surfaces and collision meshes. Sweeps test faces, rounded edges, and corners.
+The
 [contact-set solver](../collision/motion.md) removes inward velocity and keeps
 feasible sliding motion. It separates surface overlap even at rest. A step
 consumes its travel or reports the unresolved contact and stops the run.
-Spawn and load reject embedded bodies.
+Spawn checks reject embedded bodies.
 
 Press and hold the tether action to launch one hook. The hook starts at the
 drone position. It inherits drone velocity and adds 60 m/s along the view.
@@ -174,94 +136,10 @@ path clears. It does not pull the player through the surface. Winch work uses
 the velocity constraint impulse and the actual reel speed. There is no load
 limit or tension warning. Ctrl and LB remain downward thrust while tethered.
 
-The game keeps its camera, geometry, inputs, and trial rules outside
-`src/render/`. Transformed portals remain available in the renderer demo.
-Adding playable portal crossings requires a defined transform for drone state,
-drum coordinates, and attached cables.
-
-## Source boundaries
-
-| Files | Responsibility |
-| --- | --- |
-| `src/app/math.crs`, `flight/drone.crs`, `flight/state.crs` | Value types and initial state |
-| `course/course.crs`, `course/course-route.crs` | Solids, directional gates, and dock |
-| `course/course-pipes.crs`, `content/geometry.crs`, `../collision/sweep.crs` | Pipe shape, drawing, and mesh contact |
-| `course/course-tour.crs` | Input controllers for automatic course flights |
-| `course/course-appearance.crs`, `course/course-view.crs` | Surface patterns, lights, and route indicator |
-| `flight/physics.crs`, `flight/orientation.crs` | Integration and attitude |
-| `flight/collision.crs` | Collision scene query and contact response |
-| `flight/hook.crs` | Launch, recoil, projectile flight, contact, and range snaps |
-| `flight/tether.crs` | Cable length, winch, and release input |
-| `flight/attachment.crs` | Mesh anchors, relative cable impulse, and energy |
-| `flight/environment.crs` | Drum parameters and flight forces |
-| `view/tether-view.crs` | Cable, hook body, and direction indicator |
-| `flight/trial.crs` | Attempt state, gate order, and finish detection |
-| `host/input.crs` | Actions, edges, toggles, and pending mouse motion |
-| `host/sdl-input.crs`, `host/bindings.crs` | Native device reads and binding file parsing |
-| `view/scene.crs`, `view/palette.crs`, `view/preview.crs` | Scene submission and flight indicators |
-| `view/hook-preview.crs` | Hook path before launch |
-| `view/preview-phase.crs` | Flight spacing phase and path station positions |
-| `view/hud.crs`, `view/text.crs` | Trial status and text data |
-| `host/loop.crs` | Fixed-step clock and frame sequence |
-| `host/platform.crs`, `host/renderer-host.crs` | Resource ownership and renderer setup |
-| `host/replay.crs`, `host/recording.crs` | State hashes and recording IO |
-| `host/options.crs`, `host/entry.crs` | Launch options and entry point |
-| `src/app/` | Shared window, clock, shader IO, capture, geometry, and palette helpers |
-| `tests/game/` | Simulation and complete-course checks |
-
-The root explicitly selects native providers. Simulation, collision, tether,
-input action processing, scene submission, and the main loop are ownership
-checked. Native providers contain SDL, file, and Vulkan integration.
-
-## Record, replay, and checks
-
-```sh
-crust main.crs --trial --record build/flight.rec
-crust main.crs --trial --replay build/flight.rec
-crust tests.crs game
-crust main.crs --trial --tour
-crust main.crs --trial --tour --full-spin
-crust main.crs --trial --headless --tour --record build/course.rec \
-  --capture build/course.ppm
-crust main.crs --trial --headless --smoke --ticks 600 --record build/smoke.rec \
-  --capture build/smoke.ppm
-crust main.crs --trial --headless --replay build/smoke.rec \
-  --capture build/replay.ppm
-cmp build/smoke.ppm build/replay.ppm
-```
-
-Recordings contain tick commands and a hash of the complete trial state after
-each tick. Replay checks every hash and stops with an error at the first
-mismatch. A recording must end with a count footer. Truncated data and invalid
-numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 14 stores the
-game mode and initial spin mode in its header. The state hash includes active
-boost and brake pulses, prediction phase, machine clock, mesh attachment,
-local anchor, and energy counters. Replay restores the mode and reproduces
-the marker motion. Earlier versions are rejected because their state contract
-differs.
-
-Use `crust tests.crs flight` for short CPU checks of timed boost and brake,
-charge use, trial input, and deterministic simulation.
-Use `crust tests.crs reel` for blocked reeling against straight and rotated
-walls, swing motion, reel controls, and attachment. These checks do not run
-a course or an expedition.
-
-`--ticks N` bounds a run. In headless mode, the simulation runs without wall
-clock pacing and renders the last state. `--smoke` supplies test commands for
-thrust, tether, brake, and a spin-mode change. `crust tests.crs game` checks forces, swept
-collision, projectile flight and recoil, high-speed attachment, range snaps,
-tether release, fast swings, latched fast reeling, blocked winching, input edges,
-mouse accumulation,
-repeated input streams, directional gate crossings, pipe contact, the triangle
-budget, marker stability during coasting, and complete flights in stopped and full-spin modes.
-These checks use the production simulation.
-
-`--tour` flies the course with ordinary tick commands and stops on landing.
-Use `--full-spin` to start in full spin. The two tour controllers use different
-flight strategies; their times are not a comparison of player difficulty.
-Without `--ticks`, a headless tour runs until landing. A replay gets its initial
-spin mode from the recording; it rejects a separate `--full-spin` option.
+The camera, inputs, and game rules remain outside `src/render/`. Each room
+uses its own local force frame. Full spin uses 0.0495 rad/s about local Z, with
+the local origin 750 m from the axis and positive Y toward it. A portal applies
+a rigid state transform; it does not add a bearing-ring frame velocity.
 
 ## Input binding file
 
@@ -286,37 +164,13 @@ axes have a 15 percent dead zone. Mouse motion controls look directly.
 | 10–15 | Yaw right, yaw left, pitch down, pitch up, roll right, roll left |
 | 16–21 | Retry, spin, auto-level, preview, quit, pause |
 
-## Playtest gate
-
-Use stopped mode first, then full spin. Record the assist settings. After each
-session, collect the SSQ result and note whether the tester retries without a
-prompt or describes the drift as broken.
-
-Gate 0 needs five testers: at least three must retry without a prompt, none
-must call the drift broken, and the median SSQ total must be below 15 with
-default assists. Automated tests do not establish this result. Run this
-playtest before starting the beacon and charge-economy slice.
-
-## Implementation checks
-
-The flight checks verify pulse duration, total velocity change, braking
-direction, charge use, trial input, and deterministic simulation. Course tests
-check all 11 gates and landing in stopped and full-spin modes. Recording
-checks compare simulation hashes and reject invalid version and spin fields.
-A private X11 window test with software Vulkan checks presentation and Esc
-exit. A physical gamepad has not been tested in this environment.
-
-The renderer passes 50 lit-tour reference states, including 70 and 110 degree
-fields of view, on AMD and Intel. The palette test also checks overlay bounds,
-transparent cells, glyph rows, and RGBA/BGRA presentation.
-
 ## Generated-room flight demo
 
 Run `crust demo.crs`. The demo uses the game input, fixed-step simulation,
 collision solver, tether, HUD, and prediction code. The room recipe supplies
 its spawn, surfaces, and generated textures. Room-specific connections are
 specified in the demo content source. Backspace returns to the recipe spawn.
-The demo has no course gates, expedition save, or completion condition.
+The demo has no completion condition.
 
 Each pair of room openings connects through a one-metre hexagonal tunnel.
 The near end joins the room directly. The far end transfers the drone and
@@ -334,14 +188,14 @@ Wall and rim contacts before the centre crossing take priority. The hook
 uses the same link table. Its local mesh anchor remains in its owning space.
 The cable stores a rigid transform into the player frame. Length and reeling
 use this unfolded frame, not the short distance between two local positions
-in the same room. The cable passes through obstacles, as in the flight course.
+in the same room. The cable passes through obstacles, as in the game.
 A flying hook still snaps at 120 m of unfolded distance. An attached cable
 retains its extent until the winch shortens it or the player releases it.
 
 The renderer shows up to six portal crossings. Reaching this view depth does
 not stop physical traversal. View storage is a separate render budget; an
 exhausted budget rejects the frame with an error. Recordings identify the demo
-scene and reject playback in the expedition or course.
+scene and reject playback in the graph game.
 
 Use `crust tests.crs collision` for CPU crossing and tether checks.
 Use `crust tests.crs portals --width 320 --height 180` for a short check of the

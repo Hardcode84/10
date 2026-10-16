@@ -45,7 +45,7 @@ fn collision_build_world(scene: mut CollisionBuilder, world: u32) -> bool {
     }
     return true;
 }
-fn collision_build_game(scene: mut CollisionScene) -> bool {
+fn collision_build_reference(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     if !collision_build_world(mut builder, 0u32) || !collision_build_world(mut builder, 1u32) {
         return false;

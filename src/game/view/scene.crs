@@ -1,7 +1,8 @@
 fn game_quad(v: mut FrameInput, mat: u32, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> unit {
+    var space: u32 = input_word(read v, 20usize);
     quad(
         mut v,
-        0u32,
+        space,
         mat,
         0u32,
         0u32,
@@ -63,27 +64,6 @@ fn draw_ribbon(v: mut FrameInput, a: Vec3, b: Vec3, eye: Vec3, width: f32, mat: 
         sub(b, side)
     );
 }
-fn draw_gate(v: mut FrameInput, gate: CourseGate, mat: u32) -> unit {
-    var r: Vec3 = gate.right;
-    var u: Vec3 = gate.up;
-    var i: u32 = 0u32;
-    while i < 4u32 {
-        var a: Vec3 = sub(scale(r, -1f32), u);
-        var b: Vec3 = sub(r, u);
-        game_quad(
-            mut v,
-            mat,
-            add(gate.center, scale(a, 6f32)),
-            add(gate.center, scale(b, 6f32)),
-            add(gate.center, scale(b, 5.85f32)),
-            add(gate.center, scale(a, 5.85f32))
-        );
-        var next: Vec3 = scale(r, -1f32);
-        r = u;
-        u = next;
-        i = i + 1u32;
-    }
-}
 fn game_scene(
     collision: read CollisionScene,
     v: mut FrameInput,
@@ -97,6 +77,8 @@ fn game_scene(
         input_set_word(mut v, 4usize, 6u32);
     }
     render_portals(mut v, read collision);
+    input_set_word(mut v, 20usize, trial.drone.world);
+    input_set_word(mut v, SHARED_AMBIENT as usize, trial.graph_run as u32);
     input_set_word(mut v, BACKGROUND as usize, 0xff0d0906u32);
     input_set_float(mut v, RENDER_STYLE as usize, 0.04f32);
     var angle: f32 = config.fov * 0.00872664626f32;
@@ -104,53 +86,15 @@ fn game_scene(
     camera_row(mut v, 0usize, trial.drone.basis.right, trial.drone.position);
     camera_row(mut v, 4usize, trial.drone.basis.up, trial.drone.position);
     camera_row(mut v, 8usize, trial.drone.basis.forward, trial.drone.position);
-    if trial.drone.world == 1u32 {
-        expedition_scene(mut v, read trial);
-        expedition_lights(mut v, read trial);
-    } else if !trial.free_flight {
-        draw_course_gates(mut v, read trial);
-    }
-    if !trial.free_flight {
-        draw_machines(read collision, mut v, trial.drone);
-    }
     draw_cable(read collision, mut v, trial.drone, config);
     draw_preview(read collision, mut v, read trial, config);
     draw_frame(mut v, trial.drone, config);
-    if !trial.free_flight {
-        draw_route_indicator(mut v, read trial, config);
-    }
-    if !input_instances(mut v, read world) {
-        scene_overflow();
-    }
 }
-
-fn surface_quad(v: mut FrameInput, mat: u32, a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> unit {
-    var first: u32 = input_word(read v, 3usize);
-    game_quad(mut v, mat, a, b, c, d);
-    var u: f32 = length(sub(b, a)) / 4f32;
-    var w: f32 = length(sub(d, a)) / 4f32;
-    var base: usize = (GEOMETRY + first * 15u32) as usize;
-    input_set_float(mut v, base + 8usize, u);
-    input_set_float(mut v, base + 13usize, u);
-    input_set_float(mut v, base + 14usize, w);
-    input_set_float(mut v, base + 23usize, u);
-    input_set_float(mut v, base + 24usize, w);
-    input_set_float(mut v, base + 29usize, w);
-}
-
-fn draw_course_gates(v: mut FrameInput, trial: read Trial) -> unit {
-    var i: u32 = trial.gate;
-    while i < GATE_COUNT && i < trial.gate + 2u32 {
-        var mat: u32 = 7u32;
-        if i == trial.gate {
-            mat = 4u32;
-        }
-        draw_gate(mut v, course_gate(i), mat);
+fn game_dynamic_space(v: mut FrameInput, first: u32, space: u32) -> unit {
+    var i: u32 = first;
+    while i < input_word(read v, 3usize) {
+        var address: usize = (input_word(read v, META as usize) + i * 4u32) as usize;
+        input_set_word(mut v, address, space);
         i = i + 1u32;
-    }
-    if trial.gate == GATE_COUNT {
-        var dock: CourseGate = course_gate(GATE_COUNT - 1u32);
-        dock.center = add(course_finish(), vec(0f32, 6.1f32, 0f32));
-        draw_gate(mut v, dock, 5u32);
     }
 }

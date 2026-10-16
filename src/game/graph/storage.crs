@@ -1,0 +1,131 @@
+record GraphNode {
+    kind: u32;
+    first: u32;
+    count: u32;
+    depth: u32;
+    branch: u32;
+    mesh: MeshRange;
+    visited: bool;
+}
+record GraphSocket {
+    room: u32;
+    peer: u32;
+    roll: u32;
+    port: RoomPort;
+}
+resource RoomGraph {
+    nodes: *GraphNode;
+    sockets: *GraphSocket;
+    capacity: u32;
+    count: u32;
+    port_count: u32;
+    goal: u32;
+    random: u32;
+}
+opaque drop graph_drop;
+fn graph_new() -> RoomGraph {
+    return make RoomGraph {
+        nodes: null(*GraphNode),
+        sockets: null(*GraphSocket),
+        capacity: 0u32,
+        count: 0u32,
+        port_count: 0u32,
+        goal: 0u32,
+        random: 0u32
+    };
+}
+fn graph_drop(graph: mut RoomGraph) -> unit {
+    free(graph.nodes as *u8);
+    free(graph.sockets as *u8);
+}
+fn graph_allocate(graph: mut RoomGraph, capacity: u32, seed: u32) -> bool {
+    graph.nodes = malloc(capacity as usize * sizeof(GraphNode)) as *GraphNode;
+    graph.sockets = malloc(capacity as usize * 8usize * sizeof(GraphSocket)) as *GraphSocket;
+    graph.capacity = capacity;
+    graph.random = seed ^ 0xa511e9b3u32;
+    return graph.nodes != null(*GraphNode) && graph.sockets != null(*GraphSocket) || error(
+        "graph allocation failed"
+    );
+}
+fn graph_node(graph: read RoomGraph, index: u32) -> GraphNode {
+    return graph.nodes[index as usize];
+}
+fn graph_node_set(graph: mut RoomGraph, index: u32, node: GraphNode) -> unit {
+    graph.nodes[index as usize] = node;
+}
+fn graph_socket(graph: read RoomGraph, index: u32) -> GraphSocket {
+    return graph.sockets[index as usize];
+}
+fn graph_socket_set(graph: mut RoomGraph, index: u32, socket: GraphSocket) -> unit {
+    graph.sockets[index as usize] = socket;
+}
+fn graph_count(graph: read RoomGraph) -> u32 {
+    return graph.count;
+}
+fn graph_ports(graph: read RoomGraph) -> u32 {
+    return graph.port_count;
+}
+fn graph_goal(graph: read RoomGraph) -> u32 {
+    return graph.goal;
+}
+fn graph_set_goal(graph: mut RoomGraph, room: u32) -> unit {
+    graph.goal = room;
+}
+fn graph_random(graph: mut RoomGraph, bound: u32) -> u32 {
+    graph.random = graph.random * 1664525u32 + 1013904223u32;
+    var value: u32 = graph.random;
+    value = (value ^ (value >> 16u32)) * 0x7feb352du32;
+    value = (value ^ (value >> 15u32)) * 0x846ca68bu32;
+    return (value ^ (value >> 16u32)) % bound;
+}
+fn graph_add(graph: mut RoomGraph, kind: u32, depth: u32, branch: u32) -> u32 {
+    var count: u32 = 2u32;
+    if kind == 0u32 {
+        count = 8u32;
+    }
+    if kind == 3u32 {
+        count = 3u32;
+    }
+    if kind == 4u32 {
+        count = 4u32;
+    }
+    if kind >= 5u32 {
+        count = 1u32;
+    }
+    var id: u32 = graph.count;
+    if id >= graph.capacity {
+        trap;
+    }
+    graph.nodes[id as usize] = make GraphNode {
+        kind: kind,
+        first: graph.port_count,
+        count: count,
+        depth: depth,
+        branch: branch,
+        mesh: mesh_empty_range(),
+        visited: false
+    };
+    var i: u32 = 0u32;
+    while i < count {
+        graph.sockets[(graph.port_count + i) as usize] = make GraphSocket {
+            room: id,
+            peer: 0xffffffffu32,
+            roll: 0u32,
+            port: junction_port(0u32, 0u32, 3f32)
+        };
+        i = i + 1u32;
+    }
+    graph.port_count = graph.port_count + count;
+    graph.count = graph.count + 1u32;
+    return id;
+}
+fn graph_pair(graph: mut RoomGraph, a: u32, b: u32) -> unit {
+    var roll: u32 = graph_random(mut graph, 6u32);
+    graph.sockets[a as usize].peer = b;
+    graph.sockets[b as usize].peer = a;
+    graph.sockets[a as usize].roll = roll;
+    graph.sockets[b as usize].roll = roll;
+}
+fn graph_mesh_bounds(mesh: read Mesh) -> [f32; 6] {
+    return mesh.bounds;
+}

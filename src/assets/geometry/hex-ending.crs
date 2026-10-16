@@ -1,0 +1,36 @@
+// Diameter exceeds 6 m; length provides player clearance at its midpoint.
+fn hex_ending_build(diameter: f32, extent: f32, asset: mut RoomAsset) -> bool {
+    var radius: f32 = diameter * 0.5f32;
+    var profile: ConnectionProfile = service_hex_profile();
+    var shell: AssetHull = asset_hull_new();
+    if !loft_allocate(mut shell, profile.shape, 2u32) {
+        return false;
+    }
+    loft_ring(mut shell, profile.shape, 0u32, 0f32, radius);
+    loft_ring(mut shell, profile.shape, 1u32, extent, radius);
+    loft_span(mut shell, profile.shape, 0u32, 0u32);
+    loft_caps(mut shell, profile.shape, 2u32, 1u32, 1u32);
+    hex_tunnel_surfaces(mut shell, profile.shape.sides, extent);
+    var port: RoomPort = make RoomPort {
+        id: asset_name("BOTTOM"),
+        profile: profile,
+        face: profile.shape.sides,
+        position: vec(0f32, 0f32, 0f32),
+        basis: make Basis {
+            right: vec(1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(0f32, -1f32, 0f32)
+        }
+    };
+    if !hull_polygon_partition(read shell, mut asset.hull, port, 0u32) || !asset_port_append(
+        mut asset.ports,
+        port
+    ) {
+        return false;
+    }
+    asset.spawn = make AssetSpawn {
+        position: vec(0f32, extent * 0.5f32, 0f32),
+        basis: port.basis
+    };
+    return room_asset_finish(mut asset);
+}

@@ -273,14 +273,13 @@ fn test_kinematic_flight() -> bool {
         return false;
     }
     var old_position: Vec3 = drone.position;
-    var charge: f32 = drone.charge;
     i = 0u32;
     while i < 24u32 {
         simulate(read scene, mut drone, command, false, false);
         i = i + 1u32;
     }
     if !game_check(
-        drone.position.x > old_position.x + 0.3f32 && drone.velocity.x > 1.9f32 && drone.charge == charge && length(
+        drone.position.x > old_position.x + 0.3f32 && drone.velocity.x > 1.9f32 && length(
             sub(drone.position, drone.cable.anchor)
         ) <= drone.cable.extent + 0.0001f32,
         "tether did not ride moving anchor without charging the winch"

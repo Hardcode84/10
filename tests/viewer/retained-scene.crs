@@ -39,7 +39,7 @@ fn viewer_scene(
         scale(vec(sinf(angle), 0.3f32, cosf(angle)), size * 1.1f32)
     );
     var target: Vec3 = center;
-    if selected < ROOM_COUNT {
+    if selected == 0u32 {
         eye = center;
         target = add(center, vec(sinf(angle), 0.1f32, cosf(angle)));
     }
@@ -51,6 +51,7 @@ fn viewer_scene(
     var i: u32 = 0u32;
     while i < copies {
         var item: MeshInstance = instance;
+        item.space = 0u32;
         item.transform[3usize] = (i % 16u32) as f32 * (size + 4f32);
         item.transform[11usize] = (i / 16u32) as f32 * (size + 4f32);
         if !input_instance(mut input, item) {

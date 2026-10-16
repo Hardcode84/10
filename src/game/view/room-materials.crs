@@ -1,12 +1,12 @@
-fn demo_room_palette(input: mut FrameInput) -> bool {
+fn game_room_palette(input: mut FrameInput) -> bool {
     var panel: PanelMaterial = hex_tunnel_material();
     var payload: u32 = panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
-    var count: u32 = GAME_MATERIALS + room_material_count() + 1u32;
+    var count: u32 = GAME_MATERIALS + room_material_count() + 2u32;
     app_assets_extra(
         mut input,
         GAME_MATERIALS,
-        room_material_count() + 1u32,
-        room_material_payload() + payload
+        room_material_count() + 2u32,
+        room_material_payload() + payload * 2u32
     );
     game_palette_fill(mut input);
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
@@ -15,11 +15,20 @@ fn demo_room_palette(input: mut FrameInput) -> bool {
     if !room_materials_at(mut input, offset, GAME_MATERIALS) {
         return false;
     }
-    return panel_upload(
+    if !panel_upload(
         mut input,
-        count - 1u32,
+        count - 2u32,
         offset + room_material_payload(),
         panel_texture_width(panel),
         panel
+    ) {
+        return false;
+    }
+    return panel_upload(
+        mut input,
+        count - 1u32,
+        offset + room_material_payload() + payload,
+        panel_texture_width(panel),
+        hex_bulkhead_material()
     );
 }

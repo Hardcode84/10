@@ -1,0 +1,112 @@
+fn graph_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
+    hud_text(mut v, 0u32, 0u32, "OUTBOUND - FIND THE GOLD END BEACON");
+    if trial.returning {
+        hud_text(mut v, 0u32, 0u32, "RETURN - REACH THE CYAN START BEACON");
+    }
+    if trial.finished {
+        hud_text(mut v, 0u32, 0u32, "COMPLETE - BACKSPACE TO RESTART      ");
+    }
+    hud_text(mut v, 0u32, 1u32, "ROOM");
+    hud_number(mut v, 5u32, 1u32, trial.drone.world);
+    hud_text(mut v, 14u32, 1u32, "SPEED M/S");
+    hud_number(mut v, 24u32, 1u32, length(trial.drone.velocity) as u32);
+    hud_text(mut v, 34u32, 1u32, "BOOST/BRAKE READY");
+    if trial.drone.pulse_cooldown != 0u32 {
+        hud_text(mut v, 34u32, 1u32, "COOLDOWN MS     ");
+        hud_number(mut v, 48u32, 1u32, trial.drone.pulse_cooldown * 1000u32 / 120u32);
+    }
+    hud_text(mut v, 0u32, 2u32, "WASD SPACE CTRL THRUST | MOUSE LOOK | Q/E ROLL");
+    hud_text(mut v, 0u32, 3u32, "RMB BOOST | F BRAKE | LMB HOLD HOOK | R REEL");
+    hud_text(mut v, 0u32, 4u32, "PORT NUMBER IS DESTINATION / CYAN VISITED");
+    hud_text(mut v, 0u32, 5u32, "BACKSPACE RESTART | TAB PAUSE | ESC EXIT");
+    if paused {
+        hud_text(mut v, 65u32, 0u32, "PAUSED");
+    }
+}
+fn graph_digit(v: mut FrameInput, port: RoomPort, digit: u32, position: f32, mat: u32) -> unit {
+    var bits: u64 = font_glyph(48u32 + digit);
+    var row: u32 = 0u32;
+    while row < 7u32 {
+        var col: u32 = 0u32;
+        while col < 5u32 {
+            if ((bits >> (row * 8u32 + col) as u64) & 1u64) != 0u64 {
+                var center: Vec3 = add(
+                    sub(port.position, scale(port.basis.forward, 0.025f32)),
+                    add(
+                        scale(port.basis.right, position + col as f32 * 0.065f32),
+                        scale(port.basis.up, 1.6f32 - row as f32 * 0.065f32)
+                    )
+                );
+                var right: Vec3 = scale(port.basis.right, 0.06f32);
+                var up: Vec3 = scale(port.basis.up, 0.06f32);
+                game_quad(
+                    mut v,
+                    mat,
+                    center,
+                    add(center, right),
+                    add(add(center, right), up),
+                    add(center, up)
+                );
+            }
+            col = col + 1u32;
+        }
+        row = row + 1u32;
+    }
+}
+fn graph_beacon(v: mut FrameInput, center: Vec3, mat: u32, tick: u32, eye: Vec3) -> unit {
+    var r: f32 = 0.6f32 + 0.08f32 * sinf(tick as f32 * STEP * 3f32);
+    draw_solid(
+        mut v,
+        solid(sub(center, vec(r, r, r)), add(center, vec(r, r, r)), mat),
+        eye
+    );
+}
+fn graph_scene(
+    graph: read RoomGraph,
+    v: mut FrameInput,
+    trial: read Trial,
+    config: GameConfig
+) -> unit {
+    var node: GraphNode = graph_node(read graph, trial.drone.world);
+    var i: u32 = 0u32;
+    while i < node.count {
+        var socket: GraphSocket = graph_socket(read graph, node.first + i);
+        var peer: GraphSocket = graph_socket(read graph, socket.peer);
+        var material: u32 = 4u32;
+        if graph_node(read graph, peer.room).visited {
+            material = 5u32;
+        }
+        var number: u32 = peer.room;
+        var digit: u32 = 0u32;
+        while digit == 0u32 || number != 0u32 {
+            graph_digit(
+                mut v,
+                socket.port,
+                number % 10u32,
+                0.5f32 - digit as f32 * 0.4f32,
+                material
+            );
+            number = number / 10u32;
+            digit = digit + 1u32;
+        }
+        i = i + 1u32;
+    }
+    if trial.drone.world == trial.goal_world {
+        graph_beacon(
+            mut v,
+            vec(0f32, 18f32, 0f32),
+            4u32,
+            trial.tick,
+            trial.drone.position
+        );
+    }
+    if trial.drone.world == 0u32 {
+        graph_beacon(
+            mut v,
+            trial.spawn.position,
+            5u32,
+            trial.tick,
+            trial.drone.position
+        );
+    }
+}

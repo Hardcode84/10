@@ -58,6 +58,7 @@ fn test_brake_pulse(collision: read CollisionScene) -> bool {
     ) {
         return false;
     }
+    drone.pulse_cooldown = 0u32;
     drone.velocity = vec(0.1f32, 0f32, 0f32);
     flight_pulses(mut drone, command);
     // Contact stops the drone; braking must not push it backwards.
@@ -71,7 +72,42 @@ fn test_flight_pulses() -> bool {
     if !collision_finish(move builder, mut collision) {
         return false;
     }
-    return test_boost_pulse(read collision) && test_brake_pulse(read collision) && test_expedition_power(
+    return test_boost_pulse(read collision) && test_brake_pulse(read collision) && test_pulse_cooldown() && test_replay(
         read collision
-    ) && test_trial(read collision) && test_replay(read collision);
+    );
+}
+
+fn test_pulse_cooldown() -> bool {
+    var drone: Drone = new_drone();
+    drone.world = 73u32;
+    var boost: Command = idle_command();
+    boost.burst = true;
+    var brake: Command = idle_command();
+    brake.brake = true;
+    flight_pulses(mut drone, boost);
+    var i: u32 = 1u32;
+    while i < FLIGHT_COOLDOWN_TICKS {
+        flight_pulses(mut drone, brake);
+        if drone.brake_ticks != 0u32 || drone.bursts != 1u32 {
+            return error("brake bypassed shared cooldown");
+        }
+        i = i + 1u32;
+    }
+    flight_pulses(mut drone, brake);
+    if drone.brake_ticks != FLIGHT_PULSE_TICKS - 1u32 {
+        return error("brake not ready after three seconds");
+    }
+    i = 1u32;
+    while i < FLIGHT_COOLDOWN_TICKS {
+        flight_pulses(mut drone, boost);
+        if drone.bursts != 1u32 {
+            return error("boost bypassed brake cooldown");
+        }
+        i = i + 1u32;
+    }
+    flight_pulses(mut drone, boost);
+    return game_check(
+        drone.bursts == 2u32 && drone.pulse_cooldown == FLIGHT_COOLDOWN_TICKS,
+        "boost must have unlimited uses"
+    );
 }

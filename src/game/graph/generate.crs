@@ -1,0 +1,168 @@
+// Frontier selection is uniform over unused sockets, without retries.
+fn graph_frontier(graph: mut RoomGraph) -> u32 {
+    var chosen: u32 = 0xffffffffu32;
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < graph_ports(read graph) {
+        if graph_socket(read graph, i).peer == 0xffffffffu32 {
+            count = count + 1u32;
+            if graph_random(mut graph, count) == 0u32 {
+                chosen = i;
+            }
+        }
+        i = i + 1u32;
+    }
+    return chosen;
+}
+fn graph_grow(graph: mut RoomGraph, socket: u32, kind: u32) -> u32 {
+    var parent: GraphSocket = graph_socket(read graph, socket);
+    var node: GraphNode = graph_node(read graph, parent.room);
+    var branch: u32 = node.branch;
+    if parent.room == 0u32 {
+        branch = socket;
+    }
+    var id: u32 = graph_add(mut graph, kind, node.depth + 1u32, branch);
+    var child: GraphNode = graph_node(read graph, id);
+    var entrance: u32 = child.first + graph_random(mut graph, child.count);
+    graph_pair(mut graph, socket, entrance);
+    return id;
+}
+fn graph_join(graph: mut RoomGraph, a: u32) -> bool {
+    var source: GraphSocket = graph_socket(read graph, a);
+    var node: GraphNode = graph_node(read graph, source.room);
+    var chosen: u32 = 0xffffffffu32;
+    var choices: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < graph_ports(read graph) {
+        var target: GraphSocket = graph_socket(read graph, i);
+        var other: GraphNode = graph_node(read graph, target.room);
+        if target.peer == 0xffffffffu32 && target.room != source.room && other.branch != node.branch && absf(
+            other.depth as f32 - node.depth as f32
+        ) <= 1f32 {
+            choices = choices + 1u32;
+            if graph_random(mut graph, choices) == 0u32 {
+                chosen = i;
+            }
+        }
+        i = i + 1u32;
+    }
+    if chosen == 0xffffffffu32 {
+        return false;
+    }
+    graph_pair(mut graph, a, chosen);
+    return true;
+}
+fn graph_finish_frontier(graph: mut RoomGraph) -> unit {
+    var socket: u32 = graph_frontier(mut graph);
+    while socket != 0xffffffffu32 {
+        if !graph_join(mut graph, socket) {
+            graph_grow(mut graph, socket, 5u32);
+        }
+        socket = graph_frontier(mut graph);
+    }
+}
+fn graph_distances(graph: mut RoomGraph) -> unit {
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, i);
+        node.depth = 0xffffffffu32;
+        if i == 0u32 {
+            node.depth = 0u32;
+        }
+        graph_node_set(mut graph, i, node);
+        i = i + 1u32;
+    }
+    var changed: bool = true;
+    while changed {
+        changed = false;
+        i = 0u32;
+        while i < graph_ports(read graph) {
+            var a: GraphSocket = graph_socket(read graph, i);
+            var b: GraphSocket = graph_socket(read graph, a.peer);
+            var source: GraphNode = graph_node(read graph, a.room);
+            var target: GraphNode = graph_node(read graph, b.room);
+            if source.depth != 0xffffffffu32 && target.depth > source.depth + 1u32 {
+                target.depth = source.depth + 1u32;
+                graph_node_set(mut graph, b.room, target);
+                changed = true;
+            }
+            i = i + 1u32;
+        }
+    }
+}
+fn graph_generate(graph: mut RoomGraph, seed: u32, complexity: u32) -> bool {
+    if !graph_allocate(mut graph, complexity * 16u32 + 64u32, seed) {
+        return false;
+    }
+    graph_add(mut graph, 0u32, 0u32, 0u32);
+    var spine: u32 = graph_random(mut graph, 8u32);
+    var step: u32 = 0u32;
+    while step < complexity + 3u32 {
+        var kind: u32 = 1u32 + graph_random(mut graph, 4u32);
+        var child: u32 = graph_grow(mut graph, spine, kind);
+        var node: GraphNode = graph_node(read graph, child);
+        spine = node.first;
+        while graph_socket(read graph, spine).peer != 0xffffffffu32 {
+            spine = spine + 1u32;
+        }
+        step = step + 1u32;
+    }
+    // Keep a terminal room on the deep spine before growing side routes.
+    graph_grow(mut graph, spine, 5u32);
+    step = 0u32;
+    while step < 8u32 {
+        if graph_socket(read graph, step).peer == 0xffffffffu32 {
+            var kind: u32 = 3u32 + graph_random(mut graph, 2u32);
+            graph_grow(mut graph, step, kind);
+        }
+        step = step + 1u32;
+    }
+    graph_join_roots(mut graph);
+    step = 0u32;
+    while step < complexity * 3u32 {
+        var socket: u32 = graph_frontier(mut graph);
+        var kind: u32 = 1u32 + graph_random(mut graph, 4u32);
+        graph_grow(mut graph, socket, kind);
+        step = step + 1u32;
+    }
+    graph_finish_frontier(mut graph);
+    graph_distances(mut graph);
+    var goal: u32 = 0u32;
+    step = 1u32;
+    while step < graph_count(read graph) {
+        var candidate: GraphNode = graph_node(read graph, step);
+        if candidate.kind == 5u32 && candidate.depth > graph_node(read graph, goal).depth {
+            goal = step;
+        }
+        step = step + 1u32;
+    }
+    var node: GraphNode = graph_node(read graph, goal);
+    node.kind = 6u32;
+    graph_node_set(mut graph, goal, node);
+    graph_set_goal(mut graph, goal);
+    return true;
+}
+fn graph_join_roots(graph: mut RoomGraph) -> unit {
+    var first: u32 = 0xffffffffu32;
+    var root: u32 = 0u32;
+    while root < 8u32 {
+        var edge: GraphSocket = graph_socket(read graph, root);
+        var peer: GraphSocket = graph_socket(read graph, edge.peer);
+        var node: GraphNode = graph_node(read graph, peer.room);
+        var i: u32 = 0u32;
+        while i < node.count {
+            var socket: u32 = node.first + i;
+            if graph_socket(read graph, socket).peer == 0xffffffffu32 {
+                if first != 0xffffffffu32 {
+                    graph_pair(mut graph, first, socket);
+                    return;
+                }
+                first = socket;
+                break;
+            }
+            i = i + 1u32;
+        }
+        root = root + 1u32;
+    }
+    trap;
+}

@@ -1,44 +1,13 @@
 fn reset_trial(trial: mut Trial) -> unit {
+    trial.returning = false;
     trial.drone = trial.spawn;
     trial.tick = 0u32;
     trial.preview_phase = 0f32;
-    trial.gate = 0u32;
     trial.finished = false;
     trial.started = false;
     trial.attempt = trial.attempt + 1u32;
 }
-fn gate_crossed(before: Vec3, after: Vec3, gate: CourseGate) -> bool {
-    var a: f32 = dot(sub(before, gate.center), gate.normal);
-    var b: f32 = dot(sub(after, gate.center), gate.normal);
-    if a >= 0f32 || b < 0f32 {
-        return false;
-    }
-    var at: Vec3 = sub(
-        add(before, scale(sub(after, before), -a / (b - a))),
-        gate.center
-    );
-    return absf(dot(at, gate.right)) <= 6f32 && absf(dot(at, gate.up)) <= 6f32;
-}
-fn trial_progress(trial: mut Trial, before: Vec3) -> unit {
-    while trial.gate < GATE_COUNT && gate_crossed(
-        before,
-        trial.drone.position,
-        course_gate(trial.gate)
-    ) {
-        trial.gate = trial.gate + 1u32;
-    }
-    var p: Vec3 = sub(trial.drone.position, course_finish());
-    if trial.gate == GATE_COUNT && absf(p.x) < 10f32 && absf(p.z) < 10f32 && p.y < 1f32 && p.y >= DRONE_RADIUS && length(
-        trial.drone.velocity
-    ) < 2f32 {
-        trial.finished = true;
-    }
-}
 fn trial_step(collision: read CollisionScene, trial: mut Trial, command: Command) -> unit {
-    if trial.drone.world == 1u32 {
-        expedition_step(read collision, mut trial, command);
-        return;
-    }
     if command.spin {
         trial.full_spin = !trial.full_spin;
         reset_trial(mut trial);
@@ -72,7 +41,7 @@ fn trial_step(collision: read CollisionScene, trial: mut Trial, command: Command
     );
     advance_preview_phase(mut trial, before);
     trial.tick = trial.tick + 1u32;
-    if !trial.free_flight {
-        trial_progress(mut trial, before);
+    if trial.graph_run {
+        graph_progress(mut trial);
     }
 }

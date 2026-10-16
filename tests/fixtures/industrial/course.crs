@@ -1,16 +1,5 @@
-record Solid {
-    low: Vec3;
-    high: Vec3;
-    material: u32;
-}
 const SOLID_COUNT: u32 = 22u32;
-fn solid(lo: Vec3, hi: Vec3, mat: u32) -> Solid {
-    return make Solid {
-        low: lo,
-        high: hi,
-        material: mat
-    };
-}
+
 fn course_gallery(index: u32) -> Solid {
     if index == 0u32 {
         return solid(

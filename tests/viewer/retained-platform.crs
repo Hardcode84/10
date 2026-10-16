@@ -6,7 +6,9 @@ fn viewer_open(session: mut GameSession, selected: u32) -> bool {
         return error("viewer asset index is outside the library");
     }
     var input: FrameInput = renderer_inputs(mut session.renderer);
-    game_palette(mut input);
+    if !game_room_palette(mut input) {
+        return false;
+    }
     if session.window.handle != null(*u8) {
         SDL_SetWindowTitle(
             session.window.handle,

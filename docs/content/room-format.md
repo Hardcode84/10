@@ -2,9 +2,9 @@
 
 ## Scope
 
-This is the target room format for generated content. It is not the format
-implemented by the current rectangular expedition prefabs. See the
-[current assembly](prefabs.md) and [open engine work](engine-gaps.md).
+This format defines generated rooms and their named connections. The game
+uses separate local spaces and rigid links. See the
+[current graph assembly](../game/expedition.md) and [open engine work](engine-gaps.md).
 
 A room defines a convex interior hull in its own local coordinate space.
 Selected hull polygons are connections. A connection can lead to another room

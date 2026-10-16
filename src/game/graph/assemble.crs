@@ -1,0 +1,131 @@
+fn graph_asset(kind: u32, asset: mut RoomAsset) -> bool {
+    if kind == 0u32 {
+        var values: AssetValues = asset_values_new();
+        if !asset_values_allocate(mut values, room_parameter_count()) {
+            return false;
+        }
+        asset_parameters_reset(mut values);
+        return room_build(read values, mut asset);
+    }
+    if kind == 1u32 {
+        return hex_tunnel_build(10f32, mut asset);
+    }
+    if kind == 2u32 {
+        return hex_junction_build(3u32, 0.5f32, mut asset);
+    }
+    if kind == 3u32 {
+        return hex_junction_build(7u32, 0.5f32, mut asset);
+    }
+    if kind == 4u32 {
+        return hex_junction_build(15u32, 0.5f32, mut asset);
+    }
+    if kind == 5u32 {
+        return hex_passage_build(5f32, false, mut asset);
+    }
+    return hex_ending_build(10f32, 20f32, mut asset);
+}
+fn graph_assemble_room(
+    graph: mut RoomGraph,
+    id: u32,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    trial: mut Trial
+) -> bool {
+    var node: GraphNode = graph_node(read graph, id);
+    var asset: RoomAsset = room_asset_new();
+    if !graph_asset(node.kind, mut asset) {
+        return false;
+    }
+    if id == 0u32 {
+        trial.spawn.position = asset.spawn.position;
+        trial.spawn.basis = asset.spawn.basis;
+    }
+    var i: u32 = 0u32;
+    while i < node.count {
+        var socket: GraphSocket = graph_socket(read graph, node.first + i);
+        socket.port = asset_port(read asset.ports, i);
+        graph_socket_set(mut graph, node.first + i, socket);
+        i = i + 1u32;
+    }
+    var render: Mesh = mesh_new();
+    var walls: Mesh = mesh_new();
+    var material: u32 = GAME_MATERIALS + room_material_count();
+    if id == 0u32 {
+        material = GAME_MATERIALS;
+    }
+    if !room_linked_mesh(read asset, mut render, mut walls, material) || !collision_append(
+        mut builder,
+        read walls,
+        id,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    node.mesh.first = mesh_triangle_count(read mesh);
+    node.mesh.count = mesh_triangle_count(read render);
+    node.mesh.bounds = graph_mesh_bounds(read render);
+    i = 0u32;
+    while i < node.mesh.count {
+        var primitive: MeshTriangle = mesh_triangle(read render, i);
+        if primitive.portal != 0u32 {
+            primitive.portal = primitive.portal + node.first;
+        }
+        if !mesh_append(mut mesh, primitive) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    graph_node_set(mut graph, id, node);
+    return true;
+}
+fn graph_assemble(
+    graph: mut RoomGraph,
+    collision: mut CollisionScene,
+    mesh: mut Mesh,
+    trial: mut Trial
+) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        if !graph_assemble_room(mut graph, i, mut builder, mut mesh, mut trial) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < graph_ports(read graph) {
+        var a: GraphSocket = graph_socket(read graph, i);
+        var b: GraphSocket = graph_socket(read graph, a.peer);
+        if !connection_link(mut builder, a.port, b.port, a.room, b.room, a.roll) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    trial.graph_run = true;
+    trial.goal_world = graph_goal(read graph);
+    trial.auto_level = false;
+    reset_trial(mut trial);
+    return collision_finish(move builder, mut collision);
+}
+fn graph_upload(
+    graph: read RoomGraph,
+    input: mut FrameInput,
+    instances: mut InstanceList,
+    mesh: read Mesh
+) -> bool {
+    var all: MeshRange = mesh_empty_range();
+    if !input_mesh(mut input, read mesh, mut all) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var range: MeshRange = graph_node(read graph, i).mesh;
+        range.first = range.first + all.first;
+        if !instances_append(mut instances, mesh_identity(range, i)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

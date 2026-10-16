@@ -75,10 +75,10 @@ Run `crust tests.crs game`. Run only the scaling measurement with
 `crust tests.crs game collision`.
 
 The correctness checks compare every contact field against an exhaustive mesh
-scan. They include actual game geometry, 17 rotated instances with concave
+scan. They include frozen industrial fixtures, 17 rotated instances with concave
 openings and curved surfaces, sparse space IDs, overlapping spaces, stationary
 overlap, high-speed impacts, equal-time contacts, and empty scenes. Sorted edge
-adjacency is also compared with an exhaustive construction check. Every game
+adjacency is also compared with an exhaustive construction check. Every fixture
 triangle and every triangle of one rotated curved mesh has a targeted query.
 The 17-placement test uses eight evenly spaced faces per instance, including
 the first and last face. Each scene also has 128 deterministic queries spread
@@ -87,11 +87,10 @@ full-mesh comparison for every triangle in every copy. A rejected
 replacement must leave the previous scene queryable.
 
 Ownership rejection checks prevent scene copies and use of a consumed builder.
-The full game checks retain movement, hook, winch, prediction, replay, and
-expedition completion. Test geometry does not select a different production
+The game checks retain movement, hook, winch, prediction, and replay. Test geometry does not select a different production
 query implementation.
 
-The scaling fixture uses the actual expedition room and pipe generators.
+The scaling fixture uses frozen industrial room and pipe generators from `tests/fixtures/industrial/`.
 It adds distant room instances and adds distant pipe surfaces to one compound
 room mesh. The nearby geometry and input remain fixed. Half of the added rooms
 use a different space. Each row measures 256 independent active ticks and
@@ -125,5 +124,4 @@ UndefinedBehaviorSanitizer, and leak checks. A headless expedition completed
 with the same state summary and byte-identical final image as the linear-scan baseline.
 
 The game test executable took 14.15 s with the repeated full-mesh comparisons
-and 1.25 s with this coverage split in an optimized build. Both expedition
-routes and the contact-solver regressions remain in the default suite.
+and 1.25 s with this coverage split in an optimized build. The contact-solver regressions remain in the default suite.

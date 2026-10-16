@@ -1,0 +1,84 @@
+fn static_room(mesh: mut Mesh, room: u32) -> bool {
+    var instance: RoomInstance = expedition_room(room);
+    var mask: u32 = expedition_open_ports(room);
+    var face: u32 = 0u32;
+    while face < 6u32 {
+        var walls: WallPanels = prefab_wall(instance, face, mask);
+        var i: u32 = 0u32;
+        while i < walls.count {
+            var panel: Solid = walls.panels[i as usize];
+            var mat: u32 = panel.material;
+            if face == 2u32 {
+                mat = 0u32;
+            }
+            if face == 3u32 {
+                mat = 1u32;
+            }
+            var axis: u32 = face / 2u32;
+            var sign: f32 = 1f32;
+            if face % 2u32 != 0u32 {
+                sign = -1f32;
+            }
+            if !static_quad(
+                mut mesh,
+                mat,
+                box_edge(panel, axis, 0u32),
+                box_edge(panel, axis, 1u32),
+                box_edge(panel, axis, 3u32),
+                box_edge(panel, axis, 2u32),
+                scale(axis_vector(axis), sign),
+                axis
+            ) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+        face = face + 1u32;
+    }
+    return true;
+}
+fn static_pipe_cap(mesh: mut Mesh, pipe: CoursePipe, end: f32) -> bool {
+    var sign: f32 = -1f32;
+    if end > 0f32 {
+        sign = 1f32;
+    }
+    var normal: Vec3 = scale(axis_vector(pipe.axis), sign);
+    return static_quad(
+        mut mesh,
+        1u32,
+        pipe_vertex(pipe, 0u32, end),
+        pipe_vertex(pipe, 1u32, end),
+        pipe_vertex(pipe, 2u32, end),
+        pipe_vertex(pipe, 3u32, end),
+        normal,
+        3u32
+    ) && static_quad(
+        mut mesh,
+        1u32,
+        pipe_vertex(pipe, 0u32, end),
+        pipe_vertex(pipe, 3u32, end),
+        pipe_vertex(pipe, 4u32, end),
+        pipe_vertex(pipe, 5u32, end),
+        normal,
+        3u32
+    );
+}
+fn static_pipe(mesh: mut Mesh, pipe: CoursePipe) -> bool {
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        if !static_quad(
+            mut mesh,
+            pipe.material,
+            pipe_vertex(pipe, i, 0f32),
+            pipe_vertex(pipe, i + 1u32, 0f32),
+            pipe_vertex(pipe, i + 1u32, 1f32),
+            pipe_vertex(pipe, i, 1f32),
+            add(pipe_radial(pipe, i), pipe_radial(pipe, i + 1u32)),
+            3u32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return static_pipe_cap(mut mesh, pipe, 0f32) && static_pipe_cap(mut mesh, pipe, 1f32);
+}

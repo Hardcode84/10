@@ -5,7 +5,7 @@ program with the Crust ownership stage. Device programs use the shader stage.
 
 | Root | Program |
 | --- | --- |
-| `crust main.crs` | Play the expedition. Use `--trial` for the flight course. |
+| `crust main.crs` | Play the portal graph. Use `--seed N --complexity N`. |
 | `crust demo.crs` | Fly through the generated room with game controls and linked portals. |
 | `crust viewer.crs ROOM.crs` | Build and inspect a Crust room recipe. |
 | `crust tests.crs` | Run all automated checks. |
@@ -24,15 +24,13 @@ application functions as the applications.
 | `src/render/interface.crs` | Shared host and device data definitions |
 | `src/collision/` | Mesh storage, kinematic poses, spatial indices, sphere queries, and contact solving |
 | `src/app/` | Shared window, clock, capture, shader, and asset helpers |
-| `src/demo/room/` | Flight demo entry, room links, and material setup |
+| `src/demo/room/` | Flight demo entry and room links |
 | `src/demo/host/` | Automatic playback fixture used by renderer checks |
 | `src/demo/scene/` | Automatic scene fixture used by renderer checks |
+| `src/game/graph/` | Seeded graph, room assembly, objective, and navigation cues |
 | `src/game/flight/` | Movement state, forces, collisions, and tether |
-| `src/game/course/` | Movement course and automatic pilot |
-| `src/game/expedition/` | Expedition state, layout, rules, and presentation |
-| `src/game/content/` | Room definitions, biomes, and generated room content |
 | `src/game/view/` | Game geometry submission, HUD, and path markers |
-| `src/game/host/` | Game entry, input, options, saves, replay, and session |
+| `src/game/host/` | Game entry, input, options, replay, and session |
 | `src/viewer/` | Prefab viewer |
 | `src/assets/` | Parametric hull, surface, material, and room bundle operations |
 | `assets/rooms/` | Room recipes in normal Crust source files |
@@ -40,7 +38,7 @@ application functions as the applications.
 | `tests/render/` | Renderer fixtures, CPU reference, and image checks |
 | `tests/demo/` | Demo playback checks |
 | `tests/collision/` | Mesh sweep fixtures and analytic comparison |
-| `tests/game/` | Simulation, save, course, and expedition checks |
+| `tests/game/` | Flight, tether, graph, objective, and rendering checks |
 | `tests/viewer/` | Viewer instance visibility checks |
 | `tests/assets/` | Generated room topology, spawn, and collision checks |
 | `tests/ownership/` | Ownership acceptance and rejection cases |
@@ -54,11 +52,10 @@ application functions as the applications.
 - Collision: [static meshes](collision/static-meshes.md),
   [spatial index](collision/spatial-index.md), [sphere motion](collision/motion.md),
   [moving meshes and anchors](collision/kinematic-meshes.md).
-- Game: [expedition](game/expedition.md), [movement](game/movement.md),
-  [flight course](game/flight-course.md).
+- Game: [round-trip game](game/expedition.md), [movement](game/movement.md).
 - Content: [parametric assets](content/parametric-assets.md),
   [room format](content/room-format.md),
-  [prefabs](content/prefabs.md), [room catalogue](content/room-catalogue.md),
+  [room catalogue](content/room-catalogue.md),
   [engine gaps](content/engine-gaps.md).
 
 ## Checks
@@ -72,14 +69,13 @@ crust tests.crs assets
 crust tests.crs asset-viewer
 crust tests.crs collision --sanitize
 crust tests.crs game
-crust tests.crs review --width 320 --height 180
+crust tests.crs graph --complexity 8 --width 320 --height 180
 crust tests.crs viewer --width 320 --height 180
 crust tests.crs render 8
 ```
 
 The complete run checks ownership, all nine headless renderer cases, game simulation,
-expedition images, and viewer visibility. It uses 320 by 180 pixels for the
-expedition and viewer checks. Individual checks accept their image options.
+and viewer visibility. The graph check renders each room separately. Individual checks accept their image options.
 
 Renderer cases: 1 checks palette and presentation; 2 checks portal images;
 3 checks playback; 4 checks lighting; 5 checks geometry capacity; 6 checks

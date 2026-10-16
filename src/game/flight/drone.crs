@@ -39,14 +39,13 @@ record Drone {
     machine_work: f32;
     cable_loss: f32;
     contact_work: f32;
-    charge: f32;
-    charge_spent: f32;
     position: Vec3;
     velocity: Vec3;
     basis: Basis;
     cable: Cable;
     bursts: u32;
     boost_ticks: u32;
+    pulse_cooldown: u32;
     brake_ticks: u32;
     brake_rate: f32;
     brake_speed: f32;
@@ -60,14 +59,13 @@ fn new_drone() -> Drone {
         machine_work: 0f32,
         cable_loss: 0f32,
         contact_work: 0f32,
-        charge: 100f32,
-        charge_spent: 0f32,
         position: vec(0f32, 1f32, 0f32),
         velocity: vec(0f32, 0f32, 0f32),
         basis: identity_basis(),
         cable: empty_cable(),
         bursts: 0u32,
         boost_ticks: 0u32,
+        pulse_cooldown: 0u32,
         brake_ticks: 0u32,
         brake_rate: 0f32,
         brake_speed: 0f32,

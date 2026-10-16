@@ -1,6 +1,15 @@
 fn game_world_open(session: mut GameSession, collision: mut CollisionScene, trial: mut Trial) -> bool {
     if !session.launch.config.room_demo {
-        return collision_build_game(mut collision);
+        return graph_generate(
+            mut session.graph,
+            session.launch.config.seed,
+            session.launch.config.complexity
+        ) && graph_assemble(
+            mut session.graph,
+            mut collision,
+            mut session.room_mesh,
+            mut trial
+        );
     }
     if !demo_room_build(mut session.room, mut collision, mut session.room_mesh) {
         return false;

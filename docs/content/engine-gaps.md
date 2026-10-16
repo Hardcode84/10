@@ -63,7 +63,7 @@ relative motion during each collision interval.
 
 [Tether code](../../src/game/flight/tether.crs) constrains a direct segment to one anchor.
 It has no wrapping or obstacle contact. The flying hook has a 120 m range;
-attached reeling is latched and uses a 40 m/s target with charge and collision
+attached reeling is latched and uses a 40 m/s target with collision
 constraints. These are deliberate game rules. The cable now stores its hook
 space and the rigid transform from that space to the player cable frame.
 Crossings preserve unfolded length, velocity, and local mesh attachment.
@@ -80,37 +80,15 @@ the selected spatial path contract, not a global-coordinate shortcut.
 
 ## World structure and tools
 
-### W1. Prefab topology and placement — asset proof, then room scale
-
-[Prefab data](../../src/game/content/prefab.crs) has three rectangular ports per box,
-64 temporary panels per face, and translation-only instances. Port matching
-uses exact world-coordinate equality. The [expedition layout](../../src/game/expedition/expedition-layout.crs)
-contains five fixed room instances and five links. Containment tests use box
-volumes. The [radial start asset](../../assets/rooms/radial-start.crs) supplies a closed convex hull,
-local spawn, and shared render/collision geometry in the viewer. The expedition
-does not yet consume that bundle. The asset now has named hexagonal ports,
-local frames, six roll choices, and closed unused openings. The flight demo
-opens its ports and connects pairs back into the same room. General room
-assembly still needs explicit instance identity and a selected link table.
-
-**Change:** implement convex hull rooms in separate local spaces. Use named
-connection profiles, local port frames, and declared rotation counts. Names
-determine compatibility; do not match polygons to select links. Generate
-openings and closures from shared recipes. Build non-convex routes as assemblies
-of convex rooms. Validate topology at build time. Size port storage from content.
-
-**Check:** rotated connections, four-way junctions, unused closures, loop
-closure, and non-box containment. Render and sweep both sides of every seam.
-
 ### W2. Gameplay portals — world feature
 
 [Game submission](../../src/game/view/scene.crs) now uses the collision link
 table for rendered portal transforms. Drone and hook motion resolve crossings
 before later contacts, transform the remaining motion, and retain cable state.
-The flight demo exercises cyclic links in one generated room. The expedition
-still uses its box layout and has no persistent portal-room identity.
+The game assembles a seeded graph of distinct local room spaces. It uses
+named connections with random mating rolls and reciprocal links.
 
-**Change:** connect distinct room instances to the shared link table. Include
+**Change:** include
 destination geometry in swept-sphere queries while a body overlaps both sides
 of a seam. Current queries change collision space when the centre crosses;
 a destination prop closer than the body radius to the portal needs both-space
@@ -186,3 +164,24 @@ The production proof still requires W1's assembly contract and T1. Other entries
 name the feature or scale test that must trigger their implementation. Each
 closure needs its listed evidence; a green build alone does not close a
 capacity or physical-behaviour gap.
+
+## Rendering storage
+
+### R8. Projection storage follows the full room-view product
+
+`geometry_layout` reserves projected and clipped data for every submitted
+triangle and every reserved view. A portal view can use only its destination
+space, but other room triangles still consume reserved projection storage.
+The graph game reserves 129 views. At seed 42, complexity 2, and 640 by 480,
+llvmpipe rejects the geometry buffer at its `maxStorageBufferRange` limit.
+The same graph renders on W7900 and Arc Pro B60. Changing image resolution
+alone does not remove this triangle-view product.
+
+**Change:** count visible room-view work and assign compact projection ranges
+with a prefix sum. Size clipped output from that work. Preserve portal masks,
+triangle ordering, and explicit allocation failures. Do not hide the failure
+by dropping rooms or reducing the selected portal depth.
+
+**Check:** compare images and portal masks before and after the change. Render
+the stated graph within llvmpipe's storage-buffer limit. Measure allocation
+against visible room-view work as total graph size increases.

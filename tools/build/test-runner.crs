@@ -104,8 +104,7 @@ fn all_tests(root: *CrustRun) -> bool {
         }
         i = i + 1usize;
     }
-    var args: [*u8; 5] = make [*u8; 5] {
-        "review",
+    var args: [*u8; 4] = make [*u8; 4] {
         "--width",
         "320",
         "--height",
@@ -113,10 +112,10 @@ fn all_tests(root: *CrustRun) -> bool {
     };
     return test_process(root, "build/tests-game", 0usize, null(**u8)) && test_process(
         root,
-        "build/tests-game",
-        5usize,
+        "build/tests-viewer",
+        4usize,
         &args[0usize]
-    ) && test_process(root, "build/tests-viewer", 4usize, &args[1usize]);
+    );
 }
 fn run_tests(root: *CrustRun) -> i32 {
     if root -> argc == 0i32 {
@@ -137,17 +136,13 @@ fn run_tests(root: *CrustRun) -> i32 {
     if cache_strcmp(suite, "game") == 0i32 {
         output = "build/tests-game";
     }
-    if cache_strcmp(suite, "review") == 0i32 {
-        output = "build/tests-game";
-        skip = 0usize;
-    }
     if cache_strcmp(suite, "viewer") == 0i32 {
         output = "build/tests-viewer";
     }
     if output == null(*u8) {
         native_error(
             root -> context,
-            "tests.crs: use all, render 0..10, game, review, viewer, ownership, or --build-only"
+            "tests.crs: use all, render 0..10, game, graph, viewer, ownership, or --build-only"
         );
         return 2i32;
     }
@@ -159,7 +154,7 @@ fn run_tests(root: *CrustRun) -> i32 {
 extern fn test_puts(text: *u8) -> i32 = "puts";
 fn test_help() -> i32 {
     test_puts(
-        "SPINWARD checks: crust tests.crs [assets|asset-viewer|collision|flight|reel|all|ownership|game|review|viewer|render N|--build-only]"
+        "SPINWARD checks: crust tests.crs [assets|asset-viewer|collision|flight|reel|all|ownership|game|graph|viewer|render N|--build-only]"
     );
     test_puts(
         "render 1..9: palette, portals, playback, lighting, geometry, textures, retained views, portal capacity, image capacity/resize"
@@ -169,6 +164,5 @@ fn test_help() -> i32 {
     test_puts("render 11: light capacity, bulkhead shadows and cutout visibility");
     test_puts("render 12: production transfers, debug status, replacement and retirement");
     test_puts("collision: standalone contact checks; accepts --sanitize and --build-only");
-    test_puts("review and viewer accept --width N --height N");
     return 0i32;
 }

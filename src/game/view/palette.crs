@@ -1,3 +1,4 @@
+const GAME_MATERIALS: u32 = 19u32;
 const PREVIEW_MATERIAL: u32 = 8u32;
 const HOOK_PREVIEW_MATERIAL: u32 = 9u32;
 fn game_palette(v: mut FrameInput) -> unit {
@@ -10,8 +11,8 @@ fn game_palette_fill(v: mut FrameInput) -> unit {
         0x82949du32,
         0x365d8au32,
         0x538c70u32,
-        0xf0d444u32,
-        0x54c4ffu32,
+        0x44d4f0u32,
+        0xffc454u32,
         0x4260ffu32,
         0x303d41u32,
         0xf0d444u32,
@@ -55,7 +56,7 @@ fn game_palette_fill(v: mut FrameInput) -> unit {
         mat = mat + 1u32;
     }
     input_set_word(mut v, LIGHT_MODEL as usize, 1u32);
-    course_lights(mut v);
+    input_set_word(mut v, LIGHT_COUNT as usize, 0u32);
     input_set_float(mut v, CAMERA_LIGHT as usize, 400f32);
     input_set_float(mut v, (CAMERA_LIGHT + 1u32) as usize, 1f32);
     input_set_float(mut v, (CAMERA_LIGHT + 2u32) as usize, 1f32);
@@ -65,4 +66,74 @@ fn game_palette_fill(v: mut FrameInput) -> unit {
         input_set_float(mut v, (SPACE_LIGHT + i) as usize, 0.24f32);
         i = i + 1u32;
     }
+}
+
+fn course_deck_texel(x: u32, y: u32) -> u32 {
+    if x == 0u32 || y == 0u32 {
+        return 0u32;
+    }
+    if y == 4u32 {
+        return 2u32;
+    }
+    return 1u32;
+}
+
+fn course_texel(mat: u32, x: u32, y: u32) -> u32 {
+    if mat == 0u32 {
+        return course_deck_texel(x, y);
+    }
+    if mat == 2u32 || mat == 3u32 {
+        if x == 1u32 && y == 1u32 {
+            return 3u32;
+        }
+        return ((x / 4u32 + y / 4u32) % 2u32) + 1u32;
+    }
+    if mat == 11u32 {
+        return ((x + y) / 2u32) % 2u32 * 3u32;
+    }
+    if mat == 10u32 || mat == 13u32 {
+        if x == 3u32 {
+            return 3u32;
+        }
+        return 1u32 + (x % 3u32) / 2u32;
+    }
+    if mat == 12u32 {
+        if x == 0u32 || y == 0u32 {
+            return 0u32;
+        }
+        return 2u32;
+    }
+    return x % 4u32;
+}
+
+fn course_palette_color(base: u32, mat: u32, tex: u32, state: u32) -> u32 {
+    var shade: u32 = 130u32 + tex * 40u32;
+    if mat >= 4u32 && mat <= HOOK_PREVIEW_MATERIAL {
+        shade = 255u32;
+    }
+    var color: u32 = base;
+    var bright: bool = mat >= 4u32 && mat <= HOOK_PREVIEW_MATERIAL;
+    if (mat == 2u32 || mat == 10u32 || mat == 13u32) && tex == 3u32 {
+        bright = true;
+        shade = 255u32;
+        color = 0x68b6e8u32;
+        if mat == 10u32 {
+            color = 0xc4d265u32;
+        }
+        if mat == 13u32 {
+            color = 0x527ee8u32;
+        }
+    }
+    if mat == 0u32 {
+        shade = 130u32 + tex * 15u32;
+    }
+
+    return palette_entry(color, shade, state, bright);
+}
+
+fn game_material_texel(material: u32, x: u32, y: u32) -> u32 {
+    return course_texel(material, x, y);
+}
+fn game_material_color(base: u32, material: u32, texel: u32, state: u32) -> u32 {
+    return course_palette_color(base, material, texel, state);
 }

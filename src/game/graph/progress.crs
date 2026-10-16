@@ -1,0 +1,17 @@
+fn graph_progress(trial: mut Trial) -> unit {
+    if !trial.returning && trial.drone.world == trial.goal_world && length(
+        sub(trial.drone.position, vec(0f32, 18f32, 0f32))
+    ) <= 2f32 {
+        trial.returning = true;
+    }
+    if trial.returning && trial.drone.world == 0u32 && length(
+        sub(trial.drone.position, trial.spawn.position)
+    ) <= 2f32 {
+        trial.finished = true;
+    }
+}
+fn graph_visit(graph: mut RoomGraph, world: u32) -> unit {
+    var node: GraphNode = graph_node(read graph, world);
+    node.visited = true;
+    graph_node_set(mut graph, world, node);
+}

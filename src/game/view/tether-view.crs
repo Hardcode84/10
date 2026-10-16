@@ -13,11 +13,13 @@ fn draw_cable(
         space_inverse(drone.cable.frame),
         drone.cable.anchor
     );
+    var first: u32 = input_word(read v, 3usize);
     draw_solid(
         mut v,
         solid(sub(physical, size), add(physical, size), 5u32),
-        drone.position
+        space_point(space_inverse(drone.cable.frame), drone.position)
     );
+    game_dynamic_space(mut v, first, drone.cable.space);
     var start: Vec3 = add(
         drone.position,
         basis_vector(drone.basis, vec(0f32, -0.12f32, 0.2f32))
@@ -75,11 +77,15 @@ fn draw_portal_cable(
         var travel: Vec3 = sub(end, start);
         var crossing: PortalCrossing = portal_crossing(read collision, space, start, travel);
         if crossing.time > 1f32 {
+            var first: u32 = input_word(read v, 3usize);
             draw_ribbon(mut v, start, end, eye, 0.004f32, material);
+            game_dynamic_space(mut v, first, space);
             return;
         }
         var point: Vec3 = add(start, scale(travel, crossing.time));
+        var first: u32 = input_word(read v, 3usize);
         draw_ribbon(mut v, start, point, eye, 0.004f32, material);
+        game_dynamic_space(mut v, first, space);
         var portal: CollisionPortal = collision_portal(read collision, crossing.index);
         start = space_point(portal.transform, point);
         end = space_point(portal.transform, end);

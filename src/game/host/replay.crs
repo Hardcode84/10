@@ -23,9 +23,6 @@ fn trial_hash(trial: read Trial) -> u32 {
     hash = hash_word(hash, d.cable.instance);
     hash = hash_word(hash, d.cable.surface);
     hash = hash_vec(hash, d.cable.local_point);
-    hash = hash_word(hash, float_bits(d.charge));
-    hash = hash_word(hash, float_bits(d.charge_spent));
-    hash = expedition_hash(hash, trial.expedition);
     hash = hash_vec(hash, d.velocity);
     hash = hash_vec(hash, d.basis.right);
     hash = hash_vec(hash, d.basis.up);
@@ -38,13 +35,16 @@ fn trial_hash(trial: read Trial) -> u32 {
     hash = hash_word(hash, d.cable.phase);
     hash = hash_word(hash, d.bursts);
     hash = hash_word(hash, d.boost_ticks);
+    hash = hash_word(hash, d.pulse_cooldown);
+    hash = hash_word(hash, trial.graph_run as u32);
+    hash = hash_word(hash, trial.goal_world);
+    hash = hash_word(hash, trial.returning as u32);
     hash = hash_word(hash, d.brake_ticks);
     hash = hash_word(hash, float_bits(d.brake_rate));
     hash = hash_word(hash, float_bits(d.brake_speed));
     hash = hash_word(hash, float_bits(d.winch_work));
     hash = hash_word(hash, float_bits(trial.preview_phase));
     hash = hash_word(hash, trial.tick);
-    hash = hash_word(hash, trial.gate);
     hash = hash_word(hash, trial.attempt);
     hash = hash_word(hash, trial.finished as u32);
     hash = hash_word(hash, trial.started as u32);

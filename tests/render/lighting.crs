@@ -128,6 +128,9 @@ fn lighting_test(base: *Options) -> bool {
         }
         index = index + 1u32;
     }
+    if !lighting_shared_ambient(mut renderer) {
+        return false;
+    }
     puts(
         "light occlusion, cutouts, space isolation, retained blockers, distant lights and 17 lights passed"
     );
@@ -182,4 +185,44 @@ fn lighting_resize(renderer: mut Renderer) -> bool {
         return error("resize lost the contributing light");
     }
     return renderer_resize(&renderer.state, 64u32, 48u32, 64u32, 48u32);
+}
+fn lighting_shared_ambient(renderer: mut Renderer) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_scene(mut input, 0u32);
+        input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
+        input_set_word(mut input, SHARED_AMBIENT as usize, 0u32);
+        input_set_float(mut input, CAMERA_LIGHT as usize, 0f32);
+        input_set_float(mut input, SPACE_LIGHT as usize, 0.4f32);
+        input_set_float(mut input, (SPACE_LIGHT + 1u32) as usize, 0.6f32);
+        input_set_float(mut input, (SPACE_LIGHT + 2u32) as usize, 0.8f32);
+    }
+    if !renderer_draw(&renderer.state) {
+        return false;
+    }
+    var pixels: [u32; 3072] = uninit;
+    memcpy(
+        &pixels as *u8,
+        renderer.state.mapped + PIXELS as isize * 4isize,
+        sizeof([u32; 3072])
+    );
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        input_set_word(mut input, SHARED_AMBIENT as usize, 1u32);
+        input_set_word(mut input, 20usize, 73u32);
+        var i: u32 = 0u32;
+        while i < input_word(read input, 3usize) {
+            var offset: usize = (input_word(read input, META as usize) + i * 4u32) as usize;
+            input_set_word(mut input, offset, 73u32);
+            i = i + 1u32;
+        }
+    }
+    if !renderer_draw(&renderer.state) {
+        return false;
+    }
+    return memcmp(
+        &pixels as *u8,
+        renderer.state.mapped + PIXELS as isize * 4isize,
+        sizeof([u32; 3072])
+    ) == 0i32 || error("shared ambient changed when the room ID exceeded the ambient table");
 }

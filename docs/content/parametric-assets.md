@@ -14,7 +14,7 @@ Do not create a separate Markdown document for each room.
 The [engine gap register](engine-gaps.md) records the remaining engine work.
 
 Keep the [game design](../../../SPINWARD.md), [rendering design](../render/rendering.md),
-[room catalogue](room-catalogue.md), and [sealed connection contract](prefabs.md).
+[room catalogue](room-catalogue.md), and [room connection contract](room-format.md).
 The catalogue defines what rooms contain. This design defines how to build,
 inspect, and reuse that content.
 

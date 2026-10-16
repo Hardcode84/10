@@ -43,6 +43,8 @@ const LIGHT_COUNT: u32 = 35u32;
 const LIGHT_MODEL: u32 = 36u32;
 const LIGHT_DATA: u32 = 82u32;
 const SPACE_LIGHT: u32 = 880u32;
+// Nonzero selects SPACE_LIGHT[0] as ambient RGB for all room spaces.
+const SHARED_AMBIENT: u32 = 83u32;
 // Camera light: radius squared (zero disables), followed by non-negative RGB intensity.
 const CAMERA_LIGHT: u32 = 1008u32;
 

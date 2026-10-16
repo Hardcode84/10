@@ -12,18 +12,6 @@ fn game_tick(
     config: GameConfig
 ) -> bool {
     var command: Command = input_consume(mut loop.input);
-    if config.smoke {
-        command = smoke_command(read loop.trial, loop.ticks);
-    }
-    if config.tour {
-        command = pilot_command(read loop.trial);
-        if loop.trial.full_spin {
-            command = spin_pilot_command(read loop.trial);
-        }
-    }
-    if config.tour && loop.trial.drone.world == 1u32 {
-        command = expedition_pilot(read loop.trial, config.shortcut);
-    }
     var status: i32 = game_command(mut session, mut command);
     if status < 0i32 {
         return false;
@@ -34,21 +22,15 @@ fn game_tick(
     }
     var finished: bool = loop.trial.finished;
     trial_step(read collision, mut loop.trial, command);
+    game_graph_visit(mut session, read loop.trial, command.restart || command.spin);
     if loop.trial.finished && !finished {
         game_message(1u32);
-        if config.tour {
-            loop.running = false;
-        }
     }
     loop.ticks = loop.ticks + 1u32;
     if config.ticks != 0u32 && loop.ticks >= config.ticks {
         loop.running = false;
     }
-    return game_save(mut session, read loop.trial) && game_record(
-        mut session,
-        command,
-        trial_hash(read loop.trial)
-    );
+    return game_record(mut session, command, trial_hash(read loop.trial));
 }
 fn game_render(
     collision: read CollisionScene,
@@ -61,14 +43,7 @@ fn game_render(
         var renderer: mut Renderer = game_renderer(mut session);
         var inputs: FrameInput = renderer_inputs(mut renderer);
         game_hud(mut inputs, read loop.trial, loop.input.paused);
-        var hud_scale: u32 = 1u32;
-        if loop.trial.drone.world == 1u32 {
-            hud_scale = config.width / 448u32;
-            if hud_scale == 0u32 {
-                hud_scale = 1u32;
-            }
-        }
-        input_set_word(mut inputs, OVERLAY_SCALE as usize, hud_scale);
+        input_set_word(mut inputs, OVERLAY_SCALE as usize, 1u32);
     }
     return game_draw(mut session) && game_present(mut session);
 }
@@ -153,12 +128,8 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
 fn game_materials_open(session: mut GameSession, config: GameConfig) -> bool {
     var renderer: mut Renderer = game_renderer(mut session);
     var inputs: FrameInput = renderer_inputs(mut renderer);
-    if config.room_demo {
-        if !demo_room_palette(mut inputs) {
-            return false;
-        }
-    } else {
-        game_palette(mut inputs);
+    if !game_room_palette(mut inputs) {
+        return false;
     }
     hud_font(mut inputs);
     return true;
@@ -177,10 +148,7 @@ fn game_run_setup(
         return false;
     }
     loop.trial.full_spin = game_initial_spin(read session);
-    if !game_restore(mut session, mut loop.trial) || !game_collision_spawn(
-        read collision,
-        read loop.trial
-    ) {
+    if !game_collision_spawn(read collision, read loop.trial) {
         return false;
     }
     if !game_materials_open(mut session, config) {

@@ -1,0 +1,13 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var options: Launch = uninit;
+    if !game_options(argc, argv, &options) {
+        return 1i32;
+    }
+    options.config.headless = true;
+    options.shader_checks = true;
+    if !graph_test_run(game_session(&options), options.config) {
+        return 1i32;
+    }
+    puts("Graph generation, all portal crossings, round trip, and room renders passed.");
+    return 0i32;
+}

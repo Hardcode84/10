@@ -98,3 +98,9 @@ reports 1,092 incorrectly lit pixels outside the reference edge band.
 Run `crust tests.crs render 4` for the 50-frame lighting and faceted-pipe
 regression. The viewer and expedition checks also use the same generated
 faceted parts.
+
+Set `SHARED_AMBIENT` to one to use the ambient RGB at `SPACE_LIGHT` for every
+space ID. This mode supports room graphs whose IDs exceed the fixed ambient
+table. Zero selects the per-space table and requires IDs within that table.
+The graph game uses shared ambient and a camera lamp. This choice does not
+change point-light visibility or permit out-of-range per-space table reads.

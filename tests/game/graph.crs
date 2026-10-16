@@ -1,0 +1,172 @@
+fn graph_check_links(graph: read RoomGraph) -> bool {
+    var i: u32 = 0u32;
+    var cross_branch: u32 = 0u32;
+    while i < graph_ports(read graph) {
+        var a: GraphSocket = graph_socket(read graph, i);
+        if a.peer >= graph_ports(read graph) {
+            return error("graph has an open socket");
+        }
+        var b: GraphSocket = graph_socket(read graph, a.peer);
+        if b.peer != i || a.room == b.room || a.roll != b.roll || a.roll >= 6u32 {
+            return error("graph edge or roll is not reciprocal");
+        }
+        if a.room != 0u32 && b.room != 0u32 && graph_node(read graph, a.room).branch != graph_node(
+            read graph,
+            b.room
+        ).branch {
+            cross_branch = cross_branch + 1u32;
+        }
+        i = i + 1u32;
+    }
+    if cross_branch == 0u32 {
+        return error("start branches do not join");
+    }
+    return graph_check_goal(read graph);
+}
+fn graph_check_goal(graph: read RoomGraph) -> bool {
+    var goal: GraphNode = graph_node(read graph, graph_goal(read graph));
+    if goal.kind != 6u32 || goal.count != 1u32 {
+        return error("goal is not a terminal room");
+    }
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, i);
+        if node.depth == 0xffffffffu32 || (node.kind == 5u32 && node.depth > goal.depth) {
+            return error("unreachable room or goal is not the deepest terminal");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn graph_test_seed(seed: u32, complexity: u32) -> bool {
+    var a: RoomGraph = graph_new();
+    var b: RoomGraph = graph_new();
+    if !graph_generate(mut a, seed, complexity) || !graph_generate(mut b, seed, complexity) || !graph_check_links(
+        read a
+    ) {
+        return false;
+    }
+    if graph_count(read a) != graph_count(read b) || graph_ports(read a) != graph_ports(read b) || graph_goal(
+        read a
+    ) != graph_goal(read b) {
+        return error("graph generation is not deterministic");
+    }
+    var i: u32 = 0u32;
+    while i < graph_ports(read a) {
+        var x: GraphSocket = graph_socket(read a, i);
+        var y: GraphSocket = graph_socket(read b, i);
+        if x.room != y.room || x.peer != y.peer || x.roll != y.roll {
+            return error("seed changed graph edges");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn graph_test_generation() -> bool {
+    var seed: u32 = 0u32;
+    while seed < 100u32 {
+        if !graph_test_seed(seed, 1u32 + seed % 12u32) {
+            return false;
+        }
+        seed = seed + 1u32;
+    }
+    return graph_test_seed(0xffffffffu32, 20u32);
+}
+fn graph_test_crossings(scene: read CollisionScene) -> bool {
+    var i: u32 = 0u32;
+    while i < collision_portal_count(read scene) {
+        var p: CollisionPortal = collision_portal(read scene, i);
+        var drone: Drone = new_drone();
+        drone.world = p.space;
+        drone.position = sub(p.origin, p.basis.forward);
+        drone.basis = p.basis;
+        drone.velocity = scale(p.basis.forward, 12f32);
+        move_drone(read scene, mut drone, scale(p.basis.forward, 2f32));
+        var expected: Vec3 = space_point(p.transform, add(p.origin, p.basis.forward));
+        if drone.world != p.destination || length(sub(drone.position, expected)) > 0.001f32 {
+            return error("graph portal crossing failed");
+        }
+        move_drone(
+            read scene,
+            mut drone,
+            basis_vector(p.transform.basis, scale(p.basis.forward, -2f32))
+        );
+        if drone.world != p.space || length(
+            sub(drone.position, sub(p.origin, p.basis.forward))
+        ) > 0.001f32 {
+            return error("graph portal return crossing failed");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn graph_test_objective(scene: read CollisionScene, trial: mut Trial) -> bool {
+    trial.started = true;
+    trial_step(read scene, mut trial, idle_command());
+    if trial.returning || trial.finished {
+        return error("run finished at launch");
+    }
+    trial.drone.world = trial.goal_world;
+    trial.drone.position = vec(0f32, 2f32, 0f32);
+    trial_step(read scene, mut trial, idle_command());
+    if trial.returning {
+        return error("goal triggers at the entrance");
+    }
+    trial.drone.position = vec(0f32, 18f32, 0f32);
+    trial_step(read scene, mut trial, idle_command());
+    if !trial.returning || trial.finished {
+        return error("goal did not start the return leg");
+    }
+    trial.drone.world = 0u32;
+    trial.drone.position = trial.spawn.position;
+    trial_step(read scene, mut trial, idle_command());
+    if !trial.finished {
+        return error("return to start did not finish the run");
+    }
+    reset_trial(mut trial);
+    return !trial.finished && !trial.returning && trial.drone.pulse_cooldown == 0u32;
+}
+fn graph_test_run(session: GameSession, config: GameConfig) -> bool {
+    if !graph_test_generation() {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    var loop: GameLoop = make GameLoop {
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    if !game_world_open(mut session, mut scene, mut loop.trial) || !graph_test_crossings(
+        read scene
+    ) || !graph_test_objective(read scene, mut loop.trial) {
+        return false;
+    }
+    if !game_open(mut session, mut loop.input) || !game_materials_open(mut session, config) || !game_static_open(
+        mut session,
+        0u32
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < graph_count(game_graph(read session)) {
+        var node: GraphNode = graph_node(game_graph(read session), i);
+        var p: RoomPort = graph_socket(game_graph(read session), node.first).port;
+        loop.trial.drone.world = i;
+        loop.trial.drone.position = sub(p.position, scale(p.basis.forward, 1f32));
+        loop.trial.drone.basis = p.basis;
+        if !game_render(read scene, mut session, read loop, config) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    loop.trial.drone.world = loop.trial.goal_world;
+    loop.trial.drone.position = vec(0f32, 2f32, 0f32);
+    loop.trial.drone.basis = make Basis {
+        right: vec(1f32, 0f32, 0f32),
+        up: vec(0f32, 0f32, -1f32),
+        forward: vec(0f32, 1f32, 0f32)
+    };
+    return game_render(read scene, mut session, read loop, config) && game_finish(mut session);
+}

@@ -405,7 +405,7 @@ sets the scale; the renderer does not use game state to choose it.
 
 ### Game room shells
 
-The playable expedition uses [connected room prefabs](../content/prefabs.md). Large
+The playable expedition uses [a seeded room graph](../game/expedition.md). Large
 chambers supply open flight space. The level must have no path or uncovered
 sightline to the outside void. Matched ports connect complete room shells;
 unused ports remain closed. Drawing and collision use the same wall panels.

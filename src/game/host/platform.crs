@@ -5,6 +5,7 @@ resource GameWindow {
 }
 opaque drop game_window_drop;
 record GameSession {
+    graph: RoomGraph;
     room: RoomAsset;
     room_mesh: Mesh;
     window: GameWindow;
@@ -12,7 +13,6 @@ record GameSession {
     world: InstanceList;
     launch: Launch;
     stream: Recording;
-    saved_revision: u64;
 }
 opaque;
 fn game_window_drop(window: mut GameWindow) -> unit {
@@ -23,6 +23,7 @@ fn game_window_drop(window: mut GameWindow) -> unit {
 }
 fn game_session(o: *Launch) -> GameSession {
     return make GameSession {
+        graph: graph_new(),
         room: room_asset_new(),
         room_mesh: mesh_new(),
         window: make GameWindow {
@@ -33,8 +34,7 @@ fn game_session(o: *Launch) -> GameSession {
         renderer: renderer_new(),
         world: instances_new(),
         launch: *o,
-        stream: recording_new(),
-        saved_revision: 0u64
+        stream: recording_new()
     };
 }
 fn game_renderer(session: mut GameSession) -> mut Renderer from session {
@@ -52,16 +52,20 @@ fn game_open(session: mut GameSession, input: mut InputState) -> bool {
         if SDL_Init(8192u32) != 0i32 {
             return error(SDL_GetError());
         }
-        SDL_SetWindowTitle(session.window.handle, "SPINWARD | The Silent Foundry");
+        SDL_SetWindowTitle(session.window.handle, "SPINWARD | There and Back");
         if SDL_SetRelativeMouseMode(1i32) != 0i32 {
             return error(SDL_GetError());
         }
+    }
+    var portals: u32 = asset_port_count(read session.room.ports);
+    if !o -> config.room_demo {
+        portals = graph_ports(read session.graph);
     }
     return game_renderer_open(
         &session.renderer.state,
         o,
         session.window.handle,
-        asset_port_count(read session.room.ports)
+        portals
     );
 }
 fn game_finish(session: mut GameSession) -> bool {
@@ -100,7 +104,12 @@ fn game_static_open(session: mut GameSession, world: u32) -> bool {
     if session.launch.config.room_demo {
         return static_upload(mut input, mut session.world, read session.room_mesh);
     }
-    return game_static_build(mut input, mut session.world, world);
+    return graph_upload(
+        read session.graph,
+        mut input,
+        mut session.world,
+        read session.room_mesh
+    );
 }
 fn game_scene_frame(
     collision: read CollisionScene,
@@ -110,4 +119,28 @@ fn game_scene_frame(
 ) -> unit {
     var input: FrameInput = renderer_inputs(mut session.renderer);
     game_scene(read collision, mut input, read trial, config, read session.world);
+    if trial.graph_run {
+        graph_scene(read session.graph, mut input, read trial, config);
+    }
+    if !input_instances(mut input, read session.world) {
+        scene_overflow();
+    }
+}
+fn game_graph_visit(session: mut GameSession, trial: read Trial, reset: bool) -> unit {
+    if !trial.graph_run {
+        return;
+    }
+    if reset {
+        var i: u32 = 0u32;
+        while i < graph_count(read session.graph) {
+            var node: GraphNode = graph_node(read session.graph, i);
+            node.visited = false;
+            graph_node_set(mut session.graph, i, node);
+            i = i + 1u32;
+        }
+    }
+    graph_visit(mut session.graph, trial.drone.world);
+}
+fn game_graph(session: read GameSession) -> read RoomGraph from session {
+    return read session.graph;
 }

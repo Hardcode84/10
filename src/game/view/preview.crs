@@ -83,7 +83,9 @@ fn draw_preview_segment(
     var next: f32 = (trail.markers + 1u32) as f32 * PREVIEW_SPACING;
     while segment > 0f32 && next <= trail.distance + segment && trail.markers < trail.limit {
         var point: Vec3 = preview_station(before, after, trail.distance, next);
+        var first: u32 = input_word(read v, 3usize);
         draw_preview_marker(mut v, point, eye, config, trail.material);
+        game_dynamic_space(mut v, first, eye.world);
         trail.markers = trail.markers + 1u32;
         next = (trail.markers + 1u32) as f32 * PREVIEW_SPACING;
     }

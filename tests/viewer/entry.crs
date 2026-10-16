@@ -9,6 +9,11 @@ fn main(argc: i32, argv: **u8) -> i32 {
 }
 fn viewer_check(session: GameSession) -> i32 {
     var input: InputState = input_new();
+    var scene: CollisionScene = collision_new();
+    var trial: Trial = new_trial();
+    if !game_world_open(mut session, mut scene, mut trial) {
+        return 1i32;
+    }
     if !game_open(mut session, mut input) || !viewer_open(mut session, 8u32) {
         return 1i32;
     }

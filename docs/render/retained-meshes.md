@@ -43,10 +43,8 @@ margin based on the uncombined plane terms. It does not reuse the root camera's
 result for a transformed view. A separate one-sided face test also uses the
 camera for that view. Portal masks and depth tests determine final coverage.
 
-Rooms in the expedition share one space. All room instances are submitted.
-The bounds test can reject a room outside a view; it cannot reject a room
-merely because the camera is in a different room. It does not test occlusion.
-A wall that hides a room is handled by depth testing.
+Each graph room has its own space ID. All room instances are submitted.
+A portal view selects its destination space before bounds and face tests.
 
 Expansion cost and projection storage still depend on all submitted triangles.
 The visibility table uses four bytes per instance per reserved view. Each mesh
@@ -56,11 +54,9 @@ and portal-capacity tasks.
 
 ## Shared game assets
 
-The game and retained-instance test call `game_static_build`. It generates room wall panels,
-solid faces, and pipe faces once, from the same descriptions used by the game.
-The generated library contains 230 triangles for the current expedition.
-Gameplay markers, the hook, and other changing geometry remain dynamic.
-Collision meshes come from the same game geometry descriptions.
+The graph assembler builds each room from its Crust recipe, once at launch.
+Render and collision meshes share the same hull and openings. The retained
+library holds room ranges in local coordinates. Markers and hooks are dynamic.
 
 ## Viewer
 
@@ -81,14 +77,13 @@ game-asset fixture with 256 copies; it does not define the recipe interface.
 ## Checks and measurements
 
 ```sh
-crust tests.crs review
+crust tests.crs graph
 crust tests.crs game
 crust tests.crs render 7
 crust tests.crs viewer
 ```
 
-The room review compares complete pixel images with culling enabled and
-disabled. Test 7 converts the portal regression scene to retained instances
+The graph check renders each room with checked shaders. Test 7 converts the portal regression scene to retained instances
 with nonidentity transforms. It checks 25 camera states against the CPU ray
 reference and compares enabled and disabled culling. The viewer check requires
 at least one rejected instance at its first frame when copies exceed one.

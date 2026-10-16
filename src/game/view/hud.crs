@@ -20,8 +20,8 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
         input_set_word(mut v, (OVERLAY_CELLS + i) as usize, 0u32);
         i = i + 1u32;
     }
-    if trial.drone.world == 1u32 {
-        expedition_hud(mut v, read trial, paused);
+    if trial.graph_run {
+        graph_hud(mut v, read trial, paused);
         return;
     }
     hud_text(mut v, 0u32, 0u32, "STOPPED");
@@ -30,18 +30,11 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
     }
     hud_text(mut v, 12u32, 0u32, "TIME MS");
     hud_number(mut v, 20u32, 0u32, trial.tick * 1000u32 / 120u32);
-    if !trial.free_flight {
-        hud_text(mut v, 28u32, 0u32, "GATES");
-        hud_number(mut v, 34u32, 0u32, trial.gate);
-    }
+
     hud_text(mut v, 42u32, 0u32, "SPEED");
     hud_number(mut v, 48u32, 0u32, length(trial.drone.velocity) as u32);
     hud_text(mut v, 56u32, 0u32, "M/S");
-    if !trial.free_flight {
-        course_label(mut v, trial.gate);
-    } else {
-        hud_text(mut v, 61u32, 0u32, "ROOM FLIGHT");
-    }
+    hud_text(mut v, 61u32, 0u32, "ROOM FLIGHT");
     hud_text(mut v, 0u32, 1u32, "HOOK");
     hud_text(mut v, 5u32, 1u32, "READY");
     if trial.drone.cable.phase == CABLE_FLYING {
@@ -69,20 +62,14 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
     hud_number(mut v, 38u32, 2u32, trial.preview_enabled as u32);
     hud_text(mut v, 0u32, 3u32, "WASD SPACE CTRL MOVE | MOUSE LOOK | RMB BURST | F BRAKE");
     hud_text(mut v, 0u32, 4u32, "LMB TETHER | R REEL | F4 SPIN | L LEVEL | P PREVIEW");
+    hud_text(mut v, 0u32, 5u32, "BACKSPACE RETRY | TAB PAUSE | ESC EXIT");
+
     hud_text(
         mut v,
         0u32,
         5u32,
-        "BACKSPACE RETRY | TAB PAUSE | ESC EXIT | PASS CYAN GATES THEN LAND"
+        "BACKSPACE RESET | TAB PAUSE | ESC EXIT | FLY THROUGH HEX PORTALS    "
     );
-    if trial.free_flight {
-        hud_text(
-            mut v,
-            0u32,
-            5u32,
-            "BACKSPACE RESET | TAB PAUSE | ESC EXIT | FLY THROUGH HEX PORTALS    "
-        );
-    }
     if paused {
         hud_text(
             mut v,
@@ -98,21 +85,5 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
             5u32,
             "FINISHED - BACKSPACE TO RETRY                                     "
         );
-    }
-}
-
-fn course_label(v: mut FrameInput, gate: u32) -> unit {
-    if gate < 2u32 {
-        hud_text(mut v, 61u32, 0u32, "LAUNCH GALLERY");
-    } else if gate < 5u32 {
-        hud_text(mut v, 61u32, 0u32, "MACHINERY COURT");
-    } else if gate == 5u32 {
-        hud_text(mut v, 61u32, 0u32, "SERVICE SHAFT");
-    } else if gate < 9u32 {
-        hud_text(mut v, 61u32, 0u32, "UPPER CROSSING");
-    } else if gate < GATE_COUNT {
-        hud_text(mut v, 61u32, 0u32, "RETURN DUCT");
-    } else {
-        hud_text(mut v, 61u32, 0u32, "LANDING DOCK");
     }
 }

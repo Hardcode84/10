@@ -108,9 +108,13 @@ fn light_band(amount: f32, r: f32, g: f32, b: f32) -> f32 {
 fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32, hx: u32, hy: u32) -> u32 {
     var mat: u32 = words_load(words_load(META) + tri * 4u32 + 1u32);
     var space: u32 = words_load(words_load(META) + tri * 4u32);
-    var red: f32 = floats_load(SPACE_LIGHT + space * 4u32);
-    var green: f32 = floats_load(SPACE_LIGHT + space * 4u32 + 1u32);
-    var blue: f32 = floats_load(SPACE_LIGHT + space * 4u32 + 2u32);
+    var ambient: u32 = space;
+    if words_load(SHARED_AMBIENT) != 0u32 {
+        ambient = 0u32;
+    }
+    var red: f32 = floats_load(SPACE_LIGHT + ambient * 4u32);
+    var green: f32 = floats_load(SPACE_LIGHT + ambient * 4u32 + 1u32);
+    var blue: f32 = floats_load(SPACE_LIGHT + ambient * 4u32 + 2u32);
     if z <= 0f32 {
         return light_state(red, green, blue, mat);
     }
