@@ -636,7 +636,6 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
         normal.y = -normal.y;
         normal.z = -normal.z;
     }
-    var surface: Hit = hit;
     hit = reference_grid_hit(w, f, hit, normal, x, y);
     var ambient: u32 = space;
     if w[SHARED_AMBIENT as usize] != 0u32 {
@@ -670,7 +669,7 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
             );
             if !transported && (
                 contribution.x > 0f32 || contribution.y > 0f32 || contribution.z > 0f32
-            ) && !reference_light_visible(w, f, surface, vertex(f, l)) {
+            ) && !reference_light_visible(w, f, hit, vertex(f, l)) {
                 contribution = make Vec {
                     x: 0f32,
                     y: 0f32,

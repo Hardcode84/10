@@ -20,13 +20,16 @@ Each light contribution is truncated to one of eight intensity bands before
 the contributions are added. Ambient light is supplied per space.
 
 Light intensity is sampled on the 16 by 16 screen grid. The selected dither
-pattern chooses a grid corner. Visibility is tested at the actual surface pixel,
-so the grid does not move a shadow across a wall edge.
+pattern chooses a grid corner. Light intensity and room-light shadow visibility
+use that same corner, projected onto the receiving triangle plane. Shadow
+boundaries follow the screen grid and its dither pattern. The sample can lie
+outside the triangle; depth, texture coverage, and portal masks still use the
+actual pixel. Portable lights remain unshadowed.
 
 ## Visibility
 
 A room light (`LIGHT_ROOM`) affects only surfaces in its declared space. A line segment from
-the surface pixel to the light must be clear. Any intervening triangle in that
+the selected grid sample to the light must be clear. Any intervening triangle in that
 space blocks the segment from either side. Camera culling does not remove
 shadow blockers. This includes retained instances and their transformed geometry.
 
@@ -159,11 +162,12 @@ in a room with an ID above the float exact-integer range.
 Extra off-screen blockers force multi-level tree traversal in each case.
 Two translated and rotated portal crossings check portable and player lamps.
 A bulkhead checks the portable-light shadow bypass. Unsupported modes are rejected.
-Each image is compared with the CPU reference. Repeated frames check tree reuse,
+Each image is compared with the CPU reference. The bulkhead case checks
+visibility at the selected grid corner, including pixels near its shadow edge. Repeated frames check tree reuse,
 changed dynamic counts, source flags, transforms, instance removal and return,
 and buffer replacement. It also checks rejected growth,
-invalid input, and recovery. With visibility disabled, the closed-bulkhead case
-reports 1,092 incorrectly lit pixels outside the reference edge band.
+invalid input, and recovery. Using pixel-position shadows instead of grid-corner shadows fails the
+bulkhead check outside the reference geometry-edge band.
 
 Run `crust tests.crs hook-light` for an attached-hook wall patch at grazing
 incidence. The check uses the actual attachment and lamp code, with camera

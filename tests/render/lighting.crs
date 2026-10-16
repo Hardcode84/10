@@ -124,7 +124,7 @@ fn lighting_test(base: *Options) -> bool {
             return false;
         }
         var w: *u32 = renderer.state.mapped as *u32;
-        var color: u32 = w[(PIXELS + 24u32 * 64u32 + 32u32) as usize] & 0xffffffu32;
+        var color: u32 = w[(PIXELS + 24u32 * 64u32 + 24u32) as usize] & 0xffffffu32;
         var dark: bool = index == 1u32 || index == 4u32 || index == 5u32;
         if (color == 0u32) != dark {
             print_number(index as i64);
