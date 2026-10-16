@@ -1,0 +1,185 @@
+record HexJunction {
+    sides: [u32; 4];
+    count: u32;
+    radius: f32;
+    distance: f32;
+}
+// Rotates local coordinates by a whole number of quarter turns around +Z.
+fn junction_quarter(p: Vec3, side: u32) -> Vec3 {
+    if side == 1u32 {
+        return vec(-p.y, p.x, p.z);
+    }
+    if side == 2u32 {
+        return vec(-p.x, -p.y, p.z);
+    }
+    if side == 3u32 {
+        return vec(p.y, -p.x, p.z);
+    }
+    return p;
+}
+fn junction_plan(connections: u32, collar: f32) -> HexJunction {
+    var radius: f32 = service_hex_profile().radius;
+    var plan: HexJunction = make HexJunction {
+        sides: make [u32; 4] {
+            0u32,
+            0u32,
+            0u32,
+            0u32
+        },
+        count: 0u32,
+        radius: radius,
+        distance: radius + collar
+    };
+    var side: u32 = 0u32;
+    while side < 4u32 {
+        if (connections & (1u32 << side)) != 0u32 {
+            plan.sides[plan.count as usize] = side;
+            plan.count = plan.count + 1u32;
+        }
+        side = side + 1u32;
+    }
+    return plan;
+}
+fn junction_vertices(hull: mut AssetHull, plan: HexJunction) -> unit {
+    var layer: u32 = 0u32;
+    while layer < 3u32 {
+        var z: f32 = (layer as f32 - 1f32) * plan.radius * 0.866025403784f32;
+        var width: f32 = plan.radius * 0.5f32;
+        if layer == 1u32 {
+            width = plan.radius;
+        }
+        var port: u32 = 0u32;
+        while port < plan.count {
+            var first: u32 = (layer * plan.count + port) * 2u32;
+            var side: u32 = plan.sides[port as usize];
+            asset_vertex_set(
+                mut hull,
+                first,
+                junction_quarter(vec(-width, -plan.distance, z), side)
+            );
+            asset_vertex_set(
+                mut hull,
+                first + 1u32,
+                junction_quarter(vec(width, -plan.distance, z), side)
+            );
+            port = port + 1u32;
+        }
+        layer = layer + 1u32;
+    }
+}
+fn junction_face(hull: mut AssetHull, face: u32, first: u32, count: u32) -> unit {
+    var polygon: HullFace = make HullFace {
+        first: first,
+        count: count,
+        region: 0u32
+    };
+    asset_face_set(mut hull, face, polygon);
+    var frame: SurfaceFrame = hull_frame(read hull, polygon);
+    asset_surface_set(mut hull, face, frame);
+}
+fn junction_side(hull: mut AssetHull, port: u32, count: u32) -> unit {
+    var n: u32 = count * 2u32;
+    var base: u32 = port * 2u32;
+    var indices: [u32; 6] = make [u32; 6] {
+        n + base + 1u32,
+        n * 2u32 + base + 1u32,
+        n * 2u32 + base,
+        n + base,
+        base,
+        base + 1u32
+    };
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        asset_index_set(mut hull, port * 6u32 + i, indices[i as usize]);
+        i = i + 1u32;
+    }
+    junction_face(mut hull, port, port * 6u32, 6u32);
+}
+fn junction_spans(hull: mut AssetHull, port: u32, count: u32) -> unit {
+    var n: u32 = count * 2u32;
+    var a: u32 = port * 2u32 + 1u32;
+    var b: u32 = (a + 1u32) % n;
+    var layer: u32 = 0u32;
+    while layer < 2u32 {
+        var first: u32 = count * 6u32 + (port * 2u32 + layer) * 4u32;
+        asset_index_set(mut hull, first, layer * n + a);
+        asset_index_set(mut hull, first + 1u32, layer * n + b);
+        asset_index_set(mut hull, first + 2u32, (layer + 1u32) * n + b);
+        asset_index_set(mut hull, first + 3u32, (layer + 1u32) * n + a);
+        junction_face(mut hull, count + port * 2u32 + layer, first, 4u32);
+        layer = layer + 1u32;
+    }
+}
+fn junction_caps(hull: mut AssetHull, count: u32) -> unit {
+    var n: u32 = count * 2u32;
+    var first: u32 = count * 14u32;
+    var i: u32 = 0u32;
+    while i < n {
+        asset_index_set(mut hull, first + i, n - 1u32 - i);
+        asset_index_set(mut hull, first + n + i, n * 2u32 + i);
+        i = i + 1u32;
+    }
+    junction_face(mut hull, count * 3u32, first, n);
+    junction_face(mut hull, count * 3u32 + 1u32, first + n, n);
+}
+fn junction_port(side: u32, face: u32, distance: f32) -> RoomPort {
+    var id: AssetName = asset_name("ENTRY");
+    if side == 1u32 {
+        id = asset_name("EAST");
+    }
+    if side == 2u32 {
+        id = asset_name("EXIT");
+    }
+    if side == 3u32 {
+        id = asset_name("WEST");
+    }
+    return make RoomPort {
+        id: id,
+        profile: service_hex_profile(),
+        face: face,
+        position: junction_quarter(vec(0f32, -distance, 0f32), side),
+        basis: make Basis {
+            right: junction_quarter(vec(1f32, 0f32, 0f32), side),
+            up: vec(0f32, 0f32, 1f32),
+            forward: junction_quarter(vec(0f32, -1f32, 0f32), side)
+        }
+    };
+}
+// Convex junction of two adjacent, three, or four HEX-6M connections.
+// Bits 0..3 select south, east, north, and west. Collar must be positive.
+fn hex_junction_build(connections: u32, collar: f32, asset: mut RoomAsset) -> bool {
+    var plan: HexJunction = junction_plan(connections, collar);
+    if !asset_hull_allocate(
+        mut asset.hull,
+        plan.count * 6u32,
+        plan.count * 3u32 + 2u32,
+        plan.count * 18u32
+    ) {
+        return false;
+    }
+    junction_vertices(mut asset.hull, plan);
+    var port: u32 = 0u32;
+    while port < plan.count {
+        junction_side(mut asset.hull, port, plan.count);
+        junction_spans(mut asset.hull, port, plan.count);
+        if !asset_port_append(
+            mut asset.ports,
+            junction_port(plan.sides[port as usize], port, plan.distance)
+        ) {
+            return false;
+        }
+        port = port + 1u32;
+    }
+    junction_caps(mut asset.hull, plan.count);
+    var centre: Vec3 = vec(0f32, 0f32, 0f32);
+    port = 0u32;
+    while port < plan.count {
+        centre = add(centre, asset_port(read asset.ports, port).position);
+        port = port + 1u32;
+    }
+    asset.spawn = make AssetSpawn {
+        position: scale(centre, 1f32 / plan.count as f32),
+        basis: junction_port(2u32, 0u32, plan.distance).basis
+    };
+    return room_asset_finish(mut asset);
+}

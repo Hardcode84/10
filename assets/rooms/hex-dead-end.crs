@@ -1,0 +1,32 @@
+// Blind HEX-6M passage, 5 m long by default. ENTRY is at local Y=0;
+// the far end is a solid ribbed bulkhead, not a connection. Local +Z is up.
+// Wall plates fit whole repeats between the entry and the bulkhead.
+fn room_parameter_count() -> u32 {
+    return 1u32;
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return make AssetParameter {
+        minimum: 0.75f32,
+        maximum: 20f32,
+        initial: 5f32,
+        step: 0.25f32
+    };
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return asset_name("length");
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !asset_parameters_valid(read parameters) {
+        return false;
+    }
+    return hex_passage_build(asset_value(read parameters, 0u32), false, mut asset);
+}
+fn room_material_count() -> u32 {
+    return 2u32;
+}
+fn room_material(region: u32) -> PanelMaterial {
+    if region == 1u32 {
+        return hex_bulkhead_material();
+    }
+    return hex_tunnel_material();
+}

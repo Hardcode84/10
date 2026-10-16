@@ -1,6 +1,10 @@
 // Builds a straight HEX-6M passage along local +Y. Length is at least 0.75 m.
 // End ports remain closed until assembly. The spawn has sphere clearance.
 fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
+    return hex_passage_build(length_metres, true, mut asset);
+}
+// A blind passage has one entry and a solid far cap in material region 1.
+fn hex_passage_build(length_metres: f32, through: bool, asset: mut RoomAsset) -> bool {
     var profile: ConnectionProfile = service_hex_profile();
     if !loft_allocate(mut asset.hull, profile.shape, 2u32) {
         return false;
@@ -9,6 +13,11 @@ fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
     loft_ring(mut asset.hull, profile.shape, 1u32, length_metres, profile.radius);
     loft_span(mut asset.hull, profile.shape, 0u32, 0u32);
     loft_caps(mut asset.hull, profile.shape, 2u32, 0u32, 0u32);
+    if !through {
+        var cap: HullFace = asset_face(read asset.hull, profile.shape.sides + 1u32);
+        cap.region = 1u32;
+        asset_face_set(mut asset.hull, profile.shape.sides + 1u32, cap);
+    }
     hex_tunnel_surfaces(mut asset.hull, profile.shape.sides, length_metres);
     var entry: RoomPort = make RoomPort {
         id: asset_name("ENTRY"),
@@ -27,7 +36,10 @@ fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
     far.position.y = length_metres;
     far.basis.right.x = -1f32;
     far.basis.forward.y = 1f32;
-    if !asset_port_append(mut asset.ports, entry) || !asset_port_append(mut asset.ports, far) {
+    if !asset_port_append(mut asset.ports, entry) {
+        return false;
+    }
+    if through && !asset_port_append(mut asset.ports, far) {
         return false;
     }
     asset.spawn = make AssetSpawn {

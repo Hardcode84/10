@@ -13,3 +13,11 @@ fn hex_tunnel_material() -> PanelMaterial {
         indicator: false
     };
 }
+// A ribbed steel end wall, with no emissive indicator or connection outline.
+fn hex_bulkhead_material() -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.colour = 0x78848fu32;
+    material.finish = METAL_RIBBED;
+    material.pitch = 0.5f32;
+    return material;
+}

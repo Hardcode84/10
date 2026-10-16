@@ -15,7 +15,8 @@ fn run_asset_checks(
     sources[count] = host_path(root, "assets/rooms/radial-start.crs");
     sources[count + 1usize] = host_path(root, "tests/assets/room.crs");
     sources[count + 2usize] = host_path(root, "tests/assets/ports.crs");
-    count = count + 3usize;
+    sources[count + 3usize] = host_path(root, "tests/assets/junction.crs");
+    count = count + 4usize;
     var provider_count: usize = asset_providers(root, &providers[0usize]);
     provider_count = provider_count + asset_collision_providers(
         root,

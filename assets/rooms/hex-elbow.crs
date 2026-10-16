@@ -1,0 +1,30 @@
+// Compact 90-degree HEX-6M elbow: ENTRY faces -Y, EAST faces +X, +Z is up.
+// The outline joins only these two full-width openings with a diagonal wall.
+// Collar separates the mouths; it does not change their 6 m profile.
+const CONNECTIONS: u32 = 3u32;
+fn room_parameter_count() -> u32 {
+    return 1u32;
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return make AssetParameter {
+        minimum: 0.25f32,
+        maximum: 3f32,
+        initial: 0.5f32,
+        step: 0.25f32
+    };
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return asset_name("collar");
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !asset_parameters_valid(read parameters) {
+        return false;
+    }
+    return hex_junction_build(CONNECTIONS, asset_value(read parameters, 0u32), mut asset);
+}
+fn room_material_count() -> u32 {
+    return 1u32;
+}
+fn room_material(region: u32) -> PanelMaterial {
+    return hex_tunnel_material();
+}

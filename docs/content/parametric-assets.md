@@ -45,6 +45,7 @@ its inputs through a root Crust entry point.
 | Indexed hull | Owned vertex, polygon, and corner-index storage; shared polygon edges use shared vertex IDs |
 | Regular profile | Side count and angular phase; positive radius supplied for each ring |
 | Ring loft | Aligned rings along +Y; increasing heights; outward polygon winding |
+| Hex junction | Join active cardinal HEX-6M ports with a convex three-ring shell; collar separates adjacent openings; omitted branches become continuous walls |
 | Caps | Close both end profiles with convex polygons |
 | Surface conversion | Triangulate convex polygons; preserve region IDs; derive planar UV coordinates at a fixed physical scale |
 | Room bundle | Own the hull, render mesh, collision index, and spawn frame |

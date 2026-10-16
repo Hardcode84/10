@@ -1,0 +1,20 @@
+fn asset_test_junctions() -> bool {
+    var mask: u32 = 1u32;
+    while mask < 16u32 {
+        var plan: HexJunction = junction_plan(mask, 0.5f32);
+        if plan.count >= 2u32 && mask != 5u32 && mask != 10u32 {
+            var collar: f32 = 0.25f32;
+            while collar <= 3f32 {
+                var asset: RoomAsset = room_asset_new();
+                if !hex_junction_build(mask, collar, mut asset) || !asset_test_shell(read asset) || !asset_test_ports(
+                    read asset
+                ) {
+                    return false;
+                }
+                collar = collar * 2f32;
+            }
+        }
+        mask = mask + 1u32;
+    }
+    return true;
+}
