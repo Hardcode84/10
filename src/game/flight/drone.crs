@@ -11,6 +11,7 @@ record Cable {
     instance: u32;
     surface: u32;
     local_point: Vec3;
+    local_normal: Vec3;
     anchor: Vec3;
     velocity: Vec3;
     extent: f32;
@@ -25,6 +26,7 @@ fn empty_cable() -> Cable {
         instance: 0xffffffffu32,
         surface: 0xffffffffu32,
         local_point: vec(0f32, 0f32, 0f32),
+        local_normal: vec(0f32, 0f32, 0f32),
         anchor: vec(0f32, 0f32, 0f32),
         velocity: vec(0f32, 0f32, 0f32),
         extent: 0f32,

@@ -3,11 +3,17 @@ fn hook_attach(
     scene: read CollisionScene,
     drone: mut Drone,
     contact: CollisionContact,
+    contact_time: f32,
     time: f32
 ) -> unit {
     drone.cable.instance = contact.instance;
     drone.cable.surface = contact.surface;
     drone.cable.local_point = contact.local_point;
+    var pose: CollisionInstance = collision_pose(
+        collision_instance(read scene, contact.instance),
+        contact_time
+    );
+    drone.cable.local_normal = collision_local(pose.basis, contact.hit.normal);
     drone.cable.phase = CABLE_ATTACHED;
     hook_follow(read scene, mut drone, time);
     drone.cable.extent = clamp(

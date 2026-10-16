@@ -93,7 +93,13 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
     }
     if query.contact.hit.time <= limit {
         var end_time: f32 = (drone.clock + 1u32) as f32 * STEP;
-        hook_attach(read collision, mut drone, query.contact, end_time);
+        hook_attach(
+            read collision,
+            mut drone,
+            query.contact,
+            end_time - left + left * query.contact.hit.time,
+            end_time
+        );
     } else if limit < 1f32 {
         drone.cable = empty_cable();
         drone.cable.phase = CABLE_SNAPPED;

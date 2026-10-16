@@ -121,7 +121,7 @@ fn test_kinematic_hook() -> bool {
     );
     var drone: Drone = new_drone();
     drone.position = vec(0f32, 0f32, 0f32);
-    hook_attach(read scene, mut drone, hit.contact, 1f32);
+    hook_attach(read scene, mut drone, hit.contact, hit.contact.hit.time, 1f32);
     hook_follow(read scene, mut drone, 1.1f32);
     drone.cable.reel_speed = -3f32;
     tether_constraint(mut drone);
@@ -180,6 +180,7 @@ fn test_kinematic_rotation() -> bool {
         read scene,
         mut drone,
         hit.contact,
+        hit.contact.hit.time * 3.14159265f32,
         hit.contact.hit.time * 3.14159265f32
     );
     if !game_check(

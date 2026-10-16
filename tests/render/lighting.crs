@@ -1,5 +1,5 @@
 fn lighting_wall(v: mut FrameInput, index: u32) -> unit {
-    if index == 0u32 || index == 5u32 || index == 6u32 {
+    if index == 0u32 || index == 5u32 || index == 6u32 || index == 8u32 {
         return;
     }
     var space: u32 = 0u32;
@@ -7,6 +7,9 @@ fn lighting_wall(v: mut FrameInput, index: u32) -> unit {
         space = 1u32;
     }
     var flags: u32 = 2u32;
+    if index == 7u32 {
+        flags = 6u32;
+    }
     if index == 2u32 {
         flags = 3u32;
     }
@@ -87,6 +90,9 @@ fn lighting_scene(v: mut FrameInput, index: u32) -> unit {
         6f32
     );
     lighting_wall(mut v, index);
+    if index == 8u32 {
+        lighting_large_space(mut v);
+    }
     if index == 4u32 {
         retain_scene(mut v);
     }
@@ -108,7 +114,7 @@ fn lighting_test(base: *Options) -> bool {
         return false;
     }
     var index: u32 = 0u32;
-    while index < 7u32 {
+    while index < 9u32 {
         {
             var input: FrameInput = renderer_inputs(mut renderer);
             lighting_scene(mut input, index);
@@ -123,7 +129,7 @@ fn lighting_test(base: *Options) -> bool {
             print_number(index as i64);
             return error("bulkhead lighting differs from expected visibility");
         }
-        if index == 0u32 && !lighting_resize(mut renderer) {
+        if (index == 0u32 || index == 8u32) && !lighting_resize(mut renderer) {
             return false;
         }
         index = index + 1u32;
@@ -225,4 +231,20 @@ fn lighting_shared_ambient(renderer: mut Renderer) -> bool {
         renderer.state.mapped + PIXELS as isize * 4isize,
         sizeof([u32; 3072])
     ) == 0i32 || error("shared ambient changed when the room ID exceeded the ambient table");
+}
+
+fn lighting_large_space(input: mut FrameInput) -> unit {
+    input_set_word(mut input, SHARED_AMBIENT as usize, 1u32);
+    input_set_word(mut input, 20usize, 0xfffffffeu32);
+    var i: u32 = 0u32;
+    while i < input_word(read input, LIGHT_COUNT as usize) {
+        input_light_space(mut input, i, 0xfffffffeu32);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < input_word(read input, 3usize) {
+        var meta: usize = (input_word(read input, META as usize) + i * 4u32) as usize;
+        input_set_word(mut input, meta, 0xfffffffeu32);
+        i = i + 1u32;
+    }
 }

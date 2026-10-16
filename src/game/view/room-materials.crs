@@ -10,7 +10,10 @@ fn game_room_palette(input: mut FrameInput) -> bool {
     );
     game_palette_fill(mut input);
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
-    input_set_float(mut input, CAMERA_LIGHT as usize, 900f32);
+    input_set_float(mut input, CAMERA_LIGHT as usize, 36f32);
+    input_set_float(mut input, SPACE_LIGHT as usize, 0f32);
+    input_set_float(mut input, (SPACE_LIGHT + 1u32) as usize, 0f32);
+    input_set_float(mut input, (SPACE_LIGHT + 2u32) as usize, 0f32);
     var offset: u32 = count * MATERIAL_WORDS + GAME_MATERIALS * 64u32 + PALETTE_COLORS * LIGHT_STATES;
     if !room_materials_at(mut input, offset, GAME_MATERIALS) {
         return false;

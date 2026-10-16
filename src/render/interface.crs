@@ -38,7 +38,8 @@ const DEBUG_VALUES: u32 = 78u32;
 const BACKGROUND: u32 = 34u32;
 const RENDER_STYLE: u32 = 16u32;
 
-// Light records contain local position, radius squared, RGB intensity, and space.
+// Light records contain local position, radius squared, RGB intensity, and padding.
+// LIGHT_SPACE selects the parallel u32 room ID array.
 const LIGHT_COUNT: u32 = 35u32;
 const LIGHT_MODEL: u32 = 36u32;
 const LIGHT_DATA: u32 = 82u32;
@@ -87,3 +88,5 @@ const OUTPUT_VIEW_WIDTH: u32 = 80u32;
 const OUTPUT_VIEW_HEIGHT: u32 = 81u32;
 
 const TILE_BITS: u32 = 84u32;
+
+const LIGHT_SPACE: u32 = 85u32;

@@ -51,7 +51,9 @@ fn light_visible(receiver: u32, ox: f32, oy: f32, oz: f32, lx: f32, ly: f32, lz:
     var space: u32 = words_load(words_load(META) + receiver * 4u32);
     var i: u32 = 0u32;
     while i < words_load(3u32) {
-        if i != receiver && words_load(words_load(META) + i * 4u32) == space {
+        if i != receiver && words_load(words_load(META) + i * 4u32) == space && (
+            words_load(words_load(META) + i * 4u32 + 3u32) & 4u32
+        ) == 0u32 {
             if light_blocks(i, ox, oy, oz, lx - ox, ly - oy, lz - oz) {
                 return false;
             }

@@ -106,12 +106,17 @@ therefore take quadratic time as complexity grows. The renderer uploads room
 meshes once and submits local-space instances. It displays up to six portal
 crossings, with 129 reserved views independent of total room count. Exhausted
 view storage rejects the frame. Physical traversal has no view-depth limit.
-All spaces use shared ambient light plus the camera lamp.
+Tunnel ambient light is zero. The camera lamp has a 6 m attenuation radius.
+The flying and attached hook adds a yellow point light with a 6 m attenuation
+radius in its current room. The attached lamp sits outside the contacted
+surface and follows its motion. Release or a snapped cable removes the lamp.
+Full-bright markings remain visible. Point lights do not pass through portals.
 
 ## Checks
 
 ```sh
 crust tests.crs graph-layout
+crust tests.crs hook-light
 crust tests.crs flight
 crust tests.crs reel
 crust tests.crs graph --seed 42 --complexity 8 --width 640 --height 480

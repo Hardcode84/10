@@ -6,7 +6,7 @@
 and independent UV coordinates. Each triangle has a material, portal ID, and
 flags. Bit 0 enables cutout coverage. Bit 1 enables one-sided coverage: the
 cross product `(B - A) × (C - A)` points toward the visible side. Lighting uses
-normals from transformed positions. Negative scale reverses winding.
+normals from transformed positions. Bit 2 disables shadow casting. Negative scale reverses winding.
 
 Call `input_mesh` with a scoped `FrameInput` borrow. It copies the mesh into
 renderer-owned storage and returns a `MeshRange`. The source mesh can then

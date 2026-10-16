@@ -23,6 +23,7 @@ fn trial_hash(trial: read Trial) -> u32 {
     hash = hash_word(hash, d.cable.instance);
     hash = hash_word(hash, d.cable.surface);
     hash = hash_vec(hash, d.cable.local_point);
+    hash = hash_vec(hash, d.cable.local_normal);
     hash = hash_vec(hash, d.velocity);
     hash = hash_vec(hash, d.basis.right);
     hash = hash_vec(hash, d.basis.up);

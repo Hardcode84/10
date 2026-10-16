@@ -191,7 +191,7 @@ fn test_reel_contact_case(frame: SpaceTransform) -> bool {
     if !game_check(contact.hit.time <= 1f32, "reel fixture must attach to the wall") {
         return false;
     }
-    hook_attach(read scene, mut drone, contact, 0f32);
+    hook_attach(read scene, mut drone, contact, 0f32, 0f32);
     // A cable through a wall can request an unreachable position. Collision
     // must finish without feeding the rejected pull back into the slide.
     drone.position = space_point(frame, vec(0f32, 0f32, 0.3501f32));

@@ -142,6 +142,6 @@ fn test_attach_surface(scene: read CollisionScene, drone: mut Drone, travel: Vec
     ) {
         return false;
     }
-    hook_attach(read scene, mut drone, hit.contact, time);
+    hook_attach(read scene, mut drone, hit.contact, time, time);
     return true;
 }

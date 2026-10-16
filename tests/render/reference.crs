@@ -636,7 +636,11 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
     var surface: Hit = hit;
     hit = reference_grid_hit(w, f, hit, normal, x, y);
     var t: f32 = 0f32;
-    var light: Vec = vertex(f, (SPACE_LIGHT + space * 4u32) as usize);
+    var ambient: u32 = space;
+    if w[SHARED_AMBIENT as usize] != 0u32 {
+        ambient = 0u32;
+    }
+    var light: Vec = vertex(f, (SPACE_LIGHT + ambient * 4u32) as usize);
     if hit.distance > 0f32 && f[CAMERA_LIGHT as usize] > 0f32 {
         var contribution: Vec = reference_point(
             sub(hit.eye, hit.position),
@@ -652,7 +656,7 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
     var i: u32 = 0u32;
     while hit.distance > 0f32 && i < w[LIGHT_COUNT as usize] {
         var l: usize = (w[LIGHT_DATA as usize] + i * 8u32) as usize;
-        if f[l + 7usize] as u32 == space {
+        if w[(w[LIGHT_SPACE as usize] + i) as usize] == space {
             var contribution: Vec = reference_point(
                 sub(vertex(f, l), hit.position),
                 normal,
@@ -765,7 +769,7 @@ fn reference_light_visible(w: *u32, f: *f32, receiver: Hit, target: Vec) -> bool
     var i: u32 = 0u32;
     while i < w[3usize] {
         var meta: usize = (w[META as usize] + i * 4u32) as usize;
-        if i != receiver.triangle && w[meta] == space {
+        if i != receiver.triangle && w[meta] == space && (w[meta + 3usize] & 4u32) == 0u32 {
             var hit: Hit = receiver;
             hit.distance = 0.99999f32;
             if intersect(w, f, i, ray, 0.00001f32, 0xffffffffu32, &hit) {

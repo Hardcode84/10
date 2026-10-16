@@ -11,7 +11,7 @@ fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
             5u64 + v -> view_capacity as u64 * MAX_FAN as u64
         ) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
             5u64 + v -> view_capacity as u64
-        ) + traversal_words(v) + 64u64
+        ) + traversal_words(v) + v -> light_capacity as u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
     if (words + 1u64) * 4u64 > v -> storage_limit as u64 || (floats + 1u64) * 4u64 > v -> storage_limit as u64 {
         return error("geometry storage exceeds device maxStorageBufferRange");
@@ -38,7 +38,8 @@ fn geometry_header(v: *Vulkan) -> unit {
     w[COMPACT_OFFSET as usize] = w[META as usize] + capacity * 4u32;
     w[TILE_BITS as usize] = w[COMPACT_OFFSET as usize] + capacity * v -> view_capacity * MAX_FAN;
     w[ASSET_OFFSET as usize] = w[TILE_BITS as usize] + tile_bit_words(v, capacity) as u32;
-    w[INSTANCE_OWNER as usize] = w[ASSET_OFFSET as usize] + v -> asset_capacity;
+    w[LIGHT_SPACE as usize] = w[ASSET_OFFSET as usize] + v -> asset_capacity;
+    w[INSTANCE_OWNER as usize] = w[LIGHT_SPACE as usize] + v -> light_capacity;
     w[MESH_META as usize] = w[INSTANCE_OWNER as usize] + capacity;
     w[INSTANCE_META as usize] = w[MESH_META as usize] + v -> mesh_capacity * 4u32;
     w[INSTANCE_VISIBLE as usize] = w[INSTANCE_META as usize] + v -> instance_capacity * 5u32;
@@ -64,6 +65,7 @@ fn geometry_copy(v: *Vulkan, old: *Vulkan) -> unit {
     geometry_header(v);
     retained_copy(v, old);
     retained_copy_region(v, old, LIGHT_DATA, old -> light_capacity * 8u32, true);
+    retained_copy_region(v, old, LIGHT_SPACE, old -> light_capacity, false);
     retained_copy_region(v, old, PORTAL_META, old -> portal_capacity * 4u32, false);
     retained_copy_region(v, old, PORTAL_FLOAT, old -> portal_capacity * 16u32, true);
     memcpy(
@@ -121,7 +123,7 @@ fn geometry_limit(v: *Vulkan) -> u32 {
     var elements: u64 = (v -> storage_limit as u64 / 256u64) * 64u64 - 1u64;
     var fixed_words: u64 = image_words(v) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
         5u64 + v -> view_capacity as u64
-    ) + traversal_words(v);
+    ) + traversal_words(v) + v -> light_capacity as u64;
     var fixed_floats: u64 = GEOMETRY as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
         v
     ) + v -> light_capacity as u64 * 8u64;

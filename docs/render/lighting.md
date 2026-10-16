@@ -30,7 +30,9 @@ shadow blockers. This includes retained instances and their transformed geometry
 A cutout triangle blocks light only where its texture sample is opaque. The
 shadow query uses the same UV interpolation, address modes, and transparent
 palette index as the surface. Full-bright texels remain visible without light.
-They do not emit light. They block light like other opaque texels.
+They do not emit light. They block light like other opaque texels. Triangle
+flag bit 2 disables shadow casting. The hook uses this flag so its visible
+mesh does not block its own lamp.
 
 The receiver triangle is excluded from its own query. Segment fractions at or
 below 0.00001 and at or above 0.99999 are excluded to prevent endpoint contact
@@ -47,14 +49,17 @@ camera path by the raster visibility contract.
 
 Call `input_lights(input, count)` to select the active count and reserve storage.
 Fill all active records before drawing. `LIGHT_DATA` is a header word that gives
-the float offset of the records. Each record contains eight floats:
+the float offset of the records. Each record has an eight-float stride:
+seven light values and one unused slot. `LIGHT_SPACE` gives the word offset
+of a separate array of unsigned 32-bit room IDs. Call `input_light_space`
+for each active light. Room IDs retain all 32 bits.
 
 | Field | Meaning |
 | --- | --- |
 | 0, 1, 2 | Position in the declared space |
 | 3 | Radius squared; zero disables the light |
 | 4, 5, 6 | Non-negative RGB intensity |
-| 7 | Integer space ID from 0 through 31 |
+| 7 | Unused padding |
 
 Storage grows with the count. Eight records are allocated initially; eight is
 not a count limit. Growth, geometry allocation, and image resize preserve light
@@ -62,7 +67,7 @@ records. Device storage range and allocation failures return an error. Failed
 growth preserves the active allocation and count.
 
 Frame submission rejects a count outside the reserved storage, non-finite
-values, negative radius or colour values, and invalid space IDs. A failed frame
+values, and negative radius or colour values. A failed frame
 must not be presented. Correct the input before submitting another frame.
 
 ## Cost and checks
@@ -90,7 +95,8 @@ Both must produce the same visibility.
 
 Run `crust tests.crs render 11`. It checks a closed bulkhead, a transparent
 cutout, a blocker in another space, a transformed retained blocker, a distant
-lamp, full-bright texels without lamps, and a contributing seventeenth light.
+lamp, full-bright texels without lamps, and a contributing seventeenth light, a non-shadow-casting surface, and a light
+in a room with an ID above the float exact-integer range.
 Each image is compared with the CPU reference. It also checks rejected growth,
 invalid input, and recovery. With visibility disabled, the closed-bulkhead case
 reports 1,092 incorrectly lit pixels outside the reference edge band.

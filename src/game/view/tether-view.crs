@@ -20,6 +20,13 @@ fn draw_cable(
         space_point(space_inverse(drone.cable.frame), drone.position)
     );
     game_dynamic_space(mut v, first, drone.cable.space);
+    var hook_tri: u32 = first;
+    while hook_tri < input_word(read v, 3usize) {
+        var flags: usize = (input_word(read v, META as usize) + hook_tri * 4u32 + 3u32) as usize;
+        var value: u32 = input_word(read v, flags) | 4u32;
+        input_set_word(mut v, flags, value);
+        hook_tri = hook_tri + 1u32;
+    }
     var start: Vec3 = add(
         drone.position,
         basis_vector(drone.basis, vec(0f32, -0.12f32, 0.2f32))
@@ -94,4 +101,42 @@ fn draw_portal_cable(
         count = count + 1u32;
     }
     scene_motion_failure();
+}
+
+fn hook_light_position(collision: read CollisionScene, drone: Drone) -> Vec3 {
+    var point: Vec3 = space_point(
+        space_inverse(drone.cable.frame),
+        drone.cable.anchor
+    );
+    if drone.cable.phase == CABLE_ATTACHED {
+        var pose: CollisionInstance = collision_pose(
+            collision_instance(read collision, drone.cable.instance),
+            drone.clock as f32 * STEP
+        );
+        point = add(
+            point,
+            scale(
+                basis_vector(pose.basis, drone.cable.local_normal),
+                HOOK_RADIUS * 2f32
+            )
+        );
+    }
+    return point;
+}
+fn hook_light(collision: read CollisionScene, input: mut FrameInput, drone: Drone) -> unit {
+    var active: bool = drone.cable.phase == CABLE_FLYING || drone.cable.phase == CABLE_ATTACHED;
+    input_set_word(mut input, LIGHT_COUNT as usize, active as u32);
+    if !active {
+        return;
+    }
+    var point: Vec3 = hook_light_position(read collision, drone);
+    var p: usize = input_word(read input, LIGHT_DATA as usize) as usize;
+    input_set_float(mut input, p, point.x);
+    input_set_float(mut input, p + 1usize, point.y);
+    input_set_float(mut input, p + 2usize, point.z);
+    input_set_float(mut input, p + 3usize, 36f32);
+    input_set_float(mut input, p + 4usize, 2f32);
+    input_set_float(mut input, p + 5usize, 1.6f32);
+    input_set_float(mut input, p + 6usize, 0.1f32);
+    input_light_space(mut input, 0u32, drone.cable.space);
 }

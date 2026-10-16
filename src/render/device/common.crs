@@ -151,7 +151,7 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32, hx: u32, hy: u32) -> u3
     var i: u32 = 0u32;
     while i < words_load(LIGHT_COUNT) {
         var p: u32 = words_load(LIGHT_DATA) + i * 8u32;
-        if floats_load(p + 7u32) as u32 == space {
+        if words_load(words_load(LIGHT_SPACE) + i) == space {
             var amount: f32 = light_amount(
                 floats_load(p) - px,
                 floats_load(p + 1u32) - py,
