@@ -75,5 +75,76 @@ fn portal_flight_run(session: GameSession, config: GameConfig) -> i32 {
     ) {
         return 1i32;
     }
+    if !hook_preview_stations(mut session, config, false) || !hook_preview_stations(
+        mut session,
+        config,
+        true
+    ) {
+        return 1i32;
+    }
     return (!portal_flight_capture(mut session, read scene, mut loop, config)) as i32;
+}
+
+fn hook_preview_stations(session: mut GameSession, config: GameConfig, linked: bool) -> bool {
+    var scene: CollisionScene = collision_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    var transform: SpaceTransform = make SpaceTransform {
+        origin: vec(10f32, 0f32, 0f32),
+        basis: make Basis {
+            right: vec(0f32, 0f32, -1f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(1f32, 0f32, 0f32)
+        }
+    };
+    if linked && !collision_portal_append(
+        mut builder,
+        make CollisionPortal {
+            space: 0u32,
+            destination: 0u32,
+            origin: vec(0f32, 1f32, 6f32),
+            basis: identity_basis(),
+            radius: 3f32,
+            sides: 6u32,
+            phase: 0f32,
+            transform: transform
+        }
+    ) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var trial: Trial = new_trial();
+    trial.auto_level = false;
+    var renderer: mut Renderer = game_renderer(mut session);
+    var input: FrameInput = renderer_inputs(mut renderer);
+    input_frame(mut input);
+    draw_hook_preview(read scene, mut input, read trial, config, 8u32);
+    // The 4 m marker is hidden. The seven visible quads start at 8 m.
+    if input_word(read input, 3usize) != 14u32 {
+        return error("hook preview must retain its visible distance stations");
+    }
+    var i: u32 = 0u32;
+    while i < 7u32 {
+        var base: usize = (GEOMETRY + i * 30u32) as usize;
+        var a: Vec3 = vec(
+            input_float(read input, base),
+            input_float(read input, base + 1usize),
+            input_float(read input, base + 2usize)
+        );
+        var c: Vec3 = vec(
+            input_float(read input, base + 10usize),
+            input_float(read input, base + 11usize),
+            input_float(read input, base + 12usize)
+        );
+        var expected: Vec3 = vec(0f32, 1f32, (i + 2u32) as f32 * 4f32);
+        if linked {
+            expected = space_point(transform, expected);
+        }
+        if length(sub(scale(add(a, c), 0.5f32), expected)) > 0.001f32 {
+            return error("hook preview station differs from the straight hook trajectory");
+        }
+        i = i + 1u32;
+    }
+    return true;
 }

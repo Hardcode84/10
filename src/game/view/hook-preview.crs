@@ -16,6 +16,7 @@ fn draw_hook_preview(
         var frame: SpaceTransform = space_identity();
         var space: u32 = drone.world;
         if drone.cable.phase == CABLE_FLYING {
+            before = drone.cable.anchor;
             frame = drone.cable.frame;
             space = drone.cable.space;
         }
@@ -40,7 +41,6 @@ fn draw_hook_preview(
         if drone.cable.phase == CABLE_ATTACHED {
             return;
         }
-        before = drone.cable.anchor;
         i = i + 1u32;
     }
 }
