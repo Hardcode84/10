@@ -21,7 +21,7 @@ fn graph_check_links(graph: read RoomGraph) -> bool {
     if cross_branch == 0u32 {
         return error("start branches do not join");
     }
-    return graph_check_goal(read graph);
+    return graph_check_goal(read graph) && graph_check_spacing(read graph);
 }
 fn graph_check_goal(graph: read RoomGraph) -> bool {
     var goal: GraphNode = graph_node(read graph, graph_goal(read graph));
@@ -169,4 +169,17 @@ fn graph_test_run(session: GameSession, config: GameConfig) -> bool {
         forward: vec(0f32, 1f32, 0f32)
     };
     return game_render(read scene, mut session, read loop, config) && game_finish(mut session);
+}
+
+fn graph_check_spacing(graph: read RoomGraph) -> bool {
+    var i: u32 = 0u32;
+    while i < graph_ports(read graph) {
+        var a: GraphSocket = graph_socket(read graph, i);
+        var b: GraphSocket = graph_socket(read graph, a.peer);
+        if graph_node(read graph, a.room).kind != 1u32 && graph_node(read graph, b.room).kind != 1u32 {
+            return error("non-straight rooms must have a straight tunnel between them");
+        }
+        i = i + 1u32;
+    }
+    return true;
 }

@@ -91,7 +91,7 @@ fn graph_distances(graph: mut RoomGraph) -> unit {
     }
 }
 fn graph_generate(graph: mut RoomGraph, seed: u32, complexity: u32) -> bool {
-    if !graph_allocate(mut graph, complexity * 16u32 + 64u32, seed) {
+    if !graph_allocate(mut graph, complexity * 48u32 + 192u32, seed) {
         return false;
     }
     graph_add(mut graph, 0u32, 0u32, 0u32);
@@ -126,6 +126,7 @@ fn graph_generate(graph: mut RoomGraph, seed: u32, complexity: u32) -> bool {
         step = step + 1u32;
     }
     graph_finish_frontier(mut graph);
+    graph_space_connections(mut graph);
     graph_distances(mut graph);
     var goal: u32 = 0u32;
     step = 1u32;
@@ -165,4 +166,27 @@ fn graph_join_roots(graph: mut RoomGraph) -> unit {
         root = root + 1u32;
     }
     trap;
+}
+
+// A straight tunnel separates each pair of non-straight rooms, including joins.
+fn graph_space_connections(graph: mut RoomGraph) -> unit {
+    var count: u32 = graph_ports(read graph);
+    var i: u32 = 0u32;
+    while i < count {
+        var a: GraphSocket = graph_socket(read graph, i);
+        var b: GraphSocket = graph_socket(read graph, a.peer);
+        var source: GraphNode = graph_node(read graph, a.room);
+        var target: GraphNode = graph_node(read graph, b.room);
+        if i < a.peer && source.kind != 1u32 && target.kind != 1u32 {
+            var branch: u32 = source.branch;
+            if a.room == 0u32 {
+                branch = target.branch;
+            }
+            var id: u32 = graph_add(mut graph, 1u32, 0u32, branch);
+            var tunnel: GraphNode = graph_node(read graph, id);
+            graph_pair(mut graph, i, tunnel.first);
+            graph_pair(mut graph, tunnel.first + 1u32, a.peer);
+        }
+        i = i + 1u32;
+    }
 }

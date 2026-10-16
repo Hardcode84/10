@@ -36,7 +36,11 @@ when possible. A dead end closes each remaining socket. Every declared port
 has a reciprocal connection; none opens into a void.
 
 Pieces are the 10 m straight tunnel, elbow, T junction, X junction, and dead
-end. After all joins, the generator computes shortest graph distances from
+end. After all joins, insert a 10 m straight tunnel wherever two non-straight
+rooms connect directly. This includes start exits, joins, and terminal entries.
+An existing straight tunnel supplies the separation without another insertion.
+Bends and junctions therefore cannot connect directly to one another.
+After this spacing pass, the generator computes shortest graph distances from
 the start. It replaces a farthest terminal with the ending room. This room
 has one port. Collection requires travel to its far end, not just entry.
 Complexity increases route construction and branch count; joins can shorten
