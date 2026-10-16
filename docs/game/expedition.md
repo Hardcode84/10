@@ -8,7 +8,13 @@ ROUND TRIP COMPLETE on return. Backspace resets the run in the same graph.
 ```sh
 crust main.crs --seed 42 --complexity 8
 crust main.crs --seed 42 --complexity 8 --width 1280 --height 960
+crust main.crs --fullscreen --seed 42 --complexity 8
 ```
+
+Use `--fullscreen` for a borderless window at the desktop size. `--width` and
+`--height` still set the internal render resolution. The output scales to the
+window. This option also works with `demo.crs`. It cannot be combined with
+`--headless` or `--capture`.
 
 The defaults are seed 1 and complexity 3. Seed accepts an unsigned 32-bit
 integer, including zero. Complexity must be positive and fit the graph's

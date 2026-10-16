@@ -84,3 +84,9 @@ fn window_draw(v: *Vulkan, window: *u8) -> bool {
     }
     return renderer_draw(v);
 }
+
+extern fn SDL_SetWindowFullscreen(window: *u8, flags: u32) -> i32 = "SDL_SetWindowFullscreen";
+// Uses the desktop size without changing the display mode.
+fn window_fullscreen(window: *u8) -> bool {
+    return SDL_SetWindowFullscreen(window, 4097u32) == 0i32 || error(SDL_GetError());
+}

@@ -49,6 +49,9 @@ fn game_open(session: mut GameSession, input: mut InputState) -> bool {
         if !window_open(&session.window.handle, o -> config.width, o -> config.height) {
             return false;
         }
+        if o -> config.fullscreen && !window_fullscreen(session.window.handle) {
+            return false;
+        }
         if SDL_Init(8192u32) != 0i32 {
             return error(SDL_GetError());
         }

@@ -20,6 +20,16 @@ fn game_renderer_open(v: *Vulkan, o: *Launch, window: *u8, portals: u32) -> bool
         crossing_limit: depth,
         fault: 0u32
     };
+    if window != null(*u8) {
+        var width: i32 = 0i32;
+        var height: i32 = 0i32;
+        SDL_Vulkan_GetDrawableSize(window, &width, &height);
+        if width <= 0i32 || height <= 0i32 {
+            return error("window drawable extent must be positive");
+        }
+        c.output_width = width as u32;
+        c.output_height = height as u32;
+    }
     return app_renderer_open(v, window, &c);
 }
 fn game_draw(session: mut GameSession) -> bool {
