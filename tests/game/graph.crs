@@ -46,7 +46,7 @@ fn graph_test_seed(seed: u32, complexity: u32) -> bool {
     ) {
         return false;
     }
-    if !graph_check_routes(read a, complexity) {
+    if !graph_check_goal_routes(mut a) || !graph_check_routes(read a, complexity) {
         return false;
     }
     if graph_count(read a) != graph_count(read b) || graph_ports(read a) != graph_ports(read b) || graph_goal(
@@ -73,7 +73,7 @@ fn graph_test_generation() -> bool {
         }
         seed = seed + 1u32;
     }
-    return graph_test_seed(0xffffffffu32, 20u32);
+    return graph_test_seed(1u32, 3u32) && graph_test_seed(0xffffffffu32, 20u32);
 }
 fn graph_test_crossings(scene: read CollisionScene) -> bool {
     var i: u32 = 0u32;
@@ -232,7 +232,71 @@ fn graph_check_routes(graph: read RoomGraph, complexity: u32) -> bool {
         }
         i = i + 1u32;
     }
-    return junctions == complexity / 3u32 + 1u32 && corridors * 10u32 >= (
+    return junctions == 7u32 + 2u32 * (complexity / 3u32 + 1u32) && corridors * 10u32 >= (
         graph_count(read graph) - 1u32
     ) * 9u32 || error("route graph exceeds its junction budget or corridor density");
+}
+
+fn graph_check_goal_routes(graph: mut RoomGraph) -> bool {
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, i);
+        node.depth = 0xffffffffu32;
+        if i == graph_goal(read graph) {
+            node.depth = 0u32;
+        }
+        graph_node_set(mut graph, i, node);
+        i = i + 1u32;
+    }
+    var changed: bool = true;
+    while changed {
+        changed = false;
+        i = 0u32;
+        while i < graph_ports(read graph) {
+            var a: GraphSocket = graph_socket(read graph, i);
+            var b: GraphSocket = graph_socket(read graph, a.peer);
+            var source: GraphNode = graph_node(read graph, a.room);
+            var target: GraphNode = graph_node(read graph, b.room);
+            if a.room != 0u32 && b.room != 0u32 && source.depth != 0xffffffffu32 && target.depth > source.depth + (
+                target.count == 3u32
+            ) as u32 {
+                target.depth = source.depth + (target.count == 3u32) as u32;
+                graph_node_set(mut graph, b.room, target);
+                changed = true;
+            }
+            i = i + 1u32;
+        }
+    }
+    i = 1u32;
+    while i < graph_count(read graph) {
+        if graph_node(read graph, i).depth == 0xffffffffu32 {
+            return error("route cannot reach the goal without returning through start");
+        }
+        i = i + 1u32;
+    }
+    var forks: u32 = 0u32;
+    i = 1u32;
+    while i < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, i);
+        if node.count == 3u32 && graph_goalward_exits(read graph, node) == 2u32 {
+            forks = forks + 1u32;
+        }
+        i = i + 1u32;
+    }
+    graph_distances(mut graph);
+    return forks > 0u32 || error("graph has no downstream fork toward the goal");
+}
+
+fn graph_goalward_exits(graph: read RoomGraph, node: GraphNode) -> u32 {
+    var count: u32 = 0u32;
+    var port: u32 = 0u32;
+    while port < node.count {
+        var peer: u32 = graph_socket(read graph, node.first + port).peer;
+        var next: u32 = graph_socket(read graph, peer).room;
+        if next != 0u32 && graph_node(read graph, next).depth < node.depth {
+            count = count + 1u32;
+        }
+        port = port + 1u32;
+    }
+    return count;
 }

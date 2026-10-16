@@ -1,19 +1,3 @@
-// Frontier selection is uniform over unused sockets, without retries.
-fn graph_frontier(graph: mut RoomGraph) -> u32 {
-    var chosen: u32 = 0xffffffffu32;
-    var count: u32 = 0u32;
-    var i: u32 = 0u32;
-    while i < graph_ports(read graph) {
-        if graph_socket(read graph, i).peer == 0xffffffffu32 {
-            count = count + 1u32;
-            if graph_random(mut graph, count) == 0u32 {
-                chosen = i;
-            }
-        }
-        i = i + 1u32;
-    }
-    return chosen;
-}
 fn graph_grow(graph: mut RoomGraph, socket: u32, kind: u32) -> u32 {
     var parent: GraphSocket = graph_socket(read graph, socket);
     var node: GraphNode = graph_node(read graph, parent.room);
@@ -26,38 +10,6 @@ fn graph_grow(graph: mut RoomGraph, socket: u32, kind: u32) -> u32 {
     var entrance: u32 = child.first + graph_random(mut graph, child.count);
     graph_pair(mut graph, socket, entrance);
     return id;
-}
-fn graph_join(graph: mut RoomGraph, a: u32) -> bool {
-    var source: GraphSocket = graph_socket(read graph, a);
-    var node: GraphNode = graph_node(read graph, source.room);
-    var chosen: u32 = 0xffffffffu32;
-    var choices: u32 = 0u32;
-    var i: u32 = 0u32;
-    while i < graph_ports(read graph) {
-        var target: GraphSocket = graph_socket(read graph, i);
-        var other: GraphNode = graph_node(read graph, target.room);
-        if target.peer == 0xffffffffu32 && target.room != source.room && other.branch != node.branch {
-            choices = choices + 1u32;
-            if graph_random(mut graph, choices) == 0u32 {
-                chosen = i;
-            }
-        }
-        i = i + 1u32;
-    }
-    if chosen == 0xffffffffu32 {
-        return false;
-    }
-    graph_pair(mut graph, a, chosen);
-    return true;
-}
-fn graph_finish_frontier(graph: mut RoomGraph) -> unit {
-    var socket: u32 = graph_frontier(mut graph);
-    while socket != 0xffffffffu32 {
-        if !graph_join(mut graph, socket) {
-            graph_grow(mut graph, socket, 5u32);
-        }
-        socket = graph_frontier(mut graph);
-    }
 }
 fn graph_distances(graph: mut RoomGraph) -> unit {
     var i: u32 = 0u32;
@@ -89,27 +41,13 @@ fn graph_distances(graph: mut RoomGraph) -> unit {
     }
 }
 fn graph_generate(graph: mut RoomGraph, seed: u32, complexity: u32) -> bool {
-    if !graph_allocate(mut graph, complexity * 48u32 + 192u32, seed) {
+    if !graph_allocate(mut graph, complexity * 48u32 + 256u32, seed) {
         return false;
     }
     graph_add(mut graph, 0u32, 0u32, 0u32);
     graph_routes(mut graph, complexity);
-    graph_finish_frontier(mut graph);
     graph_space_connections(mut graph);
     graph_distances(mut graph);
-    var goal: u32 = 0u32;
-    var step: u32 = 1u32;
-    while step < graph_count(read graph) {
-        var candidate: GraphNode = graph_node(read graph, step);
-        if candidate.kind == 5u32 && candidate.depth > graph_node(read graph, goal).depth {
-            goal = step;
-        }
-        step = step + 1u32;
-    }
-    var node: GraphNode = graph_node(read graph, goal);
-    node.kind = 6u32;
-    graph_node_set(mut graph, goal, node);
-    graph_set_goal(mut graph, goal);
     return true;
 }
 // A straight tunnel separates each pair of non-straight rooms, including joins.

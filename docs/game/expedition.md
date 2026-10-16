@@ -30,22 +30,20 @@ of six mating rolls. The reverse link is its inverse.
 
 Each of the eight start ports leads to a route of `complexity + 6` pieces.
 Corridor choices are 70% straight tunnels and 30% elbows. The generator
-places exactly `1 + floor(complexity / 3)` T junctions across these routes.
-It does not select X junctions. At the default complexity, this gives two
-T junctions in the whole graph.
+shuffles the start routes, then merges them in pairs through three levels
+of T junctions. All eight routes lead toward the goal. No route requires a
+return through the start room to reach it.
 
-Junction positions have a fixed spacing: four corridor pieces before the
-first possible junction, then five corridor pieces between possible
-junctions. The generator selects positions from this set without retries.
-Each T side route has four to six corridor pieces before it can join or end.
-A join connects open route ends from different start branches. It does not
-add a junction room. Construction depth does not restrict joins.
+After these merges, the shared route has `1 + floor(complexity / 3)` forks.
+Each fork has two separate corridor routes that join again farther ahead.
+The shared route ends at the ending room. Every port has a reciprocal
+connection; none opens into a void. The generator does not select X junctions
+or add dead ends.
 
-The generator reserves one terminal, joins two start routes, then pairs
-remaining route ends across branches where possible. Dead ends close the
-remaining sockets. Every port has a reciprocal connection; none opens into
-a void. Most wrong turns lead around a loop rather than directly into
-another fork.
+Four to six corridor pieces separate junctions and form each fork arm.
+The seven approach merges and two junctions per fork give eleven T junctions
+at the default complexity. Junctions are sparse along each flight route;
+at least 90% of rooms outside the start are two-port corridors.
 
 After all joins, insert a 10 m straight tunnel wherever two non-straight
 rooms connect directly. This includes start exits, joins, and terminal entries.
@@ -53,11 +51,10 @@ An existing straight tunnel supplies the separation without another insertion.
 All paths between decision rooms have at least four two-port corridor rooms.
 The start room counts as a decision room.
 
-The generator then computes shortest graph distances from the start. It
-replaces a farthest terminal with the ending room. Collection requires travel
-to its far end. Complexity mainly increases route length; the junction budget
-increases once per three complexity steps. Joins can shorten the shortest
-path, so complexity does not prescribe travel time.
+The generator computes shortest graph distances from the start. Collection
+requires travel to the far end of the ending room. Complexity increases the
+approach lengths and adds one fork per three steps. Seed changes corridor
+choices, start-route pairs, route lengths after merges, and portal rolls.
 
 Destination room numbers appear above port centres. Gold means unvisited;
 cyan means visited. A visit persists until restart. These marks help the
@@ -94,8 +91,8 @@ tick. `--ticks N` selects a longer run. Run progress is held in memory.
 | Component | Responsibility |
 | --- | --- |
 | `src/game/graph/storage.crs` | Owned room and socket arrays, seeded random state |
-| `src/game/graph/generate.crs` | Connectivity, rolls, and terminal selection |
-| `src/game/graph/routes.crs` | Corridor runs, junction quota, and side routes |
+| `src/game/graph/generate.crs` | Connectivity, rolls, and graph distances |
+| `src/game/graph/routes.crs` | Corridor runs, approach merges, and downstream forks |
 | `src/game/graph/assemble.crs` | Room recipes, local meshes, and shared portal links |
 | `src/game/graph/progress.crs` | Collection, return, and visits |
 | `src/game/graph/view.crs` | Port numbers, beacons, and objective HUD |
@@ -103,7 +100,7 @@ tick. `--ticks N` selects a longer run. Run progress is held in memory.
 | `src/game/host/` | Input, window, recording, and command-line options |
 
 Graph generation and mesh assembly run once at launch. Storage scales with
-room and socket counts. Frontier and join selection scan sockets; distance
+room and socket counts. Route construction takes linear time; distance
 relaxation repeats edge scans until distances stop changing. Generation can
 therefore take quadratic time as complexity grows. The renderer uploads room
 meshes once and submits local-space instances. It displays up to six portal
@@ -122,7 +119,8 @@ crust tests.crs collision
 ```
 
 The fast `graph-layout` check tests generation without a GPU. It checks the
-junction quota, corridor density, and spacing across 101 seed and complexity
+goal access without a return through start, downstream forks, junction counts,
+corridor density, and spacing across 102 seed and complexity
 combinations. The graph check also tests deterministic generation, connected rooms, cross-branch
 joins, reciprocal rolls, and terminal selection. It crosses each assembled
 portal in both directions, checks collection and return through the production

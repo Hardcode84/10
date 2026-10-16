@@ -67,7 +67,7 @@ fn game_numeric(o: *Launch, key: *u8, value: *u8) -> bool {
         return true;
     }
     if strcmp(key, "--complexity") == 0i32 {
-        if n == 0u32 || n > (0xffffffffu32 - 1536u32) / 384u32 {
+        if n == 0u32 || n > (0xffffffffu32 - 2048u32) / 384u32 {
             return error("complexity is outside the graph address range");
         }
         o -> config.complexity = n;
