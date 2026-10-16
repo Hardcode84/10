@@ -106,6 +106,11 @@ therefore take quadratic time as complexity grows. The renderer uploads room
 meshes once and submits local-space instances. It displays up to six portal
 crossings, with 129 reserved views independent of total room count. Exhausted
 view storage rejects the frame. Physical traversal has no view-depth limit.
+The start room has a fixed warm lamp at its centre with a 16 m attenuation
+radius. The ending room has a fixed warm lamp halfway along its axis with a
+12 m attenuation radius. These lamps light only their own rooms and remain
+on when the hook is released.
+
 Tunnel ambient light is zero. The camera lamp has a 6 m attenuation radius.
 The flying and attached hook adds a yellow point light with a 6 m attenuation
 radius in its current room. The attached lamp sits outside the contacted

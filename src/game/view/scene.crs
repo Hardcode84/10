@@ -87,6 +87,7 @@ fn game_scene(
     camera_row(mut v, 4usize, trial.drone.basis.up, trial.drone.position);
     camera_row(mut v, 8usize, trial.drone.basis.forward, trial.drone.position);
     hook_light(read collision, mut v, trial.drone);
+    graph_lighting(mut v, read trial);
     draw_cable(read collision, mut v, trial.drone, config);
     draw_preview(read collision, mut v, read trial, config);
     draw_frame(mut v, trial.drone, config);

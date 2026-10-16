@@ -1,0 +1,20 @@
+fn graph_room_lamp(input: mut FrameInput, space: u32, position: Vec3, radius: f32) -> unit {
+    var index: u32 = input_word(read input, LIGHT_COUNT as usize);
+    var p: usize = (input_word(read input, LIGHT_DATA as usize) + index * 8u32) as usize;
+    input_set_float(mut input, p, position.x);
+    input_set_float(mut input, p + 1usize, position.y);
+    input_set_float(mut input, p + 2usize, position.z);
+    input_set_float(mut input, p + 3usize, radius * radius);
+    input_set_float(mut input, p + 4usize, 1.6f32);
+    input_set_float(mut input, p + 5usize, 1.45f32);
+    input_set_float(mut input, p + 6usize, 1.2f32);
+    input_light_space(mut input, index, space);
+    input_set_word(mut input, LIGHT_COUNT as usize, index + 1u32);
+}
+fn graph_lighting(input: mut FrameInput, trial: read Trial) -> unit {
+    if !trial.graph_run {
+        return;
+    }
+    graph_room_lamp(mut input, 0u32, vec(0f32, 7f32, 0f32), 16f32);
+    graph_room_lamp(mut input, trial.goal_world, vec(0f32, 10f32, 0f32), 12f32);
+}

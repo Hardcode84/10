@@ -33,23 +33,15 @@ fn main(argc: i32, argv: **u8) -> i32 {
     hook_launch(mut drone);
     drone.cable.anchor = vec(0f32, 0f32, 3f32);
     var state: u32 = 0u32;
-    while state < 3u32 {
-        if state == 1u32 {
-            drone.cable.velocity = vec(0f32, 0f32, 1000f32);
-            hook_step(read scene, mut drone, false);
-            if drone.cable.phase != CABLE_ATTACHED || hook_light_position(read scene, drone).z >= 6f32 {
-                error("attached hook lamp must be outside the contacted wall");
-                return 1i32;
-            }
-        }
-        if state == 2u32 {
-            drone.cable = empty_cable();
+    while state < 5u32 {
+        if !hook_light_state(read scene, mut drone, state) {
+            return 1i32;
         }
         {
             var input: FrameInput = renderer_inputs(mut renderer);
             game_palette(mut input);
             input_frame(mut input);
-            input_set_word(mut input, 20usize, 73u32);
+            input_set_word(mut input, 20usize, drone.world);
             input_set_word(mut input, SHARED_AMBIENT as usize, 1u32);
             input_set_float(mut input, CAMERA_LIGHT as usize, 0f32);
             input_set_float(mut input, SPACE_LIGHT as usize, 0f32);
@@ -62,6 +54,12 @@ fn main(argc: i32, argv: **u8) -> i32 {
             if !hook_light_transformed(read scene, mut input, drone) {
                 return 1i32;
             }
+            if state >= 3u32 {
+                var trial: Trial = new_trial();
+                trial.graph_run = true;
+                trial.goal_world = 73u32;
+                graph_lighting(mut input, read trial);
+            }
         }
         if !renderer_draw(&renderer.state) {
             return 1i32;
@@ -69,12 +67,12 @@ fn main(argc: i32, argv: **u8) -> i32 {
         var yellow: u32 = hook_light_yellow(renderer.state.mapped as *u32);
         if (yellow != 0u32) != (state != 2u32) {
             print_number(state as i64);
-            error("hook must light the wall yellow only while flying or attached");
+            error("hook and fixed room lamps did not produce the expected wall lighting");
             return 1i32;
         }
         state = state + 1u32;
     }
-    puts("Flying, attached and released hook lighting passed in room 73.");
+    puts("Hook states, transformed coordinates, and fixed start/goal lamps passed.");
     return 0i32;
 }
 
@@ -117,4 +115,25 @@ fn hook_light_yellow(pixels: *u32) -> u32 {
         i = i + 1u32;
     }
     return yellow;
+}
+
+fn hook_light_state(scene: read CollisionScene, drone: mut Drone, state: u32) -> bool {
+    if state == 1u32 {
+        drone.cable.velocity = vec(0f32, 0f32, 1000f32);
+        hook_step(read scene, mut drone, false);
+        if drone.cable.phase != CABLE_ATTACHED || hook_light_position(read scene, drone).z >= 6f32 {
+            error("attached hook lamp must be outside the contacted wall");
+            return false;
+        }
+    }
+    if state == 3u32 {
+        drone.world = 0u32;
+    }
+    if state == 4u32 {
+        drone.world = 73u32;
+    }
+    if state == 2u32 {
+        drone.cable = empty_cable();
+    }
+    return true;
 }
