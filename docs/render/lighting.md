@@ -72,31 +72,50 @@ must not be presented. Correct the input before submitting another frame.
 
 ## Cost and checks
 
-The raster pass first rejects lights in other spaces and contributions below
-the first intensity band. Only a non-zero contribution starts a shadow query.
-The query stops at the first opaque blocker. Its worst-case cost is proportional
-to the number of scene triangles for each contributing light and shaded pixel.
-There is no light-count truncation or camera-frustum filter for blockers.
+After instance expansion, a GPU pass builds a bounding-volume tree for each
+active light. Each tree contains all shadow-casting triangles in the light’s
+room, including dynamic triangles and instances outside the camera view.
+Construction reads scene metadata once per light per frame. It partitions
+triangle centres on the longest box axis. Unbalanced partitions use equal
+counts. Each leaf contains at most four triangles.
 
-A controlled 120-frame demo run, starting at frame zero at 640 by 360 on an
-AMD Radeon PRO W7900 Dual Slot, measured these CPU submission, GPU, and readback
-times. Both runs used the same light storage and scene. The control disabled
-only the visibility query.
+The raster pass rejects lights in other rooms and contributions below the
+first intensity band. A remaining shadow ray traverses intersected tree bounds
+and tests candidate leaf triangles. It does not scan the scene triangle list.
+Escape links permit traversal without a fixed-size stack or a depth limit.
+Triangle intersection, cutout sampling, and endpoint rules are unchanged.
+Bounds are expanded conservatively for floating-point box intersection.
 
-| Mode | Median | 99th percentile |
-| --- | --- | --- |
-| Visibility query disabled | 3.96 ms | 6.03 ms |
-| Visibility query enabled | 4.17 ms | 7.72 ms |
+Trees are rebuilt each frame, after transformed geometry is ready. A compute
+barrier makes the completed trees available to the raster pass. The GPU keeps
+all tree data; the host does not read it back. Tree scratch storage reserves
+84 bytes per triangle-capacity unit per light-capacity unit in each buffer.
+Storage allocation and geometry limits include this cost. The number of
+lights and triangles is limited by available device storage, not a tree cap.
 
-This short run supports the complete scan for the current demo. It does not
-establish room-scale cost for arbitrary content. Before replacing the scan,
-measure the target room and compare the indexed query with the complete query.
-Both must produce the same visibility.
+Measure the actual start, start with a flying hook, and ending-room views:
+
+```sh
+crust tests.crs benchmark 3840 2160 --lit-rooms --width 960 --height 540
+```
+
+On Intel Arc Pro B60, default seed and complexity, the same three views gave:
+
+| View | Linear scan mean | Tree mean | Tree maximum |
+| --- | --- | --- | --- |
+| Start | 31.36 ms | 14.55 ms | 15.10 ms |
+| Start with hook | 50.31 ms | 15.68 ms | 16.35 ms |
+| Ending room | 29.11 ms | 7.81 ms | 8.11 ms |
+
+Each view uses four warm-up frames and eight measured frames. All three image
+hashes match the linear-scan control exactly. These are headless frame times;
+they exclude window presentation and compositor cost.
 
 Run `crust tests.crs render 11`. It checks a closed bulkhead, a transparent
 cutout, a blocker in another space, a transformed retained blocker, a distant
 lamp, full-bright texels without lamps, and a contributing seventeenth light, a non-shadow-casting surface, and a light
 in a room with an ID above the float exact-integer range.
+Extra off-screen blockers force multi-level tree traversal in each case.
 Each image is compared with the CPU reference. It also checks rejected growth,
 invalid input, and recovery. With visibility disabled, the closed-bulkhead case
 reports 1,092 incorrectly lit pixels outside the reference edge band.

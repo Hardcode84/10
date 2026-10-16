@@ -32,7 +32,7 @@ fn upload_scene(v: *Vulkan) -> unit {
         true
     );
     persistent_upload(v);
-    copy_region(v, v -> staging, v -> buffer, 0u64, (LIGHT_SPACE as u64 + 2u64) * 4u64);
+    copy_region(v, v -> staging, v -> buffer, 0u64, (SHADOW_BOUNDS as u64 + 2u64) * 4u64);
     if (v -> mapped as *u32)[OVERLAY_ENABLED as usize] != 0u32 {
         copy_region(
             v,

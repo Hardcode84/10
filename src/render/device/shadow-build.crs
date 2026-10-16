@@ -1,0 +1,119 @@
+fn shadow_seed(light: u32) -> u32 {
+    var space: u32 = words_load(words_load(LIGHT_SPACE) + light);
+    var first: u32 = words_load(SHADOW_INDEX) + light * words_load(SCENE_CAPACITY);
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < words_load(3u32) {
+        var meta: u32 = words_load(META) + i * 4u32;
+        if words_load(meta) == space && (words_load(meta + 3u32) & 4u32) == 0u32 {
+            words_store(first + count, i);
+            count = count + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return count;
+}
+fn shadow_node_set(node: u32, first: u32, count: u32, escape: u32) -> unit {
+    var p: u32 = words_load(SHADOW_NODES) + node * 4u32;
+    words_store(p, first);
+    words_store(p + 1u32, count);
+    words_store(p + 2u32, escape);
+    words_store(p + 3u32, 0xffffffffu32);
+}
+fn shadow_node_bounds(node: u32, first: u32, count: u32) -> unit {
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        var low: f32 = 3.4028234e38f32;
+        var high: f32 = -3.4028234e38f32;
+        var i: u32 = 0u32;
+        while i < count {
+            var tri: u32 = words_load(words_load(SHADOW_INDEX) + first + i);
+            var vertex: u32 = 0u32;
+            while vertex < 3u32 {
+                var value: f32 = floats_load(GEOMETRY + tri * 15u32 + vertex * 5u32 + axis);
+                if value < low {
+                    low = value;
+                }
+                if value > high {
+                    high = value;
+                }
+                vertex = vertex + 1u32;
+            }
+            i = i + 1u32;
+        }
+        var padding: f32 = (shadow_abs(low) + shadow_abs(high) + 1f32) * 0.000001f32;
+        floats_store(words_load(SHADOW_BOUNDS) + node * 6u32 + axis, low - padding);
+        floats_store(words_load(SHADOW_BOUNDS) + node * 6u32 + 3u32 + axis, high + padding);
+        axis = axis + 1u32;
+    }
+}
+fn shadow_partition(first: u32, count: u32, axis: u32, split: f32) -> u32 {
+    var left: u32 = 0u32;
+    var i: u32 = 0u32;
+    var base: u32 = words_load(SHADOW_INDEX) + first;
+    while i < count {
+        var tri: u32 = words_load(base + i);
+        var p: u32 = GEOMETRY + tri * 15u32 + axis;
+        var center: f32 = floats_load(p) / 3f32 + floats_load(p + 5u32) / 3f32 + floats_load(
+            p + 10u32
+        ) / 3f32;
+        if center < split {
+            words_store(base + i, words_load(base + left));
+            words_store(base + left, tri);
+            left = left + 1u32;
+        }
+        i = i + 1u32;
+    }
+    if left < count / 4u32 || left > count - count / 4u32 {
+        return count / 2u32;
+    }
+    return left;
+}
+fn shadow_split(node: u32, first: u32, count: u32) -> u32 {
+    var bounds: u32 = words_load(SHADOW_BOUNDS) + node * 6u32;
+    var axis: u32 = 0u32;
+    var i: u32 = 1u32;
+    while i < 3u32 {
+        if floats_load(bounds + i + 3u32) - floats_load(bounds + i) > floats_load(
+            bounds + axis + 3u32
+        ) - floats_load(bounds + axis) {
+            axis = i;
+        }
+        i = i + 1u32;
+    }
+    var split: f32 = floats_load(bounds + axis) * 0.5f32 + floats_load(bounds + axis + 3u32) * 0.5f32;
+    return shadow_partition(first, count, axis, split);
+}
+fn shadow_build(light: u32) -> unit {
+    var root: u32 = light * words_load(SCENE_CAPACITY) * 2u32;
+    var count: u32 = shadow_seed(light);
+    shadow_node_set(root, light * words_load(SCENE_CAPACITY), count, 0xffffffffu32);
+    if count == 0u32 {
+        return;
+    }
+    var node: u32 = root;
+    var next: u32 = root + 1u32;
+    while node < next {
+        var p: u32 = words_load(SHADOW_NODES) + node * 4u32;
+        var first: u32 = words_load(p);
+        var size: u32 = words_load(p + 1u32);
+        shadow_node_bounds(node, first, size);
+        if size > 4u32 {
+            var left: u32 = shadow_split(node, first, size);
+            shadow_node_set(next, first, left, next + 1u32);
+            shadow_node_set(next + 1u32, first + left, size - left, words_load(p + 2u32));
+            words_store(p + 3u32, next);
+            next = next + 2u32;
+        }
+        node = node + 1u32;
+    }
+}
+fn compute() -> unit {
+    if shader_local_x() == 0u32 {
+        var light: u32 = shader_global_x() / LOCAL_SIZE;
+        while light < words_load(LIGHT_COUNT) {
+            shadow_build(light);
+            light = light + MAX_INVOCATIONS / LOCAL_SIZE;
+        }
+    }
+}

@@ -89,6 +89,7 @@ fn lighting_scene(v: mut FrameInput, index: u32) -> unit {
         20f32,
         6f32
     );
+    lighting_shadow_tree(mut v);
     lighting_wall(mut v, index);
     if index == 8u32 {
         lighting_large_space(mut v);
@@ -245,6 +246,33 @@ fn lighting_large_space(input: mut FrameInput) -> unit {
     while i < input_word(read input, 3usize) {
         var meta: usize = (input_word(read input, META as usize) + i * 4u32) as usize;
         input_set_word(mut input, meta, 0xfffffffeu32);
+        i = i + 1u32;
+    }
+}
+
+fn lighting_shadow_tree(input: mut FrameInput) -> unit {
+    var i: u32 = 0u32;
+    while i < 16u32 {
+        var x: f32 = 40f32 + i as f32 * 3f32;
+        quad(
+            mut input,
+            0u32,
+            0u32,
+            0u32,
+            0u32,
+            x,
+            -1f32,
+            3f32,
+            x + 1f32,
+            -1f32,
+            3f32,
+            x + 1f32,
+            1f32,
+            3f32,
+            x,
+            1f32,
+            3f32
+        );
         i = i + 1u32;
     }
 }

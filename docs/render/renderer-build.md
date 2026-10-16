@@ -132,9 +132,9 @@ each visible point and triangle normal in that space. Surfaces are two-sided:
 the normal faces the viewer, and light from behind that face contributes zero.
 The light weight is `max(0, cos(theta)) / (1 + d/R)^2`, where `d` is distance
 and `R` is the falloff radius. There is no minimum angular contribution.
-The renderer does not compute shadow visibility. Add a tested occlusion pass
-before using these lights for cast shadows. Material emission makes lamp
-surfaces visible without nearby lights.
+Point lights use GPU spatial trees for shadow visibility. See
+[light visibility](lighting.md). Material emission makes lamp surfaces visible
+without nearby lights.
 
 For each light, the largest RGB component sets its peak intensity. Multiply
 the light weight by that intensity and by seven. Round down to an integer

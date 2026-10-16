@@ -47,18 +47,113 @@ fn light_blocks(tri: u32, ox: f32, oy: f32, oz: f32, dx: f32, dy: f32, dz: f32) 
     var mat: u32 = words_load(meta + 1u32);
     return material_texel(mat, tu, tv) != material_field(mat, 9u32);
 }
-fn light_visible(receiver: u32, ox: f32, oy: f32, oz: f32, lx: f32, ly: f32, lz: f32) -> bool {
-    var space: u32 = words_load(words_load(META) + receiver * 4u32);
-    var i: u32 = 0u32;
-    while i < words_load(3u32) {
-        if i != receiver && words_load(words_load(META) + i * 4u32) == space && (
-            words_load(words_load(META) + i * 4u32 + 3u32) & 4u32
-        ) == 0u32 {
-            if light_blocks(i, ox, oy, oz, lx - ox, ly - oy, lz - oz) {
+fn shadow_abs(value: f32) -> f32 {
+    if value < 0f32 {
+        return -value;
+    }
+    return value;
+}
+fn shadow_intersects(node: u32, ox: f32, oy: f32, oz: f32, dx: f32, dy: f32, dz: f32) -> bool {
+    var near: f32 = 0f32;
+    var far: f32 = 1f32;
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        var origin: f32 = ox;
+        var direction: f32 = dx;
+        if axis == 1u32 {
+            origin = oy;
+            direction = dy;
+        }
+        if axis == 2u32 {
+            origin = oz;
+            direction = dz;
+        }
+        var p: u32 = words_load(SHADOW_BOUNDS) + node * 6u32 + axis;
+        var low: f32 = floats_load(p);
+        var high: f32 = floats_load(p + 3u32);
+        if direction == 0f32 {
+            if origin < low || origin > high {
+                return false;
+            }
+        } else {
+            var a: f32 = (low - origin) / direction;
+            var b: f32 = (high - origin) / direction;
+            if a > b {
+                var swap: f32 = a;
+                a = b;
+                b = swap;
+            }
+            if a > near {
+                near = a;
+            }
+            if b < far {
+                far = b;
+            }
+            if near > far {
                 return false;
             }
         }
+        axis = axis + 1u32;
+    }
+    return true;
+}
+fn shadow_leaf(
+    first: u32,
+    count: u32,
+    receiver: u32,
+    ox: f32,
+    oy: f32,
+    oz: f32,
+    dx: f32,
+    dy: f32,
+    dz: f32
+) -> bool {
+    var i: u32 = 0u32;
+    while i < count {
+        var tri: u32 = words_load(words_load(SHADOW_INDEX) + first + i);
+        if tri != receiver && light_blocks(tri, ox, oy, oz, dx, dy, dz) {
+            return false;
+        }
         i = i + 1u32;
+    }
+    return true;
+}
+fn light_visible(
+    light: u32,
+    receiver: u32,
+    ox: f32,
+    oy: f32,
+    oz: f32,
+    lx: f32,
+    ly: f32,
+    lz: f32
+) -> bool {
+    var node: u32 = light * words_load(SCENE_CAPACITY) * 2u32;
+    if words_load(words_load(SHADOW_NODES) + node * 4u32 + 1u32) == 0u32 {
+        return true;
+    }
+    while node != 0xffffffffu32 {
+        var p: u32 = words_load(SHADOW_NODES) + node * 4u32;
+        var next: u32 = words_load(p + 2u32);
+        if shadow_intersects(node, ox, oy, oz, lx - ox, ly - oy, lz - oz) {
+            var child: u32 = words_load(p + 3u32);
+            if child != 0xffffffffu32 {
+                next = child;
+            } else if !shadow_leaf(
+                words_load(p),
+                words_load(p + 1u32),
+                receiver,
+                ox,
+                oy,
+                oz,
+                lx - ox,
+                ly - oy,
+                lz - oz
+            ) {
+                return false;
+            }
+        }
+        node = next;
     }
     return true;
 }

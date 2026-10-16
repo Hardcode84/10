@@ -73,6 +73,8 @@ fn commands_record(v: *Vulkan) -> bool {
     );
     retained_dispatch(v, 8usize, v -> instance_capacity);
     frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+    retained_dispatch(v, 11usize, v -> light_capacity);
+    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
     retained_dispatch(v, 0usize, (v -> width * v -> height + 63u32) / 64u32);
     frame_barrier(v, 2048u32, 64u32, 2048u32 | 2u32, 96u32 | 1u32);
     vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 1u32);
@@ -117,7 +119,7 @@ fn commands_record(v: *Vulkan) -> bool {
     retained_dispatch(v, 4usize, (v -> output_width * v -> output_height + 63u32) / 64u32);
     frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
     if v -> shader_checks {
-        retained_dispatch(v, 11usize, STATUS_GROUPS);
+        retained_dispatch(v, (PIPELINE_COUNT - 1u32) as usize, STATUS_GROUPS);
     }
     var barrier: VkMemoryBarrier = uninit;
     zero(&barrier as *u8, sizeof(VkMemoryBarrier));

@@ -168,6 +168,7 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32, hx: u32, hy: u32) -> u3
                 floats_load(p + 6u32)
             );
             if amount > 0f32 && !light_visible(
+                i,
                 tri,
                 sx,
                 sy,

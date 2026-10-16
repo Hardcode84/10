@@ -229,7 +229,7 @@ fn transfer_debug_record(v: *Vulkan) -> bool {
         pass = pass + 1u32;
     }
     frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-    retained_dispatch(v, 11usize, STATUS_GROUPS);
+    retained_dispatch(v, (PIPELINE_COUNT - 1u32) as usize, STATUS_GROUPS);
     frame_barrier(v, 2048u32, 64u32, 4096u32, 2048u32);
     readback(v);
     return vk_ok(vkEndCommandBuffer(v -> commands), "end debug fixture");
