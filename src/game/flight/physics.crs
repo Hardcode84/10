@@ -1,5 +1,5 @@
-const FLIGHT_PULSE_TICKS: u32 = 30u32;
-const FLIGHT_PULSE_SECONDS: f32 = 0.25f32;
+const FLIGHT_PULSE_TICKS: u32 = 18u32;
+const FLIGHT_PULSE_SECONDS: f32 = 0.15f32;
 fn flight_pulses(drone: mut Drone, command: Command) -> unit {
     if command.burst && drone.boost_ticks == 0u32 && burst_available(read drone) {
         use_charge(mut drone, BURST_CHARGE);

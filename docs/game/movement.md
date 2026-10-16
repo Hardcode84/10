@@ -32,11 +32,11 @@ Charge is unlimited in Phase 0. The trial records burst count, total speed
 removed by braking, and winch work per unit mass. The exit report prints these
 values. Charge depletion and beacons belong to Phase 1.
 
-Boost and brake each run for 0.25 seconds (30 simulation steps). Boost applies
-60 m/s² along the current ship forward axis, for 15 m/s of total velocity
+Boost and brake each run for 0.15 seconds (18 simulation steps). Boost applies
+100 m/s² along the current ship forward axis, for 15 m/s of total velocity
 change without other forces. Turning steers the boost.
 
-Brake sets its acceleration from the starting speed, up to 120 m/s². Each
+Brake sets its acceleration from the starting speed, up to 200 m/s². Each
 step applies it against the current velocity. It cannot reverse the ship.
 Charge is spent only for speed removed. Other forces, contacts, and portals
 remain active during both pulses. A repeated press cannot extend an active
@@ -231,7 +231,7 @@ Recordings contain tick commands and a hash of the complete trial state after
 each tick. Replay checks every hash and stops with an error at the first
 mismatch. A recording must end with a count footer. Truncated data and invalid
 numeric values are errors. Use the same build for recording and replay. This
-format uses the current Linux host's word representation. Version 13 stores the
+format uses the current Linux host's word representation. Version 14 stores the
 game mode and initial spin mode in its header. The state hash includes active
 boost and brake pulses, prediction phase, machine clock, mesh attachment,
 local anchor, and energy counters. Replay restores the mode and reproduces

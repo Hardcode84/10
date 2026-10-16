@@ -4,7 +4,7 @@ fn test_boost_pulse(collision: read CollisionScene) -> bool {
     command.burst = true;
     flight_pulses(mut drone, command);
     if !game_check(
-        near(drone.velocity.z, 0.5f32, 0.001f32),
+        near(drone.velocity.z, 0.8333333f32, 0.001f32),
         "boost must accelerate over time"
     ) {
         return false;
@@ -36,7 +36,7 @@ fn test_brake_pulse(collision: read CollisionScene) -> bool {
     command.brake = true;
     flight_pulses(mut drone, command);
     if !game_check(
-        near(drone.velocity.x, 39f32, 0.01f32),
+        near(drone.velocity.x, 38.333333f32, 0.01f32),
         "brake must decelerate over time"
     ) {
         return false;

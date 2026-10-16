@@ -40,7 +40,7 @@ fn recording_open(stream: *Recording, o: *Launch) -> bool {
     }
     var header: [u32; 4] = make [u32; 4] {
         0x53504e30u32,
-        13u32,
+        14u32,
         o -> config.full_spin as u32,
         o -> config.trial as u32 | ((o -> config.room_demo as u32) << 1u32)
     };
@@ -51,7 +51,7 @@ fn recording_open(stream: *Recording, o: *Launch) -> bool {
     }
     if fread(&header as *u8, 16usize, 1usize, stream -> file) != 1usize || header[0usize] != 0x53504e30u32 || header[
         1usize
-    ] != 13u32 || header[2usize] > 1u32 || header[3usize] > 3u32 {
+    ] != 14u32 || header[2usize] > 1u32 || header[3usize] > 3u32 {
         return error("invalid recording header");
     }
     if ((header[3usize] & 2u32) != 0u32) != o -> config.room_demo {
