@@ -16,10 +16,10 @@ fn bin_tile() -> unit {
         var i: u32 = word * 32u32;
         while i < (word + 1u32) * 32u32 && i < count {
             var id: u32 = words_load(
-                words_load(COMPACT_OFFSET) + view * words_load(3u32) * MAX_FAN + i
+                words_load(COMPACT_OFFSET) + view * words_load(PROJECTION_CAPACITY) * MAX_FAN + i
             );
             var p: u32 = words_load(PROJECTED_OFFSET) + (
-                view * words_load(3u32) * MAX_FAN + id
+                view * words_load(PROJECTION_CAPACITY) * MAX_FAN + id
             ) * 20u32;
             if tile_overlap(p, x, y) {
                 bits = bits | (1u32 << (i % 32u32));

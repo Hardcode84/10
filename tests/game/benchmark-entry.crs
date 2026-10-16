@@ -84,7 +84,7 @@ fn graph_benchmark(
         (
             tile_bit_words(
                 &session.renderer.state,
-                session.renderer.state.triangle_capacity
+                session.renderer.state.projection_capacity
             ) * 4u64
         ) as i64
     );

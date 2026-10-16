@@ -31,6 +31,7 @@ record Vulkan {
     words: u32;
     floats: u32;
     triangle_capacity: u32;
+    projection_capacity: u32;
     view_capacity: u32;
     portal_capacity: u32;
     task_capacity: u32;

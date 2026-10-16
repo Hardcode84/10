@@ -101,3 +101,8 @@ const INSTANCE_CAPACITY: u32 = 91u32;
 
 const LIGHT_ROOM: u32 = 0u32;
 const LIGHT_VIEW: u32 = 1u32;
+
+const PROJECTION_CAPACITY: u32 = 92u32;
+const SPACE_TRIANGLES: u32 = 93u32;
+const SPACE_META: u32 = 94u32;
+const SPACE_COUNT: u32 = 95u32;

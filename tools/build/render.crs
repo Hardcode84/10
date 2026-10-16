@@ -1,11 +1,12 @@
 fn render_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 18] = make [*u8; 18] {
+    var files: [*u8; 19] = make [*u8; 19] {
         "src/render/host/vulkan.crs",
         "src/render/host/io.crs",
         "src/app/io.crs",
         "src/render/host/device.crs",
         "src/render/host/resources.crs",
         "src/render/host/geometry.crs",
+        "src/render/host/projection.crs",
         "src/render/host/assets.crs",
         "src/render/host/mesh.crs",
         "src/render/host/retained.crs",
@@ -20,14 +21,14 @@ fn render_providers(root: *CrustRun, args: **u8) -> usize {
         "src/render/host/transfers.crs"
     };
     var i: usize = 0usize;
-    while i < 18usize {
+    while i < 19usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn check_renderer(root: *CrustRun) -> bool {
-    var providers: [*u8; 18] = uninit;
+    var providers: [*u8; 19] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
     var args: [*u8; 3] = make [*u8; 3] {
         "--check",

@@ -35,10 +35,10 @@ fn compute() -> unit {
         words_store(10u32, 1u32);
         words_store(11u32, 1u32);
         words_store(12u32, 0u32);
-        words_store(16u32, geometry_groups(words_load(3u32)));
+        words_store(16u32, geometry_groups(words_load(PROJECTION_CAPACITY)));
         words_store(17u32, 1u32);
         words_store(18u32, 1u32);
-        words_store(words_load(VIEW_META), words_load(20u32));
+        view_space(0u32, words_load(20u32));
         var j: u32 = 0u32;
         while j < 12u32 {
             floats_store(words_load(VIEW_FLOAT) + j, floats_load(j));

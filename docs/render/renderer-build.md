@@ -246,6 +246,14 @@ persistent ranges, frame transfers, debug reports, and retirement fences. Image 
 dimensions; geometry metadata, projected vertices, clipping scratch, and compact indices
 follow the checked layout in `src/render/host/geometry.crs`.
 
+Projection capacity is separate from scene capacity. The host groups submitted
+triangles by space, in submission order within each space. Space identifiers can
+be any `u32` value. Each view selects the group for its space. Projection,
+clipping, compact indices, and tile bits reserve the largest submitted space
+per view, not the complete level per view. Source geometry and shadow data keep
+global triangle indices. This preserves material lookup and depth tie order.
+An empty space has no projected triangles.
+
 Storage grows geometrically on submission, up to the physical device range
 limit. If geometric growth would exceed that limit, allocate the requested
 size. Each words or floats binding starts with its payload element count.
@@ -254,6 +262,8 @@ inputs across growth, updates descriptors, and records commands again. The
 submission fence guarantees that no rendering work uses the old buffer during
 replacement. Reserve calls can fail due to device limits, allocation, or Vulkan
 command errors. Replacement waits for pending rendering work to retire.
+Draw can also replace storage when a space needs more projection capacity.
+No input borrow or mapped address can remain in use across these calls.
 
 Staging memory must be host-visible, coherent, and cached. Device creation reports an error if the profile cannot
 be met. The Vulkan owner releases buffers, memory, pipelines, queries, commands,
@@ -524,7 +534,7 @@ All 12 AMD image hashes still matched the original renderer. Tile filtering
 keeps source geometry, draw order, masks, and the crossing limit unchanged.
 
 Each task stores one bit per possible projected triangle. The allocation
-uses `4 * task_capacity * ceil(triangle_capacity * MAX_FAN / 32)` bytes.
+uses `4 * task_capacity * ceil(projection_capacity * MAX_FAN / 32)` bytes.
 It grows with the frame buffers and uses the same checked device-storage
 limit. The bin pass writes only the words required by the active compact list.
 This storage is also present in the host staging allocation; it is not copied

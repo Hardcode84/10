@@ -97,6 +97,7 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
 }
 // Consumes the caller's camera, geometry, portals, textures, and lighting in the input buffer.
 // Returns after GPU completion and the selected readback. A failed frame must not be presented.
+// Requires no input borrow. Frame storage addresses can change when room geometry grows.
 fn renderer_draw(v: *Vulkan) -> bool {
     v -> present_ready = false;
     if !lighting_valid(v) {
@@ -109,6 +110,10 @@ fn renderer_draw(v: *Vulkan) -> bool {
     if w[INSTANCE_COUNT as usize] == 0u32 {
         w[DYNAMIC_COUNT as usize] = w[3usize];
     }
+    if !projection_prepare(v) {
+        return false;
+    }
+    w = v -> mapped as *u32;
     w[SHADOW_RESET as usize] = (
         v -> mesh_dirty || v -> shadow_dirty || v -> shadow_instances != w[
             INSTANCE_COUNT as usize

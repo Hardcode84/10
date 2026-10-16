@@ -19,6 +19,20 @@ fn upload_scene(v: *Vulkan) -> unit {
     retained_upload(v);
     retained_transfer(
         v,
+        SPACE_TRIANGLES,
+        (v -> mapped as *u32)[3usize] * 2u32,
+        false,
+        true
+    );
+    retained_transfer(
+        v,
+        SPACE_META,
+        (v -> mapped as *u32)[SPACE_COUNT as usize] * 3u32,
+        false,
+        true
+    );
+    retained_transfer(
+        v,
         LIGHT_DATA,
         (v -> mapped as *u32)[LIGHT_COUNT as usize] * 8u32,
         true,
@@ -32,13 +46,7 @@ fn upload_scene(v: *Vulkan) -> unit {
         true
     );
     persistent_upload(v);
-    copy_region(
-        v,
-        v -> staging,
-        v -> buffer,
-        0u64,
-        (INSTANCE_CAPACITY as u64 + 2u64) * 4u64
-    );
+    copy_region(v, v -> staging, v -> buffer, 0u64, (SPACE_COUNT as u64 + 2u64) * 4u64);
     if (v -> mapped as *u32)[OVERLAY_ENABLED as usize] != 0u32 {
         copy_region(
             v,

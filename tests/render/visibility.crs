@@ -6,6 +6,7 @@ fn visibility_compare(v: *Vulkan, require_rejection: bool) -> bool {
     if !renderer_draw(v) {
         return false;
     }
+    w = v -> mapped as *u32;
     var bytes: usize = w[0usize] as usize * w[1usize] as usize * 4usize;
     var pixels: *u8 = malloc(bytes);
     if pixels == null(*u8) {
@@ -18,6 +19,7 @@ fn visibility_compare(v: *Vulkan, require_rejection: bool) -> bool {
     }
     w[CULL_DISABLED as usize] = 1u32;
     var good: bool = renderer_draw(v);
+    w = v -> mapped as *u32;
     if good && memcmp(pixels, v -> mapped + PIXELS as isize * 4isize, bytes) != 0i32 {
         good = error("instance culling changed the image");
     }

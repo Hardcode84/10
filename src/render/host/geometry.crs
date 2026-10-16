@@ -1,15 +1,17 @@
 fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
+    var projected_count: u64 = v -> projection_capacity as u64 * v -> view_capacity as u64;
+    if projected_count > v -> storage_limit as u64 / (4u64 * (MAX_FAN as u64 * 20u64 + 144u64)) {
+        return error("room projection storage exceeds device storage range");
+    }
     var projected: u64 = GEOMETRY as u64 + capacity as u64 * 15u64;
-    var clip: u64 = projected + capacity as u64 * v -> view_capacity as u64 * MAX_FAN as u64 * 20u64;
+    var clip: u64 = projected + projected_count * MAX_FAN as u64 * 20u64;
     var floats: u64 = (
-        clip + capacity as u64 * v -> view_capacity as u64 * 144u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
+        clip + projected_count * 144u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
             v
         ) + v -> light_capacity as u64 * 8u64 + shadow_elements(v, capacity) * 12u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
     var words: u64 = (
-        image_words(v) + tile_bit_words(v, capacity) + capacity as u64 * (
-            5u64 + v -> view_capacity as u64 * MAX_FAN as u64
-        ) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
+        image_words(v) + tile_bit_words(v, v -> projection_capacity) + capacity as u64 * 10u64 + projected_count * MAX_FAN as u64 + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
             5u64 + v -> view_capacity as u64
         ) + traversal_words(v) + v -> light_capacity as u64 + shadow_elements(v, capacity) * 9u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
@@ -34,16 +36,22 @@ fn geometry_header(v: *Vulkan) -> unit {
     image_viewport(v);
     w[SCENE_CAPACITY as usize] = capacity;
     w[PROJECTED_OFFSET as usize] = GEOMETRY + capacity * 15u32;
-    w[CLIP_OFFSET as usize] = w[PROJECTED_OFFSET as usize] + capacity * v -> view_capacity * MAX_FAN * 20u32;
+    w[CLIP_OFFSET as usize] = w[PROJECTED_OFFSET as usize] + v -> projection_capacity * v -> view_capacity * MAX_FAN * 20u32;
     w[COMPACT_OFFSET as usize] = w[META as usize] + capacity * 4u32;
-    w[TILE_BITS as usize] = w[COMPACT_OFFSET as usize] + capacity * v -> view_capacity * MAX_FAN;
-    w[ASSET_OFFSET as usize] = w[TILE_BITS as usize] + tile_bit_words(v, capacity) as u32;
+    w[TILE_BITS as usize] = w[COMPACT_OFFSET as usize] + v -> projection_capacity * v -> view_capacity * MAX_FAN;
+    w[ASSET_OFFSET as usize] = w[TILE_BITS as usize] + tile_bit_words(
+        v,
+        v -> projection_capacity
+    ) as u32;
     w[LIGHT_SPACE as usize] = w[ASSET_OFFSET as usize] + v -> asset_capacity;
     w[INSTANCE_OWNER as usize] = w[LIGHT_SPACE as usize] + v -> light_capacity;
-    w[MESH_META as usize] = w[INSTANCE_OWNER as usize] + capacity;
+    w[SPACE_TRIANGLES as usize] = w[INSTANCE_OWNER as usize] + capacity;
+    w[SPACE_META as usize] = w[SPACE_TRIANGLES as usize] + capacity * 2u32;
+    w[MESH_META as usize] = w[SPACE_META as usize] + capacity * 3u32;
+    w[PROJECTION_CAPACITY as usize] = v -> projection_capacity;
     w[INSTANCE_META as usize] = w[MESH_META as usize] + v -> mesh_capacity * 4u32;
     w[INSTANCE_VISIBLE as usize] = w[INSTANCE_META as usize] + v -> instance_capacity * 5u32;
-    w[MESH_FLOAT as usize] = w[CLIP_OFFSET as usize] + capacity * v -> view_capacity * 144u32;
+    w[MESH_FLOAT as usize] = w[CLIP_OFFSET as usize] + v -> projection_capacity * v -> view_capacity * 144u32;
     w[INSTANCE_FLOAT as usize] = w[MESH_FLOAT as usize] + v -> mesh_capacity * 15u32;
     traversal_header(v);
     w[LIGHT_DATA as usize] = w[PORTAL_FLOAT as usize] + v -> portal_capacity * 16u32;
@@ -71,6 +79,8 @@ fn geometry_copy(v: *Vulkan, old: *Vulkan) -> unit {
     );
     geometry_header(v);
     retained_copy(v, old);
+    retained_copy_region(v, old, SPACE_TRIANGLES, old -> triangle_capacity * 2u32, false);
+    retained_copy_region(v, old, SPACE_META, old -> triangle_capacity * 3u32, false);
     retained_copy_region(v, old, LIGHT_DATA, old -> light_capacity * 8u32, true);
     retained_copy_region(v, old, LIGHT_SPACE, old -> light_capacity, false);
     retained_copy_region(v, old, PORTAL_META, old -> portal_capacity * 4u32, false);
@@ -128,10 +138,15 @@ fn storage_replace(v: *Vulkan, planned: *Vulkan) -> bool {
 }
 fn geometry_limit(v: *Vulkan) -> u32 {
     var elements: u64 = (v -> storage_limit as u64 / 256u64) * 64u64 - 1u64;
-    var fixed_words: u64 = image_words(v) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
+    var fixed_words: u64 = v -> projection_capacity as u64 * v -> view_capacity as u64 * MAX_FAN as u64 + tile_bit_words(
+        v,
+        v -> projection_capacity
+    ) + image_words(v) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
         5u64 + v -> view_capacity as u64
     ) + traversal_words(v) + v -> light_capacity as u64 + v -> light_capacity as u64 * v -> instance_capacity as u64 * 9u64;
-    var fixed_floats: u64 = GEOMETRY as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
+    var fixed_floats: u64 = v -> projection_capacity as u64 * v -> view_capacity as u64 * (
+        MAX_FAN as u64 * 20u64 + 144u64
+    ) + GEOMETRY as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
         v
     ) + v -> light_capacity as u64 * (8u64 + v -> instance_capacity as u64 * 12u64);
     if elements <= fixed_words || elements <= fixed_floats {
@@ -139,17 +154,13 @@ fn geometry_limit(v: *Vulkan) -> u32 {
     }
     var lower: u64 = 0u64;
     var upper: u64 = (elements - fixed_floats) / (
-        15u64 + v -> view_capacity as u64 * (MAX_FAN as u64 * 20u64 + 144u64) + (
-            v -> light_capacity as u64 + 1u64
-        ) * 12u64
+        15u64 + (v -> light_capacity as u64 + 1u64) * 12u64
     );
     while lower < upper {
         var middle: u64 = lower + (upper - lower + 1u64) / 2u64;
         var size: u64 = fixed_words + middle * (
-            5u64 + v -> view_capacity as u64 * MAX_FAN as u64 + (
-                v -> light_capacity as u64 + 1u64
-            ) * 9u64
-        ) + tile_bit_words(v, middle as u32);
+            10u64 + (v -> light_capacity as u64 + 1u64) * 9u64
+        );
         if size <= elements {
             lower = middle;
         } else {

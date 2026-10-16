@@ -122,9 +122,14 @@ fn clip_polygon(base: u32, count: u32, plane: u32, near: f32) -> u32 {
     return output;
 }
 fn prepare_triangle(index: u32) -> unit {
-    var view: u32 = words_load(9u32) + index / words_load(3u32);
-    var tri: u32 = index % words_load(3u32);
-    var slot: u32 = view * words_load(3u32) + tri;
+    var stride: u32 = words_load(PROJECTION_CAPACITY);
+    var view: u32 = words_load(9u32) + index / stride;
+    var local: u32 = index % stride;
+    if local >= view_triangles(view) {
+        return;
+    }
+    var tri: u32 = view_triangle(view, local);
+    var slot: u32 = view * stride + local;
     var output: u32 = words_load(PROJECTED_OFFSET) + slot * MAX_FAN * 20u32;
     var fan: u32 = 0u32;
     while fan < MAX_FAN {
@@ -195,7 +200,7 @@ fn prepare_triangle(index: u32) -> unit {
 }
 fn compute() -> unit {
     var i: u32 = shader_global_x();
-    while words_load(5u32) == 0u32 && i < words_load(10u32) * words_load(3u32) {
+    while words_load(5u32) == 0u32 && i < words_load(10u32) * words_load(PROJECTION_CAPACITY) {
         prepare_triangle(i);
         i = i + MAX_INVOCATIONS;
     }

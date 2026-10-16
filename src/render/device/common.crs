@@ -438,7 +438,7 @@ fn tile_overlap(p: u32, x: f32, y: f32) -> bool {
     ) &&!(ay > y + 8f32 && by > y + 8f32 && cy > y + 8f32);
 }
 fn tile_bit_stride() -> u32 {
-    return (words_load(SCENE_CAPACITY) * MAX_FAN + 31u32) / 32u32;
+    return (words_load(PROJECTION_CAPACITY) * MAX_FAN + 31u32) / 32u32;
 }
 fn next_tile_candidate(task: u32, start: u32, count: u32) -> u32 {
     var word: u32 = start / 32u32;
@@ -487,4 +487,35 @@ fn light_position(light: u32, view: u32, axis: u32) -> f32 {
     ) * (floats_load(light + 1u32) - floats_load(p + 7u32)) + floats_load(p + 8u32 + axis) * (
         floats_load(light + 2u32) - floats_load(p + 11u32)
     );
+}
+
+fn view_space(view: u32, space: u32) -> unit {
+    var begin: u32 = 0u32;
+    var end: u32 = words_load(SPACE_COUNT);
+    var table: u32 = words_load(SPACE_META);
+    while begin < end {
+        var middle: u32 = begin + (end - begin) / 2u32;
+        if words_load(table + middle * 3u32) < space {
+            begin = middle + 1u32;
+        } else {
+            end = middle;
+        }
+    }
+    var count: u32 = 0u32;
+    var first: u32 = 0u32;
+    if begin < words_load(SPACE_COUNT) && words_load(table + begin * 3u32) == space {
+        first = words_load(table + begin * 3u32 + 1u32);
+        count = words_load(table + begin * 3u32 + 2u32);
+    }
+    var meta: u32 = words_load(VIEW_META) + view * 4u32;
+    words_store(meta, space);
+    words_store(meta + 1u32, count);
+    words_store(meta + 2u32, first);
+}
+fn view_triangles(view: u32) -> u32 {
+    return words_load(words_load(VIEW_META) + view * 4u32 + 1u32);
+}
+fn view_triangle(view: u32, local: u32) -> u32 {
+    var first: u32 = words_load(words_load(VIEW_META) + view * 4u32 + 2u32);
+    return words_load(words_load(SPACE_TRIANGLES) + (first + local) * 2u32 + 1u32);
 }

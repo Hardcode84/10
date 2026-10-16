@@ -1,0 +1,83 @@
+// Space identifiers are arbitrary u32 values. Triangle order within each space
+// follows submission order, including retained instances and dynamic geometry.
+extern fn projection_sort(
+    base: *u8,
+    count: usize,
+    size: usize,
+    compare: fn(*u8, *u8) -> i32
+) -> unit = "qsort";
+fn projection_compare(left: *u8, right: *u8) -> i32 {
+    var a: *u32 = left as *u32;
+    var b: *u32 = right as *u32;
+    if a[0usize] < b[0usize] {
+        return -1i32;
+    }
+    if a[0usize] > b[0usize] {
+        return 1i32;
+    }
+    if a[1usize] < b[1usize] {
+        return -1i32;
+    }
+    return (a[1usize] > b[1usize]) as i32;
+}
+fn projection_members(v: *Vulkan) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var pairs: *u32 = w + w[SPACE_TRIANGLES as usize] as isize;
+    var i: u32 = 0u32;
+    while i < w[DYNAMIC_COUNT as usize] {
+        pairs[(i * 2u32) as usize] = w[(w[META as usize] + i * 4u32) as usize];
+        pairs[(i * 2u32 + 1u32) as usize] = i;
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < w[INSTANCE_COUNT as usize] {
+        var p: u32 = w[INSTANCE_META as usize] + i * 5u32;
+        var first: u32 = w[(p + 2u32) as usize];
+        var local: u32 = 0u32;
+        while local < w[(p + 1u32) as usize] {
+            var id: u32 = first + local;
+            pairs[(id * 2u32) as usize] = w[(p + 3u32) as usize];
+            pairs[(id * 2u32 + 1u32) as usize] = id;
+            local = local + 1u32;
+        }
+        i = i + 1u32;
+    }
+    projection_sort(pairs as *u8, w[3usize] as usize, 8usize, projection_compare);
+}
+fn projection_spaces(v: *Vulkan) -> u32 {
+    var w: *u32 = v -> mapped as *u32;
+    var pairs: *u32 = w + w[SPACE_TRIANGLES as usize] as isize;
+    var spaces: *u32 = w + w[SPACE_META as usize] as isize;
+    var largest: u32 = 1u32;
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < w[3usize] {
+        var begin: u32 = i;
+        var space: u32 = pairs[(i * 2u32) as usize];
+        while i < w[3usize] && pairs[(i * 2u32) as usize] == space {
+            i = i + 1u32;
+        }
+        spaces[(count * 3u32) as usize] = space;
+        spaces[(count * 3u32 + 1u32) as usize] = begin;
+        spaces[(count * 3u32 + 2u32) as usize] = i - begin;
+        if i - begin > largest {
+            largest = i - begin;
+        }
+        count = count + 1u32;
+    }
+    w[SPACE_COUNT as usize] = count;
+    return largest;
+}
+fn projection_prepare(v: *Vulkan) -> bool {
+    projection_members(v);
+    var required: u32 = projection_spaces(v);
+    if required <= v -> projection_capacity {
+        return true;
+    }
+    var next: Vulkan = *v;
+    next.projection_capacity = required;
+    if !geometry_layout(&next, next.triangle_capacity) {
+        return false;
+    }
+    return storage_replace(v, &next);
+}

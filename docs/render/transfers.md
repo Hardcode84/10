@@ -47,7 +47,7 @@ the instance ranges. Unchanged assets, meshes, instances, and font data are not
 uploaded again. A new device allocation marks its persistent ranges for upload.
 
 Frame transfers contain the header, camera, ambient and camera-light values,
-active point lights, dynamic geometry, portal records, and enabled overlay
+active point lights, dynamic geometry, space triangle groups, portal records, and enabled overlay
 cells. The host does not transfer unused header space or the old fixed float
 prefix. Image, projection, clipping, and traversal work ranges remain device
 outputs. Debug mode can copy selected output ranges back into staging.
@@ -62,6 +62,8 @@ ranges; they are not counts of live asset bytes.
 The public draw call remains synchronous. It returns after its submission fence
 signals and the selected readback is available. This change does not add multiple
 frames in flight or promise CPU/GPU overlap.
+Draw can replace storage to increase room projection capacity. Callers must
+release input borrows before draw and acquire mapped addresses again after draw.
 
 Each submitted render command buffer owns the device and staging ranges until
 its retirement fence signals. Input borrows, storage replacement, and destruction

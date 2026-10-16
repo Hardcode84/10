@@ -24,10 +24,7 @@ fn child_view(parent: u32, portal: u32, view: u32) -> unit {
         floats_store(dst + 12u32 + r, floats_load(transform + 12u32 + r));
         r = r + 1u32;
     }
-    words_store(
-        words_load(VIEW_META) + view * 4u32,
-        words_load(words_load(PORTAL_META) + portal * 4u32 + 1u32)
-    );
+    view_space(view, words_load(words_load(PORTAL_META) + portal * 4u32 + 1u32));
 }
 fn allocate_key_word(word: u32, mask: u32, views: u32) -> u32 {
     var next: u32 = views;
@@ -99,7 +96,10 @@ fn advance() -> unit {
     words_store(10u32, views - oldviews);
     words_store(11u32, views);
     words_store(12u32, words_load(12u32) + 1u32);
-    words_store(16u32, geometry_groups((views - oldviews) * words_load(3u32)));
+    words_store(
+        16u32,
+        geometry_groups((views - oldviews) * words_load(PROJECTION_CAPACITY))
+    );
 }
 fn reduce_view_keys() -> unit {
     var word: u32 = words_load(9u32) * words_load(PORTAL_CAPACITY) / 32u32 + shader_local_x();

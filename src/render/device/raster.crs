@@ -118,8 +118,8 @@ fn candidate_depth(p: u32, px: f32, py: f32) -> f32 {
     }
     return 0f32;
 }
-fn candidate_opaque(id: u32, p: u32, px: f32, py: f32) -> bool {
-    var meta: u32 = words_load(META) + (id / MAX_FAN) * 4u32;
+fn candidate_opaque(triangle: u32, p: u32, px: f32, py: f32) -> bool {
+    var meta: u32 = words_load(META) + triangle * 4u32;
     if (words_load(meta + 3u32) & 1u32) == 0u32 {
         return true;
     }
@@ -156,7 +156,7 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
     var py: f32 = y as f32 + 0.5f32;
     var count: u32 = words_load(words_load(COMPACT_COUNT) + view);
     if words_load(25u32) != 0u32 {
-        count = words_load(3u32) * MAX_FAN;
+        count = view_triangles(view) * MAX_FAN;
     }
     if words_load(25u32) == 0u32 {
         i = next_tile_candidate(task, 0u32, count);
@@ -165,16 +165,18 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
         var id: u32 = i;
         if words_load(25u32) == 0u32 {
             id = words_load(
-                words_load(COMPACT_OFFSET) + view * words_load(3u32) * MAX_FAN + i
+                words_load(COMPACT_OFFSET) + view * words_load(PROJECTION_CAPACITY) * MAX_FAN + i
             );
         }
-        var p: u32 = words_load(PROJECTED_OFFSET) + (view * words_load(3u32) * MAX_FAN + id) * 20u32;
+        var p: u32 = words_load(PROJECTED_OFFSET) + (
+            view * words_load(PROJECTION_CAPACITY) * MAX_FAN + id
+        ) * 20u32;
         if tile_overlap(p, (x / 8u32 * 8u32) as f32, (y / 8u32 * 8u32) as f32) {
             var iz: f32 = candidate_depth(p, px, py);
             if nearer(iz, best, id, winner_id) {
-                if candidate_opaque(id, p, px, py) {
+                if candidate_opaque(view_triangle(view, id / MAX_FAN), p, px, py) {
                     best = iz;
-                    winner = id / MAX_FAN;
+                    winner = view_triangle(view, id / MAX_FAN);
                     winner_id = id;
                 }
             }
@@ -193,7 +195,7 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
         }
         var mat: u32 = words_load(words_load(META) + winner * 4u32 + 1u32);
         var p: u32 = words_load(PROJECTED_OFFSET) + (
-            view * words_load(3u32) * MAX_FAN + winner_id
+            view * words_load(PROJECTION_CAPACITY) * MAX_FAN + winner_id
         ) * 20u32;
         var style: u32 = material_field(mat, 5u32) & 3u32;
         uu = sample_uv(p, px, py, 3u32, style);

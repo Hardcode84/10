@@ -61,6 +61,9 @@ fn allocate_buffer(
     );
 }
 fn buffer_create(v: *Vulkan) -> bool {
+    if v -> projection_capacity == 0u32 {
+        v -> projection_capacity = 1u32;
+    }
     if v -> view_capacity == 0u32 {
         v -> view_capacity = 1u32;
     }
