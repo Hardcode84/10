@@ -2,11 +2,11 @@ fn app_renderer_open(v: *Vulkan, window: *u8, config: *RenderConfig) -> bool {
     if !window_instance(v, window) {
         return false;
     }
-    var shaders: [ShaderCode; 11] = uninit;
-    zero(&shaders as *u8, sizeof([ShaderCode; 11]));
+    var shaders: [ShaderCode; 12] = uninit;
+    zero(&shaders as *u8, sizeof([ShaderCode; 12]));
     var good: bool = true;
     var i: usize = 0usize;
-    while good && i < (10usize + (config -> shader_checks) as usize) {
+    while good && i < (11usize + (config -> shader_checks) as usize) {
         good = read_input(render_shader_path(i, config -> shader_checks), &shaders[i]);
         i = i + 1usize;
     }

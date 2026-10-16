@@ -33,6 +33,9 @@ fn traversal_result(v: *Vulkan, index: u32, drawn: bool) -> bool {
             (STATUS_REPORT + 1u32) as usize
         ] == 1u32;
     }
+    if index == 9u32 {
+        return traversal_tile_result(v, drawn);
+    }
     if index >= 4u32 {
         var expected: u32 = 1u32;
         if index == 5u32 {
@@ -68,13 +71,17 @@ fn traversal_case(base_options: *Options, index: u32) -> bool {
         o.width = 1024u32;
         o.height = 512u32;
     }
+    if index == 9u32 {
+        o.width = 8u32;
+        o.height = 8u32;
+    }
     o.window_width = o.width;
     o.window_height = o.height;
     o.debug_pixels = 1u32;
     o.capture = "build/test-traversal.ppm";
     var renderer: Renderer = renderer_new();
     var config: RenderConfig = demo_render_config(&o);
-    config.shader_checks = index == 7u32;
+    config.shader_checks = index == 7u32 || index == 9u32;
     traversal_config(&config, index);
     var opened: bool = demo_renderer_configured(&renderer.state, &config, null(*u8));
     if index == 8u32 {
@@ -102,7 +109,7 @@ fn traversal_case(base_options: *Options, index: u32) -> bool {
 }
 fn traversal_test(base_options: *Options) -> bool {
     var i: u32 = 0u32;
-    while i < 9u32 {
+    while i < 10u32 {
         if !traversal_case(base_options, i) {
             return false;
         }
@@ -110,4 +117,12 @@ fn traversal_test(base_options: *Options) -> bool {
     }
     puts("portal capacity, cyclic depth, split tasks and overflow checks passed");
     return true;
+}
+
+fn traversal_tile_result(v: *Vulkan, drawn: bool) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    if !drawn || w[PEAK_TASKS as usize] != 64u32 || w[11usize] != 65u32 {
+        return error("one tile must produce 64 distinct child masks and views");
+    }
+    return reference_check(v -> mapped) && presentation_check(v);
 }

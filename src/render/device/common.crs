@@ -405,3 +405,54 @@ fn image_coordinate(coordinate: u32, source: u32, extent: u32) -> u32 {
     }
     return quotient;
 }
+
+fn tile_overlap(p: u32, x: f32, y: f32) -> bool {
+    var ax: f32 = floats_load(p);
+    var ay: f32 = floats_load(p + 1u32);
+    var bx: f32 = floats_load(p + 6u32);
+    var by: f32 = floats_load(p + 7u32);
+    var cx: f32 = floats_load(p + 12u32);
+    var cy: f32 = floats_load(p + 13u32);
+    return!(ax < x && bx < x && cx < x) &&!(ay < y && by < y && cy < y) &&!(
+        ax > x + 8f32 && bx > x + 8f32 && cx > x + 8f32
+    ) &&!(ay > y + 8f32 && by > y + 8f32 && cy > y + 8f32);
+}
+fn tile_bit_stride() -> u32 {
+    return (words_load(SCENE_CAPACITY) * MAX_FAN + 31u32) / 32u32;
+}
+fn next_tile_candidate(task: u32, start: u32, count: u32) -> u32 {
+    var word: u32 = start / 32u32;
+    var bits: u32 = 0u32;
+    while word < (count + 31u32) / 32u32 {
+        bits = words_load(words_load(TILE_BITS) + task * tile_bit_stride() + word);
+        if word == start / 32u32 {
+            bits = bits & (0xffffffffu32 << (start % 32u32));
+        }
+        if bits != 0u32 {
+            return word * 32u32 + low_bit(bits);
+        }
+        word = word + 1u32;
+    }
+    return count;
+}
+fn low_bit(bits: u32) -> u32 {
+    var value: u32 = bits;
+    var bit: u32 = 0u32;
+    if (value & 65535u32) == 0u32 {
+        value = value >> 16u32;
+        bit = bit + 16u32;
+    }
+    if (value & 255u32) == 0u32 {
+        value = value >> 8u32;
+        bit = bit + 8u32;
+    }
+    if (value & 15u32) == 0u32 {
+        value = value >> 4u32;
+        bit = bit + 4u32;
+    }
+    if (value & 3u32) == 0u32 {
+        value = value >> 2u32;
+        bit = bit + 2u32;
+    }
+    return bit + ((value & 1u32) == 0u32) as u32;
+}

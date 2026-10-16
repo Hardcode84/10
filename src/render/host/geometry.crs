@@ -7,7 +7,9 @@ fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
         ) + v -> light_capacity as u64 * 8u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
     var words: u64 = (
-        image_words(v) + capacity as u64 * (5u64 + v -> view_capacity as u64 * MAX_FAN as u64) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
+        image_words(v) + tile_bit_words(v, capacity) + capacity as u64 * (
+            5u64 + v -> view_capacity as u64 * MAX_FAN as u64
+        ) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
             5u64 + v -> view_capacity as u64
         ) + traversal_words(v) + 64u64
     ) / 64u64 * 64u64 - 1u64;
@@ -34,7 +36,8 @@ fn geometry_header(v: *Vulkan) -> unit {
     w[PROJECTED_OFFSET as usize] = GEOMETRY + capacity * 15u32;
     w[CLIP_OFFSET as usize] = w[PROJECTED_OFFSET as usize] + capacity * v -> view_capacity * MAX_FAN * 20u32;
     w[COMPACT_OFFSET as usize] = w[META as usize] + capacity * 4u32;
-    w[ASSET_OFFSET as usize] = w[COMPACT_OFFSET as usize] + capacity * v -> view_capacity * MAX_FAN;
+    w[TILE_BITS as usize] = w[COMPACT_OFFSET as usize] + capacity * v -> view_capacity * MAX_FAN;
+    w[ASSET_OFFSET as usize] = w[TILE_BITS as usize] + tile_bit_words(v, capacity) as u32;
     w[INSTANCE_OWNER as usize] = w[ASSET_OFFSET as usize] + v -> asset_capacity;
     w[MESH_META as usize] = w[INSTANCE_OWNER as usize] + capacity;
     w[INSTANCE_META as usize] = w[MESH_META as usize] + v -> mesh_capacity * 4u32;
@@ -125,23 +128,30 @@ fn geometry_limit(v: *Vulkan) -> u32 {
     if elements <= fixed_words || elements <= fixed_floats {
         return 0u32;
     }
-    var word_limit: u64 = (elements - fixed_words) / (
-        5u64 + v -> view_capacity as u64 * MAX_FAN as u64
-    );
-    var float_limit: u64 = (elements - fixed_floats) / (
+    var lower: u64 = 0u64;
+    var upper: u64 = (elements - fixed_floats) / (
         15u64 + v -> view_capacity as u64 * (MAX_FAN as u64 * 20u64 + 144u64)
     );
-    if word_limit < float_limit {
-        return word_limit as u32;
+    while lower < upper {
+        var middle: u64 = lower + (upper - lower + 1u64) / 2u64;
+        var size: u64 = fixed_words + middle * (5u64 + v -> view_capacity as u64 * MAX_FAN as u64) + tile_bit_words(
+            v,
+            middle as u32
+        );
+        if size <= elements {
+            lower = middle;
+        } else {
+            upper = middle - 1u64;
+        }
     }
-    return float_limit as u32;
+    return lower as u32;
 }
 
 fn traversal_floats(v: *Vulkan) -> u64 {
     return (v -> portal_capacity as u64 + v -> view_capacity as u64) * 16u64;
 }
 fn traversal_words(v: *Vulkan) -> u64 {
-    return v -> task_capacity as u64 * (9u64 + v -> portal_capacity as u64 * 2u64) + (
+    return v -> task_capacity as u64 * (10u64 + LOCAL_SIZE as u64 * 3u64) + (
         (v -> task_capacity as u64 + 63u64) / 64u64
     ) * 2u64 + v -> view_capacity as u64 * (5u64 + v -> portal_capacity as u64) + v -> portal_capacity as u64 * 4u64 + (
         (v -> task_capacity as u64 + 32767u64) / 32768u64
@@ -154,7 +164,9 @@ fn traversal_header(v: *Vulkan) -> unit {
     w[TASK_A as usize] = w[INSTANCE_VISIBLE as usize] + v -> instance_capacity * v -> view_capacity;
     w[TASK_B as usize] = w[TASK_A as usize] + v -> task_capacity * 4u32;
     w[CANDIDATES as usize] = w[TASK_B as usize] + v -> task_capacity * 4u32;
-    w[VIEW_MAP as usize] = w[CANDIDATES as usize] + v -> task_capacity * v -> portal_capacity * 2u32;
+    w[VIEW_MAP as usize] = w[CANDIDATES as usize] + v -> task_capacity * (
+        1u32 + LOCAL_SIZE * 3u32
+    );
     w[VIEW_META as usize] = w[VIEW_MAP as usize] + v -> view_capacity * v -> portal_capacity;
     w[PORTAL_META as usize] = w[VIEW_META as usize] + v -> view_capacity * 4u32;
     w[COMPACT_COUNT as usize] = w[PORTAL_META as usize] + v -> portal_capacity * 4u32;
@@ -169,4 +181,8 @@ fn traversal_header(v: *Vulkan) -> unit {
     w[PORTAL_FLOAT as usize] = w[VIEW_FLOAT as usize] + v -> view_capacity * 16u32;
     w[PORTAL_CAPACITY as usize] = v -> portal_capacity;
     w[TASK_CAPACITY as usize] = v -> task_capacity;
+}
+
+fn tile_bit_words(v: *Vulkan, triangles: u32) -> u64 {
+    return v -> task_capacity as u64 * ((triangles as u64 * MAX_FAN as u64 + 31u64) / 32u64);
 }

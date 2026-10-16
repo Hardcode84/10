@@ -86,9 +86,10 @@ setup failure. A renderer cannot be copied.
 The native setup provider calls `instance_open` with the required
 instance extensions. For a window, the caller creates a Vulkan surface and gives
 ownership of that surface to the renderer. The demo uses SDL for this step.
-`renderer_open` takes a `RenderConfig` and ten `ShaderCode` byte ranges, in
+`renderer_open` takes a `RenderConfig` and eleven `ShaderCode` byte ranges, in
 init, transform, raster, advance, compose, compact, scan, fill, instance
-expansion, and instance visibility order. The
+expansion, instance visibility, and tile-binning order. Checked rendering also
+requires the status shader as the last range. The
 shader bytes remain owned by the caller and can be released after this call.
 The core does not choose shader file paths.
 
@@ -206,11 +207,15 @@ pipelines. SDL2 creates the window and Vulkan surface only.
 1. Upload frame inputs and changed persistent ranges. Clear invocation status
    only in checked-shader mode.
 2. Initialize root view tasks and the background image.
-3. For each of four view depths, transform and clip geometry. Compact valid
-   projected triangles per view. Each pixel scans the complete candidate list.
+3. For each configured view depth, transform and clip geometry. Compact valid
+   projected triangles with one workgroup per view. Each lane counts and
+   writes a contiguous range. Prefix counts preserve triangle order. Build a
+   candidate bitset for each tile, then scan only its set bits per pixel.
    Reject candidates outside the tile. Resolve depth and cutouts before selecting portal pixels.
-   Sample opaque materials only after the depth winner is known. Build each
-   portal mask in a separate lane.
+   Sample opaque materials only after the depth winner is known. A continuing
+   portal passes its pixels to its child view without shading them first.
+   Shade portal surfaces at the crossing limit. Store only nonempty portal
+   masks, with one lane per distinct portal in the tile.
 4. Count child tasks and view keys in workgroups. Scan the group summaries and
    check capacities before filling child tasks. Write indirect dispatch counts
    on the GPU. A hidden portal creates no child task.
@@ -481,3 +486,47 @@ after geometry submission and checks storage reuse with smaller textures.
 
 The [lighting contract](lighting.md) defines point-light visibility, growable
 light storage, and the surface response checks.
+
+## Graph frame benchmark
+
+Run the production graph scene without a window:
+
+```sh
+crust tests.crs benchmark 3840 2160 --seed 1 --complexity 3
+crust tests.crs benchmark 1920 1080 --seed 42 --complexity 8 --width 1920 --height 1080
+```
+
+The first two numbers select output size. The game options select internal
+resolution and graph generation. The first command uses the default 960 by
+540 internal resolution. It measures 4K composition, but not window
+presentation or the display compositor.
+
+The benchmark samples 12 rooms at fixed portal-facing camera positions.
+Each position has four warm-up frames and eight measured frames. It reports
+mean and maximum CPU frame time, GPU pass intervals, and an image hash.
+CPU frame time includes scene submission and the GPU wait. Image readback
+and hashing run separately after each measured group. The benchmark does
+not run an automatic playthrough.
+
+On Intel Arc Pro B60, seed 1 and complexity 3 with 4K output, the original
+renderer took 28.0 to 46.5 ms per position on average. Parallel compaction,
+packed child masks, parallel view-key reduction, and deferred portal shading
+plus tile filtering reduced this range to 5.8 to 7.2 ms. The largest measured
+frame was 9.3 ms.
+The scene, crossing limit, and resolution were unchanged. All 12 image hashes
+matched the original renderer on both Intel and AMD.
+
+At native 1920 by 1080, seed 42 and complexity 8, the largest measured
+Intel frame before tile filtering was 19.5 ms. Room 60 spent 13.4 ms in raster
+passes. Tile filtering reduced the largest measured frame to 14.6 ms.
+All 12 AMD image hashes still matched the original renderer. Tile filtering
+keeps source geometry, draw order, masks, and the crossing limit unchanged.
+
+Each task stores one bit per possible projected triangle. The allocation
+uses `4 * task_capacity * ceil(triangle_capacity * MAX_FAN / 32)` bytes.
+It grows with the frame buffers and uses the same checked device-storage
+limit. The bin pass writes only the words required by the active compact list.
+This storage is also present in the host staging allocation; it is not copied
+between host and device. The benchmark reports both allocations and the
+tile-bit range. The default graph used 31.9 MiB for tile bits in each allocation.
+The native-1080p, complexity-8 graph used 126.6 MiB in each allocation.

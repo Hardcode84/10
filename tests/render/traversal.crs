@@ -102,6 +102,10 @@ fn traversal_scene(v: mut FrameInput, index: u32) -> unit {
         traversal_aperture(mut v, 80u32, -1000f32, -1000f32, 2000f32, 2000f32, false);
         return;
     }
+    if index == 9u32 {
+        traversal_pixel_portals(mut v);
+        return;
+    }
     if index == 7u32 {
         traversal_aperture(mut v, 96u32, -4f32, -2f32, 8f32, 4f32, false);
         return;
@@ -159,4 +163,22 @@ fn traversal_destination(v: mut FrameInput) -> unit {
         input_set_float(mut v, p + 3usize, u);
         i = i + 1u32;
     }
+}
+
+fn traversal_pixel_portals(v: mut FrameInput) -> unit {
+    var i: u32 = 0u32;
+    while i < 64u32 {
+        tour_portal(mut v, i, 0u32, 1u32, 1f32, 0f32, i as f32, 2f32, 0f32, 1f32, 0f32);
+        traversal_aperture(
+            mut v,
+            i,
+            -2f32 + (i % 8u32) as f32 * 0.5f32,
+            -2f32 + (i / 8u32) as f32 * 0.5f32,
+            0.5f32,
+            0.5f32,
+            false
+        );
+        i = i + 1u32;
+    }
+    traversal_destination(mut v);
 }

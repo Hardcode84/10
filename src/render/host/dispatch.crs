@@ -92,9 +92,11 @@ fn commands_record(v: *Vulkan) -> bool {
         vkCmdDispatchIndirect(v -> commands, v -> buffer, 68u64);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 2u32 + depth * 4u32);
-        retained_dispatch(v, 5usize, (v -> view_capacity + 63u32) / 64u32);
+        compact_dispatch(v);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 3u32 + depth * 4u32);
+        task_dispatch(v, 10usize, 0u32);
+        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         task_dispatch(v, 2usize, 0u32);
         frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
         vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 4u32 + depth * 4u32);
@@ -115,7 +117,7 @@ fn commands_record(v: *Vulkan) -> bool {
     retained_dispatch(v, 4usize, (v -> output_width * v -> output_height + 63u32) / 64u32);
     frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
     if v -> shader_checks {
-        retained_dispatch(v, 10usize, STATUS_GROUPS);
+        retained_dispatch(v, 11usize, STATUS_GROUPS);
     }
     var barrier: VkMemoryBarrier = uninit;
     zero(&barrier as *u8, sizeof(VkMemoryBarrier));
@@ -263,5 +265,26 @@ fn task_dispatch(v: *Vulkan, pipeline: usize, field: u32) -> unit {
         );
         base = base + MAX_INVOCATIONS / LOCAL_SIZE;
         batch = batch + 1u32;
+    }
+}
+
+fn compact_dispatch(v: *Vulkan) -> unit {
+    var base: u32 = 0u32;
+    while base < v -> view_capacity {
+        var count: u32 = v -> view_capacity - base;
+        if count > MAX_INVOCATIONS / LOCAL_SIZE {
+            count = MAX_INVOCATIONS / LOCAL_SIZE;
+        }
+        frame_barrier(v, 2048u32 | 4096u32, 96u32 | 4096u32, 4096u32, 4096u32);
+        vkCmdUpdateBuffer(
+            v -> commands,
+            v -> buffer,
+            (DISPATCH_BASE as u64 + 1u64) * 4u64,
+            4u64,
+            &base as *u8
+        );
+        frame_barrier(v, 4096u32, 4096u32, 2048u32, 32u32);
+        retained_dispatch(v, 5usize, count);
+        base = base + count;
     }
 }

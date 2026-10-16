@@ -107,7 +107,7 @@ fn palette_record(v: *Vulkan) -> bool {
     vkCmdDispatch(v -> commands, 14543u32, 1u32, 1u32);
     frame_barrier(v, 2048u32, 64u32, 4096u32, 2048u32);
     frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-    retained_dispatch(v, 10usize, STATUS_GROUPS);
+    retained_dispatch(v, 11usize, STATUS_GROUPS);
     frame_barrier(v, 2048u32, 64u32, 4096u32, 2048u32);
     readback(v);
     return vk_ok(vkEndCommandBuffer(v -> commands), "vkEndCommandBuffer palette");
@@ -160,7 +160,7 @@ fn palette_test() -> bool {
         &v,
         "build/compose.debug.spv",
         1usize
-    ) && load_pipeline(&v, "build/status.debug.spv", 10usize) && descriptors_create(&v) && commands_create(
+    ) && load_pipeline(&v, "build/status.debug.spv", 11usize) && descriptors_create(&v) && commands_create(
         &v
     );
     if good {

@@ -24,9 +24,9 @@ an invalid ID. Portal records use zero-based indices. `PORTAL_FLOAT` and
 portal has 16 float elements and four word elements. Preserve the existing
 rigid-transform and destination-plane contract when filling those records.
 
-The demo selects four portal records, 32 views, 32,768 tasks, and three crossings.
-These are demo choices. The game currently selects no portal records, one view,
-and enough tasks for its root tiles. Test 8 uses larger values.
+The game selects the graph portal count, 129 views, six crossings, and enough
+tasks for its root tiles. These are application choices. Test 8 also checks
+larger portal counts and crossing limits.
 
 ## Views and masks
 
@@ -36,15 +36,18 @@ can have different cameras, clipping planes, and coverage. Each child uses
 `view_budget * portal_budget` entries. The root and all child views consume the
 same view budget. A cycle creates another path view at each crossing.
 
-Rasterization emits a 64-bit coverage mask for each task and portal. Only
-nonempty masks produce child tasks. Different child masks partition a parent
+Rasterization stores only nonempty portal masks. Each tile stores a count and
+up to 64 records. Each record holds a portal ID and a 64-bit mask. The first
+pixel that selects a portal owns its record. Records follow pixel order.
+A tile has 64 pixels, so it cannot need more than 64 records, regardless of
+the total portal count. Only nonempty masks produce child tasks. Different child masks partition a parent
 mask; they do not add coverage. Thus, live task count cannot exceed the image's
 pixel count. A smaller task budget can still fail when one tile splits across
 several portals.
 
 Each scan workgroup produces a key bitset for its tasks. The bitset length comes
 from the selected view and portal capacities. The advance pass combines these
-sets and allocates child views in key order. No fixed 128-bit key set remains.
+sets across 64 lanes, then allocates child views in key order. No fixed 128-bit key set remains.
 Portal IDs use unsigned integer workgroup storage and retain all 32 bits.
 
 Task dispatches use batches of at most 32,768 tasks. This is a dispatch size,
@@ -67,7 +70,7 @@ In addition to geometry and image storage, traversal uses these ranges:
 | --- | --- |
 | Portal and view transforms | `16 * (P + V)` floats |
 | Two task lists | `8 * T` words |
-| Child masks | `2 * T * P` words |
+| Child masks and counts | `193 * T` words |
 | View lookup | `V * P` words |
 | Portal and view metadata, compact counts | `4 * P + 5 * V` words |
 | Task prefixes | `T` words |
@@ -75,8 +78,8 @@ In addition to geometry and image storage, traversal uses these ranges:
 | Group key bitsets | `ceil(T / 64) * ceil(V * P / 32)` words |
 | Batch commands | `9 * ceil(T / 32768)` words |
 
-Choose capacities from scene requirements. Dense child masks and group key sets
-can consume substantial memory when several capacities grow together. A layout
+Choose capacities from scene requirements. Child mask storage does not grow with portal count. Group key sets
+can still consume substantial memory when several capacities grow together. A layout
 that exceeds the device range fails before allocation; it does not truncate an
 array. Instance visibility and projected geometry also scale with `V`, as
 specified in the retained mesh contract.
@@ -97,6 +100,7 @@ Run `crust tests.crs render 8`. It checks:
 
 - 80 visible directed portals and 81 path views, with different transforms into
   the same destination space.
+- One 8 by 8 tile with 64 distinct portals and 65 total path views.
 - An 80-crossing cycle using portal ID 81, followed by a zero-crossing render.
 - 65,536 child tasks from eight interleaved cutout portals; all batches must run.
 - Task and view exhaustion, then recovery on the same renderer.

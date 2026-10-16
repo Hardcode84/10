@@ -1,0 +1,154 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var output_width: u32 = 0u32;
+    var output_height: u32 = 0u32;
+    if argc < 3i32 || !game_number(argv[1usize], &output_width) || !game_number(
+        argv[2usize],
+        &output_height
+    ) {
+        return (!error("use benchmark OUTPUT_WIDTH OUTPUT_HEIGHT followed by game options")) as i32;
+    }
+    argv[2usize] = argv[0usize];
+    argc = argc - 2i32;
+    argv = argv + 2isize;
+    var options: Launch = uninit;
+    if !game_options(argc, argv, &options) {
+        return 1i32;
+    }
+    options.config.headless = true;
+    return (
+        !graph_benchmark(
+            game_session(&options),
+            options.config,
+            output_width,
+            output_height
+        )
+    ) as i32;
+}
+fn graph_benchmark(
+    session: GameSession,
+    config: GameConfig,
+    output_width: u32,
+    output_height: u32
+) -> bool {
+    var scene: CollisionScene = collision_new();
+    var loop: GameLoop = make GameLoop {
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    if !game_run_setup(mut session, mut scene, mut loop, config) {
+        return false;
+    }
+    if !renderer_resize(
+        &session.renderer.state,
+        config.width,
+        config.height,
+        output_width,
+        output_height
+    ) {
+        return false;
+    }
+    puts("rooms / portals / triangles");
+    print_number(graph_count(read session.graph) as i64);
+    print_number(graph_ports(read session.graph) as i64);
+    print_number(mesh_triangle_count(read session.room_mesh) as i64);
+    var i: u32 = 0u32;
+    while i < 12u32 {
+        var id: u32 = i * graph_count(read session.graph) / 12u32;
+        var node: GraphNode = graph_node(read session.graph, id);
+        var port: RoomPort = graph_socket(read session.graph, node.first).port;
+        loop.trial.drone.world = id;
+        loop.trial.drone.position = sub(port.position, scale(port.basis.forward, 1f32));
+        loop.trial.drone.basis = port.basis;
+        if !graph_benchmark_view(read scene, mut session, read loop, config) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    puts("device bytes / staging bytes / tile-bit bytes");
+    print_number(session.renderer.state.device_bytes as i64);
+    print_number(session.renderer.state.staging_bytes as i64);
+    print_number(
+        (
+            tile_bit_words(
+                &session.renderer.state,
+                session.renderer.state.triangle_capacity
+            ) * 4u64
+        ) as i64
+    );
+    return game_finish(mut session);
+}
+fn graph_benchmark_view(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig
+) -> bool {
+    var sums: [u64; 64] = uninit;
+    var query: [u64; 64] = uninit;
+    var v: *Vulkan = &session.renderer.state;
+    if v -> query_count > 64u32 {
+        return error("benchmark timestamp array is too small");
+    }
+    var i: u32 = 0u32;
+    while i < 64u32 {
+        sums[i as usize] = 0u64;
+        i = i + 1u32;
+    }
+    var elapsed: u64 = 0u64;
+    var worst: u64 = 0u64;
+    var frame: u32 = 0u32;
+    while frame < 12u32 {
+        var start: u64 = now();
+        if !game_render(read scene, mut session, read loop, config) {
+            return false;
+        }
+        var duration: u64 = now() - start;
+        if !queries_read(v, &query[0usize]) {
+            return false;
+        }
+        if frame >= 4u32 {
+            elapsed = elapsed + duration;
+            if duration > worst {
+                worst = duration;
+            }
+            i = 1u32;
+            while i < v -> query_count {
+                sums[i as usize] = sums[i as usize] + (
+                    (
+                        (query[i as usize] - query[i as usize - 1usize]) & v -> timestamp_mask
+                    ) as f32 * v -> timestamp_period
+                ) as u64;
+                i = i + 1u32;
+            }
+        }
+        frame = frame + 1u32;
+    }
+    puts("room / mean ns / max ns / GPU intervals ns");
+    print_number(loop.trial.drone.world as i64);
+    print_number((elapsed / 8u64) as i64);
+    print_number(worst as i64);
+    i = 1u32;
+    while i < v -> query_count {
+        print_number((sums[i as usize] / 8u64) as i64);
+        i = i + 1u32;
+    }
+    var pixels: bool = v -> read_pixels;
+    v -> read_pixels = true;
+    if !game_render(read scene, mut session, read loop, config) {
+        return false;
+    }
+    var hash: u32 = 2166136261u32;
+    var words: *u32 = v -> mapped as *u32;
+    i = 0u32;
+    while i < v -> width * v -> height {
+        hash = (hash ^ words[(PIXELS + i) as usize]) * 16777619u32;
+        i = i + 1u32;
+    }
+    puts("image hash");
+    print_number(hash as i64);
+    v -> read_pixels = pixels;
+    return true;
+}

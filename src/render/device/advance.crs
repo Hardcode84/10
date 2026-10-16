@@ -51,19 +51,14 @@ fn allocate_key_word(word: u32, mask: u32, views: u32) -> u32 {
     }
     return next;
 }
-fn allocate_views(tasks: u32, views: u32) -> u32 {
+fn allocate_views(views: u32) -> u32 {
     var next: u32 = views;
     var word: u32 = words_load(9u32) * words_load(PORTAL_CAPACITY) / 32u32;
     var end: u32 = (
         (words_load(9u32) + words_load(10u32)) * words_load(PORTAL_CAPACITY) + 31u32
     ) / 32u32;
     while word < end && words_load(5u32) == 0u32 {
-        var mask: u32 = 0u32;
-        var group: u32 = 0u32;
-        while group < (tasks + 63u32) / 64u32 {
-            mask = mask | words_load(words_load(VIEW_KEYS) + group * view_key_words() + word);
-            group = group + 1u32;
-        }
+        var mask: u32 = words_load(words_load(VIEW_KEYS) + word);
         next = allocate_key_word(word, mask, next);
         word = word + 1u32;
     }
@@ -92,7 +87,7 @@ fn advance() -> unit {
         return;
     }
     var oldviews: u32 = words_load(11u32);
-    var views: u32 = allocate_views(tasks, oldviews);
+    var views: u32 = allocate_views(oldviews);
     if words_load(5u32) != 0u32 {
         return;
     }
@@ -106,7 +101,28 @@ fn advance() -> unit {
     words_store(12u32, words_load(12u32) + 1u32);
     words_store(16u32, geometry_groups((views - oldviews) * words_load(3u32)));
 }
+fn reduce_view_keys() -> unit {
+    var word: u32 = words_load(9u32) * words_load(PORTAL_CAPACITY) / 32u32 + shader_local_x();
+    var end: u32 = (
+        (words_load(9u32) + words_load(10u32)) * words_load(PORTAL_CAPACITY) + 31u32
+    ) / 32u32;
+    var groups: u32 = (words_load(6u32) + LOCAL_SIZE - 1u32) / LOCAL_SIZE;
+    while word < end {
+        var mask: u32 = 0u32;
+        var group: u32 = 0u32;
+        while group < groups {
+            mask = mask | words_load(words_load(VIEW_KEYS) + group * view_key_words() + word);
+            group = group + 1u32;
+        }
+        words_store(words_load(VIEW_KEYS) + word, mask);
+        word = word + LOCAL_SIZE;
+    }
+}
 fn compute() -> unit {
+    if words_load(5u32) == 0u32 {
+        reduce_view_keys();
+    }
+    shader_barrier();
     if shader_global_x() == 0u32 {
         advance();
     }

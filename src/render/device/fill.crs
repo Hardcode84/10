@@ -7,18 +7,21 @@ fn compute() -> unit {
         var source: u32 = other_tasks() + i * 4u32;
         var parent: u32 = words_load(source + 1u32);
         var tile: u32 = words_load(source);
+        var base: u32 = words_load(CANDIDATES) + i * (1u32 + LOCAL_SIZE * 3u32);
         var portal: u32 = 0u32;
-        while portal < words_load(PORTAL_CAPACITY) {
-            var p: u32 = words_load(CANDIDATES) + (i * words_load(PORTAL_CAPACITY) + portal) * 2u32;
-            var lo: u32 = words_load(p);
-            var hi: u32 = words_load(p + 1u32);
-            if (lo | hi) != 0u32 {
+        while portal < words_load(base) {
+            var p: u32 = base + 1u32 + portal * 3u32;
+            var lo: u32 = words_load(p + 1u32);
+            var hi: u32 = words_load(p + 2u32);
+            if words_load(p) != 0u32 {
                 var target: u32 = task_base() + offset * 4u32;
                 words_store(target, tile);
                 words_store(
                     target + 1u32,
                     words_load(
-                        words_load(VIEW_MAP) + parent * words_load(PORTAL_CAPACITY) + portal
+                        words_load(VIEW_MAP) + parent * words_load(PORTAL_CAPACITY) + words_load(
+                            p
+                        ) - 1u32
                     )
                 );
                 words_store(target + 2u32, lo);

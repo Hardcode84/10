@@ -1,22 +1,45 @@
 fn compute() -> unit {
-    var index: u32 = shader_global_x();
-    while index < words_load(10u32) && words_load(5u32) == 0u32 {
-        var view: u32 = words_load(9u32) + index;
-        var count: u32 = 0u32;
-        var i: u32 = 0u32;
-        while i < words_load(3u32) * MAX_FAN {
-            if floats_load(
-                words_load(PROJECTED_OFFSET) + (view * words_load(3u32) * MAX_FAN + i) * 20u32 + 18u32
-            ) > 0f32 {
-                words_store(
-                    words_load(COMPACT_OFFSET) + view * words_load(3u32) * MAX_FAN + count,
-                    i
-                );
-                count = count + 1u32;
-            }
-            i = i + 1u32;
-        }
-        words_store(words_load(COMPACT_COUNT) + view, count);
-        index = index + MAX_INVOCATIONS;
+    var index: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
+    var lane: u32 = shader_local_x();
+
+    var view: u32 = words_load(9u32) + index;
+    var size: u32 = 0u32;
+    if index < words_load(10u32) && words_load(5u32) == 0u32 {
+        size = words_load(3u32) * MAX_FAN;
     }
+    var chunk: u32 = (size + LOCAL_SIZE - 1u32) / LOCAL_SIZE;
+    var begin: u32 = lane * chunk;
+    var end: u32 = begin + chunk;
+    if end > size {
+        end = size;
+    }
+    var base: u32 = words_load(PROJECTED_OFFSET) + view * size * 20u32;
+    var count: u32 = 0u32;
+    var i: u32 = begin;
+    while i < end {
+        if floats_load(base + i * 20u32 + 18u32) > 0f32 {
+            count = count + 1u32;
+        }
+        i = i + 1u32;
+    }
+    shared_store(lane, count);
+    shader_barrier();
+    var offset: u32 = 0u32;
+    i = 0u32;
+    while i < lane {
+        offset = offset + shared_load(i);
+        i = i + 1u32;
+    }
+    if lane == LOCAL_SIZE - 1u32 && index < words_load(10u32) {
+        words_store(words_load(COMPACT_COUNT) + view, offset + count);
+    }
+    i = begin;
+    while i < end {
+        if floats_load(base + i * 20u32 + 18u32) > 0f32 {
+            words_store(words_load(COMPACT_OFFSET) + view * size + offset, i);
+            offset = offset + 1u32;
+        }
+        i = i + 1u32;
+    }
+
 }

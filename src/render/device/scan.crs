@@ -13,14 +13,7 @@ fn compute() -> unit {
     }
     var n: u32 = 0u32;
     if i < tasks {
-        var portal: u32 = 0u32;
-        while portal < words_load(PORTAL_CAPACITY) {
-            var p: u32 = words_load(CANDIDATES) + (i * words_load(PORTAL_CAPACITY) + portal) * 2u32;
-            if (words_load(p) | words_load(p + 1u32)) != 0u32 {
-                n = n + 1u32;
-            }
-            portal = portal + 1u32;
-        }
+        n = words_load(words_load(CANDIDATES) + i * (1u32 + LOCAL_SIZE * 3u32));
     }
     shared_store(lane, n);
     shader_barrier();
@@ -45,11 +38,12 @@ fn group_keys(first: u32, tasks: u32) -> unit {
     var i: u32 = first;
     while i < first + 64u32 && i < tasks {
         var parent: u32 = words_load(task_base() + i * 4u32 + 1u32);
+        var base: u32 = words_load(CANDIDATES) + i * (1u32 + LOCAL_SIZE * 3u32);
         var portal: u32 = 0u32;
-        while portal < words_load(PORTAL_CAPACITY) {
-            var p: u32 = words_load(CANDIDATES) + (i * words_load(PORTAL_CAPACITY) + portal) * 2u32;
-            if (words_load(p) | words_load(p + 1u32)) != 0u32 {
-                var key: u32 = parent * words_load(PORTAL_CAPACITY) + portal;
+        while portal < words_load(base) {
+            var p: u32 = base + 1u32 + portal * 3u32;
+            if words_load(p) != 0u32 {
+                var key: u32 = parent * words_load(PORTAL_CAPACITY) + words_load(p) - 1u32;
                 var slot: u32 = words_load(VIEW_KEYS) + (first / 64u32) * view_key_words() + key / 32u32;
                 words_store(slot, words_load(slot) | (1u32 << (key % 32u32)));
             }

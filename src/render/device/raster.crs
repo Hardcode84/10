@@ -89,17 +89,6 @@ fn sample_uv(p: u32, x: f32, y: f32, offset: u32, style: u32) -> f32 {
         floats_load(p + 12u32 + offset) - origin
     ) * (c / area);
 }
-fn tile_overlap(p: u32, x: f32, y: f32) -> bool {
-    var ax: f32 = floats_load(p);
-    var ay: f32 = floats_load(p + 1u32);
-    var bx: f32 = floats_load(p + 6u32);
-    var by: f32 = floats_load(p + 7u32);
-    var cx: f32 = floats_load(p + 12u32);
-    var cy: f32 = floats_load(p + 13u32);
-    return!(ax < x && bx < x && cx < x) &&!(ay < y && by < y && cy < y) &&!(
-        ax > x + 8f32 && bx > x + 8f32 && cx > x + 8f32
-    ) &&!(ay > y + 8f32 && by > y + 8f32 && cy > y + 8f32);
-}
 fn candidate_depth(p: u32, px: f32, py: f32) -> f32 {
     if floats_load(p + 18u32) <= 0f32 {
         return 0f32;
@@ -169,6 +158,9 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
     if words_load(25u32) != 0u32 {
         count = words_load(3u32) * MAX_FAN;
     }
+    if words_load(25u32) == 0u32 {
+        i = next_tile_candidate(task, 0u32, count);
+    }
     while i < count {
         var id: u32 = i;
         if words_load(25u32) == 0u32 {
@@ -188,9 +180,17 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
             }
         }
         i = i + 1u32;
+        if words_load(25u32) == 0u32 {
+            i = next_tile_candidate(task, i, count);
+        }
     }
     var color: u32 = words_load(BACKGROUND);
     if winner != 0xffffffffu32 {
+        var portal: u32 = words_load(words_load(META) + winner * 4u32 + 2u32);
+        if portal != 0u32 && words_load(12u32) < words_load(4u32) {
+            shared_store(320u32 + lane, portal);
+            return;
+        }
         var mat: u32 = words_load(words_load(META) + winner * 4u32 + 1u32);
         var p: u32 = words_load(PROJECTED_OFFSET) + (
             view * words_load(3u32) * MAX_FAN + winner_id
@@ -198,10 +198,6 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
         var style: u32 = material_field(mat, 5u32) & 3u32;
         uu = sample_uv(p, px, py, 3u32, style);
         vv = sample_uv(p, px, py, 4u32, style);
-        var portal: u32 = words_load(words_load(META) + winner * 4u32 + 2u32);
-        if portal != 0u32 && words_load(12u32) < words_load(4u32) {
-            shared_store(320u32 + lane, portal);
-        }
         color = surface_color(winner, view, uu, vv, 1f32 / best, x, y);
     }
     if words_load(26u32) != 0u32 {
@@ -217,38 +213,70 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
     }
     words_store(PIXELS + y * width + x, color);
 }
-fn child_masks(task: u32, portal: u32) -> unit {
+
+fn child_unique(lane: u32) -> unit {
+    var portal: u32 = shared_load(320u32 + lane);
+    shared_store(lane, 0u32);
+    if portal == 0u32 {
+        return;
+    }
+    var previous: u32 = 0u32;
+    while previous < lane {
+        if shared_load(320u32 + previous) == portal {
+            return;
+        }
+        previous = previous + 1u32;
+    }
+    shared_store(lane, (portal != 0u32) as u32);
+}
+fn child_masks(task: u32, lane: u32) -> unit {
+    if shared_load(lane) == 0u32 && lane != LOCAL_SIZE - 1u32 {
+        return;
+    }
+    var offset: u32 = 0u32;
+    var previous: u32 = 0u32;
+    while previous < lane {
+        offset = offset + shared_load(previous);
+        previous = previous + 1u32;
+    }
+    var base: u32 = words_load(CANDIDATES) + task * (1u32 + LOCAL_SIZE * 3u32);
+    if lane == LOCAL_SIZE - 1u32 {
+        words_store(base, offset + shared_load(lane));
+    }
+    if shared_load(lane) == 0u32 {
+        return;
+    }
+    var portal: u32 = shared_load(320u32 + lane);
     var lo: u32 = 0u32;
     var hi: u32 = 0u32;
-    var lane: u32 = 0u32;
-    while lane < 64u32 {
-        if shared_load(320u32 + lane) == portal {
-            if lane < 32u32 {
-                lo = lo | (1u32 << lane);
+    var pixel: u32 = 0u32;
+    while pixel < LOCAL_SIZE {
+        if shared_load(320u32 + pixel) == portal {
+            if pixel < 32u32 {
+                lo = lo | (1u32 << pixel);
             } else {
-                hi = hi | (1u32 << (lane - 32u32));
+                hi = hi | (1u32 << (pixel - 32u32));
             }
         }
-        lane = lane + 1u32;
+        pixel = pixel + 1u32;
     }
-    var out: u32 = words_load(CANDIDATES) + (
-        task * words_load(PORTAL_CAPACITY) + portal - 1u32
-    ) * 2u32;
-    words_store(out, lo);
-    words_store(out + 1u32, hi);
+    var out: u32 = base + 1u32 + offset * 3u32;
+    words_store(out, portal);
+    words_store(out + 1u32, lo);
+    words_store(out + 2u32, hi);
 }
 fn compute() -> unit {
     var lane: u32 = shader_local_x();
-    var task: u32 = shader_global_x() / 64u32 + words_load(DISPATCH_BASE);
+    var task: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
     if task < words_load(6u32) && words_load(5u32) == 0u32 {
         raster_pixel(task, lane);
     }
     shader_barrier();
     if task < words_load(6u32) && words_load(5u32) == 0u32 {
-        var portal: u32 = lane;
-        while portal < words_load(PORTAL_CAPACITY) {
-            child_masks(task, portal + 1u32);
-            portal = portal + 64u32;
-        }
+        child_unique(lane);
+    }
+    shader_barrier();
+    if task < words_load(6u32) && words_load(5u32) == 0u32 {
+        child_masks(task, lane);
     }
 }
