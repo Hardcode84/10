@@ -8,7 +8,7 @@ fn asset_test_ports(asset: read RoomAsset) -> bool {
         var face: HullFace = asset_face(read asset.hull, port.face);
         if !asset_names_equal(port.id, radial_port_name(i)) || !asset_name_equal(
             port.profile.name,
-            "HEX-2M"
+            "HEX-4M"
         ) || port.profile.rotations != 6u32 || face.count != 6u32 || !collision_rigid(
             port.basis
         ) {

@@ -1,7 +1,7 @@
 // Closed radial start room: an octagonal prism with a tapered upper section.
-// Both ends are closed. Each prism wall has one HEX-2M connection.
+// Both ends are closed. Each prism wall has one HEX-4M connection.
 // SIDE-0 through SIDE-7 follow the profile vertex order. Each port is centred
-// on its wall, with +Y as up and six possible rolls. The opening is 2 m
+// on its wall, with +Y as up and six possible rolls. The opening is 4 m
 // across corners. Unlinked ports are closed.
 // The room has no props.
 // Dimensions use metres. The base centre is the origin; local +Y points up
@@ -26,7 +26,7 @@ fn room_parameter_count() -> u32 {
 fn room_parameter(index: u32) -> AssetParameter {
     if index == 0u32 {
         return make AssetParameter {
-            minimum: 4f32,
+            minimum: 6f32,
             maximum: 40f32,
             initial: 12f32,
             step: 1f32
@@ -34,7 +34,7 @@ fn room_parameter(index: u32) -> AssetParameter {
     }
     if index == 1u32 {
         return make AssetParameter {
-            minimum: 2f32,
+            minimum: 4f32,
             maximum: 40f32,
             initial: 10f32,
             step: 1f32

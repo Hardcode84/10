@@ -57,6 +57,12 @@ fn asset_test_contacts(asset: read RoomAsset, face: HullFace, radius: f32) -> bo
             "narrow surround accepted a sphere that overlaps another hull face"
         );
     }
+    var expected: Hit = asset_hull_contact(
+        read asset.hull,
+        start,
+        scale(normal, 2f32),
+        radius
+    );
     var contact: CollisionContact = collision_sweep(
         read asset.collision,
         0u32,
@@ -64,16 +70,16 @@ fn asset_test_contacts(asset: read RoomAsset, face: HullFace, radius: f32) -> bo
         scale(normal, 2f32),
         radius
     );
-    if absf(contact.hit.time - (0.5f32 - radius) / 2f32) >= 0.0001f32 || dot(
+    if absf(contact.hit.time - expected.time) >= 0.0001f32 || dot(
         contact.hit.normal,
-        normal
-    ) >= -0.999f32 {
+        expected.normal
+    ) < 0.999f32 {
         asset_contact_report(
             face.region,
             radius,
             contact.hit.time,
-            (0.5f32 - radius) / 2f32,
-            dot(contact.hit.normal, normal)
+            expected.time,
+            dot(contact.hit.normal, expected.normal)
         );
         return error("room render face and sphere collision disagree");
     }
@@ -183,4 +189,25 @@ fn asset_test_uv(asset: read RoomAsset) -> bool {
         i = i + 1u32;
     }
     return true;
+}
+
+// Returns the first exit from the convex hull eroded by the sphere radius.
+fn asset_hull_contact(hull: read AssetHull, start: Vec3, travel: Vec3, radius: f32) -> Hit {
+    var result: Hit = miss();
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        var plane: SurfaceFrame = hull_frame(read hull, asset_face(read hull, i));
+        var approach: f32 = dot(plane.normal, travel);
+        if approach > 0f32 {
+            var time: f32 = (-dot(plane.normal, sub(start, plane.origin)) - radius) / approach;
+            if time < result.time {
+                result = make Hit {
+                    time: time,
+                    normal: scale(plane.normal, -1f32)
+                };
+            }
+        }
+        i = i + 1u32;
+    }
+    return result;
 }
