@@ -42,7 +42,8 @@ fn surface_vertex(p: Vec3, frame: SurfaceFrame, tile_metres: f32) -> MeshVertex 
         v: dot(relative, frame.up) / tile_metres
     };
 }
-// Produces an inward-facing room shell. UV scale is metres per repeated tile.
+// Produces an inward-facing, non-shadow-casting room shell.
+// UV scale is metres per repeated tile.
 fn hull_mesh(hull: read AssetHull, mesh: mut Mesh, tile_metres: f32) -> bool {
     var i: u32 = 0u32;
     while i < asset_face_count(read hull) {
@@ -66,7 +67,7 @@ fn hull_mesh(hull: read AssetHull, mesh: mut Mesh, tile_metres: f32) -> bool {
                 },
                 material: face.region,
                 portal: 0u32,
-                flags: 0u32
+                flags: 4u32
             };
             if !mesh_append(mut mesh, primitive) {
                 return false;

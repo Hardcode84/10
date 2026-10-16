@@ -20,7 +20,6 @@ fn draw_cable(
         space_point(space_inverse(drone.cable.frame), drone.position)
     );
     game_dynamic_space(mut v, first, drone.cable.space);
-    game_dynamic_no_shadow(mut v, first);
     var start: Vec3 = add(
         drone.position,
         basis_vector(drone.basis, vec(0f32, -0.12f32, 0.2f32))
@@ -41,6 +40,7 @@ fn draw_cable(
     } else {
         draw_portal_cable(read collision, mut v, drone, start, drone.cable.anchor, mat);
     }
+    game_dynamic_no_shadow(mut v, first);
     var direction: Vec3 = unit_vector(sub(drone.cable.anchor, drone.position));
     if dot(direction, drone.basis.forward) < 0.5f32 {
         var x: f32 = dot(direction, drone.basis.right);

@@ -38,15 +38,20 @@ shadow query uses the same UV interpolation, address modes, and transparent
 palette index as the surface. Full-bright texels remain visible without light.
 They do not emit light. They block light like other opaque texels. Triangle
 flag bit 2 disables shadow casting. The hook uses this flag so its visible
-mesh does not cast shadows from room lamps. Prediction markers also use this flag.
+mesh does not cast shadows from room lamps. The tether, prediction markers,
+and generated convex room shells also use this flag. Room shells still
+receive light and shadows from interior props. A shell cannot block a segment
+between an interior lamp and another interior surface. Excluding the shell
+also prevents grid samples beyond a face edge from producing false shadows
+from adjacent shell faces. Collision and portal visibility do not change.
 
 The receiver triangle is excluded from its own query. Segment fractions at or
 below 0.00001 and at or above 0.99999 are excluded to prevent endpoint contact
 from blocking the light. These tolerances scale with the segment length. Content
 must keep separate blocking surfaces outside that endpoint interval.
 
-Room lights do not travel through portal connections. Portal faces block their
-local shadow segments. Ambient light has no visibility test.
+Room lights do not travel through portal connections; the room ID limits
+their contribution. Ambient light has no visibility test.
 
 A portable light (`LIGHT_VIEW`) has no shadow test. Its position is supplied
 in root-camera coordinates: right, up, and forward. Each visible portal view
@@ -123,8 +128,8 @@ counts; the tree code does not impose a separate geometry cap.
 The raster pass rejects room lights in other rooms and contributions below the
 first intensity band. Triangle intersection, cutout sampling, and endpoint
 rules remain the same. Prediction markers, cockpit display geometry, and
-portal number labels do not cast shadows. Physical room geometry, props,
-beacons, and cables still cast shadows.
+portal number labels, tether geometry, and generated convex room shells do
+not cast shadows. Interior props and beacons still cast shadows.
 
 Measure the actual start, start with a flying hook, and ending-room views:
 
