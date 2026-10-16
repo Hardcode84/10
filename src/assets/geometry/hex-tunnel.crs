@@ -9,6 +9,7 @@ fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
     loft_ring(mut asset.hull, profile.shape, 1u32, length_metres, profile.radius);
     loft_span(mut asset.hull, profile.shape, 0u32, 0u32);
     loft_caps(mut asset.hull, profile.shape, 2u32, 0u32, 0u32);
+    hex_tunnel_surfaces(mut asset.hull, profile.shape.sides);
     var near: RoomPort = make RoomPort {
         id: asset_name("ENTRY"),
         profile: profile,
@@ -34,4 +35,21 @@ fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
         basis: far.basis
     };
     return room_asset_finish(mut asset);
+}
+// Centres a metal panel on each wall instead of a panel joint.
+fn hex_tunnel_surfaces(hull: mut AssetHull, sides: u32) -> unit {
+    var material: PanelMaterial = hex_tunnel_material();
+    var i: u32 = 0u32;
+    while i < sides {
+        var frame: SurfaceFrame = asset_surface(read hull, i);
+        frame.origin = sub(
+            frame.origin,
+            add(
+                scale(frame.right, material.tile_metres * 0.5f32),
+                scale(frame.up, material.panel_height * 0.5f32)
+            )
+        );
+        asset_surface_set(mut hull, i, frame);
+        i = i + 1u32;
+    }
 }
