@@ -1,0 +1,72 @@
+fn demo_room_shell(asset: read RoomAsset, mesh: mut Mesh, walls: mut Mesh) -> bool {
+    var shell: Mesh = mesh_new();
+    if !room_linked_mesh(read asset, mut shell, mut walls, GAME_MATERIALS) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read shell) {
+        var primitive: MeshTriangle = mesh_triangle(read shell, i);
+        // The first port in each pair opens directly into its attached tunnel.
+        if primitive.portal % 2u32 == 0u32 && !mesh_append(mut mesh, primitive) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn demo_tunnel_pair(
+    tunnel: read RoomAsset,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    a: RoomPort,
+    b: RoomPort,
+    first: u32
+) -> bool {
+    var entry: RoomPort = asset_port(read tunnel.ports, 0u32);
+    var placement: SpaceTransform = space_inverse(connection_transform(a, entry, 3u32));
+    var end: RoomPort = placed_port(
+        asset_port(read tunnel.ports, 1u32),
+        placement.origin,
+        placement.basis
+    );
+    var render: Mesh = mesh_new();
+    var walls: Mesh = mesh_new();
+    if !room_linked_mesh(
+        read tunnel,
+        mut render,
+        mut walls,
+        GAME_MATERIALS + room_material_count()
+    ) || !collision_append(
+        mut builder,
+        read walls,
+        0u32,
+        placement.origin,
+        placement.basis
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read render) {
+        var primitive: MeshTriangle = mesh_triangle(read render, i);
+        if primitive.portal != 1u32 {
+            if primitive.portal == 2u32 {
+                primitive.portal = first + 1u32;
+            }
+            if !mesh_append(
+                mut mesh,
+                placed_triangle(primitive, placement.origin, placement.basis)
+            ) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return connection_link(mut builder, end, b, 0u32, 0u32, 3u32) && connection_link(
+        mut builder,
+        b,
+        end,
+        0u32,
+        0u32,
+        3u32
+    );
+}

@@ -299,6 +299,11 @@ its spawn, surfaces, and generated textures. Room-specific connections are
 specified in the demo content source. Backspace returns to the recipe spawn.
 The demo has no course gates, expedition save, or completion condition.
 
+Each pair of room openings connects through a one-metre hexagonal tunnel.
+The near end joins the room directly. The far end transfers the drone and
+hook to the paired opening. The tunnel has solid walls and generated metal
+textures. Inspect its recipe with `crust viewer.crs assets/rooms/hex-tunnel.crs`.
+
 Hold LMB to launch and retain the hook. R or Space starts fast reeling.
 Release LMB to release the hook. RMB applies a burst; F applies the brake.
 WASD and Ctrl/Space apply thrust. The mouse turns the drone. Q/E apply roll

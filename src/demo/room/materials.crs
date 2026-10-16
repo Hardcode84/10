@@ -1,14 +1,25 @@
 fn demo_room_palette(input: mut FrameInput) -> bool {
-    var count: u32 = GAME_MATERIALS + room_material_count();
+    var panel: PanelMaterial = hex_tunnel_material();
+    var payload: u32 = panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
+    var count: u32 = GAME_MATERIALS + room_material_count() + 1u32;
     app_assets_extra(
         mut input,
         GAME_MATERIALS,
-        room_material_count(),
-        room_material_payload()
+        room_material_count() + 1u32,
+        room_material_payload() + payload
     );
     game_palette_fill(mut input);
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
     input_set_float(mut input, CAMERA_LIGHT as usize, 900f32);
     var offset: u32 = count * MATERIAL_WORDS + GAME_MATERIALS * 64u32 + PALETTE_COLORS * LIGHT_STATES;
-    return room_materials_at(mut input, offset, GAME_MATERIALS);
+    if !room_materials_at(mut input, offset, GAME_MATERIALS) {
+        return false;
+    }
+    return panel_upload(
+        mut input,
+        count - 1u32,
+        offset + room_material_payload(),
+        panel_texture_width(panel),
+        panel
+    );
 }

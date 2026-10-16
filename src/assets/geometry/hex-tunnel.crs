@@ -1,0 +1,37 @@
+// Builds a straight HEX-6M passage along local +Y. Length is at least 0.75 m.
+// End ports remain closed until assembly. The spawn has sphere clearance.
+fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
+    var profile: ConnectionProfile = service_hex_profile();
+    if !loft_allocate(mut asset.hull, profile.shape, 2u32) {
+        return false;
+    }
+    loft_ring(mut asset.hull, profile.shape, 0u32, 0f32, profile.radius);
+    loft_ring(mut asset.hull, profile.shape, 1u32, length_metres, profile.radius);
+    loft_span(mut asset.hull, profile.shape, 0u32, 0u32);
+    loft_caps(mut asset.hull, profile.shape, 2u32, 0u32, 0u32);
+    var near: RoomPort = make RoomPort {
+        id: asset_name("ENTRY"),
+        profile: profile,
+        face: profile.shape.sides,
+        position: vec(0f32, 0f32, 0f32),
+        basis: make Basis {
+            right: vec(1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(0f32, -1f32, 0f32)
+        }
+    };
+    var far: RoomPort = near;
+    far.id = asset_name("EXIT");
+    far.face = far.face + 1u32;
+    far.position.y = length_metres;
+    far.basis.right.x = -1f32;
+    far.basis.forward.y = 1f32;
+    if !asset_port_append(mut asset.ports, near) || !asset_port_append(mut asset.ports, far) {
+        return false;
+    }
+    asset.spawn = make AssetSpawn {
+        position: vec(0f32, length_metres * 0.5f32, 0f32),
+        basis: far.basis
+    };
+    return room_asset_finish(mut asset);
+}

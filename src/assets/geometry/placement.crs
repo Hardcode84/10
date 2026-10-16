@@ -1,0 +1,26 @@
+// Places a triangle with a rigid transform. UVs, material, and portal ID stay intact.
+fn placed_triangle(primitive: MeshTriangle, origin: Vec3, basis: Basis) -> MeshTriangle {
+    var i: usize = 0usize;
+    while i < 3usize {
+        var vertex: MeshVertex = primitive.vertices[i];
+        var point: Vec3 = add(
+            origin,
+            basis_vector(basis, vec(vertex.x, vertex.y, vertex.z))
+        );
+        vertex.x = point.x;
+        vertex.y = point.y;
+        vertex.z = point.z;
+        primitive.vertices[i] = vertex;
+        i = i + 1usize;
+    }
+    return primitive;
+}
+fn placed_port(port: RoomPort, origin: Vec3, basis: Basis) -> RoomPort {
+    port.position = add(origin, basis_vector(basis, port.position));
+    port.basis = make Basis {
+        right: basis_vector(basis, port.basis.right),
+        up: basis_vector(basis, port.basis.up),
+        forward: basis_vector(basis, port.basis.forward)
+    };
+    return port;
+}

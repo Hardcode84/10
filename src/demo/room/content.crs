@@ -1,4 +1,4 @@
-// Adjacent sides connect in pairs: 0/1, 2/3, 4/5, and 6/7.
+// Adjacent sides connect through one-metre tunnels: 0/1, 2/3, 4/5, and 6/7.
 // The half-roll keeps local +Y upright at each crossing.
 fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mut Mesh) -> bool {
     var values: AssetValues = asset_values_new();
@@ -10,7 +10,7 @@ fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mu
         return false;
     }
     var walls: Mesh = mesh_new();
-    if !room_linked_mesh(read asset, mut mesh, mut walls, GAME_MATERIALS) {
+    if !demo_room_shell(read asset, mut mesh, mut walls) {
         return false;
     }
     var builder: CollisionBuilder = collision_builder_new();
@@ -23,19 +23,23 @@ fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mu
     ) {
         return false;
     }
+    var tunnel: RoomAsset = room_asset_new();
+    if !hex_tunnel_build(1f32, mut tunnel) {
+        return false;
+    }
     var i: u32 = 0u32;
     while i < asset_port_count(read asset.ports) {
-        if !connection_link(
+        if !demo_tunnel_pair(
+            read tunnel,
             mut builder,
+            mut mesh,
             asset_port(read asset.ports, i),
-            asset_port(read asset.ports, i ^ 1u32),
-            0u32,
-            0u32,
-            3u32
+            asset_port(read asset.ports, i + 1u32),
+            i
         ) {
             return false;
         }
-        i = i + 1u32;
+        i = i + 2u32;
     }
     return collision_finish(move builder, mut collision);
 }

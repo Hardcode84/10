@@ -1,0 +1,15 @@
+fn hex_tunnel_material() -> PanelMaterial {
+    return make PanelMaterial {
+        colour: 0xa4a9afu32,
+        accent: 0x4f97c4u32,
+        emission: 0xd6ffc0u32,
+        tile_metres: 2f32,
+        panel_height: 1f32,
+        texels_per_metre: 64u32,
+        border: 0.025f32,
+        finish: METAL_PLATE,
+        pitch: 0.25f32,
+        seed: 293u32,
+        indicator: false
+    };
+}
