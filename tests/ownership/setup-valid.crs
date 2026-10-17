@@ -1,0 +1,12 @@
+fn valid_setup(renderer: Renderer, range: DeferredGeometry) -> unit {
+    {
+        var setup: FrameSetup = frame_setup(mut renderer, range);
+        if frame_setup_accepted(read setup) {
+            {
+                var edit: DeferredInput = frame_setup_edit(mut setup);
+            }
+            var frame: SubmittedFrame = frame_setup_submit(mut setup);
+        }
+    }
+    var input: FrameInput = renderer_inputs(mut renderer);
+}

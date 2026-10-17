@@ -337,6 +337,9 @@ fn portal_facing(view: u32, portal: u32) -> bool {
     return distance < 0f32;
 }
 fn triangle_visible(tri: u32, view: u32) -> bool {
+    if (words_load(words_load(META) + tri * 4u32 + 3u32) & TRIANGLE_INACTIVE) != 0u32 {
+        return false;
+    }
     if tri >= words_load(DYNAMIC_COUNT) {
         var instance: u32 = words_load(words_load(INSTANCE_OWNER) + tri);
         if words_load(

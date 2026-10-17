@@ -101,6 +101,9 @@ fn commands_create(v: *RenderState) -> bool {
 fn command_reset(v: *RenderState) -> bool {
     return true;
 }
+fn command_continue(v: *RenderState) -> bool {
+    return command_begin(v);
+}
 fn command_begin(v: *RenderState) -> bool {
     web_begin(v -> gpu.id);
     return true;

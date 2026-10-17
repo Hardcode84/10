@@ -79,6 +79,24 @@ wait for retirement before they access or release those ranges. The pending flag
 is set only after a successful queue submission and cleared only after the fence
 signals. Submission failure leaves no pending work.
 
+The split schedule uses `FrameSetup` to retain this loan across shadow setup
+and portal rendering. `input_defer` reserves a bounded range before retained
+instances are submitted. Reserved slots have the inactive and no-shadow flags.
+Their addresses remain fixed when late triangles arrive. Inactive slots are
+excluded from projection. Projection storage admits the reservation before the
+first submission, so the late write cannot require buffer replacement.
+
+After prediction, `frame_setup_edit` waits for setup retirement and lends a
+`DeferredInput`. Its triangle writer is bounded by the reservation. The caller
+must write only this range, once, with non-portal, non-shadow-casting triangles.
+Scope exit restores the complete scene count. `frame_setup_submit` then uploads
+the completed inputs and submits portal rendering. This operation also occurs
+once. Dropping either pending operation waits before storage is released.
+
+Both submissions use the same command buffer and staging allocation. Reuse
+occurs after setup retirement. The second command buffer recording preserves
+the first submission's timestamp queries. The renderer has one frame in flight.
+
 A successful frame can produce a `ValidatedImage`. Presentation holds this
 image through a separate `Presentation` loan. Its destructor waits for source
 release. Native waits run on a dedicated completion service. Browser operations

@@ -3,7 +3,9 @@ fn shadow_seed(first: u32, begin: u32, end: u32, shift: u32, space: u32, filter:
     var i: u32 = begin;
     while i < end {
         var meta: u32 = words_load(META) + i * 4u32;
-        if (!filter || words_load(meta) == space) && (words_load(meta + 3u32) & 4u32) == 0u32 {
+        if (!filter || words_load(meta) == space) && (
+            words_load(meta + 3u32) & (TRIANGLE_NO_SHADOW | TRIANGLE_INACTIVE)
+        ) == 0u32 {
             words_store(words_load(SHADOW_INDEX) + first + count, i - shift);
             count = count + 1u32;
         }

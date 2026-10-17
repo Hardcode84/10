@@ -81,3 +81,10 @@ fn prediction_task_drop(task: mut PredictionTask) -> unit {
         prediction_task_idle(read task);
     }
 }
+
+fn prediction_inline(context: mut PredictionContext, trial: read Trial) -> Prediction {
+    context.times.start = now();
+    var result: Prediction = predict_paths(read context.collision, read trial);
+    context.times.finish = now();
+    return result;
+}

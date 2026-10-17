@@ -3,7 +3,7 @@
 ## Status and purpose
 
 This document defines the target architecture. An opt-in experiment implements
-parallel prediction and asynchronous render and presentation operations.
+same-frame CPU/GPU overlap and asynchronous render and presentation operations.
 Run it with `crust main.crs --tasks`. The default game loop uses synchronous draw.
 The [transfer contract](../render/transfers.md) describes current resource use.
 Keep that contract until each replacement passes the delivery gates below.
@@ -18,12 +18,12 @@ reused after drain. Optional spans record ready, start, submission, and finish
 times for the most recent execution. Completion spans record executor observation
 time, not the device timestamp. Read spans before starting the next execution.
 
-The game graph runs simulation before prediction and scene preparation. Prediction
-runs on a native worker while the application prepares the independent part of
-the scene. Both tasks must complete before the prediction markers and remaining
-scene are assembled. Render and presentation follow. This preserves the current
-snapshot and triangle order. Game input and recording have a separate owner from
-the renderer. This graph has no CPU work that can overlap its GPU work.
+The default task graph prepares the scene after simulation, then submits GPU
+shadow setup. Prediction runs on the application thread while setup is pending.
+After setup retires, the game writes markers into a reserved geometry range.
+Portal rasterization and presentation follow. All work uses the same snapshot.
+Inactive reserved triangles preserve the relative order of visible triangles.
+Game input and recording have a separate owner from the renderer.
 Input events remain active during asynchronous GPU and presentation waits.
 Both window loops use the same delay before the next simulation step.
 
@@ -35,8 +35,9 @@ boundaries. Shared collision storage has a trusted `share` contract. Ordinary
 computation needs no execution annotation. The typed game adapter contains
 the provider callback; checked frame code contains no raw callback or pointer.
 
-Use `--tasks --workers 1` for native worker execution. Use `--tasks --workers 0`
-for the same graph on the application thread. The browser provider requires zero
+Use `--tasks` or `--tasks --workers 0` for the split GPU schedule.
+Use `--tasks --workers 1` to compare the earlier CPU worker schedule, where GPU
+submission follows prediction. The browser provider requires zero
 workers and reports an error for a nonzero worker count. Pool admission failure
 fails the frame. Cancellation joins accepted prediction work before its context
 can be reused. GPU and presentation waits use the separate completion service.
@@ -377,7 +378,7 @@ cost first, or identify independent queries within each step. Any new split
 must reduce submission and frame time with the same snapshot and output.
 Adding workers or a faster queue alone cannot remove this dependency chain.
 
-#### Additional independent work
+#### Same-frame shadow setup experiment
 
 The largest measured candidate is GPU shadow preparation for the current
 snapshot. It can run while the CPU calculates prediction. This keeps simulation,
@@ -418,7 +419,7 @@ simulation snapshot
   +-- prepare scene -> GPU shadow setup ----+-- portal raster -> compose -> present
 ```
 
-The current buffer contract prevents this split. `input_instance` places
+The original buffer contract prevented this split. `input_instance` places
 retained triangles after all dynamic triangles. Their addresses depend on the
 marker triangle count. `projection_members` also needs the complete triangle
 list. `upload_scene` copies shared headers and dynamic geometry together.
@@ -429,19 +430,46 @@ GPU ownership contract.
 Use stable geometry ranges for independently produced batches. Admit their
 storage before the first submission. Separate shadow-casting geometry from
 late non-shadow-casting geometry, with explicit active ranges. Keep source
-uploads immutable until the GPU has consumed them. Give the two submissions
-separate command storage and a provider-owned dependency. Run projection-list
+uploads immutable until the GPU has consumed them. The two submissions need a provider-owned dependency. Command storage can
+be reused after retirement, or kept separate while both submissions are pending. Run projection-list
 assembly and portal rasterization after the late batch arrives. Preserve
 triangle tie order even if physical storage order changes. The game API must
 expose frame operations and completion, with native and browser details in
 their providers.
 
-First test this split with one frame in flight and prediction on the application
-thread. It avoids the measured worker clock cost. Require identical capture
-bytes and simulation hashes, including recursive transformed portals and hook
-launch/reel frames. Measure the setup/CPU overlap and the final frame time.
-Stop expansion if the extra upload, submission, or storage work consumes the
-gain. Do not add cross-frame latency to obtain overlap.
+The implemented slice keeps one frame in flight and prediction on the application
+thread. A scoped `FrameSetup` holds the renderer through both submissions.
+`input_defer` reserves inactive, non-shadow-casting triangles at stable addresses.
+Projection storage admits the maximum late batch before setup starts.
+`DeferredInput` waits for setup retirement, bounds triangle writes to that
+reservation, and restores the full scene count on scope exit. Unused slots remain
+inactive. Late triangles must have no portal and must not cast shadows.
+
+The single command buffer and staging allocation are reused only after setup
+retirement. The second submission uploads the completed inputs and runs the
+existing portal rasterization path. Query reset occurs once per complete frame.
+No renderer storage can be borrowed through the owner while setup is live.
+The task graph records setup as an external operation. This bounded schedule
+needs no second frame slot, independent GPU queue, or native type in game code.
+
+Three paired native runs used the same 80-tick flight, 640 by 480 pixels,
+seed 1, complexity 3, and the Radeon PRO W7900. Each excluded 16 warm-up frames.
+Values are synchronous GPU scheduling / split GPU scheduling, in milliseconds:
+
+| Pair | Frame p50 | Frame p95 |
+| --- | ---: | ---: |
+| 1 | 8.376 / 6.464 | 9.168 / 7.093 |
+| 2 | 9.464 / 6.401 | 10.044 / 6.972 |
+| 3 | 9.239 / 6.474 | 9.783 / 7.017 |
+
+With capture enabled, the targeted flight compares each of its 80 split frames
+against a synchronous render of the same snapshot. The internal and composed image pixels and the final
+simulation hash match on AMD and Intel with checked shaders enabled. Browser checks pass raw and checked
+shaders, flight, tether, pause, fullscreen, capture, replay, device loss, and
+shutdown. A 32-event browser pair measured input-to-presentation-request p95
+at 30.4 ms synchronously and 28.5 ms with the split. These are application
+request times, not display scanout times. The task loop remains opt-in until
+the native presentation latency gate passes.
 
 The large shadow-build time also needs a separate cost check. That shader uses
 one active lane per tree. It can rebuild retained trees and builds dynamic
@@ -470,8 +498,8 @@ Rendering the whole world before markers arrive is a second, larger renderer
 change. A late marker pass would need retained portal-path visibility and
 depth intervals, including markers in an ancestor room before a portal.
 The current traversal overwrites task masks and stores only final pixel color
-in production. A screen-space overlay would give wrong occlusion. Test the
-shadow-setup split first; it leaves the current portal raster path intact.
+in production. A screen-space overlay would give wrong occlusion. The implemented
+shadow-setup split leaves the current portal raster path intact.
 
 The browser serial provider passes capture, input, pause, fullscreen, replay,
 device-loss, and shutdown checks. One 32-command pair measured input to
@@ -485,7 +513,8 @@ imports, unsafe captures, and retained context loans. Runtime checks
 cover zero and two workers, admission exhaustion, failure delivery, generation
 reuse, and early job drop. Memcheck and Helgrind pass the focused pool fixture.
 
-Run the worker comparison with:
+Run the current split/worker comparison with (the earlier tables measured the
+zero-worker path before GPU setup was split):
 
 ```sh
 crust tests.crs tasks --tasks --workers 0 --width 640 --height 480 > build/worker-zero.txt

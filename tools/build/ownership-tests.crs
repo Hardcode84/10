@@ -1,5 +1,8 @@
 fn check_host_ownership(root: *CrustRun) -> bool {
-    var files: [*u8; 13] = make [*u8; 13] {
+    var files: [*u8; 16] = make [*u8; 16] {
+        "setup-reuse.crs",
+        "setup-edit.crs",
+        "setup-valid.crs",
         "valid.crs",
         "copy.crs",
         "use-after-drop.crs",
@@ -14,7 +17,10 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         "pending-valid.crs",
         "presentation-reuse.crs"
     };
-    var errors: [*u8; 13] = make [*u8; 13] {
+    var errors: [*u8; 16] = make [*u8; 16] {
+        "access conflicts with an active payload loan",
+        "access conflicts with an active payload loan",
+        null(*u8),
         null(*u8),
         "copy of a resource requires an explicit move",
         "value is uninitialized or has been moved",
@@ -29,11 +35,11 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         null(*u8),
         "access conflicts with an active payload loan"
     };
-    var providers: [*u8; 25] = uninit;
+    var providers: [*u8; 26] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
     var good: bool = true;
     var i: usize = 0usize;
-    while i < 13usize {
+    while i < 16usize {
         var args: [*u8; 4] = make [*u8; 4] {
             "--check",
             "--library",

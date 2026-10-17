@@ -4,6 +4,7 @@ resource Renderer {
 opaque drop renderer_drop;
 record FrameInput {
     storage: mut RenderState;
+    triangle_limit: u32;
 }
 fn renderer_new() -> Renderer {
     var state: RenderState = uninit;
@@ -19,7 +20,8 @@ fn renderer_drop(renderer: mut Renderer) -> unit {
 fn renderer_inputs(renderer: mut Renderer) -> FrameInput from renderer {
     retirement_wait(&renderer.state);
     return make FrameInput {
-        storage: mut renderer.state
+        storage: mut renderer.state,
+        triangle_limit: ~0u32
     };
 }
 fn input_word(input: read FrameInput, index: usize) -> u32 {
@@ -61,5 +63,11 @@ fn input_set_float(input: mut FrameInput, index: usize, value: f32) -> unit {
 }
 // Existing frame data is preserved. Failure leaves no usable frame to submit.
 fn input_reserve_triangles(input: mut FrameInput, required: u32) -> bool {
+    if input.triangle_limit != ~0u32 {
+        if required > input.triangle_limit {
+            trap;
+        }
+        return true;
+    }
     return geometry_reserve(&input.storage, required);
 }

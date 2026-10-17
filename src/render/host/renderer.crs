@@ -98,7 +98,7 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
 // Consumes the caller's camera, geometry, portals, textures, and lighting in the input buffer.
 // Returns after GPU completion and the selected readback. A failed frame must not be presented.
 // Requires no input borrow. Frame storage addresses can change when room geometry grows.
-fn renderer_begin(v: *RenderState) -> bool {
+fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
     v -> frame_submit_ns = 0u64;
     v -> frame_present_ns = 0u64;
     v -> frame_retired_ns = 0u64;
@@ -117,7 +117,7 @@ fn renderer_begin(v: *RenderState) -> bool {
     if w[INSTANCE_COUNT as usize] == 0u32 {
         w[DYNAMIC_COUNT as usize] = w[3usize];
     }
-    if !projection_prepare(v) {
+    if !projection_admit(v, extra) {
         return false;
     }
     w = v -> mapped as *u32;
@@ -131,7 +131,12 @@ fn renderer_begin(v: *RenderState) -> bool {
     v -> frame_readback_bytes = 0u64;
     v -> mesh_upload_bytes = 0u64;
     v -> asset_upload_bytes = 0u64;
-    if !command_reset(v) || !commands_record(v) || !dispatch_submit(v) {
+    return true;
+}
+fn renderer_begin(v: *RenderState) -> bool {
+    if !renderer_prepare(v, 0u32) || !command_reset(v) || !commands_record(v) || !dispatch_submit(
+        v
+    ) {
         return false;
     }
     return true;

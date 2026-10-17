@@ -713,6 +713,9 @@ fn reference_intersect(
     clip: u32,
     hit: *Hit
 ) -> bool {
+    if (w[(w[META as usize] + tri * 4u32 + 3u32) as usize] & TRIANGLE_INACTIVE) != 0u32 {
+        return false;
+    }
     if (w[(w[META as usize] + tri * 4u32 + 3u32) as usize] & 2u32) != 0u32 {
         var p: usize = (GEOMETRY + tri * 15u32) as usize;
         var a: Vec = vertex(f, p);
@@ -769,12 +772,9 @@ fn reference_light_visible(w: *u32, f: *f32, receiver: Hit, target: Vec) -> bool
     var i: u32 = 0u32;
     while i < w[3usize] {
         var meta: usize = (w[META as usize] + i * 4u32) as usize;
-        if i != receiver.triangle && w[meta] == space && (w[meta + 3usize] & 4u32) == 0u32 && reference_shadow_facing(
-            w,
-            f,
-            i,
-            target
-        ) {
+        if i != receiver.triangle && w[meta] == space && (
+            w[meta + 3usize] & (TRIANGLE_NO_SHADOW | TRIANGLE_INACTIVE)
+        ) == 0u32 && reference_shadow_facing(w, f, i, target) {
             var hit: Hit = receiver;
             hit.distance = 0.99999f32;
             if intersect(w, f, i, ray, 0.00001f32, 0xffffffffu32, &hit) {

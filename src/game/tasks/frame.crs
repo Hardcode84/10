@@ -26,6 +26,17 @@ fn game_task_frame(
     if task_next(mut graph) != 2u32 {
         trap;
     }
+    if config.workers == 0u32 {
+        return game_shadow_frame(
+            mut graph,
+            mut context,
+            read collision,
+            mut session,
+            mut loop,
+            config,
+            mut prediction
+        );
+    }
     {
         var work: PredictionTask = prediction_start(mut context, loop.trial);
         if task_next(mut graph) != 4u32 {
@@ -33,6 +44,11 @@ fn game_task_frame(
         }
         game_prepare_begin(read collision, mut session, read loop, config);
         task_complete(mut graph, 4u32, true);
+        if task_next(mut graph) != 5u32 {
+            trap;
+        }
+        task_submission_returned(mut graph, 5u32, true);
+        task_external_complete(mut graph, 5u32, true);
         var status: i32 = prediction_task_poll(read work);
         while status == 0i32 {
             prediction_task_idle(read work);
@@ -121,16 +137,18 @@ fn game_run_tasks(
 }
 
 fn game_frame_graph(graph: mut TaskGraph) -> bool {
-    return task_graph_open(mut graph, 5u32, 5u32) && task_graph_external(mut graph, 0u32) && task_graph_external(
+    return task_graph_open(mut graph, 6u32, 6u32) && task_graph_external(mut graph, 0u32) && task_graph_external(
         mut graph,
         3u32
     ) && task_graph_edge(mut graph, 0u32, 3u32) && task_graph_edge(mut graph, 1u32, 4u32) && task_graph_edge(
         mut graph,
         1u32,
         2u32
-    ) && task_graph_edge(mut graph, 4u32, 0u32) && task_graph_edge(mut graph, 2u32, 0u32) && task_graph_seal(
-        mut graph
-    );
+    ) && task_graph_external(mut graph, 5u32) && task_graph_edge(mut graph, 4u32, 5u32) && task_graph_edge(
+        mut graph,
+        5u32,
+        0u32
+    ) && task_graph_edge(mut graph, 2u32, 0u32) && task_graph_seal(mut graph);
 }
 fn game_simulation_task(
     graph: mut TaskGraph,

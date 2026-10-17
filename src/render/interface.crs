@@ -1,3 +1,5 @@
+const TRIANGLE_NO_SHADOW: u32 = 4u32;
+const TRIANGLE_INACTIVE: u32 = 8u32;
 // Shared buffer layout. All offsets and lengths count four-byte elements.
 const PIXELS: u32 = 8192u32;
 const MATERIAL_COUNT: u32 = 47u32;

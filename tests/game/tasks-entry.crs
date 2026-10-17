@@ -111,8 +111,13 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
         timings[frame as usize].submitted = session.renderer.state.frame_submit_ns;
         timings[frame as usize].finish = now();
         samples[frame as usize] = now() - start;
-        if loop.trial.tick != frame + 1u32 {
-            error("timing fixture requires one simulation tick per command");
+        if !task_check_split_pixels(
+            read collision,
+            mut session,
+            read loop,
+            config,
+            frame + 1u32
+        ) {
             return 1i32;
         }
         frame = frame + 1u32;
@@ -176,4 +181,36 @@ fn game_next_snapshot(
     }
     prediction = predict_paths(read collision, read loop.trial);
     return true;
+}
+
+fn task_check_split_pixels(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    expected_tick: u32
+) -> bool {
+    if loop.trial.tick != expected_tick {
+        return error("timing fixture requires one simulation tick per command");
+    }
+    var v: *RenderState = &session.renderer.state;
+    if !config.tasks || config.workers != 0u32 || !v -> read_pixels {
+        return true;
+    }
+    var size: usize = (
+        v -> width as usize * v -> height as usize + v -> output_width as usize * v -> output_height as usize
+    ) * 4usize;
+    var expected: *u8 = malloc(size);
+    if expected == null(*u8) {
+        return error("frame comparison allocation failed");
+    }
+    memcpy(expected, v -> mapped + PIXELS as isize * 4isize, size);
+    var good: bool = game_render(read collision, mut session, read loop, config);
+    v = &session.renderer.state;
+    if good && memcmp(expected, v -> mapped + PIXELS as isize * 4isize, size) != 0i32 {
+        good = error("split frame differs from synchronous rendering");
+        print_number(loop.trial.tick as i64);
+    }
+    free(expected);
+    return good;
 }

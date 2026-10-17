@@ -11,6 +11,11 @@ fn commands_record(v: *RenderState) -> bool {
     if !command_begin(v) {
         return false;
     }
+    commands_setup_body(v);
+    commands_raster_body(v);
+    return command_end(v);
+}
+fn commands_setup_body(v: *RenderState) -> unit {
     command_stamp(v, 0u32);
     upload_scene(v);
     if v -> shader_checks {
@@ -27,6 +32,8 @@ fn commands_record(v: *RenderState) -> bool {
     command_barrier(v, BARRIER_COMPUTE);
     retained_dispatch(v, 12usize, v -> light_capacity);
     command_barrier(v, BARRIER_COMPUTE);
+}
+fn commands_raster_body(v: *RenderState) -> unit {
     retained_dispatch(v, 0usize, (v -> width * v -> height + 63u32) / 64u32);
     command_barrier(v, BARRIER_INDIRECT);
     command_stamp(v, 1u32);
@@ -69,7 +76,6 @@ fn commands_record(v: *RenderState) -> bool {
     command_stamp(v, v -> query_count - 2u32);
     readback(v);
     command_stamp(v, v -> query_count - 1u32);
-    return command_end(v);
 }
 
 fn task_dispatch(v: *RenderState, pipeline: usize, field: u32) -> unit {

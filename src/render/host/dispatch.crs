@@ -158,13 +158,19 @@ fn frame_barrier(
 }
 
 fn command_begin(v: *RenderState) -> bool {
+    if !command_continue(v) {
+        return false;
+    }
+    vkCmdResetQueryPool(v -> gpu.commands, v -> gpu.query_pool, 0u32, v -> query_count);
+    return true;
+}
+fn command_continue(v: *RenderState) -> bool {
     var begin: VkCommandBufferBeginInfo = uninit;
     zero(&begin as *u8, sizeof(VkCommandBufferBeginInfo));
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     if !vk_ok(vkBeginCommandBuffer(v -> gpu.commands, &begin), "vkBeginCommandBuffer") {
         return false;
     }
-    vkCmdResetQueryPool(v -> gpu.commands, v -> gpu.query_pool, 0u32, v -> query_count);
     vkCmdBindDescriptorSets(
         v -> gpu.commands,
         VK_PIPELINE_BIND_POINT_COMPUTE,

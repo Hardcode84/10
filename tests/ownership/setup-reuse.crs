@@ -1,0 +1,5 @@
+fn invalid_setup_reuse(renderer: Renderer, range: DeferredGeometry) -> unit {
+    var setup: FrameSetup = frame_setup(mut renderer, range);
+    var input: FrameInput = renderer_inputs(mut renderer);
+    input_set_word(mut input, 3usize, 0u32);
+}
