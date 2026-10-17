@@ -45,8 +45,10 @@ application loops. Demo and viewer remain on their synchronous paths.
 
 ### Experiment decision
 
-Do not enable this path by default or expand it into a worker pool yet.
-The input latency check fails the five-percent gate in two of three runs.
+Keep this path opt-in until the interactive latency gate is measured.
+The frame-boundary command check exceeds five percent in two of three runs.
+It measures one command arrival phase in a headless fixed-tick fixture. It does
+not establish an interactive input latency regression.
 
 The focused production flight uses seed 1, complexity 3, 640 by 480 pixels,
 80 fixed ticks, and thrust, boost, hook launch, reel, and release commands.
@@ -67,12 +69,56 @@ waits. This test measures offscreen submission, not scanout or presentation
 request latency. Native window checks and browser checks establish correctness
 of presentation; they do not establish its latency gate.
 
-The extra delay comes from scene preparation before input sampling and from
-preparing the next packed input after the current renderer loan ends. Remove
-that dependency with an owned scene snapshot and separate host assembly storage.
-Prepare the next snapshot while the current frame uses GPU storage. Keep asset
-versions immutable during both uses. Repeat input-to-submission and
-input-to-presentation-request measurements before accepting the new order.
+The task path submits the old snapshot before it consumes the new command.
+The serial path consumes the command first. The frame-boundary fixture therefore
+includes an extra old-frame assembly and submission interval in task mode.
+This is a real delay for that arrival phase. It is not a measurement of input
+events that arrive at arbitrary times during play.
+
+#### Latency investigation
+
+The focused check now records frame start, simulation/prediction start and end,
+assembly end, submission, and frame end. The report matches command indices
+16 through 78 between the two modes. Task mode submits each command's result
+in the following measured frame. The final command has no measured successor;
+the report excludes it. Each iteration must advance exactly one simulation tick.
+
+Four repeated runs on the same scene and GPU isolate these median costs:
+
+| Interval | Serial | Task mode |
+| --- | ---: | ---: |
+| Command availability to simulation start | Less than 0.0001 ms | 0.469–0.491 ms |
+| Next image assembly, recording, and submission after prediction | 0.477–0.500 ms | 0.468–0.490 ms |
+| Drain after prediction, before the next iteration | Not applicable | 0.0004–0.0006 ms |
+
+In task mode, about 0.35 ms of the first interval is old-frame preparation and
+about 0.13 ms is command recording and submission. The extra interval exists
+because of the frame order. CPU execution time also varies between runs, so the
+reported percentage is not a constant scheduling cost. Quantiles from separate
+intervals do not add up to the quantile of their sum.
+
+The measured post-prediction drain is less than one microsecond at the median.
+GPU storage retirement is thus not the measured bottleneck in this witness.
+An owned snapshot remains part of the target ownership contract. The evidence
+does not establish a second frame slot or separate assembly storage as the fix
+for this command-arrival delay.
+
+The fixture bypasses SDL input and wall-clock tick accumulation. It also omits
+surface presentation and the synchronous application loop's delay. To decide
+the interactive gate, inject commands on a common wall-clock schedule, vary
+their arrival phase, use the real 120 Hz tick accumulator, and identify the
+first submitted and presented snapshot that contains each command. Record both
+availability-to-simulation and simulation-to-output intervals. Test native and
+browser presentation. Keep frame-boundary timings as a separate diagnostic.
+
+There is also a separate presentation scheduling hazard. If render completion
+arrives before simulation runs, the production graph makes nodes ready in the
+order render, simulation, presentation, prediction. `game_present_task` then
+polls presentation to completion without dispatching the ready prediction node.
+The focused check prints this order using the actual game graph. Headless
+presentation completes immediately, so this hazard does not explain the table
+above. The correct fix must retain the presentation loan while dispatching
+independent ready CPU work, then resume its dependent work on completion.
 
 The measured scene reserves 238,959,872 device bytes and the same staging bytes.
 Two complete copies would reserve about 956 MB before other allocations. Split
@@ -89,6 +135,14 @@ crust tests.crs tasks --tasks --width 640 --height 480 --capture build/tasks.ppm
 crust tests.crs render 10
 crust main.crs --web
 bun tests/web/check.mjs --tasks
+```
+
+For a stage-by-stage latency report, save the two task-check logs and run:
+
+```sh
+crust tests.crs tasks --width 640 --height 480 > build/serial-timing.txt
+crust tests.crs tasks --tasks --width 640 --height 480 > build/task-timing.txt
+bun tests/game/task-timings.mjs build/serial-timing.txt build/task-timing.txt
 ```
 
 The runtime check covers completion order, rejection, cancellation drain, graph

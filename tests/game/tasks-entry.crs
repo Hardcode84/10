@@ -1,3 +1,11 @@
+record FlightTiming {
+    start: u64;
+    cpu_begin: u64;
+    cpu_end: u64;
+    prepared: u64;
+    submitted: u64;
+    finish: u64;
+}
 fn main(argc: i32, argv: **u8) -> i32 {
     var launch: Launch = uninit;
     if !game_options(argc, argv, &launch) {
@@ -5,6 +13,11 @@ fn main(argc: i32, argv: **u8) -> i32 {
     }
     launch.config.headless = true;
     launch.config.ticks = 80u32;
+    if launch.config.tasks {
+        puts("frame timing mode: tasks");
+    } else {
+        puts("frame timing mode: serial");
+    }
     return task_frame_check(game_session(&launch), launch.config);
 }
 fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
@@ -23,13 +36,14 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
     if !game_frame_graph(mut graph) || !task_trace_enable(mut graph, now) {
         return 1i32;
     }
+    task_print_early_completion_order(mut graph);
     var prediction: Prediction = predict_paths(read collision, read loop.trial);
     var previous: u64 = now();
     var samples: [u64; 80] = uninit;
     zero(&samples as *u8, sizeof([u64; 80]));
-    var latency: [u64; 80] = samples;
     var overlap: [u64; 80] = samples;
-    var input_at: u64 = now();
+    var timings: [FlightTiming; 80] = uninit;
+    zero(&timings as *u8, sizeof([FlightTiming; 80]));
     var frame: u32 = 0u32;
     while frame < 80u32 {
         var command: Command = idle_command();
@@ -39,6 +53,7 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
         command.reel = frame == 28u32;
         loop.input.pending = command;
         var start: u64 = now();
+        timings[frame as usize].start = start;
         if config.tasks {
             if !game_overlapped_frame(
                 mut graph,
@@ -51,9 +66,12 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
             ) {
                 return 1i32;
             }
-            latency[frame as usize] = session.renderer.state.frame_submit_ns - input_at;
             var gpu: TaskSpan = task_span(read graph, 0u32);
             var cpu: TaskSpan = task_span(read graph, 2u32);
+            var simulation: TaskSpan = task_span(read graph, 1u32);
+            timings[frame as usize].cpu_begin = simulation.start;
+            timings[frame as usize].cpu_end = cpu.finish;
+            timings[frame as usize].prepared = gpu.start;
             var end: u64 = cpu.finish;
             if gpu.finish < end {
                 end = gpu.finish;
@@ -62,6 +80,7 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
                 overlap[frame as usize] = end - cpu.start;
             }
         } else {
+            timings[frame as usize].cpu_begin = now();
             if !game_next_snapshot(
                 read collision,
                 mut session.control,
@@ -72,27 +91,71 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
             ) {
                 return 1i32;
             }
+            timings[frame as usize].cpu_end = now();
             game_prepare(read collision, mut session, read loop, config, read prediction);
+            timings[frame as usize].prepared = now();
             if !game_draw(mut session) || !game_present(mut session) {
                 return 1i32;
             }
-            latency[frame as usize] = session.renderer.state.frame_submit_ns - start;
         }
-        input_at = start;
+        timings[frame as usize].submitted = session.renderer.state.frame_submit_ns;
+        timings[frame as usize].finish = now();
         samples[frame as usize] = now() - start;
+        if loop.trial.tick != frame + 1u32 {
+            error("timing fixture requires one simulation tick per command");
+            return 1i32;
+        }
         frame = frame + 1u32;
     }
-    puts("input to submission ns");
-    task_print_samples(read latency);
     puts("prediction before observed GPU completion ns");
     task_print_samples(read overlap);
     puts("measured frame ns");
     task_print_samples(read samples);
+    task_print_timings(read timings);
     if !game_render(read collision, mut session, read loop, config) {
         return 1i32;
     }
     game_summary(read loop.trial);
     return (!game_finish(mut session)) as i32;
+}
+fn task_print_early_completion_order(graph: mut TaskGraph) -> unit {
+    puts("ready order when GPU completes before simulation");
+    task_graph_start(mut graph);
+    var render: u32 = task_next(mut graph);
+    if render != 0u32 {
+        trap;
+    }
+    print_number(render as i64);
+    task_submission_returned(mut graph, render, true);
+    task_external_complete(mut graph, render, true);
+    var ready: u32 = task_next(mut graph);
+    while ready != TASK_NONE {
+        print_number(ready as i64);
+        if ready == 3u32 {
+            task_submission_returned(mut graph, ready, true);
+            task_external_complete(mut graph, ready, true);
+        } else {
+            task_complete(mut graph, ready, true);
+        }
+        ready = task_next(mut graph);
+    }
+    if !task_succeeded(read graph) {
+        trap;
+    }
+}
+fn task_print_timings(timings: read[FlightTiming; 80]) -> unit {
+    puts("frame timestamps: start cpu_begin cpu_end prepared submitted finish");
+    var i: usize = 0usize;
+    while i < 80usize {
+        var t: FlightTiming = timings[i];
+        print_number(t.start as i64);
+        print_number(t.cpu_begin as i64);
+        print_number(t.cpu_end as i64);
+        print_number(t.prepared as i64);
+        print_number(t.submitted as i64);
+        print_number(t.finish as i64);
+        i = i + 1usize;
+    }
 }
 fn task_print_samples(samples: read[u64; 80]) -> unit {
     var frame: u32 = 16u32;
