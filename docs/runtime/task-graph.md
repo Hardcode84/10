@@ -168,7 +168,7 @@ they cannot establish latency through a native display. The native window check
 also runs through Xvfb and software Vulkan. In that check, input-to-presentation
 p95 is 18.54 / 19.39 ms. Presentation-interval p95 is 10.47 / 11.04 ms, a 5.4
 percent increase. The provider measurements below isolate that result from
-the game loop. The native input-latency gate remains open.
+the game loop. The native input measurements follow those results.
 
 #### Native presentation cost
 
@@ -213,17 +213,39 @@ passes the five-percent thresholds, but the interval increase is still larger
 than in the isolated provider check. That check excludes input polling during
 pending work; it cannot assign the remaining game-loop cost to service wake-up.
 
-The Intel input check has no valid paired result yet. One attempt received
-focus but completed with zero simulation ticks; another stalled before trace
-completion. A captured native stack placed the output service inside
-`vkQueuePresentKHR`, waiting in Wayland dispatch, while the GPU fence had already
-completed. Keep the surface visible and focused for a complete input run. The
-fixture rejects a paused or zero-tick result; the report also requires all 32
-commands to reach their presented snapshots. Do not infer input latency from
-the provider-only results.
+An earlier diagnosis incorrectly treated the stationary expedition timer as
+the simulation counter. `Trial.tick` starts with movement. `GameLoop.ticks`
+counts every applied simulation step, including stationary control commands.
+The console summary now labels the expedition timer explicitly. Use the trace's
+monotonic tick counter for input latency.
 
-The current correction passes the browser input gate without the old-frame
-pipeline. It does not prove a benefit from CPU/GPU overlap. Keep the full
+Three Intel Wayland input pairs completed at 640 by 480. Every run applied all
+32 commands, covered all four arrival-phase quarters, and recorded 503 to 505
+simulation steps. Values below are serial / task mode:
+
+| Pair | Input to submission p95 | Input to presentation request p95 | Presentation interval p95 |
+| --- | --- | --- | --- |
+| 1 | 17.64 / 16.51 ms | 21.09 / 20.32 ms | 17.38 / 17.20 ms |
+| 2 | 16.98 / 17.58 ms | 20.33 / 21.21 ms | 17.32 / 17.35 ms |
+| 3 | 16.90 / 17.61 ms | 20.21 / 21.27 ms | 17.15 / 17.22 ms |
+
+The pooled 96-command presentation-request p95 is 20.79 / 21.13 ms, a 1.6
+percent increase. Pair 3 has a 5.3 percent increase and requires separate
+attention. Its p95 samples differ by 0.57 ms before simulation, 0.15 ms from
+simulation to submission, and 0.35 ms from submission to presentation request.
+These samples arrive at different points in the frame. The trace shows no
+extra snapshot interval. Presentation interval p95 differs by less than 0.5
+percent in this pair. Pooled presentation-request p99 is 22.03 / 27.82 ms;
+these short runs do not establish equal tail latency. Keep task mode opt-in.
+
+An incomplete native attempt stalled inside `vkQueuePresentKHR`, waiting in
+Wayland dispatch after GPU retirement. Keep the surface visible and focused
+for the input check. The fixture rejects a paused or zero-step result; the
+report requires all 32 commands to reach their presented snapshots. Successful
+runs must pass that report. Console timer output is insufficient evidence.
+
+The current correction removes the old-frame interval in browser and native
+input traces. It does not prove a benefit from CPU/GPU overlap. Keep the full
 architecture expansion behind the measured decision gate below.
 
 The measured scene reserves 238,959,872 device bytes and the same staging bytes.

@@ -181,7 +181,7 @@ fn game_summary(trial: read Trial) -> unit {
         print_number(trial.returning as i64);
         print_number(trial.finished as i64);
     }
-    puts("simulation ticks / state hash:");
+    puts("expedition timer ticks / state hash:");
     print_number(trial.tick as i64);
     print_number(trial_hash(read trial) as i64);
     puts("burst count / brake speed removed (m/s) / winch work per mass (J/kg):");
