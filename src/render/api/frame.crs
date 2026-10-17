@@ -1,0 +1,93 @@
+resource SubmittedFrame {
+    storage: mut RenderState;
+    outcome: i32;
+}
+opaque drop submitted_frame_drop;
+// Holds the renderer exclusively until the operation retires, including on scope exit.
+fn frame_submit(renderer: mut Renderer) -> SubmittedFrame from renderer {
+    var accepted: bool = retirement_observer_open(&renderer.state) && renderer_begin(
+        &renderer.state
+    );
+    if accepted {
+        retirement_observer_start(&renderer.state);
+    }
+    return make SubmittedFrame {
+        storage: mut renderer.state,
+        outcome: -((!accepted) as i32)
+    };
+}
+fn submitted_frame_drop(frame: mut SubmittedFrame) -> unit {
+    retirement_wait(&frame.storage);
+}
+// Returns zero while pending, one after validation, or minus one on failure.
+fn frame_poll(frame: mut SubmittedFrame) -> i32 {
+    if frame.outcome != 0i32 {
+        return frame.outcome;
+    }
+    var state: i32 = retirement_poll(&frame.storage);
+    if state != 0i32 {
+        frame.outcome = -1i32;
+        if state > 0i32 && renderer_complete(&frame.storage) {
+            frame.outcome = 1i32;
+        }
+    }
+    return frame.outcome;
+}
+
+fn frame_accepted(frame: read SubmittedFrame) -> bool {
+    return frame.outcome >= 0i32;
+}
+
+// Yields the idle application lane until completion or the next event-pump interval.
+fn frame_idle(frame: mut SubmittedFrame) -> unit {
+    var start: u64 = render_now();
+    retirement_idle(&frame.storage);
+    frame.storage.frame_wait_ns = frame.storage.frame_wait_ns + render_now() - start;
+}
+
+resource ValidatedImage {
+    storage: mut RenderState;
+}
+opaque drop validated_image_drop;
+// Requires successful frame validation. Keeps the output alive for image consumers.
+fn frame_image(frame: mut SubmittedFrame) -> ValidatedImage from frame {
+    if frame.outcome != 1i32 {
+        trap;
+    }
+    return make ValidatedImage {
+        storage: mut frame.storage
+    };
+}
+fn validated_image_drop(image: mut ValidatedImage) -> unit {}
+resource Presentation {
+    storage: mut RenderState;
+    outcome: i32;
+}
+opaque drop presentation_drop;
+// Reserves the validated output until the presentation service releases it.
+fn image_present(image: mut ValidatedImage) -> Presentation from image {
+    var accepted: bool = presentation_start(&image.storage);
+    return make Presentation {
+        storage: mut image.storage,
+        outcome: -((!accepted) as i32)
+    };
+}
+// Returns zero while pending, a positive release status, or minus one on failure.
+// A hidden browser surface returns two when it discards an unsubmitted copy.
+fn presentation_poll(operation: mut Presentation) -> i32 {
+    if operation.outcome == 0i32 {
+        operation.outcome = presentation_status(&operation.storage);
+    }
+    return operation.outcome;
+}
+fn presentation_accepted(operation: read Presentation) -> bool {
+    return operation.outcome >= 0i32;
+}
+fn presentation_idle(operation: mut Presentation) -> unit {
+    presentation_pause(&operation.storage);
+}
+fn presentation_drop(operation: mut Presentation) -> unit {
+    while presentation_poll(mut operation) == 0i32 {
+        presentation_idle(mut operation);
+    }
+}

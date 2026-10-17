@@ -70,11 +70,13 @@ fn dispatch_submit(v: *RenderState) -> bool {
         return false;
     }
     v -> submitted = true;
+    v -> frame_submit_ns = render_now();
     return true;
 }
 fn device_close(v: *RenderState) -> unit {
     if v -> gpu.device != null(*u8) {
         retirement_close(v);
+        service_destroy(v -> gpu.observer);
         if v -> gpu.queue != null(*u8) && !vk_ok(
             vkQueueWaitIdle(v -> gpu.queue),
             "wait before device close"

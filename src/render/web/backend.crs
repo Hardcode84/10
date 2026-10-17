@@ -12,6 +12,8 @@ extern fn web_bindings(id: u32, buffer: u32, words: u32, floats: u32, status: u3
 extern fn web_begin(id: u32) -> unit = "web_begin";
 extern fn web_end(id: u32) -> unit = "web_end";
 extern fn web_submit(id: u32) -> bool = "web_submit";
+extern fn web_poll(id: u32) -> i32 = "web_poll";
+extern fn web_wait(id: u32) -> bool = "web_wait";
 extern fn web_dispatch(id: u32, groups: u32, offset: u32, indirect: bool) -> unit = "web_dispatch";
 extern fn web_bind(id: u32, slot: u32) -> unit = "web_bind";
 extern fn web_clear(id: u32, offset: u32, size: u32) -> unit = "web_clear";
@@ -36,6 +38,7 @@ fn device_wait_idle(v: *RenderState) -> bool {
     return true;
 }
 fn device_close(v: *RenderState) -> unit {
+    retirement_wait(v);
     buffers_close(v);
     if v -> gpu.id != 0u32 {
         web_close(v -> gpu.id);
@@ -128,14 +131,41 @@ fn command_word(v: *RenderState, offset: u32, value: u32) -> unit {
 fn command_copy(v: *RenderState, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
     web_transfer(v -> gpu.id, v -> staging, offset as u32, size as u32, src == v -> staging);
 }
-fn dispatch(v: *RenderState) -> bool {
-    var start: u64 = render_now();
-    var good: bool = web_submit(v -> gpu.id);
-    v -> frame_wait_ns = render_now() - start;
-    return good;
+fn dispatch_submit(v: *RenderState) -> bool {
+    retirement_wait(v);
+    v -> submitted = web_submit(v -> gpu.id);
+    v -> frame_submit_ns = render_now();
+    return v -> submitted;
 }
-// A completed dispatch has no pending staging borrows.
-fn retirement_wait(v: *RenderState) -> unit {}
+fn dispatch(v: *RenderState) -> bool {
+    if !dispatch_submit(v) {
+        return false;
+    }
+    retirement_wait(v);
+    return true;
+}
+fn retirement_poll(v: *RenderState) -> i32 {
+    if !v -> submitted {
+        return 1i32;
+    }
+    var result: i32 = web_poll(v -> gpu.id);
+    if result != 0i32 {
+        v -> submitted = false;
+    }
+    return result;
+}
+fn retirement_wait(v: *RenderState) -> unit {
+    if !v -> submitted {
+        return;
+    }
+    var start: u64 = render_now();
+    if !web_wait(v -> gpu.id) {
+        error("WebGPU submission failed during retirement");
+        exit(1i32);
+    }
+    v -> frame_wait_ns = render_now() - start;
+    v -> submitted = false;
+}
 fn queries_create(v: *RenderState) -> bool {
     return web_queries(v -> gpu.id, v -> query_count);
 }
@@ -161,4 +191,28 @@ fn present(v: *RenderState) -> bool {
 
 fn shader_extension() -> *u8 {
     return "wgsl";
+}
+
+extern fn web_idle(id: u32) -> unit = "web_idle";
+fn retirement_observer_open(v: *RenderState) -> bool {
+    return true;
+}
+fn retirement_observer_start(v: *RenderState) -> unit {}
+fn retirement_idle(v: *RenderState) -> unit {
+    web_idle(v -> gpu.id);
+}
+
+extern fn web_present_start(id: u32, offset: u32, width: u32, height: u32) -> bool = "web_present_start";
+extern fn web_present_poll(id: u32) -> i32 = "web_present_poll";
+extern fn web_present_idle(id: u32) -> unit = "web_present_idle";
+fn presentation_start(v: *RenderState) -> bool {
+    var offset: u32 = ((v -> mapped as *u32)[PRESENT_PIXELS as usize] + 1u32) * 4u32;
+    v -> present_ready = false;
+    return web_present_start(v -> gpu.id, offset, v -> output_width, v -> output_height);
+}
+fn presentation_status(v: *RenderState) -> i32 {
+    return web_present_poll(v -> gpu.id);
+}
+fn presentation_pause(v: *RenderState) -> unit {
+    web_present_idle(v -> gpu.id);
 }

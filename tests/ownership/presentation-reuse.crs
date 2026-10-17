@@ -1,0 +1,5 @@
+fn invalid_presentation_reuse(frame: SubmittedFrame) -> unit {
+    var image: ValidatedImage = frame_image(mut frame);
+    var operation: Presentation = image_present(mut image);
+    var other: Presentation = image_present(mut image);
+}

@@ -9,9 +9,9 @@ fn viewer_open(session: mut GameSession, selected: u32) -> bool {
     if !game_room_palette(mut input) {
         return false;
     }
-    if session.window.handle != null(*u8) {
+    if session.control.window.handle != null(*u8) {
         SDL_SetWindowTitle(
-            session.window.handle,
+            session.control.window.handle,
             "SPINWARD prefab viewer | Left/Right asset | Space pause | Esc close"
         );
         if SDL_SetRelativeMouseMode(0i32) != 0i32 {
@@ -33,7 +33,7 @@ fn viewer_render(
         viewer_scene(
             mut input,
             read session.world,
-            session.launch.config,
+            session.control.launch.config,
             selected,
             tick,
             copies

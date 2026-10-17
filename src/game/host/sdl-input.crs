@@ -58,7 +58,7 @@ fn binding_value(b: Binding, keys: *u8, key_count: i32, mouse: u32, controller: 
     }
     return value;
 }
-fn game_poll(session: mut GameSession, input: mut InputState) -> bool {
+fn game_poll(session: mut GameControl, input: mut InputState) -> bool {
     if session.launch.config.headless {
         return true;
     }

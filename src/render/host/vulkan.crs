@@ -1067,3 +1067,5 @@ extern fn vkCmdUpdateBuffer(
     size: u64,
     data: *u8
 ) -> unit = "vkCmdUpdateBuffer";
+
+extern fn vkGetFenceStatus(device: *u8, fence: *u8) -> i32 = "vkGetFenceStatus";

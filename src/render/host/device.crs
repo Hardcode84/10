@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 record RenderBackend {
+    observer: *ExternalService;
+    observer_pending: bool;
     retired: *u8;
     properties: VkPhysicalDeviceMemoryProperties;
     instance: *u8;

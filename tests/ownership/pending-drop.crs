@@ -1,0 +1,4 @@
+fn invalid_pending_drop(renderer: Renderer) -> unit {
+    var frame: SubmittedFrame = frame_submit(mut renderer);
+    drop renderer;
+}

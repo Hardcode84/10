@@ -2,6 +2,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     if argc == 2i32 && strcmp(argv[1usize], "--help") == 0i32 {
         puts("SPINWARD | There and Back");
         puts("--fullscreen: borderless desktop window; width/height set render resolution");
+        puts("--tasks: experimental serial task graph with asynchronous GPU completion");
         puts("--width N --height N --fov 70..110 --slow --bindings FILE");
         puts("--seed N --complexity N (defaults: seed 1, complexity 3)");
         puts("--record FILE | --replay FILE (use the same seed and complexity)");

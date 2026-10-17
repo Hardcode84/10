@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 83] = make [*u8; 83] {
+    var files: [*u8; 85] = make [*u8; 85] {
         "src/assets/geometry/loft.crs",
         "src/assets/geometry/solid-loft.crs",
         "assets/objects/player-drone.crs",
@@ -75,7 +75,9 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/hud.crs",
         "src/game/view/palette.crs",
         "src/game/view/preview.crs",
-        "src/game/view/preview-phase.crs",
+        "src/game/tasks/prediction.crs",
+        "src/game/tasks/frame.crs",
+        "src/game/flight/preview-phase.crs",
         "src/game/view/hook-preview.crs",
         "src/game/host/replay.crs",
         "src/app/geometry.crs",
@@ -85,14 +87,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 83usize {
+    while i < 85usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 25] = make [*u8; 25] {
+    var files: [*u8; 28] = make [*u8; 28] {
         "src/assets/geometry/storage.crs",
         "src/assets/parameter-storage.crs",
         "src/assets/connections/storage.crs",
@@ -117,10 +119,13 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/host/recording.crs",
         "src/game/host/bindings.crs",
         "src/app/capture.crs",
-        "src/game/view/text.crs"
+        "src/game/view/text.crs",
+        "src/runtime/task/graph.crs",
+        "src/runtime/executor/serial.crs",
+        "src/runtime/trace/frame.crs"
     };
     var i: usize = 0usize;
-    while i < 25usize {
+    while i < 28usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

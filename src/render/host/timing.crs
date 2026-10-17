@@ -50,6 +50,10 @@ fn retirement_create(v: *RenderState) -> bool {
     );
 }
 fn retirement_wait(v: *RenderState) -> unit {
+    if v -> gpu.observer_pending {
+        retirement_observer_drain(v);
+        return;
+    }
     if !v -> submitted {
         return;
     }
@@ -69,4 +73,23 @@ fn retirement_close(v: *RenderState) -> unit {
     if v -> gpu.retired != null(*u8) {
         vkDestroyFence(v -> gpu.device, v -> gpu.retired, null(*u8));
     }
+}
+
+// Returns pending, complete, or failed. Completion makes staging reads visible.
+fn retirement_poll(v: *RenderState) -> i32 {
+    if v -> gpu.observer_pending {
+        return retirement_observer_poll(v);
+    }
+    if !v -> submitted {
+        return 1i32;
+    }
+    var result: i32 = vkGetFenceStatus(v -> gpu.device, v -> gpu.retired);
+    if result == 1i32 {
+        return 0i32;
+    }
+    if !vk_ok(result, "poll renderer retirement") {
+        return -1i32;
+    }
+    v -> submitted = false;
+    return 1i32;
 }

@@ -58,17 +58,17 @@ fn graph_benchmark(
         return false;
     }
     puts("rooms / portals / triangles");
-    print_number(graph_count(read session.graph) as i64);
-    print_number(graph_ports(read session.graph) as i64);
+    print_number(graph_count(read session.control.graph) as i64);
+    print_number(graph_ports(read session.control.graph) as i64);
     print_number(mesh_triangle_count(read session.room_mesh) as i64);
     if lit_rooms {
         return graph_benchmark_lamps(read scene, mut session, mut loop, config);
     }
     var i: u32 = 0u32;
     while i < 12u32 {
-        var id: u32 = i * graph_count(read session.graph) / 12u32;
-        var node: GraphNode = graph_node(read session.graph, id);
-        var port: RoomPort = graph_socket(read session.graph, node.first).port;
+        var id: u32 = i * graph_count(read session.control.graph) / 12u32;
+        var node: GraphNode = graph_node(read session.control.graph, id);
+        var port: RoomPort = graph_socket(read session.control.graph, node.first).port;
         loop.trial.drone.world = id;
         loop.trial.drone.position = sub(port.position, scale(port.basis.forward, 1f32));
         loop.trial.drone.basis = port.basis;

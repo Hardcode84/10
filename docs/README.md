@@ -21,6 +21,11 @@ application functions as the applications.
 | Directory | Contents |
 | --- | --- |
 | `src/render/host/` | Renderer resources, uploads, and Vulkan commands |
+| `src/render/api/` | Checked frame, validated image, and presentation leases |
+| `src/runtime/task/` | Owned graph storage and dependency declarations |
+| `src/runtime/executor/` | Serial ready queue and external completion protocol |
+| `src/runtime/platform/` | Native completion service and private thread primitives |
+| `src/runtime/trace/` | Optional per-node execution spans |
 | `src/render/web/` | WebGPU resources, commands, and presentation |
 | `src/render/device/` | Compute shaders |
 | `src/render/interface.crs` | Shared host and device data definitions |
@@ -35,6 +40,7 @@ application functions as the applications.
 | `src/game/flight/` | Movement state, forces, collisions, and tether |
 | `src/game/view/` | Game geometry submission, HUD, and path markers |
 | `src/game/host/` | Game entry, input, options, replay, and session |
+| `src/game/tasks/` | Prepared predictions and experimental frame graph |
 | `src/viewer/` | Prefab viewer |
 | `src/assets/` | Parametric hull, surface, material, and room bundle operations |
 | `assets/rooms/` | Room recipes in normal Crust source files |
@@ -47,11 +53,12 @@ application functions as the applications.
 | `tests/viewer/` | Viewer instance visibility checks |
 | `tests/assets/` | Generated room topology, spawn, and collision checks |
 | `tests/ownership/` | Ownership acceptance and rejection cases |
+| `tests/runtime/` | Focused scheduler and completion service checks |
 
 ## Documents
 
 - Runtime: [task graph architecture](runtime/task-graph.md). This is the target
-  design for shared scheduling, task ownership, and asynchronous services.
+  design and measured experiment for scheduling and asynchronous services.
 - Build: [bootstrap](build/bootstrap.md), [web game](build/web.md), [shader compiler](build/crust-spirv.md).
 - Render: [design](render/rendering.md), [build and checks](render/renderer-build.md),
   [textures](render/textures.md), [retained meshes](render/retained-meshes.md),
@@ -70,6 +77,8 @@ application functions as the applications.
 ```sh
 crust tests.crs
 crust tests.crs ownership
+crust tests.crs runtime
+crust tests.crs tasks --tasks --width 640 --height 480
 crust tests.crs portals --width 320 --height 180
 crust tests.crs collision
 crust tests.crs assets

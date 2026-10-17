@@ -43,23 +43,30 @@ fn window_close(window: *u8) -> unit {
 extern fn SDL_GetWindowFlags(window: *u8) -> u32 = "SDL_GetWindowFlags";
 // A minimized window suspends rendering. Internal resolution remains unchanged.
 fn window_draw(v: *RenderState, window: *u8) -> bool {
+    var ready: i32 = window_prepare(v, window);
+    if ready <= 0i32 {
+        return ready == 0i32;
+    }
+    return renderer_draw(v);
+}
+fn window_prepare(v: *RenderState, window: *u8) -> i32 {
     if window != null(*u8) {
         var width: i32 = 0i32;
         var height: i32 = 0i32;
         window_extent(window, &width, &height);
         if width <= 0i32 || height <= 0i32 || (SDL_GetWindowFlags(window) & 64u32) != 0u32 {
             v -> present_ready = false;
-            return true;
+            return 0i32;
         }
         if !renderer_resize(v, v -> width, v -> height, width as u32, height as u32) {
-            return false;
+            return -1i32;
         }
         if v -> swapchain_dirty {
             v -> present_ready = false;
-            return true;
+            return 0i32;
         }
     }
-    return renderer_draw(v);
+    return 1i32;
 }
 
 extern fn SDL_SetWindowFullscreen(window: *u8, flags: u32) -> i32 = "SDL_SetWindowFullscreen";

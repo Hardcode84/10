@@ -2,10 +2,101 @@
 
 ## Status and purpose
 
-This document defines the target architecture. The current game loop and public
-renderer draw call are synchronous.
+This document defines the target architecture. An opt-in experiment implements
+serial CPU graph execution and asynchronous render and presentation operations.
+Run it with `crust main.crs --tasks`. The default game loop uses synchronous draw.
 The [transfer contract](../render/transfers.md) describes current resource use.
 Keep that contract until each replacement passes the delivery gates below.
+
+### Implemented experiment
+
+The common runtime owns preallocated graph nodes, dependency edges, and ready
+queue links. It checks cycles before execution. External results require both
+submission return and completion delivery. Cancellation removes eligible work
+and retains running external work until it completes. The graph storage can be
+reused after drain. Optional spans record ready, start, submission, and finish
+times for the most recent execution. Completion spans record executor observation
+time, not the device timestamp. Read spans before starting the next execution.
+
+The game graph has render, simulation, prediction, and presentation nodes.
+Simulation and prediction can run during GPU execution. Prediction produces
+value data before scene assembly. Game input and recording have a separate owner
+from the renderer. The CPU executor is serial; no CPU worker pool is active.
+
+`SubmittedFrame` holds an exclusive renderer loan through validation or scope
+exit. `ValidatedImage` requires successful validation. `Presentation` holds the
+image loan until the output service releases the source. A native completion
+service waits outside the application executor. Browser promises retain readback
+and output storage until completion. The application processes events between
+completion checks. Native presentation uses the existing queue-drain protocol
+on the service thread. It does not introduce present-wait semaphores.
+
+Crust checks opaque resources with explicit borrowed fields through destruction
+and moves. It also distinguishes loans from separate opaque owners embedded in
+one record. Compiler tests cover rejected reuse, early destruction, escaped
+loans, and source-free imported interfaces.
+
+This experiment uses one renderer allocation. Its submission owns a scoped loan
+of packed frame storage. It does not yet supply the owned scene description,
+general typed task captures, child scopes, completion generations, affinity
+checks, cross-worker transfer checks, or admission budgets specified below.
+These contracts must be implemented before the full runtime can replace the
+application loops. Demo and viewer remain on their synchronous paths.
+
+### Experiment decision
+
+Do not enable this path by default or expand it into a worker pool yet.
+The input latency check fails the five-percent gate in two of three runs.
+
+The focused production flight uses seed 1, complexity 3, 640 by 480 pixels,
+80 fixed ticks, and thrust, boost, hook launch, reel, and release commands.
+The first 16 frames are warm-up. These native measurements use an AMD Radeon
+PRO W7900 Dual Slot. Times are milliseconds; each pair is synchronous / task mode.
+
+| Run | Frame p50 | Frame p95 | Input-to-submission p50 | Input-to-submission p95 |
+| --- | --- | --- | --- | --- |
+| 1 | 8.845 / 4.955 | 9.705 / 5.186 | 5.031 / 5.433 | 5.700 / 5.635 |
+| 2 | 8.859 / 4.869 | 9.849 / 5.191 | 5.232 / 5.354 | 6.083 / 5.737 |
+| 3 | 9.655 / 4.888 | 10.199 / 5.242 | 5.007 / 5.368 | 5.437 / 5.658 |
+
+The command becomes available at the start of each measured frame. The task
+pipeline applies it to the next snapshot. The latency measurement follows that
+snapshot to its submission. Both modes produce the same final simulation hash
+and capture bytes. Trace spans show prediction running during GPU completion
+waits. This test measures offscreen submission, not scanout or presentation
+request latency. Native window checks and browser checks establish correctness
+of presentation; they do not establish its latency gate.
+
+The extra delay comes from scene preparation before input sampling and from
+preparing the next packed input after the current renderer loan ends. Remove
+that dependency with an owned scene snapshot and separate host assembly storage.
+Prepare the next snapshot while the current frame uses GPU storage. Keep asset
+versions immutable during both uses. Repeat input-to-submission and
+input-to-presentation-request measurements before accepting the new order.
+
+The measured scene reserves 238,959,872 device bytes and the same staging bytes.
+Two complete copies would reserve about 956 MB before other allocations. Split
+immutable assets from per-frame storage before adding a second GPU slot. Record
+live and peak bytes for that split and repeat the production output checks.
+
+Run the focused checks with:
+
+```sh
+crust tests.crs runtime
+crust tests.crs ownership
+crust tests.crs tasks --width 640 --height 480 --capture build/serial.ppm
+crust tests.crs tasks --tasks --width 640 --height 480 --capture build/tasks.ppm
+crust tests.crs render 10
+crust main.crs --web
+bun tests/web/check.mjs --tasks
+```
+
+The runtime check covers completion order, rejection, cancellation drain, graph
+reuse, ready fan-out, and service shutdown with accepted work. Native Helgrind
+and Memcheck checks pass for this runtime fixture. The ownership check includes
+renderer and presentation leases. Render case 10 requires a display and checks
+resize plus asynchronous output and scope-exit drain. The browser check requires
+the server and browser setup in the [web build document](../build/web.md).
 
 The runtime must execute independent CPU work in a worker pool. A task that
 requires GPU, file, timer, or presentation completion must not occupy a worker
@@ -18,8 +109,8 @@ must not change the game rules. Concurrency does not by itself prove a speed gai
 
 ## Component boundaries
 
-The following directories are target locations. Add them when their component
-is implemented; they are not entries in the current source inventory.
+The table gives component locations. The [component map](../README.md) lists
+the directories that are implemented.
 
 | Component | Target location | Responsibility |
 | --- | --- | --- |

@@ -1,0 +1,130 @@
+const TASK_WAITING: u32 = 0u32;
+const TASK_READY: u32 = 1u32;
+const TASK_RUNNING: u32 = 2u32;
+const TASK_SUCCEEDED: u32 = 3u32;
+const TASK_FAILED: u32 = 4u32;
+const TASK_CANCELLED: u32 = 5u32;
+const TASK_NONE: u32 = 0xffffffffu32;
+record TaskNode {
+    first: u32;
+    next: u32;
+    dependencies: u32;
+    remaining: u32;
+    state: u32;
+    external: bool;
+    returned: bool;
+    delivered: bool;
+    result: bool;
+}
+record TaskEdge {
+    target: u32;
+    next: u32;
+}
+resource TaskGraph {
+    spans: *TaskSpan;
+    clock: fn() -> u64;
+    nodes: *TaskNode;
+    edges: *TaskEdge;
+    count: u32;
+    edge_count: u32;
+    edge_capacity: u32;
+    ready_first: u32;
+    ready_last: u32;
+    active: u32;
+    failed: bool;
+    sealed: bool;
+}
+opaque drop task_graph_drop;
+extern fn task_allocate(bytes: usize) -> *u8 = "malloc";
+extern fn task_release(pointer: *u8) -> unit = "free";
+extern fn task_message(message: *u8) -> i32 = "puts";
+fn task_error(message: *u8) -> bool {
+    task_message(message);
+    return false;
+}
+fn task_graph_new() -> TaskGraph {
+    return make TaskGraph {
+        spans: null(*TaskSpan),
+        clock: task_no_clock,
+        nodes: null(*TaskNode),
+        edges: null(*TaskEdge),
+        count: 0u32,
+        edge_count: 0u32,
+        edge_capacity: 0u32,
+        ready_first: TASK_NONE,
+        ready_last: TASK_NONE,
+        active: 0u32,
+        failed: false,
+        sealed: false
+    };
+}
+fn task_graph_drop(graph: mut TaskGraph) -> unit {
+    if graph.active != 0u32 {
+        trap;
+    }
+    task_release(graph.edges as *u8);
+    task_release(graph.nodes as *u8);
+    task_release(graph.spans as *u8);
+}
+// Requires an empty graph. Allocation failure leaves an empty graph.
+fn task_graph_open(graph: mut TaskGraph, count: u32, edges: u32) -> bool {
+    if graph.nodes != null(*TaskNode) || count == 0u32 || count == TASK_NONE {
+        return task_error("task graph requires an empty owner and a valid node count");
+    }
+    if count as u64 * sizeof(TaskNode) as u64 > (~0usize) as u64 || edges as u64 * sizeof(
+        TaskEdge
+    ) as u64 > (~0usize) as u64 {
+        return task_error("task graph allocation exceeds address space");
+    }
+    var nodes: *TaskNode = task_allocate(count as usize * sizeof(TaskNode)) as *TaskNode;
+    var links: *TaskEdge = null(*TaskEdge);
+    if edges != 0u32 {
+        links = task_allocate(edges as usize * sizeof(TaskEdge)) as *TaskEdge;
+    }
+    if nodes == null(*TaskNode) || (edges != 0u32 && links == null(*TaskEdge)) {
+        task_release(nodes as *u8);
+        task_release(links as *u8);
+        return task_error("task graph allocation failed");
+    }
+    graph.nodes = nodes;
+    graph.edges = links;
+    graph.count = count;
+    graph.edge_capacity = edges;
+    var i: u32 = 0u32;
+    while i < count {
+        nodes[i as usize] = make TaskNode {
+            first: TASK_NONE,
+            next: TASK_NONE,
+            dependencies: 0u32,
+            remaining: 0u32,
+            state: TASK_WAITING,
+            external: false,
+            returned: false,
+            delivered: false,
+            result: false
+        };
+        i = i + 1u32;
+    }
+    return true;
+}
+fn task_graph_external(graph: mut TaskGraph, node: u32) -> bool {
+    if graph.sealed || node >= graph.count {
+        return task_error("external task declaration requires an unsealed graph node");
+    }
+    graph.nodes[node as usize].external = true;
+    return true;
+}
+fn task_graph_edge(graph: mut TaskGraph, before: u32, after: u32) -> bool {
+    if graph.sealed || before >= graph.count || after >= graph.count || graph.edge_count == graph.edge_capacity {
+        return task_error("task dependency exceeds the unsealed graph allocation");
+    }
+    var index: u32 = graph.edge_count;
+    graph.edges[index as usize] = make TaskEdge {
+        target: after,
+        next: graph.nodes[before as usize].first
+    };
+    graph.nodes[before as usize].first = index;
+    graph.nodes[after as usize].dependencies = graph.nodes[after as usize].dependencies + 1u32;
+    graph.edge_count = index + 1u32;
+    return true;
+}

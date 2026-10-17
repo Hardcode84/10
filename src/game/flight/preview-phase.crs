@@ -1,3 +1,4 @@
+const PREVIEW_SPACING: f32 = 4f32;
 fn wrap_preview_phase(distance: f32) -> f32 {
     var turns: i32 = (distance / PREVIEW_SPACING) as i32;
     var phase: f32 = distance - turns as f32 * PREVIEW_SPACING;

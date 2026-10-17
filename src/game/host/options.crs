@@ -2,6 +2,7 @@ record GameConfig {
     seed: u32;
     complexity: u32;
     room_demo: bool;
+    tasks: bool;
     width: u32;
     height: u32;
     fov: f32;
@@ -99,6 +100,10 @@ fn game_numeric(o: *Launch, key: *u8, value: *u8) -> bool {
     return error("unknown option; use --help");
 }
 fn game_flag(o: *Launch, key: *u8) -> bool {
+    if strcmp(key, "--tasks") == 0i32 {
+        o -> config.tasks = true;
+        return true;
+    }
     if strcmp(key, "--fullscreen") == 0i32 {
         o -> config.fullscreen = true;
         return true;
@@ -126,6 +131,7 @@ fn game_options_scene(argc: i32, argv: **u8, o: *Launch, room_demo: bool) -> boo
             seed: 1u32,
             complexity: 3u32,
             room_demo: room_demo,
+            tasks: false,
             width: 960u32,
             height: 540u32,
             fov: 90f32,

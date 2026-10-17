@@ -5,44 +5,9 @@ fn draw_hook_preview(
     config: GameConfig,
     limit: u32
 ) -> unit {
-    var drone: Drone = trial.drone;
-    var command: Command = idle_command();
-    command.tether = true;
-    var trail: PreviewTrail = preview_trail(limit, HOOK_PREVIEW_MATERIAL, 0f32);
-    var eye: Drone = trial.drone;
-    var i: u32 = 0u32;
-    while i < 240u32 && trail.markers < trail.limit {
-        var before: Vec3 = drone.position;
-        var frame: SpaceTransform = space_identity();
-        var space: u32 = drone.world;
-        if drone.cable.phase == CABLE_FLYING {
-            before = drone.cable.anchor;
-            frame = drone.cable.frame;
-            space = drone.cable.space;
-        }
-        simulate(read collision, mut drone, command, trial.full_spin, trial.auto_level);
-        if drone.cable.phase == CABLE_SNAPPED {
-            return;
-        }
-        var inverse: SpaceTransform = space_inverse(frame);
-        draw_portal_preview(
-            read collision,
-            mut v,
-            mut trail,
-            space_point(inverse, before),
-            space_point(
-                inverse,
-                space_point(space_inverse(drone.step_frame), drone.cable.anchor)
-            ),
-            preview_eye(eye, inverse, space),
-            config
-        );
-        eye = preview_eye(eye, drone.step_frame, drone.world);
-        if drone.cable.phase == CABLE_ATTACHED {
-            return;
-        }
-        i = i + 1u32;
-    }
+    var prediction: Prediction = prediction_new();
+    predict_hook(read collision, mut prediction, read trial, limit);
+    draw_prediction(mut v, read prediction, config);
 }
 
 fn draw_hook_marker(v: mut FrameInput, center: Vec3, basis: Basis, pixel: f32) -> unit {

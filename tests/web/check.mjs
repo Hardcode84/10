@@ -32,7 +32,7 @@ async function evaluate(fn, argument, url=origin+'/') {
   return result.result.value;
 }
 async function browser(options) {
-  const value=await evaluate(flight,options);
+  const value=await evaluate(flight,{...options,tasks:process.argv.includes("--tasks")});
   if(options.deviceLoss) {
     require(value.status==='Run failed. See the log.' && value.errors.length>0,JSON.stringify(value));
   } else {
@@ -96,7 +96,7 @@ try {
     try {console.log(await evaluate(presentation,180,server.url.href));}
     finally {server.stop();}
   } else {
-  require(process.argv.length===2,'Use no arguments or --presentation');
+  require(process.argv.length===2 || (process.argv.length===3 && process.argv[2]==='--tasks'),'Use no arguments, --tasks, or --presentation');
   const raw=await browser({}),checked=await browser({checked:true});
   await Bun.write('build/web-check-raw.ppm',Buffer.from(raw.capture,'base64'));await Bun.write('build/web-check-checked.ppm',Buffer.from(checked.capture,'base64'));compareImage(raw.capture,checked.capture);
   const initial=await native(raw.recording,'initial');
@@ -112,6 +112,7 @@ try {
   const fullscreen=await browser({controls:true,fullscreen:true});
   require(fullscreen.fullscreen,'Fullscreen did not open');
   await browser({controls:true,deviceLoss:true});
-  console.log('Web: raw/checked capture, SDL flight and pause, fullscreen, arbitrary row width, recording/replay, native tick hashes and images, and device-loss cleanup passed');
+  await browser({controls:true,hidden:true});
+  console.log('Web: raw/checked capture, SDL flight and pause, fullscreen, arbitrary row width, recording/replay, native tick hashes and images, device loss, and controlled visibility shutdown passed');
   }
 } finally {clearTimeout(timeout);socket.close();}

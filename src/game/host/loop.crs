@@ -7,7 +7,7 @@ record GameLoop {
 }
 fn game_tick(
     collision: read CollisionScene,
-    session: mut GameSession,
+    session: mut GameControl,
     loop: mut GameLoop,
     config: GameConfig
 ) -> bool {
@@ -38,7 +38,24 @@ fn game_render(
     loop: read GameLoop,
     config: GameConfig
 ) -> bool {
-    game_scene_frame(read collision, mut session, read loop.trial, config);
+    var prediction: Prediction = predict_paths(read collision, read loop.trial);
+    game_prepare(read collision, mut session, read loop, config, read prediction);
+    return game_draw(mut session) && game_present(mut session);
+}
+fn game_prepare(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    prediction: read Prediction
+) -> unit {
+    game_scene_frame_predicted(
+        read collision,
+        mut session,
+        read loop.trial,
+        config,
+        read prediction
+    );
     var fps: u32 = game_fps(read session);
     {
         var renderer: mut Renderer = game_renderer(mut session);
@@ -49,11 +66,10 @@ fn game_render(
         }
         input_set_word(mut inputs, OVERLAY_SCALE as usize, 1u32);
     }
-    return game_draw(mut session) && game_present(mut session);
 }
 fn game_advance(
     collision: read CollisionScene,
-    session: mut GameSession,
+    session: mut GameControl,
     loop: mut GameLoop,
     config: GameConfig,
     elapsed: u64
@@ -104,6 +120,9 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
     if !game_run_setup(mut session, mut collision, mut loop, config) {
         return 1i32;
     }
+    if config.tasks {
+        return game_run_tasks(read collision, mut session, mut loop, config);
+    }
     if !config.headless && !game_render(read collision, mut session, read loop, config) {
         return 1i32;
     }
@@ -112,7 +131,7 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
         var current: u64 = now();
         var elapsed: u64 = current - previous;
         previous = current;
-        if !game_advance(read collision, mut session, mut loop, config, elapsed) {
+        if !game_advance(read collision, mut session.control, mut loop, config, elapsed) {
             return 1i32;
         }
         if !config.headless && !game_render(read collision, mut session, read loop, config) {

@@ -64,12 +64,13 @@ fn draw_ribbon(v: mut FrameInput, a: Vec3, b: Vec3, eye: Vec3, width: f32, mat: 
         sub(b, side)
     );
 }
-fn game_scene(
+fn game_scene_predicted(
     collision: read CollisionScene,
     v: mut FrameInput,
     trial: read Trial,
     config: GameConfig,
-    world: read InstanceList
+    world: read InstanceList,
+    prediction: read Prediction
 ) -> unit {
     input_frame(mut v);
     input_set_word(mut v, 4usize, 0u32);
@@ -88,7 +89,7 @@ fn game_scene(
     camera_row(mut v, 8usize, trial.drone.basis.forward, trial.drone.position);
     game_object_lighting(read collision, mut v, read trial);
     draw_cable(read collision, mut v, trial.drone, config);
-    draw_preview(read collision, mut v, read trial, config);
+    draw_prediction(mut v, read prediction, config);
     draw_frame(mut v, trial.drone, config);
 }
 fn game_dynamic_space(v: mut FrameInput, first: u32, space: u32) -> unit {

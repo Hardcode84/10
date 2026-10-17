@@ -1,0 +1,19 @@
+fn valid_pending_scope(renderer: Renderer) -> unit {
+    {
+        var frame: SubmittedFrame = frame_submit(mut renderer);
+        var status: i32 = frame_poll(mut frame);
+    }
+    var input: FrameInput = renderer_inputs(mut renderer);
+    input_set_word(mut input, 3usize, 0u32);
+}
+fn valid_presentation_scope(renderer: Renderer) -> unit {
+    {
+        var frame: SubmittedFrame = frame_submit(mut renderer);
+        if frame_poll(mut frame) == 1i32 {
+            var image: ValidatedImage = frame_image(mut frame);
+            var operation: Presentation = image_present(mut image);
+        }
+    }
+    var input: FrameInput = renderer_inputs(mut renderer);
+    input_set_word(mut input, 3usize, 0u32);
+}

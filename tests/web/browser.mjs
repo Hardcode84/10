@@ -35,6 +35,20 @@ export async function flight(options) {
   const getTexture = GPUCanvasContext.prototype.getCurrentTexture;
   GPUCanvasContext.prototype.getCurrentTexture = function() { frames++; return getTexture.call(this); };
   const key = (type, code, key, n) => window.dispatchEvent(new KeyboardEvent(type, {code, key, keyCode:n, which:n, bubbles:true}));
+  if (options.tasks) {
+    const call = spinward.ccall;
+    spinward.ccall = async function(name, type, types, values, settings) {
+      if (name !== 'main') return call(name, type, types, values, settings);
+      const [count, original] = values, argument = spinward.stringToNewUTF8('--tasks');
+      const argv = spinward._malloc((count + 2) * 4);
+      if (!argument || !argv) throw Error('Cannot allocate task-mode arguments');
+      spinward.HEAPU32.set(spinward.HEAPU32.subarray(original >>> 2, (original >>> 2) + count), argv >>> 2);
+      spinward.HEAPU32[(argv >>> 2) + count] = argument;
+      spinward.HEAPU32[(argv >>> 2) + count + 1] = 0;
+      try { return await call(name, type, types, [count + 1, argv], settings); }
+      finally { spinward._free(argv); spinward._free(argument); }
+    };
+  }
   form.requestSubmit();
   const inputFrame = async () => {
     const target = frames + 2;
@@ -45,6 +59,18 @@ export async function flight(options) {
   if (options.deviceLoss) {
     await until(() => frames > 0);
     device.destroy();
+  } else if (options.hidden) {
+    await until(() => frames > 0);
+    const request = window.requestAnimationFrame;
+    let waiting = false;
+    window.requestAnimationFrame = () => { waiting = true; return 0; };
+    await until(() => waiting);
+    Object.defineProperty(document, 'hidden', {configurable:true, get:()=>true});
+    document.dispatchEvent(new Event('visibilitychange'));
+    document.querySelector('#quit').click();
+    await until(() => !document.querySelector('#restart').hidden);
+    delete document.hidden;
+    window.requestAnimationFrame = request;
   } else if (options.controls) {
     await until(() => frames > 0 || !document.querySelector('#restart').hidden);
     fullscreen = !!document.fullscreenElement;

@@ -1,5 +1,5 @@
 fn check_host_ownership(root: *CrustRun) -> bool {
-    var files: [*u8; 8] = make [*u8; 8] {
+    var files: [*u8; 13] = make [*u8; 13] {
         "valid.crs",
         "copy.crs",
         "use-after-drop.crs",
@@ -7,9 +7,14 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         "escape.crs",
         "shared-write.crs",
         "opaque.crs",
-        "resize-input.crs"
+        "resize-input.crs",
+        "pending-reuse.crs",
+        "pending-drop.crs",
+        "pending-escape.crs",
+        "pending-valid.crs",
+        "presentation-reuse.crs"
     };
-    var errors: [*u8; 8] = make [*u8; 8] {
+    var errors: [*u8; 13] = make [*u8; 13] {
         null(*u8),
         "copy of a resource requires an explicit move",
         "value is uninitialized or has been moved",
@@ -17,13 +22,18 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         "returned loan does not match its declared source parameter or storage path",
         "shared loan cannot grant mutable access",
         "opaque fields are private to the trusted implementation",
+        "access conflicts with an active payload loan",
+        "access conflicts with an active payload loan",
+        "access conflicts with an active payload loan",
+        "returned loan does not match its declared source parameter or storage path",
+        null(*u8),
         "access conflicts with an active payload loan"
     };
-    var providers: [*u8; 22] = uninit;
+    var providers: [*u8; 25] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
     var good: bool = true;
     var i: usize = 0usize;
-    while i < 8usize {
+    while i < 13usize {
         var args: [*u8; 4] = make [*u8; 4] {
             "--check",
             "--library",

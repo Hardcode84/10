@@ -65,8 +65,11 @@ The [task graph architecture](../runtime/task-graph.md) defines the replacement
 contract for asynchronous frames. The rules below describe the current code.
 
 The public draw call remains synchronous. It returns after its submission fence
-signals and the selected readback is available. This change does not add multiple
-frames in flight or promise CPU/GPU overlap.
+signals and the selected readback is available. The `--tasks` experiment uses
+`frame_submit` instead. A `SubmittedFrame` retains the exclusive renderer loan
+through completion and validation. Its destructor drains accepted work.
+CPU simulation and prediction can run while that loan remains active.
+The experiment keeps one GPU frame in flight.
 Draw can replace storage to increase room projection capacity. Callers must
 release input borrows before draw and acquire mapped addresses again after draw.
 
@@ -75,6 +78,13 @@ its retirement fence signals. Input borrows, storage replacement, and destructio
 wait for retirement before they access or release those ranges. The pending flag
 is set only after a successful queue submission and cleared only after the fence
 signals. Submission failure leaves no pending work.
+
+A successful frame can produce a `ValidatedImage`. Presentation holds this
+image through a separate `Presentation` loan. Its destructor waits for source
+release. Native waits run on a dedicated completion service. Browser operations
+use promises and yield to the event loop. Presentation copy completion releases
+the offscreen source; it does not report display scanout. Renderer storage cannot
+be borrowed, replaced, or destroyed while either checked lease remains live.
 
 Storage replacement allocates the new buffers first. It preserves the old inputs,
 updates descriptors, and uploads persistent ranges to the new allocation.

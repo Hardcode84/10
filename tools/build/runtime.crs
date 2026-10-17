@@ -1,0 +1,35 @@
+fn run_runtime_checks(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> i32 {
+    var args: [*u8; 7] = make [*u8; 7] {
+        "-o",
+        host_path(root, "build/tests-runtime"),
+        host_path(root, "tests/runtime/serial.crs"),
+        "--cflag",
+        "-O2",
+        "--ldflag",
+        "-Wl,-l:libSDL2-2.0.so.0"
+    };
+    var providers: [*u8; 5] = make [*u8; 5] {
+        host_path(root, "src/runtime/task/graph.crs"),
+        host_path(root, "src/runtime/executor/serial.crs"),
+        host_path(root, "src/runtime/trace/frame.crs"),
+        host_path(root, "src/runtime/platform/native-service.crs"),
+        host_path(root, "tests/runtime/service.crs")
+    };
+    if ownership_sources(
+        root,
+        emit,
+        7i32,
+        &args[0usize],
+        &providers[0usize],
+        5usize,
+        null(*u8)
+    ) != 0i32 {
+        return 1i32;
+    }
+    root -> argc = root -> argc - 1i32;
+    root -> argv = root -> argv + 1isize;
+    return launch_application(root, "build/tests-runtime");
+}

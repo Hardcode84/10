@@ -144,10 +144,10 @@ fn recording_read(stream: *Recording, c: *Command) -> i32 {
     stream -> expected = data[9usize];
     return 1i32;
 }
-fn game_command(session: mut GameSession, command: mut Command) -> i32 {
+fn game_command(session: mut GameControl, command: mut Command) -> i32 {
     return recording_read(&session.stream, &command);
 }
-fn game_record(session: mut GameSession, command: Command, hash: u32) -> bool {
+fn game_record(session: mut GameControl, command: Command, hash: u32) -> bool {
     var stream: *Recording = &session.stream;
     if stream -> mode == 2u32 && hash != stream -> expected {
         print_number(stream -> count as i64);

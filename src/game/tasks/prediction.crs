@@ -1,0 +1,193 @@
+const PREVIEW_MARKERS: u32 = 8u32;
+record PredictionMarker {
+    center: Vec3;
+    eye: Drone;
+    material: u32;
+}
+record Prediction {
+    markers: [PredictionMarker; 8];
+    count: u32;
+}
+fn prediction_new() -> Prediction {
+    var marker: PredictionMarker = make PredictionMarker {
+        center: vec(0f32, 0f32, 0f32),
+        eye: new_drone(),
+        material: 0u32
+    };
+    return make Prediction {
+        markers: make [PredictionMarker; 8] {
+            marker,
+            marker,
+            marker,
+            marker,
+            marker,
+            marker,
+            marker,
+            marker
+        },
+        count: 0u32
+    };
+}
+record PreviewTrail {
+    distance: f32;
+    markers: u32;
+    limit: u32;
+    material: u32;
+}
+fn preview_trail(limit: u32, material: u32, phase: f32) -> PreviewTrail {
+    return make PreviewTrail {
+        distance: phase,
+        markers: 0u32,
+        limit: limit,
+        material: material
+    };
+}
+fn predict_segment(
+    prediction: mut Prediction,
+    trail: mut PreviewTrail,
+    before: Vec3,
+    after: Vec3,
+    eye: Drone,
+) -> unit {
+    var travel: Vec3 = sub(after, before);
+    var segment: f32 = length(travel);
+    var next: f32 = (trail.markers + 1u32) as f32 * PREVIEW_SPACING;
+    while segment > 0f32 && next <= trail.distance + segment && trail.markers < trail.limit {
+        var point: Vec3 = preview_station(before, after, trail.distance, next);
+        prediction.markers[prediction.count as usize] = make PredictionMarker {
+            center: point,
+            eye: eye,
+            material: trail.material
+        };
+        prediction.count = prediction.count + 1u32;
+        trail.markers = trail.markers + 1u32;
+        next = (trail.markers + 1u32) as f32 * PREVIEW_SPACING;
+    }
+    trail.distance = trail.distance + segment;
+}
+fn predict_paths(collision: read CollisionScene, trial: read Trial) -> Prediction {
+    var prediction: Prediction = prediction_new();
+    var hook_ready: bool = trial.drone.cable.phase == CABLE_READY && trial.preview_enabled;
+    var limit: u32 = PREVIEW_MARKERS;
+    if hook_ready {
+        limit = PREVIEW_MARKERS / 2u32;
+    }
+    var used: u32 = predict_drone(read collision, mut prediction, read trial, limit);
+    if hook_ready {
+        predict_hook(read collision, mut prediction, read trial, PREVIEW_MARKERS - used);
+    }
+    return prediction;
+}
+fn predict_drone(
+    collision: read CollisionScene,
+    prediction: mut Prediction,
+    trial: read Trial,
+    limit: u32
+) -> u32 {
+    if !trial.preview_enabled {
+        return 0u32;
+    }
+    var drone: Drone = trial.drone;
+    var eye: Drone = trial.drone;
+    var command: Command = idle_command();
+    command.tether = drone.cable.phase == CABLE_ATTACHED || drone.cable.phase == CABLE_FLYING;
+    var i: u32 = 0u32;
+    var trail: PreviewTrail = preview_trail(limit, PREVIEW_MATERIAL, trial.preview_phase);
+    while i < 240u32 && trail.markers < trail.limit {
+        var before: Vec3 = drone.position;
+        simulate(read collision, mut drone, command, trial.full_spin, trial.auto_level);
+        predict_portal(
+            read collision,
+            mut prediction,
+            mut trail,
+            before,
+            space_point(space_inverse(drone.step_frame), drone.position),
+            eye,
+        );
+        eye = preview_eye(eye, drone.step_frame, drone.world);
+        i = i + 1u32;
+    }
+    return trail.markers;
+}
+fn predict_portal(
+    collision: read CollisionScene,
+    prediction: mut Prediction,
+    trail: mut PreviewTrail,
+    before: Vec3,
+    after: Vec3,
+    eye: Drone,
+) -> unit {
+    var crossings: u32 = 0u32;
+    while crossings < 1024u32 {
+        var travel: Vec3 = sub(after, before);
+        var crossing: PortalCrossing = portal_crossing(
+            read collision,
+            eye.world,
+            before,
+            travel
+        );
+        if crossing.time > 1f32 {
+            predict_segment(mut prediction, mut trail, before, after, eye);
+            return;
+        }
+        var point: Vec3 = add(before, scale(travel, crossing.time));
+        predict_segment(mut prediction, mut trail, before, point, eye);
+        var portal: CollisionPortal = collision_portal(read collision, crossing.index);
+        before = space_point(portal.transform, point);
+        after = space_point(portal.transform, after);
+        eye = preview_eye(eye, portal.transform, portal.destination);
+        crossings = crossings + 1u32;
+    }
+    scene_motion_failure();
+}
+fn predict_hook(
+    collision: read CollisionScene,
+    prediction: mut Prediction,
+    trial: read Trial,
+    limit: u32
+) -> unit {
+    var drone: Drone = trial.drone;
+    var command: Command = idle_command();
+    command.tether = true;
+    var trail: PreviewTrail = preview_trail(limit, HOOK_PREVIEW_MATERIAL, 0f32);
+    var eye: Drone = trial.drone;
+    var i: u32 = 0u32;
+    while i < 240u32 && trail.markers < trail.limit {
+        var before: Vec3 = drone.position;
+        var frame: SpaceTransform = space_identity();
+        var space: u32 = drone.world;
+        if drone.cable.phase == CABLE_FLYING {
+            before = drone.cable.anchor;
+            frame = drone.cable.frame;
+            space = drone.cable.space;
+        }
+        simulate(read collision, mut drone, command, trial.full_spin, trial.auto_level);
+        if drone.cable.phase == CABLE_SNAPPED {
+            return;
+        }
+        var inverse: SpaceTransform = space_inverse(frame);
+        predict_portal(
+            read collision,
+            mut prediction,
+            mut trail,
+            space_point(inverse, before),
+            space_point(
+                inverse,
+                space_point(space_inverse(drone.step_frame), drone.cable.anchor)
+            ),
+            preview_eye(eye, inverse, space),
+        );
+        eye = preview_eye(eye, drone.step_frame, drone.world);
+        if drone.cable.phase == CABLE_ATTACHED {
+            return;
+        }
+        i = i + 1u32;
+    }
+}
+
+fn preview_eye(eye: Drone, transform: SpaceTransform, space: u32) -> Drone {
+    eye.position = space_point(transform, eye.position);
+    eye.basis = space_basis(transform, eye.basis);
+    eye.world = space;
+    return eye;
+}

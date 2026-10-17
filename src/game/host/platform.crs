@@ -4,19 +4,22 @@ resource GameWindow {
     focused: bool;
 }
 opaque drop game_window_drop;
-record GameSession {
-    frame_rate: FrameRate;
+record GameControl {
     graph: RoomGraph;
-    room: RoomAsset;
-    room_mesh: Mesh;
-    drone_mesh: Mesh;
     window: GameWindow;
-    renderer: Renderer;
-    world: InstanceList;
     launch: Launch;
     stream: Recording;
 }
 opaque;
+record GameSession {
+    control: GameControl;
+    frame_rate: FrameRate;
+    room: RoomAsset;
+    room_mesh: Mesh;
+    drone_mesh: Mesh;
+    renderer: Renderer;
+    world: InstanceList;
+}
 fn game_window_drop(window: mut GameWindow) -> unit {
     if window.controller != null(*u8) {
         SDL_GameControllerClose(window.controller);
@@ -25,64 +28,73 @@ fn game_window_drop(window: mut GameWindow) -> unit {
 }
 fn game_session(o: *Launch) -> GameSession {
     return make GameSession {
+        control: make GameControl {
+            graph: graph_new(),
+            window: make GameWindow {
+                handle: null(*u8),
+                controller: null(*u8),
+                focused: false
+            },
+            launch: *o,
+            stream: recording_new()
+        },
         frame_rate: frame_rate_new(),
-        graph: graph_new(),
         room: room_asset_new(),
         room_mesh: mesh_new(),
         drone_mesh: mesh_new(),
-        window: make GameWindow {
-            handle: null(*u8),
-            controller: null(*u8),
-            focused: false
-        },
         renderer: renderer_new(),
-        world: instances_new(),
-        launch: *o,
-        stream: recording_new()
+        world: instances_new()
     };
 }
-fn game_renderer(session: mut GameSession) -> mut Renderer from session {
+fn game_renderer(session: mut GameSession) -> mut Renderer from session.renderer {
     return mut session.renderer;
 }
 fn game_open(session: mut GameSession, input: mut InputState) -> bool {
-    var o: *Launch = &session.launch;
-    if !bindings_load(o -> bindings_path, &input) || !recording_open(&session.stream, o) {
+    var o: *Launch = &session.control.launch;
+    if !bindings_load(o -> bindings_path, &input) || !recording_open(
+        &session.control.stream,
+        o
+    ) {
         return false;
     }
     if !o -> config.headless {
-        if !window_open(&session.window.handle, o -> config.width, o -> config.height) {
+        if !window_open(
+            &session.control.window.handle,
+            o -> config.width,
+            o -> config.height
+        ) {
             return false;
         }
-        if o -> config.fullscreen && !window_fullscreen(session.window.handle) {
+        if o -> config.fullscreen && !window_fullscreen(session.control.window.handle) {
             return false;
         }
         if SDL_Init(8192u32) != 0i32 {
             return error(SDL_GetError());
         }
-        SDL_SetWindowTitle(session.window.handle, "SPINWARD | There and Back");
+        SDL_SetWindowTitle(session.control.window.handle, "SPINWARD | There and Back");
         if SDL_SetRelativeMouseMode(1i32) != 0i32 {
             return error(SDL_GetError());
         }
     }
     var portals: u32 = asset_port_count(read session.room.ports);
     if !o -> config.room_demo {
-        portals = graph_ports(read session.graph);
+        portals = graph_ports(read session.control.graph);
     }
     return game_renderer_open(
         &session.renderer.state,
         o,
-        session.window.handle,
+        session.control.window.handle,
         portals
     );
 }
 fn game_finish(session: mut GameSession) -> bool {
-    var good: bool = recording_finish(&session.stream);
-    if session.launch.capture != null(*u8) {
+    var good: bool = recording_finish(&session.control.stream);
+    if session.control.launch.capture != null(*u8) {
         good = capture(
             &session.renderer.state,
-            session.launch.capture,
-            session.launch.config.width,
-            session.launch.config.height
+            session.control.launch.capture,
+            session.control.launch.config.width,
+            session.control.launch.config.height
         ) && good;
     }
     return good;
@@ -98,7 +110,7 @@ fn game_clock_stall() -> unit {
     puts("Simulation paused after a clock stall. Tab resumes.");
 }
 fn game_initial_spin(session: read GameSession) -> bool {
-    return session.launch.config.full_spin;
+    return session.control.launch.config.full_spin;
 }
 
 fn game_static_open(session: mut GameSession, world: u32) -> bool {
@@ -106,33 +118,41 @@ fn game_static_open(session: mut GameSession, world: u32) -> bool {
         return false;
     }
     var input: FrameInput = renderer_inputs(mut session.renderer);
-    if session.launch.config.room_demo {
+    if session.control.launch.config.room_demo {
         return static_upload(mut input, mut session.world, read session.room_mesh);
     }
     return graph_upload(
-        read session.graph,
+        read session.control.graph,
         mut input,
         mut session.world,
         read session.room_mesh
     );
 }
-fn game_scene_frame(
+fn game_scene_frame_predicted(
     collision: read CollisionScene,
     session: mut GameSession,
     trial: read Trial,
-    config: GameConfig
+    config: GameConfig,
+    prediction: read Prediction
 ) -> unit {
     var input: FrameInput = renderer_inputs(mut session.renderer);
-    game_scene(read collision, mut input, read trial, config, read session.world);
+    game_scene_predicted(
+        read collision,
+        mut input,
+        read trial,
+        config,
+        read session.world,
+        read prediction
+    );
     draw_drone(read collision, mut input, read session.drone_mesh, trial.drone);
     if trial.graph_run {
-        graph_scene(read session.graph, mut input, read trial, config);
+        graph_scene(read session.control.graph, mut input, read trial, config);
     }
     if !input_instances(mut input, read session.world) {
         scene_overflow();
     }
 }
-fn game_graph_visit(session: mut GameSession, trial: read Trial, reset: bool) -> unit {
+fn game_graph_visit(session: mut GameControl, trial: read Trial, reset: bool) -> unit {
     if !trial.graph_run {
         return;
     }
@@ -147,8 +167,8 @@ fn game_graph_visit(session: mut GameSession, trial: read Trial, reset: bool) ->
     }
     graph_visit(mut session.graph, trial.drone.world);
 }
-fn game_graph(session: read GameSession) -> read RoomGraph from session {
-    return read session.graph;
+fn game_graph(session: read GameSession) -> read RoomGraph from session.control.graph {
+    return read session.control.graph;
 }
 
 fn game_fps(session: read GameSession) -> u32 {

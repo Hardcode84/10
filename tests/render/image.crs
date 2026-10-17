@@ -35,7 +35,10 @@ fn image_run(o: *Options, window: *u8) -> bool {
         retain_scene(mut input);
     }
     if window != null(*u8) {
-        return image_window_cases(&renderer.state, window);
+        return image_window_cases(&renderer.state, window) && image_async_frame(
+            mut renderer,
+            window
+        );
     }
     var sizes: [u32; 28] = make [u32; 28] {
         257u32,
@@ -234,4 +237,32 @@ fn image_window_frame(v: *RenderState, window: *u8, width: u32, height: u32) -> 
         v,
         window
     ) && presentation_check(v) && reference_check(v -> mapped) && present(v);
+}
+
+fn image_async_frame(renderer: mut Renderer, window: *u8) -> bool {
+    if window_prepare(&renderer.state, window) != 1i32 {
+        return false;
+    }
+    {
+        var discarded: SubmittedFrame = frame_submit(mut renderer);
+    }
+    var frame: SubmittedFrame = frame_submit(mut renderer);
+    var status: i32 = frame_poll(mut frame);
+    while status == 0i32 {
+        SDL_PumpEvents();
+        frame_idle(mut frame);
+        status = frame_poll(mut frame);
+    }
+    if status < 0i32 {
+        return false;
+    }
+    var image: ValidatedImage = frame_image(mut frame);
+    var operation: Presentation = image_present(mut image);
+    status = presentation_poll(mut operation);
+    while status == 0i32 {
+        SDL_PumpEvents();
+        presentation_idle(mut operation);
+        status = presentation_poll(mut operation);
+    }
+    return status > 0i32;
 }

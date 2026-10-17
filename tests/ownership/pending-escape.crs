@@ -1,0 +1,4 @@
+fn invalid_pending_escape(other: mut Renderer) -> SubmittedFrame from other {
+    var renderer: Renderer = renderer_new();
+    return frame_submit(mut renderer);
+}

@@ -1,0 +1,5 @@
+fn invalid_pending_reuse(renderer: Renderer) -> unit {
+    var frame: SubmittedFrame = frame_submit(mut renderer);
+    var input: FrameInput = renderer_inputs(mut renderer);
+    input_set_word(mut input, 3usize, 0u32);
+}

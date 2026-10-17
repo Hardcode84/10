@@ -23,7 +23,7 @@ fn viewer_check(session: GameSession) -> i32 {
             viewer_scene(
                 mut frame,
                 read session.world,
-                session.launch.config,
+                session.control.launch.config,
                 8u32,
                 tick,
                 256u32
@@ -37,8 +37,8 @@ fn viewer_check(session: GameSession) -> i32 {
     return (!game_finish(mut session)) as i32;
 }
 fn viewer_check_renderer(session: mut GameSession) -> bool {
-    var width: u32 = session.launch.config.width;
-    var height: u32 = session.launch.config.height;
+    var width: u32 = session.control.launch.config.width;
+    var height: u32 = session.control.launch.config.height;
     var config: RenderConfig = make RenderConfig {
         width: width,
         height: height,
@@ -49,7 +49,7 @@ fn viewer_check_renderer(session: mut GameSession) -> bool {
         debug_pixels: 0u32,
         baseline: 0u32,
         view_budget: 1u32,
-        portal_budget: graph_ports(read session.graph),
+        portal_budget: graph_ports(read session.control.graph),
         task_budget: ((width + 7u32) / 8u32) * ((height + 7u32) / 8u32),
         crossing_limit: 0u32,
         fault: 0u32

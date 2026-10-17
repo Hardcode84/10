@@ -98,7 +98,7 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
 // Consumes the caller's camera, geometry, portals, textures, and lighting in the input buffer.
 // Returns after GPU completion and the selected readback. A failed frame must not be presented.
 // Requires no input borrow. Frame storage addresses can change when room geometry grows.
-fn renderer_draw(v: *RenderState) -> bool {
+fn renderer_begin(v: *RenderState) -> bool {
     v -> present_ready = false;
     if !lighting_valid(v) {
         return false;
@@ -119,11 +119,18 @@ fn renderer_draw(v: *RenderState) -> bool {
             INSTANCE_COUNT as usize
         ]
     ) as u32;
+    v -> frame_wait_ns = 0u64;
     v -> frame_upload_bytes = 0u64;
     v -> frame_readback_bytes = 0u64;
     v -> mesh_upload_bytes = 0u64;
     v -> asset_upload_bytes = 0u64;
-    if !command_reset(v) || !commands_record(v) || !dispatch(v) || !frame_valid(v) {
+    if !command_reset(v) || !commands_record(v) || !dispatch_submit(v) {
+        return false;
+    }
+    return true;
+}
+fn renderer_complete(v: *RenderState) -> bool {
+    if !frame_valid(v) {
         return false;
     }
     v -> mesh_dirty = false;
@@ -135,6 +142,14 @@ fn renderer_draw(v: *RenderState) -> bool {
     v -> instance_dirty = false;
     v -> present_ready = true;
     return true;
+}
+
+fn renderer_draw(v: *RenderState) -> bool {
+    if !renderer_begin(v) {
+        return false;
+    }
+    retirement_wait(v);
+    return renderer_complete(v);
 }
 
 fn traversal_valid(v: *RenderState) -> bool {

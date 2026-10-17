@@ -33,10 +33,10 @@ fn game_renderer_open(v: *RenderState, o: *Launch, window: *u8, portals: u32) ->
     return app_renderer_open(v, window, &c);
 }
 fn game_draw(session: mut GameSession) -> bool {
-    return window_draw(&session.renderer.state, session.window.handle);
+    return window_draw(&session.renderer.state, session.control.window.handle);
 }
 fn game_present(session: mut GameSession) -> bool {
-    if session.launch.config.headless {
+    if session.control.launch.config.headless {
         return true;
     }
     var ready: bool = session.renderer.state.present_ready;
@@ -49,4 +49,22 @@ fn game_present(session: mut GameSession) -> bool {
         session.frame_rate = frame_rate_new();
     }
     return true;
+}
+
+fn game_surface(session: mut GameSession) -> i32 {
+    return window_prepare(&session.renderer.state, session.control.window.handle);
+}
+
+fn game_presented(session: mut GameSession) -> unit {
+    if !session.control.launch.config.headless {
+        if session.renderer.state.swapchain_dirty {
+            session.frame_rate = frame_rate_new();
+        } else {
+            frame_rate_sample(mut session.frame_rate, now());
+        }
+    }
+}
+
+fn game_task_mode() -> unit {
+    puts("Task execution: serial CPU executor with asynchronous GPU services (experiment)");
 }
