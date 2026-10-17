@@ -110,6 +110,9 @@ It does not run the browser interaction tests. Those tests require a browser
 with WebGPU and a native Vulkan run for replay comparison. The windowed
 swapchain test also runs separately from CI.
 
+After both jobs pass on the default branch, CI publishes the web game to
+GitHub Pages. See [Pages setup](web.md#publish-with-github-pages).
+
 ## Develop Crust
 
 Implement required language features and fixes in the submodule. Commit and test

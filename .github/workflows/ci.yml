@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
 
 defaults:
   run:
@@ -110,3 +110,39 @@ jobs:
         run: |
           make test-tools
           python3 tests/c_body.py --build build --wasm-clang ../build/toolchain/wasm/bin/clang
+      - name: Prepare the Pages site
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        run: |
+          mkdir -p build/pages
+          for file in index.html launcher.js game.js game.wasm game.data; do
+            test -s "build/web/$file"
+            cp "build/web/$file" "build/pages/$file"
+          done
+          bun -e 'await WebAssembly.compile(await Bun.file("build/pages/game.wasm").arrayBuffer())'
+      - name: Upload the Pages site
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/pages
+
+  deploy:
+    name: Publish web game
+    needs: [native, web]
+    if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Deploy the web game
+        id: deployment
+        uses: actions/deploy-pages@v4

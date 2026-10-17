@@ -117,3 +117,23 @@ correct platform fix must release each exported synchronization descriptor in
 the browser/driver presentation path. Use this witness to check that fix; a
 higher file limit only delays the failure. Do not use this compositor setup for
 an extended playtest until its descriptor count remains bounded.
+
+## Publish with GitHub Pages
+
+In the repository settings, open **Pages**. Under **Build and deployment**, set
+**Source** to **GitHub Actions**. This replaces deployment from the `gh-pages`
+branch. See [GitHub's Pages setup instructions](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+
+Push to the default branch to build and publish the game. To publish without a
+new push, open **Actions → CI → Run workflow** and select the default branch.
+Pull requests and other branches run CI without publishing.
+
+The [CI workflow](../../.github/workflows/ci.yml) bootstraps Crust, builds the web
+game, and runs the WebAssembly ABI checks. It publishes only after both native
+and web jobs pass. The site contains `index.html`, `launcher.js`, `game.js`,
+`game.wasm`, and `game.data`. Build intermediates are not included.
+
+The deployment uses the `github-pages` environment and the workflow token.
+A personal access token is not required. If that environment restricts branches,
+allow the default branch. If it requires approval, approve the deployment in
+Actions. The deployment job reports the site URL.
