@@ -80,7 +80,7 @@ crust tests.crs viewer --width 320 --height 180
 crust tests.crs render 8
 ```
 
-The complete run checks ownership, all nine headless renderer cases, game simulation,
+The complete run checks ownership, all eleven headless renderer cases, game simulation,
 and viewer visibility. The graph check renders each room separately. Individual checks accept their image options.
 
 Renderer cases: 1 checks palette and presentation; 2 checks portal images;

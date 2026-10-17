@@ -1,4 +1,7 @@
 fn project_open(root: *CrustRun, backend: *ApplicationBackend) -> *StageSession {
+    if !cache_directory(root -> context, host_path(root, "build")) {
+        return null(*StageSession);
+    }
     var stages: *StageSession = stage_open(root, "crust", "build/stage-cache");
     if stages == null(*StageSession) || !application_backend(
         root,
@@ -21,10 +24,7 @@ fn project_open(root: *CrustRun, backend: *ApplicationBackend) -> *StageSession 
         }
         i = i + 1usize;
     }
-    if !application_load(stages, backend, "stages/ownership/package.crs") || !cache_directory(
-        root -> context,
-        host_path(root, "build")
-    ) {
+    if !application_load(stages, backend, "stages/ownership/package.crs") {
         return null(*StageSession);
     }
     return stages;

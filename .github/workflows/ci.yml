@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches-ignore: [gh-pages]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  native:
+    name: Native bootstrap and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Install build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential libffi-dev python3-venv libsdl2-2.0-0 \
+            libvulkan1 mesa-vulkan-drivers spirv-tools curl jq xz-utils
+      - name: Bootstrap Crust with the host C compiler
+        run: |
+          make -C crust all CC=cc
+          echo "$PWD/crust/build" >> "$GITHUB_PATH"
+      - name: Check the compiler seed
+        run: make -C crust check
+      - name: Check source formatting and complexity
+        run: |
+          python3 -m venv build/pre-commit
+          build/pre-commit/bin/pip install pre-commit==4.5.1
+          build/pre-commit/bin/pre-commit run --all-files
+      - name: Check collision with sanitizers
+        run: crust tests.crs collision --sanitize
+      - name: Check generated assets
+        run: crust tests.crs assets
+      - name: Check flight and tether reeling
+        run: |
+          crust tests.crs flight
+          crust tests.crs reel
+      - name: Check labyrinth topology
+        run: crust tests.crs graph-layout
+      - name: Fetch the checked LLVM release
+        run: |
+          mkdir -p build/toolchain/ci-llvm
+          pin=.github/toolchains/llvm-release.json
+          archive="$RUNNER_TEMP/llvm.tar.xz"
+          curl --fail --location --retry 3 "$(jq -r .url "$pin")" -o "$archive"
+          echo "$(jq -r .sha256 "$pin")  $archive" | sha256sum --check
+          tar -xJf "$archive" -C build/toolchain/ci-llvm --strip-components=1 \
+            --wildcards '*/bin/llc' '*/bin/opt'
+          rm "$archive"
+          echo "LLVM_DIRECTORY=$PWD/build/toolchain/ci-llvm" >> "$GITHUB_ENV"
+          echo "SPIRV_VAL=/usr/bin/spirv-val" >> "$GITHUB_ENV"
+      - name: Select software Vulkan
+        run: |
+          mapfile -t drivers < <(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json')
+          test "${#drivers[@]}" -eq 1
+          echo "VK_DRIVER_FILES=${drivers[0]}" >> "$GITHUB_ENV"
+          echo "VK_ICD_FILENAMES=${drivers[0]}" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/xdg"
+          chmod 700 "$RUNNER_TEMP/xdg"
+          echo "XDG_RUNTIME_DIR=$RUNNER_TEMP/xdg" >> "$GITHUB_ENV"
+      - name: Check ownership, headless renderer, simulation, and viewer
+        run: crust tests.crs
+      - name: Build native application entry points
+        run: |
+          crust main.crs --build-only
+          crust demo.crs --build-only
+          crust viewer.crs assets/rooms/radial-start.crs --build-only
+
+  web:
+    name: Web bootstrap and ABI tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.11'
+      - name: Install bootstrap dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential libffi-dev python3 curl xz-utils
+      - name: Bootstrap Crust with the host C compiler
+        run: |
+          make -C crust all CC=cc
+          echo "$PWD/crust/build" >> "$GITHUB_PATH"
+      - name: Build the web game from its root
+        run: crust main.crs --web
+      - name: Check WebAssembly C backend and ABI
+        working-directory: crust
+        run: |
+          make test-tools
+          python3 tests/c_body.py --build build --wasm-clang ../build/toolchain/wasm/bin/clang

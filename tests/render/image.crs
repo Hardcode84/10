@@ -69,18 +69,34 @@ fn image_run(o: *Options, window: *u8) -> bool {
     };
     var i: usize = 0usize;
     while i < 28usize {
-        if !renderer_set_extent(
-            mut renderer,
-            sizes[i],
-            sizes[i + 1usize],
-            sizes[i + 2usize],
-            sizes[i + 3usize]
-        ) || !image_check(&renderer.state) {
+        if !image_resize_case(&renderer.state, &sizes[i]) {
             return false;
         }
         i = i + 4usize;
     }
     return image_rejections(&renderer.state);
+}
+fn image_resize_case(v: *RenderState, sizes: *u32) -> bool {
+    var before: RenderState = *v;
+    var pixels: u64 = sizes[0usize] as u64 * sizes[1usize] as u64;
+    var output: u64 = sizes[2usize] as u64 * sizes[3usize] as u64;
+    var exceeds_range: bool = (PIXELS as u64 + pixels * 5u64 + output) * 4u64 > v -> storage_limit as u64;
+    var accepted: bool = renderer_resize(
+        v,
+        sizes[0usize],
+        sizes[1usize],
+        sizes[2usize],
+        sizes[3usize]
+    );
+    if exceeds_range {
+        if accepted || v -> buffer != before.buffer || v -> words != before.words || v -> width != before.width || v -> height != before.height || v -> output_width != before.output_width || v -> output_height != before.output_height {
+            return error("device range rejection changed active image storage");
+        }
+        puts("image exceeds device storage range: rejection and retained image checked");
+    } else if !accepted {
+        return false;
+    }
+    return image_check(v);
 }
 fn image_check(v: *RenderState) -> bool {
     if !renderer_draw(v) || !reference_check(v -> mapped) || !presentation_check(v) {

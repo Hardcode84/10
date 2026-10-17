@@ -94,7 +94,7 @@ fn regression_scene(
     }
 }
 fn regression_run(session: DemoSession, o: DemoConfig, test: u32) -> i32 {
-    var good: bool = session_open(mut session);
+    var good: bool = regression_open(mut session, test);
     if good {
         var renderer: mut Renderer = session_renderer(mut session);
         var inputs: FrameInput = renderer_inputs(mut renderer);

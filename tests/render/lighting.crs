@@ -286,37 +286,41 @@ fn lighting_shadow_tree(input: mut FrameInput) -> unit {
     }
 }
 
-fn lighting_cache_shift(input: mut FrameInput) -> unit {
+fn lighting_cache_shift(input: mut FrameInput, dynamic: bool) -> unit {
     var instances: u32 = input_word(read input, INSTANCE_COUNT as usize);
     var total: u32 = input_word(read input, 3usize);
+    var previous: u32 = input_word(read input, DYNAMIC_COUNT as usize);
+    var count: u32 = (dynamic as u32) * 2u32;
     input_frame(mut input);
-    quad(
-        mut input,
-        0u32,
-        0u32,
-        0u32,
-        4u32,
-        100f32,
-        0f32,
-        3f32,
-        101f32,
-        0f32,
-        3f32,
-        101f32,
-        1f32,
-        3f32,
-        100f32,
-        1f32,
-        3f32
-    );
-    input_set_word(mut input, DYNAMIC_COUNT as usize, 2u32);
+    if dynamic {
+        quad(
+            mut input,
+            0u32,
+            0u32,
+            0u32,
+            4u32,
+            100f32,
+            0f32,
+            3f32,
+            101f32,
+            0f32,
+            3f32,
+            101f32,
+            1f32,
+            3f32,
+            100f32,
+            1f32,
+            3f32
+        );
+    }
+    input_set_word(mut input, DYNAMIC_COUNT as usize, count);
     input_set_word(mut input, INSTANCE_COUNT as usize, instances);
-    input_set_word(mut input, 3usize, total + 2u32);
+    input_set_word(mut input, 3usize, total - previous + count);
     var i: u32 = 0u32;
     while i < instances {
         var p: usize = (input_word(read input, INSTANCE_META as usize) + i * 5u32 + 2u32) as usize;
         var first: u32 = input_word(read input, p);
-        input_set_word(mut input, p, first + 2u32);
+        input_set_word(mut input, p, first - previous + count);
         i = i + 1u32;
     }
 }
@@ -353,7 +357,22 @@ fn lighting_cache_test(renderer: mut Renderer) -> bool {
     }
     {
         var input: FrameInput = renderer_inputs(mut renderer);
-        lighting_cache_shift(mut input);
+        lighting_cache_shift(mut input, true);
+    }
+    // Growth replaces shadow storage. Later index shifts must reuse the rebuilt tree.
+    if !lighting_cache_check(mut renderer, true) {
+        return false;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_cache_shift(mut input, false);
+    }
+    if !lighting_cache_check(mut renderer, false) {
+        return false;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_cache_shift(mut input, true);
     }
     if !lighting_cache_check(mut renderer, false) || !lighting_cache_source(mut renderer) {
         return false;

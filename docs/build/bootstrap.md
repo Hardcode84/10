@@ -31,8 +31,9 @@ crust demo.crs
 ```
 
 The demo root builds host and device code, then starts the interactive flight demo.
-Run `crust tests.crs` to build and run the tests. It generates palettes in Crust. Python is not part of the application
-build. See [renderer build](../render/renderer-build.md) for LLVM, SPIRV-Tools, SDL2, and
+Run `crust tests.crs` to build and run the tests. It generates palettes in Crust.
+The web build also uses Python to run Emscripten. See
+[renderer build](../render/renderer-build.md) for LLVM, SPIRV-Tools, SDL2, and
 Vulkan requirements, capture commands, and checks.
 
 ## Shared application setup
@@ -89,6 +90,26 @@ They use the pinned Crust formatter and ownership-aware CCN reader. They do not
 build or run the game. Review and stage any files
 that a hook changes, then run the checks again.
 
+## Continuous integration
+
+[GitHub Actions](../../.github/workflows/ci.yml) runs on pushes, pull requests,
+and manual requests. Pushes to `gh-pages` do not start these checks.
+Both Linux jobs check out the pinned submodule and build the seed with the host
+C compiler. They do not restore compiled Crust stages or application binaries.
+
+The native job checks the compiler seed, source format, CCN, collision with
+sanitizers, generated assets, flight, tether reeling, and labyrinth topology.
+It then runs the default test suite with Mesa software Vulkan and builds the
+game, demo, and viewer. The default suite includes ownership checks, headless
+renderer cases, simulation checks, and viewer checks. The LLVM release and
+archive checksum are stored in `.github/toolchains/llvm-release.json`.
+
+The web job runs `crust main.crs --web` and the Crust WebAssembly C backend
+and ABI checks. It uses Bun and the toolchain selected by the application root.
+It does not run the browser interaction tests. Those tests require a browser
+with WebGPU and a native Vulkan run for replay comparison. The windowed
+swapchain test also runs separately from CI.
+
 ## Develop Crust
 
 Implement required language features and fixes in the submodule. Commit and test
@@ -103,7 +124,7 @@ Implement these changes in Crust before using Windows as a build host.
 
 Run `crust main.crs` to build and start the expedition. See
 [the expedition guide](../game/expedition.md) for objectives, seeds, and recording.
-Use `crust main.crs --trial` for the movement course and `crust tests.crs game`
-for all simulation checks. See [movement](../game/movement.md) for controls and replay
+Use `crust tests.crs game` for the simulation checks.
+See [movement](../game/movement.md) for controls and replay
 commands. The generated-room flight demo starts with `crust demo.crs`. It uses the same
 flight, tether, input, and fixed-step loop as the game.
