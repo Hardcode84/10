@@ -139,6 +139,7 @@ mergeInto(LibraryManager.library, {
   }),
   web_present_start__deps: ['$SWGPU'], web_present_start: (id, offset, width, height) => {
     const s=SWGPU.get(id), canvas=Module.canvas;
+    s.presentTime=0n;
     if(s.presentation)throw new Error('Presentation already pending');
     const operation={result:0,completion:null}; s.presentation=operation;
     operation.completion=(async()=>{
@@ -152,7 +153,9 @@ mergeInto(LibraryManager.library, {
     let buffer=s.buffer, sourceOffset=offset;
     if(pitch!==width*4){packed=SWGPU.buffer(s,pitch*height,GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST);for(let y=0;y<height;y++)encoder.copyBufferToBuffer(buffer,offset+y*width*4,packed,y*pitch,width*4);buffer=packed;sourceOffset=0;}
     encoder.copyBufferToTexture({buffer,offset:sourceOffset,bytesPerRow:pitch,rowsPerImage:height},{texture:s.context.getCurrentTexture()},[width,height]);
-    s.device.queue.submit([encoder.finish()]);
+    const commands=encoder.finish();
+    s.presentTime=BigInt(Math.round(performance.now()*1000000));
+    s.device.queue.submit([commands]);
     await s.device.queue.onSubmittedWorkDone();
     if(s.error)throw s.error;
     return 1;
@@ -165,6 +168,7 @@ mergeInto(LibraryManager.library, {
     if(result)s.presentation=null;
     return result;
   },
+  web_present_time__deps: ['$SWGPU'], web_present_time: id => SWGPU.get(id).presentTime || 0n,
   web_present_idle__deps: ['$SWGPU', '$Asyncify'], web_present_idle: id => Asyncify.handleAsync(async()=> {
     await Promise.race([SWGPU.get(id).presentation.completion,new Promise(resolve=>setTimeout(resolve,1))]);
   }),

@@ -311,6 +311,7 @@ fn present_release(v: *RenderState, index: u32) -> bool {
     info.swapchainCount = 1u32;
     info.pSwapchains = &v -> gpu.swapchain;
     info.pImageIndices = &index;
+    v -> frame_present_ns = render_now();
     var result: i32 = vkQueuePresentKHR(v -> gpu.queue, &info);
     if result == -1000001004i32 || result == 1000001003i32 {
         v -> swapchain_dirty = true;

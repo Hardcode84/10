@@ -37,12 +37,14 @@ fn game_draw(session: mut GameSession) -> bool {
 }
 fn game_present(session: mut GameSession) -> bool {
     if session.control.launch.config.headless {
+        game_trace_output(mut session);
         return true;
     }
     var ready: bool = session.renderer.state.present_ready;
     if !present(&session.renderer.state) {
         return false;
     }
+    game_trace_output(mut session);
     if ready && !session.renderer.state.swapchain_dirty {
         frame_rate_sample(mut session.frame_rate, now());
     } else {
@@ -56,6 +58,7 @@ fn game_surface(session: mut GameSession) -> i32 {
 }
 
 fn game_presented(session: mut GameSession) -> unit {
+    game_trace_output(mut session);
     if !session.control.launch.config.headless {
         if session.renderer.state.swapchain_dirty {
             session.frame_rate = frame_rate_new();

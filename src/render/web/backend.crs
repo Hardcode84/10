@@ -20,6 +20,7 @@ extern fn web_clear(id: u32, offset: u32, size: u32) -> unit = "web_clear";
 extern fn web_word(id: u32, offset: u32, value: u32) -> unit = "web_word";
 extern fn web_transfer(id: u32, memory: *u8, offset: u32, size: u32, upload: bool) -> unit = "web_transfer";
 extern fn web_present(id: u32, offset: u32, width: u32, height: u32) -> bool = "web_present";
+extern fn web_present_time(id: u32) -> u64 = "web_present_time";
 extern fn web_queries(id: u32, count: u32) -> bool = "web_queries";
 extern fn web_stamp(id: u32, index: u32) -> unit = "web_stamp";
 extern fn web_times(id: u32, values: *u64) -> bool = "web_times";
@@ -186,7 +187,9 @@ fn present(v: *RenderState) -> bool {
         return true;
     }
     var offset: u32 = ((v -> mapped as *u32)[PRESENT_PIXELS as usize] + 1u32) * 4u32;
-    return web_present(v -> gpu.id, offset, v -> output_width, v -> output_height);
+    var good: bool = web_present(v -> gpu.id, offset, v -> output_width, v -> output_height);
+    v -> frame_present_ns = web_present_time(v -> gpu.id);
+    return good;
 }
 
 fn shader_extension() -> *u8 {
@@ -211,7 +214,11 @@ fn presentation_start(v: *RenderState) -> bool {
     return web_present_start(v -> gpu.id, offset, v -> output_width, v -> output_height);
 }
 fn presentation_status(v: *RenderState) -> i32 {
-    return web_present_poll(v -> gpu.id);
+    var result: i32 = web_present_poll(v -> gpu.id);
+    if result != 0i32 {
+        v -> frame_present_ns = web_present_time(v -> gpu.id);
+    }
+    return result;
 }
 fn presentation_pause(v: *RenderState) -> unit {
     web_present_idle(v -> gpu.id);

@@ -83,13 +83,27 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "hook-light") == 0i32
     run -> argv = run -> argv + 1isize;
     return launch_application(run, "build/tests-hook-light");
 };
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "latency") == 0i32 {
+    if !build_game_target(
+        run,
+        backend.emit,
+        "tests/game/latency-entry.crs",
+        "build/tests-latency",
+        null(*u8)
+    ) || !build_render_shaders(run) {
+        return 1i32;
+    }
+    run -> argc = run -> argc - 1i32;
+    run -> argv = run -> argv + 1isize;
+    return launch_application(run, "build/tests-latency");
+};
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "tasks") == 0i32 {
     if !build_game_target(
         run,
         backend.emit,
         "tests/game/tasks-entry.crs",
         "build/tests-tasks",
-        null(*u8)
+        "tests/game/presentation-progress.crs"
     ) || !build_render_shaders(run) {
         return 1i32;
     }

@@ -94,7 +94,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 28] = make [*u8; 28] {
+    var files: [*u8; 29] = make [*u8; 29] {
         "src/assets/geometry/storage.crs",
         "src/assets/parameter-storage.crs",
         "src/assets/connections/storage.crs",
@@ -117,6 +117,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/host/renderer-host.crs",
         "src/game/host/options.crs",
         "src/game/host/recording.crs",
+        "src/game/host/latency.crs",
         "src/game/host/bindings.crs",
         "src/app/capture.crs",
         "src/game/view/text.crs",
@@ -125,7 +126,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/runtime/trace/frame.crs"
     };
     var i: usize = 0usize;
-    while i < 28usize {
+    while i < 29usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

@@ -111,14 +111,93 @@ first submitted and presented snapshot that contains each command. Record both
 availability-to-simulation and simulation-to-output intervals. Test native and
 browser presentation. Keep frame-boundary timings as a separate diagnostic.
 
-There is also a separate presentation scheduling hazard. If render completion
-arrives before simulation runs, the production graph makes nodes ready in the
-order render, simulation, presentation, prediction. `game_present_task` then
-polls presentation to completion without dispatching the ready prediction node.
-The focused check prints this order using the actual game graph. Headless
-presentation completes immediately, so this hazard does not explain the table
-above. The correct fix must retain the presentation loan while dispatching
-independent ready CPU work, then resume its dependent work on completion.
+The presentation dispatcher now executes ready CPU work while its presentation
+loan remains live. If render completes before simulation, the ready order is
+render, simulation, presentation, prediction. A pending presentation must allow
+prediction to run. A focused check forces this order and verifies success,
+failure, and cancellation. Accepted presentation operations drain before the
+image loan ends. Headless presentation completes immediately, so this correction
+does not explain the frame-boundary timing table above.
+
+#### Interactive latency check
+
+Use `--latency-log FILE` to record non-repeat key presses, applied simulation
+steps, submitted snapshots, and presentation requests. The log uses a monotonic
+simulation counter. The expedition timer can stop or reset and cannot identify
+these snapshots. Each prepared snapshot retains its input sequence and tick
+through output, even when simulation advances during GPU execution.
+
+The optional log allocates space for 65,536 records. It writes the file at normal
+shutdown. Allocation, capacity, and file errors stop the run with an error.
+Without the option, the log allocates no storage and performs no file IO. Input
+records identify polled keys; a record alone does not prove that a command ran.
+The check also verifies the level-toggle command in its first simulation step.
+
+Run the native window check:
+
+```sh
+crust tests.crs latency --width 640 --height 480 --latency-log build/serial.swlt > build/serial.txt
+crust tests.crs latency --tasks --width 640 --height 480 --latency-log build/tasks.swlt > build/tasks.txt
+bun tests/game/latency-report.mjs build/serial.swlt build/serial.txt
+bun tests/game/latency-report.mjs build/tasks.swlt build/tasks.txt
+```
+
+This check uses the demo room and the production window loop. A separate input
+thread sends 32 level-toggle key presses at absolute 103.7 ms intervals. The
+production 120 Hz accumulator remains active. There is a 500 ms warm-up and a
+500 ms drain interval. The check leaves the drone at its initial position.
+It measures the stationary control path; it cannot establish flight-load costs.
+SDL event injection is thread-safe and copies the event. See the
+[SDL event contract](https://wiki.libsdl.org/SDL2/SDL_PushEvent).
+
+For the browser, build `crust main.crs --web`, run
+`bun tools/web/serve.mjs`, and open a browser with remote debugging on port 9227.
+Then run:
+
+```sh
+bun tests/web/latency.mjs
+bun tests/game/latency-report.mjs build/latency-web-serial.swlt build/latency-web-serial.txt
+bun tests/web/latency.mjs --tasks
+bun tests/game/latency-report.mjs build/latency-web-tasks.swlt build/latency-web-tasks.txt
+```
+
+The browser check uses the main labyrinth, seed 1, complexity 3, at 640 by 480.
+A worker schedules messages on absolute deadlines independently of game frames.
+The main thread sends each delivered key through SDL. Browser availability is
+main-thread delivery time. Deadline-to-delivery jitter includes timer delay and
+message queue delay. Native availability is the time immediately before SDL
+enqueue. These sources have different boundaries; compare modes within each
+backend. Browser trace timestamps and delivery timestamps use the same page
+performance clock. Worker deadlines use the page time origin.
+
+The report checks that each command reaches a simulation step and a presented
+snapshot. It rejects lost or coalesced commands, invalid timestamp order, and
+arrival coverage of fewer than three frame quarters. It reports p50, p95, p99,
+and frames with zero or multiple simulation steps. With 32 samples, p99 is the
+maximum sample. Repeat pairs before drawing a performance conclusion.
+
+Native output time is the call to queue presentation. Browser output time is
+submission of the canvas copy. Neither time measures display scanout. Keep the
+task path opt-in until repeated interactive measurements pass the five-percent
+gate on the target presentation hardware. A software Vulkan window can check
+causal ordering, but cannot establish that hardware gate.
+
+Two browser pairs on the stationary main labyrinth produced these input-to-output
+request times. The browser used the Vulkan backend at a 60 Hz presentation
+cadence. Values are serial / task mode in milliseconds.
+
+| Run | Submission p50 | Submission p95 | Presentation p50 | Presentation p95 |
+| --- | --- | --- | --- | --- |
+| 1 | 9.8 / 25.7 | 16.1 / 32.5 | 21.7 / 39.2 | 28.0 / 46.3 |
+| 2 | 9.7 / 25.6 | 17.2 / 32.7 | 22.1 / 39.3 | 28.6 / 46.4 |
+
+All four runs applied all 32 commands and covered all four arrival quarters.
+The task path still fails the interactive latency gate in this witness. It
+submits the previous snapshot and waits for that frame before it can submit the
+new simulation result. The measured delay is approximately one presentation
+interval. Earlier SDL polling alone cannot remove it. The next experiment must
+change the simulation-to-submission order and measure the same event schedule.
+Do not add a worker pool or more renderer slots as an assumed remedy.
 
 The measured scene reserves 238,959,872 device bytes and the same staging bytes.
 Two complete copies would reserve about 956 MB before other allocations. Split

@@ -1,0 +1,78 @@
+fn check_present_progress(
+    collision: read CollisionScene,
+    control: mut GameControl,
+    loop: mut GameLoop,
+    config: GameConfig
+) -> unit {
+    var graph: TaskGraph = task_graph_new();
+    if !game_frame_graph(mut graph) {
+        trap;
+    }
+    var mode: u32 = 0u32;
+    while mode < 3u32 {
+        check_pending_presentation(mut graph);
+        var prediction: Prediction = predict_paths(read collision, read loop.trial);
+        prediction.count = 0xffffffffu32;
+        var previous: u64 = now();
+        var status: i32 = 0i32;
+        if mode == 1u32 {
+            status = -1i32;
+        }
+        if mode == 2u32 {
+            task_cancel(mut graph);
+        }
+        game_present_progress(
+            mut graph,
+            status,
+            read collision,
+            mut control,
+            mut loop,
+            config,
+            mut previous,
+            mut prediction
+        );
+        if mode == 0u32 {
+            if prediction.count == 0xffffffffu32 || !task_pending(read graph, 3u32) || task_drained(
+                read graph
+            ) {
+                trap;
+            }
+        } else if prediction.count != 0xffffffffu32 {
+            trap;
+        }
+        if mode != 1u32 {
+            game_present_progress(
+                mut graph,
+                1i32,
+                read collision,
+                mut control,
+                mut loop,
+                config,
+                mut previous,
+                mut prediction
+            );
+        }
+        if !task_drained(read graph) || task_succeeded(read graph) != (mode == 0u32) {
+            trap;
+        }
+        mode = mode + 1u32;
+    }
+    puts("pending presentation dispatch, failure and cancellation checks passed");
+}
+
+fn check_pending_presentation(graph: mut TaskGraph) -> unit {
+    task_graph_start(mut graph);
+    if task_next(mut graph) != 0u32 {
+        trap;
+    }
+    task_submission_returned(mut graph, 0u32, true);
+    task_external_complete(mut graph, 0u32, true);
+    if task_next(mut graph) != 1u32 {
+        trap;
+    }
+    task_complete(mut graph, 1u32, true);
+    if task_next(mut graph) != 3u32 {
+        trap;
+    }
+    task_submission_returned(mut graph, 3u32, true);
+}

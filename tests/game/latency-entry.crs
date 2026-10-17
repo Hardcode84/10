@@ -1,0 +1,100 @@
+extern fn latency_push(event: *u8) -> i32 = "SDL_PushEvent";
+extern fn latency_focus(window: *u8) -> i32 = "SDL_SetWindowInputFocus";
+record InputProducer {
+    due: [u64; 32];
+    queued: [u64; 32];
+}
+fn latency_wait_until(deadline: u64) -> unit {
+    while now() < deadline {
+        SDL_Delay(1u32);
+    }
+}
+fn latency_push_key(kind: u32) -> unit {
+    var event: [u32; 14] = uninit;
+    zero(&event as *u8, sizeof([u32; 14]));
+    event[0usize] = kind;
+    event[3usize] = (kind == 768u32) as u32;
+    event[4usize] = 15u32;
+    event[5usize] = 108u32;
+    if latency_push(&event as *u8) != 1i32 {
+        error(SDL_GetError());
+        exit(1i32);
+    }
+}
+fn latency_produce(data: *u8) -> bool {
+    var producer: *InputProducer = data as *InputProducer;
+    var start: u64 = now() + 500000000u64;
+    var i: usize = 0usize;
+    while i < 32usize {
+        producer -> due[i] = start + i as u64 * 103700000u64;
+        latency_wait_until(producer -> due[i]);
+        producer -> queued[i] = now();
+        latency_push_key(768u32);
+        latency_push_key(769u32);
+        i = i + 1usize;
+    }
+    latency_wait_until(now() + 500000000u64);
+    var event: [u32; 14] = uninit;
+    zero(&event as *u8, sizeof([u32; 14]));
+    event[0usize] = 256u32;
+    if latency_push(&event as *u8) != 1i32 {
+        error(SDL_GetError());
+        exit(1i32);
+    }
+    return true;
+}
+fn main(argc: i32, argv: **u8) -> i32 {
+    var launch: Launch = uninit;
+    if !game_options_scene(argc, argv, &launch, true) {
+        return 2i32;
+    }
+    if launch.config.headless || launch.config.ticks != 0u32 || launch.replay_path != null(*u8) {
+        error("latency measurement requires a live window and clock");
+        return 2i32;
+    }
+    if launch.latency_path == null(*u8) {
+        launch.latency_path = "build/latency-native.swlt";
+    }
+    return latency_run(game_session(&launch), launch.config);
+}
+fn latency_run(session: GameSession, config: GameConfig) -> i32 {
+    var collision: CollisionScene = collision_new();
+    var loop: GameLoop = make GameLoop {
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    if !game_run_setup(mut session, mut collision, mut loop, config) {
+        return 1i32;
+    }
+    if latency_focus(session.control.window.handle) != 0i32 {
+        error(SDL_GetError());
+        return 1i32;
+    }
+    var producer: InputProducer = uninit;
+    var service: *ExternalService = service_new();
+    if service == null(*ExternalService) {
+        return 1i32;
+    }
+    service_submit(service, latency_produce, &producer as *u8);
+    var result: i32 = game_run_ready(read collision, mut session, mut loop, config);
+    var completed: i32 = service_poll(service);
+    while completed == 0i32 {
+        service_idle(service);
+        completed = service_poll(service);
+    }
+    service_destroy(service);
+    if completed < 0i32 {
+        return 1i32;
+    }
+    puts("input deadlines and enqueue timestamps ns");
+    var i: usize = 0usize;
+    while i < 32usize {
+        print_number(producer.due[i] as i64);
+        print_number(producer.queued[i] as i64);
+        i = i + 1usize;
+    }
+    return result;
+}

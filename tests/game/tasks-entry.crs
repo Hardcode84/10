@@ -32,6 +32,7 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
     if !game_run_setup(mut session, mut collision, mut loop, config) {
         return 1i32;
     }
+    check_present_progress(read collision, mut session.control, mut loop, config);
     var graph: TaskGraph = task_graph_new();
     if !game_frame_graph(mut graph) || !task_trace_enable(mut graph, now) {
         return 1i32;

@@ -9,6 +9,7 @@ record GameControl {
     window: GameWindow;
     launch: Launch;
     stream: Recording;
+    latency: LatencyLog;
 }
 opaque;
 record GameSession {
@@ -36,7 +37,8 @@ fn game_session(o: *Launch) -> GameSession {
                 focused: false
             },
             launch: *o,
-            stream: recording_new()
+            stream: recording_new(),
+            latency: latency_new()
         },
         frame_rate: frame_rate_new(),
         room: room_asset_new(),
@@ -50,6 +52,9 @@ fn game_renderer(session: mut GameSession) -> mut Renderer from session.renderer
     return mut session.renderer;
 }
 fn game_open(session: mut GameSession, input: mut InputState) -> bool {
+    if !latency_open(&session.control.latency, session.control.launch.latency_path) {
+        return false;
+    }
     var o: *Launch = &session.control.launch;
     if !bindings_load(o -> bindings_path, &input) || !recording_open(
         &session.control.stream,
@@ -89,6 +94,7 @@ fn game_open(session: mut GameSession, input: mut InputState) -> bool {
 }
 fn game_finish(session: mut GameSession) -> bool {
     var good: bool = recording_finish(&session.control.stream);
+    good = latency_flush(&session.control.latency, session.control.launch.config) && good;
     if session.control.launch.capture != null(*u8) {
         good = capture(
             &session.renderer.state,

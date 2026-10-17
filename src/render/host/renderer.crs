@@ -99,6 +99,8 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
 // Returns after GPU completion and the selected readback. A failed frame must not be presented.
 // Requires no input borrow. Frame storage addresses can change when room geometry grows.
 fn renderer_begin(v: *RenderState) -> bool {
+    v -> frame_submit_ns = 0u64;
+    v -> frame_present_ns = 0u64;
     v -> present_ready = false;
     if !lighting_valid(v) {
         return false;

@@ -1,0 +1,152 @@
+record LatencyEvent {
+    kind: u32;
+    sequence: u32;
+    tick: u32;
+    value: u32;
+    time: u64;
+}
+resource LatencyLog {
+    file: *u8;
+    events: *LatencyEvent;
+    count: u32;
+    observed: u32;
+    applied: u32;
+    frame: u32;
+    frame_input: u32;
+    frame_tick: u32;
+}
+opaque drop latency_drop;
+fn latency_new() -> LatencyLog {
+    return make LatencyLog {
+        file: null(*u8),
+        events: null(*LatencyEvent),
+        count: 0u32,
+        observed: 0u32,
+        applied: 0u32,
+        frame: 0u32,
+        frame_input: 0u32,
+        frame_tick: 0u32
+    };
+}
+fn latency_open(log: *LatencyLog, path: *u8) -> bool {
+    if path == null(*u8) {
+        return true;
+    }
+    log -> file = fopen(path, "wb");
+    if log -> file == null(*u8) {
+        return error("cannot open input latency log");
+    }
+    log -> events = malloc(65536usize * sizeof(LatencyEvent)) as *LatencyEvent;
+    return log -> events != null(*LatencyEvent) || error("cannot allocate input latency log");
+}
+fn latency_drop(log: mut LatencyLog) -> unit {
+    free(log.events as *u8);
+    if log.file != null(*u8) && fclose(log.file) != 0i32 {
+        error("cannot close input latency log");
+        exit(1i32);
+    }
+}
+fn latency_write(log: *LatencyLog, event: LatencyEvent) -> unit {
+    if log -> count == 65536u32 {
+        error("input latency log capacity exhausted");
+        exit(1i32);
+    }
+    log -> events[log -> count as usize] = event;
+    log -> count = log -> count + 1u32;
+}
+fn latency_flush(log: *LatencyLog, config: GameConfig) -> bool {
+    if log -> file == null(*u8) {
+        return true;
+    }
+    var header: [u32; 8] = make [u32; 8] {
+        0x53574c54u32,
+        1u32,
+        sizeof(LatencyEvent) as u32,
+        log -> count,
+        config.tasks as u32,
+        config.width,
+        config.height,
+        config.room_demo as u32
+    };
+    if fwrite(&header as *u8, sizeof([u32; 8]), 1usize, log -> file) != 1usize || fwrite(
+        log -> events as *u8,
+        sizeof(LatencyEvent),
+        log -> count as usize,
+        log -> file
+    ) != log -> count as usize {
+        return error("cannot write input latency log");
+    }
+    var file: *u8 = log -> file;
+    log -> file = null(*u8);
+    return fclose(file) == 0i32 || error("cannot finish input latency log");
+}
+fn game_trace_input(control: mut GameControl, event: *u8) -> unit {
+    if control.latency.events == null(*LatencyEvent) || (event as *u32)[0usize] != 768u32 || event[
+        13usize
+    ] != 0u8 {
+        return;
+    }
+    control.latency.observed = control.latency.observed + 1u32;
+    latency_write(
+        &control.latency,
+        make LatencyEvent {
+            kind: 1u32,
+            sequence: control.latency.observed,
+            tick: 0u32,
+            value: (event as *u32)[4usize],
+            time: render_now()
+        }
+    );
+}
+fn game_trace_tick(control: mut GameControl, tick: u32, command: Command) -> unit {
+    if control.latency.events == null(*LatencyEvent) {
+        return;
+    }
+    control.latency.applied = control.latency.observed;
+    latency_write(
+        &control.latency,
+        make LatencyEvent {
+            kind: 2u32,
+            sequence: control.latency.applied,
+            tick: tick,
+            value: command.assist as u32,
+            time: render_now()
+        }
+    );
+}
+fn game_trace_snapshot(session: mut GameSession, tick: u32) -> unit {
+    if session.control.latency.events == null(*LatencyEvent) {
+        return;
+    }
+    session.control.latency.frame = session.control.latency.frame + 1u32;
+    session.control.latency.frame_input = session.control.latency.applied;
+    session.control.latency.frame_tick = tick;
+}
+fn game_trace_output(session: mut GameSession) -> unit {
+    var log: *LatencyLog = &session.control.latency;
+    if log -> events == null(*LatencyEvent) || session.renderer.state.frame_submit_ns == 0u64 {
+        return;
+    }
+    latency_write(
+        log,
+        make LatencyEvent {
+            kind: 3u32,
+            sequence: log -> frame_input,
+            tick: log -> frame_tick,
+            value: log -> frame,
+            time: session.renderer.state.frame_submit_ns
+        }
+    );
+    if session.renderer.state.frame_present_ns != 0u64 {
+        latency_write(
+            log,
+            make LatencyEvent {
+                kind: 4u32,
+                sequence: log -> frame_input,
+                tick: log -> frame_tick,
+                value: log -> frame,
+                time: session.renderer.state.frame_present_ns
+            }
+        );
+    }
+}

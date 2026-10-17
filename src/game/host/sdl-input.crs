@@ -64,6 +64,7 @@ fn game_poll(session: mut GameControl, input: mut InputState) -> bool {
     }
     var event: [u64; 8] = uninit;
     while SDL_PollEvent(&event as *u8) != 0i32 {
+        game_trace_input(mut session, &event as *u8);
         input_event(&input, &event as *u8);
         if (&event as *u32)[0usize] == 256u32 {
             input.quit = true;

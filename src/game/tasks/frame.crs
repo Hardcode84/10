@@ -105,6 +105,33 @@ fn game_frame_graph(graph: mut TaskGraph) -> bool {
         mut graph
     );
 }
+fn game_cpu_task(
+    graph: mut TaskGraph,
+    ready: u32,
+    collision: read CollisionScene,
+    control: mut GameControl,
+    loop: mut GameLoop,
+    config: GameConfig,
+    previous: mut u64,
+    prediction: mut Prediction
+) -> unit {
+    if ready == 1u32 {
+        var current: u64 = now();
+        var elapsed: u64 = current - previous;
+        previous = current;
+        task_complete(
+            mut graph,
+            ready,
+            game_advance(read collision, mut control, mut loop, config, elapsed)
+        );
+    } else {
+        if ready != 2u32 {
+            trap;
+        }
+        prediction = predict_paths(read collision, read loop.trial);
+        task_complete(mut graph, ready, true);
+    }
+}
 fn game_frame_execute(
     graph: mut TaskGraph,
     frame: mut SubmittedFrame,
@@ -123,45 +150,75 @@ fn game_frame_execute(
             }
         }
         var ready: u32 = task_next(mut graph);
-        if ready == 1u32 {
-            var current: u64 = now();
-            var elapsed: u64 = current - previous;
-            previous = current;
-            task_complete(
+        if ready == 3u32 {
+            game_present_task(
+                mut graph,
+                mut frame,
+                read collision,
+                mut control,
+                mut loop,
+                config,
+                mut previous,
+                mut prediction
+            );
+        } else if ready != TASK_NONE {
+            game_cpu_task(
                 mut graph,
                 ready,
-                game_advance(read collision, mut control, mut loop, config, elapsed)
+                read collision,
+                mut control,
+                mut loop,
+                config,
+                mut previous,
+                mut prediction
             );
-        } else {
-            if ready == 2u32 {
-                prediction = predict_paths(read collision, read loop.trial);
-                task_complete(mut graph, ready, true);
-            } else {
-                if ready == 3u32 {
-                    game_present_task(
-                        mut graph,
-                        mut frame,
-                        mut control,
-                        mut loop.input,
-                        config
-                    );
-                } else if !task_drained(read graph) {
-                    frame_idle(mut frame);
-                    if !task_has_error(read graph) && !game_poll(mut control, mut loop.input) {
-                        task_cancel(mut graph);
-                    }
-                }
+        } else if !task_drained(read graph) {
+            frame_idle(mut frame);
+            if !task_has_error(read graph) && !game_poll(mut control, mut loop.input) {
+                task_cancel(mut graph);
             }
         }
     }
 }
-
+// Dispatches ready CPU work while the submitted presentation remains live.
+fn game_present_progress(
+    graph: mut TaskGraph,
+    status: i32,
+    collision: read CollisionScene,
+    control: mut GameControl,
+    loop: mut GameLoop,
+    config: GameConfig,
+    previous: mut u64,
+    prediction: mut Prediction
+) -> bool {
+    if status != 0i32 {
+        task_external_complete(mut graph, 3u32, status > 0i32);
+    }
+    var ready: u32 = task_next(mut graph);
+    if ready == TASK_NONE {
+        return status != 0i32;
+    }
+    game_cpu_task(
+        mut graph,
+        ready,
+        read collision,
+        mut control,
+        mut loop,
+        config,
+        mut previous,
+        mut prediction
+    );
+    return true;
+}
 fn game_present_task(
     graph: mut TaskGraph,
     frame: mut SubmittedFrame,
+    collision: read CollisionScene,
     control: mut GameControl,
-    input: mut InputState,
-    config: GameConfig
+    loop: mut GameLoop,
+    config: GameConfig,
+    previous: mut u64,
+    prediction: mut Prediction
 ) -> unit {
     if config.headless {
         task_submission_returned(mut graph, 3u32, true);
@@ -173,11 +230,19 @@ fn game_present_task(
     task_submission_returned(mut graph, 3u32, presentation_accepted(read operation));
     while task_pending(read graph, 3u32) {
         var status: i32 = presentation_poll(mut operation);
-        if status != 0i32 {
-            task_external_complete(mut graph, 3u32, status > 0i32);
-        } else {
+        var progressed: bool = game_present_progress(
+            mut graph,
+            status,
+            read collision,
+            mut control,
+            mut loop,
+            config,
+            mut previous,
+            mut prediction
+        );
+        if !progressed {
             presentation_idle(mut operation);
-            if !task_has_error(read graph) && !game_poll(mut control, mut input) {
+            if !task_has_error(read graph) && !game_poll(mut control, mut loop.input) {
                 task_cancel(mut graph);
             }
         }

@@ -19,6 +19,7 @@ record Launch {
     record_path: *u8;
     replay_path: *u8;
     bindings_path: *u8;
+    latency_path: *u8;
 }
 opaque;
 extern fn strcmp(a: *u8, b: *u8) -> i32 = "strcmp";
@@ -39,6 +40,10 @@ fn game_number(text: *u8, result: *u32) -> bool {
     return i > 0usize;
 }
 fn game_value(o: *Launch, key: *u8, value: *u8) -> bool {
+    if strcmp(key, "--latency-log") == 0i32 {
+        o -> latency_path = value;
+        return true;
+    }
     if strcmp(key, "--capture") == 0i32 {
         o -> capture = value;
         o -> config.headless = true;
@@ -146,6 +151,7 @@ fn game_options_scene(argc: i32, argv: **u8, o: *Launch, room_demo: bool) -> boo
         record_path: null(*u8),
         replay_path: null(*u8),
         bindings_path: null(*u8),
+        latency_path: null(*u8),
     };
     var i: usize = 1usize;
     while i < argc as usize {
