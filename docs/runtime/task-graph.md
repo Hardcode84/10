@@ -2,13 +2,14 @@
 
 ## Status and purpose
 
-This document defines the target architecture. An opt-in experiment implements
-same-frame CPU/GPU overlap and asynchronous render and presentation operations.
-Run it with `crust main.crs --tasks`. The default game loop uses synchronous draw.
+This document defines the target architecture and the current implementation.
+The default game loop uses same-frame CPU/GPU overlap and asynchronous render
+and presentation operations. Run it with `crust main.crs`. Use `--serial`
+to select the synchronous loop for comparisons.
 The [transfer contract](../render/transfers.md) describes current resource use.
 Keep that contract until each replacement passes the delivery gates below.
 
-### Implemented experiment
+### Current implementation
 
 The common runtime owns preallocated graph nodes, dependency edges, and ready
 queue links. It checks cycles before execution. External results require both
@@ -35,7 +36,8 @@ boundaries. Shared collision storage has a trusted `share` contract. Ordinary
 computation needs no execution annotation. The typed game adapter contains
 the provider callback; checked frame code contains no raw callback or pointer.
 
-Use `--tasks` or `--tasks --workers 0` for the split GPU schedule.
+The split GPU schedule is the default on native and browser builds, with zero
+prediction workers. Use `--tasks` to select it explicitly.
 Use `--tasks --workers 1` to compare the earlier CPU worker schedule, where GPU
 submission follows prediction. The browser provider requires zero
 workers and reports an error for a nonzero worker count. Pool admission failure
@@ -98,7 +100,7 @@ input owners stay on the application thread.
 
 ### Experiment decision
 
-Keep this path opt-in. The current correction removes the extra snapshot
+The initial correction kept this path opt-in. It removed the extra snapshot
 interval. It preserves asynchronous output and scoped resource loans. It gives
 up the previous cross-frame CPU/GPU overlap. Further architecture work requires
 a separate measured benefit and the ownership proofs below.
@@ -145,7 +147,7 @@ The check also verifies the level-toggle command in its first simulation step.
 Run the native window check:
 
 ```sh
-crust tests.crs latency --width 640 --height 480 --latency-log build/serial.swlt > build/serial.txt
+crust tests.crs latency --serial --width 640 --height 480 --latency-log build/serial.swlt > build/serial.txt
 crust tests.crs latency --tasks --width 640 --height 480 --latency-log build/tasks.swlt > build/tasks.txt
 bun tests/game/latency-report.mjs build/serial.swlt build/serial.txt
 bun tests/game/latency-report.mjs build/tasks.swlt build/tasks.txt
@@ -189,9 +191,9 @@ submission and presentation intervals, and frames with zero or multiple
 simulation steps. With 32 samples, p99 is the maximum sample. Repeat pairs before drawing a performance conclusion.
 
 Native output time is the call to queue presentation. Browser output time is
-submission of the canvas copy. Neither time measures display scanout. Keep the
-task path opt-in until repeated interactive measurements pass the five-percent
-gate on the target presentation hardware. A software Vulkan window can check
+submission of the canvas copy. Neither time measures display scanout. The
+initial promotion gate required repeated interactive measurements within five
+percent on the target presentation hardware. A software Vulkan window can check
 causal ordering, but cannot establish that hardware gate.
 
 Three repeated browser pairs after the correction produced these p95 times.
@@ -230,7 +232,7 @@ display. Additional clock reads run only with `--latency-log`.
 Use the focused provider check to compare synchronous and asynchronous output:
 
 ```sh
-crust tests.crs presentation --width 640 --height 480 --latency-log build/present-serial.swlt
+crust tests.crs presentation --serial --width 640 --height 480 --latency-log build/present-serial.swlt
 crust tests.crs presentation --tasks --width 640 --height 480 --latency-log build/present-tasks.swlt
 bun tests/game/presentation-report.mjs build/present-serial.swlt build/present-tasks.swlt
 ```
@@ -286,7 +288,8 @@ simulation to submission, and 0.35 ms from submission to presentation request.
 These samples arrive at different points in the frame. The trace shows no
 extra snapshot interval. Presentation interval p95 differs by less than 0.5
 percent in this pair. Pooled presentation-request p99 is 22.03 / 27.82 ms;
-these short runs do not establish equal tail latency. Keep task mode opt-in.
+these short runs do not establish equal tail latency. Task mode remained opt-in
+at this stage.
 
 An incomplete native attempt stalled inside `vkQueuePresentKHR`, waiting in
 Wayland dispatch after GPU retirement. Keep the surface visible and focused
@@ -468,8 +471,10 @@ simulation hash match on AMD and Intel with checked shaders enabled. Browser che
 shaders, flight, tether, pause, fullscreen, capture, replay, device loss, and
 shutdown. A 32-event browser pair measured input-to-presentation-request p95
 at 30.4 ms synchronously and 28.5 ms with the split. These are application
-request times, not display scanout times. The task loop remains opt-in until
-the native presentation latency gate passes.
+request times, not display scanout times. The split task loop is now the default.
+Native interactive latency remains unmeasured:
+the test window received no keyboard focus, so the fixture rejected the run.
+The synchronous loop remains available with `--serial` for controlled comparisons.
 
 The large shadow-build time also needs a separate cost check. That shader uses
 one active lane per tree. It can rebuild retained trees and builds dynamic
@@ -532,7 +537,7 @@ Run the focused checks with:
 ```sh
 crust tests.crs runtime
 crust tests.crs ownership
-crust tests.crs tasks --width 640 --height 480 --capture build/serial.ppm
+crust tests.crs tasks --serial --width 640 --height 480 --capture build/serial.ppm
 crust tests.crs tasks --tasks --width 640 --height 480 --capture build/tasks.ppm
 crust tests.crs render 10
 crust main.crs --web
@@ -542,7 +547,7 @@ bun tests/web/check.mjs --tasks
 For a stage-by-stage latency report, save the two task-check logs and run:
 
 ```sh
-crust tests.crs tasks --width 640 --height 480 > build/serial-timing.txt
+crust tests.crs tasks --serial --width 640 --height 480 > build/serial-timing.txt
 crust tests.crs tasks --tasks --width 640 --height 480 > build/task-timing.txt
 bun tests/game/task-timings.mjs build/serial-timing.txt build/task-timing.txt
 ```

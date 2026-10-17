@@ -40,7 +40,7 @@ application functions as the applications.
 | `src/game/flight/` | Movement state, forces, collisions, and tether |
 | `src/game/view/` | Game geometry submission, HUD, and path markers |
 | `src/game/host/` | Game entry, input, options, replay, and session |
-| `src/game/tasks/` | Prepared predictions and experimental frame graph |
+| `src/game/tasks/` | Prepared predictions and same-frame CPU/GPU overlap |
 | `src/viewer/` | Prefab viewer |
 | `src/assets/` | Parametric hull, surface, material, and room bundle operations |
 | `assets/rooms/` | Room recipes in normal Crust source files |

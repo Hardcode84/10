@@ -16,7 +16,7 @@ async function measure(tasks) {
   const call = spinward.ccall;
   spinward.ccall = async function(name, type, types, values, settings) {
     if (name !== 'main') return call(name, type, types, values, settings);
-    const extra = ['--latency-log', '/latency.swlt', ...(tasks ? ['--tasks'] : [])].map(s => spinward.stringToNewUTF8(s));
+    const extra = ['--latency-log', '/latency.swlt', ...(tasks ? ['--tasks'] : ['--serial'])].map(s => spinward.stringToNewUTF8(s));
     const [count, original] = values, argv = spinward._malloc((count + extra.length + 1) * 4);
     if (!argv || extra.some(p => !p)) throw Error('Cannot allocate measurement arguments');
     spinward.HEAPU32.set(spinward.HEAPU32.subarray(original >>> 2, (original >>> 2) + count), argv >>> 2);
