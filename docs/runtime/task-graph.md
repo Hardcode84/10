@@ -377,6 +377,102 @@ cost first, or identify independent queries within each step. Any new split
 must reduce submission and frame time with the same snapshot and output.
 Adding workers or a faster queue alone cannot remove this dependency chain.
 
+#### Additional independent work
+
+The largest measured candidate is GPU shadow preparation for the current
+snapshot. It can run while the CPU calculates prediction. This keeps simulation,
+camera input, and markers in the same frame.
+
+Three runs of the same 80-tick flight added GPU timestamps and separate CPU
+timers for drone and hook prediction. The first 16 ticks were excluded.
+The ranges below contain the three run medians, in milliseconds:
+
+| Work | Time | Input dependency |
+| --- | ---: | --- |
+| Drone prediction | 4.26–4.36 | Simulation snapshot and collision scene |
+| GPU upload | 0.009–0.010 | Prepared frame data |
+| GPU instance expansion | 0.014–0.018 | Retained meshes and instance placements |
+| GPU shadow-build dispatch | 2.43–2.98 | Shadow-casting geometry and room lights |
+| GPU shadow-top dispatch | 0.066–0.080 | Instance bounds and room lights |
+| GPU image and traversal initialization | 0.008–0.016 | Camera, dimensions, and storage layout |
+
+Separate runs without the extra stage timestamps measured total GPU setup at
+2.46–3.08 ms and the whole GPU frame at 3.40–4.27 ms. These measurements establish
+available work. They do not establish a speedup from a split submission.
+Diagnostic printing and query reads were outside the measured calls and GPU
+intervals. The probes were removed after measurement.
+
+`draw_prediction` marks every marker triangle as non-shadow-casting.
+`shadow_seed` excludes these triangles. The marker result therefore has no
+semantic effect on the shadow trees. Room lights, drone geometry, tether
+geometry, and retained room instances are available from the simulation
+snapshot before prediction finishes. The current `game_scene_finish` function
+places several of these operations after the prediction join. Move their
+preparation before that join for the experiment.
+
+The intended dependency order is:
+
+```text
+simulation snapshot
+  +-- CPU prediction -----------------------+
+  +-- prepare scene -> GPU shadow setup ----+-- portal raster -> compose -> present
+```
+
+The current buffer contract prevents this split. `input_instance` places
+retained triangles after all dynamic triangles. Their addresses depend on the
+marker triangle count. `projection_members` also needs the complete triangle
+list. `upload_scene` copies shared headers and dynamic geometry together.
+The renderer owns one command buffer and one submission fence. Mutating these
+inputs or resetting that command buffer while setup runs would violate the
+GPU ownership contract.
+
+Use stable geometry ranges for independently produced batches. Admit their
+storage before the first submission. Separate shadow-casting geometry from
+late non-shadow-casting geometry, with explicit active ranges. Keep source
+uploads immutable until the GPU has consumed them. Give the two submissions
+separate command storage and a provider-owned dependency. Run projection-list
+assembly and portal rasterization after the late batch arrives. Preserve
+triangle tie order even if physical storage order changes. The game API must
+expose frame operations and completion, with native and browser details in
+their providers.
+
+First test this split with one frame in flight and prediction on the application
+thread. It avoids the measured worker clock cost. Require identical capture
+bytes and simulation hashes, including recursive transformed portals and hook
+launch/reel frames. Measure the setup/CPU overlap and the final frame time.
+Stop expansion if the extra upload, submission, or storage work consumes the
+gain. Do not add cross-frame latency to obtain overlap.
+
+The large shadow-build time also needs a separate cost check. That shader uses
+one active lane per tree. It can rebuild retained trees and builds dynamic
+trees for room lights. Distinguish those branches before changing scheduling.
+Tree reuse requires stable geometry identity and explicit invalidation for
+geometry changes; a scheduling split must not become a reason to retain
+unnecessary rebuilds.
+
+Other candidates have smaller measured bounds:
+
+- Frame geometry, HUD, and instance submission after prediction depend mostly
+  on the snapshot. Their whole current assembly interval is about 0.06 ms.
+  They can move earlier, but cannot supply a large gain alone.
+- Drone and hook forecasts use separate drone copies. The hook marker budget
+  depends on the number of drone markers. Computing a larger hook result and
+  truncating it at the join would remove this dependency at extra cost.
+  In the measured flight, hook prediction ran in 20 of 64 sampled frames.
+  Its active-frame median was 0.083 ms. Perfect parallel execution saves only
+  0.059 ms per frame on average in that run, before dispatch costs.
+- Collision queries over distinct instances can produce independent candidates
+  and reduce them with `collision_better`. Consecutive motion steps depend on
+  resolved contacts. Measure candidate counts and query costs before adding
+  per-step jobs; the current evidence does not justify that fine subdivision.
+
+Rendering the whole world before markers arrive is a second, larger renderer
+change. A late marker pass would need retained portal-path visibility and
+depth intervals, including markers in an ancestor room before a portal.
+The current traversal overwrites task masks and stores only final pixel color
+in production. A screen-space overlay would give wrong occlusion. Test the
+shadow-setup split first; it leaves the current portal raster path intact.
+
 The browser serial provider passes capture, input, pause, fullscreen, replay,
 device-loss, and shutdown checks. One 32-command pair measured input to
 presentation-request p95 of 28.6 / 28.7 ms for the synchronous / task loops.
