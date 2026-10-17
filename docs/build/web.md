@@ -121,19 +121,29 @@ an extended playtest until its descriptor count remains bounded.
 ## Publish with GitHub Pages
 
 In the repository settings, open **Pages**. Under **Build and deployment**, set
-**Source** to **GitHub Actions**. This replaces deployment from the `gh-pages`
-branch. See [GitHub's Pages setup instructions](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+**Source** to **Deploy from a branch**, select `gh-pages`, and select `/ (root)`.
+Keep `gh-pages` allowed in the `github-pages` environment. The source branch does
+not need access to that environment.
+
+Create a fine-grained personal access token for this repository with
+**Contents: Read and write** permission. Use an account that can publish the
+repository's Pages site. Save the token as the repository Actions secret
+`GH_PAGES_TOKEN`. Renew the secret when the token expires. The built-in
+`GITHUB_TOKEN` cannot trigger a Pages build when it pushes a commit. See
+[GitHub's Pages setup instructions](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
 
 Push to the default branch to build and publish the game. To publish without a
 new push, open **Actions → CI → Run workflow** and select the default branch.
 Pull requests and other branches run CI without publishing.
 
 The [CI workflow](../../.github/workflows/ci.yml) bootstraps Crust, builds the web
-game, and runs the WebAssembly ABI checks. It publishes only after both native
-and web jobs pass. The site contains `index.html`, `launcher.js`, `game.js`,
-`game.wasm`, and `game.data`. Build intermediates are not included.
+game, and runs the WebAssembly ABI checks. After both native and web jobs pass,
+it commits the site files to `gh-pages`. GitHub Pages then publishes that branch.
+The publish job fails if `GH_PAGES_TOKEN` is missing. It does not deploy directly
+from the source branch.
 
-The deployment uses the `github-pages` environment and the workflow token.
-A personal access token is not required. If that environment restricts branches,
-allow the default branch. If it requires approval, approve the deployment in
-Actions. The deployment job reports the site URL.
+The site contains `.nojekyll`, `index.html`, `launcher.js`, `game.js`, `game.wasm`,
+and `game.data`. Build intermediates are not included. The publish action keeps
+branch history and replaces the previous site files. If the files have not
+changed, it does not create a commit. Check the separate Pages build and
+deployment run for the published URL and deployment status.
