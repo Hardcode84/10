@@ -23,13 +23,14 @@ for (const path of process.argv.slice(2)) {
   };
   const overlapHeader = 'prediction overlap timestamps: worker_start worker_finish scene_start scene_finish\n';
   let overlappingFrames = 0;
-  if (log.includes(overlapHeader)) {
+  if (mode === 'tasks' && log.includes(overlapHeader)) {
     const rows = log.split(overlapHeader)[1].split('\n').slice(0, 320);
     if (rows.length !== 320 || rows.some(x => !/^\d+$/.test(x))) throw Error(`Incomplete overlap timings: ${path}`);
     const spans = rows.map(Number);
     metrics.predictionExecution = [];
     metrics.scenePrefix = [];
     metrics.predictionSceneOverlap = [];
+    metrics.predictionJoinDelay = [];
     for (let i=16; i<80; i++) {
       const [a,b,c,d] = spans.slice(i*4,i*4+4);
       if (![a,b,c,d].every(Number.isSafeInteger) || b<a || d<c) throw Error(`Invalid overlap span: ${path}`);
@@ -38,6 +39,10 @@ for (const path of process.argv.slice(2)) {
       metrics.predictionExecution.push(b-a);
       metrics.scenePrefix.push(d-c);
       metrics.predictionSceneOverlap.push(overlap);
+      // Both independent tasks must finish before the prediction join can finish.
+      const joined = frames[i].cpuEnd;
+      if (joined < Math.max(b,d)) throw Error(`Join precedes task completion: ${path}, frame ${i}`);
+      metrics.predictionJoinDelay.push(joined-Math.max(b,d));
     }
   }
   for (let i=16; i<80; i++) {

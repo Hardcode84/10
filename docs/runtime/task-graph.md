@@ -320,9 +320,62 @@ The trace records overlapping CPU work in 255 of 256 measured worker frames.
 Prediction execution p50 is 4.38–4.67 ms on the application thread and
 4.72–4.97 ms on the worker. This increase can consume the overlap benefit.
 These results do not establish a consistent critical-path improvement. Keep
-the worker path opt-in. Before more subdivision, measure per-thread CPU running
-time, CPU placement, and prediction allocation costs. A passing build or an
-overlap interval alone cannot pass the measured-benefit gate.
+the worker path opt-in. A passing build or an overlap interval alone cannot
+pass the measured-benefit gate.
+
+#### Cause of the worker cost
+
+The follow-up comparison used a Threadripper PRO 7995WX and the same flight,
+GPU, resolution, seed, and complexity. Nine pairs covered unrestricted CPU
+placement, CPUs 0–7 in one L3 cache group, and CPUs 0–95. Prediction p50 was
+4.30–4.46 ms inline and 4.70–4.98 ms on a worker. Restriction to one L3 cache
+group did not remove the cost. The independent scene work hid 0.26–0.29 ms.
+
+Temporary probes measured thread CPU time around `predict_paths`, the CPU
+number at each end, and the floating-point control state. Linux hardware
+counters measured user-mode cycles and retired instructions over the same
+call. Three further pairs gave these median values. Each column contains the
+range of the three run medians:
+
+| Measurement | Application thread | Worker |
+| --- | ---: | ---: |
+| Prediction thread CPU time | 4.30–4.46 ms | 4.55–4.69 ms |
+| Retired instructions | 42.6264 million | 42.6264 million |
+| CPU cycles | 21.85–22.67 million | 21.86–21.92 million |
+| Cycles divided by thread CPU time | 5.14–5.20 GHz | 4.66–4.80 GHz |
+
+The worker executes the same instruction count at a lower effective clock
+rate. Its cycle count is similar or lower. This explains the main execution
+cost in these runs. The counters do not establish why the CPU selected the
+lower clock rate. CPU selection and wake-up power control remain possible
+causes. The CPU used the performance energy preference during these checks.
+
+Thread CPU time was close to elapsed execution time. Both paths had the same
+floating-point control state. A control run created a worker but kept the job
+on the application thread. Its prediction medians were 4.36–4.42 ms, versus
+4.26–4.35 ms without that worker. Thread creation alone did not reproduce the
+full execution cost.
+
+The application observes completion 5–7 microseconds after both CPU tasks end
+at p50 in the unrestricted runs. This includes result collection and graph
+completion. It is much smaller than the prediction cost. The timing report
+now includes this interval as `predictionJoinDelay`. Temporary counter and
+floating-point probes are excluded from production code and baseline timings.
+
+The graph also has too little independent work. Moving a 4–5 ms prediction
+chain to a worker only hides about 0.27 ms of scene preparation. On a roughly
+9.4 ms frame, that permits about a 3 percent reduction even with free dispatch
+and equal CPU speed. The application then waits for prediction. GPU work starts
+after the join, and the next simulation starts after GPU completion.
+
+Keep prediction on the application thread by default. Before extending the
+pool, measure a larger independent work range on the critical path. Scene
+batch preparation is a candidate; its current 0.27 ms total cannot supply a
+large gain. Prediction steps depend on earlier steps and cannot be divided
+into independent time ranges. Measure and reduce their physics and collision
+cost first, or identify independent queries within each step. Any new split
+must reduce submission and frame time with the same snapshot and output.
+Adding workers or a faster queue alone cannot remove this dependency chain.
 
 The browser serial provider passes capture, input, pause, fullscreen, replay,
 device-loss, and shutdown checks. One 32-command pair measured input to
