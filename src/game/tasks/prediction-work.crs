@@ -1,0 +1,83 @@
+record PredictionPayload {
+    collision: *CollisionScene;
+    trial: Trial;
+    result: Prediction;
+}
+opaque;
+resource PredictionContext {
+    pool: read TaskPool;
+    collision: read CollisionScene;
+    payload: *PredictionPayload;
+    times: TaskRunTimes;
+}
+opaque drop prediction_context_drop;
+resource PredictionTask {
+    context: mut PredictionContext;
+    job: PoolJob;
+}
+opaque drop prediction_task_drop;
+fn prediction_context(pool: read TaskPool, collision: read CollisionScene) -> PredictionContext transfers(
+    collision
+) from pool, collision {
+    var payload: *PredictionPayload = task_allocate(sizeof(PredictionPayload)) as *PredictionPayload;
+    if payload == null(*PredictionPayload) {
+        task_error("prediction task allocation failed");
+    } else {
+        payload -> collision = &collision;
+    }
+    return make PredictionContext {
+        pool: read pool,
+        collision: read collision,
+        payload: payload,
+        times: make TaskRunTimes {
+            start: 0u64,
+            finish: 0u64
+        }
+    };
+}
+fn prediction_context_ready(context: read PredictionContext) -> bool {
+    return context.payload != null(*PredictionPayload);
+}
+fn prediction_context_drop(context: mut PredictionContext) -> unit {
+    task_release(context.payload as *u8);
+}
+fn prediction_execute(data: *u8) -> bool {
+    var payload: *PredictionPayload = data as *PredictionPayload;
+    payload -> result = prediction_compute(read * payload -> collision, read payload -> trial);
+    return true;
+}
+fn prediction_start(context: mut PredictionContext, trial: Trial) -> PredictionTask transfers(
+    trial
+) from context {
+    context.payload -> trial = trial;
+    var job: PoolJob = pool_submit(
+        read context.pool,
+        prediction_execute,
+        context.payload as *u8
+    );
+    return make PredictionTask {
+        context: mut context,
+        job: move job
+    };
+}
+fn prediction_task_poll(task: read PredictionTask) -> i32 {
+    return pool_job_poll(read task.job);
+}
+fn prediction_task_idle(task: read PredictionTask) -> unit {
+    pool_job_idle(read task.job);
+}
+fn prediction_task_result(task: mut PredictionTask) -> Prediction {
+    if prediction_task_poll(read task) != 1i32 {
+        trap;
+    }
+    task.context.times = pool_job_times(read task.job);
+    return task.context.payload -> result;
+}
+fn prediction_context_times(context: read PredictionContext) -> TaskRunTimes {
+    return context.times;
+}
+fn prediction_task_drop(task: mut PredictionTask) -> unit {
+    while prediction_task_poll(read task) == 0i32 {
+        prediction_task_idle(read task);
+    }
+}

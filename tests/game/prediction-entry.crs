@@ -1,0 +1,62 @@
+record PredictionTiming {
+    drone: u64;
+    hook: u64;
+    hook_full: u64;
+}
+fn main(argc: i32, argv: **u8) -> i32 {
+    var launch: Launch = uninit;
+    if !game_options(argc, argv, &launch) {
+        return 2i32;
+    }
+    return prediction_measure(game_session(&launch));
+}
+fn prediction_measure(session: GameSession) -> i32 {
+    var collision: CollisionScene = collision_new();
+    var trial: Trial = new_trial();
+    if !game_world_open(mut session, mut collision, mut trial) {
+        return 1i32;
+    }
+    var frame: u32 = 0u32;
+    puts("prediction times ns: drone hook independent_hook");
+    while frame < 80u32 {
+        var command: Command = idle_command();
+        command.thrust.z = 1f32;
+        command.burst = frame == 4u32;
+        command.tether = frame >= 20u32 && frame < 64u32;
+        command.reel = frame == 28u32;
+        trial_step(read collision, mut trial, command);
+        var timing: PredictionTiming = prediction_sample(read collision, read trial);
+        if frame >= 16u32 {
+            print_number(timing.drone as i64);
+            print_number(timing.hook as i64);
+            print_number(timing.hook_full as i64);
+        }
+        frame = frame + 1u32;
+    }
+    return 0i32;
+}
+fn prediction_sample(collision: read CollisionScene, trial: read Trial) -> PredictionTiming {
+    var ready: bool = trial.drone.cable.phase == CABLE_READY && trial.preview_enabled;
+    var limit: u32 = PREVIEW_MARKERS;
+    if ready {
+        limit = PREVIEW_MARKERS / 2u32;
+    }
+    var result: Prediction = prediction_new();
+    var begin: u64 = now();
+    var used: u32 = predict_drone(read collision, mut result, read trial, limit);
+    var after_drone: u64 = now();
+    if ready {
+        predict_hook(read collision, mut result, read trial, PREVIEW_MARKERS - used);
+    }
+    var after_hook: u64 = now();
+    var independent: Prediction = prediction_new();
+    if ready {
+        predict_hook(read collision, mut independent, read trial, PREVIEW_MARKERS);
+    }
+    var finish: u64 = now();
+    return make PredictionTiming {
+        drone: after_drone - begin,
+        hook: after_hook - after_drone,
+        hook_full: finish - after_hook
+    };
+}

@@ -70,6 +70,10 @@ fn game_presented(session: mut GameSession) -> unit {
     }
 }
 
-fn game_task_mode() -> unit {
-    puts("Task execution: serial CPU executor with asynchronous GPU services (experiment)");
+fn game_task_mode(workers: u32) -> unit {
+    if workers == 0u32 {
+        puts("Task execution: application thread with asynchronous GPU services (experiment)");
+    } else {
+        puts("Task execution: worker prediction with asynchronous GPU services (experiment)");
+    }
 }

@@ -1,4 +1,7 @@
 fn web_provider(root: *CrustRun, path: *u8) -> *u8 {
+    if cache_strcmp(path, host_path(root, "src/runtime/platform/native-pool.crs")) == 0i32 {
+        return host_path(root, "src/runtime/platform/web-pool.crs");
+    }
     var native: [*u8; 9] = make [*u8; 9] {
         "src/render/host/vulkan.crs",
         "src/render/host/device.crs",

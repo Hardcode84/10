@@ -1,4 +1,4 @@
-fn collision_finite(v: Vec3) -> bool {
+fn collision_finite(v: Vec3) -> bool worker {
     return v.x - v.x == 0f32 && v.y - v.y == 0f32 && v.z - v.z == 0f32;
 }
 fn collision_rigid(b: Basis) -> bool {
@@ -10,10 +10,10 @@ fn collision_rigid(b: Basis) -> bool {
         sub(cross(b.right, b.up), b.forward)
     ) < 0.00001f32;
 }
-fn collision_local(b: Basis, v: Vec3) -> Vec3 {
+fn collision_local(b: Basis, v: Vec3) -> Vec3 worker {
     return vec(dot(b.right, v), dot(b.up, v), dot(b.forward, v));
 }
-fn collision_corner(f: CollisionFace, i: u32) -> Vec3 {
+fn collision_corner(f: CollisionFace, i: u32) -> Vec3 worker {
     if i == 0u32 {
         return f.a;
     }
@@ -46,7 +46,7 @@ fn collision_shared(a: CollisionFace, edge: u32, b: CollisionFace) -> bool {
     }
     return false;
 }
-fn collision_normal(n: Vec3) -> Vec3 {
+fn collision_normal(n: Vec3) -> Vec3 worker {
     var size: f32 = length(n);
     if size == 0f32 {
         return vec(0f32, 0f32, 0f32);

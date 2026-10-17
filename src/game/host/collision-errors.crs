@@ -1,4 +1,4 @@
-fn game_collision_failure(motion: CollisionMotion) -> unit {
+fn game_collision_failure(motion: CollisionMotion) -> unit worker {
     puts("Sphere motion failed: status / space / instance / surface / contacts");
     print_number(motion.status as i64);
     print_number(motion.contact.space as i64);
@@ -9,13 +9,13 @@ fn game_collision_failure(motion: CollisionMotion) -> unit {
     game_collision_vector("remaining travel x/y/z as binary32 words:", motion.remaining);
     exit(1i32);
 }
-fn game_collision_vector(message: *u8, value: Vec3) -> unit {
+fn game_collision_vector(message: *u8, value: Vec3) -> unit worker {
     puts(message);
     print_number(float_bits(value.x) as i64);
     print_number(float_bits(value.y) as i64);
     print_number(float_bits(value.z) as i64);
 }
-fn scene_motion_failure() -> unit {
+fn scene_motion_failure() -> unit worker {
     error("portal motion did not converge");
     exit(1i32);
 }

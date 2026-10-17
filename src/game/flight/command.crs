@@ -10,7 +10,7 @@ record Command {
     assist: bool;
     preview: bool;
 }
-fn idle_command() -> Command {
+fn idle_command() -> Command worker {
     return make Command {
         thrust: vec(0f32, 0f32, 0f32),
         look: vec(0f32, 0f32, 0f32),

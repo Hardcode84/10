@@ -5,7 +5,7 @@ fn collision_contact_planes(
     skin: f32,
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes
-) -> bool {
+) -> bool worker {
     var normal: Vec3 = collision_normal(basis_vector(pose.basis, proximity.normal));
     var position: CollisionPlane = make CollisionPlane {
         normal: normal,
@@ -29,7 +29,7 @@ fn collision_moving_contacts(
     time: f32,
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes
-) -> bool {
+) -> bool worker {
     var anchors: RoomAnchors = room_anchors_new();
     return collision_anchored_contacts(
         read scene,
@@ -55,7 +55,7 @@ fn collision_anchored_contacts(
     speeds: mut CollisionPlanes,
     anchors: read RoomAnchors,
     anchor_index: u32
-) -> bool {
+) -> bool worker {
     var pose: CollisionInstance = collision_pose(item, time);
     var local: Vec3 = collision_local(pose.basis, sub(p, pose.origin));
     var i: u32 = item.root;
@@ -108,7 +108,7 @@ fn collision_local_interval_contacts(
     time: f32,
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes
-) -> bool {
+) -> bool worker {
     if !collision_contacts(read scene, space, p, radius, skin, mut separate) {
         return false;
     }
@@ -148,7 +148,7 @@ fn collision_local_correction_blocked(
     d: Vec3,
     radius: f32,
     time: f32
-) -> CollisionContact {
+) -> CollisionContact worker {
     var anchors: RoomAnchors = room_anchors_new();
     return collision_filtered_correction_blocked(
         read scene,
@@ -170,7 +170,7 @@ fn collision_filtered_correction_blocked(
     time: f32,
     anchors: read RoomAnchors,
     anchor_index: u32
-) -> CollisionContact {
+) -> CollisionContact worker {
     var result: CollisionContact = collision_query_filtered(
         read scene,
         space,
@@ -209,7 +209,7 @@ fn collision_travel_planes(
     speeds: read CollisionPlanes,
     duration: f32,
     planes: mut CollisionPlanes
-) -> bool {
+) -> bool worker {
     collision_planes_clear(mut planes);
     var i: u32 = 0u32;
     while i < collision_plane_count(read speeds) {

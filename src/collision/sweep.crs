@@ -1,5 +1,5 @@
 // Sweeps a sphere against a two-sided triangle surface. The radius is nonnegative.
-fn collision_face_hit(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> Hit {
+fn collision_face_hit(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> Hit worker {
     var n: Vec3 = f.normal;
     if dot(sub(p, f.a), n) < 0f32 {
         n = scale(n, -1f32);
@@ -21,7 +21,7 @@ fn collision_face_hit(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> Hit {
         normal: n
     };
 }
-fn collision_inside(f: CollisionFace, p: Vec3) -> bool {
+fn collision_inside(f: CollisionFace, p: Vec3) -> bool worker {
     var i: u32 = 0u32;
     while i < 3u32 {
         var a: Vec3 = collision_corner(f, i);
@@ -41,10 +41,10 @@ fn collision_inside(f: CollisionFace, p: Vec3) -> bool {
     }
     return true;
 }
-fn collision_l1(p: Vec3) -> f32 {
+fn collision_l1(p: Vec3) -> f32 worker {
     return absf(p.x) + absf(p.y) + absf(p.z);
 }
-fn collision_closest_edge(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
+fn collision_closest_edge(p: Vec3, a: Vec3, b: Vec3) -> Vec3 worker {
     var centre: Vec3 = add(scale(a, 0.5f32), scale(b, 0.5f32));
     var half: Vec3 = sub(scale(b, 0.5f32), scale(a, 0.5f32));
     var fraction: f32 = clamp(
@@ -54,7 +54,7 @@ fn collision_closest_edge(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
     );
     return add(centre, scale(half, fraction));
 }
-fn collision_closest(f: CollisionFace, p: Vec3) -> Vec3 {
+fn collision_closest(f: CollisionFace, p: Vec3) -> Vec3 worker {
     var plane: Vec3 = sub(p, scale(f.normal, dot(sub(p, f.a), f.normal)));
     if collision_inside(f, plane) {
         return plane;
@@ -74,7 +74,7 @@ fn collision_closest(f: CollisionFace, p: Vec3) -> Vec3 {
     }
     return closest;
 }
-fn collision_triangle(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> Hit {
+fn collision_triangle(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> Hit worker {
     var hit: Hit = collision_face_hit(p, d, f, radius);
     if radius == 0f32 {
         return hit;
@@ -107,7 +107,7 @@ record CollisionContact {
     surface: u32;
     space: u32;
 }
-fn collision_miss(space: u32) -> CollisionContact {
+fn collision_miss(space: u32) -> CollisionContact worker {
     return make CollisionContact {
         frame: space_identity(),
         hit: miss(),
@@ -119,7 +119,7 @@ fn collision_miss(space: u32) -> CollisionContact {
         space: space
     };
 }
-fn collision_surface(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> CollisionContact {
+fn collision_surface(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> CollisionContact worker {
     var contact: CollisionContact = collision_miss(0u32);
     var proximity: CollisionProximity = collision_proximity(f, p);
     var point: Vec3 = proximity.point;
@@ -149,7 +149,7 @@ record CollisionProximity {
     normal: Vec3;
     distance: f32;
 }
-fn collision_proximity(f: CollisionFace, p: Vec3) -> CollisionProximity {
+fn collision_proximity(f: CollisionFace, p: Vec3) -> CollisionProximity worker {
     var distance: f32 = dot(sub(p, f.a), f.normal);
     var point: Vec3 = sub(p, scale(f.normal, distance));
     var normal: Vec3 = f.normal;

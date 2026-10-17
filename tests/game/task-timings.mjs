@@ -21,6 +21,25 @@ for (const path of process.argv.slice(2)) {
     afterPredictionToSubmission:[], simulationStartToSubmission:[],
     sceneAssembly:[], recordingAndSubmit:[], afterPredictionToFrameEnd:[], frame:[],
   };
+  const overlapHeader = 'prediction overlap timestamps: worker_start worker_finish scene_start scene_finish\n';
+  let overlappingFrames = 0;
+  if (log.includes(overlapHeader)) {
+    const rows = log.split(overlapHeader)[1].split('\n').slice(0, 320);
+    if (rows.length !== 320 || rows.some(x => !/^\d+$/.test(x))) throw Error(`Incomplete overlap timings: ${path}`);
+    const spans = rows.map(Number);
+    metrics.predictionExecution = [];
+    metrics.scenePrefix = [];
+    metrics.predictionSceneOverlap = [];
+    for (let i=16; i<80; i++) {
+      const [a,b,c,d] = spans.slice(i*4,i*4+4);
+      if (![a,b,c,d].every(Number.isSafeInteger) || b<a || d<c) throw Error(`Invalid overlap span: ${path}`);
+      const overlap = Math.max(0,Math.min(b,d)-Math.max(a,c));
+      overlappingFrames += Number(overlap>0);
+      metrics.predictionExecution.push(b-a);
+      metrics.scenePrefix.push(d-c);
+      metrics.predictionSceneOverlap.push(overlap);
+    }
+  }
   for (let i=16; i<80; i++) {
     const t=frames[i], image=frames[i];
     metrics.boundaryToSubmission.push(image.submitted-t.start);
@@ -39,6 +58,6 @@ for (const path of process.argv.slice(2)) {
     return Object.fromEntries([['p50',.5],['p95',.95],['p99',.99]].map(([name,p])=>
       [name, Number((sorted[Math.floor(p*(sorted.length-1))]/1e6).toFixed(4))]));
   };
-  console.log(JSON.stringify({path, mode, commands:[16,79], milliseconds:
+  console.log(JSON.stringify({path, mode, commands:[16,79], overlappingFrames, milliseconds:
     Object.fromEntries(Object.entries(metrics).map(([name, samples])=>[name,milliseconds(samples)]))}, null, 2));
 }

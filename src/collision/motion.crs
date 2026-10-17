@@ -14,7 +14,7 @@ fn collision_motion_begin(
     p: Vec3,
     travel: Vec3,
     velocity: Vec3
-) -> CollisionMotion {
+) -> CollisionMotion worker {
     var result: CollisionMotion = make CollisionMotion {
         position: p,
         velocity: velocity,

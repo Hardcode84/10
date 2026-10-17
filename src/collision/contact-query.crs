@@ -5,7 +5,7 @@ fn collision_contacts_instance(
     radius: f32,
     skin: f32,
     planes: mut CollisionPlanes
-) -> bool {
+) -> bool worker {
     var item: CollisionInstance = collision_instance(read scene, index);
     if collision_moving(item) {
         return true;
@@ -45,7 +45,7 @@ fn collision_contacts(
     radius: f32,
     skin: f32,
     planes: mut CollisionPlanes
-) -> bool {
+) -> bool worker {
     collision_planes_clear(mut planes);
     var range: CollisionSpace = collision_space(read scene, space);
     var i: u32 = range.root;
@@ -75,7 +75,7 @@ fn collision_contacts(
     }
     return true;
 }
-fn collision_tolerance(p: Vec3, radius: f32) -> f32 {
+fn collision_tolerance(p: Vec3, radius: f32) -> f32 worker {
     var size: f32 = clamp(absf(p.x), absf(p.y), 3.4028234e38f32);
     size = clamp(size, absf(p.z), 3.4028234e38f32);
     return radius * 0.00002f32 + size * 0.0000005f32;

@@ -10,10 +10,20 @@ fn check_frame_order() -> unit {
             trap;
         }
         task_complete(mut graph, 1u32, true);
-        if task_next(mut graph) != 2u32 || task_next(mut graph) != TASK_NONE {
+        if task_next(mut graph) != 2u32 || task_next(mut graph) != 4u32 || task_next(mut graph) != TASK_NONE {
             trap;
         }
-        task_complete(mut graph, 2u32, true);
+        var first: u32 = 4u32;
+        var second: u32 = 2u32;
+        if mode == 1u32 {
+            first = 2u32;
+            second = 4u32;
+        }
+        task_complete(mut graph, first, true);
+        if task_next(mut graph) != TASK_NONE {
+            trap;
+        }
+        task_complete(mut graph, second, true);
         check_frame_output(mut graph, mode);
         mode = mode + 1u32;
     }

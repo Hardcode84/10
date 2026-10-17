@@ -4,7 +4,7 @@ fn collision_anchor_accept(
     index: u32,
     center: Vec3,
     point: Vec3
-) -> bool {
+) -> bool worker {
     if room_anchor_count(read anchors) == 0u32 {
         return true;
     }
@@ -24,7 +24,7 @@ fn collision_body_anchors(
     p: Vec3,
     d: Vec3,
     radius: f32
-) -> bool {
+) -> bool worker {
     if !collision_anchors(
         read scene,
         mut anchors,
@@ -51,7 +51,7 @@ fn anchor_contact_visible(
     index: u32,
     center: Vec3,
     point: Vec3
-) -> bool {
+) -> bool worker {
     var cursor: u32 = index;
     while room_anchor(read anchors, cursor).parent != 0xffffffffu32 {
         var child: RoomAnchor = room_anchor(read anchors, cursor);
@@ -77,7 +77,7 @@ fn anchor_contact_visible(
     }
     return true;
 }
-fn anchor_contact(anchor: RoomAnchor, contact: CollisionContact) -> CollisionContact {
+fn anchor_contact(anchor: RoomAnchor, contact: CollisionContact) -> CollisionContact worker {
     var result: CollisionContact = contact;
     result.frame = space_inverse(anchor.transform);
     result.point = space_point(result.frame, contact.point);
@@ -93,7 +93,7 @@ fn collision_sweep_interval(
     radius: f32,
     time: f32,
     duration: f32
-) -> CollisionSweep {
+) -> CollisionSweep worker {
     if collision_portal_count(read scene) == 0u32 {
         return collision_local_sweep_interval(
             read scene,
@@ -149,7 +149,7 @@ fn collision_correction_blocked(
     d: Vec3,
     radius: f32,
     time: f32
-) -> CollisionSweep {
+) -> CollisionSweep worker {
     if collision_portal_count(read scene) == 0u32 {
         return collision_sweep_result(
             collision_local_correction_blocked(read scene, space, p, d, radius, time)

@@ -56,13 +56,21 @@ fn check_host_ownership(root: *CrustRun) -> bool {
     return good && check_collision_ownership(root);
 }
 fn check_collision_ownership(root: *CrustRun) -> bool {
-    var files: [*u8; 2] = make [*u8; 2] {
+    var files: [*u8; 6] = make [*u8; 6] {
         "collision-copy.crs",
-        "collision-consumed.crs"
+        "collision-consumed.crs",
+        "worker-reuse.crs",
+        "worker-pool-drop.crs",
+        "worker-collision-drop.crs",
+        "worker-valid.crs"
     };
-    var errors: [*u8; 2] = make [*u8; 2] {
+    var errors: [*u8; 6] = make [*u8; 6] {
         "copy of a resource requires an explicit move",
-        "value is uninitialized or has been moved"
+        "value is uninitialized or has been moved",
+        "access conflicts with an active payload loan",
+        "access conflicts with an active payload loan",
+        "access conflicts with an active payload loan",
+        null(*u8)
     };
     var providers: [*u8; 64] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
@@ -73,7 +81,7 @@ fn check_collision_ownership(root: *CrustRun) -> bool {
     args[2usize] = host_path(root, "src/render/interface.crs");
     var source_count: usize = 3usize + game_sources(root, &args[3usize]);
     var i: usize = 0usize;
-    while i < 2usize {
+    while i < 6usize {
         args[source_count] = stage_path(root, "tests/ownership", files[i]);
         if ownership_sources(
             root,

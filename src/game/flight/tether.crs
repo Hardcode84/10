@@ -1,5 +1,5 @@
 const REEL_SPEED: f32 = 40f32;
-fn tether_winch(collision: read CollisionScene, drone: mut Drone) -> unit {
+fn tether_winch(collision: read CollisionScene, drone: mut Drone) -> unit worker {
     if drone.cable.phase != CABLE_ATTACHED {
         return;
     }
@@ -26,7 +26,7 @@ fn tether_winch(collision: read CollisionScene, drone: mut Drone) -> unit {
     drone.cable.extent = extent;
     drone.cable.reel_speed = (extent - old) / STEP;
 }
-fn tether_input(drone: mut Drone, command: Command) -> unit {
+fn tether_input(drone: mut Drone, command: Command) -> unit worker {
     if !command.tether {
         hook_release(mut drone);
         return;
@@ -40,7 +40,7 @@ fn tether_input(drone: mut Drone, command: Command) -> unit {
         drone.cable.reeling = true;
     }
 }
-fn tether_travel(drone: read Drone, travel: Vec3) -> Vec3 {
+fn tether_travel(drone: read Drone, travel: Vec3) -> Vec3 worker {
     if drone.cable.phase != CABLE_ATTACHED {
         return travel;
     }

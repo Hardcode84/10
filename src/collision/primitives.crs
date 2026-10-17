@@ -2,19 +2,19 @@ record Hit {
     time: f32;
     normal: Vec3;
 }
-fn miss() -> Hit {
+fn miss() -> Hit worker {
     return make Hit {
         time: 2f32,
         normal: vec(0f32, 0f32, 0f32)
     };
 }
-fn nearest(a: Hit, b: Hit) -> Hit {
+fn nearest(a: Hit, b: Hit) -> Hit worker {
     if b.time < a.time {
         return b;
     }
     return a;
 }
-fn sphere_hit(p: Vec3, d: Vec3, center: Vec3, radius: f32) -> Hit {
+fn sphere_hit(p: Vec3, d: Vec3, center: Vec3, radius: f32) -> Hit worker {
     var offset: Vec3 = sub(p, center);
     var speed2: f32 = dot(d, d);
     var approach: f32 = dot(offset, d);
@@ -37,7 +37,7 @@ fn sphere_hit(p: Vec3, d: Vec3, center: Vec3, radius: f32) -> Hit {
         normal: collision_normal(sub(closest, scale(d, half_interval)))
     };
 }
-fn edge_hit(p: Vec3, d: Vec3, a: Vec3, b: Vec3, radius: f32) -> Hit {
+fn edge_hit(p: Vec3, d: Vec3, a: Vec3, b: Vec3, radius: f32) -> Hit worker {
     var axis: Vec3 = collision_normal(sub(b, a));
     var offset: Vec3 = sub(p, a);
     var side: Vec3 = sub(offset, scale(axis, dot(offset, axis)));

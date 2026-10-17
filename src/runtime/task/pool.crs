@@ -1,0 +1,71 @@
+resource TaskPool {
+    state: *PoolState;
+}
+opaque share drop task_pool_drop;
+record TaskRunTimes {
+    start: u64;
+    finish: u64;
+}
+fn task_pool_trace(pool: mut TaskPool, clock: fn() -> u64) -> unit {
+    pool_set_clock(pool.state, clock);
+}
+resource PoolJob {
+    pool: read TaskPool;
+    slot: u32;
+    generation: u64;
+}
+opaque drop pool_job_drop;
+fn task_pool_new() -> TaskPool {
+    return make TaskPool {
+        state: null(*PoolState)
+    };
+}
+// Requires an empty pool. Zero workers selects execution on the calling lane.
+fn task_pool_open(pool: mut TaskPool, workers: u32, capacity: u32) -> bool {
+    pool.state = pool_open(workers, capacity);
+    return pool.state != null(*PoolState);
+}
+fn task_pool_drop(pool: mut TaskPool) -> unit {
+    pool_close(pool.state);
+}
+// The provider must retain the payload until the returned job is dropped.
+fn pool_submit(pool: read TaskPool, execute: fn(*u8) -> bool, payload: *u8) -> PoolJob from pool {
+    var slot: u32 = pool_admit(pool.state, execute, payload);
+    var generation: u64 = 0u64;
+    if slot != TASK_NONE {
+        generation = pool_generation(pool.state, slot);
+    }
+    return make PoolJob {
+        pool: read pool,
+        slot: slot,
+        generation: generation
+    };
+}
+fn pool_job_accepted(job: read PoolJob) -> bool {
+    return job.slot != TASK_NONE;
+}
+// Returns zero while pending, one on success, or minus one on failure.
+fn pool_job_poll(job: read PoolJob) -> i32 {
+    if job.slot == TASK_NONE {
+        return -1i32;
+    }
+    return pool_status(job.pool.state, job.slot, job.generation);
+}
+fn pool_job_idle(job: read PoolJob) -> unit {
+    pool_pause(job.pool.state);
+}
+fn pool_job_times(job: read PoolJob) -> TaskRunTimes {
+    if job.slot == TASK_NONE || pool_job_poll(read job) == 0i32 {
+        trap;
+    }
+    return pool_times(job.pool.state, job.slot);
+}
+fn pool_job_drop(job: mut PoolJob) -> unit {
+    if job.slot == TASK_NONE {
+        return;
+    }
+    while pool_job_poll(read job) == 0i32 {
+        pool_job_idle(read job);
+    }
+    pool_release(job.pool.state, job.slot, job.generation);
+}

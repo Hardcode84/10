@@ -1,11 +1,11 @@
-fn collision_divide(v: Vec3, divisor: f32) -> Vec3 {
+fn collision_divide(v: Vec3, divisor: f32) -> Vec3 worker {
     return vec(v.x / divisor, v.y / divisor, v.z / divisor);
 }
 record CollisionProjection {
     value: Vec3;
     found: bool;
 }
-fn collision_plane_offset(plane: CollisionPlane, separate: bool) -> f32 {
+fn collision_plane_offset(plane: CollisionPlane, separate: bool) -> f32 worker {
     if separate {
         return plane.offset;
     }
@@ -16,7 +16,7 @@ fn collision_feasible(
     v: Vec3,
     separate: bool,
     tolerance: f32
-) -> bool {
+) -> bool worker {
     var i: u32 = 0u32;
     while i < collision_plane_count(read planes) {
         var plane: CollisionPlane = collision_plane(read planes, i);
@@ -34,7 +34,7 @@ fn collision_candidate(
     separate: bool,
     tolerance: f32,
     best: mut CollisionProjection
-) -> unit {
+) -> unit worker {
     var gain: f32 = dot(
         sub(v, best.value),
         add(sub(v, desired), sub(best.value, desired))
@@ -52,7 +52,7 @@ fn collision_project_triples(
     i: u32,
     j: u32,
     best: mut CollisionProjection
-) -> unit {
+) -> unit worker {
     if !separate {
         return;
     }
@@ -86,7 +86,7 @@ fn collision_project_pairs(
     tolerance: f32,
     i: u32,
     best: mut CollisionProjection
-) -> unit {
+) -> unit worker {
     var a: CollisionPlane = collision_plane(read planes, i);
     var j: u32 = i + 1u32;
     while j < collision_plane_count(read planes) {
@@ -123,7 +123,7 @@ fn collision_project(
     desired: Vec3,
     separate: bool,
     tolerance: f32
-) -> CollisionProjection {
+) -> CollisionProjection worker {
     var best: CollisionProjection = make CollisionProjection {
         value: vec(0f32, 0f32, 0f32),
         found: false

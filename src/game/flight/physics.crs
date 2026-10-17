@@ -1,7 +1,7 @@
 const FLIGHT_PULSE_TICKS: u32 = 18u32;
 const FLIGHT_PULSE_SECONDS: f32 = 0.15f32;
 const FLIGHT_COOLDOWN_TICKS: u32 = 360u32;
-fn flight_pulses(drone: mut Drone, command: Command) -> unit {
+fn flight_pulses(drone: mut Drone, command: Command) -> unit worker {
     if drone.pulse_cooldown > 0u32 {
         drone.pulse_cooldown = drone.pulse_cooldown - 1u32;
     }
@@ -23,7 +23,7 @@ fn flight_pulses(drone: mut Drone, command: Command) -> unit {
     }
     flight_brake(mut drone);
 }
-fn flight_brake(drone: mut Drone) -> unit {
+fn flight_brake(drone: mut Drone) -> unit worker {
     if drone.brake_ticks > 0u32 {
         var speed: f32 = length(drone.velocity);
         var removed: f32 = clamp(drone.brake_rate * STEP, 0f32, brake_amount(read drone));
@@ -43,7 +43,7 @@ fn simulate(
     command: Command,
     full_spin: bool,
     auto_level: bool
-) -> unit {
+) -> unit worker {
     drone.step_frame = space_identity();
     orient(mut drone, command.look, auto_level);
     flight_pulses(mut drone, command);

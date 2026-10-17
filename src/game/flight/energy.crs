@@ -1,7 +1,7 @@
-fn brake_amount(drone: read Drone) -> f32 {
+fn brake_amount(drone: read Drone) -> f32 worker {
     return clamp(length(drone.velocity), 0f32, 30f32);
 }
-fn powered_winch(collision: read CollisionScene, drone: mut Drone) -> unit {
+fn powered_winch(collision: read CollisionScene, drone: mut Drone) -> unit worker {
     tether_winch(read collision, mut drone);
     tether_constraint(mut drone);
 }

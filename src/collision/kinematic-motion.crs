@@ -5,7 +5,7 @@ fn collision_interval_begin(
     travel: Vec3,
     velocity: Vec3,
     time: f32
-) -> CollisionMotion {
+) -> CollisionMotion worker {
     var result: CollisionMotion = collision_motion_begin(
         read scene,
         space,
@@ -29,7 +29,7 @@ fn collision_interval_resolve(
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes,
     result: mut CollisionMotion
-) -> unit {
+) -> unit worker {
     var skin: f32 = collision_tolerance(result.position, radius);
     if !collision_interval_contacts(
         read scene,
@@ -108,7 +108,7 @@ fn collision_interval_step(
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes,
     result: mut CollisionMotion
-) -> bool {
+) -> bool worker {
     if result.status != 0u32 {
         return true;
     }

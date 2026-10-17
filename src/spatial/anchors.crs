@@ -15,7 +15,7 @@ resource RoomAnchors {
     capacity: u32;
 }
 opaque drop room_anchors_drop;
-fn room_anchors_new() -> RoomAnchors {
+fn room_anchors_new() -> RoomAnchors worker {
     var local: [RoomAnchor; 8] = uninit;
     return make RoomAnchors {
         local: local,
@@ -24,19 +24,19 @@ fn room_anchors_new() -> RoomAnchors {
         capacity: 8u32
     };
 }
-fn room_anchors_drop(anchors: mut RoomAnchors) -> unit {
+fn room_anchors_drop(anchors: mut RoomAnchors) -> unit worker {
     free(anchors.extra as *u8);
 }
-fn room_anchor_count(anchors: read RoomAnchors) -> u32 {
+fn room_anchor_count(anchors: read RoomAnchors) -> u32 worker {
     return anchors.count;
 }
-fn room_anchor(anchors: read RoomAnchors, index: u32) -> RoomAnchor {
+fn room_anchor(anchors: read RoomAnchors, index: u32) -> RoomAnchor worker {
     if anchors.extra != null(*RoomAnchor) {
         return anchors.extra[index as usize];
     }
     return anchors.local[index as usize];
 }
-fn room_anchor_add(anchors: mut RoomAnchors, anchor: RoomAnchor) -> bool {
+fn room_anchor_add(anchors: mut RoomAnchors, anchor: RoomAnchor) -> bool worker {
     if anchors.count == anchors.capacity {
         var size: u64 = anchors.capacity as u64 * 2u64;
         if size > 0xffffffffu64 || size * sizeof(RoomAnchor) as u64 > 0xffffffffu64 {
@@ -63,6 +63,6 @@ fn room_anchor_add(anchors: mut RoomAnchors, anchor: RoomAnchor) -> bool {
     anchors.count = anchors.count + 1u32;
     return true;
 }
-fn room_anchors_clear(anchors: mut RoomAnchors) -> unit {
+fn room_anchors_clear(anchors: mut RoomAnchors) -> unit worker {
     anchors.count = 0u32;
 }

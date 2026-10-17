@@ -5,7 +5,7 @@ fn hook_attach(
     contact: CollisionContact,
     contact_time: f32,
     time: f32
-) -> unit {
+) -> unit worker {
     drone.cable.instance = contact.instance;
     drone.cable.surface = contact.surface;
     drone.cable.local_point = contact.local_point;
@@ -27,7 +27,7 @@ fn hook_attach(
         120f32
     );
 }
-fn hook_follow(scene: read CollisionScene, drone: mut Drone, time: f32) -> unit {
+fn hook_follow(scene: read CollisionScene, drone: mut Drone, time: f32) -> unit worker {
     if drone.cable.phase != CABLE_ATTACHED {
         return;
     }
@@ -51,11 +51,11 @@ fn hook_follow(scene: read CollisionScene, drone: mut Drone, time: f32) -> unit 
     );
 }
 // Release preserves the velocity acquired from a machine or the winch.
-fn hook_release(drone: mut Drone) -> unit {
+fn hook_release(drone: mut Drone) -> unit worker {
     drone.cable = empty_cable();
 }
 // Applies an inelastic, unit-player-mass constraint in the current space frame.
-fn tether_constraint(drone: mut Drone) -> unit {
+fn tether_constraint(drone: mut Drone) -> unit worker {
     if drone.cable.phase != CABLE_ATTACHED {
         return;
     }

@@ -12,12 +12,12 @@ fn zero(bytes: *u8, size: usize) -> unit {
     memset(bytes, 0i32, size);
 }
 
-fn error(message: *u8) -> bool {
+fn error(message: *u8) -> bool worker {
     puts(message);
     return false;
 }
 
-fn print_number(value: i64) -> unit {
+fn print_number(value: i64) -> unit worker {
     var buffer: [u8; 22] = uninit;
     var index: usize = 21usize;
     buffer[index] = 0u8;
@@ -40,7 +40,7 @@ fn print_number(value: i64) -> unit {
     puts(&buffer[index]);
 }
 
-fn float_bits(value: f32) -> u32 {
+fn float_bits(value: f32) -> u32 worker {
     return *(&value as *u32);
 }
 fn bits_float(value: u32) -> f32 {

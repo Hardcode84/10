@@ -3,7 +3,7 @@
 ## Status and purpose
 
 This document defines the target architecture. An opt-in experiment implements
-serial CPU graph execution and asynchronous render and presentation operations.
+parallel prediction and asynchronous render and presentation operations.
 Run it with `crust main.crs --tasks`. The default game loop uses synchronous draw.
 The [transfer contract](../render/transfers.md) describes current resource use.
 Keep that contract until each replacement passes the delivery gates below.
@@ -18,13 +18,28 @@ reused after drain. Optional spans record ready, start, submission, and finish
 times for the most recent execution. Completion spans record executor observation
 time, not the device timestamp. Read spans before starting the next execution.
 
-The game graph requires simulation, prediction, render, and presentation in
-that order. Scene assembly uses the current simulation and prediction results.
-Render cannot become ready before prediction completes. Game input and recording
-have a separate owner from the renderer. The CPU executor is serial; no CPU
-worker pool is active. This graph has no CPU work that can overlap its GPU work.
+The game graph runs simulation before prediction and scene preparation. Prediction
+runs on a native worker while the application prepares the independent part of
+the scene. Both tasks must complete before the prediction markers and remaining
+scene are assembled. Render and presentation follow. This preserves the current
+snapshot and triangle order. Game input and recording have a separate owner from
+the renderer. This graph has no CPU work that can overlap its GPU work.
 Input events remain active during asynchronous GPU and presentation waits.
 Both window loops use the same delay before the next simulation step.
+
+The native pool has bounded job storage, completion generations, and joined
+shutdown. A job retains its pool loan until cleanup. The prediction operation
+also retains its collision input and exclusive result context until cleanup.
+Crust checks explicit `worker` call contracts and `transfers` capture contracts.
+Shared collision storage has a trusted `share` contract. Checked worker bodies
+include automatic cleanup in their call checks. The typed game adapter contains
+the provider callback; checked frame code contains no raw callback or pointer.
+
+Use `--tasks --workers 1` for native worker execution. Use `--tasks --workers 0`
+for the same graph on the application thread. The browser provider requires zero
+workers and reports an error for a nonzero worker count. Pool admission failure
+fails the frame. Cancellation joins accepted prediction work before its context
+can be reused. GPU and presentation waits use the separate completion service.
 
 `SubmittedFrame` holds an exclusive renderer loan through validation or scope
 exit. `ValidatedImage` requires successful validation. `Presentation` holds the
@@ -41,8 +56,9 @@ loans, and source-free imported interfaces.
 
 This experiment uses one renderer allocation. Its submission owns a scoped loan
 of packed frame storage. It does not yet supply the owned scene description,
-general typed task captures, child scopes, completion generations, affinity
-checks, cross-worker transfer checks, or admission budgets specified below.
+general typed task captures, child scopes, affinity checks, or the cross-service
+admission budgets specified below. The CPU pool implements bounded admission and
+generation checks for its own jobs.
 These contracts must be implemented before the full runtime can replace the
 application loops. Demo and viewer remain on their synchronous paths.
 
@@ -247,6 +263,53 @@ runs must pass that report. Console timer output is insufficient evidence.
 The current correction removes the old-frame interval in browser and native
 input traces. It does not prove a benefit from CPU/GPU overlap. Keep the full
 architecture expansion behind the measured decision gate below.
+
+### CPU worker decision
+
+The bounded worker experiment uses prediction and independent scene preparation
+from the same simulation result. It uses one prediction context and one admitted
+job. No frame storage is duplicated. Each final capture matches the zero-worker
+capture byte for byte; the simulation hash is 2903600457.
+
+Four paired runs used the AMD Radeon PRO W7900, 640 by 480 pixels, seed 1,
+complexity 3, and the 80-tick flight above. No builds ran during these pairs.
+Each run excludes the first 16 ticks. Values are zero workers / one worker,
+in milliseconds:
+
+| Pair | Submission p95 | Frame p95 | Worker overlap p50 |
+| --- | ---: | ---: | ---: |
+| 1 | 5.183 / 5.490 | 10.088 / 9.183 | 0.259 |
+| 2 | 5.218 / 5.323 | 10.098 / 10.133 | 0.270 |
+| 3 | 5.551 / 5.688 | 10.434 / 10.459 | 0.277 |
+| 4 | 5.487 / 5.613 | 10.328 / 10.446 | 0.259 |
+
+The trace records overlapping CPU work in 255 of 256 measured worker frames.
+Prediction execution p50 is 4.38–4.67 ms on the application thread and
+4.72–4.97 ms on the worker. This increase can consume the overlap benefit.
+These results do not establish a consistent critical-path improvement. Keep
+the worker path opt-in. Before more subdivision, measure per-thread CPU running
+time, CPU placement, and prediction allocation costs. A passing build or an
+overlap interval alone cannot pass the measured-benefit gate.
+
+The browser serial provider passes capture, input, pause, fullscreen, replay,
+device-loss, and shutdown checks. One 32-command pair measured input to
+presentation-request p95 of 28.6 / 28.7 ms for the synchronous / task loops.
+The current native input attempt failed its keyboard-focus precondition. The
+earlier native input results above remain evidence for the serial CPU graph;
+they do not establish input latency for the worker path.
+
+Compiler checks cover worker call contracts, nested and temporary cleanup,
+source-free imports, unsafe captures, and retained context loans. Runtime checks
+cover zero and two workers, admission exhaustion, failure delivery, generation
+reuse, and early job drop. Memcheck and Helgrind pass the focused pool fixture.
+
+Run the worker comparison with:
+
+```sh
+crust tests.crs tasks --tasks --workers 0 --width 640 --height 480 > build/worker-zero.txt
+crust tests.crs tasks --tasks --workers 1 --width 640 --height 480 > build/worker-one.txt
+bun tests/game/task-timings.mjs build/worker-zero.txt build/worker-one.txt
+```
 
 The measured scene reserves 238,959,872 device bytes and the same staging bytes.
 Two complete copies would reserve about 956 MB before other allocations. Split

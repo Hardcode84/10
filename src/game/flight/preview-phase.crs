@@ -15,7 +15,7 @@ fn advance_preview_phase(trial: mut Trial, before: Vec3) -> unit {
     trial.preview_phase = wrap_preview_phase(trial.preview_phase + length(travel));
 
 }
-fn preview_station(before: Vec3, after: Vec3, distance: f32, next: f32) -> Vec3 {
+fn preview_station(before: Vec3, after: Vec3, distance: f32, next: f32) -> Vec3 worker {
     var travel: Vec3 = sub(after, before);
     return add(before, scale(travel, (next - distance) / length(travel)));
 }

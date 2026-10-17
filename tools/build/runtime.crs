@@ -11,7 +11,10 @@ fn run_runtime_checks(
         "--ldflag",
         "-Wl,-l:libSDL2-2.0.so.0"
     };
-    var providers: [*u8; 5] = make [*u8; 5] {
+    var providers: [*u8; 8] = make [*u8; 8] {
+        host_path(root, "src/runtime/task/pool.crs"),
+        host_path(root, "src/runtime/platform/native-pool.crs"),
+        host_path(root, "tests/runtime/pool.crs"),
         host_path(root, "src/runtime/task/graph.crs"),
         host_path(root, "src/runtime/executor/serial.crs"),
         host_path(root, "src/runtime/trace/frame.crs"),
@@ -24,7 +27,7 @@ fn run_runtime_checks(
         7i32,
         &args[0usize],
         &providers[0usize],
-        5usize,
+        8usize,
         null(*u8)
     ) != 0i32 {
         return 1i32;

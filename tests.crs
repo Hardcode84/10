@@ -83,6 +83,20 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "hook-light") == 0i32
     run -> argv = run -> argv + 1isize;
     return launch_application(run, "build/tests-hook-light");
 };
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "prediction") == 0i32 {
+    if !build_game_target(
+        run,
+        backend.emit,
+        "tests/game/prediction-entry.crs",
+        "build/tests-prediction",
+        null(*u8)
+    ) {
+        return 1i32;
+    }
+    run -> argc = run -> argc - 1i32;
+    run -> argv = run -> argv + 1isize;
+    return launch_application(run, "build/tests-prediction");
+};
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "presentation") == 0i32 {
     if !build_game_target(
         run,

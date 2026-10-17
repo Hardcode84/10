@@ -1,4 +1,4 @@
-fn collision_aabb(p: Vec3, d: Vec3, radius: f32, bounds_low: Vec3, bounds_high: Vec3) -> bool {
+fn collision_aabb(p: Vec3, d: Vec3, radius: f32, bounds_low: Vec3, bounds_high: Vec3) -> bool worker {
     var lo: f32 = 0f32;
     var hi: f32 = 1f32;
     var axis: u32 = 0u32;
@@ -38,7 +38,7 @@ fn collision_aabb(p: Vec3, d: Vec3, radius: f32, bounds_low: Vec3, bounds_high: 
     }
     return true;
 }
-fn collision_better(next: CollisionContact, current: CollisionContact) -> bool {
+fn collision_better(next: CollisionContact, current: CollisionContact) -> bool worker {
     if next.hit.time > 1f32 {
         return false;
     }
@@ -105,7 +105,7 @@ fn collision_query_pose_filtered(
     anchors: read RoomAnchors,
     anchor_index: u32,
     movement: Vec3
-) -> CollisionContact {
+) -> CollisionContact worker {
     var local_p: Vec3 = collision_local(item.basis, sub(p, item.origin));
     var local_d: Vec3 = collision_local(item.basis, d);
     var result: CollisionContact = collision_miss(item.space);
@@ -174,7 +174,7 @@ fn collision_query_filtered(
     separation: bool,
     anchors: read RoomAnchors,
     anchor_index: u32
-) -> CollisionContact {
+) -> CollisionContact worker {
     var result: CollisionContact = collision_miss(space);
     var range: CollisionSpace = collision_space(read scene, space);
     var i: u32 = range.root;

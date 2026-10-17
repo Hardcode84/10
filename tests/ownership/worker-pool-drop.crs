@@ -1,0 +1,4 @@
+fn invalid_worker_pool_drop(pool: TaskPool, collision: read CollisionScene) -> unit {
+    var context: PredictionContext = prediction_context(read pool, read collision);
+    drop pool;
+}

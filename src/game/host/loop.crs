@@ -50,14 +50,27 @@ fn game_prepare(
     config: GameConfig,
     prediction: read Prediction
 ) -> unit {
+    game_prepare_begin(read collision, mut session, read loop, config);
+    game_prepare_finish(read collision, mut session, read loop, config, read prediction);
+}
+fn game_prepare_begin(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig
+) -> unit {
     game_trace_snapshot(mut session, loop.ticks);
-    game_scene_frame_predicted(
-        read collision,
-        mut session,
-        read loop.trial,
-        config,
-        read prediction
-    );
+    var inputs: FrameInput = renderer_inputs(mut session.renderer);
+    game_scene_begin(read collision, mut inputs, read loop.trial, config);
+}
+fn game_prepare_finish(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    prediction: read Prediction
+) -> unit {
+    game_scene_finish(read collision, mut session, read loop.trial, config, read prediction);
     var fps: u32 = game_fps(read session);
     {
         var renderer: mut Renderer = game_renderer(mut session);

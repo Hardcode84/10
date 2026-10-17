@@ -134,7 +134,7 @@ fn game_static_open(session: mut GameSession, world: u32) -> bool {
         read session.room_mesh
     );
 }
-fn game_scene_frame_predicted(
+fn game_scene_finish(
     collision: read CollisionScene,
     session: mut GameSession,
     trial: read Trial,
@@ -142,14 +142,8 @@ fn game_scene_frame_predicted(
     prediction: read Prediction
 ) -> unit {
     var input: FrameInput = renderer_inputs(mut session.renderer);
-    game_scene_predicted(
-        read collision,
-        mut input,
-        read trial,
-        config,
-        read session.world,
-        read prediction
-    );
+    draw_prediction(mut input, read prediction, config);
+    draw_frame(mut input, trial.drone, config);
     draw_drone(read collision, mut input, read session.drone_mesh, trial.drone);
     if trial.graph_run {
         graph_scene(read session.control.graph, mut input, read trial, config);

@@ -7,7 +7,7 @@ fn collision_anchored_planes(
     speeds: mut CollisionPlanes,
     anchors: read RoomAnchors,
     index: u32
-) -> bool {
+) -> bool worker {
     var frame: SpaceTransform = space_identity();
     if room_anchor_count(read anchors) != 0u32 {
         frame = space_inverse(room_anchor(read anchors, index).transform);
@@ -41,7 +41,7 @@ fn collision_anchor_contacts(
     time: f32,
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes
-) -> bool {
+) -> bool worker {
     var anchor: RoomAnchor = room_anchor(read anchors, index);
     var p: Vec3 = space_point(anchor.transform, center);
     var range: CollisionSpace = collision_space(read scene, anchor.space);
@@ -107,7 +107,7 @@ fn collision_interval_contacts(
     time: f32,
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes
-) -> bool {
+) -> bool worker {
     if collision_portal_count(read scene) == 0u32 {
         return collision_local_interval_contacts(
             read scene,

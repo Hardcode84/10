@@ -1,13 +1,13 @@
-fn space_identity() -> SpaceTransform {
+fn space_identity() -> SpaceTransform worker {
     return make SpaceTransform {
         origin: vec(0f32, 0f32, 0f32),
         basis: identity_basis()
     };
 }
-fn space_point(t: SpaceTransform, p: Vec3) -> Vec3 {
+fn space_point(t: SpaceTransform, p: Vec3) -> Vec3 worker {
     return add(t.origin, basis_vector(t.basis, p));
 }
-fn space_inverse(t: SpaceTransform) -> SpaceTransform {
+fn space_inverse(t: SpaceTransform) -> SpaceTransform worker {
     var b: Basis = make Basis {
         right: vec(t.basis.right.x, t.basis.up.x, t.basis.forward.x),
         up: vec(t.basis.right.y, t.basis.up.y, t.basis.forward.y),
@@ -18,14 +18,14 @@ fn space_inverse(t: SpaceTransform) -> SpaceTransform {
         basis: b
     };
 }
-fn space_basis(t: SpaceTransform, b: Basis) -> Basis {
+fn space_basis(t: SpaceTransform, b: Basis) -> Basis worker {
     return make Basis {
         right: basis_vector(t.basis, b.right),
         up: basis_vector(t.basis, b.up),
         forward: basis_vector(t.basis, b.forward)
     };
 }
-fn space_compose(a: SpaceTransform, b: SpaceTransform) -> SpaceTransform {
+fn space_compose(a: SpaceTransform, b: SpaceTransform) -> SpaceTransform worker {
     return make SpaceTransform {
         origin: space_point(a, b.origin),
         basis: space_basis(a, b.basis)
@@ -35,7 +35,7 @@ record PortalCrossing {
     index: u32;
     time: f32;
 }
-fn portal_inside(portal: CollisionPortal, point: Vec3) -> bool {
+fn portal_inside(portal: CollisionPortal, point: Vec3) -> bool worker {
     var offset: Vec3 = sub(point, portal.origin);
     var x: f32 = dot(offset, portal.basis.right);
     var y: f32 = dot(offset, portal.basis.up);
@@ -52,7 +52,7 @@ fn portal_inside(portal: CollisionPortal, point: Vec3) -> bool {
     return true;
 }
 // Finds the first outward centre crossing. Rim contacts are resolved separately.
-fn portal_crossing(scene: read CollisionScene, space: u32, position: Vec3, travel: Vec3) -> PortalCrossing {
+fn portal_crossing(scene: read CollisionScene, space: u32, position: Vec3, travel: Vec3) -> PortalCrossing worker {
     var result: PortalCrossing = make PortalCrossing {
         index: 0xffffffffu32,
         time: 2f32
