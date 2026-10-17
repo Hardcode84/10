@@ -32,15 +32,13 @@ async function measure(tasks) {
   const samples = [];
   const url = URL.createObjectURL(new Blob([`
     onmessage = e => {
-      const origin = e.data;
       const start = performance.now() + 500;
       let i = 0;
       function send() {
         const due = start + i * 103.7;
         const delay = due - performance.now();
         if (delay > 0) { setTimeout(send, delay); return; }
-        postMessage({due: performance.timeOrigin - origin + due,
-          queued: performance.timeOrigin - origin + performance.now()});
+        postMessage({jitter: performance.now() - due});
         if (++i < 32) setTimeout(send, Math.max(0, start + i * 103.7 - performance.now()));
         else setTimeout(() => postMessage(null), 500);
       }
@@ -56,7 +54,7 @@ async function measure(tasks) {
         for (const type of ['keydown', 'keyup']) window.dispatchEvent(new KeyboardEvent(type,
           {code: 'KeyL', key: 'l', keyCode: 76, which: 76, bubbles: true}));
       };
-      worker.postMessage(performance.timeOrigin);
+      worker.postMessage(null);
     });
   } finally { worker.terminate(); URL.revokeObjectURL(url); }
   document.querySelector('#quit').click();
@@ -64,7 +62,7 @@ async function measure(tasks) {
   const data = spinward.FS.readFile('/latency.swlt');
   const ns = value => BigInt(Math.round(value * 1e6)).toString();
   return {trace: btoa(Array.from(data, n => String.fromCharCode(n)).join('')),
-    producer: 'input deadlines and enqueue timestamps ns\n' + samples.flatMap(s => [ns(s.due), ns(s.queued)]).join('\n') + '\n',
+    producer: 'input availability and timer jitter ns\n' + samples.flatMap(s => [ns(s.queued), ns(s.jitter)]).join('\n') + '\n',
     status: document.querySelector('#status').textContent};
 }
 const endpoint = process.env.BROWSER_CDP || 'http://127.0.0.1:9227';

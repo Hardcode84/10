@@ -18,10 +18,13 @@ reused after drain. Optional spans record ready, start, submission, and finish
 times for the most recent execution. Completion spans record executor observation
 time, not the device timestamp. Read spans before starting the next execution.
 
-The game graph has render, simulation, prediction, and presentation nodes.
-Simulation and prediction can run during GPU execution. Prediction produces
-value data before scene assembly. Game input and recording have a separate owner
-from the renderer. The CPU executor is serial; no CPU worker pool is active.
+The game graph requires simulation, prediction, render, and presentation in
+that order. Scene assembly uses the current simulation and prediction results.
+Render cannot become ready before prediction completes. Game input and recording
+have a separate owner from the renderer. The CPU executor is serial; no CPU
+worker pool is active. This graph has no CPU work that can overlap its GPU work.
+Input events remain active during asynchronous GPU and presentation waits.
+Both window loops use the same delay before the next simulation step.
 
 `SubmittedFrame` holds an exclusive renderer loan through validation or scope
 exit. `ValidatedImage` requires successful validation. `Presentation` holds the
@@ -45,79 +48,35 @@ application loops. Demo and viewer remain on their synchronous paths.
 
 ### Experiment decision
 
-Keep this path opt-in until the interactive latency gate is measured.
-The frame-boundary command check exceeds five percent in two of three runs.
-It measures one command arrival phase in a headless fixed-tick fixture. It does
-not establish an interactive input latency regression.
+Keep this path opt-in. The current correction removes the extra snapshot
+interval. It preserves asynchronous output and scoped resource loans. It gives
+up the previous cross-frame CPU/GPU overlap. Further architecture work requires
+a separate measured benefit and the ownership proofs below.
 
-The focused production flight uses seed 1, complexity 3, 640 by 480 pixels,
-80 fixed ticks, and thrust, boost, hook launch, reel, and release commands.
-The first 16 frames are warm-up. These native measurements use an AMD Radeon
-PRO W7900 Dual Slot. Times are milliseconds; each pair is synchronous / task mode.
+The previous graph submitted snapshot N before it ran simulation N+1. A key
+received during that frame could reach simulation early, but its image had to
+wait for the next submission. Two browser pairs measured presentation-request
+p95 of 46.3 and 46.4 ms in task mode, against 28.0 and 28.6 ms in serial mode.
+The graph now requires the new state before submission in the same iteration.
+A pending presentation has no remaining CPU dependency in this graph. Accepted
+output operations still drain on failure and cancellation before their loans end.
 
-| Run | Frame p50 | Frame p95 | Input-to-submission p50 | Input-to-submission p95 |
-| --- | --- | --- | --- | --- |
-| 1 | 8.845 / 4.955 | 9.705 / 5.186 | 5.031 / 5.433 | 5.700 / 5.635 |
-| 2 | 8.859 / 4.869 | 9.849 / 5.191 | 5.232 / 5.354 | 6.083 / 5.737 |
-| 3 | 9.655 / 4.888 | 10.199 / 5.242 | 5.007 / 5.368 | 5.437 / 5.658 |
+The focused native flight uses seed 1, complexity 3, 640 by 480 pixels, and 80
+fixed ticks with thrust, boost, hook launch, reel, and release. The first 16
+frames are warm-up. Both modes must render the command from the current
+iteration. The timing report checks simulation, prediction, assembly, submission,
+and frame-end order for commands 16 through 79. Final simulation hashes and
+capture bytes must match. Graph checks require simulation and prediction to
+complete before render becomes ready, and retain pending output through drain.
 
-The command becomes available at the start of each measured frame. The task
-pipeline applies it to the next snapshot. The latency measurement follows that
-snapshot to its submission. Both modes produce the same final simulation hash
-and capture bytes. Trace spans show prediction running during GPU completion
-waits. This test measures offscreen submission, not scanout or presentation
-request latency. Native window checks and browser checks establish correctness
-of presentation; they do not establish its latency gate.
-
-The task path submits the old snapshot before it consumes the new command.
-The serial path consumes the command first. The frame-boundary fixture therefore
-includes an extra old-frame assembly and submission interval in task mode.
-This is a real delay for that arrival phase. It is not a measurement of input
-events that arrive at arbitrary times during play.
-
-#### Latency investigation
-
-The focused check now records frame start, simulation/prediction start and end,
-assembly end, submission, and frame end. The report matches command indices
-16 through 78 between the two modes. Task mode submits each command's result
-in the following measured frame. The final command has no measured successor;
-the report excludes it. Each iteration must advance exactly one simulation tick.
-
-Four repeated runs on the same scene and GPU isolate these median costs:
-
-| Interval | Serial | Task mode |
-| --- | ---: | ---: |
-| Command availability to simulation start | Less than 0.0001 ms | 0.469–0.491 ms |
-| Next image assembly, recording, and submission after prediction | 0.477–0.500 ms | 0.468–0.490 ms |
-| Drain after prediction, before the next iteration | Not applicable | 0.0004–0.0006 ms |
-
-In task mode, about 0.35 ms of the first interval is old-frame preparation and
-about 0.13 ms is command recording and submission. The extra interval exists
-because of the frame order. CPU execution time also varies between runs, so the
-reported percentage is not a constant scheduling cost. Quantiles from separate
-intervals do not add up to the quantile of their sum.
-
-The measured post-prediction drain is less than one microsecond at the median.
-GPU storage retirement is thus not the measured bottleneck in this witness.
-An owned snapshot remains part of the target ownership contract. The evidence
-does not establish a second frame slot or separate assembly storage as the fix
-for this command-arrival delay.
-
-The fixture bypasses SDL input and wall-clock tick accumulation. It also omits
-surface presentation and the synchronous application loop's delay. To decide
-the interactive gate, inject commands on a common wall-clock schedule, vary
-their arrival phase, use the real 120 Hz tick accumulator, and identify the
-first submitted and presented snapshot that contains each command. Record both
-availability-to-simulation and simulation-to-output intervals. Test native and
-browser presentation. Keep frame-boundary timings as a separate diagnostic.
-
-The presentation dispatcher now executes ready CPU work while its presentation
-loan remains live. If render completes before simulation, the ready order is
-render, simulation, presentation, prediction. A pending presentation must allow
-prediction to run. A focused check forces this order and verifies success,
-failure, and cancellation. Accepted presentation operations drain before the
-image loan ends. Headless presentation completes immediately, so this correction
-does not explain the frame-boundary timing table above.
+The previous headless flight on an AMD Radeon PRO W7900 Dual Slot measured
+frame p50 of 8.8–9.7 ms in serial mode and 4.9–5.0 ms with cross-frame overlap.
+That faster frame rate included an older snapshot. Command arrival at the frame
+boundary incurred 0.47–0.49 ms before simulation. The median drain after prediction
+was below one microsecond. Those timings did not establish interactive latency:
+the fixture bypassed SDL, the real tick accumulator, and presentation. They also
+did not establish GPU storage retirement as the bottleneck. Do not add a second
+renderer allocation as an assumed latency fix.
 
 #### Interactive latency check
 
@@ -125,7 +84,7 @@ Use `--latency-log FILE` to record non-repeat key presses, applied simulation
 steps, submitted snapshots, and presentation requests. The log uses a monotonic
 simulation counter. The expedition timer can stop or reset and cannot identify
 these snapshots. Each prepared snapshot retains its input sequence and tick
-through output, even when simulation advances during GPU execution.
+through output.
 
 The optional log allocates space for 65,536 records. It writes the file at normal
 shutdown. Allocation, capacity, and file errors stop the run with an error.
@@ -164,17 +123,18 @@ bun tests/game/latency-report.mjs build/latency-web-tasks.swlt build/latency-web
 The browser check uses the main labyrinth, seed 1, complexity 3, at 640 by 480.
 A worker schedules messages on absolute deadlines independently of game frames.
 The main thread sends each delivered key through SDL. Browser availability is
-main-thread delivery time. Deadline-to-delivery jitter includes timer delay and
-message queue delay. Native availability is the time immediately before SDL
-enqueue. These sources have different boundaries; compare modes within each
+main-thread delivery time. Timer jitter is measured from deadline to wake-up on
+the worker clock. It excludes message queue delay. Native availability is the
+time immediately before SDL enqueue. These sources have different boundaries; compare modes within each
 backend. Browser trace timestamps and delivery timestamps use the same page
-performance clock. Worker deadlines use the page time origin.
+performance clock. Worker times are used only for local timer intervals.
+Do not compare timestamps from different performance time origins.
 
 The report checks that each command reaches a simulation step and a presented
 snapshot. It rejects lost or coalesced commands, invalid timestamp order, and
 arrival coverage of fewer than three frame quarters. It reports p50, p95, p99,
-and frames with zero or multiple simulation steps. With 32 samples, p99 is the
-maximum sample. Repeat pairs before drawing a performance conclusion.
+submission and presentation intervals, and frames with zero or multiple
+simulation steps. With 32 samples, p99 is the maximum sample. Repeat pairs before drawing a performance conclusion.
 
 Native output time is the call to queue presentation. Browser output time is
 submission of the canvas copy. Neither time measures display scanout. Keep the
@@ -182,22 +142,37 @@ task path opt-in until repeated interactive measurements pass the five-percent
 gate on the target presentation hardware. A software Vulkan window can check
 causal ordering, but cannot establish that hardware gate.
 
-Two browser pairs on the stationary main labyrinth produced these input-to-output
-request times. The browser used the Vulkan backend at a 60 Hz presentation
-cadence. Values are serial / task mode in milliseconds.
+Three repeated browser pairs after the correction produced these p95 times.
+The browser used the Vulkan backend at a 60 Hz presentation cadence. Values are
+serial / task mode in milliseconds. Each run applied all 32 commands and covered
+all four arrival quarters.
 
-| Run | Submission p50 | Submission p95 | Presentation p50 | Presentation p95 |
-| --- | --- | --- | --- | --- |
-| 1 | 9.8 / 25.7 | 16.1 / 32.5 | 21.7 / 39.2 | 28.0 / 46.3 |
-| 2 | 9.7 / 25.6 | 17.2 / 32.7 | 22.1 / 39.3 | 28.6 / 46.4 |
+| Run | Input to submission | Input to presentation request | Presentation interval |
+| --- | --- | --- | --- |
+| 1 | 16.7 / 16.5 | 28.2 / 28.4 | 16.8 / 16.8 |
+| 2 | 16.9 / 16.7 | 28.8 / 28.7 | 16.8 / 16.8 |
+| 3 | 16.7 / 16.6 | 28.7 / 28.5 | 16.8 / 16.8 |
 
-All four runs applied all 32 commands and covered all four arrival quarters.
-The task path still fails the interactive latency gate in this witness. It
-submits the previous snapshot and waits for that frame before it can submit the
-new simulation result. The measured delay is approximately one presentation
-interval. Earlier SDL polling alone cannot remove it. The next experiment must
-change the simulation-to-submission order and measure the same event schedule.
-Do not add a worker pool or more renderer slots as an assumed remedy.
+All three pairs pass the five-percent input-latency threshold. Presentation
+cadence is unchanged. Submission-interval p95 ranges from 17.2 to 18.7 ms;
+submission timing varies within the presentation interval. The report retains
+both interval measurements.
+
+The focused native flight has matching final capture bytes and simulation hashes.
+Its frame p50 is 9.49 / 8.85 ms and p95 is 10.27 / 9.28 ms on the same AMD GPU.
+Command-to-submission p95 is 5.43 / 5.19 ms. Every command is rendered in its own
+iteration. These offscreen measurements establish the current ordering and cost;
+they cannot establish latency through a native display. The native window check
+also runs through Xvfb and software Vulkan. In that check, input-to-presentation
+p95 is 18.54 / 19.39 ms. Presentation-interval p95 is 10.47 / 11.04 ms, a 5.4
+percent increase. This software-window frame result requires investigation
+before a rollout. Measure native service completion, dispatch, and presentation
+intervals on the target display to separate executor wake-up cost from device
+and window-system cost. The current native display performance gate is open.
+
+The current correction passes the browser input gate without the old-frame
+pipeline. It does not prove a benefit from CPU/GPU overlap. Keep the full
+architecture expansion behind the measured decision gate below.
 
 The measured scene reserves 238,959,872 device bytes and the same staging bytes.
 Two complete copies would reserve about 956 MB before other allocations. Split
@@ -514,8 +489,10 @@ asset job completes. That tick depends on the version being ready. Completion
 time cannot select the installation tick or change input-to-tick assignment.
 A slow asset job can delay execution, but cannot change replay results.
 
-Rendering snapshot N can overlap simulation N+1. This requires separate state;
-a lock around the current mutable `GameSession` would serialize the same work.
+Rendering snapshot N can overlap simulation N+1 only if the input-to-output
+latency gate still passes. Separate state alone does not establish that result.
+Do not require one frame of input delay to obtain overlap. Overlap requires
+separate state; a lock around the current mutable `GameSession` would serialize the same work.
 Recording remains in tick order and consumes simulation results, not render
 completion order. Replay hashes must be independent of worker count.
 
@@ -698,7 +675,8 @@ Deliver in this order:
    transfer and sharing checks are required before step 4.
 2. **Production asynchronous slice.** Run one actual game frame through an owned
    snapshot, submission, capacity validation, presentation, and retirement. Run
-   prediction while GPU work is pending. Exercise resize and cancellation in
+   independent CPU work while GPU work is pending only if same-snapshot prediction
+   and the latency gate remain valid. Exercise resize and cancellation in
    this path. Check duplicate slot memory before implementation; split immutable
    assets at this step if duplication exceeds the budget. This is the required
    ownership and output proof. A fresh graph per frame is sufficient for this

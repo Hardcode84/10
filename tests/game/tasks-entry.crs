@@ -32,17 +32,15 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
     if !game_run_setup(mut session, mut collision, mut loop, config) {
         return 1i32;
     }
-    check_present_progress(read collision, mut session.control, mut loop, config);
+    check_frame_order();
     var graph: TaskGraph = task_graph_new();
     if !game_frame_graph(mut graph) || !task_trace_enable(mut graph, now) {
         return 1i32;
     }
-    task_print_early_completion_order(mut graph);
     var prediction: Prediction = predict_paths(read collision, read loop.trial);
     var previous: u64 = now();
     var samples: [u64; 80] = uninit;
     zero(&samples as *u8, sizeof([u64; 80]));
-    var overlap: [u64; 80] = samples;
     var timings: [FlightTiming; 80] = uninit;
     zero(&timings as *u8, sizeof([FlightTiming; 80]));
     var frame: u32 = 0u32;
@@ -56,7 +54,7 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
         var start: u64 = now();
         timings[frame as usize].start = start;
         if config.tasks {
-            if !game_overlapped_frame(
+            if !game_task_frame(
                 mut graph,
                 read collision,
                 mut session,
@@ -73,13 +71,6 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
             timings[frame as usize].cpu_begin = simulation.start;
             timings[frame as usize].cpu_end = cpu.finish;
             timings[frame as usize].prepared = gpu.start;
-            var end: u64 = cpu.finish;
-            if gpu.finish < end {
-                end = gpu.finish;
-            }
-            if end > cpu.start {
-                overlap[frame as usize] = end - cpu.start;
-            }
         } else {
             timings[frame as usize].cpu_begin = now();
             if !game_next_snapshot(
@@ -108,8 +99,6 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
         }
         frame = frame + 1u32;
     }
-    puts("prediction before observed GPU completion ns");
-    task_print_samples(read overlap);
     puts("measured frame ns");
     task_print_samples(read samples);
     task_print_timings(read timings);
@@ -118,31 +107,6 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
     }
     game_summary(read loop.trial);
     return (!game_finish(mut session)) as i32;
-}
-fn task_print_early_completion_order(graph: mut TaskGraph) -> unit {
-    puts("ready order when GPU completes before simulation");
-    task_graph_start(mut graph);
-    var render: u32 = task_next(mut graph);
-    if render != 0u32 {
-        trap;
-    }
-    print_number(render as i64);
-    task_submission_returned(mut graph, render, true);
-    task_external_complete(mut graph, render, true);
-    var ready: u32 = task_next(mut graph);
-    while ready != TASK_NONE {
-        print_number(ready as i64);
-        if ready == 3u32 {
-            task_submission_returned(mut graph, ready, true);
-            task_external_complete(mut graph, ready, true);
-        } else {
-            task_complete(mut graph, ready, true);
-        }
-        ready = task_next(mut graph);
-    }
-    if !task_succeeded(read graph) {
-        trap;
-    }
 }
 fn task_print_timings(timings: read[FlightTiming; 80]) -> unit {
     puts("frame timestamps: start cpu_begin cpu_end prepared submitted finish");
@@ -164,4 +128,22 @@ fn task_print_samples(samples: read[u64; 80]) -> unit {
         print_number(samples[frame as usize] as i64);
         frame = frame + 1u32;
     }
+}
+
+fn game_next_snapshot(
+    collision: read CollisionScene,
+    control: mut GameControl,
+    loop: mut GameLoop,
+    config: GameConfig,
+    previous: mut u64,
+    prediction: mut Prediction
+) -> bool {
+    var current: u64 = now();
+    var elapsed: u64 = current - previous;
+    previous = current;
+    if !game_advance(read collision, mut control, mut loop, config, elapsed) {
+        return false;
+    }
+    prediction = predict_paths(read collision, read loop.trial);
+    return true;
 }

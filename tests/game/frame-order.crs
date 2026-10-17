@@ -1,0 +1,45 @@
+fn check_frame_order() -> unit {
+    var graph: TaskGraph = task_graph_new();
+    if !game_frame_graph(mut graph) {
+        trap;
+    }
+    var mode: u32 = 0u32;
+    while mode < 3u32 {
+        task_graph_start(mut graph);
+        if task_next(mut graph) != 1u32 || task_next(mut graph) != TASK_NONE {
+            trap;
+        }
+        task_complete(mut graph, 1u32, true);
+        if task_next(mut graph) != 2u32 || task_next(mut graph) != TASK_NONE {
+            trap;
+        }
+        task_complete(mut graph, 2u32, true);
+        check_frame_output(mut graph, mode);
+        mode = mode + 1u32;
+    }
+    puts("current simulation and prediction precede render; output drain checks passed");
+}
+fn check_frame_output(graph: mut TaskGraph, mode: u32) -> unit {
+    if task_next(mut graph) != 0u32 {
+        trap;
+    }
+    task_submission_returned(mut graph, 0u32, true);
+    if task_next(mut graph) != TASK_NONE {
+        trap;
+    }
+    task_external_complete(mut graph, 0u32, true);
+    if task_next(mut graph) != 3u32 {
+        trap;
+    }
+    task_submission_returned(mut graph, 3u32, true);
+    if mode == 2u32 {
+        task_cancel(mut graph);
+    }
+    if task_drained(read graph) || task_next(mut graph) != TASK_NONE {
+        trap;
+    }
+    task_external_complete(mut graph, 3u32, mode != 1u32);
+    if !task_drained(read graph) || task_succeeded(read graph) != (mode == 0u32) {
+        trap;
+    }
+}

@@ -103,7 +103,7 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "tasks") == 0i32 {
         backend.emit,
         "tests/game/tasks-entry.crs",
         "build/tests-tasks",
-        "tests/game/presentation-progress.crs"
+        "tests/game/frame-order.crs"
     ) || !build_render_shaders(run) {
         return 1i32;
     }

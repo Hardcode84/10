@@ -89,11 +89,11 @@ fn latency_run(session: GameSession, config: GameConfig) -> i32 {
     if completed < 0i32 {
         return 1i32;
     }
-    puts("input deadlines and enqueue timestamps ns");
+    puts("input availability and timer jitter ns");
     var i: usize = 0usize;
     while i < 32usize {
-        print_number(producer.due[i] as i64);
         print_number(producer.queued[i] as i64);
+        print_number((producer.queued[i] - producer.due[i]) as i64);
         i = i + 1usize;
     }
     return result;
