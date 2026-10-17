@@ -85,6 +85,8 @@ instances are submitted. Reserved slots have the inactive and no-shadow flags.
 Their addresses remain fixed when late triangles arrive. Inactive slots are
 excluded from projection. Projection storage admits the reservation before the
 first submission, so the late write cannot require buffer replacement.
+Setup rejects a reservation outside the current dynamic range or a range whose
+slots are no longer inactive. Frame input bounds are private to the renderer.
 
 After prediction, `frame_setup_edit` waits for setup retirement and lends a
 `DeferredInput`. Its triangle writer is bounded by the reservation. The caller

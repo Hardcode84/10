@@ -34,6 +34,7 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
     if !game_run_setup(mut session, mut collision, mut loop, config) {
         return 1i32;
     }
+    task_check_stale_reservation(mut session.renderer);
     check_frame_order();
     var graph: TaskGraph = task_graph_new();
     if !game_frame_graph(mut graph) || !task_trace_enable(mut graph, now) {
@@ -213,4 +214,19 @@ fn task_check_split_pixels(
     }
     free(expected);
     return good;
+}
+
+fn task_stale_reservation(renderer: mut Renderer) -> DeferredGeometry {
+    var input: FrameInput = renderer_inputs(mut renderer);
+    input_frame(mut input);
+    var range: DeferredGeometry = input_defer(mut input, 1u32);
+    input_frame(mut input);
+    return range;
+}
+fn task_check_stale_reservation(renderer: mut Renderer) -> unit {
+    var range: DeferredGeometry = task_stale_reservation(mut renderer);
+    var setup: FrameSetup = frame_setup(mut renderer, range);
+    if frame_setup_accepted(read setup) {
+        trap;
+    }
 }

@@ -1,0 +1,3 @@
+fn invalid_deferred_bounds(input: mut FrameInput) -> unit {
+    input.triangle_limit = ~0u32;
+}

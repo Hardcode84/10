@@ -6,6 +6,7 @@ record FrameInput {
     storage: mut RenderState;
     triangle_limit: u32;
 }
+opaque;
 fn renderer_new() -> Renderer {
     var state: RenderState = uninit;
     zero(&state as *u8, sizeof(RenderState));

@@ -41,9 +41,10 @@ opaque drop frame_setup_drop;
 // Starts shadow preparation. Holds all frame storage until scope exit.
 fn frame_setup(renderer: mut Renderer, range: DeferredGeometry) -> FrameSetup from renderer {
     var v: *RenderState = &renderer.state;
-    var accepted: bool = retirement_observer_open(v) && renderer_prepare(v, range.capacity) && command_reset(
-        v
-    ) && command_begin(v);
+    var accepted: bool = deferred_geometry_valid(v, range) && retirement_observer_open(v) && renderer_prepare(
+        v,
+        range.capacity
+    ) && command_reset(v) && command_begin(v);
     if accepted {
         commands_setup_body(v);
         accepted = command_end(v) && dispatch_submit(v);
@@ -145,4 +146,27 @@ fn frame_setup_poll(setup: mut FrameSetup) -> i32 {
 }
 fn frame_setup_idle(setup: mut FrameSetup) -> unit {
     retirement_idle(&setup.storage);
+}
+
+fn deferred_geometry_valid(v: *RenderState, range: DeferredGeometry) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var limit: u32 = w[3usize];
+    if w[INSTANCE_COUNT as usize] != 0u32 {
+        limit = w[DYNAMIC_COUNT as usize];
+    }
+    var end: u64 = range.first as u64 + range.capacity as u64;
+    if end > limit as u64 {
+        return error("deferred geometry reservation is outside this frame");
+    }
+    var i: u32 = range.first;
+    while i < end as u32 {
+        var meta: u32 = w[META as usize] + i * 4u32;
+        if w[(meta + 2u32) as usize] != 0u32 || w[(meta + 3u32) as usize] != (
+            TRIANGLE_INACTIVE | TRIANGLE_NO_SHADOW
+        ) {
+            return error("deferred geometry reservation is no longer inactive");
+        }
+        i = i + 1u32;
+    }
+    return true;
 }

@@ -1,5 +1,6 @@
 fn check_host_ownership(root: *CrustRun) -> bool {
-    var files: [*u8; 16] = make [*u8; 16] {
+    var files: [*u8; 17] = make [*u8; 17] {
+        "deferred-bounds.crs",
         "setup-reuse.crs",
         "setup-edit.crs",
         "setup-valid.crs",
@@ -17,7 +18,8 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         "pending-valid.crs",
         "presentation-reuse.crs"
     };
-    var errors: [*u8; 16] = make [*u8; 16] {
+    var errors: [*u8; 17] = make [*u8; 17] {
+        "opaque fields are private to the trusted implementation",
         "access conflicts with an active payload loan",
         "access conflicts with an active payload loan",
         null(*u8),
@@ -39,7 +41,7 @@ fn check_host_ownership(root: *CrustRun) -> bool {
     var count: usize = render_providers(root, &providers[0usize]);
     var good: bool = true;
     var i: usize = 0usize;
-    while i < 16usize {
+    while i < 17usize {
         var args: [*u8; 4] = make [*u8; 4] {
             "--check",
             "--library",
