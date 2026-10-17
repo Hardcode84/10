@@ -14,13 +14,13 @@ fn image_extent_valid(width: u32, height: u32, output_width: u32, output_height:
     }
     return true;
 }
-fn image_words(v: *Vulkan) -> u64 {
+fn image_words(v: *RenderState) -> u64 {
     return PIXELS as u64 + v -> width as u64 * v -> height as u64 * 5u64 + v -> output_width as u64 * v -> output_height as u64;
 }
 // Requires an open renderer and no active input borrow. Scene assets and camera data survive.
 // A rejected size or allocation preserves the active storage. Draw again before presentation.
 fn renderer_resize(
-    v: *Vulkan,
+    v: *RenderState,
     width: u32,
     height: u32,
     output_width: u32,
@@ -32,7 +32,7 @@ fn renderer_resize(
     if v -> width == width && v -> height == height && v -> output_width == output_width && v -> output_height == output_height {
         return image_swapchain(v);
     }
-    var next: Vulkan = *v;
+    var next: RenderState = *v;
     next.width = width;
     next.height = height;
     next.output_width = output_width;
@@ -44,7 +44,7 @@ fn renderer_resize(
     if !geometry_layout(&next, next.triangle_capacity) {
         return false;
     }
-    if !vk_ok(vkQueueWaitIdle(v -> queue), "wait before image resize") {
+    if !device_wait_idle(v) {
         return false;
     }
     if !storage_replace(v, &next) {
@@ -54,7 +54,7 @@ fn renderer_resize(
     v -> present_ready = false;
     return image_swapchain(v);
 }
-fn image_viewport(v: *Vulkan) -> unit {
+fn image_viewport(v: *RenderState) -> unit {
     var width: u32 = v -> output_width;
     var height: u32 = v -> output_height;
     if width as u64 * v -> height as u64 < height as u64 * v -> width as u64 {
@@ -72,19 +72,11 @@ fn image_viewport(v: *Vulkan) -> unit {
     (v -> mapped as *u32)[OUTPUT_VIEW_HEIGHT as usize] = height;
 }
 
-fn swapchain_close(v: *Vulkan) -> unit {
-    if v -> swapchain != null(*u8) {
-        vkDestroySwapchainKHR(v -> device, v -> swapchain, null(*u8));
-        v -> swapchain = null(*u8);
-    }
-    free(v -> images as *u8);
-    v -> images = null(**u8);
-}
-fn image_swapchain(v: *Vulkan) -> bool {
+fn image_swapchain(v: *RenderState) -> bool {
     if v -> surface == null(*u8) || !v -> swapchain_dirty {
         return true;
     }
-    if !vk_ok(vkQueueWaitIdle(v -> queue), "wait before swapchain replacement") {
+    if !device_wait_idle(v) {
         return false;
     }
     swapchain_close(v);

@@ -84,11 +84,12 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 23] = make [*u8; 23] {
+    var files: [*u8; 24] = make [*u8; 24] {
         "src/assets/geometry/storage.crs",
         "src/assets/parameter-storage.crs",
         "src/assets/connections/storage.crs",
         "src/app/window.crs",
+        "src/app/window-vulkan.crs",
         "src/app/render-open.crs",
         "src/collision/storage.crs",
         "src/collision/portal-storage.crs",
@@ -110,7 +111,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/text.crs"
     };
     var i: usize = 0usize;
-    while i < 23usize {
+    while i < 24usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

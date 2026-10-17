@@ -1,19 +1,19 @@
-fn queries_create(v: *Vulkan) -> bool {
+fn queries_create(v: *RenderState) -> bool {
     var info: VkQueryPoolCreateInfo = uninit;
     zero(&info as *u8, sizeof(VkQueryPoolCreateInfo));
     info.sType = 11u32;
     info.queryType = 2u32;
     info.queryCount = v -> query_count;
     return vk_ok(
-        vkCreateQueryPool(v -> device, &info, null(*u8), &v -> query_pool),
+        vkCreateQueryPool(v -> gpu.device, &info, null(*u8), &v -> gpu.query_pool),
         "vkCreateQueryPool"
     );
 }
-fn queries_read(v: *Vulkan, values: *u64) -> bool {
+fn queries_read(v: *RenderState, values: *u64) -> bool {
     if !vk_ok(
         vkGetQueryPoolResults(
-            v -> device,
-            v -> query_pool,
+            v -> gpu.device,
+            v -> gpu.query_pool,
             0u32,
             v -> query_count,
             v -> query_count as usize * 8usize,
@@ -29,7 +29,7 @@ fn queries_read(v: *Vulkan, values: *u64) -> bool {
 }
 record RenderTimespec {
     seconds: i64;
-    nanoseconds: i64;
+    nanoseconds: isize;
 }
 extern fn render_clock_gettime(clock: i32, time: *RenderTimespec) -> i32 = "clock_gettime";
 fn render_now() -> u64 {
@@ -40,22 +40,22 @@ fn render_now() -> u64 {
     }
     return time.seconds as u64 * 1000000000u64 + time.nanoseconds as u64;
 }
-fn retirement_create(v: *Vulkan) -> bool {
+fn retirement_create(v: *RenderState) -> bool {
     var info: VkFenceCreateInfo = uninit;
     zero(&info as *u8, sizeof(VkFenceCreateInfo));
     info.sType = 8u32;
     return vk_ok(
-        vkCreateFence(v -> device, &info, null(*u8), &v -> retired),
+        vkCreateFence(v -> gpu.device, &info, null(*u8), &v -> gpu.retired),
         "create renderer retirement fence"
     );
 }
-fn retirement_wait(v: *Vulkan) -> unit {
+fn retirement_wait(v: *RenderState) -> unit {
     if !v -> submitted {
         return;
     }
     var start: u64 = render_now();
     if !vk_ok(
-        vkWaitForFences(v -> device, 1u32, &v -> retired, 1u32, ~0u64),
+        vkWaitForFences(v -> gpu.device, 1u32, &v -> gpu.retired, 1u32, ~0u64),
         "wait for renderer retirement"
     ) {
         exit(1i32);
@@ -64,9 +64,9 @@ fn retirement_wait(v: *Vulkan) -> unit {
     v -> frame_wait_ns = render_now() - start;
     v -> submitted = false;
 }
-fn retirement_close(v: *Vulkan) -> unit {
+fn retirement_close(v: *RenderState) -> unit {
     retirement_wait(v);
-    if v -> retired != null(*u8) {
-        vkDestroyFence(v -> device, v -> retired, null(*u8));
+    if v -> gpu.retired != null(*u8) {
+        vkDestroyFence(v -> gpu.device, v -> gpu.retired, null(*u8));
     }
 }

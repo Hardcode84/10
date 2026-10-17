@@ -1,5 +1,11 @@
 # Compute renderer and flight demo
 
+This page describes the native Vulkan provider and shared renderer contract.
+The [web game](../build/web.md) uses the same layout, schedule, and Crust shader
+sources with a WebGPU provider. `RenderState` holds shared state;
+`RenderBackend` holds provider resources. Applications select providers at build
+time. The demo and viewer use Vulkan.
+
 ## Build and run
 
 Build the Crust seed as described in [bootstrap](../build/bootstrap.md). Add
@@ -107,7 +113,7 @@ for the lifetime of the renderer.
 `renderer_draw` completes upload, compute, selected readback, and capacity checks.
 Shader-failure checks run only in debug mode. On
 success, the caller can use the output pixels or call `present` for its surface.
-`queries_read` returns `Vulkan.query_count` GPU timestamps into caller-provided
+`queries_read` returns `RenderState.query_count` GPU timestamps into caller-provided
 storage. The count follows the configured crossing limit; the caller chooses
 how to report them.
 The renderer drop operation calls `device_close`. The demo session owns its

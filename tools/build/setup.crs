@@ -30,15 +30,16 @@ fn project_open(root: *CrustRun, backend: *ApplicationBackend) -> *StageSession 
     return stages;
 }
 fn project_render(root: *CrustRun, stages: *StageSession, backend: *ApplicationBackend) -> bool {
-    var paths: [*u8; 5] = make [*u8; 5] {
+    var paths: [*u8; 6] = make [*u8; 6] {
         "crust/stages/shader/model.crs",
         "crust/stages/shader/api.crs",
         "src/render/interface.crs",
         "tools/build/render.crs",
+        "src/render/shader-names.crs",
         "tools/build/shaders.crs"
     };
     var i: usize = 0usize;
-    while i < 5usize {
+    while i < 6usize {
         if !host_source(root, paths[i]) {
             return false;
         }

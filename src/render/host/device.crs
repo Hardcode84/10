@@ -1,55 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-record Vulkan {
-    width: u32;
-    height: u32;
-    output_width: u32;
-    output_height: u32;
-    timestamp_mask: u64;
-    mesh_capacity: u32;
-    mesh_count: u32;
-    instance_capacity: u32;
-    mesh_dirty: bool;
-    shadow_dirty: bool;
-    shadow_instances: u32;
-    instance_dirty: bool;
-    asset_dirty_begin: u32;
-    asset_dirty_end: u32;
-    font_dirty: bool;
-    asset_upload_bytes: u64;
+record RenderBackend {
     retired: *u8;
-    submitted: bool;
-    frame_upload_bytes: u64;
-    frame_readback_bytes: u64;
-    frame_wait_ns: u64;
-    device_bytes: u64;
-    staging_bytes: u64;
-    peak_buffer_bytes: u64;
-    mesh_upload_bytes: u64;
-    asset_capacity: u32;
-    light_capacity: u32;
-    words: u32;
-    floats: u32;
-    triangle_capacity: u32;
-    projection_capacity: u32;
-    view_capacity: u32;
-    portal_capacity: u32;
-    task_capacity: u32;
-    crossing_limit: u32;
-    query_count: u32;
-    storage_limit: u32;
     properties: VkPhysicalDeviceMemoryProperties;
     instance: *u8;
     physical: *u8;
     device: *u8;
     queue: *u8;
-    buffer: *u8;
     memory: *u8;
-    mapped: *u8;
-    staging: *u8;
     staging_memory: *u8;
-    read_pixels: bool;
-    shader_checks: bool;
     layout: *u8;
     pipeline_layout: *u8;
     modules: [*u8; 14];
@@ -58,20 +17,16 @@ record Vulkan {
     set: *u8;
     command_pool: *u8;
     commands: *u8;
-    surface: *u8;
     swapchain: *u8;
     images: **u8;
-    swapchain_dirty: bool;
-    present_ready: bool;
     acquired: *u8;
     present_commands: *u8;
     query_pool: *u8;
-    timestamp_period: f32;
     family: u32;
 }
 opaque;
 
-fn device_profile(v: *Vulkan) -> bool {
+fn device_profile(v: *RenderState) -> bool {
     var controls: VkPhysicalDeviceFloatControlsProperties = uninit;
     zero(&controls as *u8, sizeof(VkPhysicalDeviceFloatControlsProperties));
     controls.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES;
@@ -86,8 +41,8 @@ fn device_profile(v: *Vulkan) -> bool {
     zero(&query as *u8, sizeof(VkPhysicalDeviceFeatures2));
     query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     query.pNext = &support as *u8;
-    vkGetPhysicalDeviceProperties2(v -> physical, &props);
-    vkGetPhysicalDeviceFeatures2(v -> physical, &query);
+    vkGetPhysicalDeviceProperties2(v -> gpu.physical, &props);
+    vkGetPhysicalDeviceFeatures2(v -> gpu.physical, &query);
     puts(&props.properties.deviceName[0usize]);
     if props.properties.apiVersion < VK_API_VERSION_1_2 {
         return error("requires Vulkan 1.2");
@@ -119,12 +74,12 @@ fn device_profile(v: *Vulkan) -> bool {
     return true;
 }
 
-fn device_create(v: *Vulkan) -> bool {
+fn device_create(v: *RenderState) -> bool {
     var priority: f32 = 1f32;
     var qci: VkDeviceQueueCreateInfo = uninit;
     zero(&qci as *u8, sizeof(VkDeviceQueueCreateInfo));
     qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    qci.queueFamilyIndex = v -> family;
+    qci.queueFamilyIndex = v -> gpu.family;
     qci.queueCount = 1u32;
     qci.pQueuePriorities = &priority;
     var features: VkPhysicalDeviceVulkan12Features = uninit;
@@ -143,17 +98,17 @@ fn device_create(v: *Vulkan) -> bool {
         dci.ppEnabledExtensionNames = &extension;
     }
     if !vk_ok(
-        vkCreateDevice(v -> physical, &dci, null(*u8), &v -> device),
+        vkCreateDevice(v -> gpu.physical, &dci, null(*u8), &v -> gpu.device),
         "vkCreateDevice"
     ) {
         return false;
     }
-    vkGetDeviceQueue(v -> device, v -> family, 0u32, &v -> queue);
-    vkGetPhysicalDeviceMemoryProperties(v -> physical, &v -> properties);
+    vkGetDeviceQueue(v -> gpu.device, v -> gpu.family, 0u32, &v -> gpu.queue);
+    vkGetPhysicalDeviceMemoryProperties(v -> gpu.physical, &v -> gpu.properties);
     return true;
 }
 
-fn instance_open(v: *Vulkan, extension_count: u32, extensions: **u8) -> bool {
+fn instance_open(v: *RenderState, extension_count: u32, extensions: **u8) -> bool {
     var app: VkApplicationInfo = uninit;
     zero(&app as *u8, sizeof(VkApplicationInfo));
     app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -165,13 +120,17 @@ fn instance_open(v: *Vulkan, extension_count: u32, extensions: **u8) -> bool {
     ici.enabledExtensionCount = extension_count;
     ici.ppEnabledExtensionNames = extensions;
     return vk_ok(
-        vkCreateInstance(&ici, null(*u8), &v -> instance),
+        vkCreateInstance(&ici, null(*u8), &v -> gpu.instance),
         "vkCreateInstance"
     );
 }
-fn device_open(v: *Vulkan) -> bool {
+fn device_open(v: *RenderState) -> bool {
     var count: u32 = 1u32;
-    var result: i32 = vkEnumeratePhysicalDevices(v -> instance, &count, &v -> physical);
+    var result: i32 = vkEnumeratePhysicalDevices(
+        v -> gpu.instance,
+        &count,
+        &v -> gpu.physical
+    );
     // Only the first device is required, including when enumeration is truncated.
     if result != VK_SUCCESS && result != VK_INCOMPLETE {
         return vk_ok(result, "vkEnumeratePhysicalDevices");
@@ -181,15 +140,19 @@ fn device_open(v: *Vulkan) -> bool {
     }
     var families: [VkQueueFamilyProperties; 64] = uninit;
     count = 64u32;
-    vkGetPhysicalDeviceQueueFamilyProperties(v -> physical, &count, &families[0usize]);
-    v -> family = 0u32;
-    while v -> family < count {
-        if (families[v -> family as usize].queueFlags & VK_QUEUE_COMPUTE_BIT) != 0u32 {
+    vkGetPhysicalDeviceQueueFamilyProperties(
+        v -> gpu.physical,
+        &count,
+        &families[0usize]
+    );
+    v -> gpu.family = 0u32;
+    while v -> gpu.family < count {
+        if (families[v -> gpu.family as usize].queueFlags & VK_QUEUE_COMPUTE_BIT) != 0u32 {
             var supported: u32 = 1u32;
             if v -> surface != null(*u8) && !vk_ok(
                 vkGetPhysicalDeviceSurfaceSupportKHR(
-                    v -> physical,
-                    v -> family,
+                    v -> gpu.physical,
+                    v -> gpu.family,
                     v -> surface,
                     &supported
                 ),
@@ -198,19 +161,23 @@ fn device_open(v: *Vulkan) -> bool {
                 return false;
             }
             if supported != 0u32 {
-                if families[v -> family as usize].timestampValidBits == 0u32 {
+                if families[v -> gpu.family as usize].timestampValidBits == 0u32 {
                     return error("compute queue requires timestamp support for GPU timing");
                 }
                 v -> timestamp_mask = 0xffffffffffffffffu64 >> (
-                    64u64 - families[v -> family as usize].timestampValidBits as u64
+                    64u64 - families[v -> gpu.family as usize].timestampValidBits as u64
                 );
                 break;
             }
         }
-        v -> family = v -> family + 1u32;
+        v -> gpu.family = v -> gpu.family + 1u32;
     }
-    if v -> family == count {
+    if v -> gpu.family == count {
         return error("no compute queue in the first 64 queue families");
     }
     return device_profile(v) && device_create(v);
+}
+
+fn device_wait_idle(v: *RenderState) -> bool {
+    return vk_ok(vkQueueWaitIdle(v -> gpu.queue), "wait for renderer device");
 }

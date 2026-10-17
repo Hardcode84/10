@@ -12,7 +12,7 @@ fn read_input(path: *u8, output: *ShaderCode) -> bool {
     if fseek(file, 0isize, 2i32) == 0i32 {
         size = ftell(file);
     }
-    var good: bool = size > 0isize && size % 4isize == 0isize;
+    var good: bool = size > 0isize;
     if good {
         good = fseek(file, 0isize, 0i32) == 0i32;
     }
@@ -28,20 +28,17 @@ fn read_input(path: *u8, output: *ShaderCode) -> bool {
         good = false;
     }
     if !good {
-        return error("cannot read aligned input");
+        return error("cannot read shader input");
     }
     return true;
 }
 
-fn load_pipeline(v: *Vulkan, path: *u8, slot: usize) -> bool {
+fn load_pipeline(v: *RenderState, path: *u8, slot: usize) -> bool {
     var code: ShaderCode = make ShaderCode {
         bytes: null(*u8),
         size: 0usize
     };
     var good: bool = read_input(path, &code);
-    if good && (code.size < 20usize || (code.bytes as *u32)[0usize] != 0x07230203u32) {
-        good = error("invalid SPIR-V module");
-    }
     if good {
         good = pipeline_create(v, &code, slot);
     }
@@ -50,35 +47,23 @@ fn load_pipeline(v: *Vulkan, path: *u8, slot: usize) -> bool {
 }
 
 extern fn fflush(file: *u8) -> i32 = "fflush";
-fn render_shader_path(slot: usize, checked: bool) -> *u8 {
-    var paths: [*u8; 27] = make [*u8; 27] {
-        "build/init.spv",
-        "build/transform.spv",
-        "build/raster.spv",
-        "build/advance.spv",
-        "build/compose.spv",
-        "build/compact.spv",
-        "build/scan.spv",
-        "build/fill.spv",
-        "build/instances.spv",
-        "build/visibility.spv",
-        "build/bin.spv",
-        "build/shadow-build.spv",
-        "build/shadow-top.spv",
-        "build/init.debug.spv",
-        "build/transform.debug.spv",
-        "build/raster.debug.spv",
-        "build/advance.debug.spv",
-        "build/compose.debug.spv",
-        "build/compact.debug.spv",
-        "build/scan.debug.spv",
-        "build/fill.debug.spv",
-        "build/instances.debug.spv",
-        "build/visibility.debug.spv",
-        "build/bin.debug.spv",
-        "build/shadow-build.debug.spv",
-        "build/shadow-top.debug.spv",
-        "build/status.debug.spv"
-    };
-    return paths[slot + checked as usize * 13usize];
+
+fn read_renderer_shader(slot: usize, checked: bool, code: *ShaderCode) -> bool {
+    var path: [u8; 64] = uninit;
+    var name: *u8 = render_shader_name(slot, checked);
+    memcpy(&path[0usize], "build/", 6usize);
+    var i: usize = 0usize;
+    while name[i] != 0u8 {
+        path[i + 6usize] = name[i];
+        i = i + 1usize;
+    }
+    path[i + 6usize] = 46u8;
+    var suffix: *u8 = shader_extension();
+    var j: usize = 0usize;
+    while suffix[j] != 0u8 {
+        path[i + j + 7usize] = suffix[j];
+        j = j + 1usize;
+    }
+    path[i + j + 7usize] = 0u8;
+    return read_input(&path[0usize], code);
 }

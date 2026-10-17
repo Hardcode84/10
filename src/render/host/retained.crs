@@ -1,4 +1,10 @@
-fn retained_copy_region(v: *Vulkan, old: *Vulkan, slot: u32, count: u32, floats: bool) -> unit {
+fn retained_copy_region(
+    v: *RenderState,
+    old: *RenderState,
+    slot: u32,
+    count: u32,
+    floats: bool
+) -> unit {
     var destination: u32 = (v -> mapped as *u32)[slot as usize];
     var source: u32 = (old -> mapped as *u32)[slot as usize];
     if floats {
@@ -11,24 +17,24 @@ fn retained_copy_region(v: *Vulkan, old: *Vulkan, slot: u32, count: u32, floats:
         count as usize * 4usize
     );
 }
-fn retained_copy(v: *Vulkan, old: *Vulkan) -> unit {
+fn retained_copy(v: *RenderState, old: *RenderState) -> unit {
     retained_copy_region(v, old, MESH_META, old -> mesh_count * 4u32, false);
     retained_copy_region(v, old, MESH_FLOAT, old -> mesh_count * 15u32, true);
     retained_copy_region(v, old, INSTANCE_META, old -> instance_capacity * 5u32, false);
     retained_copy_region(v, old, INSTANCE_FLOAT, old -> instance_capacity * 18u32, true);
 }
-fn retained_reserve(v: *Vulkan, meshes: u32, instances: u32) -> bool {
+fn retained_reserve(v: *RenderState, meshes: u32, instances: u32) -> bool {
     if meshes <= v -> mesh_capacity && instances <= v -> instance_capacity {
         return true;
     }
-    var next: Vulkan = *v;
+    var next: RenderState = *v;
     if meshes > next.mesh_capacity {
         next.mesh_capacity = meshes;
     }
     if instances > next.instance_capacity {
         next.instance_capacity = instances;
     }
-    var exact: Vulkan = next;
+    var exact: RenderState = next;
     if meshes > v -> mesh_capacity && meshes < 0x40000000u32 {
         next.mesh_capacity = meshes * 2u32;
     }

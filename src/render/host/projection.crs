@@ -20,7 +20,7 @@ fn projection_compare(left: *u8, right: *u8) -> i32 {
     }
     return (a[1usize] > b[1usize]) as i32;
 }
-fn projection_members(v: *Vulkan) -> unit {
+fn projection_members(v: *RenderState) -> unit {
     var w: *u32 = v -> mapped as *u32;
     var pairs: *u32 = w + w[SPACE_TRIANGLES as usize] as isize;
     var i: u32 = 0u32;
@@ -44,7 +44,7 @@ fn projection_members(v: *Vulkan) -> unit {
     }
     projection_sort(pairs as *u8, w[3usize] as usize, 8usize, projection_compare);
 }
-fn projection_spaces(v: *Vulkan) -> u32 {
+fn projection_spaces(v: *RenderState) -> u32 {
     var w: *u32 = v -> mapped as *u32;
     var pairs: *u32 = w + w[SPACE_TRIANGLES as usize] as isize;
     var spaces: *u32 = w + w[SPACE_META as usize] as isize;
@@ -68,13 +68,13 @@ fn projection_spaces(v: *Vulkan) -> u32 {
     w[SPACE_COUNT as usize] = count;
     return largest;
 }
-fn projection_prepare(v: *Vulkan) -> bool {
+fn projection_prepare(v: *RenderState) -> bool {
     projection_members(v);
     var required: u32 = projection_spaces(v);
     if required <= v -> projection_capacity {
         return true;
     }
-    var next: Vulkan = *v;
+    var next: RenderState = *v;
     next.projection_capacity = required;
     if !geometry_layout(&next, next.triangle_capacity) {
         return false;

@@ -1,4 +1,4 @@
-fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
+fn geometry_layout(v: *RenderState, capacity: u32) -> bool {
     var projected_count: u64 = v -> projection_capacity as u64 * v -> view_capacity as u64;
     if projected_count > v -> storage_limit as u64 / (4u64 * (MAX_FAN as u64 * 20u64 + 144u64)) {
         return error("room projection storage exceeds device storage range");
@@ -23,7 +23,7 @@ fn geometry_layout(v: *Vulkan, capacity: u32) -> bool {
     v -> triangle_capacity = capacity;
     return true;
 }
-fn geometry_header(v: *Vulkan) -> unit {
+fn geometry_header(v: *RenderState) -> unit {
     var w: *u32 = v -> mapped as *u32;
     var capacity: u32 = v -> triangle_capacity;
     w[0usize] = v -> width;
@@ -65,7 +65,7 @@ fn geometry_header(v: *Vulkan) -> unit {
     w[WORD_COUNT as usize] = v -> words;
     w[FLOAT_COUNT as usize] = v -> floats;
 }
-fn geometry_copy(v: *Vulkan, old: *Vulkan) -> unit {
+fn geometry_copy(v: *RenderState, old: *RenderState) -> unit {
     memcpy(v -> mapped, old -> mapped, PIXELS as usize * 4usize);
     memcpy(
         v -> mapped + image_words(v) as isize * 4isize,
@@ -91,11 +91,11 @@ fn geometry_copy(v: *Vulkan, old: *Vulkan) -> unit {
         old -> asset_capacity as usize * 4usize
     );
 }
-fn geometry_reserve(v: *Vulkan, required: u32) -> bool {
+fn geometry_reserve(v: *RenderState, required: u32) -> bool {
     if required <= v -> triangle_capacity {
         return true;
     }
-    var next: Vulkan = *v;
+    var next: RenderState = *v;
     var capacity: u32 = required;
     if v -> triangle_capacity <= 0x7fffffffu32 && required < v -> triangle_capacity * 2u32 {
         capacity = v -> triangle_capacity * 2u32;
@@ -109,15 +109,11 @@ fn geometry_reserve(v: *Vulkan, required: u32) -> bool {
     }
     return storage_replace(v, &next);
 }
-fn storage_replace(v: *Vulkan, planned: *Vulkan) -> bool {
+fn storage_replace(v: *RenderState, planned: *RenderState) -> bool {
     retirement_wait(v);
-    var next: Vulkan = *planned;
+    var next: RenderState = *planned;
     next.submitted = false;
-    next.buffer = null(*u8);
-    next.memory = null(*u8);
-    next.staging = null(*u8);
-    next.staging_memory = null(*u8);
-    next.mapped = null(*u8);
+    buffers_forget(&next);
     if !buffer_create(&next) {
         buffers_close(&next);
         return false;
@@ -131,12 +127,9 @@ fn storage_replace(v: *Vulkan, planned: *Vulkan) -> bool {
     next.mesh_dirty = true;
     *v = next;
     descriptors_update(v);
-    return vk_ok(
-        vkResetCommandBuffer(v -> commands, 0u32),
-        "reset commands after geometry resize"
-    ) && commands_record(v);
+    return command_reset(v) && commands_record(v);
 }
-fn geometry_limit(v: *Vulkan) -> u32 {
+fn geometry_limit(v: *RenderState) -> u32 {
     var elements: u64 = (v -> storage_limit as u64 / 256u64) * 64u64 - 1u64;
     var fixed_words: u64 = v -> projection_capacity as u64 * v -> view_capacity as u64 * MAX_FAN as u64 + tile_bit_words(
         v,
@@ -170,10 +163,10 @@ fn geometry_limit(v: *Vulkan) -> u32 {
     return lower as u32;
 }
 
-fn traversal_floats(v: *Vulkan) -> u64 {
+fn traversal_floats(v: *RenderState) -> u64 {
     return (v -> portal_capacity as u64 + v -> view_capacity as u64) * 16u64;
 }
-fn traversal_words(v: *Vulkan) -> u64 {
+fn traversal_words(v: *RenderState) -> u64 {
     return v -> task_capacity as u64 * (10u64 + LOCAL_SIZE as u64 * 3u64) + (
         (v -> task_capacity as u64 + 63u64) / 64u64
     ) * 2u64 + v -> view_capacity as u64 * (5u64 + v -> portal_capacity as u64) + v -> portal_capacity as u64 * 4u64 + (
@@ -182,7 +175,7 @@ fn traversal_words(v: *Vulkan) -> u64 {
         (v -> view_capacity as u64 * v -> portal_capacity as u64 + 31u64) / 32u64
     );
 }
-fn traversal_header(v: *Vulkan) -> unit {
+fn traversal_header(v: *RenderState) -> unit {
     var w: *u32 = v -> mapped as *u32;
     w[TASK_A as usize] = w[INSTANCE_VISIBLE as usize] + v -> instance_capacity * v -> view_capacity;
     w[TASK_B as usize] = w[TASK_A as usize] + v -> task_capacity * 4u32;
@@ -206,10 +199,10 @@ fn traversal_header(v: *Vulkan) -> unit {
     w[TASK_CAPACITY as usize] = v -> task_capacity;
 }
 
-fn tile_bit_words(v: *Vulkan, triangles: u32) -> u64 {
+fn tile_bit_words(v: *RenderState, triangles: u32) -> u64 {
     return v -> task_capacity as u64 * ((triangles as u64 * MAX_FAN as u64 + 31u64) / 32u64);
 }
 
-fn shadow_elements(v: *Vulkan, triangles: u32) -> u64 {
+fn shadow_elements(v: *RenderState, triangles: u32) -> u64 {
     return (v -> light_capacity as u64 + 1u64) * triangles as u64 + v -> light_capacity as u64 * v -> instance_capacity as u64;
 }

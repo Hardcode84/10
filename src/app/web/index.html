@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SPINWARD — There and Back</title>
+<style>
+:root{color-scheme:dark;font:16px monospace;background:#101416;color:#cad2ce}body{margin:0}main{max-width:64rem;margin:auto;padding:1rem}h1{color:#e9c75f;letter-spacing:.15em}form{display:flex;gap:1rem;flex-wrap:wrap;align-items:end}label{display:flex;gap:.4rem;flex-direction:column}label.check{flex-direction:row;align-items:center}input,button{font:inherit;padding:.4rem;background:#202a2e;color:inherit;border:1px solid #64756e}input[type=number]{width:7rem}button{cursor:pointer}button:disabled{opacity:.5}details{width:100%;margin:.5rem 0}details>div{display:flex;gap:1rem;flex-wrap:wrap;padding:1rem 0}canvas{display:block;background:#000;max-width:100%;margin:1rem auto;outline:none;image-rendering:pixelated}canvas:fullscreen{width:100vw;height:100vh;object-fit:contain;margin:0}#status{min-height:1.5em;color:#e9c75f}#log{white-space:pre-wrap;max-height:18rem;overflow:auto}#downloads{display:flex;gap:1rem;margin:1rem 0}#downloads a{color:#e9c75f}.playing #setup{display:none}.playing main{padding:.25rem}.playing h1,.playing #intro{display:none}
+</style>
+<main>
+<h1>SPINWARD</h1>
+<p id="intro">Find the gold beacon, then fly home. Every portal can turn the world around you.</p>
+<form id="setup">
+<label>Seed<input name="seed" type="number" min="0" max="4294967295" value="1" required></label>
+<label>Complexity<input name="complexity" type="number" min="1" value="3" required></label>
+<label>Width<input name="width" type="number" min="320" value="960" required></label>
+<label>Height<input name="height" type="number" min="180" value="540" required></label>
+<label class="check"><input name="fullscreen" type="checkbox">Fullscreen</label>
+<button id="start" disabled>Loading…</button>
+<details><summary>Options and recordings</summary><div>
+<label>Field of view<input name="fov" type="number" min="70" max="110" value="90"></label>
+<label>Tick limit (0: unlimited)<input name="ticks" type="number" min="0" value="0"></label>
+<label class="check"><input name="slow" type="checkbox">Slow mode</label>
+<label class="check"><input name="full-spin" type="checkbox">Full spin</label>
+<label class="check"><input name="record" type="checkbox">Record flight</label>
+<label class="check"><input name="capture" type="checkbox">Render capture (no display)</label>
+<label class="check"><input name="headless" type="checkbox">Run without display</label>
+<label class="check"><input name="debug-shaders" type="checkbox">Check shaders</label>
+<label>Replay file<input name="replay" type="file"></label>
+<label>Controls file<input name="bindings" type="file"></label>
+</div><p>Use the recording's seed and complexity for replay. Recordings and captures are available below when the run ends.</p></details>
+</form>
+<p id="status" role="status">Loading the game…</p>
+<div id="toolbar" hidden><button id="mouse">Capture mouse</button> <button id="fullscreen">Fullscreen</button> <button id="quit">End run</button> <button id="restart" hidden>New expedition</button></div>
+<canvas id="canvas" width="960" height="540" tabindex="0" aria-label="SPINWARD game"></canvas>
+<p>WASD · Ctrl/Space move | Mouse look | Q/E roll | RMB boost | F brake | LMB tether | R reel<br>Tab pause | L level | P preview | F4 spin | Backspace retry | Esc release mouse / exit<br>Gamepads use the same controls as the desktop game.</p>
+<div id="downloads"></div>
+<details><summary>Run log</summary><pre id="log"></pre></details>
+</main>
+<script src="game.js"></script>
+<script src="launcher.js"></script>
+</html>

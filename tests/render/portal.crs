@@ -1,4 +1,4 @@
-fn distant_cube_check(v: *Vulkan, frame: u32) -> bool {
+fn distant_cube_check(v: *RenderState, frame: u32) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
     var front: f32 = 8.5f32 + 2f32 * sinf(frame as f32 / 60f32) - 0.8f32;
@@ -21,7 +21,7 @@ fn distant_cube_check(v: *Vulkan, frame: u32) -> bool {
         "recursive portal must show the moving cube front face before and after frame 368"
     );
 }
-fn portal_plane_check(v: *Vulkan) -> bool {
+fn portal_plane_check(v: *RenderState) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
     var tri: u32 = 0u32;
@@ -55,7 +55,7 @@ fn portal_plane_check(v: *Vulkan) -> bool {
     }
     return true;
 }
-fn crossing_face_check(v: *Vulkan) -> bool {
+fn crossing_face_check(v: *RenderState) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
     var hit: u32 = w[
@@ -79,7 +79,7 @@ fn crossing_face_check(v: *Vulkan) -> bool {
     return true;
 }
 
-fn tour_visibility_check(v: *Vulkan) -> bool {
+fn tour_visibility_check(v: *RenderState) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var mask: u32 = 0u32;
     var pixel: u32 = 0u32;
@@ -121,7 +121,7 @@ fn full_bright_palette_check(w: *u32) -> bool {
     }
     return true;
 }
-fn full_bright_check(v: *Vulkan) -> bool {
+fn full_bright_check(v: *RenderState) -> bool {
     var w: *u32 = v -> mapped as *u32;
     if !full_bright_palette_check(w) {
         return false;
@@ -155,7 +155,7 @@ fn full_bright_check(v: *Vulkan) -> bool {
     return true;
 }
 
-fn tour_turn_check(v: *Vulkan, index: u32) -> bool {
+fn tour_turn_check(v: *RenderState, index: u32) -> bool {
     var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
     var direction: f32 = f[8usize];
     if index == 45u32 {
@@ -168,7 +168,7 @@ fn tour_turn_check(v: *Vulkan, index: u32) -> bool {
     return true;
 }
 
-fn camera_light_check(v: *Vulkan) -> bool {
+fn camera_light_check(v: *RenderState) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var mask: u32 = 0u32;
     var pixel: u32 = 0u32;
@@ -192,7 +192,7 @@ fn camera_light_check(v: *Vulkan) -> bool {
     return true;
 }
 
-fn light_band_check(v: *Vulkan) -> bool {
+fn light_band_check(v: *RenderState) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var mask: u32 = 0u32;
     var pixel: u32 = 0u32;
@@ -252,11 +252,11 @@ fn light_grid_check(w: *u32) -> bool {
     puts("16 by 16 light cells with alternating neighbouring samples passed");
     return true;
 }
-fn capacity_failure_check(v: *Vulkan) -> bool {
+fn capacity_failure_check(v: *RenderState) -> bool {
     var before: *u8 = v -> mapped;
     var capacity: u32 = v -> triangle_capacity;
     var limit: u32 = geometry_limit(v);
-    var trial: Vulkan = *v;
+    var trial: RenderState = *v;
     if !geometry_layout(&trial, limit) || geometry_layout(&trial, limit + 1u32) || geometry_reserve(
         v,
         0xffffffffu32
@@ -267,7 +267,7 @@ fn capacity_failure_check(v: *Vulkan) -> bool {
         "failed geometry reservation changed the live allocation"
     );
 }
-fn texture_constant_check(v: *Vulkan, index: u32) -> bool {
+fn texture_constant_check(v: *RenderState, index: u32) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var expected: u32 = 0xff000000u32;
     if index == 7u32 {

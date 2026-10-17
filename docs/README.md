@@ -6,6 +6,7 @@ program with the Crust ownership stage. Device programs use the shader stage.
 | Root | Program |
 | --- | --- |
 | `crust main.crs` | Play the portal graph. Use `--seed N --complexity N`. |
+| `crust main.crs --web` | Build the same game for WebAssembly and WebGPU. |
 | `crust demo.crs` | Fly through the generated room with game controls and linked portals. |
 | `crust viewer.crs ROOM.crs` | Build and inspect a Crust room recipe. |
 | `crust tests.crs` | Run all automated checks. |
@@ -20,10 +21,12 @@ application functions as the applications.
 | Directory | Contents |
 | --- | --- |
 | `src/render/host/` | Renderer resources, uploads, and Vulkan commands |
+| `src/render/web/` | WebGPU resources, commands, and presentation |
 | `src/render/device/` | Compute shaders |
 | `src/render/interface.crs` | Shared host and device data definitions |
 | `src/collision/` | Mesh storage, kinematic poses, spatial indices, sphere queries, and contact solving |
 | `src/app/` | Shared window, clock, capture, shader, and asset helpers |
+| `src/app/web/` | Browser launcher, window provider, and toolchain configuration |
 | `src/demo/room/` | Flight demo entry and room links |
 | `src/demo/host/` | Automatic playback fixture used by renderer checks |
 | `src/demo/scene/` | Automatic scene fixture used by renderer checks |
@@ -36,6 +39,7 @@ application functions as the applications.
 | `assets/rooms/` | Room recipes in normal Crust source files |
 | `tools/build/` | Shared application setup, component source lists, and native providers |
 | `tests/render/` | Renderer fixtures, CPU reference, and image checks |
+| `tests/web/` | Browser flight, replay, and cross-backend image checks |
 | `tests/demo/` | Demo playback checks |
 | `tests/collision/` | Mesh sweep fixtures and analytic comparison |
 | `tests/game/` | Flight, tether, graph, objective, and rendering checks |
@@ -45,7 +49,7 @@ application functions as the applications.
 
 ## Documents
 
-- Build: [bootstrap](build/bootstrap.md), [shader compiler](build/crust-spirv.md).
+- Build: [bootstrap](build/bootstrap.md), [web game](build/web.md), [shader compiler](build/crust-spirv.md).
 - Render: [design](render/rendering.md), [build and checks](render/renderer-build.md),
   [textures](render/textures.md), [retained meshes](render/retained-meshes.md),
   [portal capacity](render/portal-capacity.md), [image resize](render/images.md).

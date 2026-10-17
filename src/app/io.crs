@@ -46,3 +46,25 @@ fn float_bits(value: f32) -> u32 {
 fn bits_float(value: u32) -> f32 {
     return *(&value as *f32);
 }
+
+// Writes decimal digits without a terminator. Requires ten writable bytes and
+// a minimum digit count from zero through ten. Returns the number of bytes written.
+fn decimal_u32(output: *u8, value: u32, minimum: u32) -> usize {
+    var digits: [u8; 10] = uninit;
+    var count: usize = 0usize;
+    var remaining: u32 = value;
+    while true {
+        digits[count] = 48u8 + (remaining % 10u32) as u8;
+        count = count + 1usize;
+        remaining = remaining / 10u32;
+        if remaining == 0u32 && count >= minimum as usize {
+            break;
+        }
+    }
+    var i: usize = 0usize;
+    while i < count {
+        output[i] = digits[count - i - 1usize];
+        i = i + 1usize;
+    }
+    return count;
+}

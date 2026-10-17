@@ -206,7 +206,7 @@ fn hook_wall_patch(pixels: *u32) -> u32 {
     return sum;
 }
 
-fn hook_wall_capture(v: *Vulkan) -> bool {
+fn hook_wall_capture(v: *RenderState) -> bool {
     if hook_wall_patch(v -> mapped as *u32) < 4096u32 {
         return error("attached hook leaves the grazing wall patch too dark");
     }

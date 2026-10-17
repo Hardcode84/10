@@ -39,13 +39,12 @@ fn completion_time(ticks: u32) -> [u8; 32] {
         text[i] = 0u8;
         i = i + 1usize;
     }
-    snprintf(
-        &text[0usize],
-        32usize,
-        "TIME %uM %02uS",
-        ticks / 7200u32,
-        (ticks / 120u32) % 60u32
-    );
+    memcpy(&text[0usize], "TIME ", 5usize);
+    var count: usize = 5usize + decimal_u32(&text[5usize], ticks / 7200u32, 1u32);
+    memcpy(&text[count], "M ", 2usize);
+    count = count + 2usize;
+    count = count + decimal_u32(&text[count], (ticks / 120u32) % 60u32, 2u32);
+    text[count] = 83u8;
     return text;
 }
 

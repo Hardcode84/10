@@ -1,5 +1,5 @@
 extern fn reference_check(mapped: *u8) -> bool = "reference_check";
-fn regression_verify(v: *Vulkan, index: u32, frame: u32) -> bool {
+fn regression_verify(v: *RenderState, index: u32, frame: u32) -> bool {
     if !portal_plane_check(v) {
         return false;
     }
@@ -18,7 +18,7 @@ fn regression_verify(v: *Vulkan, index: u32, frame: u32) -> bool {
     return true;
 }
 fn session_verify(session: read DemoSession, index: u32, frame: u32, test: u32) -> bool {
-    var v: *Vulkan = &session.renderer.state;
+    var v: *RenderState = &session.renderer.state;
     var o: *Options = &session.options;
     if test == 6u32 && index >= 6u32 && !texture_constant_check(v, index) {
         return false;
@@ -36,7 +36,7 @@ fn session_verify(session: read DemoSession, index: u32, frame: u32, test: u32) 
         reference_check(v -> mapped) && presentation_check(v)
     );
 }
-fn tour_verify(v: *Vulkan, index: u32) -> bool {
+fn tour_verify(v: *RenderState, index: u32) -> bool {
     if !portal_plane_check(v) {
         return false;
     }

@@ -5,7 +5,7 @@ fn input_assets(input: mut FrameInput, materials: u32, payload_words: u32) -> bo
     if total > 0xffffffffu64 {
         return error("asset layout exceeds address range");
     }
-    var next: Vulkan = input.storage;
+    var next: RenderState = input.storage;
     if total > next.asset_capacity as u64 {
         next.asset_capacity = total as u32;
         if !geometry_layout(&next, next.triangle_capacity) || !storage_replace(

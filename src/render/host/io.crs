@@ -9,8 +9,6 @@ fn vk_ok(result: i32, operation: *u8) -> bool {
     return false;
 }
 
-record ShaderCode {
-    bytes: *u8;
-    size: usize;
+fn shader_extension() -> *u8 {
+    return "spv";
 }
-opaque;

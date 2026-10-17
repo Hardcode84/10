@@ -1,0 +1,164 @@
+record RenderBackend {
+    id: u32;
+}
+extern fn web_open() -> u32 = "web_open";
+extern fn web_limit(id: u32) -> u32 = "web_limit";
+extern fn web_close(id: u32) -> unit = "web_close";
+extern fn web_buffer(id: u32, bytes: u32) -> u32 = "web_buffer";
+extern fn web_buffer_close(id: u32, buffer: u32) -> unit = "web_buffer_close";
+extern fn web_layout(id: u32, checked: u32) -> unit = "web_layout";
+extern fn web_pipeline(id: u32, bytes: *u8, size: u32, slot: u32) -> bool = "web_pipeline";
+extern fn web_bindings(id: u32, buffer: u32, words: u32, floats: u32, status: u32) -> unit = "web_bindings";
+extern fn web_begin(id: u32) -> unit = "web_begin";
+extern fn web_end(id: u32) -> unit = "web_end";
+extern fn web_submit(id: u32) -> bool = "web_submit";
+extern fn web_dispatch(id: u32, groups: u32, offset: u32, indirect: bool) -> unit = "web_dispatch";
+extern fn web_bind(id: u32, slot: u32) -> unit = "web_bind";
+extern fn web_clear(id: u32, offset: u32, size: u32) -> unit = "web_clear";
+extern fn web_word(id: u32, offset: u32, value: u32) -> unit = "web_word";
+extern fn web_transfer(id: u32, memory: *u8, offset: u32, size: u32, upload: bool) -> unit = "web_transfer";
+extern fn web_present(id: u32, offset: u32, width: u32, height: u32) -> bool = "web_present";
+extern fn web_queries(id: u32, count: u32) -> bool = "web_queries";
+extern fn web_stamp(id: u32, index: u32) -> unit = "web_stamp";
+extern fn web_times(id: u32, values: *u64) -> bool = "web_times";
+fn device_open(v: *RenderState) -> bool {
+    v -> gpu.id = web_open();
+    if v -> gpu.id == 0u32 {
+        return error("cannot open WebGPU device");
+    }
+    v -> storage_limit = web_limit(v -> gpu.id);
+    v -> timestamp_period = 1f32;
+    v -> timestamp_mask = ~0u64;
+    return true;
+}
+fn device_wait_idle(v: *RenderState) -> bool {
+    retirement_wait(v);
+    return true;
+}
+fn device_close(v: *RenderState) -> unit {
+    buffers_close(v);
+    if v -> gpu.id != 0u32 {
+        web_close(v -> gpu.id);
+        v -> gpu.id = 0u32;
+    }
+}
+fn buffers_allocate(v: *RenderState, size: u64, staging_size: u64) -> bool {
+    if size > 0xffffffffu64 || staging_size > 0x7fffffffu64 {
+        return error("renderer allocation exceeds WebAssembly address range");
+    }
+    v -> buffer = web_buffer(v -> gpu.id, size as u32) as usize as *u8;
+    if v -> buffer == null(*u8) {
+        return error("WebGPU buffer allocation failed");
+    }
+    v -> staging = malloc(staging_size as usize);
+    if v -> staging == null(*u8) {
+        return error("WebAssembly staging allocation failed");
+    }
+    v -> mapped = v -> staging;
+    v -> device_bytes = size;
+    v -> staging_bytes = staging_size;
+    return true;
+}
+fn buffers_forget(v: *RenderState) -> unit {
+    v -> buffer = null(*u8);
+    v -> staging = null(*u8);
+    v -> mapped = null(*u8);
+}
+fn buffers_close(v: *RenderState) -> unit {
+    if v -> buffer != null(*u8) {
+        web_buffer_close(v -> gpu.id, v -> buffer as usize as u32);
+    }
+    free(v -> staging);
+    buffers_forget(v);
+}
+fn layout_create(v: *RenderState) -> bool {
+    web_layout(v -> gpu.id, v -> shader_checks as u32);
+    return true;
+}
+fn pipeline_create(v: *RenderState, code: *ShaderCode, slot: usize) -> bool {
+    return web_pipeline(v -> gpu.id, code -> bytes, code -> size as u32, slot as u32);
+}
+fn descriptors_create(v: *RenderState) -> bool {
+    descriptors_update(v);
+    return true;
+}
+fn descriptors_update(v: *RenderState) -> unit {
+    web_bindings(
+        v -> gpu.id,
+        v -> buffer as usize as u32,
+        v -> words,
+        v -> floats,
+        v -> shader_checks as u32 * MAX_INVOCATIONS
+    );
+}
+fn commands_create(v: *RenderState) -> bool {
+    return true;
+}
+fn command_reset(v: *RenderState) -> bool {
+    return true;
+}
+fn command_begin(v: *RenderState) -> bool {
+    web_begin(v -> gpu.id);
+    return true;
+}
+fn command_end(v: *RenderState) -> bool {
+    web_end(v -> gpu.id);
+    return true;
+}
+fn command_stamp(v: *RenderState, index: u32) -> unit {
+    web_stamp(v -> gpu.id, index);
+}
+// Commands and dispatches have ordered visibility at each WebGPU pass boundary.
+fn command_barrier(v: *RenderState, kind: u32) -> unit {}
+fn command_clear(v: *RenderState, offset: u64, size: u64) -> unit {
+    web_clear(v -> gpu.id, offset as u32, size as u32);
+}
+fn command_bind(v: *RenderState, pipeline: usize) -> unit {
+    web_bind(v -> gpu.id, pipeline as u32);
+}
+fn command_direct(v: *RenderState, groups: u32) -> unit {
+    web_dispatch(v -> gpu.id, groups, 0u32, false);
+}
+fn command_indirect(v: *RenderState, offset: u64) -> unit {
+    web_dispatch(v -> gpu.id, 0u32, offset as u32, true);
+}
+fn command_word(v: *RenderState, offset: u32, value: u32) -> unit {
+    web_word(v -> gpu.id, offset * 4u32, value);
+}
+fn command_copy(v: *RenderState, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
+    web_transfer(v -> gpu.id, v -> staging, offset as u32, size as u32, src == v -> staging);
+}
+fn dispatch(v: *RenderState) -> bool {
+    var start: u64 = render_now();
+    var good: bool = web_submit(v -> gpu.id);
+    v -> frame_wait_ns = render_now() - start;
+    return good;
+}
+// A completed dispatch has no pending staging borrows.
+fn retirement_wait(v: *RenderState) -> unit {}
+fn queries_create(v: *RenderState) -> bool {
+    return web_queries(v -> gpu.id, v -> query_count);
+}
+fn queries_read(v: *RenderState, values: *u64) -> bool {
+    return web_times(v -> gpu.id, values);
+}
+extern fn web_now() -> u64 = "web_now";
+fn render_now() -> u64 {
+    return web_now();
+}
+fn swapchain_close(v: *RenderState) -> unit {}
+fn swapchain_open(v: *RenderState, width: u32, height: u32) -> bool {
+    v -> swapchain_dirty = false;
+    return true;
+}
+fn present(v: *RenderState) -> bool {
+    if !v -> present_ready {
+        return true;
+    }
+    var offset: u32 = ((v -> mapped as *u32)[PRESENT_PIXELS as usize] + 1u32) * 4u32;
+    return web_present(v -> gpu.id, offset, v -> output_width, v -> output_height);
+}
+
+fn shader_extension() -> *u8 {
+    return "wgsl";
+}

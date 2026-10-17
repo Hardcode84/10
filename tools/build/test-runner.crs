@@ -67,7 +67,8 @@ fn build_tests(
         SHADER_WORKGROUP_U32,
         0u32,
         false,
-        true
+        true,
+        false
     ) && build_shader(
         root,
         "tests/render/device/palette.crs",
@@ -77,7 +78,8 @@ fn build_tests(
         SHADER_WORKGROUP_F32,
         512u32,
         false,
-        true
+        true,
+        false
     );
 }
 fn all_tests(root: *CrustRun) -> bool {

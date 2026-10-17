@@ -15,7 +15,7 @@ fn report(samples: *u64, count: u32) -> unit {
     print_number((samples[((count * 99u32 - 1u32) / 100u32) as usize] / 1000u64) as i64);
 }
 
-fn queries_report(v: *Vulkan) -> bool {
+fn queries_report(v: *RenderState) -> bool {
     var values: *u64 = malloc(v -> query_count as usize * 8usize) as *u64;
     if values == null(*u64) {
         return error("timestamp report allocation failed");

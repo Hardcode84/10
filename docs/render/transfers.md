@@ -35,7 +35,9 @@ draws do not read image data.
 
 ## Owned ranges and transfers
 
-The renderer owns one device buffer and one coherent, cached staging buffer.
+The renderer owns one device buffer and one staging allocation. Vulkan uses
+coherent, cached staging memory. WebGPU uses WebAssembly memory for staging and
+explicit upload and readback operations. Both use the same ranges and schedule.
 Persistent materials, palette tables, textures, mesh records, and the overlay
 font occupy separate ranges from frame inputs and GPU work data. Words and
 floats keep the shared offset layout. Staging has no invocation-status range.

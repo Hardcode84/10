@@ -1,0 +1,93 @@
+record RenderState {
+    width: u32;
+    height: u32;
+    output_width: u32;
+    output_height: u32;
+    timestamp_mask: u64;
+    mesh_capacity: u32;
+    mesh_count: u32;
+    instance_capacity: u32;
+    mesh_dirty: bool;
+    shadow_dirty: bool;
+    shadow_instances: u32;
+    instance_dirty: bool;
+    asset_dirty_begin: u32;
+    asset_dirty_end: u32;
+    font_dirty: bool;
+    asset_upload_bytes: u64;
+
+    submitted: bool;
+    frame_upload_bytes: u64;
+    frame_readback_bytes: u64;
+    frame_wait_ns: u64;
+    device_bytes: u64;
+    staging_bytes: u64;
+    peak_buffer_bytes: u64;
+    mesh_upload_bytes: u64;
+    asset_capacity: u32;
+    light_capacity: u32;
+    words: u32;
+    floats: u32;
+    triangle_capacity: u32;
+    projection_capacity: u32;
+    view_capacity: u32;
+    portal_capacity: u32;
+    task_capacity: u32;
+    crossing_limit: u32;
+    query_count: u32;
+    storage_limit: u32;
+
+    buffer: *u8;
+
+    mapped: *u8;
+    staging: *u8;
+
+    read_pixels: bool;
+    shader_checks: bool;
+
+    surface: *u8;
+
+    swapchain_dirty: bool;
+    present_ready: bool;
+
+    timestamp_period: f32;
+
+    gpu: RenderBackend;
+}
+opaque;
+
+fn buffer_create(v: *RenderState) -> bool {
+    if v -> projection_capacity == 0u32 {
+        v -> projection_capacity = 1u32;
+    }
+    if v -> view_capacity == 0u32 {
+        v -> view_capacity = 1u32;
+    }
+    if v -> triangle_capacity == 0u32 && !geometry_layout(v, 1u32) {
+        return false;
+    }
+    var staging_size: u64 = (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64;
+    var size: u64 = staging_size + v -> shader_checks as u64 * MAX_INVOCATIONS as u64 * 4u64;
+    if !buffers_allocate(v, size, staging_size) {
+        return false;
+    }
+    zero(v -> mapped, (staging_size) as usize);
+    (v -> mapped as *u32)[0usize] = v -> words;
+    (v -> mapped as *u32)[(v -> words + 1u32) as usize] = v -> floats;
+    v -> mapped = v -> mapped + 4isize;
+    geometry_header(v);
+    v -> asset_dirty_begin = 0u32;
+    v -> asset_dirty_end = v -> asset_capacity;
+    v -> font_dirty = true;
+    v -> instance_dirty = true;
+    var bytes: u64 = v -> device_bytes + v -> staging_bytes;
+    if bytes > v -> peak_buffer_bytes {
+        v -> peak_buffer_bytes = bytes;
+    }
+    return true;
+}
+record ShaderCode {
+    bytes: *u8;
+    size: usize;
+}
+opaque;

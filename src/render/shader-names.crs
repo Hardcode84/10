@@ -1,0 +1,32 @@
+fn render_shader_name(slot: usize, checked: bool) -> *u8 {
+    var paths: [*u8; 27] = make [*u8; 27] {
+        "init",
+        "transform",
+        "raster",
+        "advance",
+        "compose",
+        "compact",
+        "scan",
+        "fill",
+        "instances",
+        "visibility",
+        "bin",
+        "shadow-build",
+        "shadow-top",
+        "init.debug",
+        "transform.debug",
+        "raster.debug",
+        "advance.debug",
+        "compose.debug",
+        "compact.debug",
+        "scan.debug",
+        "fill.debug",
+        "instances.debug",
+        "visibility.debug",
+        "bin.debug",
+        "shadow-build.debug",
+        "shadow-top.debug",
+        "status.debug"
+    };
+    return paths[slot + checked as usize * 13usize];
+}

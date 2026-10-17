@@ -12,7 +12,7 @@ fn render_config_valid(config: *RenderConfig) -> bool {
         config -> output_height
     );
 }
-fn frame_valid(v: *Vulkan) -> bool {
+fn frame_valid(v: *RenderState) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var first: u32 = 0xffffffffu32;
     var i: u32 = 0u32;
@@ -53,7 +53,7 @@ record RenderConfig {
 }
 // Requires an instance and an optional surface. Shader bytes are borrowed for this call.
 // Call device_close after success or failure. Use renderer_resize to change image dimensions.
-fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> bool {
+fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -> bool {
     if !render_config_valid(config) {
         return false;
     }
@@ -98,7 +98,7 @@ fn renderer_open(v: *Vulkan, config: *RenderConfig, shaders: *ShaderCode) -> boo
 // Consumes the caller's camera, geometry, portals, textures, and lighting in the input buffer.
 // Returns after GPU completion and the selected readback. A failed frame must not be presented.
 // Requires no input borrow. Frame storage addresses can change when room geometry grows.
-fn renderer_draw(v: *Vulkan) -> bool {
+fn renderer_draw(v: *RenderState) -> bool {
     v -> present_ready = false;
     if !lighting_valid(v) {
         return false;
@@ -123,9 +123,7 @@ fn renderer_draw(v: *Vulkan) -> bool {
     v -> frame_readback_bytes = 0u64;
     v -> mesh_upload_bytes = 0u64;
     v -> asset_upload_bytes = 0u64;
-    if !vk_ok(vkResetCommandBuffer(v -> commands, 0u32), "reset frame commands") || !commands_record(
-        v
-    ) || !dispatch(v) || !frame_valid(v) {
+    if !command_reset(v) || !commands_record(v) || !dispatch(v) || !frame_valid(v) {
         return false;
     }
     v -> mesh_dirty = false;
@@ -139,7 +137,7 @@ fn renderer_draw(v: *Vulkan) -> bool {
     return true;
 }
 
-fn traversal_valid(v: *Vulkan) -> bool {
+fn traversal_valid(v: *RenderState) -> bool {
     var elements: u32 = v -> storage_limit / 4u32;
     if v -> portal_capacity > elements || v -> task_capacity > elements || v -> view_capacity > elements || v -> view_capacity as u64 * v -> portal_capacity as u64 > elements as u64 {
         return error("traversal capacities exceed device storage range");
@@ -147,14 +145,9 @@ fn traversal_valid(v: *Vulkan) -> bool {
     return true;
 }
 
-fn renderer_pipelines(v: *Vulkan, shaders: *ShaderCode) -> bool {
+fn renderer_pipelines(v: *RenderState, shaders: *ShaderCode) -> bool {
     var slot: usize = 0usize;
     while slot < renderer_pipeline_count(v) {
-        if shaders[slot].size < 20usize || shaders[slot].size % 4usize != 0usize || (
-            shaders[slot].bytes as *u32
-        )[0usize] != 0x07230203u32 {
-            return error("invalid SPIR-V module");
-        }
         if !pipeline_create(v, &shaders[slot], slot) {
             return false;
         }
@@ -162,6 +155,6 @@ fn renderer_pipelines(v: *Vulkan, shaders: *ShaderCode) -> bool {
     }
     return true;
 }
-fn renderer_pipeline_count(v: *Vulkan) -> usize {
+fn renderer_pipeline_count(v: *RenderState) -> usize {
     return 13usize + v -> shader_checks as usize;
 }

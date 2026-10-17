@@ -26,7 +26,7 @@ fn traversal_config(config: *RenderConfig, index: u32) -> unit {
         config -> task_budget = 1u32;
     }
 }
-fn traversal_result(v: *Vulkan, index: u32, drawn: bool) -> bool {
+fn traversal_result(v: *RenderState, index: u32, drawn: bool) -> bool {
     var w: *u32 = v -> mapped as *u32;
     if index == 7u32 {
         return !drawn && w[5usize] == 0u32 && w[STATUS_REPORT as usize] == 0u32 && w[
@@ -48,7 +48,7 @@ fn traversal_result(v: *Vulkan, index: u32, drawn: bool) -> bool {
     }
     return traversal_success(v, index);
 }
-fn traversal_success(v: *Vulkan, index: u32) -> bool {
+fn traversal_success(v: *RenderState, index: u32) -> bool {
     var w: *u32 = v -> mapped as *u32;
     if index == 0u32 && v -> projection_capacity != 160u32 {
         return error("projection capacity must use the largest space, not all geometry");
@@ -118,7 +118,7 @@ fn traversal_case(base_options: *Options, index: u32) -> bool {
     return true;
 }
 
-fn traversal_sparse_spaces(v: *Vulkan) -> unit {
+fn traversal_sparse_spaces(v: *RenderState) -> unit {
     var w: *u32 = v -> mapped as *u32;
     w[20usize] = 0xffffffffu32;
     var i: u32 = 0u32;
@@ -147,7 +147,7 @@ fn traversal_test(base_options: *Options) -> bool {
     return true;
 }
 
-fn traversal_tile_result(v: *Vulkan, drawn: bool) -> bool {
+fn traversal_tile_result(v: *RenderState, drawn: bool) -> bool {
     var w: *u32 = v -> mapped as *u32;
     if !drawn || w[PEAK_TASKS as usize] != 64u32 || w[11usize] != 65u32 {
         return error("one tile must produce 64 distinct child masks and views");

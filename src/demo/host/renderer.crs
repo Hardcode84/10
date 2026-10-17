@@ -1,4 +1,4 @@
-fn demo_renderer_configured(v: *Vulkan, config: *RenderConfig, window: *u8) -> bool {
+fn demo_renderer_configured(v: *RenderState, config: *RenderConfig, window: *u8) -> bool {
     if !window_instance(v, window) {
         return false;
     }
@@ -7,7 +7,7 @@ fn demo_renderer_configured(v: *Vulkan, config: *RenderConfig, window: *u8) -> b
     var good: bool = true;
     var i: usize = 0usize;
     while good && i < (13usize + (config -> shader_checks) as usize) {
-        good = read_input(render_shader_path(i, config -> shader_checks), &shaders[i]);
+        good = read_renderer_shader(i, config -> shader_checks, &shaders[i]);
         i = i + 1usize;
     }
     if good {
@@ -38,7 +38,7 @@ fn demo_render_config(o: *Options) -> RenderConfig {
     };
     return config;
 }
-fn demo_renderer_open(v: *Vulkan, o: *Options, window: *u8) -> bool {
+fn demo_renderer_open(v: *RenderState, o: *Options, window: *u8) -> bool {
     var config: RenderConfig = demo_render_config(o);
     return demo_renderer_configured(v, &config, window);
 }

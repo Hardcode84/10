@@ -17,12 +17,13 @@ The following decisions are fixed:
 
 - Keep the rendering core in `src/render/` and application policy in `src/demo/`
   and `src/game/`. Put shared application helpers in `src/app/`.
-  The core consumes scene data and SPIR-V. It has no demo geometry, animation
+  The core consumes scene data and compiled shaders. It has no demo geometry, animation
   frame indices, input handling, or palette generation.
-- Use Vulkan compute for all image generation.
+- Use Vulkan compute on desktop and WebGPU compute in the browser for all image generation.
 - Use Crust for host and device code. Compile device code to Vulkan Shader SPIR-V
   outside the renderer. See the [compiler investigation](../build/crust-spirv.md) for the
   LLVM shader stage, tested scope, and required Crust changes.
+  The same device sources compile to WGSL for the [web game](../build/web.md).
 - Target Windows and Linux on AMD, Intel, and NVIDIA GPUs.
 - Support large outdoor spaces and tight interiors in full 3D.
 - Preserve translated and rotated portals as a gameplay feature.

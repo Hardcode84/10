@@ -1,13 +1,13 @@
 resource Renderer {
-    state: Vulkan;
+    state: RenderState;
 }
 opaque drop renderer_drop;
 record FrameInput {
-    storage: mut Vulkan;
+    storage: mut RenderState;
 }
 fn renderer_new() -> Renderer {
-    var state: Vulkan = uninit;
-    zero(&state as *u8, sizeof(Vulkan));
+    var state: RenderState = uninit;
+    zero(&state as *u8, sizeof(RenderState));
     return make Renderer {
         state: state
     };

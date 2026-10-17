@@ -1,0 +1,199 @@
+fn web_provider(root: *CrustRun, path: *u8) -> *u8 {
+    var native: [*u8; 7] = make [*u8; 7] {
+        "src/render/host/vulkan.crs",
+        "src/render/host/device.crs",
+        "src/render/host/resources.crs",
+        "src/render/host/dispatch.crs",
+        "src/render/host/timing.crs",
+        "src/render/host/present.crs",
+        "src/render/host/io.crs"
+    };
+    var i: usize = 0usize;
+    while i < 7usize {
+        if cache_strcmp(path, host_path(root, native[i])) == 0i32 {
+            return null(*u8);
+        }
+        i = i + 1usize;
+    }
+    if cache_strcmp(path, host_path(root, "src/app/window-vulkan.crs")) == 0i32 {
+        return host_path(root, "src/app/web/window.crs");
+    }
+    return path;
+}
+fn build_web_game(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> bool {
+    var sources: [*u8; 128] = uninit;
+    var providers: [*u8; 96] = uninit;
+    var source_count: usize = game_sources(root, &sources[0usize]);
+    var count: usize = render_providers(root, &providers[0usize]);
+    count = count + game_providers(root, &providers[count]);
+    var i: usize = 0usize;
+    var selected: usize = 0usize;
+    while i < count {
+        var path: *u8 = web_provider(root, providers[i]);
+        if path != null(*u8) {
+            providers[selected] = path;
+            selected = selected + 1usize;
+        }
+        i = i + 1usize;
+    }
+    providers[selected] = host_path(root, "src/render/web/backend.crs");
+    providers[selected + 1usize] = host_path(root, "src/game/host/entry.crs");
+    var args: [*u8; 140] = uninit;
+    args[0usize] = "--emit";
+    args[1usize] = "-o";
+    args[2usize] = host_path(root, "build/web/game.c");
+    args[3usize] = host_path(root, "src/render/interface.crs");
+    i = 0usize;
+    while i < source_count {
+        args[i + 4usize] = sources[i];
+        i = i + 1usize;
+    }
+    return cache_directory(root -> context, host_path(root, "build/web")) && ownership_sources_target(
+        root,
+        emit,
+        (source_count + 4usize) as i32,
+        &args[0usize],
+        &providers[0usize],
+        selected + 2usize,
+        null(*u8),
+        true
+    ) == 0i32;
+}
+fn web_copy(root: *CrustRun, source: *u8, output: *u8) -> bool {
+    var data: CrustSource = uninit;
+    if !cache_read(root -> context, host_path(root, source), &data) {
+        return false;
+    }
+    if crust0_host_write_file(host_path(root, output), data.bytes, data.size) != 0i32 {
+        return native_error(root -> context, "cannot write web application file");
+    }
+    return true;
+}
+const WEB_TOOLCHAIN_HASH: *u8 = "a987bb4cded4f29437e8589accac204ce3c134feaaaf251bb97d0fdf450dce65";
+fn web_toolchain_stamp(root: *CrustRun) -> *u8 {
+    return native_join(
+        root -> context,
+        host_path(root, "build/toolchain/wasm/.ready-"),
+        WEB_TOOLCHAIN_HASH
+    );
+}
+fn web_toolchain(root: *CrustRun) -> bool {
+    if !cache_directory(root -> context, host_path(root, "build/toolchain")) || !cache_directory(
+        root -> context,
+        host_path(root, "build/toolchain/wasm")
+    ) {
+        return false;
+    }
+    if build_access(web_toolchain_stamp(root), 0i32) != 0i32 {
+        if !web_toolchain_fetch(root) {
+            return false;
+        }
+    }
+    return web_copy(
+        root,
+        "src/app/web/emscripten_config",
+        "build/toolchain/wasm/emscripten_config"
+    );
+}
+fn web_toolchain_fetch(root: *CrustRun) -> bool {
+    var archive: *u8 = host_path(root, "build/toolchain/wasm.tar.xz");
+    var download: [*u8; 9] = make [*u8; 9] {
+        "curl",
+        "--fail",
+        "--location",
+        "--retry",
+        "2",
+        "--output",
+        archive,
+        "https://storage.googleapis.com/webassembly/emscripten-releases-builds/linux/c2655005234810c7c42e02a18e4696554abe0352/wasm-binaries.tar.xz",
+        null(*u8)
+    };
+    if !native_tool(root -> context, &download[0usize]) {
+        return false;
+    }
+    var digest: *u8 = native_join(
+        root -> context,
+        WEB_TOOLCHAIN_HASH,
+        native_join(root -> context, "  ", native_join(root -> context, archive, "\n"))
+    );
+    var manifest: *u8 = host_path(root, "build/toolchain/wasm.sha256");
+    if crust0_host_write_file(manifest, digest, native_strlen(digest)) != 0i32 {
+        return native_error(root -> context, "cannot write toolchain checksum");
+    }
+    var verify: [*u8; 4] = make [*u8; 4] {
+        "sha256sum",
+        "--check",
+        manifest,
+        null(*u8)
+    };
+    var unpack: [*u8; 8] = make [*u8; 8] {
+        "tar",
+        "-xf",
+        archive,
+        "-C",
+        host_path(root, "build/toolchain/wasm"),
+        "--strip-components",
+        "1",
+        null(*u8)
+    };
+    if !native_tool(root -> context, &verify[0usize]) || !native_tool(
+        root -> context,
+        &unpack[0usize]
+    ) {
+        return false;
+    }
+    if crust0_host_write_file(web_toolchain_stamp(root), WEB_TOOLCHAIN_HASH, 64usize) != 0i32 {
+        return native_error(root -> context, "cannot mark the completed web toolchain");
+    }
+    return true;
+}
+fn web_link(root: *CrustRun) -> bool {
+    var args: [*u8; 25] = make [*u8; 25] {
+        "env",
+        native_join(
+            root -> context,
+            "EM_CONFIG=",
+            host_path(root, "build/toolchain/wasm/emscripten_config")
+        ),
+        host_path(root, "build/toolchain/wasm/emscripten/emcc"),
+        host_path(root, "build/web/game.c"),
+        "-O2",
+        "-sMALLOC=emmalloc",
+        "-sASYNCIFY",
+        "-sASYNCIFY_IMPORTS=[\"web_open\",\"web_buffer\",\"web_pipeline\",\"web_submit\",\"web_times\",\"web_present\"]",
+        "-sWASM_BIGINT",
+        "-sALLOW_MEMORY_GROWTH",
+        "-sMAXIMUM_MEMORY=2147483648",
+        "-sSTACK_SIZE=4194304",
+        "-sUSE_SDL=2",
+        "-sEXIT_RUNTIME=1",
+        "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"ccall\",\"stringToNewUTF8\"]",
+        "-sEXPORTED_FUNCTIONS=[\"_main\",\"_malloc\",\"_free\"]",
+        "--js-library",
+        host_path(root, "src/render/web/backend.js"),
+        "--preload-file",
+        native_join(root -> context, host_path(root, "build/web/shaders"), "@/build"),
+        "-sMODULARIZE",
+        "-sEXPORT_NAME=Spinward",
+        "-o",
+        host_path(root, "build/web/game.js"),
+        null(*u8)
+    };
+    return native_tool(root -> context, &args[0usize]);
+}
+fn build_web(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> bool {
+    return build_web_game(root, emit) && cache_directory(
+        root -> context,
+        host_path(root, "build/web/shaders")
+    ) && build_render_shaders_target(root, true) && web_toolchain(root) && web_link(root) && web_copy(
+        root,
+        "src/app/web/index.html",
+        "build/web/index.html"
+    ) && web_copy(root, "src/app/web/launcher.js", "build/web/launcher.js");
+}

@@ -1,30 +1,35 @@
-fn buffers_close(v: *Vulkan) -> unit {
+fn buffers_close(v: *RenderState) -> unit {
     if v -> mapped != null(*u8) {
-        vkUnmapMemory(v -> device, v -> staging_memory);
+        vkUnmapMemory(v -> gpu.device, v -> gpu.staging_memory);
     }
     if v -> staging != null(*u8) {
-        vkDestroyBuffer(v -> device, v -> staging, null(*u8));
+        vkDestroyBuffer(v -> gpu.device, v -> staging, null(*u8));
     }
-    if v -> staging_memory != null(*u8) {
-        vkFreeMemory(v -> device, v -> staging_memory, null(*u8));
+    if v -> gpu.staging_memory != null(*u8) {
+        vkFreeMemory(v -> gpu.device, v -> gpu.staging_memory, null(*u8));
     }
     if v -> buffer != null(*u8) {
-        vkDestroyBuffer(v -> device, v -> buffer, null(*u8));
+        vkDestroyBuffer(v -> gpu.device, v -> buffer, null(*u8));
     }
-    if v -> memory != null(*u8) {
-        vkFreeMemory(v -> device, v -> memory, null(*u8));
+    if v -> gpu.memory != null(*u8) {
+        vkFreeMemory(v -> gpu.device, v -> gpu.memory, null(*u8));
     }
 }
 // SPDX-License-Identifier: Apache-2.0
 
-fn commands_create(v: *Vulkan) -> bool {
+fn commands_create(v: *RenderState) -> bool {
     var pool: VkCommandPoolCreateInfo = uninit;
     zero(&pool as *u8, sizeof(VkCommandPoolCreateInfo));
     pool.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    pool.queueFamilyIndex = v -> family;
+    pool.queueFamilyIndex = v -> gpu.family;
     pool.flags = 2u32;
     if !vk_ok(
-        vkCreateCommandPool(v -> device, &pool, null(*u8), &v -> command_pool),
+        vkCreateCommandPool(
+            v -> gpu.device,
+            &pool,
+            null(*u8),
+            &v -> gpu.command_pool
+        ),
         "vkCreateCommandPool"
     ) {
         return false;
@@ -32,193 +37,100 @@ fn commands_create(v: *Vulkan) -> bool {
     var info: VkCommandBufferAllocateInfo = uninit;
     zero(&info as *u8, sizeof(VkCommandBufferAllocateInfo));
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    info.commandPool = v -> command_pool;
+    info.commandPool = v -> gpu.command_pool;
     info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     info.commandBufferCount = 1u32;
     return retirement_create(v) && vk_ok(
-        vkAllocateCommandBuffers(v -> device, &info, &v -> commands),
+        vkAllocateCommandBuffers(v -> gpu.device, &info, &v -> gpu.commands),
         "vkAllocateCommandBuffers"
     );
 }
 
-fn commands_record(v: *Vulkan) -> bool {
-    var begin: VkCommandBufferBeginInfo = uninit;
-    zero(&begin as *u8, sizeof(VkCommandBufferBeginInfo));
-    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    if !vk_ok(vkBeginCommandBuffer(v -> commands, &begin), "vkBeginCommandBuffer") {
-        return false;
-    }
-    vkCmdResetQueryPool(v -> commands, v -> query_pool, 0u32, v -> query_count);
-    vkCmdWriteTimestamp(v -> commands, 1u32, v -> query_pool, 0u32);
-    upload_scene(v);
-    if v -> shader_checks {
-        vkCmdFillBuffer(
-            v -> commands,
-            v -> buffer,
-            (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
-            MAX_INVOCATIONS as u64 * 4u64,
-            0u32
-        );
-    }
-    frame_barrier(v, 4096u32, 0x1000u32, 2048u32, 96u32);
-    vkCmdBindDescriptorSets(
-        v -> commands,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        v -> pipeline_layout,
-        0u32,
-        1u32,
-        &v -> set,
-        0u32,
-        null(*u32)
-    );
-    retained_dispatch(v, 8usize, v -> instance_capacity);
-    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-    retained_dispatch(v, 11usize, v -> instance_capacity + v -> light_capacity);
-    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-    retained_dispatch(v, 12usize, v -> light_capacity);
-    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-    retained_dispatch(v, 0usize, (v -> width * v -> height + 63u32) / 64u32);
-    frame_barrier(v, 2048u32, 64u32, 2048u32 | 2u32, 96u32 | 1u32);
-    vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 1u32);
-    var depth: u32 = 0u32;
-    while depth <= v -> crossing_limit {
-        retained_dispatch(
-            v,
-            9usize,
-            (v -> instance_capacity * v -> view_capacity + 63u32) / 64u32
-        );
-        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-        vkCmdBindPipeline(
-            v -> commands,
-            VK_PIPELINE_BIND_POINT_COMPUTE,
-            v -> pipelines[1usize]
-        );
-        vkCmdDispatchIndirect(v -> commands, v -> buffer, 68u64);
-        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-        vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 2u32 + depth * 4u32);
-        compact_dispatch(v);
-        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-        vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 3u32 + depth * 4u32);
-        task_dispatch(v, 10usize, 0u32);
-        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-        task_dispatch(v, 2usize, 0u32);
-        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-        vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 4u32 + depth * 4u32);
-        task_dispatch(v, 6usize, 3u32);
-        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-        vkCmdBindPipeline(
-            v -> commands,
-            VK_PIPELINE_BIND_POINT_COMPUTE,
-            v -> pipelines[3usize]
-        );
-        vkCmdDispatch(v -> commands, 1u32, 1u32, 1u32);
-        frame_barrier(v, 2048u32, 64u32, 2048u32 | 2u32, 96u32 | 1u32);
-        task_dispatch(v, 7usize, 6u32);
-        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-        vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, 5u32 + depth * 4u32);
-        depth = depth + 1u32;
-    }
-    retained_dispatch(v, 4usize, (v -> output_width * v -> output_height + 63u32) / 64u32);
-    frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
-    if v -> shader_checks {
-        retained_dispatch(v, (PIPELINE_COUNT - 1u32) as usize, STATUS_GROUPS);
-    }
-    var barrier: VkMemoryBarrier = uninit;
-    zero(&barrier as *u8, sizeof(VkMemoryBarrier));
-    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    barrier.dstAccessMask = 2048u32;
-    vkCmdPipelineBarrier(
-        v -> commands,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_HOST_BIT | 4096u32,
-        0u32,
-        1u32,
-        &barrier,
-        0u32,
-        null(*u8),
-        0u32,
-        null(*VkImageMemoryBarrier)
-    );
-    vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, v -> query_count - 2u32);
-    readback(v);
-    vkCmdWriteTimestamp(v -> commands, 8192u32, v -> query_pool, v -> query_count - 1u32);
-    return vk_ok(vkEndCommandBuffer(v -> commands), "vkEndCommandBuffer");
-}
-fn dispatch(v: *Vulkan) -> bool {
+fn dispatch(v: *RenderState) -> bool {
     if !dispatch_submit(v) {
         return false;
     }
     retirement_wait(v);
     return true;
 }
-fn dispatch_submit(v: *Vulkan) -> bool {
+fn dispatch_submit(v: *RenderState) -> bool {
     retirement_wait(v);
     var submit: VkSubmitInfo = uninit;
     zero(&submit as *u8, sizeof(VkSubmitInfo));
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit.commandBufferCount = 1u32;
-    submit.pCommandBuffers = &v -> commands;
+    submit.pCommandBuffers = &v -> gpu.commands;
     if !vk_ok(
-        vkResetFences(v -> device, 1u32, &v -> retired),
+        vkResetFences(v -> gpu.device, 1u32, &v -> gpu.retired),
         "reset renderer retirement fence"
-    ) || !vk_ok(vkQueueSubmit(v -> queue, 1u32, &submit, v -> retired), "vkQueueSubmit") {
+    ) || !vk_ok(
+        vkQueueSubmit(v -> gpu.queue, 1u32, &submit, v -> gpu.retired),
+        "vkQueueSubmit"
+    ) {
         return false;
     }
     v -> submitted = true;
     return true;
 }
-fn device_close(v: *Vulkan) -> unit {
-    if v -> device != null(*u8) {
+fn device_close(v: *RenderState) -> unit {
+    if v -> gpu.device != null(*u8) {
         retirement_close(v);
-        if v -> queue != null(*u8) && !vk_ok(
-            vkQueueWaitIdle(v -> queue),
+        if v -> gpu.queue != null(*u8) && !vk_ok(
+            vkQueueWaitIdle(v -> gpu.queue),
             "wait before device close"
         ) {
             exit(1i32);
         }
-        if v -> query_pool != null(*u8) {
-            vkDestroyQueryPool(v -> device, v -> query_pool, null(*u8));
+        if v -> gpu.query_pool != null(*u8) {
+            vkDestroyQueryPool(v -> gpu.device, v -> gpu.query_pool, null(*u8));
         }
-        if v -> acquired != null(*u8) {
-            vkDestroyFence(v -> device, v -> acquired, null(*u8));
+        if v -> gpu.acquired != null(*u8) {
+            vkDestroyFence(v -> gpu.device, v -> gpu.acquired, null(*u8));
         }
         swapchain_close(v);
-        if v -> command_pool != null(*u8) {
-            vkDestroyCommandPool(v -> device, v -> command_pool, null(*u8));
+        if v -> gpu.command_pool != null(*u8) {
+            vkDestroyCommandPool(v -> gpu.device, v -> gpu.command_pool, null(*u8));
         }
-        if v -> pool != null(*u8) {
-            vkDestroyDescriptorPool(v -> device, v -> pool, null(*u8));
+        if v -> gpu.pool != null(*u8) {
+            vkDestroyDescriptorPool(v -> gpu.device, v -> gpu.pool, null(*u8));
         }
         var i: usize = 0usize;
         while i < PIPELINE_COUNT as usize {
-            if v -> pipelines[i] != null(*u8) {
-                vkDestroyPipeline(v -> device, v -> pipelines[i], null(*u8));
+            if v -> gpu.pipelines[i] != null(*u8) {
+                vkDestroyPipeline(v -> gpu.device, v -> gpu.pipelines[i], null(*u8));
             }
-            if v -> modules[i] != null(*u8) {
-                vkDestroyShaderModule(v -> device, v -> modules[i], null(*u8));
+            if v -> gpu.modules[i] != null(*u8) {
+                vkDestroyShaderModule(
+                    v -> gpu.device,
+                    v -> gpu.modules[i],
+                    null(*u8)
+                );
             }
             i = i + 1usize;
         }
-        if v -> pipeline_layout != null(*u8) {
-            vkDestroyPipelineLayout(v -> device, v -> pipeline_layout, null(*u8));
+        if v -> gpu.pipeline_layout != null(*u8) {
+            vkDestroyPipelineLayout(
+                v -> gpu.device,
+                v -> gpu.pipeline_layout,
+                null(*u8)
+            );
         }
-        if v -> layout != null(*u8) {
-            vkDestroyDescriptorSetLayout(v -> device, v -> layout, null(*u8));
+        if v -> gpu.layout != null(*u8) {
+            vkDestroyDescriptorSetLayout(v -> gpu.device, v -> gpu.layout, null(*u8));
         }
         buffers_close(v);
-        vkDestroyDevice(v -> device, null(*u8));
+        vkDestroyDevice(v -> gpu.device, null(*u8));
     }
     if v -> surface != null(*u8) {
-        vkDestroySurfaceKHR(v -> instance, v -> surface, null(*u8));
+        vkDestroySurfaceKHR(v -> gpu.instance, v -> surface, null(*u8));
     }
-    if v -> instance != null(*u8) {
-        vkDestroyInstance(v -> instance, null(*u8));
+    if v -> gpu.instance != null(*u8) {
+        vkDestroyInstance(v -> gpu.instance, null(*u8));
     }
 }
 
 fn frame_barrier(
-    v: *Vulkan,
+    v: *RenderState,
     source_stage: u32,
     source_access: u32,
     dest_stage: u32,
@@ -230,7 +142,7 @@ fn frame_barrier(
     b.srcAccessMask = source_access;
     b.dstAccessMask = dest_access;
     vkCmdPipelineBarrier(
-        v -> commands,
+        v -> gpu.commands,
         source_stage,
         dest_stage,
         0u32,
@@ -243,52 +155,101 @@ fn frame_barrier(
     );
 }
 
-fn task_dispatch(v: *Vulkan, pipeline: usize, field: u32) -> unit {
-    vkCmdBindPipeline(
-        v -> commands,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        v -> pipelines[pipeline]
-    );
-    var base: u32 = 0u32;
-    var batch: u32 = 0u32;
-    var commands: u32 = (v -> mapped as *u32)[TASK_COMMANDS as usize];
-    while base < v -> task_capacity {
-        frame_barrier(v, 2048u32 | 4096u32, 96u32 | 4096u32, 4096u32, 4096u32);
-        vkCmdUpdateBuffer(
-            v -> commands,
-            v -> buffer,
-            (DISPATCH_BASE as u64 + 1u64) * 4u64,
-            4u64,
-            &base as *u8
-        );
-        frame_barrier(v, 4096u32 | 2048u32, 4096u32 | 64u32, 2048u32 | 2u32, 32u32 | 1u32);
-        vkCmdDispatchIndirect(
-            v -> commands,
-            v -> buffer,
-            (commands as u64 + 1u64 + batch as u64 * 9u64 + field as u64) * 4u64
-        );
-        base = base + MAX_INVOCATIONS / LOCAL_SIZE;
-        batch = batch + 1u32;
+fn command_begin(v: *RenderState) -> bool {
+    var begin: VkCommandBufferBeginInfo = uninit;
+    zero(&begin as *u8, sizeof(VkCommandBufferBeginInfo));
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    if !vk_ok(vkBeginCommandBuffer(v -> gpu.commands, &begin), "vkBeginCommandBuffer") {
+        return false;
     }
+    vkCmdResetQueryPool(v -> gpu.commands, v -> gpu.query_pool, 0u32, v -> query_count);
+    vkCmdBindDescriptorSets(
+        v -> gpu.commands,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        v -> gpu.pipeline_layout,
+        0u32,
+        1u32,
+        &v -> gpu.set,
+        0u32,
+        null(*u32)
+    );
+    return true;
+}
+fn command_end(v: *RenderState) -> bool {
+    return vk_ok(vkEndCommandBuffer(v -> gpu.commands), "vkEndCommandBuffer");
+}
+fn command_reset(v: *RenderState) -> bool {
+    return vk_ok(vkResetCommandBuffer(v -> gpu.commands, 0u32), "reset renderer commands");
+}
+fn command_stamp(v: *RenderState, index: u32) -> unit {
+    var stage: u32 = 8192u32;
+    if index == 0u32 {
+        stage = 1u32;
+    }
+    vkCmdWriteTimestamp(v -> gpu.commands, stage, v -> gpu.query_pool, index);
+}
+fn command_clear(v: *RenderState, offset: u64, size: u64) -> unit {
+    vkCmdFillBuffer(v -> gpu.commands, v -> buffer, offset, size, 0u32);
+}
+fn command_bind(v: *RenderState, pipeline: usize) -> unit {
+    vkCmdBindPipeline(
+        v -> gpu.commands,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        v -> gpu.pipelines[pipeline]
+    );
+}
+fn command_direct(v: *RenderState, groups: u32) -> unit {
+    vkCmdDispatch(v -> gpu.commands, groups, 1u32, 1u32);
+}
+fn command_indirect(v: *RenderState, offset: u64) -> unit {
+    vkCmdDispatchIndirect(v -> gpu.commands, v -> buffer, offset);
+}
+fn command_word(v: *RenderState, offset: u32, value: u32) -> unit {
+    vkCmdUpdateBuffer(
+        v -> gpu.commands,
+        v -> buffer,
+        offset as u64 * 4u64,
+        4u64,
+        &value as *u8
+    );
+}
+fn command_barrier(v: *RenderState, kind: u32) -> unit {
+    if kind == BARRIER_HOST {
+        frame_barrier(v, 4096u32, 4096u32, 16384u32, 8192u32);
+        return;
+    }
+    if kind == BARRIER_UPLOAD {
+        frame_barrier(v, 4096u32, 0x1000u32, 2048u32, 96u32);
+        return;
+    }
+    if kind == BARRIER_COMPUTE {
+        frame_barrier(v, 2048u32, 64u32, 2048u32, 96u32);
+        return;
+    }
+    if kind == BARRIER_INDIRECT {
+        frame_barrier(v, 2048u32, 64u32, 2048u32 | 2u32, 96u32 | 1u32);
+        return;
+    }
+    if kind == BARRIER_BEFORE_UPDATE {
+        frame_barrier(v, 2048u32 | 4096u32, 96u32 | 4096u32, 4096u32, 4096u32);
+        return;
+    }
+    if kind == BARRIER_AFTER_UPDATE {
+        frame_barrier(v, 4096u32 | 2048u32, 4096u32 | 64u32, 2048u32 | 2u32, 32u32 | 1u32);
+        return;
+    }
+    if kind == BARRIER_UPDATED_COMPUTE {
+        frame_barrier(v, 4096u32, 4096u32, 2048u32, 32u32);
+        return;
+    }
+    frame_barrier(v, 2048u32, 64u32, 16384u32 | 4096u32, 2048u32);
 }
 
-fn compact_dispatch(v: *Vulkan) -> unit {
-    var base: u32 = 0u32;
-    while base < v -> view_capacity {
-        var count: u32 = v -> view_capacity - base;
-        if count > MAX_INVOCATIONS / LOCAL_SIZE {
-            count = MAX_INVOCATIONS / LOCAL_SIZE;
-        }
-        frame_barrier(v, 2048u32 | 4096u32, 96u32 | 4096u32, 4096u32, 4096u32);
-        vkCmdUpdateBuffer(
-            v -> commands,
-            v -> buffer,
-            (DISPATCH_BASE as u64 + 1u64) * 4u64,
-            4u64,
-            &base as *u8
-        );
-        frame_barrier(v, 4096u32, 4096u32, 2048u32, 32u32);
-        retained_dispatch(v, 5usize, count);
-        base = base + count;
-    }
+fn command_copy(v: *RenderState, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
+    var copy: VkBufferCopy = make VkBufferCopy {
+        srcOffset: offset,
+        dstOffset: offset,
+        size: size
+    };
+    vkCmdCopyBuffer(v -> gpu.commands, src, dst, 1u32, &copy);
 }

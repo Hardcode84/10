@@ -98,7 +98,7 @@ fn graph_benchmark_view(
 ) -> bool {
     var sums: [u64; 64] = uninit;
     var query: [u64; 64] = uninit;
-    var v: *Vulkan = &session.renderer.state;
+    var v: *RenderState = &session.renderer.state;
     if v -> query_count > 64u32 {
         return error("benchmark timestamp array is too small");
     }

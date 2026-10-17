@@ -14,7 +14,8 @@ A 6DOF exploration game in a rotating megastructure.
   with the host C compiler. See [bootstrap instructions](docs/build/bootstrap.md).
 - Develop Crust alongside the game. If a required feature is missing or broken,
   implement or fix it in Crust. Do not add workarounds in the game.
-- Use Vulkan compute with SPIR-V input for rendering.
+- Use Vulkan compute with SPIR-V on desktop and WebGPU compute with WGSL in the
+  browser. Keep device sources and renderer scheduling shared.
 - Use the Crust ownership stage for host code. Keep native providers explicit
   in the root build. Expose owned resources and scoped borrows to checked code.
 - See the [shader compiler investigation](docs/build/crust-spirv.md) before device work.

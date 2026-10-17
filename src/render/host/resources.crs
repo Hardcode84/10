@@ -1,19 +1,19 @@
 fn memory_allocate(
-    v: *Vulkan,
+    v: *RenderState,
     requirements: *VkMemoryRequirements,
     flags: u32,
     memory: **u8
 ) -> bool {
     var index: u32 = 0u32;
-    while index < v -> properties.memoryTypeCount {
+    while index < v -> gpu.properties.memoryTypeCount {
         if (requirements -> memoryTypeBits & (1u32 << index)) != 0u32 && (
-            v -> properties.memoryTypes[index as usize].propertyFlags & flags
+            v -> gpu.properties.memoryTypes[index as usize].propertyFlags & flags
         ) == flags {
             break;
         }
         index = index + 1u32;
     }
-    if index == v -> properties.memoryTypeCount {
+    if index == v -> gpu.properties.memoryTypeCount {
         puts("no memory type with required flags:");
         print_number(flags as i64);
         return false;
@@ -24,13 +24,13 @@ fn memory_allocate(
     info.allocationSize = requirements -> size;
     info.memoryTypeIndex = index;
     return vk_ok(
-        vkAllocateMemory(v -> device, &info, null(*u8), memory),
+        vkAllocateMemory(v -> gpu.device, &info, null(*u8), memory),
         "vkAllocateMemory"
     );
 }
 
 fn allocate_buffer(
-    v: *Vulkan,
+    v: *RenderState,
     size: u64,
     usage: u32,
     flags: u32,
@@ -42,11 +42,14 @@ fn allocate_buffer(
     info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     info.size = size;
     info.usage = usage;
-    if !vk_ok(vkCreateBuffer(v -> device, &info, null(*u8), buffer), "vkCreateBuffer") {
+    if !vk_ok(
+        vkCreateBuffer(v -> gpu.device, &info, null(*u8), buffer),
+        "vkCreateBuffer"
+    ) {
         return false;
     }
     var req: VkMemoryRequirements = uninit;
-    vkGetBufferMemoryRequirements(v -> device, *buffer, &req);
+    vkGetBufferMemoryRequirements(v -> gpu.device, *buffer, &req);
     if !memory_allocate(v, &req, flags, memory) {
         return false;
     }
@@ -56,61 +59,12 @@ fn allocate_buffer(
         v -> staging_bytes = req.size;
     }
     return vk_ok(
-        vkBindBufferMemory(v -> device, *buffer, *memory, 0u64),
+        vkBindBufferMemory(v -> gpu.device, *buffer, *memory, 0u64),
         "vkBindBufferMemory"
     );
 }
-fn buffer_create(v: *Vulkan) -> bool {
-    if v -> projection_capacity == 0u32 {
-        v -> projection_capacity = 1u32;
-    }
-    if v -> view_capacity == 0u32 {
-        v -> view_capacity = 1u32;
-    }
-    if v -> triangle_capacity == 0u32 && !geometry_layout(v, 1u32) {
-        return false;
-    }
-    var staging_size: u64 = (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64;
-    var size: u64 = staging_size + v -> shader_checks as u64 * MAX_INVOCATIONS as u64 * 4u64;
-    if !allocate_buffer(v, size, 35u32 | 256u32, 1u32, &v -> buffer, &v -> memory) || !allocate_buffer(
-        v,
-        staging_size,
-        3u32,
-        14u32,
-        &v -> staging,
-        &v -> staging_memory
-    ) {
-        return false;
-    }
-    if !vk_ok(
-        vkMapMemory(
-            v -> device,
-            v -> staging_memory,
-            0u64,
-            staging_size,
-            0u32,
-            &v -> mapped
-        ),
-        "vkMapMemory"
-    ) {
-        return false;
-    }
-    zero(v -> mapped, (staging_size) as usize);
-    (v -> mapped as *u32)[0usize] = v -> words;
-    (v -> mapped as *u32)[(v -> words + 1u32) as usize] = v -> floats;
-    v -> mapped = v -> mapped + 4isize;
-    geometry_header(v);
-    v -> asset_dirty_begin = 0u32;
-    v -> asset_dirty_end = v -> asset_capacity;
-    v -> font_dirty = true;
-    v -> instance_dirty = true;
-    var bytes: u64 = v -> device_bytes + v -> staging_bytes;
-    if bytes > v -> peak_buffer_bytes {
-        v -> peak_buffer_bytes = bytes;
-    }
-    return true;
-}
-fn layout_create(v: *Vulkan) -> bool {
+
+fn layout_create(v: *RenderState) -> bool {
     var bindings: [VkDescriptorSetLayoutBinding; 3] = uninit;
     zero(&bindings as *u8, sizeof([VkDescriptorSetLayoutBinding; 3]));
     var i: usize = 0usize;
@@ -127,7 +81,12 @@ fn layout_create(v: *Vulkan) -> bool {
     info.bindingCount = 2u32 + v -> shader_checks as u32;
     info.pBindings = &bindings[0usize];
     if !vk_ok(
-        vkCreateDescriptorSetLayout(v -> device, &info, null(*u8), &v -> layout),
+        vkCreateDescriptorSetLayout(
+            v -> gpu.device,
+            &info,
+            null(*u8),
+            &v -> gpu.layout
+        ),
         "vkCreateDescriptorSetLayout"
     ) {
         return false;
@@ -136,20 +95,36 @@ fn layout_create(v: *Vulkan) -> bool {
     zero(&pi as *u8, sizeof(VkPipelineLayoutCreateInfo));
     pi.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pi.setLayoutCount = 1u32;
-    pi.pSetLayouts = &v -> layout;
+    pi.pSetLayouts = &v -> gpu.layout;
     return vk_ok(
-        vkCreatePipelineLayout(v -> device, &pi, null(*u8), &v -> pipeline_layout),
+        vkCreatePipelineLayout(
+            v -> gpu.device,
+            &pi,
+            null(*u8),
+            &v -> gpu.pipeline_layout
+        ),
         "vkCreatePipelineLayout"
     );
 }
-fn pipeline_create(v: *Vulkan, code: *ShaderCode, slot: usize) -> bool {
+fn pipeline_create(v: *RenderState, code: *ShaderCode, slot: usize) -> bool {
+    if code -> size < 20usize || code -> size % 4usize != 0usize || (code -> bytes as *u32)[
+        0usize
+    ] != 0x07230203u32 {
+        return error("invalid SPIR-V module");
+    }
+
     var module: VkShaderModuleCreateInfo = uninit;
     zero(&module as *u8, sizeof(VkShaderModuleCreateInfo));
     module.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     module.codeSize = code -> size;
     module.pCode = code -> bytes as *u32;
     if !vk_ok(
-        vkCreateShaderModule(v -> device, &module, null(*u8), &v -> modules[slot]),
+        vkCreateShaderModule(
+            v -> gpu.device,
+            &module,
+            null(*u8),
+            &v -> gpu.modules[slot]
+        ),
         "vkCreateShaderModule"
     ) {
         return false;
@@ -159,23 +134,23 @@ fn pipeline_create(v: *Vulkan, code: *ShaderCode, slot: usize) -> bool {
     pipeline.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipeline.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     pipeline.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    pipeline.stage.module = v -> modules[slot];
+    pipeline.stage.module = v -> gpu.modules[slot];
     pipeline.stage.pName = "main";
-    pipeline.layout = v -> pipeline_layout;
+    pipeline.layout = v -> gpu.pipeline_layout;
     return vk_ok(
         vkCreateComputePipelines(
-            v -> device,
+            v -> gpu.device,
             null(*u8),
             1u32,
             &pipeline,
             null(*u8),
-            &v -> pipelines[slot]
+            &v -> gpu.pipelines[slot]
         ),
         "vkCreateComputePipelines"
     );
 }
 
-fn descriptors_create(v: *Vulkan) -> bool {
+fn descriptors_create(v: *RenderState) -> bool {
     var size: VkDescriptorPoolSize = make VkDescriptorPoolSize {
         type: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         descriptorCount: 3u32
@@ -187,7 +162,7 @@ fn descriptors_create(v: *Vulkan) -> bool {
     pool.poolSizeCount = 1u32;
     pool.pPoolSizes = &size;
     if !vk_ok(
-        vkCreateDescriptorPool(v -> device, &pool, null(*u8), &v -> pool),
+        vkCreateDescriptorPool(v -> gpu.device, &pool, null(*u8), &v -> gpu.pool),
         "vkCreateDescriptorPool"
     ) {
         return false;
@@ -195,11 +170,11 @@ fn descriptors_create(v: *Vulkan) -> bool {
     var info: VkDescriptorSetAllocateInfo = uninit;
     zero(&info as *u8, sizeof(VkDescriptorSetAllocateInfo));
     info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    info.descriptorPool = v -> pool;
+    info.descriptorPool = v -> gpu.pool;
     info.descriptorSetCount = 1u32;
-    info.pSetLayouts = &v -> layout;
+    info.pSetLayouts = &v -> gpu.layout;
     if !vk_ok(
-        vkAllocateDescriptorSets(v -> device, &info, &v -> set),
+        vkAllocateDescriptorSets(v -> gpu.device, &info, &v -> gpu.set),
         "vkAllocateDescriptorSets"
     ) {
         return false;
@@ -207,7 +182,7 @@ fn descriptors_create(v: *Vulkan) -> bool {
     descriptors_update(v);
     return true;
 }
-fn descriptors_update(v: *Vulkan) -> unit {
+fn descriptors_update(v: *RenderState) -> unit {
     var buffers: [VkDescriptorBufferInfo; 3] = uninit;
     buffers[0usize] = make VkDescriptorBufferInfo {
         buffer: v -> buffer,
@@ -229,7 +204,7 @@ fn descriptors_update(v: *Vulkan) -> unit {
     var i: usize = 0usize;
     while i < 3usize {
         writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[i].dstSet = v -> set;
+        writes[i].dstSet = v -> gpu.set;
         writes[i].dstBinding = i as u32;
         writes[i].descriptorCount = 1u32;
         writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -237,10 +212,44 @@ fn descriptors_update(v: *Vulkan) -> unit {
         i = i + 1usize;
     }
     vkUpdateDescriptorSets(
-        v -> device,
+        v -> gpu.device,
         2u32 + v -> shader_checks as u32,
         &writes[0usize],
         0u32,
         null(*u8)
     );
+}
+
+fn buffers_allocate(v: *RenderState, size: u64, staging_size: u64) -> bool {
+    if !allocate_buffer(v, size, 35u32 | 256u32, 1u32, &v -> buffer, &v -> gpu.memory) || !allocate_buffer(
+        v,
+        staging_size,
+        3u32,
+        14u32,
+        &v -> staging,
+        &v -> gpu.staging_memory
+    ) {
+        return false;
+    }
+    if !vk_ok(
+        vkMapMemory(
+            v -> gpu.device,
+            v -> gpu.staging_memory,
+            0u64,
+            staging_size,
+            0u32,
+            &v -> mapped
+        ),
+        "vkMapMemory"
+    ) {
+        return false;
+    }
+    return true;
+}
+fn buffers_forget(v: *RenderState) -> unit {
+    v -> buffer = null(*u8);
+    v -> gpu.memory = null(*u8);
+    v -> staging = null(*u8);
+    v -> gpu.staging_memory = null(*u8);
+    v -> mapped = null(*u8);
 }

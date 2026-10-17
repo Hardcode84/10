@@ -6,7 +6,8 @@ reach the ending room, and return to the start. Portal connections can rotate
 and translate space; rooms do not need to fit into one global coordinate system.
 
 Host code, GPU code, room geometry, and textures use [Crust](crust/).
-The renderer uses Vulkan compute and SPIR-V. Indexed textures, full-bright
+The native renderer uses Vulkan compute and SPIR-V. The browser uses WebGPU
+compute and WGSL from the same shader sources. Indexed textures, full-bright
 texels, and dithered lighting give the game a 1990s appearance.
 
 ## Bootstrap
@@ -38,8 +39,8 @@ crust main.crs
 ```
 
 Each root builds its host program and required shaders before execution.
-Python is used by the Crust seed bootstrap, not by the game build or asset
-recipes. See [bootstrap details](docs/build/bootstrap.md) and
+Build policy and asset recipes use Crust. The seed bootstrap and the web target's
+Emscripten toolchain require Python. See [bootstrap details](docs/build/bootstrap.md) and
 [renderer requirements](docs/render/renderer-build.md).
 
 ## Run
@@ -58,11 +59,17 @@ crust demo.crs
 
 # Inspect a generated room recipe.
 crust viewer.crs assets/rooms/radial-start.crs
+
+# Build and serve the browser game. Requires Bun; no Node.js or npm.
+crust main.crs --web
+bun tools/web/serve.mjs
 ```
 
 See [objectives and generation options](docs/game/expedition.md),
 [flight controls](docs/game/movement.md), and
 [the asset workflow](docs/content/parametric-assets.md).
+See [web build and controls](docs/build/web.md) for browser requirements,
+recording exchange, and the focused browser check.
 
 ## Repository structure
 
@@ -72,7 +79,7 @@ See [objectives and generation options](docs/game/expedition.md),
 | `demo.crs` | Room flight demo build and entry point |
 | `viewer.crs` | Prefab viewer build and entry point |
 | `tests.crs` | Automated test build and runner |
-| `src/render/` | Vulkan host code, compute shaders, and shared data layout |
+| `src/render/` | Shared renderer, Vulkan and WebGPU providers, and compute shaders |
 | `src/collision/` | Collision geometry, queries, and contact solving |
 | `src/game/` | Flight, tether, room graph, objectives, input, and HUD |
 | `src/demo/` | Room demo and automatic renderer fixtures |

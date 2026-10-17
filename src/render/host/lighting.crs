@@ -2,7 +2,7 @@
 // Fill each active record before drawing. Records use the offset in LIGHT_DATA.
 fn input_lights(input: mut FrameInput, count: u32) -> bool {
     if count > input.storage.light_capacity {
-        var next: Vulkan = input.storage;
+        var next: RenderState = input.storage;
         next.light_capacity = count;
         if !geometry_layout(&next, next.triangle_capacity) || !storage_replace(
             &input.storage,
@@ -14,7 +14,7 @@ fn input_lights(input: mut FrameInput, count: u32) -> bool {
     input_set_word(mut input, LIGHT_COUNT as usize, count);
     return true;
 }
-fn lighting_valid(v: *Vulkan) -> bool {
+fn lighting_valid(v: *RenderState) -> bool {
     var w: *u32 = v -> mapped as *u32;
     if w[LIGHT_COUNT as usize] > v -> light_capacity {
         return error("light count exceeds reserved storage");

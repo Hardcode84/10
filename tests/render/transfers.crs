@@ -30,7 +30,7 @@ fn transfer_test(base: *Options) -> bool {
     }
     return transfer_shutdown(&renderer.state);
 }
-fn transfer_measure(v: *Vulkan) -> bool {
+fn transfer_measure(v: *RenderState) -> bool {
     var wait: u64 = 0u64;
     var gpu: u64 = 0u64;
     var elapsed: u64 = 0u64;
@@ -82,7 +82,7 @@ fn transfer_measure(v: *Vulkan) -> bool {
     print_number(v -> peak_buffer_bytes as i64);
     return good;
 }
-fn transfer_hash(v: *Vulkan) -> u32 {
+fn transfer_hash(v: *RenderState) -> u32 {
     var hash: u32 = 2166136261u32;
     var w: *u32 = v -> mapped as *u32;
     var i: u32 = 0u32;
@@ -136,8 +136,8 @@ fn transfer_assets(renderer: mut Renderer) -> bool {
     }
     return true;
 }
-fn transfer_shutdown(v: *Vulkan) -> bool {
-    if !vk_ok(vkResetCommandBuffer(v -> commands, 0u32), "reset pending-close check") || !commands_record(
+fn transfer_shutdown(v: *RenderState) -> bool {
+    if !vk_ok(vkResetCommandBuffer(v -> gpu.commands, 0u32), "reset pending-close check") || !commands_record(
         v
     ) || !dispatch_submit(v) {
         return false;
@@ -161,11 +161,11 @@ fn transfer_debug(base: *Options) -> bool {
     if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
         return false;
     }
-    var v: *Vulkan = &renderer.state;
-    vkDestroyPipeline(v -> device, v -> pipelines[0usize], null(*u8));
-    vkDestroyShaderModule(v -> device, v -> modules[0usize], null(*u8));
-    v -> pipelines[0usize] = null(*u8);
-    v -> modules[0usize] = null(*u8);
+    var v: *RenderState = &renderer.state;
+    vkDestroyPipeline(v -> gpu.device, v -> gpu.pipelines[0usize], null(*u8));
+    vkDestroyShaderModule(v -> gpu.device, v -> gpu.modules[0usize], null(*u8));
+    v -> gpu.pipelines[0usize] = null(*u8);
+    v -> gpu.modules[0usize] = null(*u8);
     if !load_pipeline(v, "build/status-test.spv", 0usize) || !transfer_debug_record(v) || !dispatch(
         v
     ) {
@@ -191,31 +191,31 @@ fn transfer_debug(base: *Options) -> bool {
     }
     return true;
 }
-fn transfer_debug_record(v: *Vulkan) -> bool {
-    if !vk_ok(vkResetCommandBuffer(v -> commands, 0u32), "reset debug fixture") {
+fn transfer_debug_record(v: *RenderState) -> bool {
+    if !vk_ok(vkResetCommandBuffer(v -> gpu.commands, 0u32), "reset debug fixture") {
         return false;
     }
     var begin: VkCommandBufferBeginInfo = uninit;
     zero(&begin as *u8, sizeof(VkCommandBufferBeginInfo));
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    if !vk_ok(vkBeginCommandBuffer(v -> commands, &begin), "begin debug fixture") {
+    if !vk_ok(vkBeginCommandBuffer(v -> gpu.commands, &begin), "begin debug fixture") {
         return false;
     }
     upload_scene(v);
     vkCmdFillBuffer(
-        v -> commands,
+        v -> gpu.commands,
         v -> buffer,
         (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
         MAX_INVOCATIONS as u64 * 4u64,
         0u32
     );
     vkCmdBindDescriptorSets(
-        v -> commands,
+        v -> gpu.commands,
         VK_PIPELINE_BIND_POINT_COMPUTE,
-        v -> pipeline_layout,
+        v -> gpu.pipeline_layout,
         0u32,
         1u32,
-        &v -> set,
+        &v -> gpu.set,
         0u32,
         null(*u32)
     );
@@ -223,7 +223,13 @@ fn transfer_debug_record(v: *Vulkan) -> bool {
     while pass < 2u32 {
         frame_barrier(v, 2048u32 | 4096u32, 96u32 | 4096u32, 4096u32, 4096u32);
         var fault: u32 = pass * 17u32;
-        vkCmdUpdateBuffer(v -> commands, v -> buffer, 34u64 * 4u64, 4u64, &fault as *u8);
+        vkCmdUpdateBuffer(
+            v -> gpu.commands,
+            v -> buffer,
+            34u64 * 4u64,
+            4u64,
+            &fault as *u8
+        );
         frame_barrier(v, 4096u32 | 2048u32, 4096u32 | 64u32, 2048u32, 96u32);
         retained_dispatch(v, 0usize, MAX_INVOCATIONS / LOCAL_SIZE);
         pass = pass + 1u32;
@@ -232,5 +238,5 @@ fn transfer_debug_record(v: *Vulkan) -> bool {
     retained_dispatch(v, (PIPELINE_COUNT - 1u32) as usize, STATUS_GROUPS);
     frame_barrier(v, 2048u32, 64u32, 4096u32, 2048u32);
     readback(v);
-    return vk_ok(vkEndCommandBuffer(v -> commands), "end debug fixture");
+    return vk_ok(vkEndCommandBuffer(v -> gpu.commands), "end debug fixture");
 }

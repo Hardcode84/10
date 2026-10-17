@@ -1,11 +1,12 @@
-fn ownership_sources(
+fn ownership_sources_target(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
     argc: i32,
     argv: **u8,
     providers: **u8,
     count: usize,
-    expected: *u8
+    expected: *u8,
+    wasm: bool
 ) -> i32 {
     var trusted: *CrustSource = crust_try_alloc(
         root -> context,
@@ -46,7 +47,11 @@ fn ownership_sources(
         i = i + 1usize;
     }
     var context: CrustContext = uninit;
-    crust_context_init(&context, null(*CrustAllocator));
+    if wasm {
+        crust_context_init_wasm32(&context, null(*CrustAllocator));
+    } else {
+        crust_context_init(&context, null(*CrustAllocator));
+    }
     var request: CrustBuild = make CrustBuild {
         context: &context,
         source: null(*CrustSource),
@@ -55,15 +60,43 @@ fn ownership_sources(
         argv: &args[0usize]
     };
     var result: i32 = ownership_program(&request, &trusted[0usize], count, emit);
+    result = ownership_result(root, &context, result, expected);
+    crust_context_destroy(&context);
+    return result;
+}
+
+fn ownership_sources(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
+    argc: i32,
+    argv: **u8,
+    providers: **u8,
+    count: usize,
+    expected: *u8
+) -> i32 {
+    return ownership_sources_target(
+        root,
+        emit,
+        argc,
+        argv,
+        providers,
+        count,
+        expected,
+        false
+    );
+}
+
+fn ownership_result(root: *CrustRun, context: *CrustContext, status: i32, expected: *u8) -> i32 {
+    var result: i32 = status;
     if expected != null(*u8) {
-        if result != 0i32 && context.error_count != 0usize && cache_strcmp(
-            &context.error[0usize],
+        if result != 0i32 && context -> error_count != 0usize && cache_strcmp(
+            &context -> error[0usize],
             expected
         ) == 0i32 {
             result = 0i32;
         } else {
-            if context.error_count != 0usize {
-                crust_run_diagnostic(&context);
+            if context -> error_count != 0usize {
+                crust_run_diagnostic(context);
             }
             native_error(
                 root -> context,
@@ -71,9 +104,8 @@ fn ownership_sources(
             );
             result = 1i32;
         }
-    } else if context.error_count != 0usize {
-        crust_run_diagnostic(&context);
+    } else if context -> error_count != 0usize {
+        crust_run_diagnostic(context);
     }
-    crust_context_destroy(&context);
     return result;
 }

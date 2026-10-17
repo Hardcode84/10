@@ -1,16 +1,12 @@
-fn retained_dispatch(v: *Vulkan, pipeline: usize, groups: u32) -> unit {
+fn retained_dispatch(v: *RenderState, pipeline: usize, groups: u32) -> unit {
     var count: u32 = groups;
     if count > MAX_INVOCATIONS / LOCAL_SIZE {
         count = MAX_INVOCATIONS / LOCAL_SIZE;
     }
-    vkCmdBindPipeline(
-        v -> commands,
-        VK_PIPELINE_BIND_POINT_COMPUTE,
-        v -> pipelines[pipeline]
-    );
-    vkCmdDispatch(v -> commands, count, 1u32, 1u32);
+    command_bind(v, pipeline);
+    command_direct(v, count);
 }
-fn retained_transfer(v: *Vulkan, slot: u32, count: u32, floats: bool, upload: bool) -> unit {
+fn retained_transfer(v: *RenderState, slot: u32, count: u32, floats: bool, upload: bool) -> unit {
     var offset: u64 = (v -> mapped as *u32)[slot as usize] as u64 + 1u64;
     if floats {
         offset = offset + v -> words as u64 + 1u64;
@@ -21,7 +17,7 @@ fn retained_transfer(v: *Vulkan, slot: u32, count: u32, floats: bool, upload: bo
         copy_region(v, v -> buffer, v -> staging, offset * 4u64, count as u64 * 4u64);
     }
 }
-fn retained_upload(v: *Vulkan) -> unit {
+fn retained_upload(v: *RenderState) -> unit {
     if v -> mesh_dirty {
         retained_transfer(v, MESH_FLOAT, v -> mesh_count * 15u32, true, true);
         retained_transfer(v, MESH_META, v -> mesh_count * 4u32, false, true);
@@ -34,7 +30,7 @@ fn retained_upload(v: *Vulkan) -> unit {
     retained_transfer(v, INSTANCE_FLOAT, count * 18u32, true, true);
     retained_transfer(v, INSTANCE_META, count * 5u32, false, true);
 }
-fn retained_readback(v: *Vulkan) -> unit {
+fn retained_readback(v: *RenderState) -> unit {
     var w: *u32 = v -> mapped as *u32;
     if w[26usize] == 0u32 || w[INSTANCE_COUNT as usize] == 0u32 {
         return;

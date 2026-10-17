@@ -23,11 +23,11 @@ fn surface_extent(
     * output = extent;
     return true;
 }
-fn surface_format(v: *Vulkan, format: *VkSurfaceFormatKHR) -> bool {
+fn surface_format(v: *RenderState, format: *VkSurfaceFormatKHR) -> bool {
     var count: u32 = 0u32;
     if !vk_ok(
         vkGetPhysicalDeviceSurfaceFormatsKHR(
-            v -> physical,
+            v -> gpu.physical,
             v -> surface,
             &count,
             null(*VkSurfaceFormatKHR)
@@ -41,7 +41,12 @@ fn surface_format(v: *Vulkan, format: *VkSurfaceFormatKHR) -> bool {
         return error("surface format allocation failed");
     }
     var good: bool = vk_ok(
-        vkGetPhysicalDeviceSurfaceFormatsKHR(v -> physical, v -> surface, &count, formats),
+        vkGetPhysicalDeviceSurfaceFormatsKHR(
+            v -> gpu.physical,
+            v -> surface,
+            &count,
+            formats
+        ),
         "vkGetPhysicalDeviceSurfaceFormatsKHR"
     );
     var found: bool = false;
@@ -59,11 +64,11 @@ fn surface_format(v: *Vulkan, format: *VkSurfaceFormatKHR) -> bool {
     }
     return true;
 }
-fn swapchain_open(v: *Vulkan, width: u32, height: u32) -> bool {
+fn swapchain_open(v: *RenderState, width: u32, height: u32) -> bool {
     var caps: VkSurfaceCapabilitiesKHR = uninit;
     var format: VkSurfaceFormatKHR = uninit;
     if !vk_ok(
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(v -> physical, v -> surface, &caps),
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(v -> gpu.physical, v -> surface, &caps),
         "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"
     ) || !surface_format(v, &format) {
         return false;
@@ -96,10 +101,10 @@ fn swapchain_open(v: *Vulkan, width: u32, height: u32) -> bool {
     info.presentMode = 2u32;
     info.clipped = 1u32;
     var result: i32 = vkCreateSwapchainKHR(
-        v -> device,
+        v -> gpu.device,
         &info,
         null(*u8),
-        &v -> swapchain
+        &v -> gpu.swapchain
     );
     if result == -1000001004i32 {
         v -> swapchain_dirty = true;
@@ -112,32 +117,42 @@ fn swapchain_open(v: *Vulkan, width: u32, height: u32) -> bool {
     v -> swapchain_dirty = false;
     return swapchain_resources(v);
 }
-fn swapchain_resources(v: *Vulkan) -> bool {
+fn swapchain_resources(v: *RenderState) -> bool {
     var count: u32 = 0u32;
     if !vk_ok(
-        vkGetSwapchainImagesKHR(v -> device, v -> swapchain, &count, null(**u8)),
+        vkGetSwapchainImagesKHR(
+            v -> gpu.device,
+            v -> gpu.swapchain,
+            &count,
+            null(**u8)
+        ),
         "vkGetSwapchainImagesKHR"
     ) {
         return false;
     }
-    v -> images = malloc(count as usize * sizeof(*u8)) as **u8;
-    if v -> images == null(**u8) {
+    v -> gpu.images = malloc(count as usize * sizeof(*u8)) as **u8;
+    if v -> gpu.images == null(**u8) {
         return error("swapchain image list allocation failed");
     }
     if !vk_ok(
-        vkGetSwapchainImagesKHR(v -> device, v -> swapchain, &count, v -> images),
+        vkGetSwapchainImagesKHR(
+            v -> gpu.device,
+            v -> gpu.swapchain,
+            &count,
+            v -> gpu.images
+        ),
         "vkGetSwapchainImagesKHR"
     ) {
         return false;
     }
-    if v -> acquired != null(*u8) {
+    if v -> gpu.acquired != null(*u8) {
         return true;
     }
     var fence: VkFenceCreateInfo = uninit;
     zero(&fence as *u8, sizeof(VkFenceCreateInfo));
     fence.sType = 8u32;
     if !vk_ok(
-        vkCreateFence(v -> device, &fence, null(*u8), &v -> acquired),
+        vkCreateFence(v -> gpu.device, &fence, null(*u8), &v -> gpu.acquired),
         "vkCreateFence"
     ) {
         return false;
@@ -145,24 +160,30 @@ fn swapchain_resources(v: *Vulkan) -> bool {
     var allocation: VkCommandBufferAllocateInfo = uninit;
     zero(&allocation as *u8, sizeof(VkCommandBufferAllocateInfo));
     allocation.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocation.commandPool = v -> command_pool;
+    allocation.commandPool = v -> gpu.command_pool;
     allocation.commandBufferCount = 1u32;
     if !vk_ok(
-        vkAllocateCommandBuffers(v -> device, &allocation, &v -> present_commands),
+        vkAllocateCommandBuffers(v -> gpu.device, &allocation, &v -> gpu.present_commands),
         "vkAllocateCommandBuffers"
     ) {
         return false;
     }
     return true;
 }
-fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
-    if !vk_ok(vkResetCommandBuffer(v -> present_commands, 0u32), "vkResetCommandBuffer") {
+fn present_record(v: *RenderState, index: u32, width: u32, height: u32) -> bool {
+    if !vk_ok(
+        vkResetCommandBuffer(v -> gpu.present_commands, 0u32),
+        "vkResetCommandBuffer"
+    ) {
         return false;
     }
     var begin: VkCommandBufferBeginInfo = uninit;
     zero(&begin as *u8, sizeof(VkCommandBufferBeginInfo));
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    if !vk_ok(vkBeginCommandBuffer(v -> present_commands, &begin), "vkBeginCommandBuffer") {
+    if !vk_ok(
+        vkBeginCommandBuffer(v -> gpu.present_commands, &begin),
+        "vkBeginCommandBuffer"
+    ) {
         return false;
     }
     var b: VkImageMemoryBarrier = uninit;
@@ -173,7 +194,7 @@ fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
     b.dstAccessMask = 4096u32;
     b.srcQueueFamilyIndex = 0xffffffffu32;
     b.dstQueueFamilyIndex = 0xffffffffu32;
-    b.image = v -> images[index as usize];
+    b.image = v -> gpu.images[index as usize];
     b.subresourceRange = make VkImageSubresourceRange {
         aspectMask: 1u32,
         baseMipLevel: 0u32,
@@ -182,7 +203,7 @@ fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
         layerCount: 1u32
     };
     vkCmdPipelineBarrier(
-        v -> present_commands,
+        v -> gpu.present_commands,
         1u32,
         4096u32,
         0u32,
@@ -208,9 +229,9 @@ fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
         depth: 1u32
     };
     vkCmdCopyBufferToImage(
-        v -> present_commands,
+        v -> gpu.present_commands,
         v -> buffer,
-        v -> images[index as usize],
+        v -> gpu.images[index as usize],
         7u32,
         1u32,
         &region
@@ -220,7 +241,7 @@ fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
     b.srcAccessMask = 4096u32;
     b.dstAccessMask = 0u32;
     vkCmdPipelineBarrier(
-        v -> present_commands,
+        v -> gpu.present_commands,
         4096u32,
         8192u32,
         0u32,
@@ -231,20 +252,20 @@ fn present_record(v: *Vulkan, index: u32, width: u32, height: u32) -> bool {
         1u32,
         &b
     );
-    return vk_ok(vkEndCommandBuffer(v -> present_commands), "vkEndCommandBuffer");
+    return vk_ok(vkEndCommandBuffer(v -> gpu.present_commands), "vkEndCommandBuffer");
 }
-fn present(v: *Vulkan) -> bool {
+fn present(v: *RenderState) -> bool {
     if !v -> present_ready {
         return true;
     }
     v -> present_ready = false;
     var index: u32 = 0u32;
     var result: i32 = vkAcquireNextImageKHR(
-        v -> device,
-        v -> swapchain,
+        v -> gpu.device,
+        v -> gpu.swapchain,
         ~0u64,
         null(*u8),
-        v -> acquired,
+        v -> gpu.acquired,
         &index
     );
     if result == -1000001004i32 {
@@ -258,41 +279,39 @@ fn present(v: *Vulkan) -> bool {
         return vk_ok(result, "vkAcquireNextImageKHR");
     }
     if !vk_ok(
-        vkWaitForFences(v -> device, 1u32, &v -> acquired, 1u32, ~0u64),
+        vkWaitForFences(v -> gpu.device, 1u32, &v -> gpu.acquired, 1u32, ~0u64),
         "vkWaitForFences"
-    ) || !vk_ok(vkResetFences(v -> device, 1u32, &v -> acquired), "vkResetFences") || !present_record(
-        v,
-        index,
-        v -> output_width,
-        v -> output_height
-    ) {
+    ) || !vk_ok(
+        vkResetFences(v -> gpu.device, 1u32, &v -> gpu.acquired),
+        "vkResetFences"
+    ) || !present_record(v, index, v -> output_width, v -> output_height) {
         return false;
     }
     var submit: VkSubmitInfo = uninit;
     zero(&submit as *u8, sizeof(VkSubmitInfo));
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit.commandBufferCount = 1u32;
-    submit.pCommandBuffers = &v -> present_commands;
+    submit.pCommandBuffers = &v -> gpu.present_commands;
     if !vk_ok(
-        vkQueueSubmit(v -> queue, 1u32, &submit, null(*u8)),
+        vkQueueSubmit(v -> gpu.queue, 1u32, &submit, null(*u8)),
         "vkQueueSubmit presentation"
     ) {
         return false;
     }
-    if !vk_ok(vkQueueWaitIdle(v -> queue), "vkQueueWaitIdle presentation") {
+    if !vk_ok(vkQueueWaitIdle(v -> gpu.queue), "vkQueueWaitIdle presentation") {
         exit(1i32);
         return false;
     }
     return present_release(v, index);
 }
-fn present_release(v: *Vulkan, index: u32) -> bool {
+fn present_release(v: *RenderState, index: u32) -> bool {
     var info: VkPresentInfoKHR = uninit;
     zero(&info as *u8, sizeof(VkPresentInfoKHR));
     info.sType = 1000001001u32;
     info.swapchainCount = 1u32;
-    info.pSwapchains = &v -> swapchain;
+    info.pSwapchains = &v -> gpu.swapchain;
     info.pImageIndices = &index;
-    var result: i32 = vkQueuePresentKHR(v -> queue, &info);
+    var result: i32 = vkQueuePresentKHR(v -> gpu.queue, &info);
     if result == -1000001004i32 || result == 1000001003i32 {
         v -> swapchain_dirty = true;
     }
@@ -302,9 +321,18 @@ fn present_release(v: *Vulkan, index: u32) -> bool {
     if result != 0i32 && result != 1000001003i32 {
         return vk_ok(result, "vkQueuePresentKHR");
     }
-    if !vk_ok(vkQueueWaitIdle(v -> queue), "vkQueueWaitIdle present release") {
+    if !vk_ok(vkQueueWaitIdle(v -> gpu.queue), "vkQueueWaitIdle present release") {
         exit(1i32);
         return false;
     }
     return true;
+}
+
+fn swapchain_close(v: *RenderState) -> unit {
+    if v -> gpu.swapchain != null(*u8) {
+        vkDestroySwapchainKHR(v -> gpu.device, v -> gpu.swapchain, null(*u8));
+        v -> gpu.swapchain = null(*u8);
+    }
+    free(v -> gpu.images as *u8);
+    v -> gpu.images = null(**u8);
 }

@@ -1,4 +1,4 @@
-fn visibility_compare(v: *Vulkan, require_rejection: bool) -> bool {
+fn visibility_compare(v: *RenderState, require_rejection: bool) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var debug: u32 = w[26usize];
     w[26usize] = 1u32;
@@ -32,7 +32,7 @@ fn visibility_compare(v: *Vulkan, require_rejection: bool) -> bool {
     return good;
 }
 
-fn visibility_rejected(v: *Vulkan) -> bool {
+fn visibility_rejected(v: *RenderState) -> bool {
     var w: *u32 = v -> mapped as *u32;
     var i: u32 = 0u32;
     while i < w[INSTANCE_COUNT as usize] {

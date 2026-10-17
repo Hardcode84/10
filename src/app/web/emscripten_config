@@ -1,0 +1,10 @@
+import os
+import shutil
+ROOT_DIR = os.path.dirname(os.environ['EM_CONFIG'])
+LLVM_ROOT = os.path.join(ROOT_DIR, 'bin')
+BINARYEN_ROOT = ROOT_DIR
+NODE_JS = shutil.which('bun')
+if not NODE_JS:
+    raise RuntimeError('The web build requires Bun on PATH')
+JS_ENGINES = [NODE_JS]
+CACHE = os.path.join(ROOT_DIR, 'emscripten', 'cache')

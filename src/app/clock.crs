@@ -1,6 +1,6 @@
 record Timespec {
     seconds: i64;
-    nanoseconds: i64;
+    nanoseconds: isize;
 }
 extern fn clock_gettime(clock: i32, time: *Timespec) -> i32 = "clock_gettime";
 fn now() -> u64 {

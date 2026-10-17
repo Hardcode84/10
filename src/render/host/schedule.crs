@@ -1,0 +1,106 @@
+const BARRIER_UPLOAD: u32 = 0u32;
+const BARRIER_COMPUTE: u32 = 1u32;
+const BARRIER_INDIRECT: u32 = 2u32;
+const BARRIER_BEFORE_UPDATE: u32 = 3u32;
+const BARRIER_AFTER_UPDATE: u32 = 4u32;
+const BARRIER_UPDATED_COMPUTE: u32 = 5u32;
+const BARRIER_READBACK: u32 = 6u32;
+const BARRIER_HOST: u32 = 7u32;
+
+fn commands_record(v: *RenderState) -> bool {
+    if !command_begin(v) {
+        return false;
+    }
+    command_stamp(v, 0u32);
+    upload_scene(v);
+    if v -> shader_checks {
+        command_clear(
+            v,
+            (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
+            MAX_INVOCATIONS as u64 * 4u64
+        );
+    }
+    command_barrier(v, BARRIER_UPLOAD);
+    retained_dispatch(v, 8usize, v -> instance_capacity);
+    command_barrier(v, BARRIER_COMPUTE);
+    retained_dispatch(v, 11usize, v -> instance_capacity + v -> light_capacity);
+    command_barrier(v, BARRIER_COMPUTE);
+    retained_dispatch(v, 12usize, v -> light_capacity);
+    command_barrier(v, BARRIER_COMPUTE);
+    retained_dispatch(v, 0usize, (v -> width * v -> height + 63u32) / 64u32);
+    command_barrier(v, BARRIER_INDIRECT);
+    command_stamp(v, 1u32);
+    var depth: u32 = 0u32;
+    while depth <= v -> crossing_limit {
+        retained_dispatch(
+            v,
+            9usize,
+            (v -> instance_capacity * v -> view_capacity + 63u32) / 64u32
+        );
+        command_barrier(v, BARRIER_COMPUTE);
+        command_bind(v, 1usize);
+        command_indirect(v, 68u64);
+        command_barrier(v, BARRIER_COMPUTE);
+        command_stamp(v, 2u32 + depth * 4u32);
+        compact_dispatch(v);
+        command_barrier(v, BARRIER_COMPUTE);
+        command_stamp(v, 3u32 + depth * 4u32);
+        task_dispatch(v, 10usize, 0u32);
+        command_barrier(v, BARRIER_COMPUTE);
+        task_dispatch(v, 2usize, 0u32);
+        command_barrier(v, BARRIER_COMPUTE);
+        command_stamp(v, 4u32 + depth * 4u32);
+        task_dispatch(v, 6usize, 3u32);
+        command_barrier(v, BARRIER_COMPUTE);
+        command_bind(v, 3usize);
+        command_direct(v, 1u32);
+        command_barrier(v, BARRIER_INDIRECT);
+        task_dispatch(v, 7usize, 6u32);
+        command_barrier(v, BARRIER_COMPUTE);
+        command_stamp(v, 5u32 + depth * 4u32);
+        depth = depth + 1u32;
+    }
+    retained_dispatch(v, 4usize, (v -> output_width * v -> output_height + 63u32) / 64u32);
+    command_barrier(v, BARRIER_COMPUTE);
+    if v -> shader_checks {
+        retained_dispatch(v, (PIPELINE_COUNT - 1u32) as usize, STATUS_GROUPS);
+    }
+    command_barrier(v, BARRIER_READBACK);
+    command_stamp(v, v -> query_count - 2u32);
+    readback(v);
+    command_stamp(v, v -> query_count - 1u32);
+    return command_end(v);
+}
+
+fn task_dispatch(v: *RenderState, pipeline: usize, field: u32) -> unit {
+    command_bind(v, pipeline);
+    var base: u32 = 0u32;
+    var batch: u32 = 0u32;
+    var commands: u32 = (v -> mapped as *u32)[TASK_COMMANDS as usize];
+    while base < v -> task_capacity {
+        command_barrier(v, BARRIER_BEFORE_UPDATE);
+        command_word(v, DISPATCH_BASE + 1u32, base);
+        command_barrier(v, BARRIER_AFTER_UPDATE);
+        command_indirect(
+            v,
+            (commands as u64 + 1u64 + batch as u64 * 9u64 + field as u64) * 4u64
+        );
+        base = base + MAX_INVOCATIONS / LOCAL_SIZE;
+        batch = batch + 1u32;
+    }
+}
+
+fn compact_dispatch(v: *RenderState) -> unit {
+    var base: u32 = 0u32;
+    while base < v -> view_capacity {
+        var count: u32 = v -> view_capacity - base;
+        if count > MAX_INVOCATIONS / LOCAL_SIZE {
+            count = MAX_INVOCATIONS / LOCAL_SIZE;
+        }
+        command_barrier(v, BARRIER_BEFORE_UPDATE);
+        command_word(v, DISPATCH_BASE + 1u32, base);
+        command_barrier(v, BARRIER_UPDATED_COMPUTE);
+        retained_dispatch(v, 5usize, count);
+        base = base + count;
+    }
+}

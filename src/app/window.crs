@@ -10,8 +10,6 @@ extern fn SDL_CreateWindow(
     flags: u32
 ) -> *u8 = "SDL_CreateWindow";
 extern fn SDL_DestroyWindow(window: *u8) -> unit = "SDL_DestroyWindow";
-extern fn SDL_Vulkan_GetInstanceExtensions(window: *u8, count: *u32, names: **u8) -> i32 = "SDL_Vulkan_GetInstanceExtensions";
-extern fn SDL_Vulkan_CreateSurface(window: *u8, instance: *u8, surface: **u8) -> i32 = "SDL_Vulkan_CreateSurface";
 extern fn SDL_PollEvent(event: *u8) -> i32 = "SDL_PollEvent";
 extern fn SDL_WaitEvent(event: *u8) -> i32 = "SDL_WaitEvent";
 fn window_open(window: **u8, width: u32, height: u32) -> bool {
@@ -26,7 +24,7 @@ fn window_open(window: **u8, width: u32, height: u32) -> bool {
         805240832i32,
         width as i32,
         height as i32,
-        268435492u32
+        WINDOW_RENDER_FLAGS
     );
     if *window == null(*u8) {
         error(SDL_GetError());
@@ -41,35 +39,14 @@ fn window_close(window: *u8) -> unit {
         SDL_Quit();
     }
 }
-fn window_instance(v: *Vulkan, window: *u8) -> bool {
-    if window == null(*u8) {
-        return instance_open(v, 0u32, null(**u8));
-    }
-    var extensions: [*u8; 16] = uninit;
-    var count: u32 = 0u32;
-    if SDL_Vulkan_GetInstanceExtensions(window, &count, null(**u8)) == 0i32 || count > 16u32 {
-        return error("cannot obtain Vulkan window extensions");
-    }
-    if SDL_Vulkan_GetInstanceExtensions(window, &count, &extensions[0usize]) == 0i32 {
-        return error(SDL_GetError());
-    }
-    if !instance_open(v, count, &extensions[0usize]) {
-        return false;
-    }
-    if SDL_Vulkan_CreateSurface(window, v -> instance, &v -> surface) == 0i32 {
-        return error(SDL_GetError());
-    }
-    return true;
-}
 
-extern fn SDL_Vulkan_GetDrawableSize(window: *u8, width: *i32, height: *i32) -> unit = "SDL_Vulkan_GetDrawableSize";
 extern fn SDL_GetWindowFlags(window: *u8) -> u32 = "SDL_GetWindowFlags";
 // A minimized window suspends rendering. Internal resolution remains unchanged.
-fn window_draw(v: *Vulkan, window: *u8) -> bool {
+fn window_draw(v: *RenderState, window: *u8) -> bool {
     if window != null(*u8) {
         var width: i32 = 0i32;
         var height: i32 = 0i32;
-        SDL_Vulkan_GetDrawableSize(window, &width, &height);
+        window_extent(window, &width, &height);
         if width <= 0i32 || height <= 0i32 || (SDL_GetWindowFlags(window) & 64u32) != 0u32 {
             v -> present_ready = false;
             return true;

@@ -1,17 +1,19 @@
 extern fn fwrite(bytes: *u8, size: usize, count: usize, file: *u8) -> usize = "fwrite";
-extern fn snprintf(bytes: *u8, size: usize, format: *u8, width: u32, height: u32) -> i32 = "snprintf";
 
-fn capture(v: *Vulkan, path: *u8, width: u32, height: u32) -> bool {
+fn capture(v: *RenderState, path: *u8, width: u32, height: u32) -> bool {
     var file: *u8 = fopen(path, "wb");
     if file == null(*u8) {
         return error("cannot open capture");
     }
     var header: [u8; 64] = uninit;
-    var n: i32 = snprintf(&header[0usize], 64usize, "P6\n%u %u\n255\n", width, height);
-    var good: bool = n > 0i32 && n < 64i32;
-    if good {
-        good = fwrite(&header[0usize], 1usize, n as usize, file) == n as usize;
-    }
+    memcpy(&header[0usize], "P6\n", 3usize);
+    var n: usize = 3usize + decimal_u32(&header[3usize], width, 1u32);
+    header[n] = 32u8;
+    n = n + 1usize;
+    n = n + decimal_u32(&header[n], height, 1u32);
+    memcpy(&header[n], "\n255\n", 5usize);
+    n = n + 5usize;
+    var good: bool = fwrite(&header[0usize], 1usize, n, file) == n;
     var bytes: *u8 = v -> mapped + ((v -> mapped as *u32)[PRESENT_PIXELS as usize] as isize) * 4isize;
     var i: usize = 0usize;
     while good && i < (width * height) as usize {

@@ -1,4 +1,4 @@
-fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
+fn copy_region(v: *RenderState, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
     if size == 0u64 {
         return;
     }
@@ -8,14 +8,9 @@ fn copy_region(v: *Vulkan, src: *u8, dst: *u8, offset: u64, size: u64) -> unit {
     if dst == v -> staging {
         v -> frame_readback_bytes = v -> frame_readback_bytes + size;
     }
-    var copy: VkBufferCopy = make VkBufferCopy {
-        srcOffset: offset,
-        dstOffset: offset,
-        size: size
-    };
-    vkCmdCopyBuffer(v -> commands, src, dst, 1u32, &copy);
+    command_copy(v, src, dst, offset, size);
 }
-fn upload_scene(v: *Vulkan) -> unit {
+fn upload_scene(v: *RenderState) -> unit {
     retained_upload(v);
     retained_transfer(
         v,
@@ -83,7 +78,7 @@ fn upload_scene(v: *Vulkan) -> unit {
     );
 
 }
-fn readback(v: *Vulkan) -> unit {
+fn readback(v: *RenderState) -> unit {
     retained_readback(v);
     if (v -> mapped as *u32)[26usize] != 0u32 {
         copy_region(v, v -> buffer, v -> staging, 0u64, 83u64 * 4u64);
@@ -124,7 +119,7 @@ fn readback(v: *Vulkan) -> unit {
             (v -> mapped as *u32)[0usize] as u64 * (v -> mapped as *u32)[1usize] as u64 * 16u64
         );
     }
-    frame_barrier(v, 4096u32, 4096u32, 16384u32, 8192u32);
+    command_barrier(v, BARRIER_HOST);
 }
 
 fn input_word_dirty(input: mut FrameInput, index: u32) -> unit {
@@ -153,7 +148,7 @@ fn input_word_dirty(input: mut FrameInput, index: u32) -> unit {
         input.storage.font_dirty = true;
     }
 }
-fn persistent_upload(v: *Vulkan) -> unit {
+fn persistent_upload(v: *RenderState) -> unit {
     if v -> asset_dirty_end > v -> asset_dirty_begin {
         var offset: u64 = (v -> mapped as *u32)[ASSET_OFFSET as usize] as u64 + v -> asset_dirty_begin as u64 + 1u64;
         v -> asset_upload_bytes = (v -> asset_dirty_end - v -> asset_dirty_begin) as u64 * 4u64;

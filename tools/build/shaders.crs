@@ -66,7 +66,8 @@ fn build_shader(
     shared_kind: u32,
     shared_length: u32,
     report: bool,
-    checked: bool
+    checked: bool,
+    web: bool
 ) -> bool {
     var resources: [ShaderResource; 4] = make [ShaderResource; 4] {
         make ShaderResource {
@@ -136,14 +137,19 @@ fn build_shader(
     }
     var context: CrustContext = uninit;
     crust_context_init(&context, null(*CrustAllocator));
-    var good: bool = shader_build(&context, &source, &config, host_path(root, output));
+    var good: bool = false;
+    if web {
+        good = shader_build_wgsl(&context, &source, &config, host_path(root, output));
+    } else {
+        good = shader_build(&context, &source, &config, host_path(root, output));
+    }
     if !good {
         crust_run_diagnostic(&context);
     }
     crust_context_destroy(&context);
     return good;
 }
-fn build_render_shaders(root: *CrustRun) -> bool {
+fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
     var llvm: *u8 = build_getenv("LLVM_DIRECTORY");
     var validator: *u8 = build_getenv("SPIRV_VAL");
     if llvm == null(*u8) {
@@ -152,10 +158,12 @@ fn build_render_shaders(root: *CrustRun) -> bool {
     if validator == null(*u8) {
         validator = host_path(root, "build/toolchain/spirv-val");
     }
-    if build_access(stage_path(root, llvm, "bin/llc"), 1i32) != 0i32 || build_access(
-        stage_path(root, llvm, "bin/opt"),
-        1i32
-    ) != 0i32 || build_access(validator, 1i32) != 0i32 {
+    if !web && (
+        build_access(stage_path(root, llvm, "bin/llc"), 1i32) != 0i32 || build_access(
+            stage_path(root, llvm, "bin/opt"),
+            1i32
+        ) != 0i32 || build_access(validator, 1i32) != 0i32
+    ) {
         return native_error(
             root -> context,
             "set LLVM_DIRECTORY and SPIRV_VAL, or provide build/toolchain/llvm and build/toolchain/spirv-val"
@@ -192,26 +200,28 @@ fn build_render_shaders(root: *CrustRun) -> bool {
         if !build_shader(
             root,
             sources[i],
-            render_build_shader_path(i, true),
+            render_build_shader_path(root, i, true, web),
             llvm,
             validator,
             SHADER_WORKGROUP_U32,
             shared_length,
             i == 13usize,
-            true
+            true,
+            web
         ) {
             return false;
         }
         if i < 13usize && !build_shader(
             root,
             sources[i],
-            render_build_shader_path(i, false),
+            render_build_shader_path(root, i, false, web),
             llvm,
             validator,
             SHADER_WORKGROUP_U32,
             shared_length,
             false,
-            false
+            false,
+            web
         ) {
             return false;
         }
@@ -219,35 +229,19 @@ fn build_render_shaders(root: *CrustRun) -> bool {
     }
     return true;
 }
-fn render_build_shader_path(slot: usize, checked: bool) -> *u8 {
-    var paths: [*u8; 27] = make [*u8; 27] {
-        "build/init.spv",
-        "build/transform.spv",
-        "build/raster.spv",
-        "build/advance.spv",
-        "build/compose.spv",
-        "build/compact.spv",
-        "build/scan.spv",
-        "build/fill.spv",
-        "build/instances.spv",
-        "build/visibility.spv",
-        "build/bin.spv",
-        "build/shadow-build.spv",
-        "build/shadow-top.spv",
-        "build/init.debug.spv",
-        "build/transform.debug.spv",
-        "build/raster.debug.spv",
-        "build/advance.debug.spv",
-        "build/compose.debug.spv",
-        "build/compact.debug.spv",
-        "build/scan.debug.spv",
-        "build/fill.debug.spv",
-        "build/instances.debug.spv",
-        "build/visibility.debug.spv",
-        "build/bin.debug.spv",
-        "build/shadow-build.debug.spv",
-        "build/shadow-top.debug.spv",
-        "build/status.debug.spv"
-    };
-    return paths[slot + checked as usize * 13usize];
+fn render_build_shader_path(root: *CrustRun, slot: usize, checked: bool, web: bool) -> *u8 {
+    var directory: *u8 = "build/";
+    var extension: *u8 = ".spv";
+    if web {
+        directory = "build/web/shaders/";
+        extension = ".wgsl";
+    }
+    return native_join(
+        root -> context,
+        directory,
+        native_join(root -> context, render_shader_name(slot, checked), extension)
+    );
+}
+fn build_render_shaders(root: *CrustRun) -> bool {
+    return build_render_shaders_target(root, false);
 }

@@ -1,4 +1,4 @@
-fn app_renderer_open(v: *Vulkan, window: *u8, config: *RenderConfig) -> bool {
+fn app_renderer_open(v: *RenderState, window: *u8, config: *RenderConfig) -> bool {
     if !window_instance(v, window) {
         return false;
     }
@@ -7,7 +7,7 @@ fn app_renderer_open(v: *Vulkan, window: *u8, config: *RenderConfig) -> bool {
     var good: bool = true;
     var i: usize = 0usize;
     while good && i < (13usize + (config -> shader_checks) as usize) {
-        good = read_input(render_shader_path(i, config -> shader_checks), &shaders[i]);
+        good = read_renderer_shader(i, config -> shader_checks, &shaders[i]);
         i = i + 1usize;
     }
     if good {
