@@ -2,8 +2,8 @@
 
 ## Status and purpose
 
-This document defines the target architecture. It does not describe an implemented
-scheduler. The current game loop and public renderer draw call are synchronous.
+This document defines the target architecture. The current game loop and public
+renderer draw call are synchronous.
 The [transfer contract](../render/transfers.md) describes current resource use.
 Keep that contract until each replacement passes the delivery gates below.
 
@@ -92,12 +92,56 @@ CPU states are `waiting`, `ready`, `running`, and a terminal state: `succeeded`,
 A success dependency becomes ready only after all required producers succeed.
 A failed or cancelled producer prevents its success consumers from running.
 Explicit error handlers and finalizers can depend on terminal results.
+A skipped success consumer becomes cancelled and retains the producer failure
+as its cause. Every admitted node must reach a terminal state.
 
 Validate cycles, result types, lane requirements, and resource access when the
 graph is sealed. A static frame graph can be sealed once and instantiated with
 new data. Internal scheduling then consumes trusted graph state. It must not
 repeat graph validation at every queue operation. Dynamic batches create child
 scopes with explicit inputs and a join result; they cannot mutate a running graph.
+
+The parent scope owns each child scope until the child drains. Its drain result
+includes all transitive children, their external operations, and provider cleanup.
+A parent task can return after creating a child. The parent scope must remain
+alive until that child's join and retirement complete. A worker that needs the
+child's result returns and schedules a continuation with that dependency.
+
+## External operation protocol
+
+An external operation has separate submission and completion obligations. The
+runtime creates an owned operation record before the provider can start work.
+The record holds the payload, result storage, completion capability, and resource
+leases. The scope registers this record before the provider can invoke a callback.
+
+The result becomes available only after both events occur:
+
+1. The submission function has returned and published its final acceptance state.
+2. The provider has published the external result.
+
+A callback may run before submission returns. Either event can arrive first.
+The second event releases ready consumers through one atomic state transition.
+The submission result and callback result must be visible before those consumers
+run. The subscription protocol below must also handle completion before a consumer
+subscribes. These are separate races and require separate checks.
+
+On successful submission, the provider owns the obligation to complete exactly
+once. On rejection, the provider guarantees that no external work or callback
+remains. The runtime publishes the rejection result and closes both obligations.
+A provider that can partially submit must retain the record and report failure
+only after it has accounted for every accepted operation and callback.
+
+Operation payload lifetime is explicit. Returning from the submission function
+releases only its local captures. Move all data needed by callbacks or device work
+into the operation record before submission. An external completion counter alone
+cannot extend the lifetime of a stack variable or a borrowed upload range.
+
+Separate result publication from resource retirement when a service has additional
+consumers. Each resource lease has one retirement owner. The record and its scope
+can drain only when all obligations and leases have ended. Cancellation can mark
+the result unwanted, but the operation record remains until the provider stops
+using it. Required completion and error delivery must never be rejected because
+a normal ready queue is full.
 
 ## Ownership and memory safety
 
@@ -126,6 +170,9 @@ A graph scope remains owned until its drain result completes. Dropping a token
 must not free a submitted operation's resources. Task-local cleanup is immediate
 only for resources with no external users. Provider cleanup can create retirement
 work on the required lane. Shutdown explicitly drains such work.
+If a consumer is cancelled, its unconsumed owned result still needs destruction.
+Register this destruction as a retirement obligation on the required lane.
+It survives cancellation and is part of scope drain.
 
 Use reusable storage for graph instances, result batches, and frame slots.
 Allocate task records in batches. Do not allocate one heap object for every
@@ -148,6 +195,11 @@ A serial service lane is an ordering rule, not necessarily a dedicated thread.
 Each provider declares whether it also requires a fixed thread. Destructors obey
 the same affinity rule as ordinary operations.
 
+Suspended work can resume on another worker. Keep its persistent state in its
+owned task record. Thread-local scratch belongs to the current invocation and
+must be released before it returns. A serial lane permits migration between
+invocations; a fixed-thread lane requires the same thread for each access.
+
 Use a fixed worker count selected at startup. Start with a bounded common ready
 queue. Add per-worker queues and work stealing only if measurements show queue
 contention. Keep the scheduling policy independent of the public graph API.
@@ -169,6 +221,25 @@ Queue exhaustion applies backpressure at scope admission. It must not discard
 work, spin a worker, or silently run a thread-affine task on the caller. Reserve
 completion and finalization capacity for already admitted operations so a full
 work queue cannot prevent retirement. Report allocation failure to the scope owner.
+Store ready-list links in admitted node records. A completion that makes several
+nodes ready must need neither a new allocation nor free admission capacity.
+
+Use separate controls for CPU concurrency, pending external operations, and live
+memory. A serial submission function can launch many operations before any one
+finishes. Each operation must acquire an admission credit before submission and
+return it at the declared retirement boundary. Frame credits cover the slot
+lifetime through its final resource user. Byte budgets include old and new resource generations during
+replacement. Exhaustion produces a readiness dependency or an allocation error;
+it must not block a worker. Providers must reserve the capacity needed to report
+completion before they accept an operation.
+
+Reserve child-node storage and external-operation credits before admitting a
+parent scope. Children use that reservation. Variable-size work uses bounded
+batches and releases each batch before admitting the next. A scope must never
+wait for credits from a pool while retaining the credits that prevent progress
+in that pool. Apply the same rule to resource-generation replacement: reserve
+the overlap memory before starting replacement, or report allocation failure.
+These bounds control concurrent work; they do not limit scene geometry.
 
 ## Simulation and frame graph
 
@@ -199,7 +270,8 @@ flowchart TD
     U --> G[GPU execution]
     G --> V[Capacity readback and frame validation]
     V --> D[Present valid image]
-    D --> R[Presentation retirement]
+    D --> C[Presentation copy complete]
+    C --> R[Frame retirement finalizer]
     N --> T[Next ordered simulation tick]
 ```
 
@@ -213,6 +285,10 @@ motion or consume input. At first, a rendered frame requires predictions from
 its own snapshot. Do not silently substitute an older prediction to meet a
 render deadline. Asset generation and file operations use separate scopes;
 installation of a new world version is an explicit simulation boundary.
+Simulation selects the required asset version and installation tick before the
+asset job completes. That tick depends on the version being ready. Completion
+time cannot select the installation tick or change input-to-tick assignment.
+A slow asset job can delay execution, but cannot change replay results.
 
 Rendering snapshot N can overlap simulation N+1. This requires separate state;
 a lock around the current mutable `GameSession` would serialize the same work.
@@ -245,7 +321,8 @@ readback, capture, or presentation operation still refers to it.
 
 Interactive rendering can discard an obsolete snapshot before its graph is
 admitted. Keep at most the latest unadmitted render snapshot. Never discard a
-simulation tick or a submitted frame's retirement work. Deterministic captures
+simulation tick or a submitted frame's retirement work. Discarding an unadmitted
+snapshot immediately releases its world-version references. Deterministic captures
 use explicit requested snapshots and wait for admission instead of dropping them.
 Do not add interpolation or change simulation timing as part of this migration.
 
@@ -262,13 +339,40 @@ Expose distinct results:
 | Submission accepted | The backend accepted the work and owns its referenced resources |
 | GPU work complete | Device execution and required transfer operations completed |
 | Frame valid | Capacity result and enabled debug checks passed; image can be presented |
-| Presentation retired | The output service no longer uses the image or synchronization resources |
+| Presentation source released | The output service completed its final read of the validated output |
+| Presentation retired | The provider no longer uses the surface image or its presentation synchronization |
 | Frame retired | All frame consumers released their resource leases; the slot can be reused |
 
 A valid image is a capability produced by successful frame validation. The
 presentation API requires that capability. GPU completion alone cannot construct
 it. A capture is another image consumer and holds its own lease until readback
 and file output complete.
+
+Keep the existing offscreen output path on both backends. Validation precedes
+acquisition and copying into a surface image. The source output remains leased
+until that copy completes on the GPU. Browser canvas acquisition occurs in the
+presentation callback on the context-owning thread. Measure the latency of this
+path; do not assume that it adds a fixed number of frames.
+
+Presentation requests follow admitted frame order. A later frame waits until
+every earlier frame was presented or explicitly discarded. A failed frame is
+reported and cancelled; there is no automatic capacity retry. Its retirement
+finalizer depends on terminal results and resource release, rather than successful
+presentation. Cancellation, validation failure, and resize must all release the
+slot after its final consumer retires.
+
+Surface images and presentation synchronization belong to a separate provider
+pool. Their lifetime can extend beyond frame-slot retirement. Surface acquisition
+and presentation retirement must make progress without acquiring a new frame
+slot. Native providers must track present-wait semaphore reuse by surface image
+and retain old surface generations until their presentation operations retire.
+Select and verify the retirement mechanism before the asynchronous slice: use
+presentation fences where supported, or prove the acquire-based retirement and
+teardown rules for the selected Vulkan WSI path. A render fence alone cannot
+prove that presentation has released its semaphore. See the
+[Vulkan semaphore reuse guide](https://docs.vulkan.org/guide/latest/swapchain_semaphore_reuse.html).
+If the provider cannot establish retirement and teardown, this delivery gate
+fails; do not enable asynchronous presentation on that path.
 
 Preserve the current four-byte capacity readback. It detects runtime traversal
 capacity exhaustion, not shader assertions. Schedule its result asynchronously
@@ -308,6 +412,9 @@ workers. It must report its mode, not claim that a worker pool is active.
 The browser application thread must return to its event loop. It cannot block
 while waiting for a task, slot, GPU result, or shutdown. Completion callbacks
 schedule bounded continuation work. Long CPU batches must yield between nodes.
+The application thread must also avoid blocking locks or spin waits on workers.
+Worker notifications use an asynchronous provider mailbox and browser event
+delivery. Completion publication uses storage reserved at admission.
 
 A browser pool uses workers and shared WebAssembly memory behind the runtime
 provider. Its build requires the necessary atomic and shared-memory support in
@@ -341,29 +448,44 @@ Before implementation, record a controlled baseline from the production game:
 fixed seed, complexity, resolution, input recording, GPU, and execution mode.
 Include a lit room, portal overlap, hook launch and reeling, and traversal through
 several rooms. Record CPU stage time, GPU time, waits, upload bytes, p50/p95/p99
-frame time, input-to-submission latency, and peak host/device memory. Separate
-startup allocation from steady execution. Use repeated runs to estimate noise.
+frame time, input-to-submission and input-to-presentation-request latency, and
+peak host/device memory. Separate startup allocation from steady execution.
+Use repeated runs to estimate noise.
 
-Trace every task with its graph, tick/frame, lane, dependencies, start/end time,
-and external wait interval. Include queue depth and slot occupancy. Runtime
-tracing uses generic labels supplied by clients; it contains no player fields.
+Trace every task with its graph, tick/frame, lane, dependencies, ready time,
+execution start/end time, and external wait interval. Include queue depth,
+admission-credit use, live bytes, and slot occupancy. Runtime tracing uses
+generic labels supplied by clients; it contains no player fields.
 Use bounded per-worker trace buffers. Trace overflow must be reported.
+
+Measure total CPU work and the longest dependency chain separately. Record queue
+delay from ready time to start time. Distinguish useful CPU execution, scheduler
+cost, and external wait time. A serialized simulation or assembly chain sets a
+speed limit even when more workers are available. Use the actual trace to assess
+that limit; work-stealing bounds for fully strict CPU tasks do not establish a
+bound for our GPU events, priorities, and affinity lanes.
 
 Deliver in this order:
 
 1. **Checked runtime contract.** Implement owned tasks, publication, completion,
-   scopes, and serial execution in Crust. Test transfer, sharing, affinity, and
-   escaped-capture rejection. Establish the native and browser provider boundary.
+   scopes, and serial execution in Crust. Test owned-result lifetime, affinity,
+   and escaped-capture rejection. Establish the native and browser provider
+   boundary, including any completion-thread transfers. General cross-worker
+   transfer and sharing checks are required before step 4.
 2. **Production asynchronous slice.** Run one actual game frame through an owned
    snapshot, submission, capacity validation, presentation, and retirement. Run
    prediction while GPU work is pending. Exercise resize and cancellation in
-   this path. This is the required ownership and output proof.
+   this path. Check duplicate slot memory before implementation; split immutable
+   assets at this step if duplication exceeds the budget. This is the required
+   ownership and output proof. A fresh graph per frame is sufficient for this
+   slice; reusable graph instances require separate cost measurements.
 3. **Measured decision.** Compare that slice with the baseline. Require unchanged
    simulation hashes and controlled render output, zero worker time in external
    waits, bounded slot memory, and visible CPU/GPU overlap in the trace. Investigate
-   any p95 frame-time or input-to-submission regression above 5 percent. Do not
+   any p95 frame-time or either input-latency regression above 5 percent. Do not
    expand the architecture if overlap is absent or a regression is unexplained.
-4. **CPU parallelism.** Add the worker pool and separate light, geometry,
+4. **CPU parallelism.** First prove cross-worker transfer, sharing, and rejection
+   of unsafe captures in Crust. Add the worker pool and separate light, geometry,
    prediction, and HUD batches. Compare one worker with several workers. Accept
    more task subdivision only when useful execution exceeds scheduling cost and
    the measured critical path improves. Preserve deterministic assembly.
@@ -385,6 +507,17 @@ for every scheduler change.
 - Runtime checks: completion before and after subscription, worker parking,
   full admission queues, cancellation races, generation reuse, and shutdown with
   pending external work. Use controlled event sources, not timed sleeps.
+- External-operation checks: callback before and after submission returns,
+  rejected and partially accepted submissions, cancellation during submission,
+  transitive child drain, and exactly-once completion under queue saturation.
+  Verify that payloads and admission credits survive until their retirement boundary.
+- Progress checks: nested scopes at full admission, completion fan-out with all
+  node storage admitted, and cancellation of the sole owned-result consumer.
+- Frame checks: out-of-order preparation, validation failure, cancelled capture,
+  and presentation retirement with more surface images than frame slots. Verify
+  slot release, source-copy lifetime, and monotonic presentation order.
+- Replay checks: delay asset completion across the required installation tick
+  and verify unchanged command assignment and simulation results.
 - Ownership checks: captured stack views, concurrent mutable access, unsafe shared
   payloads, wrong-lane access, and premature resource release must be rejected.
 - Renderer checks: two live slots, independent outputs, asset replacement,
@@ -398,6 +531,79 @@ for every scheduler change.
 Run native race and memory tools where the provider toolchain supports them.
 Use trace assertions to detect worker-side waits. Keep performance captures
 separate from correctness runs with heavy diagnostics.
+
+## Task-system research and design choices
+
+The sources below informed the contracts in this document. The proposed runtime
+remains a Crust component with native and browser providers. Adopting a source's
+design principle does not require adding that library as a dependency.
+
+### oneTBB
+
+The [flow graph async node](https://uxlfoundation.github.io/oneTBB/main/reference/source/flow_graph/async_node_cls.html)
+submits work to an external activity. Its
+[gateway](https://uxlfoundation.github.io/oneTBB/main/reference/source/named_requirements/flow_graph/gateway_type.html)
+uses `reserve_wait` and `release_wait` to account for outstanding external work,
+and `try_put` to publish output. Use this separation as a reference for external
+operation records and scope drain.
+
+An async node's concurrency limit applies to its body invocations. It does not
+bound external operations after those invocations return. This is the reason
+for separate admission credits. Flow-graph forwarding policies also permit
+message rejection in some configurations. Our completion channel requires
+delivery to every registered consumer, including error and cleanup consumers.
+
+oneTBB [resumable tasks](https://uxlfoundation.github.io/oneTBB/main/reference/source/task_scheduler/scheduling_controls/resumable_tasks.html)
+can resume on a different thread. This supports separate contracts for serial
+access and fixed-thread affinity. Its copyable message model leaves the checked
+ownership of Crust results and captures as an explicit requirement here.
+
+### Published game systems
+
+The original [Doom 2016 presentation](https://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pptx),
+slides 5–6, describes CPU clustered-light preparation with one job per depth
+slice. It also describes asynchronous GPU post-processing. The CPU example
+supports partitioning jobs by independent data regions. The GPU examples support
+keeping device dependencies inside the renderer. The presentation provides no
+complete CPU scheduler or lifetime contract.
+
+For Doom Eternal, Axel Gneiting's
+[worker-model post](https://twitter.com/axelgneiting/status/1241487918046347264)
+and [graph-composition post](https://twitter.com/axelgneiting/status/1243024235808862208)
+describe job-based engine work, workers per core, preconstructed graphs, and jobs
+that create other jobs. Direct access was unavailable during this review. The
+text is preserved in [contemporary embedded copies](https://www.dsogaming.com/news/doom-eternal-does-not-have-a-main-or-render-thread-anti-aliasing-uses-up-to-32-temporal-subsamples/).
+Treat these as attributed developer statements. The approximate job count was
+an estimate and supplies no task-size target for this project. The original
+[Eternal rendering presentation](https://advances.realtimerendering.com/s2020/RenderingDoomEternal.pdf)
+does not specify its CPU queue, fiber, ownership, or GPU-completion protocol.
+The available evidence supports reusable graphs with dynamic child work, while
+platform affinity still requires explicit handling in this engine.
+
+[Naughty Dog's scheduler presentation](https://media.gdcvault.com/gdc2015/presentations/Gyrling_Christian_Parallelizing_The_Naughty.pdf)
+describes fibers, priority queues, and job waits. Fibers can preserve sequential
+code across waits but add stack and context lifetime requirements. Use explicit
+continuations for the first native and browser implementation.
+
+[enkiTS](https://github.com/dougbinks/enkiTS) provides dependencies, pinned tasks,
+priorities, completion actions, and external-thread registration. Its scheduling
+is designed to avoid allocations. Use it as a small executor reference for
+consumer hardware and for reusable task storage. Checked payload ownership and
+GPU retirement remain requirements of our service interfaces.
+
+### Academic results and standards
+
+| Source | Result relevant to this design | Application |
+| --- | --- | --- |
+| [Blumofe and Leiserson: work stealing](https://www.cs.cornell.edu/courses/cs612/2006sp/papers/blumofe94.pdf) | Expected time depends on total work divided by processors plus critical-path length, for fully strict computations | Measure work and dependency chains; evaluate our external events and affinity constraints separately |
+| [Habanero-C async/finish and data-driven futures](https://wiki.rice.edu/confluence/display/HABANERO/Habanero-C) | A finish scope joins transitive child work; futures control readiness | Include children in scope drain and use dependent continuations; add separate data-race and external-lifetime checks |
+| [OpenMP detached tasks](https://www.openmp.org/spec-html/5.2/openmpse73.html) | Completion requires both the task body to finish and an external event to be fulfilled | Support both event orders; retain external payload explicitly because the task data environment ends with the body |
+| [StarPU mechanisms](https://starpu.gitlabpages.inria.fr/features.html) and [paper](https://onlinelibrary.wiley.com/doi/abs/10.1002/cpe.1631) | Scheduling accounts for data dependencies, accelerator transfers, and asynchronous execution | Preserve device residency and versioned assets; measure transfer costs along with queue costs |
+| [Taskflow paper](https://arxiv.org/abs/2004.10908) and [GPU task model](https://taskflow.github.io/taskflow/GPUTasking.html) | CPU and GPU graphs compose; reusable device graphs can reduce submission work | Keep GPU batches within the renderer provider; verify the Vulkan and WebGPU implementations with our workload |
+
+Published overhead measurements and benchmark speedups apply to their stated
+systems. Establish local task sizes and scheduling policy from the production
+baseline and delivery gates above.
 
 ## Platform references
 
