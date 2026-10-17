@@ -159,9 +159,9 @@ fn graph_test_run(session: GameSession, config: GameConfig) -> bool {
         return false;
     }
     var i: u32 = 0u32;
-    while i < graph_count(game_graph(read session)) {
-        var node: GraphNode = graph_node(game_graph(read session), i);
-        var p: RoomPort = graph_socket(game_graph(read session), node.first).port;
+    while i < graph_count(game_graph(read session.control)) {
+        var node: GraphNode = graph_node(game_graph(read session.control), i);
+        var p: RoomPort = graph_socket(game_graph(read session.control), node.first).port;
         loop.trial.drone.world = i;
         loop.trial.drone.position = sub(p.position, scale(p.basis.forward, 1f32));
         loop.trial.drone.basis = p.basis;

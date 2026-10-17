@@ -167,8 +167,8 @@ fn game_graph_visit(session: mut GameControl, trial: read Trial, reset: bool) ->
     }
     graph_visit(mut session.graph, trial.drone.world);
 }
-fn game_graph(session: read GameSession) -> read RoomGraph from session.control.graph {
-    return read session.control.graph;
+fn game_graph(control: read GameControl) -> read RoomGraph from control {
+    return read control.graph;
 }
 
 fn game_fps(session: read GameSession) -> u32 {
