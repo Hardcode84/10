@@ -50,6 +50,8 @@ application functions as the applications.
 
 ## Documents
 
+- Runtime: [task graph architecture](runtime/task-graph.md). This is the target
+  design for shared scheduling, task ownership, and asynchronous services.
 - Build: [bootstrap](build/bootstrap.md), [web game](build/web.md), [shader compiler](build/crust-spirv.md).
 - Render: [design](render/rendering.md), [build and checks](render/renderer-build.md),
   [textures](render/textures.md), [retained meshes](render/retained-meshes.md),

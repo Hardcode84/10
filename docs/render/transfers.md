@@ -61,6 +61,9 @@ ranges; they are not counts of live asset bytes.
 
 ## Completion and replacement
 
+The [task graph architecture](../runtime/task-graph.md) defines the replacement
+contract for asynchronous frames. The rules below describe the current code.
+
 The public draw call remains synchronous. It returns after its submission fence
 signals and the selected readback is available. This change does not add multiple
 frames in flight or promise CPU/GPU overlap.

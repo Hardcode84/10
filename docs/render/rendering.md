@@ -1,5 +1,8 @@
 # Rendering
 
+See the [task graph architecture](../runtime/task-graph.md) for the target
+CPU task model, asynchronous renderer API, and frame resource lifetimes.
+
 See the [parametric asset design](../content/parametric-assets.md) for generated content
 and the [engine gap register](../content/engine-gaps.md) for remaining physics,
 world-state, and tool work.
