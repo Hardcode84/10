@@ -18,7 +18,7 @@ record Cable {
     reel_speed: f32;
     reeling: bool;
 }
-fn empty_cable() -> Cable worker {
+fn empty_cable() -> Cable {
     return make Cable {
         frame: space_identity(),
         space: 0u32,
@@ -53,7 +53,7 @@ record Drone {
     brake_speed: f32;
     winch_work: f32;
 }
-fn new_drone() -> Drone worker {
+fn new_drone() -> Drone {
     return make Drone {
         step_frame: space_identity(),
         world: 0u32,

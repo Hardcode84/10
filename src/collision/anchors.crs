@@ -1,4 +1,4 @@
-fn portal_corner(portal: CollisionPortal, index: u32) -> Vec3 worker {
+fn portal_corner(portal: CollisionPortal, index: u32) -> Vec3 {
     var angle: f32 = portal.phase + 6.28318530718f32 * index as f32 / portal.sides as f32;
     return add(
         portal.origin,
@@ -11,7 +11,7 @@ fn portal_corner(portal: CollisionPortal, index: u32) -> Vec3 worker {
         )
     );
 }
-fn portal_reaches(portal: CollisionPortal, start: Vec3, travel: Vec3, radius: f32) -> bool worker {
+fn portal_reaches(portal: CollisionPortal, start: Vec3, travel: Vec3, radius: f32) -> bool {
     var distance: f32 = dot(portal.basis.forward, sub(start, portal.origin));
     var end: f32 = distance + dot(portal.basis.forward, travel);
     if (distance > radius && end > radius) || (distance < -radius && end < -radius) {
@@ -51,7 +51,7 @@ fn collision_anchors(
     travel: Vec3,
     radius: f32,
     depth: u32
-) -> bool worker {
+) -> bool {
     var cursor: u32 = room_anchor_count(read anchors);
     if !room_anchor_add(mut anchors, source) {
         return false;
@@ -81,7 +81,7 @@ fn collision_anchor_children(
     position: Vec3,
     travel: Vec3,
     radius: f32
-) -> bool worker {
+) -> bool {
     var start: Vec3 = space_point(anchor.transform, position);
     var delta: Vec3 = basis_vector(anchor.transform.basis, travel);
     var i: u32 = 0u32;
@@ -110,7 +110,7 @@ fn collision_anchor_children(
     }
     return true;
 }
-fn primary_anchor(object: u32, space: u32) -> RoomAnchor worker {
+fn primary_anchor(object: u32, space: u32) -> RoomAnchor {
     return make RoomAnchor {
         object: object,
         space: space,
@@ -122,7 +122,7 @@ fn primary_anchor(object: u32, space: u32) -> RoomAnchor worker {
     };
 }
 
-fn portal_sphere_reaches(portal: CollisionPortal, point: Vec3, radius: f32, distance: f32) -> bool worker {
+fn portal_sphere_reaches(portal: CollisionPortal, point: Vec3, radius: f32, distance: f32) -> bool {
     if portal_inside(portal, sub(point, scale(portal.basis.forward, distance))) {
         return true;
     }

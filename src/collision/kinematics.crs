@@ -1,8 +1,8 @@
 // Poses use space-local time in seconds. Angular velocity is expressed in that space.
-fn collision_moving(item: CollisionInstance) -> bool worker {
+fn collision_moving(item: CollisionInstance) -> bool {
     return dot(item.linear, item.linear) != 0f32 || dot(item.angular, item.angular) != 0f32;
 }
-fn collision_pose(item: CollisionInstance, time: f32) -> CollisionInstance worker {
+fn collision_pose(item: CollisionInstance, time: f32) -> CollisionInstance {
     var pose: CollisionInstance = item;
     pose.origin = add(item.origin, scale(item.linear, time));
     var speed: f32 = length(item.angular);
@@ -14,10 +14,10 @@ fn collision_pose(item: CollisionInstance, time: f32) -> CollisionInstance worke
     }
     return pose;
 }
-fn collision_surface_velocity(pose: CollisionInstance, local: Vec3) -> Vec3 worker {
+fn collision_surface_velocity(pose: CollisionInstance, local: Vec3) -> Vec3 {
     return add(pose.linear, cross(pose.angular, basis_vector(pose.basis, local)));
 }
-fn collision_anchor(scene: read CollisionScene, instance: u32, local: Vec3, time: f32) -> Vec3 worker {
+fn collision_anchor(scene: read CollisionScene, instance: u32, local: Vec3, time: f32) -> Vec3 {
     var pose: CollisionInstance = collision_pose(
         collision_instance(read scene, instance),
         time
@@ -29,7 +29,7 @@ fn collision_anchor_velocity(
     instance: u32,
     local: Vec3,
     time: f32
-) -> Vec3 worker {
+) -> Vec3 {
     return collision_surface_velocity(
         collision_pose(collision_instance(read scene, instance), time),
         local
@@ -39,13 +39,13 @@ record CollisionSweep {
     contact: CollisionContact;
     status: u32;
 }
-fn collision_sweep_result(contact: CollisionContact) -> CollisionSweep worker {
+fn collision_sweep_result(contact: CollisionContact) -> CollisionSweep {
     return make CollisionSweep {
         contact: contact,
         status: 0u32
     };
 }
-fn collision_reach(item: CollisionInstance) -> f32 worker {
+fn collision_reach(item: CollisionInstance) -> f32 {
     var size: Vec3 = vec(
         clamp(absf(item.low.x), absf(item.high.x), 3.4028234e38f32),
         clamp(absf(item.low.y), absf(item.high.y), 3.4028234e38f32),
@@ -63,7 +63,7 @@ fn collision_local_sweep_interval(
     radius: f32,
     time: f32,
     duration: f32
-) -> CollisionSweep worker {
+) -> CollisionSweep {
     var anchors: RoomAnchors = room_anchors_new();
     return collision_filtered_sweep_interval(
         read scene,
@@ -87,7 +87,7 @@ fn collision_filtered_sweep_interval(
     duration: f32,
     anchors: read RoomAnchors,
     anchor_index: u32
-) -> CollisionSweep worker {
+) -> CollisionSweep {
     var result: CollisionSweep = collision_sweep_result(
         collision_query_filtered(
             read scene,
@@ -127,7 +127,7 @@ fn collision_filtered_sweep_interval(
     }
     return result;
 }
-fn collision_embedded_at(scene: read CollisionScene, space: u32, p: Vec3, time: f32) -> u32 worker {
+fn collision_embedded_at(scene: read CollisionScene, space: u32, p: Vec3, time: f32) -> u32 {
     var found: u32 = collision_embedded(read scene, space, p);
     if found != 0xffffffffu32 {
         return found;

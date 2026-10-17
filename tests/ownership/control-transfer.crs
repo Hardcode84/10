@@ -1,0 +1,1 @@
+fn invalid_control_transfer(control: mut GameControl) -> unit transfers(control) {}

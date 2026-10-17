@@ -1,7 +1,4 @@
 const PREVIEW_MARKERS: u32 = 8u32;
-fn prediction_compute(collision: read CollisionScene, trial: read Trial) -> Prediction worker {
-    return predict_paths(read collision, read trial);
-}
 record PredictionMarker {
     center: Vec3;
     eye: Drone;
@@ -11,7 +8,7 @@ record Prediction {
     markers: [PredictionMarker; 8];
     count: u32;
 }
-fn prediction_new() -> Prediction worker {
+fn prediction_new() -> Prediction {
     var marker: PredictionMarker = make PredictionMarker {
         center: vec(0f32, 0f32, 0f32),
         eye: new_drone(),
@@ -37,7 +34,7 @@ record PreviewTrail {
     limit: u32;
     material: u32;
 }
-fn preview_trail(limit: u32, material: u32, phase: f32) -> PreviewTrail worker {
+fn preview_trail(limit: u32, material: u32, phase: f32) -> PreviewTrail {
     return make PreviewTrail {
         distance: phase,
         markers: 0u32,
@@ -51,7 +48,7 @@ fn predict_segment(
     before: Vec3,
     after: Vec3,
     eye: Drone,
-) -> unit worker {
+) -> unit {
     var travel: Vec3 = sub(after, before);
     var segment: f32 = length(travel);
     var next: f32 = (trail.markers + 1u32) as f32 * PREVIEW_SPACING;
@@ -68,7 +65,7 @@ fn predict_segment(
     }
     trail.distance = trail.distance + segment;
 }
-fn predict_paths(collision: read CollisionScene, trial: read Trial) -> Prediction worker {
+fn predict_paths(collision: read CollisionScene, trial: read Trial) -> Prediction {
     var prediction: Prediction = prediction_new();
     var hook_ready: bool = trial.drone.cable.phase == CABLE_READY && trial.preview_enabled;
     var limit: u32 = PREVIEW_MARKERS;
@@ -86,7 +83,7 @@ fn predict_drone(
     prediction: mut Prediction,
     trial: read Trial,
     limit: u32
-) -> u32 worker {
+) -> u32 {
     if !trial.preview_enabled {
         return 0u32;
     }
@@ -119,7 +116,7 @@ fn predict_portal(
     before: Vec3,
     after: Vec3,
     eye: Drone,
-) -> unit worker {
+) -> unit {
     var crossings: u32 = 0u32;
     while crossings < 1024u32 {
         var travel: Vec3 = sub(after, before);
@@ -148,7 +145,7 @@ fn predict_hook(
     prediction: mut Prediction,
     trial: read Trial,
     limit: u32
-) -> unit worker {
+) -> unit {
     var drone: Drone = trial.drone;
     var command: Command = idle_command();
     command.tether = true;
@@ -188,7 +185,7 @@ fn predict_hook(
     }
 }
 
-fn preview_eye(eye: Drone, transform: SpaceTransform, space: u32) -> Drone worker {
+fn preview_eye(eye: Drone, transform: SpaceTransform, space: u32) -> Drone {
     eye.position = space_point(transform, eye.position);
     eye.basis = space_basis(transform, eye.basis);
     eye.world = space;

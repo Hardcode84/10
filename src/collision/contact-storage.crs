@@ -9,7 +9,7 @@ resource CollisionPlanes {
     capacity: u32;
 }
 opaque drop collision_planes_drop;
-fn collision_planes_new() -> CollisionPlanes worker {
+fn collision_planes_new() -> CollisionPlanes {
     var local: [CollisionPlane; 8] = uninit;
     return make CollisionPlanes {
         local: local,
@@ -18,29 +18,29 @@ fn collision_planes_new() -> CollisionPlanes worker {
         capacity: 8u32
     };
 }
-fn collision_planes_drop(planes: mut CollisionPlanes) -> unit worker {
+fn collision_planes_drop(planes: mut CollisionPlanes) -> unit {
     free(planes.extra as *u8);
 }
-fn collision_plane_count(planes: read CollisionPlanes) -> u32 worker {
+fn collision_plane_count(planes: read CollisionPlanes) -> u32 {
     return planes.count;
 }
-fn collision_plane(planes: read CollisionPlanes, index: u32) -> CollisionPlane worker {
+fn collision_plane(planes: read CollisionPlanes, index: u32) -> CollisionPlane {
     if planes.extra != null(*CollisionPlane) {
         return planes.extra[index as usize];
     }
     return planes.local[index as usize];
 }
-fn collision_planes_clear(planes: mut CollisionPlanes) -> unit worker {
+fn collision_planes_clear(planes: mut CollisionPlanes) -> unit {
     planes.count = 0u32;
 }
-fn collision_plane_store(planes: mut CollisionPlanes, index: u32, plane: CollisionPlane) -> unit worker {
+fn collision_plane_store(planes: mut CollisionPlanes, index: u32, plane: CollisionPlane) -> unit {
     if planes.extra != null(*CollisionPlane) {
         planes.extra[index as usize] = plane;
     } else {
         planes.local[index as usize] = plane;
     }
 }
-fn collision_plane_add(planes: mut CollisionPlanes, plane: CollisionPlane) -> bool worker {
+fn collision_plane_add(planes: mut CollisionPlanes, plane: CollisionPlane) -> bool {
     var i: u32 = 0u32;
     while i < planes.count {
         var old: CollisionPlane = collision_plane(read planes, i);

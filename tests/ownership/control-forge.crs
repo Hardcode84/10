@@ -1,0 +1,15 @@
+fn invalid_control_forge(
+    graph: RoomGraph,
+    window: GameWindow,
+    launch: Launch,
+    stream: Recording,
+    latency: LatencyLog
+) -> unit {
+    var control: GameControl = make GameControl {
+        graph: move graph,
+        window: move window,
+        launch: launch,
+        stream: move stream,
+        latency: move latency
+    };
+}

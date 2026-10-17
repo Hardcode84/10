@@ -94,22 +94,22 @@ fn collision_new() -> CollisionScene {
         space_count: 0u32
     };
 }
-fn collision_face(scene: read CollisionScene, index: u32) -> CollisionFace worker {
+fn collision_face(scene: read CollisionScene, index: u32) -> CollisionFace {
     return scene.data.faces[index as usize];
 }
-fn collision_instance(scene: read CollisionScene, index: u32) -> CollisionInstance worker {
+fn collision_instance(scene: read CollisionScene, index: u32) -> CollisionInstance {
     return scene.data.instances[index as usize];
 }
-fn collision_instances(scene: read CollisionScene) -> u32 worker {
+fn collision_instances(scene: read CollisionScene) -> u32 {
     return scene.data.instance_count;
 }
 fn collision_builder_instances(builder: read CollisionBuilder) -> u32 {
     return builder.data.instance_count;
 }
-fn collision_node(scene: read CollisionScene, index: u32) -> CollisionNode worker {
+fn collision_node(scene: read CollisionScene, index: u32) -> CollisionNode {
     return scene.nodes[index as usize];
 }
-fn collision_space(scene: read CollisionScene, id: u32) -> CollisionSpace worker {
+fn collision_space(scene: read CollisionScene, id: u32) -> CollisionSpace {
     var lo: u32 = 0u32;
     var hi: u32 = scene.space_count;
     while lo < hi {
@@ -310,7 +310,7 @@ fn collision_append_solid(
     return true;
 }
 
-fn collision_moving_head(scene: read CollisionScene) -> u32 worker {
+fn collision_moving_head(scene: read CollisionScene) -> u32 {
     return scene.data.moving;
 }
 // Sets constant centre and angular velocities on the last appended instance.

@@ -3,7 +3,7 @@ fn course_hit(collision: read CollisionScene, world: u32, p: Vec3, d: Vec3, radi
 }
 // Applies cable-limited motion with solid contact taking priority.
 // Invalid geometry or unresolved contacts terminate the run.
-fn move_drone(collision: read CollisionScene, drone: mut Drone, travel: Vec3) -> unit worker {
+fn move_drone(collision: read CollisionScene, drone: mut Drone, travel: Vec3) -> unit {
     move_drone_interval(read collision, mut drone, travel, 0f32);
 }
 fn move_drone_interval(
@@ -11,7 +11,7 @@ fn move_drone_interval(
     drone: mut Drone,
     travel: Vec3,
     duration: f32
-) -> unit worker {
+) -> unit {
     var time: f32 = drone.clock as f32 * STEP;
     var motion: CollisionMotion = collision_interval_begin(
         read collision,
@@ -47,7 +47,7 @@ fn move_drone_interval(
     drone.contact_work = drone.contact_work + motion.contact_work;
 }
 
-fn drone_portal(drone: mut Drone, portal: CollisionPortal) -> unit worker {
+fn drone_portal(drone: mut Drone, portal: CollisionPortal) -> unit {
     var t: SpaceTransform = portal.transform;
     drone.step_frame = space_compose(t, drone.step_frame);
     drone.world = portal.destination;
@@ -64,7 +64,7 @@ fn drone_portal_step(
     motion: mut CollisionMotion,
     time: f32,
     duration: f32
-) -> bool worker {
+) -> bool {
     var crossing: PortalCrossing = portal_crossing(
         read collision,
         drone.world,

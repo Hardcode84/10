@@ -14,10 +14,10 @@ record CollisionPortal {
     phase: f32;
     transform: SpaceTransform;
 }
-fn collision_portal_count(scene: read CollisionScene) -> u32 worker {
+fn collision_portal_count(scene: read CollisionScene) -> u32 {
     return scene.data.portal_count;
 }
-fn collision_portal(scene: read CollisionScene, index: u32) -> CollisionPortal worker {
+fn collision_portal(scene: read CollisionScene, index: u32) -> CollisionPortal {
     return scene.data.portals[index as usize];
 }
 fn collision_portal_append(builder: mut CollisionBuilder, portal: CollisionPortal) -> bool {

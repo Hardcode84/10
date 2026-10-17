@@ -43,7 +43,7 @@ fn prediction_context_drop(context: mut PredictionContext) -> unit {
 }
 fn prediction_execute(data: *u8) -> bool {
     var payload: *PredictionPayload = data as *PredictionPayload;
-    payload -> result = prediction_compute(read * payload -> collision, read payload -> trial);
+    payload -> result = predict_paths(read * payload -> collision, read payload -> trial);
     return true;
 }
 fn prediction_start(context: mut PredictionContext, trial: Trial) -> PredictionTask transfers(

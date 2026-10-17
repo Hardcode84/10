@@ -30,9 +30,9 @@ Both window loops use the same delay before the next simulation step.
 The native pool has bounded job storage, completion generations, and joined
 shutdown. A job retains its pool loan until cleanup. The prediction operation
 also retains its collision input and exclusive result context until cleanup.
-Crust checks explicit `worker` call contracts and `transfers` capture contracts.
-Shared collision storage has a trusted `share` contract. Checked worker bodies
-include automatic cleanup in their call checks. The typed game adapter contains
+Crust checks structural transfer and sharing capabilities at `transfers` capture
+boundaries. Shared collision storage has a trusted `share` contract. Ordinary
+computation needs no execution annotation. The typed game adapter contains
 the provider callback; checked frame code contains no raw callback or pointer.
 
 Use `--tasks --workers 1` for native worker execution. Use `--tasks --workers 0`
@@ -61,6 +61,39 @@ admission budgets specified below. The CPU pool implements bounded admission and
 generation checks for its own jobs.
 These contracts must be implemented before the full runtime can replace the
 application loops. Demo and viewer remain on their synchronous paths.
+
+### Data and authority at execution boundaries
+
+The compiler has no function classification for pool execution. Transfer and
+sharing capabilities describe values. The runtime uses those capabilities at
+capture boundaries. A channel uses the same rules for messages. See the
+[Crust contract](../../crust/docs/ownership-model.md#transfer-and-sharing-capabilities).
+
+A moved capture must permit transfer. A shared loan must refer to shareable
+storage. An exclusive loan must refer to transferable storage and remain
+exclusive until retirement. The result owner retains these loans through
+completion and cleanup. The same rules apply to zero-worker execution, so
+changing the worker count cannot change which programs are accepted.
+
+Thread-bound authority belongs in an opaque value with neither capability.
+Game window and input operations require `GameControl` or a containing
+`GameSession`. `GameControl` cannot be transferred, shared across threads, or
+constructed by checked clients. The trusted application entry creates it.
+`game_session` requires a raw launch pointer, which checked code cannot supply.
+Raw SDL declarations have no checked foreign contract. Checked code must use
+an API that requires the correct authority.
+
+Trusted APIs must support every call their input contracts permit. A function
+that requires a specific thread must take the corresponding authority. Constructors
+must not expose a way to manufacture that authority on another thread. Opaque
+transfer promises include destruction on the destination thread. Opaque sharing
+promises include concurrent calls through shared loans. Raw provider declarations
+remain private to the provider; exported interfaces retain the checked API.
+
+Prediction receives a copied `Trial` and a retained shared `CollisionScene` loan.
+Its helpers use ordinary function signatures. The result context remains exclusive
+until the job is dropped. Window state is absent from the capture. Renderer and
+input owners stay on the application thread.
 
 ### Experiment decision
 
@@ -298,8 +331,8 @@ The current native input attempt failed its keyboard-focus precondition. The
 earlier native input results above remain evidence for the serial CPU graph;
 they do not establish input latency for the worker path.
 
-Compiler checks cover worker call contracts, nested and temporary cleanup,
-source-free imports, unsafe captures, and retained context loans. Runtime checks
+Compiler checks cover data capabilities, captured cleanup authority, source-free
+imports, unsafe captures, and retained context loans. Runtime checks
 cover zero and two workers, admission exhaustion, failure delivery, generation
 reuse, and early job drop. Memcheck and Helgrind pass the focused pool fixture.
 

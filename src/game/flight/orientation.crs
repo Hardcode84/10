@@ -1,4 +1,4 @@
-fn turn_basis(b: Basis, axis: Vec3, angle: f32) -> Basis worker {
+fn turn_basis(b: Basis, axis: Vec3, angle: f32) -> Basis {
     var f: Vec3 = unit_vector(rotate(b.forward, axis, angle));
     var r: Vec3 = unit_vector(cross(rotate(b.up, axis, angle), f));
     return make Basis {
@@ -7,7 +7,7 @@ fn turn_basis(b: Basis, axis: Vec3, angle: f32) -> Basis worker {
         forward: f
     };
 }
-fn orient(drone: mut Drone, look: Vec3, auto_level: bool) -> unit worker {
+fn orient(drone: mut Drone, look: Vec3, auto_level: bool) -> unit {
     var factor: f32 = 1f32;
     if !auto_level {
         factor = 1.3f32;

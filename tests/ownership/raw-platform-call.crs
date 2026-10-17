@@ -1,0 +1,3 @@
+fn invalid_raw_platform_call() -> unit {
+    SDL_SetRelativeMouseMode(1i32);
+}

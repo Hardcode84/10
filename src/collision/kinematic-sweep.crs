@@ -7,7 +7,7 @@ fn collision_rotating_face(
     radius: f32,
     time: f32,
     duration: f32
-) -> CollisionSweep worker {
+) -> CollisionSweep {
     var item: CollisionInstance = collision_instance(read scene, index);
     var face_data: CollisionFace = collision_face(read scene, item.first + face);
     var bound: f32 = length(sub(d, scale(item.linear, duration))) + length(item.angular) * duration * collision_reach(
@@ -75,7 +75,7 @@ fn collision_sweep_moving(
     duration: f32,
     anchors: read RoomAnchors,
     anchor_index: u32
-) -> CollisionSweep worker {
+) -> CollisionSweep {
     var pose: CollisionInstance = collision_pose(item, time);
     var relative: Vec3 = sub(d, scale(item.linear, duration));
     var reach: f32 = collision_reach(item) + radius;
@@ -147,7 +147,7 @@ fn collision_rotation_advance(
     duration: f32,
     gap: f32,
     bound: f32
-) -> f32 worker {
+) -> f32 {
     var omega: Vec3 = collision_local(pose.basis, scale(item.angular, duration));
     var derivative: Vec3 = sub(
         collision_local(pose.basis, relative),

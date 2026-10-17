@@ -2,7 +2,7 @@ const HOOK_SPEED: f32 = 60f32;
 const HOOK_MASS_RATIO: f32 = 0.02f32;
 const HOOK_RADIUS: f32 = 0.06f32;
 const CABLE_REACH: f32 = 120f32;
-fn hook_launch(drone: mut Drone) -> unit worker {
+fn hook_launch(drone: mut Drone) -> unit {
     drone.cable.phase = CABLE_FLYING;
     drone.cable.space = drone.world;
     drone.cable.frame = space_identity();
@@ -11,7 +11,7 @@ fn hook_launch(drone: mut Drone) -> unit worker {
     drone.cable.velocity = add(drone.velocity, impulse);
     drone.velocity = sub(drone.velocity, scale(impulse, HOOK_MASS_RATIO));
 }
-fn hook_range_time(position: Vec3, travel: Vec3, origin: Vec3) -> f32 worker {
+fn hook_range_time(position: Vec3, travel: Vec3, origin: Vec3) -> f32 {
     var offset: Vec3 = sub(position, origin);
     var c: f32 = dot(offset, offset) - CABLE_REACH * CABLE_REACH;
     if c >= 0f32 {
@@ -24,7 +24,7 @@ fn hook_range_time(position: Vec3, travel: Vec3, origin: Vec3) -> f32 worker {
     var b: f32 = dot(offset, travel);
     return clamp((-b + sqrtf(b * b - a * c)) / a, 0f32, 1f32);
 }
-fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) -> unit worker {
+fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) -> unit {
     if drone.cable.phase != CABLE_FLYING {
         return;
     }
@@ -48,7 +48,7 @@ fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) 
         }
     }
 }
-fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) -> f32 worker {
+fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) -> f32 {
     var inverse: SpaceTransform = space_inverse(drone.cable.frame);
     var position: Vec3 = space_point(inverse, drone.cable.anchor);
     var travel: Vec3 = scale(drone.cable.velocity, left);

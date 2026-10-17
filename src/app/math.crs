@@ -3,47 +3,47 @@ record Vec3 {
     y: f32;
     z: f32;
 }
-extern fn sinf(x: f32) -> f32 foreign(scalar) worker = "sinf";
-extern fn cosf(x: f32) -> f32 foreign(scalar) worker = "cosf";
-extern fn sqrtf(x: f32) -> f32 foreign(scalar) worker = "sqrtf";
-extern fn atan2f(y: f32, x: f32) -> f32 foreign(scalar) worker = "atan2f";
-fn vec(x: f32, y: f32, z: f32) -> Vec3 worker {
+extern fn sinf(x: f32) -> f32 foreign(scalar) = "sinf";
+extern fn cosf(x: f32) -> f32 foreign(scalar) = "cosf";
+extern fn sqrtf(x: f32) -> f32 foreign(scalar) = "sqrtf";
+extern fn atan2f(y: f32, x: f32) -> f32 foreign(scalar) = "atan2f";
+fn vec(x: f32, y: f32, z: f32) -> Vec3 {
     return make Vec3 {
         x: x,
         y: y,
         z: z
     };
 }
-fn add(a: Vec3, b: Vec3) -> Vec3 worker {
+fn add(a: Vec3, b: Vec3) -> Vec3 {
     return vec(a.x + b.x, a.y + b.y, a.z + b.z);
 }
-fn sub(a: Vec3, b: Vec3) -> Vec3 worker {
+fn sub(a: Vec3, b: Vec3) -> Vec3 {
     return vec(a.x - b.x, a.y - b.y, a.z - b.z);
 }
-fn scale(a: Vec3, s: f32) -> Vec3 worker {
+fn scale(a: Vec3, s: f32) -> Vec3 {
     return vec(a.x * s, a.y * s, a.z * s);
 }
-fn dot(a: Vec3, b: Vec3) -> f32 worker {
+fn dot(a: Vec3, b: Vec3) -> f32 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
-fn cross(a: Vec3, b: Vec3) -> Vec3 worker {
+fn cross(a: Vec3, b: Vec3) -> Vec3 {
     return vec(
         a.y * b.z - a.z * b.y,
         a.z * b.x - a.x * b.z,
         a.x * b.y - a.y * b.x
     );
 }
-fn length(a: Vec3) -> f32 worker {
+fn length(a: Vec3) -> f32 {
     return sqrtf(dot(a, a));
 }
-fn unit_vector(a: Vec3) -> Vec3 worker {
+fn unit_vector(a: Vec3) -> Vec3 {
     var d: f32 = length(a);
     if d < 0.000001f32 {
         return vec(0f32, 0f32, 0f32);
     }
     return scale(a, 1f32 / d);
 }
-fn clamp(x: f32, lo: f32, hi: f32) -> f32 worker {
+fn clamp(x: f32, lo: f32, hi: f32) -> f32 {
     if x < lo {
         return lo;
     }
@@ -52,13 +52,13 @@ fn clamp(x: f32, lo: f32, hi: f32) -> f32 worker {
     }
     return x;
 }
-fn absf(x: f32) -> f32 worker {
+fn absf(x: f32) -> f32 {
     if x < 0f32 {
         return -x;
     }
     return x;
 }
-fn component(v: Vec3, axis: u32) -> f32 worker {
+fn component(v: Vec3, axis: u32) -> f32 {
     if axis == 0u32 {
         return v.x;
     }
@@ -76,7 +76,7 @@ fn axis_vector(axis: u32) -> Vec3 {
     }
     return vec(0f32, 0f32, 1f32);
 }
-fn rotate(v: Vec3, axis: Vec3, angle: f32) -> Vec3 worker {
+fn rotate(v: Vec3, axis: Vec3, angle: f32) -> Vec3 {
     var c: f32 = cosf(angle);
     return add(
         add(scale(v, c), scale(cross(axis, v), sinf(angle))),
@@ -88,14 +88,14 @@ record Basis {
     up: Vec3;
     forward: Vec3;
 }
-fn identity_basis() -> Basis worker {
+fn identity_basis() -> Basis {
     return make Basis {
         right: vec(1f32, 0f32, 0f32),
         up: vec(0f32, 1f32, 0f32),
         forward: vec(0f32, 0f32, 1f32)
     };
 }
-fn basis_vector(b: Basis, v: Vec3) -> Vec3 worker {
+fn basis_vector(b: Basis, v: Vec3) -> Vec3 {
     return add(
         add(scale(b.right, v.x), scale(b.up, v.y)),
         scale(b.forward, v.z)
