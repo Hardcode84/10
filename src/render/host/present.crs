@@ -255,6 +255,12 @@ fn present_record(v: *RenderState, index: u32, width: u32, height: u32) -> bool 
     return vk_ok(vkEndCommandBuffer(v -> gpu.present_commands), "vkEndCommandBuffer");
 }
 fn present(v: *RenderState) -> bool {
+    v -> frame_present_start_ns = render_trace_clock(v);
+    var good: bool = present_image(v);
+    v -> frame_present_done_ns = render_trace_clock(v);
+    return good;
+}
+fn present_image(v: *RenderState) -> bool {
     if !v -> present_ready {
         return true;
     }

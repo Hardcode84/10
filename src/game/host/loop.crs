@@ -130,11 +130,19 @@ fn game_run_ready(
     loop: mut GameLoop,
     config: GameConfig
 ) -> i32 {
-    if config.tasks {
-        return game_run_tasks(read collision, mut session, mut loop, config);
-    }
     if !config.headless && !game_render(read collision, mut session, read loop, config) {
         return 1i32;
+    }
+    return game_run_active(read collision, mut session, mut loop, config);
+}
+fn game_run_active(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop,
+    config: GameConfig
+) -> i32 {
+    if config.tasks {
+        return game_run_tasks(read collision, mut session, mut loop, config);
     }
     var previous: u64 = now();
     while loop.running {

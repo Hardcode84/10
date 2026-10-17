@@ -105,6 +105,8 @@ This check uses the demo room and the production window loop. A separate input
 thread sends 32 level-toggle key presses at absolute 103.7 ms intervals. The
 production 120 Hz accumulator remains active. There is a 500 ms warm-up and a
 500 ms drain interval. The check leaves the drone at its initial position.
+Both native loop modes draw the initial image before their first input tick.
+The fixture waits up to five seconds for keyboard focus after that image.
 It measures the stationary control path; it cannot establish flight-load costs.
 SDL event injection is thread-safe and copies the event. See the
 [SDL event contract](https://wiki.libsdl.org/SDL2/SDL_PushEvent).
@@ -165,10 +167,60 @@ iteration. These offscreen measurements establish the current ordering and cost;
 they cannot establish latency through a native display. The native window check
 also runs through Xvfb and software Vulkan. In that check, input-to-presentation
 p95 is 18.54 / 19.39 ms. Presentation-interval p95 is 10.47 / 11.04 ms, a 5.4
-percent increase. This software-window frame result requires investigation
-before a rollout. Measure native service completion, dispatch, and presentation
-intervals on the target display to separate executor wake-up cost from device
-and window-system cost. The current native display performance gate is open.
+percent increase. The provider measurements below isolate that result from
+the game loop. The native input-latency gate remains open.
+
+#### Native presentation cost
+
+The optional trace also records fence completion observation, validation,
+presentation entry and return, and source release observation. These are host
+timestamps. A presentation request does not measure when a pixel reaches the
+display. Additional clock reads run only with `--latency-log`.
+
+Use the focused provider check to compare synchronous and asynchronous output:
+
+```sh
+crust tests.crs presentation --width 640 --height 480 --latency-log build/present-serial.swlt
+crust tests.crs presentation --tasks --width 640 --height 480 --latency-log build/present-tasks.swlt
+bun tests/game/presentation-report.mjs build/present-serial.swlt build/present-tasks.swlt
+```
+
+This check uses the generated demo room, production scene preparation, renderer,
+and window. It presents 128 stationary frames and excludes the first 16 from
+the distributions. It pumps events between frames. It does not run simulation,
+the task graph, or the game's input polling during pending output. Use the
+interactive check above to measure those costs. The report rejects incomplete
+traces, duplicate frame events, and invalid lifecycle order.
+
+Three paired runs on Intel Arc Pro B60 through Wayland at 640 by 480 produced
+these presentation-interval p95 values:
+
+| Pair | Synchronous | Asynchronous |
+| --- | --- | --- |
+| 1 | 17.30 ms | 17.15 ms |
+| 2 | 17.37 ms | 17.19 ms |
+| 3 | 17.27 ms | 17.34 ms |
+
+Asynchronous completion delivery, presentation dispatch, and source release
+each had a p95 from 6.7 to 11.8 microseconds across these runs. Submission to
+fence observation was about 3.3 to 3.6 ms at p50. Presentation request to provider
+return was about 11 ms at p50. The display wait dominates these service costs.
+One software Vulkan provider pair had interval p95 of 10.55 / 10.49 ms. These
+results do not reproduce the earlier software game-loop interval increase.
+One repeated software game-loop pair gave input-to-presentation p95 of
+18.69 / 18.38 ms and presentation-interval p95 of 10.59 / 11.00 ms. This pair
+passes the five-percent thresholds, but the interval increase is still larger
+than in the isolated provider check. That check excludes input polling during
+pending work; it cannot assign the remaining game-loop cost to service wake-up.
+
+The Intel input check has no valid paired result yet. One attempt received
+focus but completed with zero simulation ticks; another stalled before trace
+completion. A captured native stack placed the output service inside
+`vkQueuePresentKHR`, waiting in Wayland dispatch, while the GPU fence had already
+completed. Keep the surface visible and focused for a complete input run. The
+fixture rejects a paused or zero-tick result; the report also requires all 32
+commands to reach their presented snapshots. Do not infer input latency from
+the provider-only results.
 
 The current correction passes the browser input gate without the old-frame
 pipeline. It does not prove a benefit from CPU/GPU overlap. Keep the full

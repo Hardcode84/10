@@ -127,26 +127,26 @@ fn game_trace_output(session: mut GameSession) -> unit {
     if log -> events == null(*LatencyEvent) || session.renderer.state.frame_submit_ns == 0u64 {
         return;
     }
+    latency_frame_event(log, 3u32, session.renderer.state.frame_submit_ns);
+    latency_frame_event(log, 4u32, session.renderer.state.frame_present_ns);
+    latency_frame_event(log, 5u32, session.renderer.state.frame_retired_ns);
+    latency_frame_event(log, 6u32, session.renderer.state.frame_validated_ns);
+    latency_frame_event(log, 7u32, session.renderer.state.frame_present_start_ns);
+    latency_frame_event(log, 8u32, session.renderer.state.frame_present_done_ns);
+    latency_frame_event(log, 9u32, session.renderer.state.frame_released_ns);
+}
+fn latency_frame_event(log: *LatencyLog, kind: u32, time: u64) -> unit {
+    if time == 0u64 {
+        return;
+    }
     latency_write(
         log,
         make LatencyEvent {
-            kind: 3u32,
+            kind: kind,
             sequence: log -> frame_input,
             tick: log -> frame_tick,
             value: log -> frame,
-            time: session.renderer.state.frame_submit_ns
+            time: time
         }
     );
-    if session.renderer.state.frame_present_ns != 0u64 {
-        latency_write(
-            log,
-            make LatencyEvent {
-                kind: 4u32,
-                sequence: log -> frame_input,
-                tick: log -> frame_tick,
-                value: log -> frame,
-                time: session.renderer.state.frame_present_ns
-            }
-        );
-    }
 }

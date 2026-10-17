@@ -144,7 +144,7 @@ fn run_tests(root: *CrustRun) -> i32 {
     if output == null(*u8) {
         native_error(
             root -> context,
-            "tests.crs: use all, render 0..10, game, graph, tasks, latency, benchmark, viewer, ownership, or --build-only"
+            "tests.crs: use all, render 0..10, game, graph, tasks, latency, presentation, benchmark, viewer, ownership, or --build-only"
         );
         return 2i32;
     }
@@ -156,7 +156,7 @@ fn run_tests(root: *CrustRun) -> i32 {
 extern fn test_puts(text: *u8) -> i32 = "puts";
 fn test_help() -> i32 {
     test_puts(
-        "SPINWARD checks: crust tests.crs [assets|asset-viewer|collision|flight|reel|all|ownership|game|graph|graph-layout|tunnel-styles|hook-light|runtime|tasks|latency|benchmark W H|viewer|render N|--build-only]"
+        "SPINWARD checks: crust tests.crs [assets|asset-viewer|collision|flight|reel|all|ownership|game|graph|graph-layout|tunnel-styles|hook-light|runtime|tasks|latency|presentation|benchmark W H|viewer|render N|--build-only]"
     );
     test_puts(
         "render 1..9: palette, portals, playback, lighting, geometry, textures, retained views, portal capacity, image capacity/resize"

@@ -66,6 +66,7 @@ fn retirement_wait(v: *RenderState) -> unit {
         return;
     }
     v -> frame_wait_ns = render_now() - start;
+    v -> frame_retired_ns = render_trace_clock(v);
     v -> submitted = false;
 }
 fn retirement_close(v: *RenderState) -> unit {
@@ -90,6 +91,7 @@ fn retirement_poll(v: *RenderState) -> i32 {
     if !vk_ok(result, "poll renderer retirement") {
         return -1i32;
     }
+    v -> frame_retired_ns = render_trace_clock(v);
     v -> submitted = false;
     return 1i32;
 }

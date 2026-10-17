@@ -101,6 +101,11 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
 fn renderer_begin(v: *RenderState) -> bool {
     v -> frame_submit_ns = 0u64;
     v -> frame_present_ns = 0u64;
+    v -> frame_retired_ns = 0u64;
+    v -> frame_validated_ns = 0u64;
+    v -> frame_present_start_ns = 0u64;
+    v -> frame_present_done_ns = 0u64;
+    v -> frame_released_ns = 0u64;
     v -> present_ready = false;
     if !lighting_valid(v) {
         return false;
@@ -143,6 +148,7 @@ fn renderer_complete(v: *RenderState) -> bool {
     v -> font_dirty = false;
     v -> instance_dirty = false;
     v -> present_ready = true;
+    v -> frame_validated_ns = render_trace_clock(v);
     return true;
 }
 

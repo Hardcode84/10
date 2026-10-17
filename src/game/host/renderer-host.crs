@@ -30,6 +30,7 @@ fn game_renderer_open(v: *RenderState, o: *Launch, window: *u8, portals: u32) ->
         c.output_width = width as u32;
         c.output_height = height as u32;
     }
+    v -> frame_trace = o -> latency_path != null(*u8);
     return app_renderer_open(v, window, &c);
 }
 fn game_draw(session: mut GameSession) -> bool {
@@ -44,6 +45,7 @@ fn game_present(session: mut GameSession) -> bool {
     if !present(&session.renderer.state) {
         return false;
     }
+    session.renderer.state.frame_released_ns = render_trace_clock(&session.renderer.state);
     game_trace_output(mut session);
     if ready && !session.renderer.state.swapchain_dirty {
         frame_rate_sample(mut session.frame_rate, now());

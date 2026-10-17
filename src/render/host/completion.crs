@@ -6,10 +6,12 @@ fn retirement_observer_open(v: *RenderState) -> bool {
 }
 fn retirement_service_wait(data: *u8) -> bool {
     var v: *RenderState = data as *RenderState;
-    return vk_ok(
+    var good: bool = vk_ok(
         vkWaitForFences(v -> gpu.device, 1u32, &v -> gpu.retired, 1u32, ~0u64),
         "observe renderer retirement"
     );
+    v -> frame_retired_ns = render_trace_clock(v);
+    return good;
 }
 fn retirement_observer_start(v: *RenderState) -> unit {
     v -> gpu.observer_pending = true;
@@ -48,7 +50,11 @@ fn presentation_start(v: *RenderState) -> bool {
     return true;
 }
 fn presentation_status(v: *RenderState) -> i32 {
-    return service_poll(v -> gpu.observer);
+    var result: i32 = service_poll(v -> gpu.observer);
+    if result != 0i32 {
+        v -> frame_released_ns = render_trace_clock(v);
+    }
+    return result;
 }
 fn presentation_pause(v: *RenderState) -> unit {
     service_idle(v -> gpu.observer);

@@ -1,0 +1,75 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var launch: Launch = uninit;
+    if !game_options_scene(argc, argv, &launch, true) {
+        return 2i32;
+    }
+    if launch.config.headless {
+        return (!error("presentation check requires a window")) as i32;
+    }
+    if launch.latency_path == null(*u8) {
+        launch.latency_path = "build/presentation.swlt";
+    }
+    return presentation_measure(game_session(&launch), launch.config);
+}
+fn presentation_measure(session: GameSession, config: GameConfig) -> i32 {
+    var collision: CollisionScene = collision_new();
+    var loop: GameLoop = make GameLoop {
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    if !game_run_setup(mut session, mut collision, mut loop, config) {
+        return 1i32;
+    }
+    var iteration: u32 = 0u32;
+    while iteration < 128u32 {
+        var event: [u64; 8] = uninit;
+        while SDL_PollEvent(&event as *u8) != 0i32 {
+            if (&event as *u32)[0usize] == 256u32 {
+                return 1i32;
+            }
+        }
+        var prediction: Prediction = predict_paths(read collision, read loop.trial);
+        game_prepare(read collision, mut session, read loop, config, read prediction);
+        if config.tasks {
+            if !presentation_async(mut session) {
+                return 1i32;
+            }
+        } else if !game_draw(mut session) || !game_present(mut session) {
+            return 1i32;
+        }
+        iteration = iteration + 1u32;
+        game_wait();
+    }
+    return (!game_finish(mut session)) as i32;
+}
+fn presentation_async(session: mut GameSession) -> bool {
+    if game_surface(mut session) != 1i32 {
+        return error("presentation surface unavailable");
+    }
+    {
+        var frame: SubmittedFrame = frame_submit(mut session.renderer);
+        var result: i32 = frame_poll(mut frame);
+        while result == 0i32 {
+            frame_idle(mut frame);
+            result = frame_poll(mut frame);
+        }
+        if result < 0i32 {
+            return false;
+        }
+        var image: ValidatedImage = frame_image(mut frame);
+        var operation: Presentation = image_present(mut image);
+        result = presentation_poll(mut operation);
+        while result == 0i32 {
+            presentation_idle(mut operation);
+            result = presentation_poll(mut operation);
+        }
+        if result < 0i32 {
+            return false;
+        }
+    }
+    game_presented(mut session);
+    return true;
+}

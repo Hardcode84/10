@@ -1,16 +1,8 @@
+import {readFrameTrace, quantiles} from "./frame-trace.mjs";
 // Usage: bun tests/game/latency-report.mjs trace.swlt producer.txt
 const [tracePath, producerPath] = process.argv.slice(2);
 if (!tracePath || !producerPath) throw new Error('expected trace and producer log');
-const bytes = await Bun.file(tracePath).arrayBuffer();
-const view = new DataView(bytes);
-const word = offset => view.getUint32(offset, true);
-if (word(0) !== 0x53574c54 || word(4) !== 1 || word(8) !== 24 || bytes.byteLength !== 32 + word(12) * 24)
-  throw new Error('invalid latency trace');
-const events = [];
-for (let offset = 32; offset < bytes.byteLength; offset += 24) {
-  events.push({kind: word(offset), sequence: word(offset + 4), tick: word(offset + 8),
-    value: word(offset + 12), time: view.getBigUint64(offset + 16, true)});
-}
+const {events, ...metadata} = await readFrameTrace(tracePath);
 const text = await Bun.file(producerPath).text();
 const rows = text.split('input availability and timer jitter ns\n')[1]?.trim().split('\n');
 if (!rows || rows.length !== 64) throw new Error('expected 32 producer samples');
@@ -59,8 +51,7 @@ for (let i = 1; i < outputs.length; i++) {
 }
 const summary = {};
 for (const [name, samples] of Object.entries(measures)) {
-  samples.sort((a, b) => a - b);
-  summary[name] = Object.fromEntries([50, 95, 99].map(p => [`p${p}`, samples[Math.ceil(samples.length * p / 100) - 1]]));
+  summary[name] = quantiles(samples);
 }
 let zeroTickFrames = 0, multiTickFrames = 0;
 for (let i = 1; i < submissions.length; i++) {
@@ -69,6 +60,5 @@ for (let i = 1; i < submissions.length; i++) {
   if (delta > 1) multiTickFrames++;
 }
 if (phases.size < 3) throw new Error('insufficient input arrival phase coverage');
-console.log(JSON.stringify({mode: word(16) ? 'tasks' : 'serial', width: word(20), height: word(24),
-  roomDemo: !!word(28), samples: inputs.length, arrivalQuartiles: [...phases].sort(), ticks: ticks.length,
+console.log(JSON.stringify({...metadata, samples: inputs.length, arrivalQuartiles: [...phases].sort(), ticks: ticks.length,
   frames: submissions.length, zeroTickFrames, multiTickFrames, milliseconds: summary}, null, 2));
