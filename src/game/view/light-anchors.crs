@@ -1,0 +1,60 @@
+fn light_anchors(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    light: LightObject,
+    depth: u32
+) -> bool {
+    if !room_anchor_add(mut anchors, primary_anchor(light.id, light.space)) {
+        return false;
+    }
+    var cursor: u32 = 0u32;
+    while cursor < room_anchor_count(read anchors) {
+        var anchor: RoomAnchor = room_anchor(read anchors, cursor);
+        if anchor.depth < depth && !light_anchor_children(
+            read scene,
+            mut anchors,
+            light,
+            cursor
+        ) {
+            return false;
+        }
+        cursor = cursor + 1u32;
+    }
+    return true;
+}
+fn light_anchor_children(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    light: LightObject,
+    parent: u32
+) -> bool {
+    var anchor: RoomAnchor = room_anchor(read anchors, parent);
+    var point: Vec3 = space_point(anchor.transform, light.position);
+    var radius: f32 = light_object_reach(light);
+    var i: u32 = 0u32;
+    while i < collision_portal_count(read scene) {
+        var portal: CollisionPortal = collision_portal(read scene, i);
+        var distance: f32 = dot(portal.basis.forward, sub(point, portal.origin));
+        if portal.space == anchor.space && i != anchor.incoming && distance <= 0f32 && portal_reaches(
+            portal,
+            point,
+            vec(0f32, 0f32, 0f32),
+            radius
+        ) {
+            var next: RoomAnchor = make RoomAnchor {
+                object: anchor.object,
+                space: portal.destination,
+                transform: space_compose(portal.transform, anchor.transform),
+                parent: parent,
+                portal: i,
+                incoming: portal.reverse,
+                depth: anchor.depth + 1u32
+            };
+            if !room_anchor_add(mut anchors, next) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

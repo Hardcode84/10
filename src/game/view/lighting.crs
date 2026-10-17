@@ -34,15 +34,7 @@ fn light_object_anchors(
     light: LightObject
 ) -> unit {
     var anchors: RoomAnchors = room_anchors_new();
-    if !collision_anchors(
-        read scene,
-        mut anchors,
-        primary_anchor(light.id, light.space),
-        light.position,
-        vec(0f32, 0f32, 0f32),
-        light_object_reach(light),
-        input_word(read input, 4usize)
-    ) {
+    if !light_anchors(read scene, mut anchors, light, input_word(read input, 4usize)) {
         scene_overflow();
     }
     var count: u32 = input_word(read input, LIGHT_COUNT as usize);

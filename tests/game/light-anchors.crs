@@ -98,3 +98,61 @@ fn anchor_light_input(scene: read CollisionScene, input: mut FrameInput, lit: bo
     }
     return translated || error("recursive hook anchor lost its portal transform");
 }
+
+fn light_direction_scene(scene: mut CollisionScene) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var portal: CollisionPortal = make CollisionPortal {
+        reverse: 1u32,
+        space: 0u32,
+        destination: 0u32,
+        origin: vec(0f32, 0f32, 1f32),
+        basis: identity_basis(),
+        radius: 1f32,
+        sides: 4u32,
+        phase: 0f32,
+        transform: make SpaceTransform {
+            origin: vec(2f32, 0f32, 0f32),
+            basis: make Basis {
+                right: vec(0f32, 0f32, 1f32),
+                up: vec(0f32, 1f32, 0f32),
+                forward: vec(-1f32, 0f32, 0f32)
+            }
+        }
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.reverse = 0u32;
+    portal.origin = vec(1f32, 0f32, 0f32);
+    portal.basis = make Basis {
+        right: vec(0f32, 0f32, -1f32),
+        up: vec(0f32, 1f32, 0f32),
+        forward: vec(1f32, 0f32, 0f32)
+    };
+    portal.transform = space_inverse(portal.transform);
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn light_direction_check() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !light_direction_scene(mut scene) {
+        return false;
+    }
+    var light: LightObject = make LightObject {
+        id: 0u32,
+        space: 0u32,
+        position: vec(0f32, 0f32, 0f32),
+        colour: vec(2f32, 1.6f32, 0.1f32),
+        radius: 6f32,
+        mode: LIGHT_UNSHADOWED
+    };
+    var anchors: RoomAnchors = room_anchors_new();
+    if !light_anchors(read scene, mut anchors, light, 64u32) {
+        return false;
+    }
+    return room_anchor_count(read anchors) == 5u32 || error(
+        "light propagated backwards through a portal and repeated a closed cycle"
+    );
+}

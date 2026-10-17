@@ -23,7 +23,10 @@ positions must be finite. Bounds come from mesh vertices; preserve them when
 copying a range. An empty mesh is permitted. `InstanceList` owns a reusable
 list of placements; `input_instances` submits that list.
 
-The renderer grows mesh, instance, and triangle storage from demand. It checks
+The renderer grows mesh, instance, and triangle storage from demand. Triangle
+and room-projection capacity retain spare space after growth, so a small
+addition does not require another scene allocation. If spare capacity would
+exceed device storage, the renderer reserves only the required capacity. It checks
 Vulkan storage-range limits before replacement. Allocation failure reports an
 error. Successful replacement preserves retained meshes and current input.
 The new GPU buffer receives the retained pool on its next draw. Otherwise,

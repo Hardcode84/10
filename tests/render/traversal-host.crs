@@ -50,7 +50,7 @@ fn traversal_result(v: *RenderState, index: u32, drawn: bool) -> bool {
 }
 fn traversal_success(v: *RenderState, index: u32) -> bool {
     var w: *u32 = v -> mapped as *u32;
-    if index == 0u32 && v -> projection_capacity != 160u32 {
+    if index == 0u32 && (v -> projection_capacity < 160u32 || v -> projection_capacity >= 320u32) {
         return error("projection capacity must use the largest space, not all geometry");
     }
     var views: u32 = 81u32;

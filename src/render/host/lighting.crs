@@ -3,7 +3,10 @@
 fn input_lights(input: mut FrameInput, count: u32) -> bool {
     if count > input.storage.light_capacity {
         var next: RenderState = input.storage;
-        next.light_capacity = count;
+        next.light_capacity = storage_growth(count);
+        if geometry_limit(&next) < next.triangle_capacity {
+            next.light_capacity = count;
+        }
         if !geometry_layout(&next, next.triangle_capacity) || !storage_replace(
             &input.storage,
             &next

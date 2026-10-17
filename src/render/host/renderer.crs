@@ -63,7 +63,7 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
     v -> output_height = config -> output_height;
     v -> read_pixels = config -> read_pixels;
     v -> shader_checks = config -> shader_checks;
-    v -> light_capacity = 8u32;
+    v -> light_capacity = 32u32;
     v -> view_capacity = config -> view_budget;
     v -> portal_capacity = config -> portal_budget;
     v -> task_capacity = config -> task_budget;

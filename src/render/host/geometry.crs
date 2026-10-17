@@ -96,10 +96,7 @@ fn geometry_reserve(v: *RenderState, required: u32) -> bool {
         return true;
     }
     var next: RenderState = *v;
-    var capacity: u32 = required;
-    if v -> triangle_capacity <= 0x7fffffffu32 && required < v -> triangle_capacity * 2u32 {
-        capacity = v -> triangle_capacity * 2u32;
-    }
+    var capacity: u32 = storage_growth(required);
     var limit: u32 = geometry_limit(v);
     if capacity > limit {
         capacity = required;
@@ -205,4 +202,15 @@ fn tile_bit_words(v: *RenderState, triangles: u32) -> u64 {
 
 fn shadow_elements(v: *RenderState, triangles: u32) -> u64 {
     return (v -> light_capacity as u64 + 1u64) * triangles as u64 + v -> light_capacity as u64 * v -> instance_capacity as u64;
+}
+
+fn storage_growth(required: u32) -> u32 {
+    var capacity: u32 = 1u32;
+    while capacity < required && capacity <= 0x7fffffffu32 {
+        capacity = capacity * 2u32;
+    }
+    if capacity < required {
+        return required;
+    }
+    return capacity;
 }

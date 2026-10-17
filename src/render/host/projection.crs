@@ -75,7 +75,10 @@ fn projection_prepare(v: *RenderState) -> bool {
         return true;
     }
     var next: RenderState = *v;
-    next.projection_capacity = required;
+    next.projection_capacity = storage_growth(required);
+    if geometry_limit(&next) < next.triangle_capacity {
+        next.projection_capacity = required;
+    }
     if !geometry_layout(&next, next.triangle_capacity) {
         return false;
     }

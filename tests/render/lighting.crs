@@ -150,7 +150,7 @@ fn lighting_test(base: *Options) -> bool {
     puts(
         "light occlusion, cutouts, space isolation, retained blockers, distant lights and 17 lights passed"
     );
-    return true;
+    return lighting_capacity_reuse(mut renderer);
 }
 fn lighting_rejections(renderer: mut Renderer) -> bool {
     var capacity: u32 = renderer.state.light_capacity;
@@ -359,8 +359,8 @@ fn lighting_cache_test(renderer: mut Renderer) -> bool {
         var input: FrameInput = renderer_inputs(mut renderer);
         lighting_cache_shift(mut input, true);
     }
-    // Growth replaces shadow storage. Later index shifts must reuse the rebuilt tree.
-    if !lighting_cache_check(mut renderer, true) {
+    // Force replacement; index shifts can now fit in spare capacity.
+    if !lighting_cache_growth(mut renderer) {
         return false;
     }
     {
@@ -437,4 +437,44 @@ fn lighting_cache_source(renderer: mut Renderer) -> bool {
         lighting_cache_flags(mut input, 2u32);
     }
     return lighting_cache_check(mut renderer, true);
+}
+
+fn lighting_capacity_reuse(renderer: mut Renderer) -> bool {
+    var count: u32 = (renderer.state.mapped as *u32)[LIGHT_COUNT as usize];
+    var requested: u32 = renderer.state.light_capacity + 1u32;
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !input_lights(mut input, requested) {
+            return false;
+        }
+    }
+    var allocation: *u8 = renderer.state.mapped;
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !input_lights(mut input, requested + 1u32) {
+            return false;
+        }
+        input_set_word(mut input, LIGHT_COUNT as usize, count);
+    }
+    if renderer.state.mapped != allocation {
+        return error("one additional light replaced the scene allocation after growth");
+    }
+    var triangles: u32 = renderer.state.triangle_capacity + 17u32;
+    if !geometry_reserve(&renderer.state, triangles) {
+        return false;
+    }
+    allocation = renderer.state.mapped;
+    if !geometry_reserve(&renderer.state, triangles + 1u32) {
+        return false;
+    }
+    return renderer.state.mapped == allocation || error(
+        "one additional triangle replaced the scene allocation after growth"
+    );
+}
+
+fn lighting_cache_growth(renderer: mut Renderer) -> bool {
+    return geometry_reserve(&renderer.state, renderer.state.triangle_capacity + 1u32) && lighting_cache_check(
+        mut renderer,
+        true
+    );
 }

@@ -62,7 +62,10 @@ copied. Light emission, collision queries, and the visible hook use these
 placements.
 
 The game expands light anchors through connections whose apertures intersect
-the light range. The range ends where even a face-on contribution falls below
+the light range. The source must be on the inside of the outgoing portal
+plane. A transformed source behind that plane cannot enter the link again.
+This direction check prevents backwards traversal from multiplying a light.
+The range ends where even a face-on contribution falls below
 the first intensity band. Each link has an explicit reverse index. Expansion
 does not immediately return through that reverse link. Each anchor retains its
 parent and composed rigid transform. Expansion uses the frame crossing limit;
@@ -98,8 +101,8 @@ ignores this room ID.
 | 4, 5, 6 | Non-negative RGB intensity |
 | 7 | `LIGHT_ROOM` (0), `LIGHT_VIEW` (1), `LIGHT_UNSHADOWED` (2), or `LIGHT_HEADLAMP` (3), stored as a float |
 
-Storage grows with the count. Eight records are allocated initially; eight is
-not a count limit. Growth, geometry allocation, and image resize preserve light
+Storage grows with the count. Thirty-two records are allocated initially; this
+is not a count limit. Growth reserves spare capacity for later submissions. Growth, geometry allocation, and image resize preserve light
 records. Device storage range and allocation failures return an error. Failed
 growth preserves the active allocation and count.
 
