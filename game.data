@@ -1858,9 +1858,9 @@ while ((s_i < s_words_load(35u)) && !failed) {
 var s_p: u32 = (s_words_load(82u) + (s_i * 8u));
 var s_transported: bool = (s_floats_load((s_p + 7u)) == f32(1u));
 if ((s_transported || (s_words_load((s_words_load(85u) + s_i)) == s_space))) {
-var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_floats_load((s_p + 3u)), true);
+var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_floats_load((s_p + 3u)), (s_floats_load((s_p + 7u)) != f32(3u)));
 s_amount = s_light_band(s_amount, s_floats_load((s_p + 4u)), s_floats_load((s_p + 5u)), s_floats_load((s_p + 6u)));
-if ((((!s_transported) && (s_amount > bitcast<f32>(0u))) && (!s_light_visible(s_i, s_tri, s_px, s_py, s_pz, s_floats_load(s_p), s_floats_load((s_p + 1u)), s_floats_load((s_p + 2u)))))) {
+if ((((s_floats_load((s_p + 7u)) == f32(0u)) && (s_amount > bitcast<f32>(0u))) && (!s_light_visible(s_i, s_tri, s_px, s_py, s_pz, s_floats_load(s_p), s_floats_load((s_p + 1u)), s_floats_load((s_p + 2u)))))) {
 s_amount = bitcast<f32>(0u);
 }
 s_red = (s_red + (s_floats_load((s_p + 4u)) * s_amount));
@@ -2086,7 +2086,7 @@ var s_light = p_light;
 var s_view = p_view;
 var s_axis = p_axis;
 {
-if ((s_floats_load((s_light + 7u)) == f32(0u))) {
+if ((s_floats_load((s_light + 7u)) != f32(1u))) {
 return s_floats_load((s_light + s_axis));
 }
 var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
@@ -2313,6 +2313,9 @@ var s_dz: f32 = (s_lz - s_oz);
 var s_dynamic_root: u32 = (((s_light + 1u) * s_words_load(41u)) * 2u);
 if ((!s_shadow_visible(s_dynamic_root, s_receiver, 0u, s_ox, s_oy, s_oz, s_dx, s_dy, s_dz))) {
 return false;
+}
+if ((s_words_load(56u) == 0u)) {
+return true;
 }
 var s_node: u32 = ((s_words_load(90u) + (s_light * s_words_load(91u))) * 2u);
 if ((s_words_load(((s_words_load(87u) + (s_node * 4u)) + 1u)) == 0u)) {
@@ -2852,9 +2855,9 @@ while ((s_i < s_words_load(35u))) {
 var s_p: u32 = (s_words_load(82u) + (s_i * 8u));
 var s_transported: bool = (s_floats_load((s_p + 7u)) == f32(1u));
 if ((s_transported || (s_words_load((s_words_load(85u) + s_i)) == s_space))) {
-var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_floats_load((s_p + 3u)), true);
+var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_floats_load((s_p + 3u)), (s_floats_load((s_p + 7u)) != f32(3u)));
 s_amount = s_light_band(s_amount, s_floats_load((s_p + 4u)), s_floats_load((s_p + 5u)), s_floats_load((s_p + 6u)));
-if ((((!s_transported) && (s_amount > bitcast<f32>(0u))) && (!s_light_visible(s_i, s_tri, s_px, s_py, s_pz, s_floats_load(s_p), s_floats_load((s_p + 1u)), s_floats_load((s_p + 2u)))))) {
+if ((((s_floats_load((s_p + 7u)) == f32(0u)) && (s_amount > bitcast<f32>(0u))) && (!s_light_visible(s_i, s_tri, s_px, s_py, s_pz, s_floats_load(s_p), s_floats_load((s_p + 1u)), s_floats_load((s_p + 2u)))))) {
 s_amount = bitcast<f32>(0u);
 }
 s_red = (s_red + (s_floats_load((s_p + 4u)) * s_amount));
@@ -3080,7 +3083,7 @@ var s_light = p_light;
 var s_view = p_view;
 var s_axis = p_axis;
 {
-if ((s_floats_load((s_light + 7u)) == f32(0u))) {
+if ((s_floats_load((s_light + 7u)) != f32(1u))) {
 return s_floats_load((s_light + s_axis));
 }
 var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
@@ -3307,6 +3310,9 @@ var s_dz: f32 = (s_lz - s_oz);
 var s_dynamic_root: u32 = (((s_light + 1u) * s_words_load(41u)) * 2u);
 if ((!s_shadow_visible(s_dynamic_root, s_receiver, 0u, s_ox, s_oy, s_oz, s_dx, s_dy, s_dz))) {
 return false;
+}
+if ((s_words_load(56u) == 0u)) {
+return true;
 }
 var s_node: u32 = ((s_words_load(90u) + (s_light * s_words_load(91u))) * 2u);
 if ((s_words_load(((s_words_load(87u) + (s_node * 4u)) + 1u)) == 0u)) {
@@ -4337,7 +4343,10 @@ return s_value;
 fn s_shadow_top(p_light: u32) {
 var s_light = p_light;
 {
-if ((s_floats_load(((s_words_load(82u) + (s_light * 8u)) + 7u)) == f32(1u))) {
+if ((s_words_load(56u) == 0u)) {
+return;
+}
+if ((s_floats_load(((s_words_load(82u) + (s_light * 8u)) + 7u)) != f32(0u))) {
 return;
 }
 var s_space: u32 = s_words_load((s_words_load(85u) + s_light));
@@ -4542,7 +4551,10 @@ return s_value;
 fn s_shadow_top(p_light: u32) {
 var s_light = p_light;
 {
-if ((s_floats_load(((s_words_load(82u) + (s_light * 8u)) + 7u)) == f32(1u))) {
+if ((s_words_load(56u) == 0u)) {
+return;
+}
+if ((s_floats_load(((s_words_load(82u) + (s_light * 8u)) + 7u)) != f32(0u))) {
 return;
 }
 var s_space: u32 = s_words_load((s_words_load(85u) + s_light));
