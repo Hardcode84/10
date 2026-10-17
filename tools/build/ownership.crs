@@ -48,7 +48,7 @@ fn ownership_sources_target(
     }
     var context: CrustContext = uninit;
     if wasm {
-        crust_context_init_wasm32(&context, null(*CrustAllocator));
+        c_context_init_wasm32(&context, null(*CrustAllocator));
     } else {
         crust_context_init(&context, null(*CrustAllocator));
     }
