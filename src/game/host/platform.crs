@@ -9,6 +9,7 @@ record GameSession {
     graph: RoomGraph;
     room: RoomAsset;
     room_mesh: Mesh;
+    drone_mesh: Mesh;
     window: GameWindow;
     renderer: Renderer;
     world: InstanceList;
@@ -28,6 +29,7 @@ fn game_session(o: *Launch) -> GameSession {
         graph: graph_new(),
         room: room_asset_new(),
         room_mesh: mesh_new(),
+        drone_mesh: mesh_new(),
         window: make GameWindow {
             handle: null(*u8),
             controller: null(*u8),
@@ -100,6 +102,9 @@ fn game_initial_spin(session: read GameSession) -> bool {
 }
 
 fn game_static_open(session: mut GameSession, world: u32) -> bool {
+    if !player_drone_mesh(mut session.drone_mesh, DRONE_RADIUS) {
+        return false;
+    }
     var input: FrameInput = renderer_inputs(mut session.renderer);
     if session.launch.config.room_demo {
         return static_upload(mut input, mut session.world, read session.room_mesh);
@@ -119,6 +124,7 @@ fn game_scene_frame(
 ) -> unit {
     var input: FrameInput = renderer_inputs(mut session.renderer);
     game_scene(read collision, mut input, read trial, config, read session.world);
+    draw_drone(read collision, mut input, read session.drone_mesh, trial.drone);
     if trial.graph_run {
         graph_scene(read session.graph, mut input, read trial, config);
     }

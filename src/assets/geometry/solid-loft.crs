@@ -1,0 +1,73 @@
+// Appends an outward-facing solid with shadows. The hull has outward winding.
+fn hull_solid_mesh(
+    hull: read AssetHull,
+    mesh: mut Mesh,
+    origin: Vec3,
+    basis: Basis,
+    tile_metres: f32
+) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        var face: HullFace = asset_face(read hull, i);
+        var frame: SurfaceFrame = asset_surface(read hull, i);
+        var corner: u32 = 1u32;
+        while corner + 1u32 < face.count {
+            var primitive: MeshTriangle = make MeshTriangle {
+                vertices: make [MeshVertex; 3] {
+                    surface_vertex(hull_corner(read hull, face, 0u32), frame, tile_metres),
+                    surface_vertex(
+                        hull_corner(read hull, face, corner),
+                        frame,
+                        tile_metres
+                    ),
+                    surface_vertex(
+                        hull_corner(read hull, face, corner + 1u32),
+                        frame,
+                        tile_metres
+                    )
+                },
+                material: face.region,
+                portal: 0u32,
+                flags: 2u32
+            };
+            if !mesh_append(mut mesh, placed_triangle(primitive, origin, basis)) {
+                return false;
+            }
+            corner = corner + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+record BevelledBody {
+    sides: u32;
+    radius: f32;
+    length: f32;
+    bevel: f32;
+    shell: u32;
+    rear: u32;
+    front: u32;
+}
+// Appends a closed body along local +Y. Bevel is smaller than radius and half-length.
+fn bevelled_body(mesh: mut Mesh, body: BevelledBody, origin: Vec3, basis: Basis) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    var profile: RegularProfile = make RegularProfile {
+        sides: body.sides,
+        phase: 3.14159265359f32 / body.sides as f32
+    };
+    if !loft_allocate(mut hull, profile, 4u32) {
+        return false;
+    }
+    var half: f32 = body.length * 0.5f32;
+    loft_ring(mut hull, profile, 0u32, -half, body.radius - body.bevel);
+    loft_ring(mut hull, profile, 1u32, -half + body.bevel, body.radius);
+    loft_ring(mut hull, profile, 2u32, half - body.bevel, body.radius);
+    loft_ring(mut hull, profile, 3u32, half, body.radius - body.bevel);
+    var ring: u32 = 0u32;
+    while ring < 3u32 {
+        loft_span(mut hull, profile, ring, body.shell);
+        ring = ring + 1u32;
+    }
+    loft_caps(mut hull, profile, 4u32, body.rear, body.front);
+    return hull_solid_mesh(read hull, mut mesh, origin, basis, body.radius * 4f32);
+}

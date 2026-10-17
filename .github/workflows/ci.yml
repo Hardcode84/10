@@ -81,6 +81,7 @@ jobs:
         run: |
           crust tests.crs collision
           crust tests.crs hook-light
+          crust tests.crs body-view
       - name: Build native application entry points
         run: |
           crust main.crs --build-only

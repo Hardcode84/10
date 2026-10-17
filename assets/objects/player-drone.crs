@@ -1,0 +1,106 @@
+// Lamplighter: a tapered optical barrel, two lower thrusters, and a dorsal housing.
+// +Z is forward. All parts fit the supplied collision sphere. The camera is at zero.
+// Amber marks the front; cyan marks the rear. These texels do not emit light.
+fn player_drone_mesh(mesh: mut Mesh, radius: f32) -> bool {
+    var axis: Basis = make Basis {
+        right: vec(1f32, 0f32, 0f32),
+        up: vec(0f32, 0f32, 1f32),
+        forward: vec(0f32, -1f32, 0f32)
+    };
+    if !player_drone_barrel(mut mesh, radius, axis) {
+        return false;
+    }
+    var pod: BevelledBody = make BevelledBody {
+        sides: 6u32,
+        radius: radius * 0.19f32,
+        length: radius * 0.52f32,
+        bevel: radius * 0.06f32,
+        shell: 0u32,
+        rear: 5u32,
+        front: 7u32
+    };
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var angle: f32 = 3.926990817f32 + i as f32 * 1.5707963268f32;
+        var origin: Vec3 = scale(
+            vec(cosf(angle) * 0.62f32, sinf(angle) * 0.62f32, -0.35f32),
+            radius
+        );
+        if !bevelled_body(mut mesh, pod, origin, axis) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var hood: BevelledBody = make BevelledBody {
+        sides: 4u32,
+        radius: radius * 0.18f32,
+        length: radius * 0.46f32,
+        bevel: radius * 0.04f32,
+        shell: 1u32,
+        rear: 7u32,
+        front: 0u32
+    };
+    return bevelled_body(
+        mut mesh,
+        hood,
+        scale(vec(0f32, 0.58f32, -0.25f32), radius),
+        axis
+    );
+}
+fn player_drone_barrel(mesh: mut Mesh, radius: f32, axis: Basis) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    var profile: RegularProfile = make RegularProfile {
+        sides: 8u32,
+        phase: 0.3926990817f32
+    };
+    if !loft_allocate(mut hull, profile, 6u32) {
+        return false;
+    }
+    var heights: [f32; 6] = make [f32; 6] {
+        -0.68f32,
+        -0.56f32,
+        -0.30f32,
+        0.20f32,
+        0.58f32,
+        0.70f32
+    };
+    var widths: [f32; 6] = make [f32; 6] {
+        0.24f32,
+        0.40f32,
+        0.45f32,
+        0.57f32,
+        0.47f32,
+        0.32f32
+    };
+    var materials: [u32; 5] = make [u32; 5] {
+        5u32,
+        7u32,
+        0u32,
+        1u32,
+        4u32
+    };
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        loft_ring(
+            mut hull,
+            profile,
+            i,
+            radius * heights[i as usize],
+            radius * widths[i as usize]
+        );
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 5u32 {
+        loft_span(mut hull, profile, i, materials[i as usize]);
+        i = i + 1u32;
+    }
+    loft_caps(mut hull, profile, 6u32, 7u32, 4u32);
+    return hull_solid_mesh(
+        read hull,
+        mut mesh,
+        vec(0f32, 0f32, 0f32),
+        axis,
+        radius * 2f32
+    );
+}

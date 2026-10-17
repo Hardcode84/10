@@ -63,6 +63,15 @@ The graph assembler builds each room from its Crust recipe, once at launch.
 Render and collision meshes share the same hull and openings. The retained
 library holds room ranges in local coordinates. Markers and hooks are dynamic.
 
+The player body uses the generated [drone mesh](../../assets/objects/player-drone.crs).
+The session builds it once. Each frame submits its current pose as dynamic
+geometry, so player movement does not invalidate the retained shadow trees.
+Body anchors add placements where the collision sphere overlaps a connection.
+Portal views can show the player, including rotated views into the same room.
+The outward-facing hull is hidden from the camera inside it. Its surfaces cast
+shadows from room lights. Player and hook lights remain unshadowed. Full-bright
+front and rear markers do not emit light.
+
 ## Viewer
 
 Build from the root source file:
@@ -84,6 +93,7 @@ game-asset fixture with 256 copies; it does not define the recipe interface.
 ```sh
 crust tests.crs graph
 crust tests.crs game
+crust tests.crs body-view
 crust tests.crs render 7
 crust tests.crs viewer
 ```

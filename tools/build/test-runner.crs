@@ -165,6 +165,7 @@ fn test_help() -> i32 {
     test_puts("render 10: window and swapchain resize (requires a display)");
     test_puts("render 11: light capacity, bulkhead shadows and cutout visibility");
     test_puts("render 12: production transfers, debug status, replacement and retirement");
+    test_puts("body-view: player visibility, portal overlap, and external-light shadows");
     test_puts("collision: standalone contact checks; accepts --sanitize and --build-only");
     return 0i32;
 }

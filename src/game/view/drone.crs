@@ -1,0 +1,70 @@
+// Draws all body placements, including overlap across a connection.
+fn draw_drone(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    mesh: read Mesh,
+    drone: Drone
+) -> unit {
+    var anchors: RoomAnchors = room_anchors_new();
+    if !collision_body_anchors(
+        read scene,
+        mut anchors,
+        drone.world,
+        drone.position,
+        vec(0f32, 0f32, 0f32),
+        DRONE_RADIUS
+    ) {
+        scene_motion_failure();
+    }
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        var anchor: RoomAnchor = room_anchor(read anchors, i);
+        var pose: SpaceTransform = space_compose(
+            anchor.transform,
+            make SpaceTransform {
+                origin: drone.position,
+                basis: drone.basis
+            }
+        );
+        draw_mesh(mut input, read mesh, anchor.space, pose);
+        i = i + 1u32;
+    }
+}
+
+// Submits a rigid placement as dynamic geometry, preserving UVs and surface flags.
+fn draw_mesh(input: mut FrameInput, mesh: read Mesh, space: u32, pose: SpaceTransform) -> unit {
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read mesh) {
+        var face: MeshTriangle = placed_triangle(
+            mesh_triangle(read mesh, i),
+            pose.origin,
+            pose.basis
+        );
+        var a: MeshVertex = face.vertices[0usize];
+        var b: MeshVertex = face.vertices[1usize];
+        var c: MeshVertex = face.vertices[2usize];
+        triangle_uv(
+            mut input,
+            space,
+            face.material,
+            face.portal,
+            face.flags,
+            a.x,
+            a.y,
+            a.z,
+            b.x,
+            b.y,
+            b.z,
+            c.x,
+            c.y,
+            c.z,
+            a.u,
+            a.v,
+            b.u,
+            b.v,
+            c.u,
+            c.v
+        );
+        i = i + 1u32;
+    }
+}
