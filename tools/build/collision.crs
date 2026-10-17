@@ -4,10 +4,13 @@ fn build_collision_checks(
     sanitize: bool,
     output: *u8
 ) -> bool {
-    var files: [*u8; 28] = make [*u8; 28] {
+    var files: [*u8; 31] = make [*u8; 31] {
         "src/app/math.crs",
         "src/collision/primitives.crs",
         "src/collision/portals.crs",
+        "src/collision/anchors.crs",
+        "src/collision/portal-query.crs",
+        "src/collision/portal-contacts.crs",
         "src/collision/topology.crs",
         "src/collision/sweep.crs",
         "src/collision/query.crs",
@@ -34,11 +37,12 @@ fn build_collision_checks(
         "src/game/flight/orientation.crs",
         "src/game/flight/physics.crs"
     };
-    var native: [*u8; 10] = make [*u8; 10] {
+    var native: [*u8; 11] = make [*u8; 11] {
         "src/app/io.crs",
         "src/render/host/mesh.crs",
         "src/collision/storage.crs",
         "src/collision/portal-storage.crs",
+        "src/spatial/anchors.crs",
         "src/collision/index-build.crs",
         "src/collision/adjacency-build.crs",
         "src/collision/contact-storage.crs",
@@ -47,35 +51,35 @@ fn build_collision_checks(
         "src/game/host/collision-errors.crs"
     };
     var args: [*u8; 64] = uninit;
-    var providers: [*u8; 10] = uninit;
+    var providers: [*u8; 11] = uninit;
     var i: usize = 0usize;
-    while i < 28usize {
+    while i < 31usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     i = 0usize;
-    while i < 10usize {
+    while i < 11usize {
         providers[i] = host_path(root, native[i]);
         i = i + 1usize;
     }
-    args[28usize] = "-o";
-    args[29usize] = host_path(root, output);
-    args[30usize] = "--cflag";
-    args[31usize] = "-O2";
-    args[32usize] = "--ldflag";
-    args[33usize] = "-lm";
-    var count: usize = 34usize;
+    args[31usize] = "-o";
+    args[32usize] = host_path(root, output);
+    args[33usize] = "--cflag";
+    args[34usize] = "-O2";
+    args[35usize] = "--ldflag";
+    args[36usize] = "-lm";
+    var count: usize = 37usize;
     if sanitize {
-        args[31usize] = "-O1";
-        args[34usize] = "--cflag";
-        args[35usize] = "-g";
-        args[36usize] = "--cflag";
-        args[37usize] = "-fsanitize=address,undefined";
-        args[38usize] = "--ldflag";
-        args[39usize] = "-fsanitize=address,undefined";
-        args[40usize] = "--cflag";
-        args[41usize] = "-fno-sanitize-recover=all";
-        count = 42usize;
+        args[34usize] = "-O1";
+        args[37usize] = "--cflag";
+        args[38usize] = "-g";
+        args[39usize] = "--cflag";
+        args[40usize] = "-fsanitize=address,undefined";
+        args[41usize] = "--ldflag";
+        args[42usize] = "-fsanitize=address,undefined";
+        args[43usize] = "--cflag";
+        args[44usize] = "-fno-sanitize-recover=all";
+        count = 45usize;
     }
     return ownership_sources(
         root,
@@ -83,7 +87,7 @@ fn build_collision_checks(
         count as i32,
         &args[0usize],
         &providers[0usize],
-        10usize,
+        11usize,
         null(*u8)
     ) == 0i32;
 }

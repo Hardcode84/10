@@ -88,12 +88,11 @@ before later contacts, transform the remaining motion, and retain cable state.
 The game assembles a seeded graph of distinct local room spaces. It uses
 named connections with random mating rolls and reciprocal links.
 
-**Change:** include
-destination geometry in swept-sphere queries while a body overlaps both sides
-of a seam. Current queries change collision space when the centre crosses;
-a destination prop closer than the body radius to the portal needs both-space
-queries before that crossing. Store room identity in saves. Resolve frame
-velocities under P1.
+Swept-sphere queries include destination geometry before the centre crosses
+when the body overlaps a connection. Contacts and attachments retain their
+room transforms.
+
+**Change:** store room identity in saves. Resolve frame velocities under P1.
 
 **Check:** translated, rotated, and cyclic spaces that cannot share one global
 embedding. Test crossings near edges, multiple crossings within a step, and

@@ -1,0 +1,68 @@
+// An object can have several placements in one room. Transform maps its primary room to this room.
+record RoomAnchor {
+    object: u32;
+    space: u32;
+    transform: SpaceTransform;
+    parent: u32;
+    portal: u32;
+    incoming: u32;
+    depth: u32;
+}
+resource RoomAnchors {
+    local: [RoomAnchor; 8];
+    extra: *RoomAnchor;
+    count: u32;
+    capacity: u32;
+}
+opaque drop room_anchors_drop;
+fn room_anchors_new() -> RoomAnchors {
+    var local: [RoomAnchor; 8] = uninit;
+    return make RoomAnchors {
+        local: local,
+        extra: null(*RoomAnchor),
+        count: 0u32,
+        capacity: 8u32
+    };
+}
+fn room_anchors_drop(anchors: mut RoomAnchors) -> unit {
+    free(anchors.extra as *u8);
+}
+fn room_anchor_count(anchors: read RoomAnchors) -> u32 {
+    return anchors.count;
+}
+fn room_anchor(anchors: read RoomAnchors, index: u32) -> RoomAnchor {
+    if anchors.extra != null(*RoomAnchor) {
+        return anchors.extra[index as usize];
+    }
+    return anchors.local[index as usize];
+}
+fn room_anchor_add(anchors: mut RoomAnchors, anchor: RoomAnchor) -> bool {
+    if anchors.count == anchors.capacity {
+        var size: u64 = anchors.capacity as u64 * 2u64;
+        if size > 0xffffffffu64 || size * sizeof(RoomAnchor) as u64 > 0xffffffffu64 {
+            return error("room anchor storage exceeds address range");
+        }
+        var next: *RoomAnchor = malloc(size as usize * sizeof(RoomAnchor)) as *RoomAnchor;
+        if next == null(*RoomAnchor) {
+            return error("room anchor allocation failed");
+        }
+        var i: u32 = 0u32;
+        while i < anchors.count {
+            next[i as usize] = room_anchor(read anchors, i);
+            i = i + 1u32;
+        }
+        free(anchors.extra as *u8);
+        anchors.extra = next;
+        anchors.capacity = size as u32;
+    }
+    if anchors.extra != null(*RoomAnchor) {
+        anchors.extra[anchors.count as usize] = anchor;
+    } else {
+        anchors.local[anchors.count as usize] = anchor;
+    }
+    anchors.count = anchors.count + 1u32;
+    return true;
+}
+fn room_anchors_clear(anchors: mut RoomAnchors) -> unit {
+    anchors.count = 0u32;
+}

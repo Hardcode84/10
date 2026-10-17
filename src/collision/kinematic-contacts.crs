@@ -30,6 +30,32 @@ fn collision_moving_contacts(
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes
 ) -> bool {
+    var anchors: RoomAnchors = room_anchors_new();
+    return collision_anchored_contacts(
+        read scene,
+        item,
+        p,
+        radius,
+        skin,
+        time,
+        mut separate,
+        mut speeds,
+        read anchors,
+        0u32
+    );
+}
+fn collision_anchored_contacts(
+    scene: read CollisionScene,
+    item: CollisionInstance,
+    p: Vec3,
+    radius: f32,
+    skin: f32,
+    time: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes,
+    anchors: read RoomAnchors,
+    anchor_index: u32
+) -> bool {
     var pose: CollisionInstance = collision_pose(item, time);
     var local: Vec3 = collision_local(pose.basis, sub(p, pose.origin));
     var i: u32 = item.root;
@@ -49,13 +75,21 @@ fn collision_moving_contacts(
                     collision_face(read scene, item.first + node.leaf),
                     local
                 );
-                if proximity.distance <= radius + skin * 2f32 && !collision_contact_planes(
+                if proximity.distance <= radius + skin * 2f32 && collision_anchor_accept(
+                    read scene,
+                    read anchors,
+                    anchor_index,
+                    p,
+                    add(pose.origin, basis_vector(pose.basis, proximity.point))
+                ) && !collision_anchored_planes(
                     pose,
                     proximity,
                     radius,
                     skin,
                     mut separate,
-                    mut speeds
+                    mut speeds,
+                    read anchors,
+                    anchor_index
                 ) {
                     return false;
                 }
@@ -65,7 +99,7 @@ fn collision_moving_contacts(
     }
     return true;
 }
-fn collision_interval_contacts(
+fn collision_local_interval_contacts(
     scene: read CollisionScene,
     space: u32,
     p: Vec3,
@@ -107,7 +141,7 @@ fn collision_interval_contacts(
     }
     return true;
 }
-fn collision_correction_blocked(
+fn collision_local_correction_blocked(
     scene: read CollisionScene,
     space: u32,
     p: Vec3,
@@ -115,19 +149,53 @@ fn collision_correction_blocked(
     radius: f32,
     time: f32
 ) -> CollisionContact {
-    var result: CollisionContact = collision_query(read scene, space, p, d, radius, true);
+    var anchors: RoomAnchors = room_anchors_new();
+    return collision_filtered_correction_blocked(
+        read scene,
+        space,
+        p,
+        d,
+        radius,
+        time,
+        read anchors,
+        0u32
+    );
+}
+fn collision_filtered_correction_blocked(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    anchors: read RoomAnchors,
+    anchor_index: u32
+) -> CollisionContact {
+    var result: CollisionContact = collision_query_filtered(
+        read scene,
+        space,
+        p,
+        d,
+        radius,
+        true,
+        read anchors,
+        anchor_index
+    );
     var i: u32 = collision_moving_head(read scene);
     while i != 0xffffffffu32 {
         var item: CollisionInstance = collision_instance(read scene, i);
         if item.space == space {
-            var next: CollisionContact = collision_query_pose(
+            var next: CollisionContact = collision_query_pose_filtered(
                 read scene,
                 i,
                 collision_pose(item, time),
                 p,
                 d,
                 radius,
-                true
+                true,
+                read anchors,
+                anchor_index,
+                vec(0f32, 0f32, 0f32)
             );
             if collision_better(next, result) {
                 result = next;

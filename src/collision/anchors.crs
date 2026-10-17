@@ -1,0 +1,147 @@
+fn portal_corner(portal: CollisionPortal, index: u32) -> Vec3 {
+    var angle: f32 = portal.phase + 6.28318530718f32 * index as f32 / portal.sides as f32;
+    return add(
+        portal.origin,
+        scale(
+            add(
+                scale(portal.basis.right, cosf(angle)),
+                scale(portal.basis.up, sinf(angle))
+            ),
+            portal.radius
+        )
+    );
+}
+fn portal_reaches(portal: CollisionPortal, start: Vec3, travel: Vec3, radius: f32) -> bool {
+    var distance: f32 = dot(portal.basis.forward, sub(start, portal.origin));
+    var end: f32 = distance + dot(portal.basis.forward, travel);
+    if (distance > radius && end > radius) || (distance < -radius && end < -radius) {
+        return false;
+    }
+    if dot(travel, travel) == 0f32 {
+        return portal_sphere_reaches(portal, start, radius, distance);
+    }
+    var face: CollisionFace = make CollisionFace {
+        a: portal.origin,
+        b: portal_corner(portal, 0u32),
+        c: portal.origin,
+        normal: portal.basis.forward,
+        neighbours: make [u32; 3] {
+            0xffffffffu32,
+            0xffffffffu32,
+            0xffffffffu32
+        }
+    };
+    var i: u32 = 0u32;
+    while i < portal.sides {
+        face.c = portal_corner(portal, i + 1u32);
+        if collision_surface(start, travel, face, radius).hit.time <= 1f32 {
+            return true;
+        }
+        face.b = face.c;
+        i = i + 1u32;
+    }
+    return false;
+}
+// Appends placements reached by the swept sphere. The source is a primary-room placement.
+fn collision_anchors(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    source: RoomAnchor,
+    position: Vec3,
+    travel: Vec3,
+    radius: f32,
+    depth: u32
+) -> bool {
+    var cursor: u32 = room_anchor_count(read anchors);
+    if !room_anchor_add(mut anchors, source) {
+        return false;
+    }
+    while cursor < room_anchor_count(read anchors) {
+        var anchor: RoomAnchor = room_anchor(read anchors, cursor);
+        if anchor.depth < depth && !collision_anchor_children(
+            read scene,
+            mut anchors,
+            anchor,
+            cursor,
+            position,
+            travel,
+            radius
+        ) {
+            return false;
+        }
+        cursor = cursor + 1u32;
+    }
+    return true;
+}
+fn collision_anchor_children(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    anchor: RoomAnchor,
+    parent: u32,
+    position: Vec3,
+    travel: Vec3,
+    radius: f32
+) -> bool {
+    var start: Vec3 = space_point(anchor.transform, position);
+    var delta: Vec3 = basis_vector(anchor.transform.basis, travel);
+    var i: u32 = 0u32;
+    while i < collision_portal_count(read scene) {
+        var portal: CollisionPortal = collision_portal(read scene, i);
+        if portal.space == anchor.space && i != anchor.incoming && portal_reaches(
+            portal,
+            start,
+            delta,
+            radius
+        ) {
+            var next: RoomAnchor = make RoomAnchor {
+                object: anchor.object,
+                space: portal.destination,
+                transform: space_compose(portal.transform, anchor.transform),
+                parent: parent,
+                portal: i,
+                incoming: portal.reverse,
+                depth: anchor.depth + 1u32
+            };
+            if !room_anchor_add(mut anchors, next) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn primary_anchor(object: u32, space: u32) -> RoomAnchor {
+    return make RoomAnchor {
+        object: object,
+        space: space,
+        transform: space_identity(),
+        parent: 0xffffffffu32,
+        portal: 0xffffffffu32,
+        incoming: 0xffffffffu32,
+        depth: 0u32
+    };
+}
+
+fn portal_sphere_reaches(portal: CollisionPortal, point: Vec3, radius: f32, distance: f32) -> bool {
+    if portal_inside(portal, sub(point, scale(portal.basis.forward, distance))) {
+        return true;
+    }
+    var a: Vec3 = portal_corner(portal, 0u32);
+    var i: u32 = 0u32;
+    while i < portal.sides {
+        var b: Vec3 = portal_corner(portal, i + 1u32);
+        var edge: Vec3 = sub(b, a);
+        var along: f32 = clamp(
+            dot(sub(point, a), edge) / dot(edge, edge),
+            0f32,
+            1f32
+        );
+        var delta: Vec3 = sub(point, add(a, scale(edge, along)));
+        if dot(delta, delta) <= radius * radius {
+            return true;
+        }
+        a = b;
+        i = i + 1u32;
+    }
+    return false;
+}

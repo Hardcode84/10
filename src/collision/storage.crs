@@ -271,7 +271,7 @@ fn collision_finish(builder: CollisionBuilder, scene: mut CollisionScene) -> boo
     var next: CollisionScene = collision_new();
     next.data = builder.data;
     builder.data = collision_empty_data();
-    if !collision_index_build(&next) {
+    if !collision_portals_valid(read next) || !collision_index_build(&next) {
         return false;
     }
     scene = move next;

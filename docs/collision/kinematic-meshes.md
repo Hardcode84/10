@@ -128,3 +128,33 @@ production flight, hook, tether, force, and collision components. Checks cover:
 - Actual projectile launch, attachment, riding, and release.
 - Separate winch work, machine work, cable loss, and contact energy.
 - Opposed machine contacts that must report infeasible motion.
+
+## Room overlap anchors
+
+A body keeps one primary room and one simulated state. Swept-sphere queries
+create room anchors for the apertures that overlap the swept volume. Each
+anchor maps the primary room into a query room. A room can occur more than once
+with different transforms. The centre crossing still changes the primary room.
+The sweep stops at the next centre crossing; the caller transforms the remaining
+motion and continues in the destination room.
+
+Before the centre crosses, destination surfaces can contact the body. Contact
+points and normals return in the query caller's frame. The contact also retains
+the surface room, instance, mesh-local point, and a transform from the surface
+room to the caller's frame. Attachments use that transform to preserve the cable
+frame. Contact planes and surface velocities use the same transform.
+
+A contact must lie through every aperture on its anchor path. Surface candidates
+are checked before nearest-contact selection and before contact planes are
+merged. Static room-local queries remain available for mesh inspection. Gameplay
+uses the interval queries for both static and moving surfaces.
+
+A reverse connection index identifies the link back to the source. Construction
+rejects invalid or non-reciprocal reverse indices. A one-way connection uses the
+absent-index value. No polygon comparison is used to find reverse links.
+Body overlap traversal reports status 7 on allocation failure or when a path
+reaches 1024 connections. It does not silently discard the remaining overlap.
+
+Run crust tests.crs collision for transformed seam contacts, pre-crossing hook
+attachments, and moving destination surfaces. Run crust tests.crs hook-light
+for physical light anchors and the recursive GPU capture.

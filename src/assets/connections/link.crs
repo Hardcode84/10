@@ -27,7 +27,8 @@ fn connection_link(
     b: RoomPort,
     space: u32,
     destination: u32,
-    roll: u32
+    roll: u32,
+    reverse: u32
 ) -> bool {
     if !asset_names_equal(a.profile.name, b.profile.name) || roll >= connection_rotations(a, b) {
         return error("connection profile or roll does not match");
@@ -35,6 +36,7 @@ fn connection_link(
     return collision_portal_append(
         mut builder,
         make CollisionPortal {
+            reverse: reverse,
             space: space,
             destination: destination,
             origin: a.position,

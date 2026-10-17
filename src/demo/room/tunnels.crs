@@ -61,12 +61,13 @@ fn demo_tunnel_pair(
         }
         i = i + 1u32;
     }
-    return connection_link(mut builder, end, b, 0u32, 0u32, 3u32) && connection_link(
+    return connection_link(mut builder, end, b, 0u32, 0u32, 3u32, first + 1u32) && connection_link(
         mut builder,
         b,
         end,
         0u32,
         0u32,
-        3u32
+        3u32,
+        first
     );
 }

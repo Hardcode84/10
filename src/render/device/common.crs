@@ -178,7 +178,7 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
                 ny,
                 nz,
                 floats_load(p + 3u32),
-                true
+                floats_load(p + 7u32) != LIGHT_HEADLAMP as f32
             );
             amount = light_band(
                 amount,
@@ -186,7 +186,7 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
                 floats_load(p + 5u32),
                 floats_load(p + 6u32)
             );
-            if !transported && amount > 0f32 && !light_visible(
+            if floats_load(p + 7u32) == LIGHT_ROOM as f32 && amount > 0f32 && !light_visible(
                 i,
                 tri,
                 px,
@@ -478,7 +478,7 @@ fn low_bit(bits: u32) -> u32 {
 }
 
 fn light_position(light: u32, view: u32, axis: u32) -> f32 {
-    if floats_load(light + 7u32) == LIGHT_ROOM as f32 {
+    if floats_load(light + 7u32) != LIGHT_VIEW as f32 {
         return floats_load(light + axis);
     }
     var p: u32 = words_load(VIEW_FLOAT) + view * 16u32;

@@ -57,7 +57,7 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "hook-light") == 0i32
         backend.emit,
         "tests/game/hook-light-entry.crs",
         "build/tests-hook-light",
-        null(*u8)
+        "tests/game/light-anchors.crs"
     ) || !build_render_shaders(run) {
         return 1i32;
     }

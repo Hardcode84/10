@@ -98,6 +98,7 @@ fn collision_triangle(p: Vec3, d: Vec3, f: CollisionFace, radius: f32) -> Hit {
     return hit;
 }
 record CollisionContact {
+    frame: SpaceTransform;
     hit: Hit;
     point: Vec3;
     local_point: Vec3;
@@ -108,6 +109,7 @@ record CollisionContact {
 }
 fn collision_miss(space: u32) -> CollisionContact {
     return make CollisionContact {
+        frame: space_identity(),
         hit: miss(),
         point: vec(0f32, 0f32, 0f32),
         local_point: vec(0f32, 0f32, 0f32),

@@ -77,6 +77,10 @@ jobs:
           echo "XDG_RUNTIME_DIR=$RUNNER_TEMP/xdg" >> "$GITHUB_ENV"
       - name: Check ownership, headless renderer, simulation, and viewer
         run: crust tests.crs
+      - name: Check portal overlap and recursive object lights
+        run: |
+          crust tests.crs collision
+          crust tests.crs hook-light
       - name: Build native application entry points
         run: |
           crust main.crs --build-only

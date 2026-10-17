@@ -1,0 +1,73 @@
+record LightObject {
+    id: u32;
+    space: u32;
+    position: Vec3;
+    colour: Vec3;
+    radius: f32;
+    mode: u32;
+}
+fn light_object_reach(light: LightObject) -> f32 {
+    var peak: f32 = clamp(light.colour.x, light.colour.y, 3.4028234e38f32);
+    peak = clamp(peak, light.colour.z, 3.4028234e38f32);
+    return light.radius * clamp(sqrtf(7f32 * peak) - 1f32, 0f32, 3.4028234e38f32);
+}
+fn light_object_submit(input: mut FrameInput, light: LightObject, anchor: RoomAnchor) -> unit {
+    var index: u32 = input_word(read input, LIGHT_COUNT as usize);
+    if !input_lights(mut input, index + 1u32) {
+        scene_overflow();
+    }
+    var point: Vec3 = space_point(anchor.transform, light.position);
+    var p: usize = (input_word(read input, LIGHT_DATA as usize) + index * 8u32) as usize;
+    input_set_float(mut input, p, point.x);
+    input_set_float(mut input, p + 1usize, point.y);
+    input_set_float(mut input, p + 2usize, point.z);
+    input_set_float(mut input, p + 3usize, light.radius * light.radius);
+    input_set_float(mut input, p + 4usize, light.colour.x);
+    input_set_float(mut input, p + 5usize, light.colour.y);
+    input_set_float(mut input, p + 6usize, light.colour.z);
+    input_set_float(mut input, p + 7usize, light.mode as f32);
+    input_light_space(mut input, index, anchor.space);
+}
+fn light_object_anchors(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    light: LightObject
+) -> unit {
+    var anchors: RoomAnchors = room_anchors_new();
+    if !collision_anchors(
+        read scene,
+        mut anchors,
+        primary_anchor(light.id, light.space),
+        light.position,
+        vec(0f32, 0f32, 0f32),
+        light_object_reach(light),
+        input_word(read input, 4usize)
+    ) {
+        scene_overflow();
+    }
+    var count: u32 = input_word(read input, LIGHT_COUNT as usize);
+    if !input_lights(mut input, count + room_anchor_count(read anchors)) {
+        scene_overflow();
+    }
+    input_set_word(mut input, LIGHT_COUNT as usize, count);
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        light_object_submit(mut input, light, room_anchor(read anchors, i));
+        i = i + 1u32;
+    }
+}
+fn game_object_lighting(scene: read CollisionScene, input: mut FrameInput, trial: read Trial) -> unit {
+    input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
+    var player: LightObject = make LightObject {
+        id: 0u32,
+        space: trial.drone.world,
+        position: trial.drone.position,
+        colour: vec(1f32, 1f32, 1f32),
+        radius: 6f32,
+        mode: LIGHT_HEADLAMP
+    };
+    input_set_float(mut input, CAMERA_LIGHT as usize, 0f32);
+    light_object_anchors(read scene, mut input, player);
+    hook_light(read scene, mut input, trial.drone);
+    graph_lighting(read scene, mut input, read trial);
+}

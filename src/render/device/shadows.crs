@@ -202,6 +202,9 @@ fn light_visible(
     if !shadow_visible(dynamic_root, receiver, 0u32, ox, oy, oz, dx, dy, dz) {
         return false;
     }
+    if words_load(INSTANCE_COUNT) == 0u32 {
+        return true;
+    }
     var node: u32 = (words_load(SHADOW_TOP) + light * words_load(INSTANCE_CAPACITY)) * 2u32;
     if words_load(words_load(SHADOW_NODES) + node * 4u32 + 1u32) == 0u32 {
         return true;

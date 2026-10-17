@@ -13,7 +13,12 @@ fn hook_attach(
         collision_instance(read scene, contact.instance),
         contact_time
     );
-    drone.cable.local_normal = collision_local(pose.basis, contact.hit.normal);
+    drone.cable.local_normal = collision_local(
+        pose.basis,
+        basis_vector(space_inverse(contact.frame).basis, contact.hit.normal)
+    );
+    drone.cable.frame = space_compose(drone.cable.frame, contact.frame);
+    drone.cable.space = contact.space;
     drone.cable.phase = CABLE_ATTACHED;
     hook_follow(read scene, mut drone, time);
     drone.cable.extent = clamp(

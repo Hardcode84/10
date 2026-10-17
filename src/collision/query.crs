@@ -80,6 +80,32 @@ fn collision_query_pose(
     radius: f32,
     separation: bool
 ) -> CollisionContact {
+    var anchors: RoomAnchors = room_anchors_new();
+    return collision_query_pose_filtered(
+        read scene,
+        index,
+        item,
+        p,
+        d,
+        radius,
+        separation,
+        read anchors,
+        0u32,
+        vec(0f32, 0f32, 0f32)
+    );
+}
+fn collision_query_pose_filtered(
+    scene: read CollisionScene,
+    index: u32,
+    item: CollisionInstance,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    separation: bool,
+    anchors: read RoomAnchors,
+    anchor_index: u32,
+    movement: Vec3
+) -> CollisionContact {
     var local_p: Vec3 = collision_local(item.basis, sub(p, item.origin));
     var local_d: Vec3 = collision_local(item.basis, d);
     var result: CollisionContact = collision_miss(item.space);
@@ -98,7 +124,16 @@ fn collision_query_pose(
                 );
                 next.instance = index;
                 next.surface = node.leaf;
-                if (!separation || next.penetration == 0f32) && collision_better(next, result) {
+                if (!separation || next.penetration == 0f32) && collision_better(next, result) && collision_anchor_accept(
+                    read scene,
+                    read anchors,
+                    anchor_index,
+                    add(p, scale(add(d, movement), next.hit.time)),
+                    add(
+                        add(item.origin, scale(movement, next.hit.time)),
+                        basis_vector(item.basis, next.local_point)
+                    )
+                ) {
                     result = next;
                 }
             }
@@ -118,6 +153,28 @@ fn collision_query(
     radius: f32,
     separation: bool
 ) -> CollisionContact {
+    var anchors: RoomAnchors = room_anchors_new();
+    return collision_query_filtered(
+        read scene,
+        space,
+        p,
+        d,
+        radius,
+        separation,
+        read anchors,
+        0u32
+    );
+}
+fn collision_query_filtered(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    separation: bool,
+    anchors: read RoomAnchors,
+    anchor_index: u32
+) -> CollisionContact {
     var result: CollisionContact = collision_miss(space);
     var range: CollisionSpace = collision_space(read scene, space);
     var i: u32 = range.root;
@@ -129,13 +186,17 @@ fn collision_query(
             if node.leaf != 0xffffffffu32 && !collision_moving(
                 collision_instance(read scene, node.leaf)
             ) {
-                var next: CollisionContact = collision_query_instance(
+                var next: CollisionContact = collision_query_pose_filtered(
                     read scene,
                     node.leaf,
+                    collision_instance(read scene, node.leaf),
                     p,
                     d,
                     radius,
-                    separation
+                    separation,
+                    read anchors,
+                    anchor_index,
+                    vec(0f32, 0f32, 0f32)
                 );
                 if collision_better(next, result) {
                     result = next;

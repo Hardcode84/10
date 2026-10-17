@@ -55,7 +55,7 @@ fn collision_reach(item: CollisionInstance) -> f32 {
 }
 // Returns the first contact over [time,time+duration], including moving surfaces.
 // Status 6 reports a numerical or iteration failure; it is never a miss.
-fn collision_sweep_interval(
+fn collision_local_sweep_interval(
     scene: read CollisionScene,
     space: u32,
     p: Vec3,
@@ -64,8 +64,41 @@ fn collision_sweep_interval(
     time: f32,
     duration: f32
 ) -> CollisionSweep {
+    var anchors: RoomAnchors = room_anchors_new();
+    return collision_filtered_sweep_interval(
+        read scene,
+        space,
+        p,
+        d,
+        radius,
+        time,
+        duration,
+        read anchors,
+        0u32
+    );
+}
+fn collision_filtered_sweep_interval(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32,
+    anchors: read RoomAnchors,
+    anchor_index: u32
+) -> CollisionSweep {
     var result: CollisionSweep = collision_sweep_result(
-        collision_sweep(read scene, space, p, d, radius)
+        collision_query_filtered(
+            read scene,
+            space,
+            p,
+            d,
+            radius,
+            false,
+            read anchors,
+            anchor_index
+        )
     );
     var index: u32 = collision_moving_head(read scene);
     while index != 0xffffffffu32 {
@@ -79,7 +112,9 @@ fn collision_sweep_interval(
                 d,
                 radius,
                 time,
-                duration
+                duration,
+                read anchors,
+                anchor_index
             );
             if next.status != 0u32 {
                 return next;

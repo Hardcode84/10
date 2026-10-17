@@ -54,7 +54,7 @@ fn collision_interval_resolve(
         result.status = 2u32;
         return;
     }
-    var blocked: CollisionContact = collision_correction_blocked(
+    var blocked: CollisionSweep = collision_correction_blocked(
         read scene,
         space,
         result.position,
@@ -62,9 +62,13 @@ fn collision_interval_resolve(
         radius,
         time
     );
-    if blocked.hit.time <= 1f32 {
+    if blocked.status != 0u32 {
+        result.status = blocked.status;
+        return;
+    }
+    if blocked.contact.hit.time <= 1f32 {
         result.status = 5u32;
-        result.contact = blocked;
+        result.contact = blocked.contact;
         return;
     }
     result.position = add(result.position, correction.value);

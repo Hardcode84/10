@@ -73,10 +73,12 @@ in darkness and under coloured light. Lighting dithering does not change them.
 They obey depth and portal visibility and do not illuminate other surfaces.
 Do not reserve a fixed range of palette indices in the renderer.
 
-Support an optional camera light with configurable colour and falloff. Transform
-its position through each portal view so nearby surfaces receive light before
-and after the camera crosses a doorway. This light does not change ambient
-lighting or the full-bright palette entries.
+Support an optional camera-space light with configurable colour and falloff.
+Physical game lights use object-to-room anchors. The player lamp, hook lamp,
+and fixed lamps retain room-local positions across all camera views. An object
+can have several anchors in one room through different portal paths. See the
+[light contract](lighting.md). These lights do not change ambient lighting or
+the full-bright palette entries.
 
 Resolve the selected colours into an RGB colour image. Do not require one palette
 for the complete frame or quantize the final image to a fixed colour count.

@@ -24,8 +24,8 @@ fn lighting_valid(v: *RenderState) -> bool {
     while i < w[LIGHT_COUNT as usize] {
         var p: usize = (w[LIGHT_DATA as usize] + i * 8u32) as usize;
         var mode: f32 = f[p + 7usize];
-        if mode != LIGHT_ROOM as f32 && mode != LIGHT_VIEW as f32 {
-            return error("light mode must be LIGHT_ROOM or LIGHT_VIEW");
+        if mode != LIGHT_ROOM as f32 && mode != LIGHT_VIEW as f32 && mode != LIGHT_UNSHADOWED as f32 && mode != LIGHT_HEADLAMP as f32 {
+            return error("invalid light mode");
         }
         var j: usize = 0usize;
         while j < 7usize {

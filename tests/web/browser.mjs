@@ -18,7 +18,7 @@ export async function flight(options) {
     };
   }
   Object.assign(form.elements.seed, {value: '42'});
-  for (const [name, value] of Object.entries({complexity: 2, width: 641, height: 359, ticks: options.controls ? 240 : 1})) form.elements[name].value = value;
+  for (const [name, value] of Object.entries({complexity: 2, width: 641, height: 359, ticks: options.controls ? 0 : 1})) form.elements[name].value = value;
   form.elements.record.checked = !options.replay;
   form.elements.capture.checked = !options.controls;
   form.elements.fullscreen.checked = !!options.fullscreen;
@@ -36,6 +36,11 @@ export async function flight(options) {
   GPUCanvasContext.prototype.getCurrentTexture = function() { frames++; return getTexture.call(this); };
   const key = (type, code, key, n) => window.dispatchEvent(new KeyboardEvent(type, {code, key, keyCode:n, which:n, bubbles:true}));
   form.requestSubmit();
+  const inputFrame = async () => {
+    const target = frames + 2;
+    await until(() => frames >= target || !document.querySelector("#restart").hidden);
+    if (!document.querySelector("#restart").hidden) throw Error("Game ended before input was consumed");
+  };
   let fullscreen = false, paused = false;
   if (options.deviceLoss) {
     await until(() => frames > 0);
@@ -46,18 +51,20 @@ export async function flight(options) {
     key('keydown', 'KeyW', 'w', 87);
     key('keydown', 'KeyQ', 'q', 81);
     canvas.dispatchEvent(new MouseEvent('mousedown', {button:0, buttons:1, bubbles:true, clientX:320, clientY:180}));
-    await wait(250); key('keyup', 'KeyQ', 'q', 81); key('keydown', 'KeyR', 'r', 82);
-    await wait(150); key('keyup', 'KeyR', 'r', 82);
+    await inputFrame(); key('keyup', 'KeyQ', 'q', 81); key('keydown', 'KeyR', 'r', 82);
+    await inputFrame(); key('keyup', 'KeyR', 'r', 82);
     canvas.dispatchEvent(new MouseEvent('mousedown', {button:2, buttons:3, bubbles:true}));
-    await wait(250);
+    await inputFrame();
     canvas.dispatchEvent(new MouseEvent('mouseup', {button:0, buttons:2, bubbles:true}));
     canvas.dispatchEvent(new MouseEvent('mouseup', {button:2, buttons:0, bubbles:true}));
     key('keyup', 'KeyW', 'w', 87);
-    key('keydown', 'KeyF', 'f', 70); await wait(100); key('keyup', 'KeyF', 'f', 70);
-    key('keydown', 'Tab', 'Tab', 9); await wait(50); key('keyup', 'Tab', 'Tab', 9);
-    await wait(100); const before = spinward.FS.stat('/flight.swr').size;
+    key('keydown', 'KeyF', 'f', 70); await inputFrame(); key('keyup', 'KeyF', 'f', 70);
+    key('keydown', 'Tab', 'Tab', 9); await inputFrame(); key('keyup', 'Tab', 'Tab', 9);
+    await inputFrame(); const before = spinward.FS.stat('/flight.swr').size;
     await wait(400); paused = spinward.FS.stat('/flight.swr').size === before;
-    key('keydown', 'Tab', 'Tab', 9); await wait(50); key('keyup', 'Tab', 'Tab', 9);
+    key('keydown', 'Tab', 'Tab', 9); await inputFrame(); key('keyup', 'Tab', 'Tab', 9);
+    await inputFrame();
+    document.querySelector('#quit').click();
   }
   await until(() => !document.querySelector('#restart').hidden);
   const encode = path => {

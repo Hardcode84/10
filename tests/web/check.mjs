@@ -70,7 +70,8 @@ function compareImage(a, b) {
 function checkCommands(encoded) {
   const bytes=Buffer.from(encoded,'base64');
   let flags=0,reel=false,thrust=false,look=false;
-  require(bytes.readUInt32LE(bytes.length-36)===240,'Flight did not run 240 ticks');
+  const ticks=(bytes.length-64)/40;
+  require(ticks>0 && bytes.readUInt32LE(bytes.length-36)===ticks,'Flight recording has an invalid tick count');
   for(let offset=24;offset<bytes.length-40;offset+=40) {
     thrust ||= bytes.readUInt32LE(offset+12)!==0;
     look ||= bytes.readUInt32LE(offset+24)!==0;

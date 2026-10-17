@@ -86,8 +86,7 @@ fn game_scene(
     camera_row(mut v, 0usize, trial.drone.basis.right, trial.drone.position);
     camera_row(mut v, 4usize, trial.drone.basis.up, trial.drone.position);
     camera_row(mut v, 8usize, trial.drone.basis.forward, trial.drone.position);
-    hook_light(read collision, mut v, trial.drone);
-    graph_lighting(mut v, read trial);
+    game_object_lighting(read collision, mut v, read trial);
     draw_cable(read collision, mut v, trial.drone, config);
     draw_preview(read collision, mut v, read trial, config);
     draw_frame(mut v, trial.drone, config);
@@ -108,5 +107,25 @@ fn game_dynamic_no_shadow(v: mut FrameInput, first: u32) -> unit {
         var value: u32 = input_word(read v, flags) | 4u32;
         input_set_word(mut v, flags, value);
         i = i + 1u32;
+    }
+}
+
+fn game_dynamic_anchor(input: mut FrameInput, first: u32, anchor: RoomAnchor) -> unit {
+    game_dynamic_space(mut input, first, anchor.space);
+    var vertex: u32 = first * 3u32;
+    while vertex < input_word(read input, 3usize) * 3u32 {
+        var p: usize = (GEOMETRY + vertex * 5u32) as usize;
+        var point: Vec3 = space_point(
+            anchor.transform,
+            vec(
+                input_float(read input, p),
+                input_float(read input, p + 1usize),
+                input_float(read input, p + 2usize)
+            )
+        );
+        input_set_float(mut input, p, point.x);
+        input_set_float(mut input, p + 1usize, point.y);
+        input_set_float(mut input, p + 2usize, point.z);
+        vertex = vertex + 1u32;
     }
 }

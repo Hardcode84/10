@@ -104,7 +104,15 @@ fn graph_assemble(
     while i < graph_ports(read graph) {
         var a: GraphSocket = graph_socket(read graph, i);
         var b: GraphSocket = graph_socket(read graph, a.peer);
-        if !connection_link(mut builder, a.port, b.port, a.room, b.room, a.roll) {
+        if !connection_link(
+            mut builder,
+            a.port,
+            b.port,
+            a.room,
+            b.room,
+            a.roll,
+            a.peer
+        ) {
             return false;
         }
         i = i + 1u32;

@@ -665,9 +665,9 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
                 normal,
                 f[l + 3usize],
                 vertex(f, l + 4usize),
-                true
+                f[l + 7usize] != LIGHT_HEADLAMP as f32
             );
-            if !transported && (
+            if f[l + 7usize] == LIGHT_ROOM as f32 && (
                 contribution.x > 0f32 || contribution.y > 0f32 || contribution.z > 0f32
             ) && !reference_light_visible(w, f, hit, vertex(f, l)) {
                 contribution = make Vec {
@@ -795,7 +795,7 @@ fn reference_light_visible(w: *u32, f: *f32, receiver: Hit, target: Vec) -> bool
 
 fn reference_light_position(f: *f32, p: usize, hit: Hit) -> Vec {
     var point: Vec = vertex(f, p);
-    if f[p + 7usize] == LIGHT_ROOM as f32 {
+    if f[p + 7usize] != LIGHT_VIEW as f32 {
         return point;
     }
     var forward: Vec = cross(hit.right, hit.up);

@@ -8,14 +8,12 @@ fn draw_cable(
         return;
     }
     var mat: u32 = 4u32;
-    var size: Vec3 = vec(HOOK_RADIUS, HOOK_RADIUS, HOOK_RADIUS);
     var physical: Vec3 = space_point(
         space_inverse(drone.cable.frame),
         drone.cable.anchor
     );
     var first: u32 = input_word(read v, 3usize);
-    draw_solid(mut v, solid(sub(physical, size), add(physical, size), 5u32));
-    game_dynamic_space(mut v, first, drone.cable.space);
+    draw_hook_anchors(read collision, mut v, drone.cable.space, physical);
     var start: Vec3 = add(
         drone.position,
         basis_vector(drone.basis, vec(0f32, -0.12f32, 0.2f32))
@@ -114,24 +112,44 @@ fn hook_light_position(collision: read CollisionScene, drone: Drone) -> Vec3 {
     return point;
 }
 fn hook_light(collision: read CollisionScene, input: mut FrameInput, drone: Drone) -> unit {
-    var active: bool = drone.cable.phase == CABLE_FLYING || drone.cable.phase == CABLE_ATTACHED;
-    input_set_word(mut input, LIGHT_COUNT as usize, active as u32);
-    if !active {
+    if drone.cable.phase != CABLE_FLYING && drone.cable.phase != CABLE_ATTACHED {
         return;
     }
-    var physical: Vec3 = hook_light_position(read collision, drone);
-    var point: Vec3 = collision_local(
-        drone.basis,
-        sub(space_point(drone.cable.frame, physical), drone.position)
-    );
-    var p: usize = input_word(read input, LIGHT_DATA as usize) as usize;
-    input_set_float(mut input, p, point.x);
-    input_set_float(mut input, p + 1usize, point.y);
-    input_set_float(mut input, p + 2usize, point.z);
-    input_set_float(mut input, p + 3usize, 36f32);
-    input_set_float(mut input, p + 4usize, 2f32);
-    input_set_float(mut input, p + 5usize, 1.6f32);
-    input_set_float(mut input, p + 6usize, 0.1f32);
-    input_set_float(mut input, p + 7usize, LIGHT_VIEW as f32);
-    input_light_space(mut input, 0u32, drone.cable.space);
+    var light: LightObject = make LightObject {
+        id: 1u32,
+        space: drone.cable.space,
+        position: hook_light_position(read collision, drone),
+        colour: vec(2f32, 1.6f32, 0.1f32),
+        radius: 6f32,
+        mode: LIGHT_UNSHADOWED
+    };
+    light_object_anchors(read collision, mut input, light);
+}
+
+fn draw_hook_anchors(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    space: u32,
+    point: Vec3
+) -> unit {
+    var anchors: RoomAnchors = room_anchors_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !collision_body_anchors(
+        read scene,
+        mut anchors,
+        space,
+        point,
+        still,
+        HOOK_RADIUS * sqrtf(3f32)
+    ) {
+        scene_motion_failure();
+    }
+    var size: Vec3 = vec(HOOK_RADIUS, HOOK_RADIUS, HOOK_RADIUS);
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        var first: u32 = input_word(read input, 3usize);
+        draw_solid(mut input, solid(sub(point, size), add(point, size), 5u32));
+        game_dynamic_anchor(mut input, first, room_anchor(read anchors, i));
+        i = i + 1u32;
+    }
 }

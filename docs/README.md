@@ -24,6 +24,7 @@ application functions as the applications.
 | `src/render/web/` | WebGPU resources, commands, and presentation |
 | `src/render/device/` | Compute shaders |
 | `src/render/interface.crs` | Shared host and device data definitions |
+| `src/spatial/` | Object-to-room anchor storage |
 | `src/collision/` | Mesh storage, kinematic poses, spatial indices, sphere queries, and contact solving |
 | `src/app/` | Shared window, clock, capture, shader, and asset helpers |
 | `src/app/web/` | Browser launcher, window provider, and toolchain configuration |
@@ -98,3 +99,5 @@ The test runner preserves the environment. For example, set `VK_DRIVER_FILES`
 to select a Vulkan driver. A failed child process makes the test root fail.
 
 The focused collision target includes flight and hook fixtures without game levels.
+The hook-light target checks room anchors, recursive light images, and hook
+lighting with the GPU renderer. CI runs both targets.

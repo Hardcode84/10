@@ -4,6 +4,7 @@ record SpaceTransform {
     basis: Basis;
 }
 record CollisionPortal {
+    reverse: u32;
     space: u32;
     destination: u32;
     origin: Vec3;
@@ -34,5 +35,23 @@ fn collision_portal_append(builder: mut CollisionBuilder, portal: CollisionPorta
     builder.data.portals = data;
     data[count] = portal;
     builder.data.portal_count = builder.data.portal_count + 1u32;
+    return true;
+}
+
+fn collision_portals_valid(scene: read CollisionScene) -> bool {
+    var i: u32 = 0u32;
+    while i < collision_portal_count(read scene) {
+        var portal: CollisionPortal = collision_portal(read scene, i);
+        if portal.reverse != 0xffffffffu32 {
+            if portal.reverse >= collision_portal_count(read scene) {
+                return error("portal reverse index is outside the connection table");
+            }
+            var reverse: CollisionPortal = collision_portal(read scene, portal.reverse);
+            if reverse.reverse != i || reverse.space != portal.destination || reverse.destination != portal.space {
+                return error("portal reverse links must be reciprocal and exchange rooms");
+            }
+        }
+        i = i + 1u32;
+    }
     return true;
 }

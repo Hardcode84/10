@@ -72,7 +72,9 @@ fn collision_sweep_moving(
     d: Vec3,
     radius: f32,
     time: f32,
-    duration: f32
+    duration: f32,
+    anchors: read RoomAnchors,
+    anchor_index: u32
 ) -> CollisionSweep {
     var pose: CollisionInstance = collision_pose(item, time);
     var relative: Vec3 = sub(d, scale(item.linear, duration));
@@ -89,14 +91,17 @@ fn collision_sweep_moving(
         return result;
     }
     if dot(item.angular, item.angular) == 0f32 || duration == 0f32 {
-        result.contact = collision_query_pose(
+        result.contact = collision_query_pose_filtered(
             read scene,
             index,
             pose,
             p,
             relative,
             radius,
-            false
+            false,
+            read anchors,
+            anchor_index,
+            scale(item.linear, duration)
         );
         result.contact.point = add(
             result.contact.point,
@@ -119,7 +124,13 @@ fn collision_sweep_moving(
         if next.status != 0u32 {
             return next;
         }
-        if collision_better(next.contact, result.contact) {
+        if collision_better(next.contact, result.contact) && collision_anchor_accept(
+            read scene,
+            read anchors,
+            anchor_index,
+            add(p, scale(d, next.contact.hit.time)),
+            next.contact.point
+        ) {
             result = next;
         }
         face = face + 1u32;

@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 75] = make [*u8; 75] {
+    var files: [*u8; 79] = make [*u8; 79] {
         "src/assets/geometry/loft.crs",
         "src/assets/geometry/hex-tunnel.crs",
         "src/assets/geometry/hex-ending.crs",
@@ -34,6 +34,9 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/frame-rate.crs",
         "src/collision/primitives.crs",
         "src/collision/portals.crs",
+        "src/collision/anchors.crs",
+        "src/collision/portal-query.crs",
+        "src/collision/portal-contacts.crs",
         "src/collision/topology.crs",
         "src/collision/sweep.crs",
         "src/collision/query.crs",
@@ -57,6 +60,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/flight/tether.crs",
         "src/game/flight/hook.crs",
         "src/game/view/tether-view.crs",
+        "src/game/view/lighting.crs",
         "src/game/flight/physics.crs",
         "src/game/flight/trial.crs",
         "src/game/view/scene.crs",
@@ -77,14 +81,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 75usize {
+    while i < 79usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 24] = make [*u8; 24] {
+    var files: [*u8; 25] = make [*u8; 25] {
         "src/assets/geometry/storage.crs",
         "src/assets/parameter-storage.crs",
         "src/assets/connections/storage.crs",
@@ -93,6 +97,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/app/render-open.crs",
         "src/collision/storage.crs",
         "src/collision/portal-storage.crs",
+        "src/spatial/anchors.crs",
         "src/collision/contact-storage.crs",
         "src/collision/index-build.crs",
         "src/collision/adjacency-build.crs",
@@ -111,7 +116,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/text.crs"
     };
     var i: usize = 0usize;
-    while i < 24usize {
+    while i < 25usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

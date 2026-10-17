@@ -1,0 +1,100 @@
+fn anchor_light_scene(scene: mut CollisionScene) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var portal: CollisionPortal = make CollisionPortal {
+        reverse: 1u32,
+        space: 0u32,
+        destination: 0u32,
+        origin: vec(0f32, 0f32, 3f32),
+        basis: identity_basis(),
+        radius: 3f32,
+        sides: 4u32,
+        phase: 0.78539816339f32,
+        transform: make SpaceTransform {
+            origin: vec(0f32, 0f32, -6f32),
+            basis: make Basis {
+                right: vec(0f32, 1f32, 0f32),
+                up: vec(-1f32, 0f32, 0f32),
+                forward: vec(0f32, 0f32, 1f32)
+            }
+        }
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.reverse = 0u32;
+    portal.origin.z = -3f32;
+    portal.basis.right.x = -1f32;
+    portal.basis.forward.z = -1f32;
+    portal.transform = space_inverse(portal.transform);
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn anchor_light_input(scene: read CollisionScene, input: mut FrameInput, lit: bool) -> bool {
+    game_palette(mut input);
+    input_frame(mut input);
+    render_portals(mut input, read scene);
+    input_set_word(mut input, 26usize, 1u32);
+    input_set_word(mut input, BACKGROUND as usize, 0xff000000u32);
+    input_set_word(mut input, SHARED_AMBIENT as usize, 1u32);
+    input_set_float(mut input, CAMERA_LIGHT as usize, 0f32);
+    input_set_float(mut input, SPACE_LIGHT as usize, 0f32);
+    input_set_float(mut input, (SPACE_LIGHT + 1u32) as usize, 0f32);
+    input_set_float(mut input, (SPACE_LIGHT + 2u32) as usize, 0f32);
+    var eye: Vec3 = vec(0f32, 0f32, -2f32);
+    camera_row(mut input, 0usize, vec(1f32, 0f32, 0f32), eye);
+    camera_row(mut input, 4usize, vec(0f32, 1f32, 0f32), eye);
+    camera_row(mut input, 8usize, vec(0f32, 0f32, 1f32), eye);
+    quad(
+        mut input,
+        0u32,
+        0u32,
+        1u32,
+        0u32,
+        -2f32,
+        -2f32,
+        3f32,
+        2f32,
+        -2f32,
+        3f32,
+        2f32,
+        2f32,
+        3f32,
+        -2f32,
+        2f32,
+        3f32
+    );
+    game_quad(
+        mut input,
+        0u32,
+        vec(1f32, -2f32, 2f32),
+        vec(1.4f32, -2f32, 2f32),
+        vec(1.4f32, 2f32, 2f32),
+        vec(1f32, 2f32, 2f32)
+    );
+    if !lit {
+        return true;
+    }
+    var drone: Drone = new_drone();
+    drone.world = 0u32;
+    drone.position = eye;
+    hook_launch(mut drone);
+    drone.cable.anchor = vec(0f32, 0f32, 1f32);
+    hook_light(read scene, mut input, drone);
+    var count: u32 = input_word(read input, LIGHT_COUNT as usize);
+    if count < 3u32 {
+        return error("recursive same-room light must have multiple anchors");
+    }
+    var i: u32 = 0u32;
+    var translated: bool = false;
+    while i < count {
+        var p: usize = (input_word(read input, LIGHT_DATA as usize) + i * 8u32) as usize;
+        if input_float(read input, p + 7usize) != LIGHT_UNSHADOWED as f32 {
+            return error("hook must use physical room anchors");
+        }
+        translated = translated || input_float(read input, p + 2usize) == -5f32;
+        i = i + 1u32;
+    }
+    return translated || error("recursive hook anchor lost its portal transform");
+}

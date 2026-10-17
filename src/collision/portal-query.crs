@@ -1,0 +1,187 @@
+fn collision_anchor_accept(
+    scene: read CollisionScene,
+    anchors: read RoomAnchors,
+    index: u32,
+    center: Vec3,
+    point: Vec3
+) -> bool {
+    if room_anchor_count(read anchors) == 0u32 {
+        return true;
+    }
+    var inverse: SpaceTransform = space_inverse(room_anchor(read anchors, index).transform);
+    return anchor_contact_visible(
+        read scene,
+        read anchors,
+        index,
+        space_point(inverse, center),
+        space_point(inverse, point)
+    );
+}
+fn collision_body_anchors(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32
+) -> bool {
+    if !collision_anchors(
+        read scene,
+        mut anchors,
+        primary_anchor(0u32, space),
+        p,
+        d,
+        radius,
+        1024u32
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        if room_anchor(read anchors, i).depth == 1024u32 {
+            return error("body portal overlap exceeds traversal budget");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn anchor_contact_visible(
+    scene: read CollisionScene,
+    anchors: read RoomAnchors,
+    index: u32,
+    center: Vec3,
+    point: Vec3
+) -> bool {
+    var cursor: u32 = index;
+    while room_anchor(read anchors, cursor).parent != 0xffffffffu32 {
+        var child: RoomAnchor = room_anchor(read anchors, cursor);
+        var parent: RoomAnchor = room_anchor(read anchors, child.parent);
+        var portal: CollisionPortal = collision_portal(read scene, child.portal);
+        var start: Vec3 = space_point(parent.transform, center);
+        var end: Vec3 = space_point(parent.transform, point);
+        var a: f32 = dot(portal.basis.forward, sub(start, portal.origin));
+        var b: f32 = dot(portal.basis.forward, sub(end, portal.origin));
+        if b < 0f32 {
+            return false;
+        }
+        if a <= 0f32 {
+            var crossing: Vec3 = end;
+            if a != b {
+                crossing = add(start, scale(sub(end, start), -a / (b - a)));
+            }
+            if !portal_inside(portal, crossing) {
+                return false;
+            }
+        }
+        cursor = child.parent;
+    }
+    return true;
+}
+fn anchor_contact(anchor: RoomAnchor, contact: CollisionContact) -> CollisionContact {
+    var result: CollisionContact = contact;
+    result.frame = space_inverse(anchor.transform);
+    result.point = space_point(result.frame, contact.point);
+    result.hit.normal = basis_vector(result.frame.basis, contact.hit.normal);
+    return result;
+}
+// Contact positions and normals use the query room. frame maps the contacted room to the query room.
+fn collision_sweep_interval(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32
+) -> CollisionSweep {
+    if collision_portal_count(read scene) == 0u32 {
+        return collision_local_sweep_interval(
+            read scene,
+            space,
+            p,
+            d,
+            radius,
+            time,
+            duration
+        );
+    }
+    var crossing: PortalCrossing = portal_crossing(read scene, space, p, d);
+    var fraction: f32 = clamp(crossing.time, 0f32, 1f32);
+    var travel: Vec3 = scale(d, fraction);
+    var anchors: RoomAnchors = room_anchors_new();
+    var result: CollisionSweep = collision_sweep_result(collision_miss(space));
+    if !collision_body_anchors(read scene, mut anchors, space, p, travel, radius) {
+        result.status = 7u32;
+        return result;
+    }
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        var anchor: RoomAnchor = room_anchor(read anchors, i);
+        var next: CollisionSweep = collision_filtered_sweep_interval(
+            read scene,
+            anchor.space,
+            space_point(anchor.transform, p),
+            basis_vector(anchor.transform.basis, travel),
+            radius,
+            time,
+            duration * fraction,
+            read anchors,
+            i
+        );
+        if next.status != 0u32 {
+            return next;
+        }
+        if next.contact.hit.time <= 1f32 {
+            next.contact = anchor_contact(anchor, next.contact);
+            next.contact.hit.time = next.contact.hit.time * fraction;
+            if collision_better(next.contact, result.contact) {
+                result = next;
+            }
+        }
+        i = i + 1u32;
+    }
+    return result;
+}
+fn collision_correction_blocked(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32
+) -> CollisionSweep {
+    if collision_portal_count(read scene) == 0u32 {
+        return collision_sweep_result(
+            collision_local_correction_blocked(read scene, space, p, d, radius, time)
+        );
+    }
+    var result: CollisionContact = collision_miss(space);
+    var anchors: RoomAnchors = room_anchors_new();
+    if !collision_body_anchors(read scene, mut anchors, space, p, d, radius) {
+        var failure: CollisionSweep = collision_sweep_result(result);
+        failure.status = 7u32;
+        return failure;
+    }
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        var anchor: RoomAnchor = room_anchor(read anchors, i);
+        var next: CollisionContact = collision_filtered_correction_blocked(
+            read scene,
+            anchor.space,
+            space_point(anchor.transform, p),
+            basis_vector(anchor.transform.basis, d),
+            radius,
+            time,
+            read anchors,
+            i
+        );
+        if next.hit.time <= 1f32 {
+            next = anchor_contact(anchor, next);
+            if collision_better(next, result) {
+                result = next;
+            }
+        }
+        i = i + 1u32;
+    }
+    return collision_sweep_result(result);
+}

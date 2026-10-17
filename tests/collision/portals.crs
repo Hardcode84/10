@@ -1,12 +1,18 @@
 fn test_portal_scene(scene: mut CollisionScene) -> bool {
+    return test_portal_scene_wall(mut scene, 3f32);
+}
+fn test_portal_scene_wall(scene: mut CollisionScene, depth: f32) -> bool {
+    return test_portal_scene_motion(mut scene, depth, vec(0f32, 0f32, 0f32));
+}
+fn test_portal_scene_motion(scene: mut CollisionScene, depth: f32, velocity: Vec3) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var mesh: Mesh = mesh_new();
     if !collision_test_quad(
         mut mesh,
-        vec(-4f32, -4f32, 3f32),
-        vec(4f32, -4f32, 3f32),
-        vec(4f32, 4f32, 3f32),
-        vec(-4f32, 4f32, 3f32),
+        vec(-4f32, -4f32, depth),
+        vec(4f32, -4f32, depth),
+        vec(4f32, 4f32, depth),
+        vec(-4f32, 4f32, depth),
         vec(0f32, 0f32, -1f32)
     ) {
         return false;
@@ -18,7 +24,15 @@ fn test_portal_scene(scene: mut CollisionScene) -> bool {
     if !collision_append(mut builder, read mesh, 1u32, transform.origin, transform.basis) {
         return false;
     }
+    if !collision_set_motion(
+        mut builder,
+        basis_vector(transform.basis, velocity),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
     var portal: CollisionPortal = make CollisionPortal {
+        reverse: 1u32,
         space: 0u32,
         destination: 1u32,
         origin: vec(0f32, 0f32, 0f32),
@@ -31,6 +45,7 @@ fn test_portal_scene(scene: mut CollisionScene) -> bool {
     if !collision_portal_append(mut builder, portal) {
         return false;
     }
+    portal.reverse = 0u32;
     portal.space = 1u32;
     portal.destination = 0u32;
     portal.origin = transform.origin;
@@ -135,9 +150,10 @@ fn test_portal_player_first(scene: read CollisionScene) -> bool {
     hook_release(mut drone);
     return drone.cable.phase == CABLE_READY && length(sub(velocity, drone.velocity)) < 0.0001f32;
 }
-fn test_portal_hook_range() -> bool {
+fn test_portal_loop_scene(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var portal: CollisionPortal = make CollisionPortal {
+        reverse: 1u32,
         space: 0u32,
         destination: 0u32,
         origin: vec(0f32, 0f32, 1f32),
@@ -153,6 +169,7 @@ fn test_portal_hook_range() -> bool {
     if !collision_portal_append(mut builder, portal) {
         return false;
     }
+    portal.reverse = 0u32;
     portal.origin.z = -1f32;
     portal.basis.right.x = -1f32;
     portal.basis.forward.z = -1f32;
@@ -160,8 +177,11 @@ fn test_portal_hook_range() -> bool {
     if !collision_portal_append(mut builder, portal) {
         return false;
     }
+    return collision_finish(move builder, mut scene);
+}
+fn test_portal_hook_range() -> bool {
     var scene: CollisionScene = collision_new();
-    if !collision_finish(move builder, mut scene) {
+    if !test_portal_loop_scene(mut scene) {
         return false;
     }
     var drone: Drone = new_drone();
@@ -175,4 +195,132 @@ fn test_portal_hook_range() -> bool {
     return drone.cable.phase == CABLE_SNAPPED || error(
         "cyclic portal flight must use unfolded hook range"
     );
+}
+
+fn test_portal_overlap_body() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !test_portal_scene_wall(mut scene, 0.1f32) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -1f32);
+    drone.velocity = vec(0f32, 0f32, 3f32);
+    move_drone(read scene, mut drone, vec(0f32, 0f32, 1.5f32));
+    if drone.world != 0u32 || absf(drone.position.z - (0.1f32 - DRONE_RADIUS)) > 0.0001f32 || length(
+        drone.velocity
+    ) > 0.0001f32 {
+        return error(
+            "destination contact must stop a sphere before its centre crosses the portal"
+        );
+    }
+    var query: CollisionSweep = collision_sweep_interval(
+        read scene,
+        0u32,
+        vec(3f32, 0f32, -1f32),
+        vec(0f32, 0f32, 1.5f32),
+        DRONE_RADIUS,
+        0f32,
+        0f32
+    );
+    return query.status == 0u32 && query.contact.hit.time > 1f32 || error(
+        "destination geometry leaked outside the portal aperture"
+    );
+}
+fn test_portal_overlap_hook() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !test_portal_scene_wall(mut scene, 0.03f32) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -0.25f32);
+    hook_launch(mut drone);
+    hook_step(read scene, mut drone, false);
+    if drone.cable.phase != CABLE_ATTACHED || drone.cable.space != 1u32 || absf(
+        drone.cable.anchor.z - 0.03f32
+    ) > 0.0001f32 {
+        return error(
+            "overlapping hook must retain destination attachment and primary cable frame"
+        );
+    }
+    hook_follow(read scene, mut drone, STEP);
+    return absf(drone.cable.anchor.z - 0.03f32) < 0.0001f32 || error(
+        "destination attachment changed after following its anchor"
+    );
+}
+
+fn test_portal_overlap_moving() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !test_portal_scene_motion(mut scene, 0.1f32, vec(0f32, 0f32, 0.05f32)) {
+        return false;
+    }
+    var p: Vec3 = vec(0f32, 0f32, -0.5f32);
+    var d: Vec3 = vec(0f32, 0f32, 0.5f32);
+    var query: CollisionSweep = collision_sweep_interval(
+        read scene,
+        0u32,
+        p,
+        d,
+        DRONE_RADIUS,
+        0f32,
+        1f32
+    );
+    var expected: f32 = (0.6f32 - DRONE_RADIUS) / 0.45f32;
+    if query.status != 0u32 || absf(query.contact.hit.time - expected) > 0.00001f32 || query.contact.space != 1u32 || length(
+        sub(query.contact.hit.normal, vec(0f32, 0f32, -1f32))
+    ) > 0.00001f32 {
+        return error("moving seam contact lost its time or query-room normal");
+    }
+    var planes: CollisionPlanes = collision_planes_new();
+    var speeds: CollisionPlanes = collision_planes_new();
+    if !collision_interval_contacts(
+        read scene,
+        0u32,
+        add(p, scale(d, expected)),
+        DRONE_RADIUS,
+        0.00001f32,
+        expected,
+        mut planes,
+        mut speeds
+    ) {
+        return false;
+    }
+    if collision_plane_count(read speeds) != 1u32 || absf(
+        collision_plane(read speeds, 0u32).offset + 0.05f32
+    ) > 0.00001f32 {
+        return error("moving seam surface velocity lost its contact frame");
+    }
+    return true;
+}
+
+fn test_portal_anchor_cycles() -> bool {
+    var scene: CollisionScene = collision_new();
+    var anchors: RoomAnchors = room_anchors_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !test_portal_loop_scene(mut scene) || !collision_anchors(
+        read scene,
+        mut anchors,
+        primary_anchor(42u32, 0u32),
+        still,
+        still,
+        3f32,
+        8u32
+    ) {
+        return false;
+    }
+    if room_anchor_count(read anchors) != 5u32 {
+        return error("one object must retain five distinct placements in the same room");
+    }
+    var positions: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        var anchor: RoomAnchor = room_anchor(read anchors, i);
+        if anchor.object != 42u32 || anchor.space != 0u32 {
+            return error("anchor changed its object or room identity");
+        }
+        positions = positions | (
+            1u32 << ((anchor.transform.origin.z + 4f32) / 2f32) as u32
+        );
+        i = i + 1u32;
+    }
+    return positions == 31u32 || error("same-room anchors lost distinct portal transforms");
 }

@@ -1,0 +1,154 @@
+fn collision_anchored_planes(
+    pose: CollisionInstance,
+    proximity: CollisionProximity,
+    radius: f32,
+    skin: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes,
+    anchors: read RoomAnchors,
+    index: u32
+) -> bool {
+    var frame: SpaceTransform = space_identity();
+    if room_anchor_count(read anchors) != 0u32 {
+        frame = space_inverse(room_anchor(read anchors, index).transform);
+    }
+    var transformed: CollisionInstance = pose;
+    transformed.basis = space_compose(
+        frame,
+        make SpaceTransform {
+            origin: pose.origin,
+            basis: pose.basis
+        }
+    ).basis;
+    transformed.linear = basis_vector(frame.basis, pose.linear);
+    transformed.angular = basis_vector(frame.basis, pose.angular);
+    return collision_contact_planes(
+        transformed,
+        proximity,
+        radius,
+        skin,
+        mut separate,
+        mut speeds
+    );
+}
+fn collision_anchor_contacts(
+    scene: read CollisionScene,
+    anchors: read RoomAnchors,
+    index: u32,
+    center: Vec3,
+    radius: f32,
+    skin: f32,
+    time: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes
+) -> bool {
+    var anchor: RoomAnchor = room_anchor(read anchors, index);
+    var p: Vec3 = space_point(anchor.transform, center);
+    var range: CollisionSpace = collision_space(read scene, anchor.space);
+    var i: u32 = range.root;
+    while i < range.end {
+        var node: CollisionNode = collision_node(read scene, i);
+        if !collision_aabb(
+            p,
+            vec(0f32, 0f32, 0f32),
+            radius + skin * 2f32,
+            node.low,
+            node.high
+        ) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 {
+                var item: CollisionInstance = collision_instance(read scene, node.leaf);
+                if !collision_moving(item) && !collision_anchored_contacts(
+                    read scene,
+                    item,
+                    p,
+                    radius,
+                    skin,
+                    time,
+                    mut separate,
+                    mut speeds,
+                    read anchors,
+                    index
+                ) {
+                    return false;
+                }
+            }
+            i = i + 1u32;
+        }
+    }
+    i = collision_moving_head(read scene);
+    while i != 0xffffffffu32 {
+        var item: CollisionInstance = collision_instance(read scene, i);
+        if item.space == anchor.space && !collision_anchored_contacts(
+            read scene,
+            item,
+            p,
+            radius,
+            skin,
+            time,
+            mut separate,
+            mut speeds,
+            read anchors,
+            index
+        ) {
+            return false;
+        }
+        i = item.next_moving;
+    }
+    return true;
+}
+fn collision_interval_contacts(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    radius: f32,
+    skin: f32,
+    time: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes
+) -> bool {
+    if collision_portal_count(read scene) == 0u32 {
+        return collision_local_interval_contacts(
+            read scene,
+            space,
+            p,
+            radius,
+            skin,
+            time,
+            mut separate,
+            mut speeds
+        );
+    }
+    collision_planes_clear(mut separate);
+    collision_planes_clear(mut speeds);
+    var anchors: RoomAnchors = room_anchors_new();
+    if !collision_body_anchors(
+        read scene,
+        mut anchors,
+        space,
+        p,
+        vec(0f32, 0f32, 0f32),
+        radius + skin * 2f32
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        if !collision_anchor_contacts(
+            read scene,
+            read anchors,
+            i,
+            p,
+            radius,
+            skin,
+            time,
+            mut separate,
+            mut speeds
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

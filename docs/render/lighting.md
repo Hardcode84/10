@@ -55,24 +55,31 @@ below 0.00001 and at or above 0.99999 are excluded to prevent endpoint contact
 from blocking the light. These tolerances scale with the segment length. Content
 must keep separate blocking surfaces outside that endpoint interval.
 
-Room lights do not travel through portal connections; the room ID limits
-their contribution. Ambient light has no visibility test.
+Game objects have one primary room and one physical position. A room anchor
+refers to the object and maps its primary frame into another room. Several
+anchors can refer to the same object in the same room. Simulation state is not
+copied. Light emission, collision queries, and the visible hook use these
+placements.
 
-A portable light (`LIGHT_VIEW`) has no shadow test. Its position is supplied
-in root-camera coordinates: right, up, and forward. Each visible portal view
-transforms that position into its destination room. Translation, rotation,
-repeated rooms, and nested connections use the same composed view transform
-as geometry. Each surface receives one contribution from each portable lamp
-in its selected view. Portal cycles do not add duplicate contributions.
-This is view-path transport, not a room-graph light flood. Internal walls and
-props do not block portable lights. Distance attenuation and angular response
-still apply in the transformed room.
+The game expands light anchors through connections whose apertures intersect
+the light range. The range ends where even a face-on contribution falls below
+the first intensity band. Each link has an explicit reverse index. Expansion
+does not immediately return through that reverse link. Each anchor retains its
+parent and composed rigid transform. Expansion uses the frame crossing limit;
+thus it includes recursive images through that number of connections. This
+limit is independent of the number of anchors or room IDs. Allocation failure
+stops submission.
 
-The player lamp is the camera lamp. It is already unshadowed and uses the
-transformed camera position in each view. The hook uses `LIGHT_VIEW`. The game
-maps its physical position through the tether's portal transform into player
-space, then into camera coordinates. This also applies when the hook is in a
-different room from the player. Fixed start and end lamps use `LIGHT_ROOM`.
+Each light anchor supplies a room-local position. All views of that room use
+the same anchor list. Camera motion does not move these lights. Fixed lamps
+use `LIGHT_ROOM`, with a room-local shadow query for each anchor. The hook uses
+`LIGHT_UNSHADOWED`. The player uses `LIGHT_HEADLAMP`, which also has no shadow
+query and retains the Lambert angle term. Portable lights can illuminate across
+connections; props do not block them. Ambient light has no visibility query.
+
+The renderer also accepts an explicit view-relative light, `LIGHT_VIEW`, for
+camera-space effects. The game does not use this mode for physical objects.
+The separate camera-light input has the same view-relative purpose.
 
 ## Submission and storage
 
@@ -81,15 +88,15 @@ Fill all active records before drawing. `LIGHT_DATA` is a header word that gives
 the float offset of the records. Each record has an eight-float stride:
 seven light values and a mode. `LIGHT_SPACE` gives the word offset
 of a separate array of unsigned 32-bit room IDs. Call `input_light_space`
-for each active room light. Room IDs retain all 32 bits. Portable lights
-ignore this room ID and apply in each visible view.
+for each active light anchor. Room IDs retain all 32 bits. Only `LIGHT_VIEW`
+ignores this room ID.
 
 | Field | Meaning |
 | --- | --- |
-| 0, 1, 2 | Room position for `LIGHT_ROOM`; camera coordinates for `LIGHT_VIEW` |
+| 0, 1, 2 | Room position; camera coordinates only for `LIGHT_VIEW` |
 | 3 | Radius squared; zero disables the light |
 | 4, 5, 6 | Non-negative RGB intensity |
-| 7 | `LIGHT_ROOM` (0) or `LIGHT_VIEW` (1), stored as a float |
+| 7 | `LIGHT_ROOM` (0), `LIGHT_VIEW` (1), `LIGHT_UNSHADOWED` (2), or `LIGHT_HEADLAMP` (3), stored as a float |
 
 Storage grows with the count. Eight records are allocated initially; eight is
 not a count limit. Growth, geometry allocation, and image resize preserve light

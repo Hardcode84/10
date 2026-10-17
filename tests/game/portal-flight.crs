@@ -99,6 +99,7 @@ fn hook_preview_stations(session: mut GameSession, config: GameConfig, linked: b
     if linked && !collision_portal_append(
         mut builder,
         make CollisionPortal {
+            reverse: 0xffffffffu32,
             space: 0u32,
             destination: 0u32,
             origin: vec(0f32, 1f32, 6f32),
