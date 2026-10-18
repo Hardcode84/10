@@ -34,7 +34,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
 fn room_material_count() -> u32 {
     return 4u32;
 }
-fn room_material(region: u32) -> PanelMaterial {
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     if region == 3u32 {
         return stopper_seat_material();
     }
@@ -44,5 +44,8 @@ fn room_material(region: u32) -> PanelMaterial {
     if region == 1u32 {
         return oct_stopper_door_material();
     }
-    return oct_service_material(0u32);
+    return stopper_wall_material(
+        oct_service_material(0u32),
+        (asset_value(read parameters, 0u32) - DOOR_THICKNESS) * 0.5f32
+    );
 }

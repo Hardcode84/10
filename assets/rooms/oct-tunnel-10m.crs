@@ -22,7 +22,7 @@ fn room_parameter(index: u32) -> AssetParameter {
 fn oct_tunnel_pipes(asset: mut RoomAsset, extent: f32) -> bool {
     var radius: f32 = oct_pipe_radius();
     var first: u32 = mesh_triangle_count(read asset.geometry);
-    var material: PanelMaterial = room_material(1u32);
+    var material: PanelMaterial = service_pipe_material();
     var sections: u32 = (extent / material.tile_metres) as u32;
     if sections as f32 * material.tile_metres < extent {
         sections = sections + 1u32;
@@ -77,7 +77,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
 fn room_material_count() -> u32 {
     return 3u32;
 }
-fn room_material(region: u32) -> PanelMaterial {
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     return oct_service_material(region);
 }
 

@@ -1,10 +1,6 @@
-// Flat-top hexagons repeat over a rectangular tile containing two plate centres.
-// Tile width is three plate radii; tile height is sqrt(3) plate radii.
+// Returns the physical height of one texture tile.
 fn panel_tile_height(material: PanelMaterial) -> f32 {
-    if material.finish == METAL_HEX {
-        return material.tile_metres * 0.57735026919f32;
-    }
-    return material.tile_metres;
+    return material.tile_height;
 }
 fn panel_pixel_extent(metres: f32, density: u32) -> u32 {
     var exact: f32 = metres * density as f32;

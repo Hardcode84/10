@@ -71,6 +71,7 @@ fn asset_view_mesh_upload(
     );
 }
 fn asset_view_upload(
+    values: read AssetValues,
     session: mut AssetSession,
     asset: read RoomAsset,
     range: mut MeshRange,
@@ -89,7 +90,7 @@ fn asset_view_upload(
             mut input,
             read labels,
             mut label_range
-        ) || !asset_view_materials(mut input) {
+        ) || !asset_view_materials(mut input, read values) {
             return false;
         }
     }
@@ -111,6 +112,7 @@ fn asset_view_run(
 
     var range: MeshRange = mesh_empty_range();
     if !asset_session_open(mut session) || !asset_view_upload(
+        read values,
         mut session,
         read asset,
         mut range,

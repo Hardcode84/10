@@ -93,7 +93,10 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     };
     return radial_connections(mut asset) && room_asset_finish(mut asset);
 }
-fn room_material(region: u32) -> PanelMaterial {
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return radial_material(region);
+}
+fn radial_material(region: u32) -> PanelMaterial {
     var colour: u32 = 0xe1d5c5u32;
     var finish: u32 = METAL_PLATE;
     var panel_height: f32 = 1f32;
@@ -122,6 +125,10 @@ fn room_material(region: u32) -> PanelMaterial {
         colour = 0x788dadu32;
         panel_height = 2f32;
     }
+    var tile_height: f32 = tile;
+    if finish == METAL_HEX {
+        tile_height = tile * 0.57735026919f32;
+    }
     return make PanelMaterial {
         colour: colour,
         accent: 0x4f97c4u32,
@@ -130,6 +137,7 @@ fn room_material(region: u32) -> PanelMaterial {
         pitch: pitch,
         seed: 147u32 + region,
         tile_metres: tile,
+        tile_height: tile_height,
         panel_height: panel_height,
         texels_per_metre: 64u32,
         border: 0.025f32,
@@ -196,7 +204,7 @@ fn radial_connections(asset: mut RoomAsset) -> bool {
                 forward: frame.normal
             }
         };
-        var material: PanelMaterial = room_material(REGION_WALL);
+        var material: PanelMaterial = radial_material(REGION_WALL);
         var surface: SurfaceFrame = make SurfaceFrame {
             origin: port.position,
             right: scale(port.basis.right, asset.tile_metres / material.tile_metres),

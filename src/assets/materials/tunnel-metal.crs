@@ -4,6 +4,7 @@ fn hex_tunnel_material() -> PanelMaterial {
         accent: 0x4f97c4u32,
         emission: 0xd6ffc0u32,
         tile_metres: 2f32,
+        tile_height: 2f32,
         panel_height: 1f32,
         texels_per_metre: 64u32,
         border: 0.025f32,
@@ -55,4 +56,11 @@ fn hex_tunnel_style(style: u32) -> PanelMaterial {
         panel.emission = 0xacb7a1u32;
     }
     return panel;
+}
+
+// One rectangular sleeve panel. Width is the portal-to-door clearance in metres.
+fn stopper_wall_material(material: PanelMaterial, clearance: f32) -> PanelMaterial {
+    material.tile_metres = clearance;
+    material.tile_height = material.panel_height;
+    return material;
 }

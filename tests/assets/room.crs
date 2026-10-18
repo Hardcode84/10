@@ -120,7 +120,7 @@ fn asset_test_variant(values: read AssetValues) -> bool {
     var asset: RoomAsset = room_asset_new();
     return room_build(read values, mut asset) && asset_test_shell(read asset) && asset_test_ports(
         read asset
-    ) && asset_test_uv(read asset);
+    ) && asset_test_uv(read asset, read values);
 }
 fn asset_test_invalid(values: mut AssetValues) -> bool {
     asset_parameters_reset(mut values);
@@ -160,7 +160,7 @@ fn asset_tests() -> bool {
     }
     return asset_test_invalid(mut values);
 }
-fn asset_test_uv(asset: read RoomAsset) -> bool {
+fn asset_test_uv(asset: read RoomAsset, values: read AssetValues) -> bool {
     var i: u32 = 0u32;
     while i < mesh_triangle_count(read asset.mesh) {
         var primitive: MeshTriangle = mesh_triangle(read asset.mesh, i);
@@ -169,7 +169,7 @@ fn asset_test_uv(asset: read RoomAsset) -> bool {
             var a: MeshVertex = primitive.vertices[j];
             var b: MeshVertex = primitive.vertices[(j + 1usize) % 3usize];
             var edge: Vec3 = vec(b.x - a.x, b.y - a.y, b.z - a.z);
-            var material: PanelMaterial = room_material(primitive.material);
+            var material: PanelMaterial = room_material(primitive.material, read values);
             var u: f32 = (b.u - a.u) * material.tile_metres;
             var v: f32 = (b.v - a.v) * panel_tile_height(material);
             var square: f32 = dot(edge, edge);

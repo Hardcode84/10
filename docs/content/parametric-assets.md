@@ -124,7 +124,10 @@ A selected `.crs` file defines these functions:
 - `room_parameter_name(index)`: immutable name for that dimension.
 - `room_build(values, asset)`: build a fresh owned room bundle, or report an error.
 - `room_material_count()`: number of surface materials.
-- `room_material(region)`: panel material for a surface region.
+- `room_material(region, values)`: panel material for a surface region and the
+  selected recipe parameters. Texture width and height are independent physical
+  dimensions. Sleeve textures use the selected portal-to-door clearance.
+  Rivet radii and seam widths stay constant in metres.
 
 Use `asset_name("name")` for a parameter name. Names must be unique. Source
 strings remain valid for the life of the program. The recipe can use normal

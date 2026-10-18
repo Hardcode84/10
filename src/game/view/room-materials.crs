@@ -1,4 +1,10 @@
 fn game_room_palette(input: mut FrameInput) -> bool {
+    var values: AssetValues = asset_values_new();
+    if !asset_values_allocate(mut values, room_parameter_count()) {
+        return false;
+    }
+    asset_parameters_reset(mut values);
+    var room_words: u32 = room_material_payload(read values);
     var panel: PanelMaterial = hex_tunnel_material();
     var payload: u32 = panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
     var count: u32 = GAME_MATERIALS + room_material_count() + TUNNEL_STYLES + 1u32;
@@ -6,7 +12,7 @@ fn game_room_palette(input: mut FrameInput) -> bool {
         mut input,
         GAME_MATERIALS,
         room_material_count() + TUNNEL_STYLES + 1u32,
-        room_material_payload() + payload * (TUNNEL_STYLES + 1u32)
+        room_words + payload * (TUNNEL_STYLES + 1u32)
     );
     game_palette_fill(mut input);
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
@@ -15,7 +21,7 @@ fn game_room_palette(input: mut FrameInput) -> bool {
     input_set_float(mut input, (SPACE_LIGHT + 1u32) as usize, 0f32);
     input_set_float(mut input, (SPACE_LIGHT + 2u32) as usize, 0f32);
     var offset: u32 = count * MATERIAL_WORDS + GAME_MATERIALS * 64u32 + PALETTE_COLORS * LIGHT_STATES;
-    if !room_materials_at(mut input, offset, GAME_MATERIALS) {
+    if !room_materials_at(mut input, offset, GAME_MATERIALS, read values) {
         return false;
     }
     var style: u32 = 0u32;
@@ -24,7 +30,7 @@ fn game_room_palette(input: mut FrameInput) -> bool {
         if !panel_upload(
             mut input,
             GAME_MATERIALS + room_material_count() + style,
-            offset + room_material_payload() + payload * style,
+            offset + room_words + payload * style,
             panel_texture_width(variant),
             variant
         ) {
@@ -35,7 +41,7 @@ fn game_room_palette(input: mut FrameInput) -> bool {
     return panel_upload(
         mut input,
         count - 1u32,
-        offset + room_material_payload() + payload * TUNNEL_STYLES,
+        offset + room_words + payload * TUNNEL_STYLES,
         panel_texture_width(panel),
         hex_bulkhead_material()
     );

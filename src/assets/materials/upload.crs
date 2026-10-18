@@ -1,9 +1,9 @@
 // Builds indexed surface materials from the recipe, with one 256-colour palette each.
-fn room_material_payload() -> u32 {
+fn room_material_payload(parameters: read AssetValues) -> u32 {
     var payload: u32 = 0u32;
     var region: u32 = 0u32;
     while region < room_material_count() {
-        var material: PanelMaterial = room_material(region);
+        var material: PanelMaterial = room_material(region, read parameters);
         var size: u32 = panel_texture_width(material);
         var height: u32 = panel_texture_height(material);
         payload = payload + size * height + PALETTE_COLORS * LIGHT_STATES;
@@ -12,13 +12,18 @@ fn room_material_payload() -> u32 {
     return payload;
 }
 // The caller reserves the complete material table and payload before upload.
-fn room_materials(input: mut FrameInput, offset: u32) -> bool {
-    return room_materials_at(mut input, offset, 0u32);
+fn room_materials(input: mut FrameInput, offset: u32, parameters: read AssetValues) -> bool {
+    return room_materials_at(mut input, offset, 0u32, read parameters);
 }
-fn room_materials_at(input: mut FrameInput, offset: u32, first: u32) -> bool {
+fn room_materials_at(
+    input: mut FrameInput,
+    offset: u32,
+    first: u32,
+    parameters: read AssetValues
+) -> bool {
     var region: u32 = 0u32;
     while region < room_material_count() {
-        var material: PanelMaterial = room_material(region);
+        var material: PanelMaterial = room_material(region, read parameters);
         var size: u32 = panel_texture_width(material);
         var height: u32 = panel_texture_height(material);
         if !panel_upload(mut input, first + region, offset, size, material) {

@@ -1,11 +1,11 @@
-fn asset_view_materials(input: mut FrameInput) -> bool {
+fn asset_view_materials(input: mut FrameInput, values: read AssetValues) -> bool {
     var count: u32 = room_material_count() + 1u32;
-    var room_words: u32 = room_material_payload();
+    var room_words: u32 = room_material_payload(read values);
     if !input_assets(mut input, count, room_words + 8192u32 + PALETTE_COLORS * LIGHT_STATES) {
         return false;
     }
     var offset: u32 = count * MATERIAL_WORDS;
-    if !room_materials(mut input, offset) {
+    if !room_materials(mut input, offset, read values) {
         return false;
     }
     offset = offset + room_words;

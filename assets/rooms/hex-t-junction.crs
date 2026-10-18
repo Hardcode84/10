@@ -25,6 +25,6 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
 fn room_material_count() -> u32 {
     return 1u32;
 }
-fn room_material(region: u32) -> PanelMaterial {
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     return hex_tunnel_material();
 }

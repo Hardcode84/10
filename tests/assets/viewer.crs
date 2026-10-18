@@ -9,7 +9,7 @@ fn asset_rebuild_checks(session: AssetSession) -> bool {
         return false;
     }
     var range: MeshRange = mesh_empty_range();
-    if !asset_view_upload(mut session, read asset, mut range, false) {
+    if !asset_view_upload(read values, mut session, read asset, mut range, false) {
         return false;
     }
     var original: MeshRange = range;

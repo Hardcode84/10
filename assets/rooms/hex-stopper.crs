@@ -29,7 +29,8 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !passage_shape(depth, false, profile, mut asset) {
         return false;
     }
-    var tile: f32 = room_material(1u32).tile_metres;
+    stopper_wall_surfaces(mut asset, profile.shape.sides);
+    var tile: f32 = room_material(1u32, read parameters).tile_metres;
     asset_surface_set(
         mut asset.hull,
         profile.shape.sides + 1u32,
@@ -45,14 +46,18 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
 fn room_material_count() -> u32 {
     return 3u32;
 }
-fn room_material(region: u32) -> PanelMaterial {
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     if region == 2u32 {
         return stopper_seat_material();
     }
-    var material: PanelMaterial = hex_tunnel_material();
+    var material: PanelMaterial = stopper_wall_material(
+        hex_tunnel_material(),
+        asset_value(read parameters, 0u32)
+    );
     if region == 1u32 {
         material.finish = METAL_DOOR;
         material.tile_metres = 6f32;
+        material.tile_height = 6f32;
         material.panel_height = 6f32;
         material.colour = 0x949ba4u32;
         material.emission = 0x0000ffu32;

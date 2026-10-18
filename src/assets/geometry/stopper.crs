@@ -64,18 +64,7 @@ fn stopper_open_shell(
     loft_span(mut asset.hull, profile.shape, 1u32, rim);
     loft_span(mut asset.hull, profile.shape, 2u32, 0u32);
     loft_caps(mut asset.hull, profile.shape, 4u32, 0u32, 0u32);
-    var i: u32 = 0u32;
-    while i < profile.shape.sides * 3u32 {
-        var face: HullFace = asset_face(read asset.hull, i);
-        var start: Vec3 = hull_corner(read asset.hull, face, 0u32);
-        var end: Vec3 = hull_corner(read asset.hull, face, 1u32);
-        var frame: SurfaceFrame = tunnel_surface_frame(
-            asset_surface(read asset.hull, i),
-            end.y - start.y
-        );
-        asset_surface_set(mut asset.hull, i, frame);
-        i = i + 1u32;
-    }
+    stopper_wall_surfaces(mut asset, profile.shape.sides * 3u32);
     return passage_ports(depth, true, profile, profile.shape.sides * 3u32, mut asset);
 }
 // Adds the rear face and black rim of the closed door behind the collision wall.
@@ -125,4 +114,30 @@ fn stopper_door_back(
         i = i + 1u32;
     }
     return true;
+}
+
+// Wall panels use physical metres, with seams at both ends of each sleeve section.
+fn stopper_wall_surfaces(asset: mut RoomAsset, count: u32) -> unit {
+    var i: u32 = 0u32;
+    while i < count {
+        var face: HullFace = asset_face(read asset.hull, i);
+        var start: Vec3 = hull_corner(read asset.hull, face, 0u32);
+        var end: Vec3 = hull_corner(read asset.hull, face, 1u32);
+        var material: PanelMaterial = stopper_wall_material(
+            hex_tunnel_material(),
+            end.y - start.y
+        );
+        var frame: SurfaceFrame = hull_frame(read asset.hull, face);
+        frame.origin = sub(
+            frame.origin,
+            add(
+                scale(frame.right, material.tile_metres * 0.5f32),
+                scale(frame.up, material.tile_height * 0.5f32)
+            )
+        );
+        frame.right = scale(frame.right, asset.tile_metres / material.tile_metres);
+        frame.up = scale(frame.up, asset.tile_metres / material.tile_height);
+        asset_surface_set(mut asset.hull, i, frame);
+        i = i + 1u32;
+    }
 }

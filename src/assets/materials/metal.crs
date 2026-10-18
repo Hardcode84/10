@@ -5,10 +5,11 @@ const METAL_HEX: u32 = 3u32;
 const METAL_DOOR: u32 = 4u32;
 const METAL_PIPE: u32 = 5u32;
 const METAL_OCT_DOOR: u32 = 6u32;
-// Dimensions are in metres. Panel height must divide tile size; pitch must
-// divide both panel dimensions. Sizes and texel density must be positive.
+// Dimensions are in metres. Panel height must divide tile height.
+// Sizes and texel density must be positive.
 // Ribbed metal requires a pitch greater than the 0.065 m seam width.
-// METAL_HEX uses tile width as three plate radii and ignores panel height/pitch.
+// METAL_HEX uses width = 3 radii and height = sqrt(3) radii.
+// METAL_HEX ignores panel height and pitch.
 // Marking is 0 (none), 1 (paired strips), 2 (split bars), or 3 (inset studs).
 // Finish is METAL_PLATE, METAL_TREAD, METAL_RIBBED, METAL_HEX, METAL_DOOR,
 // METAL_PIPE, or METAL_OCT_DOOR. Colours use packed RGB.
@@ -17,6 +18,7 @@ record PanelMaterial {
     accent: u32;
     emission: u32;
     tile_metres: f32;
+    tile_height: f32;
     panel_height: f32;
     texels_per_metre: u32;
     border: f32;

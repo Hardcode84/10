@@ -134,7 +134,7 @@ fn asset_view_edit(
         return move asset;
     }
     asset_build_report(read next, now() - start);
-    if !asset_view_upload(mut session, read next, mut range, open_portals) {
+    if !asset_view_upload(read values, mut session, read next, mut range, open_portals) {
         good = false;
         return move asset;
     }
