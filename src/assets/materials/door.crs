@@ -17,7 +17,7 @@ fn metal_door_joint(y: f32) -> f32 {
 fn metal_door_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     var px: f32 = x - material.tile_metres * 0.5f32;
     var py: f32 = y - material.tile_metres * 0.5f32;
-    var led_x: f32 = absf(px) - 0.28f32;
+    var led_x: f32 = absf(px) - 0.7f32;
     var led_y: f32 = py - 1.15f32;
     if absf(led_x) < 0.065f32 && absf(led_y) < 0.045f32 {
         return 248u32;
