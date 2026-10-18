@@ -5,6 +5,8 @@
 This format defines generated rooms and their named connections. The game
 uses separate local spaces and rigid links. See the
 [current graph assembly](../game/expedition.md) and [open engine work](engine-gaps.md).
+The [scaling portal design](../game/scaling-portals.md) proposes rational profile
+scales and similarity transforms. These extensions are not implemented.
 
 A room defines a convex interior hull in its own local coordinate space.
 Selected hull polygons are connections. A connection can lead to another room

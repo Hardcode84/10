@@ -66,7 +66,8 @@ application functions as the applications.
 - Collision: [static meshes](collision/static-meshes.md),
   [spatial index](collision/spatial-index.md), [sphere motion](collision/motion.md),
   [moving meshes and anchors](collision/kinematic-meshes.md).
-- Game: [round-trip game](game/expedition.md), [movement](game/movement.md).
+- Game: [round-trip game](game/expedition.md), [movement](game/movement.md),
+  [scaling portal design](game/scaling-portals.md).
 - Content: [parametric assets](content/parametric-assets.md),
   [room format](content/room-format.md),
   [room catalogue](content/room-catalogue.md),
