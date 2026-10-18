@@ -1,0 +1,104 @@
+record ShaftPipeBay {
+    radius: f32;
+    core: f32;
+    spacing: f32;
+    station: u32;
+}
+fn shaft_pipe_point(basis: Basis, radial: f32, horizontal: f32, height: f32) -> Vec3 {
+    return add(
+        add(scale(basis.right, radial), scale(basis.forward, horizontal)),
+        vec(0f32, height, 0f32)
+    );
+}
+fn shaft_pipe_run(asset: mut RoomAsset, bay: ShaftPipeBay, lane: u32) -> bool {
+    var angle: f32 = 1.57079632679f32 * ((lane + bay.station) % 4u32) as f32 + 0.39269908169f32 * bay.station as f32;
+    var basis: Basis = make Basis {
+        right: vec(cosf(angle), 0f32, sinf(angle)),
+        up: vec(0f32, 1f32, 0f32),
+        forward: vec(-sinf(angle), 0f32, cosf(angle))
+    };
+    var width: f32 = mask_min(2.2f32, bay.radius * 0.22f32);
+    var wall: f32 = sqrtf(bay.radius * bay.radius - width * width) - 0.6f32;
+    var clearance: f32 = -mask_min(-0.75f32, -bay.spacing * 0.22f32);
+    var low: f32 = bay.spacing * bay.station as f32 + clearance;
+    var high: f32 = bay.spacing * (bay.station + 1u32) as f32 - clearance;
+    if (lane + bay.station) % 2u32 != 0u32 {
+        var swap: f32 = low;
+        low = high;
+        high = swap;
+    }
+    var middle: f32 = (low + high) * 0.5f32;
+    var finish: f32 = width;
+    var end: f32 = bay.radius + 0.25f32;
+    if lane == bay.station % 3u32 {
+        finish = 0f32;
+        end = bay.core - 0.25f32;
+    }
+    var graph: PipeGraph = pipe_graph_new();
+    var first: u32 = pipe_point(
+        mut graph,
+        shaft_pipe_point(basis, bay.radius + 0.25f32, -width, low),
+        basis.up,
+        PIPE_NO_EXIT
+    );
+    if first == PIPE_NO_EXIT {
+        return false;
+    }
+    var cursor: PipeCursor = make PipeCursor {
+        node: first
+    };
+    if !pipe_waypoint(mut graph, mut cursor, shaft_pipe_point(basis, wall, -width, low)) || !pipe_waypoint(
+        mut graph,
+        mut cursor,
+        shaft_pipe_point(basis, wall, -width, middle)
+    ) || !pipe_waypoint(
+        mut graph,
+        mut cursor,
+        shaft_pipe_point(basis, wall, finish, middle)
+    ) || !pipe_waypoint(
+        mut graph,
+        mut cursor,
+        shaft_pipe_point(basis, wall, finish, high)
+    ) || !pipe_waypoint(mut graph, mut cursor, shaft_pipe_point(basis, end, finish, high)) {
+        return false;
+    }
+    return pipe_graph_mesh(
+        mut asset,
+        read graph,
+        make TubeStyle {
+            radius: 0.18f32,
+            sides: 12u32,
+            tile_metres: 2f32,
+            region: 6u32
+        },
+        0.36f32
+    );
+}
+// Adds separate wall runs inside the gaps between rotor stations.
+// Spacing is at least 3 m. The pipe surfaces stay clear of each rotor plane.
+fn shaft_service_pipes(
+    asset: mut RoomAsset,
+    radius: f32,
+    core: f32,
+    height: f32,
+    count: u32
+) -> bool {
+    var station: u32 = 1u32;
+    while station < count {
+        var bay: ShaftPipeBay = make ShaftPipeBay {
+            radius: radius,
+            core: core,
+            spacing: height / (count + 1u32) as f32,
+            station: station
+        };
+        var lane: u32 = 0u32;
+        while lane < 3u32 {
+            if !shaft_pipe_run(mut asset, bay, lane) {
+                return false;
+            }
+            lane = lane + 1u32;
+        }
+        station = station + 1u32;
+    }
+    return true;
+}

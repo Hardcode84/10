@@ -8,7 +8,10 @@
 // TOP is the full round cap at +Y, with a ROTOR-SHAFT connection.
 // The spindle reaches TOP; passage remains around it.
 // Matching diameters connect at unit relative scale.
-// Materials: 0 shell, 1 far cap, 2 spindle, 3 rotor wings, 4 bottom, 5 port closures.
+// Three separate service pipes occupy each gap between rotor stations.
+// Runs have axial and horizontal legs with rounded 90-degree elbows.
+// Two return to the wall; one feeds the spindle. All stay clear of the rotors.
+// Materials: 0 shell, 1 far cap, 2 spindle, 3 rotor wings, 4 bottom, 5 port closures, 6 pipes.
 fn room_parameter_count() -> u32 {
     return 4u32;
 }
@@ -164,7 +167,13 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
         mut asset,
         core,
         height
-    ) || !shaft_rotors(mut asset, radius, core, height, count as u32) {
+    ) || !shaft_rotors(mut asset, radius, core, height, count as u32) || !shaft_service_pipes(
+        mut asset,
+        radius,
+        core,
+        height,
+        count as u32
+    ) {
         return false;
     }
     asset.spawn = make AssetSpawn {
@@ -187,12 +196,15 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     ) && room_asset_finish(mut asset);
 }
 fn room_material_count() -> u32 {
-    return 6u32;
+    return 7u32;
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     return shaft_material(region);
 }
 fn shaft_material(region: u32) -> PanelMaterial {
+    if region == 6u32 {
+        return service_pipe_material();
+    }
     var material: PanelMaterial = hex_tunnel_material();
     material.colour = 0x807769u32;
     material.panel_height = 2f32;
