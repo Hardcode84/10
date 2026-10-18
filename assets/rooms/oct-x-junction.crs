@@ -1,12 +1,22 @@
 // OCT-8M cross: ENTRY -Y, EAST +X, EXIT +Y, WEST -X. Local +Z is up.
 // A convex shell joins four 8 m openings, each with four mating rolls.
 // Leg is the distance from the centre to each mouth, in metres.
-// Side pipes turn around the corners; ceiling and floor pipes form crosses.
+// Upper-pipes and lower-pipes select 0 cross, 1 curve, or 2 diagonal.
+// Diagonal uses two 45-degree curves with a straight section between them.
+// Curved upper routes join south/east and north/west; lower routes reverse this.
 const CONNECTIONS: u32 = 15u32;
 fn room_parameter_count() -> u32 {
-    return 1u32;
+    return 3u32;
 }
 fn room_parameter(index: u32) -> AssetParameter {
+    if index != 0u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 2f32,
+            initial: 0f32,
+            step: 1f32
+        };
+    }
     return make AssetParameter {
         minimum: 5f32,
         maximum: 12f32,
@@ -15,13 +25,36 @@ fn room_parameter(index: u32) -> AssetParameter {
     };
 }
 fn room_parameter_name(index: u32) -> AssetName {
+    if index == 1u32 {
+        return asset_name("upper-pipes");
+    }
+    if index == 2u32 {
+        return asset_name("lower-pipes");
+    }
     return asset_name("leg");
 }
 fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !asset_parameters_valid(read parameters) {
         return false;
     }
-    return oct_junction_build(CONNECTIONS, asset_value(read parameters, 0u32), mut asset);
+    var upper: f32 = asset_value(read parameters, 1u32);
+    var lower: f32 = asset_value(read parameters, 2u32);
+    if upper != (upper as u32) as f32 || lower != (lower as u32) as f32 {
+        return error("pipe routing must be 0 (cross), 1 (curve), or 2 (diagonal)");
+    }
+    var plan: JunctionPlan = junction_plan(
+        CONNECTIONS,
+        service_oct_profile().radius,
+        asset_value(read parameters, 0u32)
+    );
+    return oct_junction_shell(plan, mut asset) && oct_junction_side_pipes(mut asset, plan) && oct_junction_layer_pipes(
+        mut asset,
+        plan,
+        true,
+        upper as u32
+    ) && oct_junction_layer_pipes(mut asset, plan, false, lower as u32) && room_asset_finish(
+        mut asset
+    );
 }
 fn room_material_count() -> u32 {
     return 2u32;

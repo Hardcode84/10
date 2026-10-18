@@ -3,26 +3,39 @@ record TubeBend {
     tube_radius: f32;
     incoming: f32;
     outgoing: f32;
+    diagonal: f32;
     sides: u32;
     steps: u32;
     tile_metres: f32;
+}
+fn tube_bend_end(bend: TubeBend) -> u32 {
+    if bend.diagonal > 0f32 {
+        return bend.steps + 3u32;
+    }
+    return bend.steps + 2u32;
 }
 fn tube_bend_vertex(bend: TubeBend, ring: u32, corner: u32) -> MeshVertex {
     var angle: f32 = 0f32;
     var centre: Vec3 = vec(0f32, 0f32, 0f32);
     var travelled: f32 = 0f32;
     if ring != 0u32 {
-        angle = 1.57079632679f32 * (ring - 1u32) as f32 / bend.steps as f32;
-        if ring == bend.steps + 2u32 {
+        var arc_ring: u32 = ring - 1u32;
+        var diagonal: f32 = 0f32;
+        if bend.diagonal > 0f32 && ring > bend.steps / 2u32 + 1u32 {
+            arc_ring = arc_ring - 1u32;
+            diagonal = bend.diagonal;
+        }
+        angle = 1.57079632679f32 * arc_ring as f32 / bend.steps as f32;
+        if ring == tube_bend_end(bend) {
             angle = 1.57079632679f32;
         }
         centre = vec(
-            bend.radius * (1f32 - cosf(angle)),
-            bend.incoming + bend.radius * sinf(angle),
+            bend.radius * (1f32 - cosf(angle)) + diagonal * 0.70710678118f32,
+            bend.incoming + bend.radius * sinf(angle) + diagonal * 0.70710678118f32,
             0f32
         );
-        travelled = bend.incoming + bend.radius * angle;
-        if ring == bend.steps + 2u32 {
+        travelled = bend.incoming + bend.radius * angle + diagonal;
+        if ring == tube_bend_end(bend) {
             centre.x = centre.x + bend.outgoing;
             travelled = travelled + bend.outgoing;
         }
@@ -71,7 +84,7 @@ fn tube_triangle(
 }
 fn tube_bend_caps(mesh: mut Mesh, bend: TubeBend, region: u32) -> bool {
     var i: u32 = 1u32;
-    var end: u32 = bend.steps + 2u32;
+    var end: u32 = tube_bend_end(bend);
     while i + 1u32 < bend.sides {
         if !tube_triangle(
             mut mesh,
@@ -95,9 +108,11 @@ fn tube_bend_caps(mesh: mut Mesh, bend: TubeBend, region: u32) -> bool {
 // Appends a closed tube from +Y through a quarter turn to +X, with straight ends.
 // Radius exceeds tube radius; straight lengths and tile size are positive.
 // At least three sides and one bend step are required. UVs are continuous.
+// Diagonal is non-negative. A positive value inserts a straight section between
+// two 45-degree bends and requires an even number of bend steps.
 fn solid_tube_bend(mesh: mut Mesh, bend: TubeBend, region: u32) -> bool {
     var ring: u32 = 0u32;
-    while ring < bend.steps + 2u32 {
+    while ring < tube_bend_end(bend) {
         var corner: u32 = 0u32;
         while corner < bend.sides {
             var a: MeshVertex = tube_bend_vertex(bend, ring, corner);

@@ -47,11 +47,12 @@ fn oct_junction_bent_pipe(
     leg: f32,
     side: u32,
     offset: Vec3,
+    diagonal: f32,
     name: AssetName
 ) -> bool {
     var radius: f32 = 1.2f32;
-    var lead: f32 = leg - offset.x - radius;
-    var extent: f32 = lead * 2f32 + radius * 1.57079632679f32;
+    var lead: f32 = leg - offset.x - radius - diagonal * 0.70710678118f32;
+    var extent: f32 = lead * 2f32 + radius * 1.57079632679f32 + diagonal;
     var bands: u32 = (extent / 2f32) as u32 + 1u32;
     var first: u32 = mesh_triangle_count(read asset.geometry);
     var bend: TubeBend = make TubeBend {
@@ -59,6 +60,7 @@ fn oct_junction_bent_pipe(
         tube_radius: oct_pipe_radius(),
         incoming: lead,
         outgoing: lead,
+        diagonal: diagonal,
         sides: 12u32,
         steps: 8u32,
         tile_metres: extent / bands as f32
@@ -115,6 +117,7 @@ fn oct_junction_side_pipes(asset: mut RoomAsset, plan: JunctionPlan) -> bool {
                 plan.distance,
                 side,
                 vec(oct_pipe_distance(), 0f32, 0f32),
+                0f32,
                 junction_port(side, 0u32, plan.distance).id
             ) {
                 return false;
@@ -146,5 +149,44 @@ fn oct_junction_pipes(asset: mut RoomAsset, plan: JunctionPlan) -> bool {
         plan,
         -oct_pipe_distance(),
         asset_name("BOTTOM-PIPE")
+    );
+}
+// Cross-junction ceiling or floor routing: 0 cross, 1 curve, 2 diagonal.
+// The floor pairs the opposite mouths to the ceiling for curved routes.
+fn oct_junction_layer_pipes(
+    asset: mut RoomAsset,
+    plan: JunctionPlan,
+    upper: bool,
+    style: u32
+) -> bool {
+    var height: f32 = oct_pipe_distance();
+    var side: u32 = 0u32;
+    var name: AssetName = asset_name("TOP-PIPE");
+    if !upper {
+        height = -height;
+        side = 1u32;
+        name = asset_name("BOTTOM-PIPE");
+    }
+    if style == 0u32 {
+        return oct_junction_overhead(mut asset, plan, height, name);
+    }
+    var diagonal: f32 = 0f32;
+    if style == 2u32 {
+        diagonal = plan.distance * 0.6f32;
+    }
+    return oct_junction_bent_pipe(
+        mut asset,
+        plan.distance,
+        side,
+        vec(0f32, 0f32, height),
+        diagonal,
+        name
+    ) && oct_junction_bent_pipe(
+        mut asset,
+        plan.distance,
+        side + 2u32,
+        vec(0f32, 0f32, height),
+        diagonal,
+        name
     );
 }

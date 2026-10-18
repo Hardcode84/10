@@ -1,10 +1,11 @@
-fn asset_test_tube() -> bool {
+fn asset_test_tube_case(diagonal: f32) -> bool {
     var mesh: Mesh = mesh_new();
     var bend: TubeBend = make TubeBend {
         radius: 1f32,
         tube_radius: 0.2f32,
         incoming: 2f32,
         outgoing: 2f32,
+        diagonal: diagonal,
         sides: 12u32,
         steps: 8u32,
         tile_metres: 2f32
@@ -27,8 +28,8 @@ fn asset_test_tube() -> bool {
         return false;
     }
     var middle: Vec3 = vec(
-        1f32 - cosf(0.78539816339f32),
-        2f32 + sinf(0.78539816339f32),
+        1f32 - cosf(0.78539816339f32) + diagonal * 0.35355339059f32,
+        2f32 + sinf(0.78539816339f32) + diagonal * 0.35355339059f32,
         0f32
     );
     if collision_position_valid(read scene, 0u32, middle, 0.05f32) || !collision_position_valid(
@@ -49,11 +50,14 @@ fn asset_test_tube() -> bool {
     var exit_hit: CollisionContact = collision_sweep(
         read scene,
         0u32,
-        vec(4f32, 3f32, 0f32),
+        vec(4f32 + diagonal * 0.70710678118f32, 3f32 + diagonal * 0.70710678118f32, 0f32),
         vec(-4f32, 0f32, 0f32),
         0.1f32
     );
     return absf(entry.hit.time - 0.225f32) < 0.0001f32 && absf(exit_hit.hit.time - 0.225f32) < 0.0001f32 || error(
         "bent tube end caps are open or misplaced"
     );
+}
+fn asset_test_tube() -> bool {
+    return asset_test_tube_case(0f32) && asset_test_tube_case(2f32);
 }
