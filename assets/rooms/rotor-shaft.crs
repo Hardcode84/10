@@ -3,8 +3,9 @@
 // Wings reach the wall. Fly between wings to pass each rotor station.
 // Each rotor has a local pivot on the shaft axis and shares one solid mesh.
 // Successive stations turn 22.5 degrees. Rotation is not enabled.
-// Dimensions are metres; rotor-count is an integer. There are no connections.
-// Materials: 0 shell, 1 end caps, 2 spindle, 3 rotor wings.
+// Dimensions are metres; rotor-count is an integer. BOTTOM-0 through BOTTOM-2
+// are HEX-6M ports at Y=0, facing -Y, with six mating rotations each.
+// Materials: 0 shell, 1 far cap, 2 spindle, 3 rotor wings, 4 bottom, 5 port closures.
 fn room_parameter_count() -> u32 {
     return 4u32;
 }
@@ -31,7 +32,7 @@ fn room_parameter(index: u32) -> AssetParameter {
     }
     if index == 1u32 {
         return make AssetParameter {
-            minimum: 8f32,
+            minimum: 16f32,
             maximum: 40f32,
             initial: 16f32,
             step: 1f32
@@ -54,8 +55,8 @@ fn room_parameter(index: u32) -> AssetParameter {
 }
 fn shaft_cylinder(hull: mut AssetHull, radius: f32, height: f32, side: u32, cap: u32) -> bool {
     var profile: RegularProfile = make RegularProfile {
-        sides: 32u32,
-        phase: 3.14159265359f32 / 32f32
+        sides: 48u32,
+        phase: 3.14159265359f32 / 48f32
     };
     if !loft_allocate(mut hull, profile, 2u32) {
         return false;
@@ -100,8 +101,8 @@ fn shaft_core(asset: mut RoomAsset, radius: f32, height: f32) -> bool {
     );
 }
 fn shaft_wings(mesh: mut Mesh, radius: f32, core: f32) -> bool {
-    var rim: f32 = radius * cosf(3.14159265359f32 / 32f32);
-    var width: f32 = mask_min(1.2f32, rim * 0.18f32);
+    var rim: f32 = radius * cosf(3.14159265359f32 / 48f32);
+    var width: f32 = mask_min(1.2f32, rim * 0.12f32);
     var i: u32 = 0u32;
     while i < 4u32 {
         var basis: Basis = shaft_basis(1.57079632679f32 * i as f32);
@@ -155,7 +156,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if count != count as u32 as f32 || height / (count + 1f32) < 3f32 {
         return error("rotor-count must be integral and leave at least 3 m between stations");
     }
-    if radius * cosf(3.14159265359f32 / 32f32) - core < 2f32 {
+    if radius * cosf(3.14159265359f32 / 48f32) - core < 2f32 {
         return error("shaft needs at least 2 m between the spindle and wall");
     }
     if !shaft_cylinder(mut asset.hull, radius, height, 0u32, 1u32) || !shaft_core(
@@ -173,15 +174,22 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
             forward: vec(0f32, 1f32, 0f32)
         }
     };
-    return room_asset_finish(mut asset);
+    return shaft_connections(mut asset, core) && room_asset_finish(mut asset);
 }
 fn room_material_count() -> u32 {
-    return 4u32;
+    return 6u32;
 }
 fn room_material(region: u32) -> PanelMaterial {
     var material: PanelMaterial = hex_tunnel_material();
     material.colour = 0x807769u32;
     material.panel_height = 2f32;
+    if region >= 4u32 {
+        material.finish = METAL_HEX;
+        material.tile_metres = 9f32;
+        if region == 5u32 {
+            material.colour = 0x788dadu32;
+        }
+    }
     if region == 1u32 {
         return hex_bulkhead_material();
     }
@@ -199,4 +207,102 @@ fn room_material(region: u32) -> PanelMaterial {
         material.pitch = 0.5f32;
     }
     return material;
+}
+fn shaft_port_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("BOTTOM-0");
+    }
+    if index == 1u32 {
+        return asset_name("BOTTOM-1");
+    }
+    return asset_name("BOTTOM-2");
+}
+fn shaft_port(index: u32, distance: f32) -> RoomPort {
+    var angle: f32 = 3.14159265359f32 / 48f32 + 1.04719755120f32 + index as f32 * 2.09439510239f32;
+    var radial: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
+    return make RoomPort {
+        id: shaft_port_name(index),
+        profile: service_hex_profile(),
+        face: 48u32 + index,
+        position: scale(radial, distance),
+        basis: make Basis {
+            right: vec(radial.z, 0f32, -radial.x),
+            up: radial,
+            forward: vec(0f32, -1f32, 0f32)
+        }
+    };
+}
+fn shaft_port_fits(hull: read AssetHull, port: RoomPort, core: f32) -> bool {
+    var face: HullFace = asset_face(read hull, port.face);
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        var p: Vec3 = connection_point(port, i);
+        var j: u32 = 0u32;
+        while j < face.count {
+            if inset_turn(
+                hull_corner(read hull, face, j),
+                hull_corner(read hull, face, (j + 1u32) % face.count),
+                p,
+                port.basis.forward
+            ) <= 0f32 {
+                return error("shaft diameter is too small for three HEX-6M end ports");
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return length(port.position) - port.profile.radius * 0.86602540378f32 > core || error(
+        "shaft spindle obstructs the end ports"
+    );
+}
+fn shaft_connections(asset: mut RoomAsset, core: f32) -> bool {
+    var next: AssetHull = asset_hull_new();
+    var first: u32 = asset_face_count(read asset.hull);
+    if !hull_face_sectors(
+        read asset.hull,
+        mut next,
+        48u32,
+        3u32,
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    var spacing: f32 = service_hex_profile().radius * 1.73205080757f32;
+    var ring: u32 = ((core + service_hex_profile().radius * 0.86602540378f32) / spacing) as u32 + 1u32;
+    var distance: f32 = ring as f32 * spacing;
+    var reference: RoomPort = shaft_port(0u32, distance);
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var port: RoomPort = shaft_port(i, distance);
+        if i != 0u32 {
+            port.face = first + i - 1u32;
+        }
+        if !shaft_port_fits(read asset.hull, port, core) {
+            return false;
+        }
+        var material: PanelMaterial = room_material(4u32);
+        var surface: SurfaceFrame = make SurfaceFrame {
+            origin: reference.position,
+            right: scale(reference.basis.right, asset.tile_metres / material.tile_metres),
+            up: scale(
+                reference.basis.up,
+                asset.tile_metres / panel_tile_height(material)
+            ),
+            normal: port.basis.forward
+        };
+        var face: HullFace = asset_face(read asset.hull, port.face);
+        face.region = 4u32;
+        asset_face_set(mut asset.hull, port.face, face);
+        asset_surface_set(mut asset.hull, port.face, surface);
+        if !hull_convex_partition(read asset.hull, mut next, port, 5u32) || !asset_port_append(
+            mut asset.ports,
+            port
+        ) {
+            return false;
+        }
+        asset_hull_swap(mut asset.hull, mut next);
+        i = i + 1u32;
+    }
+    return true;
 }

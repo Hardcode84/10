@@ -48,6 +48,8 @@ its inputs through a root Crust entry point.
 | Hex junction | Join active cardinal HEX-6M ports with a convex three-ring shell; collar separates adjacent openings; omitted branches become continuous walls |
 | Caps | Close both end profiles with convex polygons |
 | Polygon inset | Insert a smaller concentric port with the same side count and phase; retain a solid ring around the opening |
+| Convex face inset | Insert a regular port inside a convex face; keep boundary vertex IDs and surface coordinates |
+| Face sectors | Divide a convex face into equal edge runs around an interior point |
 | Surface conversion | Triangulate convex polygons; preserve region IDs; derive planar UV coordinates at a fixed physical scale |
 | Room bundle | Own the hull, render mesh, local solid-part geometry and placements, collision index, and spawn frame |
 | Material masks | Reusable rectangle and border operations in metres |

@@ -1,0 +1,225 @@
+fn inset_turn(a: Vec3, b: Vec3, c: Vec3, normal: Vec3) -> f32 {
+    return dot(cross(sub(b, a), sub(c, a)), normal);
+}
+fn inset_ear(hull: read AssetHull, first: u32, count: u32, corner: u32, normal: Vec3) -> bool {
+    var a: u32 = asset_index(read hull, first + (corner + count - 1u32) % count);
+    var b: u32 = asset_index(read hull, first + corner);
+    var c: u32 = asset_index(read hull, first + (corner + 1u32) % count);
+    var pa: Vec3 = asset_vertex(read hull, a);
+    var pb: Vec3 = asset_vertex(read hull, b);
+    var pc: Vec3 = asset_vertex(read hull, c);
+    if inset_turn(pa, pb, pc, normal) <= 0f32 {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        var id: u32 = asset_index(read hull, first + i);
+        if id != a && id != b && id != c {
+            var p: Vec3 = asset_vertex(read hull, id);
+            if inset_turn(pa, pb, p, normal) >= 0f32 && inset_turn(pb, pc, p, normal) >= 0f32 && inset_turn(
+                pc,
+                pa,
+                p,
+                normal
+            ) >= 0f32 {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn inset_triangulate(
+    hull: mut AssetHull,
+    scratch: u32,
+    count: u32,
+    face: u32,
+    first: u32,
+    region: u32,
+    surface: SurfaceFrame
+) -> bool {
+    while count >= 3u32 {
+        var ear: u32 = count;
+        var area: f32 = 0f32;
+        var candidate: u32 = 0u32;
+        while candidate < count {
+            if inset_ear(read hull, scratch, count, candidate, surface.normal) {
+                var previous: Vec3 = asset_vertex(
+                    read hull,
+                    asset_index(read hull, scratch + (candidate + count - 1u32) % count)
+                );
+                var point: Vec3 = asset_vertex(
+                    read hull,
+                    asset_index(read hull, scratch + candidate)
+                );
+                var next: Vec3 = asset_vertex(
+                    read hull,
+                    asset_index(read hull, scratch + (candidate + 1u32) % count)
+                );
+                var size: f32 = inset_turn(previous, point, next, surface.normal);
+                if size > area {
+                    area = size;
+                    ear = candidate;
+                }
+            }
+            candidate = candidate + 1u32;
+        }
+        if ear == count {
+            return error("cannot triangulate convex face inset");
+        }
+        var a: u32 = asset_index(read hull, scratch + (ear + count - 1u32) % count);
+        var b: u32 = asset_index(read hull, scratch + ear);
+        var c: u32 = asset_index(read hull, scratch + (ear + 1u32) % count);
+        first = hex_surround_face(mut hull, face, first, region, a, b, c, c);
+        asset_surface_set(mut hull, face, surface);
+        face = face + 1u32;
+        var i: u32 = ear;
+        while i + 1u32 < count {
+            var next: u32 = asset_index(read hull, scratch + i + 1u32);
+            asset_index_set(mut hull, scratch + i, next);
+            i = i + 1u32;
+        }
+        count = count - 1u32;
+    }
+    return true;
+}
+// Inserts a regular opening strictly inside a convex face. The port frame has
+// the face's outward normal. The original face becomes the closed port polygon.
+// Boundary vertex IDs and the surrounding surface frame stay unchanged.
+fn hull_convex_partition(
+    source: read AssetHull,
+    target: mut AssetHull,
+    port: RoomPort,
+    closure_region: u32
+) -> bool {
+    var face: HullFace = asset_face(read source, port.face);
+    var sides: u32 = port.profile.shape.sides;
+    var total: u64 = face.count as u64 + sides as u64;
+    if total * 4u64 + sides as u64 + 2u64 > 0xffffffffu64 {
+        return error("convex inset exceeds hull address range");
+    }
+    if !hull_partition_copy(
+        read source,
+        mut target,
+        sides,
+        total as u32,
+        (total * 4u64 + sides as u64 + 2u64) as u32
+    ) {
+        return false;
+    }
+    var base: u32 = asset_vertex_count(read source);
+    var first: u32 = asset_index_count(read source);
+    var inner: u32 = 0u32;
+    var outer: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < sides {
+        var p: Vec3 = connection_point(port, i);
+        asset_vertex_set(mut target, base + i, p);
+        asset_index_set(mut target, first + i, base + i);
+        if dot(p, port.basis.right) > dot(
+            asset_vertex(read target, base + inner),
+            port.basis.right
+        ) {
+            inner = i;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < face.count {
+        if dot(hull_corner(read source, face, i), port.basis.right) > dot(
+            hull_corner(read source, face, outer),
+            port.basis.right
+        ) {
+            outer = i;
+        }
+        i = i + 1u32;
+    }
+    asset_face_set(
+        mut target,
+        port.face,
+        make HullFace {
+            first: first,
+            count: sides,
+            region: closure_region
+        }
+    );
+    var scratch: u32 = first + sides + total as u32 * 3u32;
+    var bridge: u32 = asset_index(read source, face.first + outer);
+    asset_index_set(mut target, scratch, bridge);
+    i = 0u32;
+    while i <= sides {
+        asset_index_set(mut target, scratch + 1u32 + i, base + (inner + sides - i) % sides);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < face.count {
+        asset_index_set(
+            mut target,
+            scratch + sides + 2u32 + i,
+            asset_index(read source, face.first + (outer + i) % face.count)
+        );
+        i = i + 1u32;
+    }
+    return inset_triangulate(
+        mut target,
+        scratch,
+        total as u32 + 2u32,
+        asset_face_count(read source),
+        first + sides,
+        face.region,
+        asset_surface(read source, port.face)
+    );
+}
+// Splits a convex face into equal edge runs around an interior centre.
+// The face corner count is divisible by the positive sector count. Sector zero keeps the original face ID.
+fn hull_face_sectors(
+    source: read AssetHull,
+    target: mut AssetHull,
+    face_id: u32,
+    sectors: u32,
+    centre: Vec3
+) -> bool {
+    var face: HullFace = asset_face(read source, face_id);
+    var steps: u32 = face.count / sectors;
+    if !hull_partition_copy(
+        read source,
+        mut target,
+        1u32,
+        sectors - 1u32,
+        face.count + sectors * 2u32
+    ) {
+        return false;
+    }
+    var base: u32 = asset_vertex_count(read source);
+    asset_vertex_set(mut target, base, centre);
+    var i: u32 = 0u32;
+    while i < sectors {
+        var id: u32 = face_id;
+        if i != 0u32 {
+            id = asset_face_count(read source) + i - 1u32;
+        }
+        var first: u32 = asset_index_count(read source) + i * (steps + 2u32);
+        asset_face_set(
+            mut target,
+            id,
+            make HullFace {
+                first: first,
+                count: steps + 2u32,
+                region: face.region
+            }
+        );
+        asset_surface_set(mut target, id, asset_surface(read source, face_id));
+        asset_index_set(mut target, first, base);
+        var j: u32 = 0u32;
+        while j <= steps {
+            asset_index_set(
+                mut target,
+                first + 1u32 + j,
+                asset_index(read source, face.first + (i * steps + j) % face.count)
+            );
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

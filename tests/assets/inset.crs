@@ -1,0 +1,73 @@
+fn asset_test_inset() -> bool {
+    var asset: RoomAsset = room_asset_new();
+    var profile: RegularProfile = make RegularProfile {
+        sides: 12u32,
+        phase: 0.1f32
+    };
+    if !loft_allocate(mut asset.hull, profile, 2u32) {
+        return false;
+    }
+    loft_ring(mut asset.hull, profile, 0u32, 0f32, 8f32);
+    loft_ring(mut asset.hull, profile, 1u32, 8f32, 8f32);
+    loft_span(mut asset.hull, profile, 0u32, 0u32);
+    loft_caps(mut asset.hull, profile, 2u32, 0u32, 0u32);
+    var port: RoomPort = make RoomPort {
+        id: asset_name("OFFSET"),
+        profile: service_hex_profile(),
+        face: 12u32,
+        position: vec(1.5f32, 0f32, -0.75f32),
+        basis: make Basis {
+            right: vec(1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(0f32, -1f32, 0f32)
+        }
+    };
+    var next: AssetHull = asset_hull_new();
+    if !hull_convex_partition(read asset.hull, mut next, port, 1u32) || !asset_port_append(
+        mut asset.ports,
+        port
+    ) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    asset.spawn.position = vec(0f32, 4f32, 0f32);
+    if !room_asset_finish(mut asset) || !asset_test_shell(read asset) {
+        return false;
+    }
+    var render: Mesh = mesh_new();
+    var walls: Mesh = mesh_new();
+    if !room_linked_mesh(read asset, mut render, mut walls, 0u32) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_append(
+        mut builder,
+        read walls,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var through: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        add(port.position, vec(0f32, 1f32, 0f32)),
+        vec(0f32, -2f32, 0f32),
+        0.35f32
+    );
+    var wall: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        add(port.position, vec(-4f32, 1f32, 0f32)),
+        vec(0f32, -2f32, 0f32),
+        0.35f32
+    );
+    return through.hit.time > 1f32 && wall.hit.time < 1f32 || error(
+        "convex inset failed to open only the port polygon"
+    );
+}
