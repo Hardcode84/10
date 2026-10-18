@@ -51,3 +51,78 @@ fn hull_polygon_partition(
     }
     return true;
 }
+
+// Returns a corner of the constant-width inset of a strictly convex polygon.
+// Width is positive and smaller than the distance at which any edge disappears.
+fn hull_border_corner(hull: read AssetHull, face: HullFace, corner: u32, width: f32) -> Vec3 {
+    var point: Vec3 = hull_corner(read hull, face, corner);
+    var previous: Vec3 = hull_corner(
+        read hull,
+        face,
+        (corner + face.count - 1u32) % face.count
+    );
+    var next: Vec3 = hull_corner(read hull, face, (corner + 1u32) % face.count);
+    var normal: Vec3 = hull_frame(read hull, face).normal;
+    var a: Vec3 = cross(normal, unit_vector(sub(point, previous)));
+    var b: Vec3 = cross(normal, unit_vector(sub(next, point)));
+    return add(point, scale(add(a, b), width / (1f32 + dot(a, b))));
+}
+// Adds an inset border to a strictly convex face without changing its outer edges.
+// Width is positive and no edge may disappear at that inset distance.
+// The inner face keeps its ID, material and surface frame. Border faces are appended.
+fn hull_face_border(
+    source: read AssetHull,
+    target: mut AssetHull,
+    face_id: u32,
+    width: f32,
+    region: u32
+) -> bool {
+    var face: HullFace = asset_face(read source, face_id);
+    var count: u32 = face.count;
+    if count > 0xffffffffu32 / 5u32 {
+        return error("polygon border exceeds hull address range");
+    }
+    if !hull_partition_copy(read source, mut target, count, count, count * 5u32) {
+        return false;
+    }
+    var base: u32 = asset_vertex_count(read source);
+    var first: u32 = asset_index_count(read source);
+    var surface: SurfaceFrame = asset_surface(read source, face_id);
+    var i: u32 = 0u32;
+    while i < count {
+        asset_vertex_set(
+            mut target,
+            base + i,
+            hull_border_corner(read source, face, i, width)
+        );
+        asset_index_set(mut target, first + i, base + i);
+        i = i + 1u32;
+    }
+    asset_face_set(
+        mut target,
+        face_id,
+        make HullFace {
+            first: first,
+            count: count,
+            region: face.region
+        }
+    );
+    i = 0u32;
+    while i < count {
+        var next: u32 = (i + 1u32) % count;
+        var surround: u32 = asset_face_count(read source) + i;
+        hex_surround_face(
+            mut target,
+            surround,
+            first + count + i * 4u32,
+            region,
+            asset_index(read source, face.first + i),
+            asset_index(read source, face.first + next),
+            base + next,
+            base + i
+        );
+        asset_surface_set(mut target, surround, surface);
+        i = i + 1u32;
+    }
+    return true;
+}

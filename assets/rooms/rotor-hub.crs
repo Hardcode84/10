@@ -8,7 +8,9 @@
 // Socket positions and dimensions stay fixed. The default inset is 1.75 m.
 // The spindle stays in the shaft. The centre is a clear player spawn facing +Y.
 // Regions: 0 socket walls, 1 corner panels, 2 tunnel closures, 3 shaft closure,
-// 4 dark structural joints. Corner panels have one closed hexagonal service cover.
+// 4 dark structural joints, 5 polygon and portal seams.
+// Corner panels have one closed hexagonal service cover.
+// Wall edges have 0.06 m seams; portal edges have 0.10 m seams.
 fn room_parameter_count() -> u32 {
     return 3u32;
 }
@@ -135,13 +137,12 @@ fn hub_connections(asset: mut RoomAsset, diameter: f32) -> bool {
                 normal: basis.forward
             }
         );
-        if !hull_convex_partition(read asset.hull, mut next, port, closure) || !asset_port_append(
+        if !hub_wall_partition(mut asset.hull, mut next, port, closure) || !asset_port_append(
             mut asset.ports,
             port
         ) {
             return false;
         }
-        asset_hull_swap(mut asset.hull, mut next);
         face = face + 1u32;
     }
     return true;
@@ -179,12 +180,17 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     return room_asset_finish(mut asset);
 }
 fn room_material_count() -> u32 {
-    return 5u32;
+    return 6u32;
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     var material: PanelMaterial = hex_tunnel_material();
     material.colour = 0x807769u32;
     material.panel_height = 2f32;
+    if region == 5u32 {
+        material.finish = METAL_PLAIN;
+        material.colour = 0x15191du32;
+        return material;
+    }
     if region == 1u32 {
         return hub_corner_material(read parameters);
     }
@@ -267,4 +273,29 @@ fn hub_corner_surfaces(asset: mut RoomAsset, parameters: read AssetValues) -> un
         asset_surface_set(mut asset.hull, i, frame);
         i = i + 1u32;
     }
+}
+
+fn hub_wall_partition(
+    hull: mut AssetHull,
+    next: mut AssetHull,
+    port: RoomPort,
+    closure: u32
+) -> bool {
+    if !hull_face_border(read hull, mut next, port.face, 0.06f32, 5u32) {
+        return false;
+    }
+    asset_hull_swap(mut hull, mut next);
+    var surround: RoomPort = port;
+    surround.profile.radius = surround.profile.radius + 0.10f32 / cosf(
+        3.14159265359f32 / port.profile.shape.sides as f32
+    );
+    if !hull_convex_partition(read hull, mut next, surround, 5u32) {
+        return false;
+    }
+    asset_hull_swap(mut hull, mut next);
+    if !hull_polygon_partition(read hull, mut next, port, closure) {
+        return false;
+    }
+    asset_hull_swap(mut hull, mut next);
+    return true;
 }

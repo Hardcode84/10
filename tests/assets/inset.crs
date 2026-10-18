@@ -23,7 +23,22 @@ fn asset_test_inset() -> bool {
         }
     };
     var next: AssetHull = asset_hull_new();
-    if !hull_convex_partition(read asset.hull, mut next, port, 1u32) || !asset_port_append(
+    if !asset_test_face_border(mut asset.hull, mut next, 0u32) || !asset_test_face_border(
+        mut asset.hull,
+        mut next,
+        port.face
+    ) {
+        return false;
+    }
+    var surround: RoomPort = port;
+    surround.profile.radius = surround.profile.radius + 0.1f32 / cosf(
+        3.14159265359f32 / port.profile.shape.sides as f32
+    );
+    if !hull_convex_partition(read asset.hull, mut next, surround, 2u32) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    if !hull_polygon_partition(read asset.hull, mut next, port, 1u32) || !asset_port_append(
         mut asset.ports,
         port
     ) {
@@ -70,4 +85,30 @@ fn asset_test_inset() -> bool {
     return through.hit.time > 1f32 && wall.hit.time < 1f32 || error(
         "convex inset failed to open only the port polygon"
     );
+}
+
+fn asset_test_face_border(hull: mut AssetHull, next: mut AssetHull, id: u32) -> bool {
+    var face: HullFace = asset_face(read hull, id);
+    if !hull_face_border(read hull, mut next, id, 0.2f32, 2u32) {
+        return false;
+    }
+    var inner: HullFace = asset_face(read next, id);
+    var normal: Vec3 = hull_frame(read hull, face).normal;
+    var i: u32 = 0u32;
+    while i < face.count {
+        var a: Vec3 = hull_corner(read hull, face, i);
+        var b: Vec3 = hull_corner(read hull, face, (i + 1u32) % face.count);
+        var inward: Vec3 = cross(normal, unit_vector(sub(b, a)));
+        var first: f32 = dot(sub(hull_corner(read next, inner, i), a), inward);
+        var second: f32 = dot(
+            sub(hull_corner(read next, inner, (i + 1u32) % face.count), a),
+            inward
+        );
+        if absf(first - 0.2f32) > 0.00001f32 || absf(second - 0.2f32) > 0.00001f32 {
+            return error("polygon border does not have constant physical width");
+        }
+        i = i + 1u32;
+    }
+    asset_hull_swap(mut hull, mut next);
+    return true;
 }
