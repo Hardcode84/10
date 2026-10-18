@@ -1,6 +1,7 @@
 fn body_portals(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
         source_scale: scale_identity(),
         target_scale: scale_identity(),
         reverse: 1u32,

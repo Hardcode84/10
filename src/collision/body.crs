@@ -1,0 +1,103 @@
+// Radius is in base units. Size maps base lengths into the query room.
+record CollisionBody {
+    radius: f32;
+    size: read Rational;
+    link: SpaceTransform;
+    extent: f32;
+}
+fn collision_body(radius: f32, size: read Rational) -> CollisionBody from size {
+    return make CollisionBody {
+        radius: radius,
+        size: read size,
+        link: space_identity(),
+        extent: 0f32
+    };
+}
+fn collision_body_radius(body: read CollisionBody) -> f32 {
+    return body.radius * rational_float(read body.size);
+}
+fn collision_placement_radius(
+    body: read CollisionBody,
+    anchors: read RoomAnchors,
+    index: u32
+) -> f32 {
+    var size: Rational = rational_product(
+        read body.size,
+        room_anchor_ratio(read anchors, index)
+    );
+    return body.radius * rational_float(read size);
+}
+fn collision_sweep_interval(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32
+) -> CollisionSweep {
+    var size: Rational = rational_new(1u64, 1u64);
+    var body: CollisionBody = collision_body(radius, read size);
+    return collision_sweep_interval_body(read scene, space, p, d, read body, time, duration);
+}
+
+fn collision_correction_blocked(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32
+) -> CollisionSweep {
+    var size: Rational = rational_new(1u64, 1u64);
+    var body: CollisionBody = collision_body(radius, read size);
+    return collision_correction_blocked_body(read scene, space, p, d, read body, time);
+}
+
+fn collision_interval_contacts(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    radius: f32,
+    skin: f32,
+    time: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes
+) -> bool {
+    var size: Rational = rational_new(1u64, 1u64);
+    var body: CollisionBody = collision_body(radius, read size);
+    return collision_interval_contacts_body(
+        read scene,
+        space,
+        p,
+        read body,
+        skin,
+        time,
+        mut separate,
+        mut speeds
+    );
+}
+
+fn collision_interval_step(
+    scene: read CollisionScene,
+    space: u32,
+    radius: f32,
+    time: f32,
+    duration: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes,
+    result: mut CollisionMotion
+) -> bool {
+    var size: Rational = rational_new(1u64, 1u64);
+    var body: CollisionBody = collision_body(radius, read size);
+    return collision_interval_step_body(
+        read scene,
+        space,
+        read body,
+        time,
+        duration,
+        mut separate,
+        mut speeds,
+        mut result
+    );
+}

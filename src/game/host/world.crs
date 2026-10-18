@@ -1,4 +1,14 @@
 fn game_world_open(session: mut GameSession, collision: mut CollisionScene, trial: mut Trial) -> bool {
+    if session.control.launch.config.scaling {
+        return scaling_graph(mut session.control.graph) && scaling_prop(
+            mut session.fixture_mesh
+        ) && graph_assemble(
+            mut session.control.graph,
+            mut collision,
+            mut session.room_mesh,
+            mut trial
+        );
+    }
     if !session.control.launch.config.room_demo {
         return graph_generate(
             mut session.control.graph,

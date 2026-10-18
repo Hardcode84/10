@@ -1,0 +1,124 @@
+// The tested sphere range is 2^-12 through 2^12 room metres.
+// Coordinate error must stay below one part in 256 of the radius.
+fn collision_size_supported(radius: f32, bound: f32) -> bool {
+    return radius >= 0.000244140625f32 && radius <= 4096f32 && bound * 0.0000005f32 <= radius * 0.00390625f32;
+}
+fn collision_link_supported(transform: SpaceTransform, extent: f32, radius: f32) -> bool {
+    var square: f32 = transform.factor * transform.factor;
+    var reach: f32 = length(transform.origin) + extent * transform.factor;
+    return square > 0f32 && collision_finite(vec(square, 1f32 / square, reach * reach)) && reach * 0.0000005f32 <= radius * 0.00390625f32;
+}
+fn collision_portal_admitted(
+    body: read CollisionBody,
+    anchors: read RoomAnchors,
+    parent: u32,
+    portal: CollisionPortal
+) -> bool {
+    var link: Rational = portal_ratio(portal);
+    var path: Rational = rational_product(room_anchor_ratio(read anchors, parent), read link);
+    var size: Rational = rational_product(read body.size, read path);
+    var radius: f32 = body.radius * rational_float(read size);
+    if !collision_size_supported(radius, portal.support_bound) {
+        return false;
+    }
+    var transform: SpaceTransform = space_compose(
+        portal.transform,
+        room_anchor(read anchors, parent).transform
+    );
+    transform.factor = rational_float(read path);
+    if !collision_link_supported(transform, collision_body_radius(read body), radius) {
+        return false;
+    }
+    if body.extent > 0f32 && !collision_link_supported(
+        space_compose(transform, body.link),
+        body.extent,
+        radius
+    ) {
+        return false;
+    }
+    return true;
+}
+fn collision_scaled_child(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    parent: u32,
+    index: u32,
+    body: read CollisionBody
+) -> bool {
+    var anchor: RoomAnchor = room_anchor(read anchors, parent);
+    var portal: CollisionPortal = collision_portal(read scene, index);
+    if !collision_portal_admitted(read body, read anchors, parent, portal) {
+        anchor.cap = index;
+        var ratio: Rational = rational_clone(room_anchor_ratio(read anchors, parent));
+        return room_anchor_take(mut anchors, anchor, move ratio);
+    }
+    if anchor.depth == 1024u32 {
+        return error("body portal overlap exceeds traversal budget");
+    }
+    var child: RoomAnchor = make RoomAnchor {
+        cap: 0xffffffffu32,
+        object: anchor.object,
+        space: portal.destination,
+        transform: space_compose(portal.transform, anchor.transform),
+        parent: parent,
+        portal: index,
+        incoming: portal.reverse,
+        depth: anchor.depth + 1u32
+    };
+    return room_anchor_link(mut anchors, child, portal);
+}
+fn collision_scaled_children(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    parent: u32,
+    p: Vec3,
+    d: Vec3,
+    body: read CollisionBody,
+    margin: bool
+) -> bool {
+    var anchor: RoomAnchor = room_anchor(read anchors, parent);
+    if anchor.cap != 0xffffffffu32 {
+        return true;
+    }
+    var start: Vec3 = space_point(anchor.transform, p);
+    var travel: Vec3 = space_vector(anchor.transform, d);
+    var radius: f32 = collision_placement_radius(read body, read anchors, parent);
+    if margin {
+        radius = radius + 2f32 * collision_tolerance(start, radius);
+    }
+    var i: u32 = 0u32;
+    while i < collision_portal_count(read scene) {
+        var portal: CollisionPortal = collision_portal(read scene, i);
+        if portal.space == anchor.space && i != anchor.incoming && portal_reaches(
+            portal,
+            start,
+            travel,
+            radius
+        ) && !collision_scaled_child(read scene, mut anchors, parent, i, read body) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn collision_scaled_anchors(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    body: read CollisionBody,
+    margin: bool
+) -> bool {
+    if !room_anchor_add(mut anchors, primary_anchor(0u32, space)) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        if !collision_scaled_children(read scene, mut anchors, i, p, d, read body, margin) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

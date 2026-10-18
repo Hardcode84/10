@@ -1,4 +1,7 @@
 fn graph_asset(kind: u32, asset: mut RoomAsset) -> bool {
+    if kind >= 7u32 {
+        return scaling_asset(kind, mut asset);
+    }
     if kind == 0u32 {
         var values: AssetValues = asset_values_new();
         if !asset_values_allocate(mut values, room_parameter_count()) {
@@ -50,7 +53,7 @@ fn graph_assemble_room(
     var render: Mesh = mesh_new();
     var walls: Mesh = mesh_new();
     var material: u32 = GAME_MATERIALS + room_material_count();
-    if id == 0u32 {
+    if node.kind == 0u32 {
         material = GAME_MATERIALS;
     }
     if !room_linked_mesh(read asset, mut render, mut walls, material) || !collision_append(
@@ -68,7 +71,7 @@ fn graph_assemble_room(
     i = 0u32;
     while i < node.mesh.count {
         var primitive: MeshTriangle = mesh_triangle(read render, i);
-        if id != 0u32 {
+        if node.kind != 0u32 {
             if primitive.material == material {
                 primitive.material = material + node.style;
             } else if primitive.material == material + 1u32 {
@@ -116,6 +119,9 @@ fn graph_assemble(
             return false;
         }
         i = i + 1u32;
+    }
+    if graph_node(read graph, 0u32).kind == 7u32 && !scaling_contacts(mut builder) {
+        return false;
     }
     trial.graph_run = true;
     trial.goal_world = graph_goal(read graph);

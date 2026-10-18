@@ -18,7 +18,10 @@ export async function flight(options) {
     };
   }
   Object.assign(form.elements.seed, {value: '42'});
-  for (const [name, value] of Object.entries({complexity: 2, width: 641, height: 359, ticks: options.controls ? 0 : 1})) form.elements[name].value = value;
+  // Keep symmetry planes between samples for the scaled image comparison.
+  // The ordinary course retains odd width and height to check row addressing.
+  for (const [name, value] of Object.entries({complexity: 2, width: options.scaling ? 640 : 641, height: options.scaling ? 360 : 359, ticks: options.controls ? 0 : 1})) form.elements[name].value = value;
+  form.elements.scaling.checked = !!options.scaling;
   form.elements.record.checked = !options.replay;
   form.elements.capture.checked = !options.controls;
   form.elements.fullscreen.checked = !!options.fullscreen;
@@ -83,6 +86,7 @@ export async function flight(options) {
     await inputFrame();
     canvas.dispatchEvent(new MouseEvent('mouseup', {button:0, buttons:2, bubbles:true}));
     canvas.dispatchEvent(new MouseEvent('mouseup', {button:2, buttons:0, bubbles:true}));
+    if (options.scaling) await wait(900);
     key('keyup', 'KeyW', 'w', 87);
     key('keydown', 'KeyF', 'f', 70); await inputFrame(); key('keyup', 'KeyF', 'f', 70);
     key('keydown', 'Tab', 'Tab', 9); await inputFrame(); key('keyup', 'Tab', 'Tab', 9);

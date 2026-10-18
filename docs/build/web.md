@@ -41,7 +41,7 @@ The browser can reserve Escape for pointer lock or fullscreen. **End run** sends
 the game's exit command. **New expedition** starts a fresh application instance.
 
 Select a controls file to replace bindings. Select a recording file and its
-seed and complexity to replay it. Native and web recordings use the same format
+scene, seed, and complexity to replay it. Native and web recordings use the same format
 and check the state hash at every tick. Select **Record flight** to download a
 recording after the run. **Render capture** runs without a window and supplies a
 PPM download. A finite tick limit is useful for captures without a replay file.
@@ -147,3 +147,6 @@ and `game.data`. Build intermediates are not included. The publish action keeps
 branch history and replaces the previous site files. If the files have not
 changed, it does not create a commit. Check the separate Pages build and
 deployment run for the published URL and deployment status.
+
+Select **Scaling portal course** to run the two-room scaling scene. Check its
+native/browser replay with `bun tests/web/check.mjs --scaling`.

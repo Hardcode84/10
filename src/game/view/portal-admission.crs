@@ -1,0 +1,46 @@
+fn draw_portal_cap(input: mut FrameInput, portal: CollisionPortal, eye: Vec3, width: f32) -> unit {
+    var first: u32 = input_word(read input, 3usize);
+    var i: u32 = 0u32;
+    while i < portal.sides {
+        draw_ribbon(
+            mut input,
+            portal_corner(portal, i),
+            portal_corner(portal, i + 1u32),
+            eye,
+            width,
+            HOOK_PREVIEW_MATERIAL
+        );
+        i = i + 1u32;
+    }
+    game_dynamic_space(mut input, first, portal.space);
+    game_dynamic_no_shadow(mut input, first);
+}
+fn draw_portal_admission(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    drone: read Drone
+) -> unit {
+    var anchors: RoomAnchors = room_anchors_new();
+    if !room_anchor_add(mut anchors, primary_anchor(0u32, drone.world)) {
+        scene_overflow();
+    }
+    var body: CollisionBody = flight_body(read drone);
+    var i: u32 = 0u32;
+    while i < collision_portal_count(read scene) {
+        var portal: CollisionPortal = collision_portal(read scene, i);
+        if portal.space == drone.world && !collision_portal_admitted(
+            read body,
+            read anchors,
+            0u32,
+            portal
+        ) {
+            draw_portal_cap(
+                mut input,
+                portal,
+                drone.position,
+                0.025f32 * drone_size(read drone)
+            );
+        }
+        i = i + 1u32;
+    }
+}

@@ -96,3 +96,15 @@ fn portal_path_prepend(path: mut PortalPath, portal: u32, reverse: u32) -> unit 
     path.data[0usize] = portal;
     path.count = path.count + 1u32;
 }
+
+fn portal_path_swap(a: mut PortalPath, b: mut PortalPath) -> unit {
+    var data: *u32 = a.data;
+    var count: u32 = a.count;
+    var capacity: u32 = a.capacity;
+    a.data = b.data;
+    a.count = b.count;
+    a.capacity = b.capacity;
+    b.data = data;
+    b.count = count;
+    b.capacity = capacity;
+}

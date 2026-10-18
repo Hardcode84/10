@@ -3,14 +3,14 @@
 ## Scope
 
 This format defines generated rooms and their named connections. The game
-uses separate local spaces and rigid links. See the
+uses separate local spaces and positive uniform similarity links. See the
 [current graph assembly](../game/expedition.md) and [open engine work](engine-gaps.md).
-The [scaling portal design](../game/scaling-portals.md) proposes rational profile
-scales and similarity transforms. These extensions are not implemented.
+See [scaling portals](../game/scaling-portals.md) for exact profile scales,
+object sizes, and physical admission.
 
 A room defines a convex interior hull in its own local coordinate space.
 Selected hull polygons are connections. A connection can lead to another room
-instance through a rigid portal transform. The room can contain smaller props,
+instance through a similarity portal transform. The room can contain smaller props,
 lights, and gameplay objects. All of these use room-local coordinates.
 
 Crust recipes generate this data. This contract defines its meaning, not a
@@ -114,8 +114,9 @@ with two choices can connect at 0 or 180 degrees. A hexagon with two choices
 and one with three choices can connect only at zero roll.
 
 Assembly selects a roll from the shared choices using the names and declared
-counts. It does not infer symmetry from geometry. Do not scale an opening,
-mirror a room, or search for an approximate rotation. For an arbitrary polygon,
+counts. Symmetry comes from the named profile. Define opening size with the
+positive rational profile scale. Generate the hull and aperture from that same
+scaled recipe. Reject reflections and approximate rotation choices. For an arbitrary polygon,
 the author defines the valid counts in its named profile.
 
 ## Links and space transfer
@@ -129,7 +130,8 @@ Let `A` and `B` map each port frame into its room coordinates. For the selected
 roll angle `theta`, define the source-to-destination transform:
 
 ```
-T_A_to_B = B * rotate_z(theta) * rotate_x(pi) * inverse(A)
+s = profile_scale_B / profile_scale_A
+T_A_to_B = B * uniform_scale(s) * rotate_z(theta) * rotate_x(pi) * inverse(A)
 T_B_to_A = inverse(T_A_to_B)
 ```
 
@@ -137,7 +139,8 @@ The half-turn opposes the outward normals. It is a proper rotation, not a
 reflection. Store the selected discrete rotation. No vertex correspondence is
 required. The reverse traversal uses the exact inverse transform.
 
-Positions use the full rigid transform. Directions use its rotational part.
+Positions and displacements use the full similarity map. Unit directions use
+its rotational part. The exact profile ratio defines the scale.
 Body velocity transfer must also account for the selected drum frames. Renderer,
 player, hook, tether, prediction, and saved references must use the same link.
 The [gameplay portal task](engine-gaps.md#w2-gameplay-portals--world-feature)

@@ -25,6 +25,7 @@ fn collision_contacts_instance(
                 if distance <= radius + skin * 2f32 {
                     var n: Vec3 = proximity.normal;
                     var plane: CollisionPlane = make CollisionPlane {
+                        error: skin * 0.125f32,
                         normal: collision_normal(basis_vector(item.basis, n)),
                         offset: radius + skin - distance
                     };

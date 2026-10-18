@@ -1,5 +1,6 @@
 const STEP: f32 = 0.008333333333333333f32;
 const DRONE_RADIUS: f32 = 0.35f32;
+const CABLE_BLOCKED: u32 = 4u32;
 const CABLE_READY: u32 = 0u32;
 const CABLE_FLYING: u32 = 1u32;
 const CABLE_ATTACHED: u32 = 2u32;
@@ -174,4 +175,27 @@ fn assign_drone(target: mut Drone, value: read Drone) -> unit {
 fn reset_cable(target: mut Cable) -> unit {
     var value: Cable = empty_cable();
     assign_cable(mut target, read value);
+}
+
+fn flight_body(drone: read Drone) -> CollisionBody from drone.size {
+    var body: CollisionBody = make CollisionBody {
+        radius: DRONE_RADIUS,
+        size: read drone.size,
+        link: space_identity(),
+        extent: 0f32
+    };
+    if drone.cable.phase == CABLE_FLYING || drone.cable.phase == CABLE_ATTACHED {
+        body.link = drone.cable.frame;
+        body.extent = CABLE_REACH * rational_float(read drone.cable.size);
+    }
+    return move body;
+}
+fn flight_hook_body(drone: read Drone) -> CollisionBody from drone.cable.size {
+    var body: CollisionBody = make CollisionBody {
+        radius: HOOK_RADIUS,
+        size: read drone.cable.size,
+        link: space_inverse(drone.cable.frame),
+        extent: CABLE_REACH * drone_size(read drone)
+    };
+    return move body;
 }

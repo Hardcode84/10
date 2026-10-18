@@ -200,6 +200,25 @@ fn predict_hook(
             preview_eye(eye, inverse, space),
         );
         eye = preview_eye(eye, drone.step_frame, drone.world);
+        if drone.cable.phase == CABLE_BLOCKED {
+            if prediction.count == PREVIEW_MARKERS {
+                prediction.count = prediction.count - 1u32;
+            }
+            prediction.markers[prediction.count as usize] = make PredictionMarker {
+                center: space_point(
+                    space_inverse(drone.cable.frame),
+                    drone.cable.anchor
+                ),
+                eye: preview_eye(
+                    eye,
+                    space_inverse(drone.cable.frame),
+                    drone.cable.space
+                ),
+                material: 4u32
+            };
+            prediction.count = prediction.count + 1u32;
+            return;
+        }
         if drone.cable.phase == CABLE_ATTACHED {
             return;
         }

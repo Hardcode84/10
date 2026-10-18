@@ -10,6 +10,7 @@ fn scaling_render_scene(scene: mut CollisionScene, factor: ScaleRatio) -> bool {
         }
     };
     var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
         source_scale: scale_identity(),
         target_scale: factor,
         reverse: 1u32,
@@ -126,6 +127,9 @@ fn main(argc: i32, argv: **u8) -> i32 {
     if !game_renderer_open(&renderer.state, &launch, null(*u8), 2u32) {
         return 1i32;
     }
+    if !scaling_flight_fixture() {
+        return 1i32;
+    }
     var baseline: u64 = 0u64;
     var i: u32 = 0u32;
     while i < 3u32 {
@@ -156,6 +160,93 @@ fn main(argc: i32, argv: **u8) -> i32 {
         }
         i = i + 1u32;
     }
+    if !scaling_bounds_reject(mut renderer) {
+        return 1i32;
+    }
     puts("Scaled portal geometry and propagated light images match identity.");
     return 0i32;
+}
+
+fn scaling_flight_fixture() -> bool {
+    var graph: RoomGraph = graph_new();
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var trial: Trial = new_trial();
+    if !scaling_graph(mut graph) || !graph_assemble(mut graph, mut scene, mut mesh, mut trial) {
+        return false;
+    }
+    hook_launch(mut trial.drone);
+    var i: u32 = 0u32;
+    while i < 40u32 && trial.drone.cable.phase == CABLE_FLYING {
+        hook_step(read scene, mut trial.drone, false);
+        trial.drone.clock = trial.drone.clock + 1u32;
+        i = i + 1u32;
+    }
+    if trial.drone.cable.phase != CABLE_ATTACHED || trial.drone.cable.space != 1u32 || hook_radius(
+        read trial.drone
+    ) != 2f32 * HOOK_RADIUS {
+        return error("fixture hook must attach across the scaled opening");
+    }
+    var extent: f32 = trial.drone.cable.extent;
+    move_drone(read scene, mut trial.drone, vec(0f32, -6f32, 0f32));
+    if trial.drone.world != 1u32 || drone_size(read trial.drone) != 2f32 || trial.drone.cable.extent != extent {
+        return error("fixture player crossing changed cable extent");
+    }
+    trial.drone.cable.reeling = true;
+    tether_winch(read scene, mut trial.drone);
+    if!(trial.drone.cable.extent < extent) {
+        return error("scaled fixture winch did not reel");
+    }
+    var offset: Vec3 = sub(trial.drone.cable.anchor, trial.drone.position);
+    var before: f32 = length(offset) / drone_size(read trial.drone);
+    drone_portal(read scene, mut trial.drone, 1u32);
+    var after: f32 = length(sub(trial.drone.cable.anchor, trial.drone.position)) / drone_size(
+        read trial.drone
+    );
+    if absf(before - after) > 0.00001f32 || drone_size(read trial.drone) != 1f32 {
+        return error("fixture reciprocal crossing changed cable metric");
+    }
+    return scaling_course_complete(read scene, mut trial);
+}
+fn scaling_bounds_reject(renderer: mut Renderer) -> bool {
+    var input: FrameInput = renderer_inputs(mut renderer);
+    var base: usize = input_word(read input, PORTAL_FLOAT as usize) as usize;
+    input_set_float(mut input, base + 16usize, 1e20f32);
+    return !render_numeric_bounds(&input.storage);
+}
+
+fn scaling_course_complete(scene: read CollisionScene, trial: mut Trial) -> bool {
+    reset_trial(mut trial);
+    move_drone(read scene, mut trial.drone, vec(1f32, 0f32, 1f32));
+    move_drone(read scene, mut trial.drone, vec(0f32, -7f32, 0f32));
+    if trial.drone.world != 1u32 {
+        return error("course outbound crossing failed");
+    }
+    move_drone(
+        read scene,
+        mut trial.drone,
+        sub(vec(3f32, 4f32, 0f32), trial.drone.position)
+    );
+    move_drone(read scene, mut trial.drone, vec(0f32, 14f32, 0f32));
+    move_drone(
+        read scene,
+        mut trial.drone,
+        sub(vec(0f32, 18f32, 0f32), trial.drone.position)
+    );
+    graph_progress(mut trial);
+    if !trial.returning {
+        return error("scaling course goal is unreachable");
+    }
+    move_drone(read scene, mut trial.drone, vec(-3f32, 0f32, 0f32));
+    move_drone(read scene, mut trial.drone, vec(0f32, -19f32, 0f32));
+    if trial.drone.world != 0u32 || drone_size(read trial.drone) != 1f32 {
+        return error("course return crossing failed");
+    }
+    move_drone(
+        read scene,
+        mut trial.drone,
+        sub(trial.spawn.position, trial.drone.position)
+    );
+    graph_progress(mut trial);
+    return trial.finished || error("scaling course return beacon is unreachable");
 }

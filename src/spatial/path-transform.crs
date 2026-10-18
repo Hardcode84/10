@@ -1,0 +1,30 @@
+fn space_orthogonal(basis: Basis) -> Basis {
+    var forward: Vec3 = unit_vector(basis.forward);
+    var right: Vec3 = unit_vector(cross(basis.up, forward));
+    return make Basis {
+        right: right,
+        up: cross(forward, right),
+        forward: forward
+    };
+}
+fn space_path_step(frame: mut SpaceTransform, size: mut Rational, portal: CollisionPortal) -> unit {
+    var ratio: Rational = portal_ratio(portal);
+    rational_multiply(mut size, read ratio);
+    frame = space_compose(portal.transform, frame);
+    frame.factor = rational_float(read size);
+    frame.basis = space_orthogonal(frame.basis);
+}
+fn space_path(scene: read CollisionScene, path: read PortalPath) -> SpaceTransform {
+    var frame: SpaceTransform = space_identity();
+    var size: Rational = rational_new(1u64, 1u64);
+    var i: u32 = 0u32;
+    while i < portal_path_count(read path) {
+        space_path_step(
+            mut frame,
+            mut size,
+            collision_portal(read scene, portal_path_at(read path, i))
+        );
+        i = i + 1u32;
+    }
+    return frame;
+}

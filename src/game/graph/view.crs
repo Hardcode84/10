@@ -19,6 +19,9 @@ fn graph_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
     hud_text(mut v, 0u32, 2u32, "WASD SPACE CTRL THRUST | MOUSE LOOK | Q/E ROLL");
     hud_text(mut v, 0u32, 3u32, "RMB BOOST | F BRAKE | LMB HOLD HOOK | R REEL");
     hud_text(mut v, 0u32, 4u32, "PORT NUMBER IS DESTINATION / CYAN VISITED");
+    if trial.drone.cable.phase == CABLE_BLOCKED {
+        hud_text(mut v, 0u32, 4u32, "HOOK BLOCKED - RELEASE LMB TO LAUNCH AGAIN");
+    }
     hud_text(mut v, 0u32, 5u32, "BACKSPACE RESTART | TAB PAUSE | ESC EXIT");
     if paused {
         hud_text(mut v, 65u32, 0u32, "PAUSED");

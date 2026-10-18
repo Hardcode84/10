@@ -1,6 +1,7 @@
 fn anchor_light_scene(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
         source_scale: scale_identity(),
         target_scale: scale_identity(),
         reverse: 1u32,
@@ -105,6 +106,7 @@ fn anchor_light_input(scene: read CollisionScene, input: mut FrameInput, lit: bo
 fn light_direction_scene(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
         source_scale: scale_identity(),
         target_scale: scale_identity(),
         reverse: 1u32,

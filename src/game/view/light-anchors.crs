@@ -1,7 +1,8 @@
-fn light_anchors(
+fn light_scaled_anchors(
     scene: read CollisionScene,
     anchors: mut RoomAnchors,
     light: LightObject,
+    size: read Rational,
     depth: u32
 ) -> bool {
     if !room_anchor_add(mut anchors, primary_anchor(light.id, light.space)) {
@@ -14,6 +15,7 @@ fn light_anchors(
             read scene,
             mut anchors,
             light,
+            read size,
             cursor
         ) {
             return false;
@@ -26,11 +28,16 @@ fn light_anchor_children(
     scene: read CollisionScene,
     anchors: mut RoomAnchors,
     light: LightObject,
+    size: read Rational,
     parent: u32
 ) -> bool {
     var anchor: RoomAnchor = room_anchor(read anchors, parent);
     var point: Vec3 = space_point(anchor.transform, light.position);
-    var radius: f32 = light_object_reach(light) * anchor.transform.factor;
+    var placement: Rational = rational_product(
+        read size,
+        room_anchor_ratio(read anchors, parent)
+    );
+    var radius: f32 = light_object_reach(light) * rational_float(read placement);
     var i: u32 = 0u32;
     while i < collision_portal_count(read scene) {
         var portal: CollisionPortal = collision_portal(read scene, i);
@@ -42,6 +49,7 @@ fn light_anchor_children(
             radius
         ) {
             var next: RoomAnchor = make RoomAnchor {
+                cap: 0xffffffffu32,
                 object: anchor.object,
                 space: portal.destination,
                 transform: space_compose(portal.transform, anchor.transform),
@@ -57,4 +65,14 @@ fn light_anchor_children(
         i = i + 1u32;
     }
     return true;
+}
+
+fn light_anchors(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    light: LightObject,
+    depth: u32
+) -> bool {
+    var size: Rational = rational_new(1u64, 1u64);
+    return light_scaled_anchors(read scene, mut anchors, light, read size, depth);
 }

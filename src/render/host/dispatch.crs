@@ -74,6 +74,7 @@ fn dispatch_submit(v: *RenderState) -> bool {
     return true;
 }
 fn device_close(v: *RenderState) -> unit {
+    render_bounds_close(v);
     if v -> gpu.device != null(*u8) {
         retirement_close(v);
         service_destroy(v -> gpu.observer);

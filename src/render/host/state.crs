@@ -1,4 +1,10 @@
 record RenderState {
+    bounds_portals: *u8;
+    bounds_bytes: usize;
+    bounds_scale: f32;
+    bounds_inverse: f32;
+    bounds_translation: f32;
+    bounds_plane: f32;
     width: u32;
     height: u32;
     output_width: u32;

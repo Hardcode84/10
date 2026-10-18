@@ -186,9 +186,9 @@ A space owns geometry in local coordinates. An interior room and an outdoor area
 use the same space interface. An outdoor space contains a spatial hierarchy and
 mesh detail levels. It does not require a room for every terrain patch.
 
-A portal connects two openings and defines a rigid translation and rotation.
-The reverse connection must apply the inverse transform. The first design does
-not add portal scaling or reflection.
+A portal connects two openings with translation, rotation, and positive uniform
+scale. The reverse connection applies the inverse transform. Reflections are
+invalid. See [scaling portals](../game/scaling-portals.md) for the scale contract.
 
 A view identifies a space as seen through a particular portal path. It contains
 the accumulated camera transform, destination clip plane, pixel coverage, and
@@ -205,7 +205,7 @@ and [portal clipping semantics](https://github.com/hardcode84/ship3d/blob/fff58a
 ### Portal visibility contract
 
 Portals are directed apertures. Render an aperture only from its source side.
-Use its destination clip plane and rigid transform to determine this side.
+Use its destination clip plane and similarity transform to determine this side.
 A reverse aperture at the same opening must not select pixels immediately after
 a view enters the destination.
 
@@ -396,7 +396,7 @@ point. Shared application helpers are in `src/app/`; game policy is in
 
 `PROJECTION` stores the positive tangent of half the vertical field of view.
 Renderer setup sets it to 1. Projection, light-grid rays, and the CPU reference
-use the same value. View transforms remain rigid transforms.
+use the same value. View transforms carry a positive uniform scale separate from rotation.
 
 An optional text overlay is composed by GPU compute. The caller supplies an
 80 by 6 cell grid and 128 glyphs with eight rows each. A zero cell is transparent.

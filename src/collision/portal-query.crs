@@ -85,15 +85,16 @@ fn anchor_contact(anchor: RoomAnchor, contact: CollisionContact) -> CollisionCon
     return move result;
 }
 // Contact positions and normals use the query room. frame maps the contacted room to the query room.
-fn collision_sweep_interval(
+fn collision_sweep_interval_body(
     scene: read CollisionScene,
     space: u32,
     p: Vec3,
     d: Vec3,
-    radius: f32,
+    body: read CollisionBody,
     time: f32,
     duration: f32
 ) -> CollisionSweep {
+    var radius: f32 = collision_body_radius(read body);
     if collision_portal_count(read scene) == 0u32 {
         return collision_local_sweep_interval(
             read scene,
@@ -111,19 +112,27 @@ fn collision_sweep_interval(
     var anchors: RoomAnchors = room_anchors_new();
     var result: CollisionSweep = collision_sweep_result(collision_miss(space));
     var selected: u32 = 0xffffffffu32;
-    if !collision_body_anchors(read scene, mut anchors, space, p, travel, radius) {
+    if !collision_scaled_anchors(
+        read scene,
+        mut anchors,
+        space,
+        p,
+        travel,
+        read body,
+        false
+    ) {
         result.status = 7u32;
         return move result;
     }
     var i: u32 = 0u32;
     while i < room_anchor_count(read anchors) {
         var anchor: RoomAnchor = room_anchor(read anchors, i);
-        var next: CollisionSweep = collision_filtered_sweep_interval(
+        var next: CollisionSweep = collision_anchor_sweep(
             read scene,
-            anchor.space,
+            anchor,
             space_point(anchor.transform, p),
             space_vector(anchor.transform, travel),
-            radius * anchor.transform.factor,
+            collision_placement_radius(read body, read anchors, i),
             time,
             duration * fraction,
             read anchors,
@@ -148,14 +157,15 @@ fn collision_sweep_interval(
     }
     return move result;
 }
-fn collision_correction_blocked(
+fn collision_correction_blocked_body(
     scene: read CollisionScene,
     space: u32,
     p: Vec3,
     d: Vec3,
-    radius: f32,
+    body: read CollisionBody,
     time: f32
 ) -> CollisionSweep {
+    var radius: f32 = collision_body_radius(read body);
     if collision_portal_count(read scene) == 0u32 {
         return collision_sweep_result(
             collision_local_correction_blocked(read scene, space, p, d, radius, time)
@@ -163,7 +173,7 @@ fn collision_correction_blocked(
     }
     var result: CollisionContact = collision_miss(space);
     var anchors: RoomAnchors = room_anchors_new();
-    if !collision_body_anchors(read scene, mut anchors, space, p, d, radius) {
+    if !collision_scaled_anchors(read scene, mut anchors, space, p, d, read body, false) {
         var failure: CollisionSweep = collision_sweep_result(result);
         failure.status = 7u32;
         return move failure;
@@ -171,12 +181,12 @@ fn collision_correction_blocked(
     var i: u32 = 0u32;
     while i < room_anchor_count(read anchors) {
         var anchor: RoomAnchor = room_anchor(read anchors, i);
-        var next: CollisionContact = collision_filtered_correction_blocked(
+        var next: CollisionContact = collision_anchor_correction(
             read scene,
-            anchor.space,
+            anchor,
             space_point(anchor.transform, p),
             space_vector(anchor.transform, d),
-            radius * anchor.transform.factor,
+            collision_placement_radius(read body, read anchors, i),
             time,
             read anchors,
             i
@@ -205,4 +215,57 @@ fn collision_anchor_path(
         portal_path_prepend(mut path, anchor.portal, link.reverse);
         anchor = room_anchor(read anchors, anchor.parent);
     }
+}
+
+fn collision_anchor_sweep(
+    scene: read CollisionScene,
+    anchor: RoomAnchor,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32,
+    anchors: read RoomAnchors,
+    index: u32
+) -> CollisionSweep {
+    if anchor.cap != 0xffffffffu32 {
+        return collision_sweep_result(
+            collision_cap_sweep(read scene, read anchors, index, p, d, radius, false)
+        );
+    }
+    return collision_filtered_sweep_interval(
+        read scene,
+        anchor.space,
+        p,
+        d,
+        radius,
+        time,
+        duration,
+        read anchors,
+        index
+    );
+}
+fn collision_anchor_correction(
+    scene: read CollisionScene,
+    anchor: RoomAnchor,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    anchors: read RoomAnchors,
+    index: u32
+) -> CollisionContact {
+    if anchor.cap != 0xffffffffu32 {
+        return collision_cap_sweep(read scene, read anchors, index, p, d, radius, true);
+    }
+    return collision_filtered_correction_blocked(
+        read scene,
+        anchor.space,
+        p,
+        d,
+        radius,
+        time,
+        read anchors,
+        index
+    );
 }

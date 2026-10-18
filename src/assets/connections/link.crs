@@ -47,6 +47,7 @@ fn connection_link(
     return collision_portal_append(
         mut builder,
         make CollisionPortal {
+            support_bound: 0f32,
             source_scale: a.profile.scale,
             target_scale: b.profile.scale,
             reverse: reverse,

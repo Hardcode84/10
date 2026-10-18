@@ -1,28 +1,20 @@
 # Scaling portals
 
-## Status and scope
+## Scope and use
 
-Implementation is in progress. The current code has similarity transforms,
-expandable exact object and anchor scales, owned task snapshots, retained cable
-paths, and scaled renderer inputs. Targeted checks cover reciprocal flight,
-pre-crossing overlap, independent hook crossing, and scaled geometry and light
-images. Generated levels still use identity scale.
+Run `crust main.crs --scaling` for the scaling course. The browser launcher
+has a **Scaling portal course** option. Both builds use the same scene and
+simulation. The course has two blind hexagonal rooms, at profile scales 1
+and 2, with a 60-degree connection roll. A solid stands near the destination
+rim. A second solid rotates inside that room. Launch the hook through the
+opening, attach it to the rotating solid, and reel across. Reach the gold
+beacon, then return to the start. The HUD shows size in scientific notation.
+Speed and cable length use base metres.
 
-The following contracts still require implementation before the playable slice
-can pass its acceptance gate:
-
-- Collision queries must carry the base radius and exact object scale through
-  every anchor. Some queries still multiply an already converted radius by the
-  anchor factor.
-- Contact planes must carry their converted coordinate error bounds. Admission
-  must cap an unsupported opening before the first sphere overlap and show the
-  cap to the player.
-- Cable drawing must use the retained path. It still searches for intersections
-  from the current segment. Admission must also check the retained cable map.
-- Recursive shader transforms need conservative host bounds before dispatch.
-- A playable two-room fixture must combine scaled asset profiles, a moving
-  contact surface, body and light appearances, and an attached cable. The
-  current focused fixtures exercise these systems separately.
+The implementation includes exact object and anchor scales, scaled collision
+queries, actor-specific aperture caps, retained cable paths, and native/web
+rendering. Normal generated expeditions keep identity profile scales. Use the
+course to assess control feel before adding scale choices to random generation.
 
 Implement positive uniform scale with rotation and translation. Keep one shared
 simulation and renderer for native and web builds. Room recipes remain Crust
@@ -181,12 +173,16 @@ this exact simulation path.
 ## Supported size and portal admission
 
 Finite-precision collision cannot support every positive rational size at every
-room coordinate. Each body class declares a supported scale interval, backed by
-its base radius, movement range, and tested precision budget. Content validation
+room coordinate. The supported physical sphere radius is from 2^-12 through 2^12 room metres.
+The scale interval for each body class is this radius interval divided by its
+base radius. Plane-sweep tests cover each power of two in the interval. Content validation
 also checks that these dimensions are resolvable in each room's coordinate range.
 The numerical checks remain required even when scale is inside the interval.
-No universal interval is assumed; the first collision fixture must establish
-and report the range it actually supports.
+The coordinate bound times 5e-7 must be at most 1/256 of the sphere radius.
+Destination bounds include the aperture map and the room collision bounds.
+The cable map uses its translation and mapped maximum reach. Squared scales,
+inverse squared scales, and squared reach must remain finite. These are
+admission checks; the contact solver keeps its coordinate error contract.
 
 Test destination admission before the sphere first overlaps the opening, rather
 than waiting for its centre to cross. An inadmissible destination supplies a
@@ -350,7 +346,12 @@ At content load, reject per-link ratios that cannot be represented in shader
 inputs. Before dispatch, bound scale and coordinate magnitudes over the selected
 recursion depth using the admitted link transforms, scene bounds, and camera.
 Reject a frame whose transform arithmetic cannot be represented safely. Cache
-static bounds; this must not introduce production shader-error readback. Debug
+static bounds. The host computes conservative scale, inverse-scale, and
+translation bounds over room-connected walks. The cache key contains the
+portal data, room IDs, and recursion depth. This cold calculation costs
+O(depth * links^2) time and O(links) temporary storage. Each frame checks
+dynamic geometry, retained instance bounds, lights, and camera data against
+the cached result. This check requires no shader-error readback. Debug
 shader checks can verify the bound. A floating-point logarithm of scale does not
 make an overflowing translation or projected coordinate representable.
 Exact physical scales must never be reconstructed from GPU view matrices.
@@ -368,12 +369,12 @@ Exact physical scales must never be reconstructed from GPU view matrices.
 | Recording | Include reduced ratios and path state in serialization and state hashes |
 | Tests | Ratio arithmetic, physical traversal, tether, images, replay, and failure cases |
 
-The first source changes are in `src/collision/portal-storage.crs`,
+The main source interfaces are in `src/collision/portal-storage.crs`,
 `src/collision/portals.crs`, `src/spatial/anchors.crs`,
 `src/game/flight/collision.crs`, and `src/game/flight/tether.crs`.
 `src/game/view/portals.crs` uploads inverse similarity transforms.
-`src/game/view/light-anchors.crs` propagates light reach through the cached
-anchor scale. Exact total object-scale conversion is still required.
+`src/game/view/light-anchors.crs` derives light reach from the exact product of
+object and anchor scale. Room lamps use an identity object scale.
 
 Declare all new state in the checked ownership interfaces. Task inputs capture
 one immutable snapshot containing ratios and their derived values. Do not read
@@ -419,3 +420,22 @@ For control feel, compare reciprocal `2/1` and `1/2` routes with equal distances
 in ship lengths. Observe whether pilots can cross, turn, attach, and reel without
 an unexplained speed or cable jump. Test room-force effects separately. Use this
 small playtest to assess the chosen units before tuning level difficulty.
+
+### Validation commands and measured cost
+
+Run `crust tests.crs ratios`, `crust tests.crs collision --sanitize`, and
+`crust tests.crs scaling`. The scaling target checks image equivalence, moving
+contact units, cross-room hook attachment and reeling, the outward and return
+route, and rejection of unsafe renderer bounds. Run
+`bun tests/web/check.mjs --scaling` against the web build for browser input,
+scaled crossing, native/browser replay hashes, and capture comparison.
+
+At 320 by 240 on the Radeon PRO W7900, the 80-frame task witness measured a
+6.94 ms median frame for the identity expedition and 14.60 ms for the scaling
+course. The corresponding simulation and prediction medians were 5.84 ms and
+13.52 ms. The course includes a rotating contact surface. Its 95th-percentile
+frame was 18.00 ms. These scenes have different collision work; the comparison
+cannot isolate the cost of scale arithmetic. The course prediction can run 240
+fixed simulation steps against moving geometry each frame. Random scale choices
+must remain disabled until that workload meets the frame-time gate on the
+required hardware. Authored links remain available.

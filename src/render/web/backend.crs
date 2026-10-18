@@ -39,6 +39,7 @@ fn device_wait_idle(v: *RenderState) -> bool {
     return true;
 }
 fn device_close(v: *RenderState) -> unit {
+    render_bounds_close(v);
     retirement_wait(v);
     buffers_close(v);
     if v -> gpu.id != 0u32 {

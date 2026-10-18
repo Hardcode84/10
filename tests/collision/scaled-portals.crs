@@ -1,4 +1,12 @@
 fn scaling_scene(scene: mut CollisionScene, factor: ScaleRatio, depth: f32) -> bool {
+    return scaling_moving_scene(mut scene, factor, depth, 0f32);
+}
+fn scaling_moving_scene(
+    scene: mut CollisionScene,
+    factor: ScaleRatio,
+    depth: f32,
+    speed: f32
+) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var mesh: Mesh = mesh_new();
     var size: f32 = scale_float(factor);
@@ -20,7 +28,15 @@ fn scaling_scene(scene: mut CollisionScene, factor: ScaleRatio, depth: f32) -> b
     if !collision_append(mut builder, read mesh, 1u32, transform.origin, transform.basis) {
         return false;
     }
+    if !collision_set_motion(
+        mut builder,
+        space_vector(transform, vec(0f32, 0f32, speed)),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
     var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
         source_scale: scale_identity(),
         target_scale: factor,
         reverse: 1u32,
@@ -113,11 +129,15 @@ fn test_scaled_overlap(factor: ScaleRatio) -> bool {
     return true;
 }
 fn test_scaling() -> bool {
-    return test_scaled_hook() && test_scaled_crossing(scale_ratio(2u64, 1u64)) && test_scaled_crossing(
+    return test_hidden_cap() && test_scaled_moving(scale_ratio(2u64, 1u64)) && test_scaled_moving(
         scale_ratio(1u64, 2u64)
-    ) && test_scaled_overlap(scale_ratio(2u64, 1u64)) && test_scaled_overlap(
-        scale_ratio(1u64, 2u64)
-    );
+    ) && test_admission_classes() && test_supported_radii() && test_scaled_radius_bits() && test_scaling_cap(
+        scale_ratio(1u64, 4096u64)
+    ) && test_scaling_cap(scale_ratio(1048576u64, 1u64)) && test_scaled_hook() && test_scaled_crossing(
+        scale_ratio(2u64, 1u64)
+    ) && test_scaled_crossing(scale_ratio(1u64, 2u64)) && test_scaled_overlap(
+        scale_ratio(2u64, 1u64)
+    ) && test_scaled_overlap(scale_ratio(1u64, 2u64));
 }
 
 fn test_scaled_hook() -> bool {
@@ -154,4 +174,218 @@ fn test_scaled_hook() -> bool {
         return error("flight snapshot lost owned scale or cable path");
     }
     return true;
+}
+
+fn test_scaling_cap(factor: ScaleRatio) -> bool {
+    var scene: CollisionScene = collision_new();
+    if !scaling_scene(mut scene, factor, 3f32) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -1f32);
+    drone.velocity = vec(0f32, 0f32, 2f32);
+    move_drone(read scene, mut drone, vec(0f32, 0f32, 2f32));
+    if drone.world != 0u32 || drone.position.z > -DRONE_RADIUS || drone.velocity.z > 0f32 {
+        return error("inadmissible portal did not cap the approaching sphere");
+    }
+    hook_launch(mut drone);
+    var left: f32 = hook_interval(read scene, mut drone, 0.1f32);
+    if left != 0f32 || drone.cable.phase != CABLE_BLOCKED || drone.cable.space != 0u32 {
+        return error("inadmissible hook portal did not block launch");
+    }
+    return true;
+}
+fn test_scaled_radius_bits() -> bool {
+    var size: Rational = rational_new(3u64, 5u64);
+    var body: CollisionBody = collision_body(DRONE_RADIUS, read size);
+    var anchors: RoomAnchors = room_anchors_new();
+    if !room_anchor_take(
+        mut anchors,
+        primary_anchor(0u32, 0u32),
+        rational_new(5u64, 3u64)
+    ) {
+        return false;
+    }
+    if collision_placement_radius(read body, read anchors, 0u32) != DRONE_RADIUS {
+        return error("placement radius used rounded intermediate size");
+    }
+    var planes: CollisionPlanes = collision_planes_new();
+    if !collision_plane_add(
+        mut planes,
+        make CollisionPlane {
+            normal: vec(1f32, 0f32, 0f32),
+            offset: 1f32,
+            error: 0.01f32
+        }
+    ) || !collision_plane_add(
+        mut planes,
+        make CollisionPlane {
+            normal: vec(-1f32, 0f32, 0f32),
+            offset: -0.999f32,
+            error: 0.0000001f32
+        }
+    ) {
+        return false;
+    }
+    if collision_feasible(read planes, vec(1f32, 0f32, 0f32), true, 0f32) || !collision_feasible(
+        read planes,
+        vec(0.999f32, 0f32, 0f32),
+        true,
+        0f32
+    ) {
+        return error("contact planes lost their individual error bounds");
+    }
+    return true;
+}
+
+fn test_scaled_moving(factor: ScaleRatio) -> bool {
+    var scene: CollisionScene = collision_new();
+    if !scaling_moving_scene(mut scene, factor, 0.1f32, 0.5f32) {
+        return false;
+    }
+    var size: Rational = rational_new(1u64, 1u64);
+    var body: CollisionBody = collision_body(DRONE_RADIUS, read size);
+    var hit: CollisionSweep = collision_sweep_interval_body(
+        read scene,
+        0u32,
+        vec(0f32, 0f32, -1f32),
+        vec(0f32, 0f32, 2f32),
+        read body,
+        0f32,
+        1f32
+    );
+    if hit.status != 0u32 || absf(hit.contact.hit.time - 0.5f32) > 0.00001f32 {
+        return error("scaled moving surface changed contact time");
+    }
+    var velocity: Vec3 = space_vector(
+        hit.contact.frame,
+        collision_anchor_velocity(
+            read scene,
+            hit.contact.instance,
+            hit.contact.local_point,
+            hit.contact.hit.time
+        )
+    );
+    return length(sub(velocity, vec(0f32, 0f32, 0.5f32))) < 0.00001f32 || error(
+        "scaled moving surface returned velocity in wrong units"
+    );
+}
+fn test_admission_classes() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !scaling_scene(mut scene, scale_ratio(1u64, 256u64), 3f32) {
+        return false;
+    }
+    var portal: CollisionPortal = collision_portal(read scene, 0u32);
+    // Small local destination coordinates isolate the body-class size limit.
+    portal.support_bound = 0.01f32;
+    var anchors: RoomAnchors = room_anchors_new();
+    if !room_anchor_add(mut anchors, primary_anchor(0u32, 0u32)) {
+        return false;
+    }
+    var size: Rational = rational_new(1u64, 1u64);
+    var player: CollisionBody = collision_body(DRONE_RADIUS, read size);
+    var hook: CollisionBody = collision_body(HOOK_RADIUS, read size);
+    portal.transform.origin = vec(0f32, 0f32, 0f32);
+    return collision_portal_admitted(read player, read anchors, 0u32, portal) && !collision_portal_admitted(
+        read hook,
+        read anchors,
+        0u32,
+        portal
+    ) || error("portal admission must depend on the actor radius");
+}
+fn test_supported_radii() -> bool {
+    var scene: CollisionScene = collision_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    var mesh: Mesh = mesh_new();
+    if !motion_plane(
+        mut mesh,
+        vec(0f32, 0f32, -1f32),
+        vec(0f32, 0f32, 0f32),
+        32768f32
+    ) || !collision_append(
+        mut builder,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var radius: f32 = 0.000244140625f32;
+    var i: u32 = 0u32;
+    while i < 25u32 {
+        var hit: CollisionSweep = collision_sweep_interval(
+            read scene,
+            0u32,
+            vec(0f32, 0f32, -2f32 * radius),
+            vec(0f32, 0f32, 2f32 * radius),
+            radius,
+            0f32,
+            0f32
+        );
+        if hit.status != 0u32 || hit.contact.hit.time != 0.5f32 || !collision_size_supported(
+            radius,
+            radius * 2f32
+        ) {
+            return error("supported sphere size lost its plane contact");
+        }
+        radius = radius * 2f32;
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn test_hidden_cap() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
+        source_scale: scale_identity(),
+        target_scale: scale_identity(),
+        reverse: 0xffffffffu32,
+        space: 0u32,
+        destination: 1u32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        radius: 0.1f32,
+        sides: 6u32,
+        phase: 0f32,
+        transform: space_identity()
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.space = 1u32;
+    portal.destination = 2u32;
+    portal.origin = vec(1.2f32, 0f32, 0.1f32);
+    portal.target_scale = scale_ratio(1u64, 8192u64);
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var size: Rational = rational_new(1u64, 1u64);
+    var body: CollisionBody = collision_body(1f32, read size);
+    var planes: CollisionPlanes = collision_planes_new();
+    var speeds: CollisionPlanes = collision_planes_new();
+    var point: Vec3 = vec(0.8f32, 0f32, -0.2f32);
+    if !collision_interval_contacts_body(
+        read scene,
+        0u32,
+        point,
+        read body,
+        collision_tolerance(point, 1f32),
+        0f32,
+        mut planes,
+        mut speeds
+    ) {
+        return false;
+    }
+    return collision_plane_count(read planes) == 0u32 || error(
+        "cap contact escaped its ancestor aperture"
+    );
 }

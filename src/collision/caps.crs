@@ -1,0 +1,95 @@
+fn collision_cap_face(portal: CollisionPortal, index: u32) -> CollisionFace {
+    return make CollisionFace {
+        a: portal.origin,
+        b: portal_corner(portal, index + 1u32),
+        c: portal_corner(portal, index),
+        normal: scale(portal.basis.forward, -1f32),
+        neighbours: make [u32; 3] {
+            0xffffffffu32,
+            0xffffffffu32,
+            0xffffffffu32
+        }
+    };
+}
+fn collision_cap_sweep(
+    scene: read CollisionScene,
+    anchors: read RoomAnchors,
+    index: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    correction: bool
+) -> CollisionContact {
+    var anchor: RoomAnchor = room_anchor(read anchors, index);
+    var portal: CollisionPortal = collision_portal(read scene, anchor.cap);
+    var result: CollisionContact = collision_miss(anchor.space);
+    var i: u32 = 0u32;
+    while i < portal.sides {
+        var next: CollisionContact = collision_surface(
+            p,
+            d,
+            collision_cap_face(portal, i),
+            radius
+        );
+        next.cap = anchor.cap;
+        next.space = anchor.space;
+        next.surface = i;
+        next.point = next.local_point;
+        if (!correction || dot(d, next.hit.normal) < 0f32) && collision_better(next, result) && collision_anchor_accept(
+            read scene,
+            read anchors,
+            index,
+            add(p, scale(d, next.hit.time)),
+            next.point
+        ) {
+            result = next;
+        }
+        i = i + 1u32;
+    }
+    return result;
+}
+fn collision_cap_contacts(
+    scene: read CollisionScene,
+    anchors: read RoomAnchors,
+    index: u32,
+    p: Vec3,
+    radius: f32,
+    skin: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes
+) -> bool {
+    var anchor: RoomAnchor = room_anchor(read anchors, index);
+    var portal: CollisionPortal = collision_portal(read scene, anchor.cap);
+    var inverse: SpaceTransform = space_inverse(anchor.transform);
+    var i: u32 = 0u32;
+    while i < portal.sides {
+        var proximity: CollisionProximity = collision_proximity(
+            collision_cap_face(portal, i),
+            p
+        );
+        if proximity.distance <= radius + skin * 2f32 && collision_anchor_accept(
+            read scene,
+            read anchors,
+            index,
+            p,
+            proximity.point
+        ) {
+            var normal: Vec3 = basis_vector(inverse.basis, proximity.normal);
+            var plane: CollisionPlane = make CollisionPlane {
+                normal: normal,
+                offset: (radius + skin - proximity.distance) * inverse.factor,
+                error: skin * inverse.factor * 0.125f32
+            };
+            if !collision_plane_add(mut separate, plane) {
+                return false;
+            }
+            plane.offset = 0f32;
+            plane.error = 0f32;
+            if !collision_plane_add(mut speeds, plane) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

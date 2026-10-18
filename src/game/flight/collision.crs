@@ -28,10 +28,11 @@ fn move_drone_interval(
         if drone_portal_step(read collision, mut drone, mut motion, time, duration) {
             continue;
         }
-        done = collision_interval_step(
+        var body: CollisionBody = flight_body(read drone);
+        done = collision_interval_step_body(
             read collision,
             drone.world,
-            drone_radius(read drone),
+            read body,
             time,
             duration,
             mut planes,
@@ -44,29 +45,46 @@ fn move_drone_interval(
         game_collision_failure(motion);
     }
     drone.velocity = scale(motion.velocity, 1f32 / drone_size(read drone));
-    drone.contact_work = drone.contact_work + motion.contact_work;
+    var factor: f32 = drone_size(read drone);
+    drone.contact_work = drone.contact_work + motion.contact_work / (factor * factor);
 }
 
 fn drone_portal(scene: read CollisionScene, drone: mut Drone, index: u32) -> unit {
+    var position: Vec3 = drone.position;
+    var velocity: Vec3 = drone.velocity;
+    drone_portal_at(read scene, mut drone, index, position, velocity);
+}
+fn drone_portal_at(
+    scene: read CollisionScene,
+    drone: mut Drone,
+    index: u32,
+    position: Vec3,
+    velocity: Vec3
+) -> unit {
     var portal: CollisionPortal = collision_portal(read scene, index);
     var t: SpaceTransform = portal.transform;
-    drone.step_frame = space_compose(t, drone.step_frame);
     var factor: Rational = portal_ratio(portal);
-    rational_multiply(mut drone.size, read factor);
-    drone.world = portal.destination;
-    drone.position = space_point(t, drone.position);
-    drone.velocity = basis_vector(t.basis, drone.velocity);
-    drone.basis = space_basis(t, drone.basis);
-    drone.cable.anchor = space_point(t, drone.cable.anchor);
-    drone.cable.velocity = basis_vector(t.basis, drone.cable.velocity);
+    var size: Rational = rational_product(read drone.size, read factor);
+    var path: PortalPath = portal_path_clone(read drone.cable.path);
+    var frame: SpaceTransform = drone.cable.frame;
     if drone.cable.phase == CABLE_FLYING || drone.cable.phase == CABLE_ATTACHED {
         if portal.reverse == 0xffffffffu32 {
             error("a tether crossing requires a reciprocal portal");
             trap;
         }
-        portal_path_prepend(mut drone.cable.path, portal.reverse, index);
-        tether_rebuild(read scene, mut drone.cable);
+        portal_path_prepend(mut path, portal.reverse, index);
+        frame = space_inverse(space_path(read scene, read path));
     }
+    rational_swap(mut drone.size, mut size);
+    portal_path_swap(mut drone.cable.path, mut path);
+    drone.cable.frame = frame;
+    drone.step_frame = space_compose(t, drone.step_frame);
+    drone.world = portal.destination;
+    drone.position = space_point(t, position);
+    drone.velocity = basis_vector(t.basis, velocity);
+    drone.basis = space_orthogonal(space_basis(t, drone.basis));
+    drone.cable.anchor = space_point(t, drone.cable.anchor);
+    drone.cable.velocity = basis_vector(t.basis, drone.cable.velocity);
 }
 fn drone_portal_step(
     collision: read CollisionScene,
@@ -84,12 +102,13 @@ fn drone_portal_step(
     if crossing.time > 1f32 {
         return false;
     }
-    var query: CollisionSweep = collision_sweep_interval(
+    var body: CollisionBody = flight_body(read drone);
+    var query: CollisionSweep = collision_sweep_interval_body(
         read collision,
         drone.world,
         motion.position,
         motion.remaining,
-        drone_radius(read drone),
+        read body,
         time + motion.elapsed,
         duration - motion.elapsed
     );
@@ -97,9 +116,12 @@ fn drone_portal_step(
         return false;
     }
     var portal: CollisionPortal = collision_portal(read collision, crossing.index);
-    drone.position = add(motion.position, scale(motion.remaining, crossing.time));
-    drone.velocity = scale(motion.velocity, 1f32 / drone_size(read drone));
-    drone_portal(read collision, mut drone, crossing.index);
+    var position: Vec3 = add(motion.position, scale(motion.remaining, crossing.time));
+    var velocity: Vec3 = scale(motion.velocity, 1f32 / drone_size(read drone));
+    var old_size: f32 = drone_size(read drone);
+    drone_portal_at(read collision, mut drone, crossing.index, position, velocity);
+    drone.contact_work = drone.contact_work + motion.contact_work / (old_size * old_size);
+    motion.contact_work = 0f32;
     motion.position = drone.position;
     motion.velocity = scale(drone.velocity, drone_size(read drone));
     motion.remaining = space_vector(

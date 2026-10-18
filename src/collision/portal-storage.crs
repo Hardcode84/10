@@ -5,6 +5,7 @@ record SpaceTransform {
     basis: Basis;
 }
 record CollisionPortal {
+    support_bound: f32;
     source_scale: ScaleRatio;
     target_scale: ScaleRatio;
     reverse: u32;
@@ -91,4 +92,22 @@ fn portal_transform_valid(portal: CollisionPortal) -> bool {
     ) && portal.radius > 0f32 && collision_finite(portal.origin) && collision_finite(
         portal.transform.origin
     ) && collision_rigid(portal.basis) && collision_rigid(portal.transform.basis);
+}
+
+fn collision_portal_support(scene: mut CollisionScene) -> unit {
+    var i: u32 = 0u32;
+    while i < scene.data.portal_count {
+        var portal: CollisionPortal = scene.data.portals[i as usize];
+        var bound: f32 = length(portal.transform.origin) + portal.radius * portal.transform.factor;
+        var room: CollisionSpace = collision_space(read scene, portal.destination);
+        if room.root < room.end {
+            var node: CollisionNode = collision_node(read scene, room.root);
+            bound = collision_max_scalar(
+                bound,
+                collision_max_scalar(length(node.low), length(node.high))
+            );
+        }
+        scene.data.portals[i as usize].support_bound = bound;
+        i = i + 1u32;
+    }
 }

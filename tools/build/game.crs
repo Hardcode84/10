@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 87] = make [*u8; 87] {
+    var files: [*u8; 94] = make [*u8; 94] {
         "src/assets/geometry/loft.crs",
         "src/assets/geometry/solid-loft.crs",
         "assets/objects/player-drone.crs",
@@ -10,6 +10,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/graph/routes.crs",
         "src/game/graph/styles.crs",
         "src/game/graph/assemble.crs",
+        "src/game/graph/scaling.crs",
         "src/game/graph/progress.crs",
         "src/game/graph/view.crs",
         "src/game/graph/lighting.crs",
@@ -36,7 +37,11 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/math.crs",
         "src/app/frame-rate.crs",
         "src/collision/primitives.crs",
+        "src/collision/body.crs",
+        "src/collision/admission.crs",
+        "src/collision/caps.crs",
         "src/spatial/scale.crs",
+        "src/spatial/path-transform.crs",
         "src/collision/portals.crs",
         "src/collision/anchors.crs",
         "src/collision/portal-query.crs",
@@ -64,6 +69,8 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/flight/tether.crs",
         "src/game/flight/hook.crs",
         "src/game/view/tether-view.crs",
+        "src/game/view/cable-path.crs",
+        "src/game/view/portal-admission.crs",
         "src/game/view/lighting.crs",
         "src/game/view/light-anchors.crs",
         "src/game/flight/physics.crs",
@@ -89,7 +96,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 87usize {
+    while i < 94usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

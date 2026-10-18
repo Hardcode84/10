@@ -5,7 +5,14 @@ fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
 }
 // A blind passage has one entry and a solid far cap in material region 1.
 fn hex_passage_build(length_metres: f32, through: bool, asset: mut RoomAsset) -> bool {
-    var profile: ConnectionProfile = service_hex_profile();
+    return hex_passage_profile(length_metres, through, service_hex_profile(), mut asset);
+}
+fn hex_passage_profile(
+    length_metres: f32,
+    through: bool,
+    profile: ConnectionProfile,
+    asset: mut RoomAsset
+) -> bool {
     if !loft_allocate(mut asset.hull, profile.shape, 2u32) {
         return false;
     }

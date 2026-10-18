@@ -100,6 +100,7 @@ fn hook_preview_stations(session: mut GameSession, config: GameConfig, linked: b
     if linked && !collision_portal_append(
         mut builder,
         make CollisionPortal {
+            support_bound: 0f32,
             source_scale: scale_identity(),
             target_scale: scale_identity(),
             reverse: 0xffffffffu32,

@@ -1,6 +1,7 @@
 extern fn anchor_copy(destination: *u8, source: *u8, size: usize) -> *u8 = "memcpy";
 // An object can have several placements in one room. Transform maps its primary room to this room.
 record RoomAnchor {
+    cap: u32;
     object: u32;
     space: u32;
     transform: SpaceTransform;
@@ -123,5 +124,6 @@ fn room_anchor_link(anchors: mut RoomAnchors, anchor: RoomAnchor, portal: Collis
         room_anchor_ratio(read anchors, anchor.parent),
         read link
     );
+    anchor.transform.factor = rational_float(read ratio);
     return room_anchor_take(mut anchors, anchor, move ratio);
 }

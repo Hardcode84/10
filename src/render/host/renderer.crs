@@ -86,6 +86,7 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
     w[31usize] = config -> view_budget;
     w[33usize] = config -> fault;
     ((v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32)[PROJECTION as usize] = 1f32;
+    ((v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32)[RENDER_STYLE as usize] = 0.04f32;
     if !descriptors_create(v) || !commands_create(v) || !queries_create(v) || !commands_record(v) {
         return false;
     }
@@ -117,7 +118,7 @@ fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
     if w[INSTANCE_COUNT as usize] == 0u32 {
         w[DYNAMIC_COUNT as usize] = w[3usize];
     }
-    if !projection_admit(v, extra) {
+    if !render_numeric_bounds(v) || !projection_admit(v, extra) {
         return false;
     }
     w = v -> mapped as *u32;

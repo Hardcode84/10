@@ -33,6 +33,7 @@ fn test_portal_scene_motion(scene: mut CollisionScene, depth: f32, velocity: Vec
         return false;
     }
     var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
         source_scale: scale_identity(),
         target_scale: scale_identity(),
         reverse: 1u32,
@@ -156,6 +157,7 @@ fn test_portal_player_first(scene: read CollisionScene) -> bool {
 fn test_portal_loop_scene(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
         source_scale: scale_identity(),
         target_scale: scale_identity(),
         reverse: 1u32,

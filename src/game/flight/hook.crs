@@ -72,12 +72,13 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
         position,
         local_travel
     );
-    var query: CollisionSweep = collision_sweep_interval(
+    var body: CollisionBody = flight_hook_body(read drone);
+    var query: CollisionSweep = collision_sweep_interval_body(
         read collision,
         drone.cable.space,
         position,
         local_travel,
-        hook_radius(read drone),
+        read body,
         drone.clock as f32 * STEP + STEP - left,
         left
     );
@@ -95,13 +96,29 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
     }
     if portal.time < query.contact.hit.time && portal.time <= limit {
         var link: CollisionPortal = collision_portal(read collision, portal.index);
-        drone.cable.anchor = add(drone.cable.anchor, scale(travel, portal.time));
-        portal_path_append(mut drone.cable.path, portal.index, link.reverse);
-        tether_rebuild(read collision, mut drone.cable);
+        var path: PortalPath = portal_path_clone(read drone.cable.path);
+        if link.reverse == 0xffffffffu32 {
+            error("a tether crossing requires a reciprocal portal");
+            trap;
+        }
+        portal_path_append(mut path, portal.index, link.reverse);
+        var frame: SpaceTransform = space_inverse(space_path(read collision, read path));
         var factor: Rational = portal_ratio(link);
-        rational_multiply(mut drone.cable.size, read factor);
+        var size: Rational = rational_product(read drone.cable.size, read factor);
+        rational_swap(mut drone.cable.size, mut size);
+        portal_path_swap(mut drone.cable.path, mut path);
+        drone.cable.anchor = add(drone.cable.anchor, scale(travel, portal.time));
+        drone.cable.frame = frame;
         drone.cable.space = link.destination;
         return left * (1f32 - portal.time);
+    }
+    if query.contact.hit.time <= limit && query.contact.cap != 0xffffffffu32 {
+        drone.cable.anchor = add(
+            drone.cable.anchor,
+            scale(travel, query.contact.hit.time)
+        );
+        drone.cable.phase = CABLE_BLOCKED;
+        return 0f32;
     }
     if query.contact.hit.time <= limit {
         var end_time: f32 = (drone.clock + 1u32) as f32 * STEP;

@@ -60,19 +60,5 @@ fn tether_travel(drone: read Drone, travel: Vec3) -> Vec3 {
 }
 
 fn tether_rebuild(scene: read CollisionScene, cable: mut Cable) -> unit {
-    var frame: SpaceTransform = space_identity();
-    var ratio: Rational = rational_new(1u64, 1u64);
-    var i: u32 = 0u32;
-    while i < portal_path_count(read cable.path) {
-        var link: CollisionPortal = collision_portal(
-            read scene,
-            portal_path_at(read cable.path, i)
-        );
-        var factor: Rational = portal_ratio(link);
-        rational_multiply(mut ratio, read factor);
-        frame = space_compose(link.transform, frame);
-        frame.factor = rational_float(read ratio);
-        i = i + 1u32;
-    }
-    cable.frame = space_inverse(frame);
+    cable.frame = space_inverse(space_path(read scene, read cable.path));
 }

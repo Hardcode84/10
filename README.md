@@ -117,3 +117,6 @@ For commit checks, install pre-commit 4 or later, then run:
 pre-commit install
 pre-commit run --all-files
 ```
+
+Run `crust main.crs --scaling` for the reciprocal scaling-portal course.
+See the [scaling contract](docs/game/scaling-portals.md).

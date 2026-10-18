@@ -20,7 +20,11 @@ fn collision_feasible(
     var i: u32 = 0u32;
     while i < collision_plane_count(read planes) {
         var plane: CollisionPlane = collision_plane(read planes, i);
-        if dot(v, plane.normal) < collision_plane_offset(plane, separate) - tolerance {
+        var bound: f32 = tolerance;
+        if separate {
+            bound = bound + plane.error;
+        }
+        if dot(v, plane.normal) < collision_plane_offset(plane, separate) - bound {
             return false;
         }
         i = i + 1u32;

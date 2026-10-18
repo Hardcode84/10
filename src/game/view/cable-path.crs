@@ -1,0 +1,105 @@
+record CableClip {
+    low: f32;
+    high: f32;
+}
+fn cable_clip_plane(clip: mut CableClip, start: Vec3, end: Vec3, portal: CollisionPortal) -> unit {
+    var a: f32 = dot(sub(start, portal.origin), portal.basis.forward);
+    var b: f32 = dot(sub(end, portal.origin), portal.basis.forward);
+    if a <= 0f32 && b <= 0f32 {
+        return;
+    }
+    if a > 0f32 && b > 0f32 {
+        clip.high = -1f32;
+        return;
+    }
+    var t: f32 = a / (a - b);
+    if a > 0f32 {
+        clip.low = clamp(t, clip.low, 1f32);
+    } else {
+        clip.high = clamp(t, 0f32, clip.high);
+    }
+}
+fn draw_cable_segment(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    drone: read Drone,
+    start: Vec3,
+    end: Vec3,
+    frame: SpaceTransform,
+    size: read Rational,
+    index: u32,
+    material: u32
+) -> unit {
+    var a: Vec3 = space_point(frame, start);
+    var b: Vec3 = space_point(frame, end);
+    var clip: CableClip = make CableClip {
+        low: 0f32,
+        high: 1f32
+    };
+    var space: u32 = drone.world;
+    if index != 0u32 {
+        var previous: CollisionPortal = collision_portal(
+            read scene,
+            portal_path_at(read drone.cable.path, index - 1u32)
+        );
+        space = previous.destination;
+        cable_clip_plane(mut clip, a, b, collision_portal(read scene, previous.reverse));
+    }
+    if index < portal_path_count(read drone.cable.path) {
+        cable_clip_plane(
+            mut clip,
+            a,
+            b,
+            collision_portal(read scene, portal_path_at(read drone.cable.path, index))
+        );
+    }
+    if clip.high <= clip.low {
+        return;
+    }
+    var first: u32 = input_word(read input, 3usize);
+    var travel: Vec3 = sub(b, a);
+    draw_ribbon(
+        mut input,
+        add(a, scale(travel, clip.low)),
+        add(a, scale(travel, clip.high)),
+        space_point(frame, drone.position),
+        0.004f32 * rational_float(read size),
+        material
+    );
+    game_dynamic_space(mut input, first, space);
+}
+fn draw_portal_cable(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    drone: read Drone,
+    start: Vec3,
+    end: Vec3,
+    material: u32
+) -> unit {
+    var frame: SpaceTransform = space_identity();
+    var path_size: Rational = rational_new(1u64, 1u64);
+    var i: u32 = 0u32;
+    while true {
+        var size: Rational = rational_product(read drone.size, read path_size);
+        draw_cable_segment(
+            read scene,
+            mut input,
+            read drone,
+            start,
+            end,
+            frame,
+            read size,
+            i,
+            material
+        );
+        if i == portal_path_count(read drone.cable.path) {
+            return;
+        }
+        space_path_step(
+            mut frame,
+            mut path_size,
+            collision_portal(read scene, portal_path_at(read drone.cable.path, i))
+        );
+        i = i + 1u32;
+    }
+}

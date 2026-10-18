@@ -1,0 +1,99 @@
+// Two reciprocal, rolled HEX-6M openings at profile scales 1 and 2.
+fn scaling_graph(graph: mut RoomGraph) -> bool {
+    if !graph_allocate(mut graph, 2u32, 1u32) {
+        return false;
+    }
+    graph_add(mut graph, 7u32, 0u32, 0u32);
+    graph_add(mut graph, 8u32, 1u32, 0u32);
+    graph_pair(mut graph, 0u32, 1u32);
+    var a: GraphSocket = graph_socket(read graph, 0u32);
+    var b: GraphSocket = graph_socket(read graph, 1u32);
+    a.roll = 1u32;
+    b.roll = 1u32;
+    graph_socket_set(mut graph, 0u32, a);
+    graph_socket_set(mut graph, 1u32, b);
+    graph_set_goal(mut graph, 1u32);
+    return true;
+}
+fn scaling_asset(kind: u32, asset: mut RoomAsset) -> bool {
+    var profile: ConnectionProfile = service_hex_profile();
+    var factor: u64 = (kind - 6u32) as u64;
+    profile.scale = make ScaleRatio {
+        numerator: factor,
+        denominator: 1u64
+    };
+    profile.radius = profile.radius * factor as f32;
+    profile.clearance = profile.clearance * factor as f32;
+    if !hex_passage_profile(10f32 * factor as f32, false, profile, mut asset) {
+        return false;
+    }
+    asset.spawn.basis = asset_port(read asset.ports, 0u32).basis;
+    return true;
+}
+fn scaling_prop(mesh: mut Mesh) -> bool {
+    return bevelled_body(
+        mut mesh,
+        make BevelledBody {
+            sides: 6u32,
+            radius: 0.8f32,
+            length: 3f32,
+            bevel: 0.12f32,
+            shell: 1u32,
+            rear: 4u32,
+            front: 4u32
+        },
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    );
+}
+fn scaling_contacts(builder: mut CollisionBuilder) -> bool {
+    var mesh: Mesh = mesh_new();
+    if !scaling_prop(mut mesh) {
+        return false;
+    }
+    if !collision_append_solid(
+        mut builder,
+        read mesh,
+        1u32,
+        vec(4.3f32, 1.7f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    if !collision_append_solid(
+        mut builder,
+        read mesh,
+        1u32,
+        vec(0f32, 9f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    return collision_set_motion(
+        mut builder,
+        vec(0f32, 0f32, 0f32),
+        vec(0f32, 0f32, 0.5f32)
+    );
+}
+fn scaling_draw(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    mesh: read Mesh,
+    time: f32
+) -> unit {
+    var i: u32 = 2u32;
+    while i < 4u32 {
+        var pose: CollisionInstance = collision_pose(collision_instance(read scene, i), time);
+        draw_mesh(
+            mut input,
+            read mesh,
+            pose.space,
+            make SpaceTransform {
+                factor: 1f32,
+                origin: pose.origin,
+                basis: pose.basis
+            }
+        );
+        i = i + 1u32;
+    }
+}

@@ -1,4 +1,5 @@
 record CollisionPlane {
+    error: f32;
     normal: Vec3;
     offset: f32;
 }
@@ -44,7 +45,7 @@ fn collision_plane_add(planes: mut CollisionPlanes, plane: CollisionPlane) -> bo
     var i: u32 = 0u32;
     while i < planes.count {
         var old: CollisionPlane = collision_plane(read planes, i);
-        if collision_equal(old.normal, plane.normal) {
+        if collision_equal(old.normal, plane.normal) && old.error == plane.error {
             if plane.offset > old.offset {
                 collision_plane_store(mut planes, i, plane);
             }

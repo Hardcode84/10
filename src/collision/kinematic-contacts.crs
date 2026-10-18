@@ -8,10 +8,12 @@ fn collision_contact_planes(
 ) -> bool {
     var normal: Vec3 = collision_normal(basis_vector(pose.basis, proximity.normal));
     var position: CollisionPlane = make CollisionPlane {
+        error: skin * 0.125f32,
         normal: normal,
         offset: radius + skin - proximity.distance
     };
     var velocity: CollisionPlane = make CollisionPlane {
+        error: 0f32,
         normal: normal,
         offset: dot(normal, collision_surface_velocity(pose, proximity.point))
     };
@@ -117,6 +119,7 @@ fn collision_local_interval_contacts(
     while i < collision_plane_count(read separate) {
         var plane: CollisionPlane = collision_plane(read separate, i);
         plane.offset = 0f32;
+        plane.error = 0f32;
         if !collision_plane_add(mut speeds, plane) {
             return false;
         }
@@ -215,6 +218,7 @@ fn collision_travel_planes(
     while i < collision_plane_count(read speeds) {
         var plane: CollisionPlane = collision_plane(read speeds, i);
         plane.offset = plane.offset * duration;
+        plane.error = plane.error * duration;
         if !collision_plane_add(mut planes, plane) {
             return false;
         }

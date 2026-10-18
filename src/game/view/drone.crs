@@ -6,13 +6,15 @@ fn draw_drone(
     drone: read Drone
 ) -> unit {
     var anchors: RoomAnchors = room_anchors_new();
-    if !collision_body_anchors(
+    var body: CollisionBody = flight_body(read drone);
+    if !collision_scaled_anchors(
         read scene,
         mut anchors,
         drone.world,
         drone.position,
         vec(0f32, 0f32, 0f32),
-        drone_radius(read drone)
+        read body,
+        false
     ) {
         scene_motion_failure();
     }
@@ -27,7 +29,14 @@ fn draw_drone(
                 basis: drone.basis
             }
         );
-        draw_mesh(mut input, read mesh, anchor.space, pose);
+        var size: Rational = rational_product(
+            read drone.size,
+            room_anchor_ratio(read anchors, i)
+        );
+        pose.factor = rational_float(read size);
+        if anchor.cap == 0xffffffffu32 {
+            draw_mesh(mut input, read mesh, anchor.space, pose);
+        }
         i = i + 1u32;
     }
 }

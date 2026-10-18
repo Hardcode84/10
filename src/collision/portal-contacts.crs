@@ -40,7 +40,7 @@ fn collision_anchor_contacts(
     anchors: read RoomAnchors,
     index: u32,
     center: Vec3,
-    radius: f32,
+    body: read CollisionBody,
     skin: f32,
     time: f32,
     separate: mut CollisionPlanes,
@@ -49,8 +49,20 @@ fn collision_anchor_contacts(
     var anchor: RoomAnchor = room_anchor(read anchors, index);
     var p: Vec3 = space_point(anchor.transform, center);
     var factor: f32 = anchor.transform.factor;
-    radius = radius * factor;
-    skin = skin * factor;
+    var radius: f32 = collision_placement_radius(read body, read anchors, index);
+    skin = collision_tolerance(p, radius);
+    if anchor.cap != 0xffffffffu32 {
+        return collision_cap_contacts(
+            read scene,
+            read anchors,
+            index,
+            p,
+            radius,
+            skin,
+            mut separate,
+            mut speeds
+        );
+    }
     var range: CollisionSpace = collision_space(read scene, anchor.space);
     var i: u32 = range.root;
     while i < range.end {
@@ -105,16 +117,17 @@ fn collision_anchor_contacts(
     }
     return true;
 }
-fn collision_interval_contacts(
+fn collision_interval_contacts_body(
     scene: read CollisionScene,
     space: u32,
     p: Vec3,
-    radius: f32,
+    body: read CollisionBody,
     skin: f32,
     time: f32,
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes
 ) -> bool {
+    var radius: f32 = collision_body_radius(read body);
     if collision_portal_count(read scene) == 0u32 {
         return collision_local_interval_contacts(
             read scene,
@@ -130,13 +143,14 @@ fn collision_interval_contacts(
     collision_planes_clear(mut separate);
     collision_planes_clear(mut speeds);
     var anchors: RoomAnchors = room_anchors_new();
-    if !collision_body_anchors(
+    if !collision_scaled_anchors(
         read scene,
         mut anchors,
         space,
         p,
         vec(0f32, 0f32, 0f32),
-        radius + skin * 2f32
+        read body,
+        true
     ) {
         return false;
     }
@@ -147,7 +161,7 @@ fn collision_interval_contacts(
             read anchors,
             i,
             p,
-            radius,
+            read body,
             skin,
             time,
             mut separate,

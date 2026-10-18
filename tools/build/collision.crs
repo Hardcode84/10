@@ -4,10 +4,14 @@ fn build_collision_checks(
     sanitize: bool,
     output: *u8
 ) -> bool {
-    var files: [*u8; 33] = make [*u8; 33] {
+    var files: [*u8; 37] = make [*u8; 37] {
         "src/app/math.crs",
         "src/collision/primitives.crs",
+        "src/collision/body.crs",
+        "src/collision/admission.crs",
+        "src/collision/caps.crs",
         "src/spatial/scale.crs",
+        "src/spatial/path-transform.crs",
         "src/collision/portals.crs",
         "src/collision/anchors.crs",
         "src/collision/portal-query.crs",
@@ -58,7 +62,7 @@ fn build_collision_checks(
     var args: [*u8; 64] = uninit;
     var providers: [*u8; 14] = uninit;
     var i: usize = 0usize;
-    while i < 33usize {
+    while i < 37usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
@@ -67,24 +71,24 @@ fn build_collision_checks(
         providers[i] = host_path(root, native[i]);
         i = i + 1usize;
     }
-    args[33usize] = "-o";
-    args[34usize] = host_path(root, output);
-    args[35usize] = "--cflag";
-    args[36usize] = "-O2";
-    args[37usize] = "--ldflag";
-    args[38usize] = "-lm";
-    var count: usize = 39usize;
+    args[37usize] = "-o";
+    args[38usize] = host_path(root, output);
+    args[39usize] = "--cflag";
+    args[40usize] = "-O2";
+    args[41usize] = "--ldflag";
+    args[42usize] = "-lm";
+    var count: usize = 43usize;
     if sanitize {
-        args[36usize] = "-O1";
-        args[39usize] = "--cflag";
-        args[40usize] = "-g";
-        args[41usize] = "--cflag";
-        args[42usize] = "-fsanitize=address,undefined";
-        args[43usize] = "--ldflag";
-        args[44usize] = "-fsanitize=address,undefined";
+        args[40usize] = "-O1";
+        args[43usize] = "--cflag";
+        args[44usize] = "-g";
         args[45usize] = "--cflag";
-        args[46usize] = "-fno-sanitize-recover=all";
-        count = 47usize;
+        args[46usize] = "-fsanitize=address,undefined";
+        args[47usize] = "--ldflag";
+        args[48usize] = "-fsanitize=address,undefined";
+        args[49usize] = "--cflag";
+        args[50usize] = "-fno-sanitize-recover=all";
+        count = 51usize;
     }
     return ownership_sources(
         root,

@@ -31,9 +31,13 @@ fn asset_providers(root: *CrustRun, args: **u8) -> usize {
     return 3usize;
 }
 fn asset_collision_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 18] = make [*u8; 18] {
+    var files: [*u8; 22] = make [*u8; 22] {
         "src/collision/primitives.crs",
+        "src/collision/body.crs",
+        "src/collision/admission.crs",
+        "src/collision/caps.crs",
         "src/spatial/scale.crs",
+        "src/spatial/path-transform.crs",
         "src/collision/portals.crs",
         "src/collision/anchors.crs",
         "src/collision/portal-query.crs",
@@ -52,7 +56,7 @@ fn asset_collision_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/math.crs"
     };
     var i: usize = 0usize;
-    while i < 18usize {
+    while i < 22usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

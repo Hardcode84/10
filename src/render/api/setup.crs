@@ -119,9 +119,9 @@ fn frame_setup_submit(setup: mut FrameSetup) -> SubmittedFrame from setup {
     if projection_spaces(v) > v -> projection_capacity {
         trap;
     }
-    var accepted: bool = setup.outcome == 1i32 && retirement_observer_open(v) && command_reset(v) && command_continue(
+    var accepted: bool = setup.outcome == 1i32 && render_numeric_bounds(v) && retirement_observer_open(
         v
-    );
+    ) && command_reset(v) && command_continue(v);
     if accepted {
         upload_scene(v);
         command_barrier(v, BARRIER_UPLOAD);

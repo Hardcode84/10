@@ -20,6 +20,7 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
         input_set_word(mut v, (OVERLAY_CELLS + i) as usize, 0u32);
         i = i + 1u32;
     }
+    hud_size(mut v, drone_size(read trial.drone));
     if trial.graph_run {
         graph_hud(mut v, read trial, paused);
         return;
@@ -44,13 +45,17 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
         if trial.drone.cable.reeling {
             hud_text(mut v, 5u32, 1u32, "REELING ");
         }
+    } else if trial.drone.cable.phase == CABLE_BLOCKED {
+        hud_text(mut v, 5u32, 1u32, "BLOCKED: RELEASE");
     } else if trial.drone.cable.phase == CABLE_SNAPPED {
         hud_text(mut v, 5u32, 1u32, "SNAP: RELEASE");
     }
     hud_text(mut v, 20u32, 1u32, "CABLE M");
     var cable_length: f32 = trial.drone.cable.extent;
     if trial.drone.cable.phase == CABLE_FLYING {
-        cable_length = length(sub(trial.drone.cable.anchor, trial.drone.position));
+        cable_length = length(sub(trial.drone.cable.anchor, trial.drone.position)) / drone_size(
+            read trial.drone
+        );
     }
     hud_number(mut v, 28u32, 1u32, cable_length as u32);
     hud_text(mut v, 36u32, 1u32, "BURSTS");
@@ -100,4 +105,59 @@ fn hud_fps(v: mut FrameInput, fps: u32, paused: bool) -> unit {
     if paused {
         hud_text(mut v, 11u32, 5u32, "PAUSED - TAB TO RESUME                 ");
     }
+}
+
+fn hud_size(input: mut FrameInput, factor: f32) -> unit {
+    var exponent: i32 = 0i32;
+    while factor >= 10f32 {
+        factor = factor * 0.1f32;
+        exponent = exponent + 1i32;
+    }
+    while factor < 1f32 {
+        factor = factor * 10f32;
+        exponent = exponent - 1i32;
+    }
+    hud_text(mut input, 60u32, 2u32, "SIZE");
+    var digits: u32 = (factor * 1000f32 + 0.5f32) as u32;
+    if digits == 10000u32 {
+        digits = 1000u32;
+        exponent = exponent + 1i32;
+    }
+    hud_number(mut input, 65u32, 2u32, digits);
+    input_set_word(
+        mut input,
+        (OVERLAY_CELLS + 2u32 * 80u32 + 65u32) as usize,
+        48u32 + digits / 1000u32
+    );
+    input_set_word(mut input, (OVERLAY_CELLS + 2u32 * 80u32 + 66u32) as usize, 46u32);
+    input_set_word(
+        mut input,
+        (OVERLAY_CELLS + 2u32 * 80u32 + 67u32) as usize,
+        48u32 + digits / 100u32 % 10u32
+    );
+    input_set_word(
+        mut input,
+        (OVERLAY_CELLS + 2u32 * 80u32 + 68u32) as usize,
+        48u32 + digits / 10u32 % 10u32
+    );
+    input_set_word(
+        mut input,
+        (OVERLAY_CELLS + 2u32 * 80u32 + 69u32) as usize,
+        48u32 + digits % 10u32
+    );
+    hud_text(mut input, 70u32, 2u32, "E+");
+    if exponent < 0i32 {
+        hud_text(mut input, 71u32, 2u32, "-");
+        exponent = -exponent;
+    }
+    input_set_word(
+        mut input,
+        (OVERLAY_CELLS + 2u32 * 80u32 + 72u32) as usize,
+        48u32 + exponent as u32 / 10u32
+    );
+    input_set_word(
+        mut input,
+        (OVERLAY_CELLS + 2u32 * 80u32 + 73u32) as usize,
+        48u32 + exponent as u32 % 10u32
+    );
 }

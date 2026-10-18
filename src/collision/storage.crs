@@ -274,6 +274,7 @@ fn collision_finish(builder: CollisionBuilder, scene: mut CollisionScene) -> boo
     if !collision_portals_valid(read next) || !collision_index_build(&next) {
         return false;
     }
+    collision_portal_support(mut next);
     scene = move next;
     return true;
 }

@@ -3,6 +3,7 @@ import {presentation} from './presentation.mjs';
 
 // Use a separate browser profile with remote debugging enabled.
 const endpoint = process.env.BROWSER_CDP || 'http://127.0.0.1:9227';
+const scaling = process.argv.includes('--scaling');
 const origin = process.env.GAME_URL || 'http://127.0.0.1:8000';
 const pages = await (await fetch(endpoint + '/json')).json();
 const page = pages.find(page => page.type === 'page');
@@ -32,7 +33,7 @@ async function evaluate(fn, argument, url=origin+'/') {
   return result.result.value;
 }
 async function browser(options) {
-  const value=await evaluate(flight,{...options,tasks:process.argv.includes("--tasks")});
+  const value=await evaluate(flight,{...options,scaling,tasks:process.argv.includes("--tasks")});
   if(options.deviceLoss) {
     require(value.status==='Run failed. See the log.' && value.errors.length>0,JSON.stringify(value));
   } else {
@@ -83,7 +84,7 @@ function checkCommands(encoded) {
 async function native(recording, tag) {
   const path=`build/web-check-${tag}`;
   await Bun.write(path+'.swr', Buffer.from(recording,'base64'));
-  const child=Bun.spawn(['build/game','--headless','--seed','42','--complexity','2','--width','641','--height','359','--replay',path+'.swr','--capture',path+'.ppm'],{stdout:'pipe',stderr:'pipe'});
+  const child=Bun.spawn(['build/game',...(scaling ? ['--scaling'] : []),'--headless','--seed','42','--complexity','2','--width',scaling ? '640' : '641','--height',scaling ? '360' : '359','--replay',path+'.swr','--capture',path+'.ppm'],{stdout:'pipe',stderr:'pipe'});
   const [stdout,stderr,code]=await Promise.all([new Response(child.stdout).text(),new Response(child.stderr).text(),child.exited]);
   require(code===0,stdout+stderr);
   return {log:stdout, capture:Buffer.from(await Bun.file(path+'.ppm').arrayBuffer()).toString('base64')};
@@ -96,7 +97,7 @@ try {
     try {console.log(await evaluate(presentation,180,server.url.href));}
     finally {server.stop();}
   } else {
-  require(process.argv.length===2 || (process.argv.length===3 && process.argv[2]==='--tasks'),'Use no arguments, --tasks, or --presentation');
+  require(process.argv.slice(2).every(arg => ['--tasks','--scaling'].includes(arg)), 'Use --tasks, --scaling, or --presentation');
   const raw=await browser({}),checked=await browser({checked:true});
   await Bun.write('build/web-check-raw.ppm',Buffer.from(raw.capture,'base64'));await Bun.write('build/web-check-checked.ppm',Buffer.from(checked.capture,'base64'));compareImage(raw.capture,checked.capture);
   const initial=await native(raw.recording,'initial');
@@ -104,6 +105,7 @@ try {
   compareImage(initial.capture,raw.capture);
   const controlled=await browser({controls:true});
   checkCommands(controlled.recording);
+  if (scaling) require(/current room \/ goal room \/ returning \/ complete:\n1\n1\n/.test(controlled.log), 'Scaling flight did not cross into the destination room: '+controlled.log);
   require(controlled.frames>0,'No window frames');
   require(controlled.paused,'Tab did not pause simulation recording');
   const replay=await browser({replay:controlled.recording});
@@ -113,6 +115,6 @@ try {
   require(fullscreen.fullscreen,'Fullscreen did not open');
   await browser({controls:true,deviceLoss:true});
   await browser({controls:true,hidden:true});
-  console.log('Web: raw/checked capture, SDL flight and pause, fullscreen, arbitrary row width, recording/replay, native tick hashes and images, device loss, and controlled visibility shutdown passed');
+  console.log('Web: raw/checked capture, SDL flight and pause, fullscreen, recording/replay, native tick hashes and images, device loss, and controlled visibility shutdown passed'+(scaling ? ' (scaled crossing)' : ' (odd row width)'));
   }
 } finally {clearTimeout(timeout);socket.close();}

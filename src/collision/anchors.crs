@@ -94,6 +94,7 @@ fn collision_anchor_children(
             radius * anchor.transform.factor
         ) {
             var next: RoomAnchor = make RoomAnchor {
+                cap: 0xffffffffu32,
                 object: anchor.object,
                 space: portal.destination,
                 transform: space_compose(portal.transform, anchor.transform),
@@ -112,6 +113,7 @@ fn collision_anchor_children(
 }
 fn primary_anchor(object: u32, space: u32) -> RoomAnchor {
     return make RoomAnchor {
+        cap: 0xffffffffu32,
         object: object,
         space: space,
         transform: space_identity(),

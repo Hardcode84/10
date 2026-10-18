@@ -18,6 +18,7 @@ record GameSession {
     room: RoomAsset;
     room_mesh: Mesh;
     drone_mesh: Mesh;
+    fixture_mesh: Mesh;
     renderer: Renderer;
     world: InstanceList;
 }
@@ -44,6 +45,7 @@ fn game_session(o: *Launch) -> GameSession {
         room: room_asset_new(),
         room_mesh: mesh_new(),
         drone_mesh: mesh_new(),
+        fixture_mesh: mesh_new(),
         renderer: renderer_new(),
         world: instances_new()
     };
@@ -144,6 +146,15 @@ fn game_scene_finish(
     var input: FrameInput = renderer_inputs(mut session.renderer);
     draw_prediction(mut input, read prediction, config);
     draw_frame(mut input, read trial.drone, config);
+    draw_portal_admission(read collision, mut input, read trial.drone);
+    if config.scaling {
+        scaling_draw(
+            read collision,
+            mut input,
+            read session.fixture_mesh,
+            trial.drone.clock as f32 * STEP
+        );
+    }
     draw_drone(read collision, mut input, read session.drone_mesh, read trial.drone);
     if trial.graph_run {
         graph_scene(read session.control.graph, mut input, read trial, config);
