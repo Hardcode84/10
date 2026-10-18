@@ -29,6 +29,7 @@ fn move_drone_interval(
             continue;
         }
         var body: CollisionBody = flight_body(read drone);
+        var incoming: Vec3 = motion.velocity;
         done = collision_interval_step_body(
             read collision,
             drone.world,
@@ -39,6 +40,18 @@ fn move_drone_interval(
             mut speeds,
             mut motion
         );
+        var contact: FlightContact = flight_contact(
+            read collision,
+            read drone,
+            motion.contact,
+            incoming,
+            time + motion.elapsed
+        );
+        if contact.active && (
+            !drone.contact.active || contact.impact > drone.contact.impact
+        ) {
+            drone.contact = contact;
+        }
         drone.position = motion.position;
     }
     if motion.status != 0u32 {

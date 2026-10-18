@@ -84,6 +84,7 @@ jobs:
           crust tests.crs hook-light
           crust tests.crs body-view
           crust tests.crs scaling
+          crust tests.crs particles
       - name: Build native application entry points
         run: |
           crust main.crs --build-only

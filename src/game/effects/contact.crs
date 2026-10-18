@@ -1,0 +1,83 @@
+record FlightContact {
+    active: bool;
+    space: u32;
+    point: Vec3;
+    normal: Vec3;
+    surface_velocity: Vec3;
+    tangent: Vec3;
+    size: f32;
+    impact: f32;
+}
+fn flight_contact_empty() -> FlightContact {
+    return make FlightContact {
+        active: false,
+        space: 0u32,
+        point: vec(0f32, 0f32, 0f32),
+        normal: vec(0f32, 0f32, 0f32),
+        surface_velocity: vec(0f32, 0f32, 0f32),
+        tangent: vec(0f32, 0f32, 0f32),
+        size: 1f32,
+        impact: 0f32
+    };
+}
+fn flight_contact(
+    scene: read CollisionScene,
+    drone: read Drone,
+    contact: CollisionContact,
+    velocity: Vec3,
+    time: f32
+) -> FlightContact {
+    var result: FlightContact = flight_contact_empty();
+    if contact.hit.time > 1f32 || contact.cap != 0xffffffffu32 || contact.instance == 0xffffffffu32 {
+        return result;
+    }
+    var inverse: SpaceTransform = space_inverse(contact.frame);
+    result.active = true;
+    result.space = contact.space;
+    result.point = collision_anchor(
+        read scene,
+        contact.instance,
+        contact.local_point,
+        time
+    );
+    result.normal = basis_vector(inverse.basis, contact.hit.normal);
+    result.surface_velocity = collision_anchor_velocity(
+        read scene,
+        contact.instance,
+        contact.local_point,
+        time
+    );
+    result.size = drone_size(read drone) * inverse.factor;
+    var relative: Vec3 = sub(space_vector(inverse, velocity), result.surface_velocity);
+    var normal_speed: f32 = dot(relative, result.normal);
+    result.impact = clamp(-normal_speed / result.size, 0f32, 1000f32);
+    result.tangent = sub(relative, scale(result.normal, normal_speed));
+    return result;
+}
+// Returns a resting contact within the collision solver's separation skin.
+fn flight_scrape(scene: read CollisionScene, drone: read Drone) -> FlightContact {
+    var radius: f32 = drone_radius(read drone);
+    var body: CollisionBody = flight_body(read drone);
+    body.radius = body.radius + 2f32 * collision_tolerance(drone.position, radius) / drone_size(
+        read drone
+    );
+    var query: CollisionSweep = collision_sweep_interval_body(
+        read scene,
+        drone.world,
+        drone.position,
+        vec(0f32, 0f32, 0f32),
+        read body,
+        drone.clock as f32 * STEP,
+        0f32
+    );
+    if query.status != 0u32 {
+        scene_motion_failure();
+    }
+    return flight_contact(
+        read scene,
+        read drone,
+        query.contact,
+        scale(drone.velocity, drone_size(read drone)),
+        drone.clock as f32 * STEP
+    );
+}

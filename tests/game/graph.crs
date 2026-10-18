@@ -141,6 +141,7 @@ fn graph_test_run(session: GameSession, config: GameConfig) -> bool {
     }
     var scene: CollisionScene = collision_new();
     var loop: GameLoop = make GameLoop {
+        sparks: sparks_new(),
         trial: new_trial(),
         input: input_new(),
         ticks: 0u32,

@@ -1,0 +1,45 @@
+resource SparkStorage {
+    data: *Spark;
+    count: u32;
+    cursor: u32;
+}
+opaque drop spark_storage_drop;
+// Stores at most 256 live or expired spark records. Emission replaces slots
+// in birth order once the cosmetic budget is full.
+fn spark_storage_new() -> SparkStorage {
+    return make SparkStorage {
+        data: null(*Spark),
+        count: 0u32,
+        cursor: 0u32
+    };
+}
+fn spark_storage_drop(storage: mut SparkStorage) -> unit {
+    free(storage.data as *u8);
+}
+fn spark_count(storage: read SparkStorage) -> u32 {
+    return storage.count;
+}
+fn spark_get(storage: read SparkStorage, index: u32) -> Spark {
+    return storage.data[index as usize];
+}
+fn spark_set(storage: mut SparkStorage, index: u32, item: Spark) -> unit {
+    storage.data[index as usize] = item;
+}
+fn spark_store(storage: mut SparkStorage, item: Spark) -> unit {
+    if storage.data == null(*Spark) {
+        storage.data = malloc(256usize * sizeof(Spark)) as *Spark;
+        if storage.data == null(*Spark) {
+            error("spark storage allocation failed");
+            trap;
+        }
+    }
+    storage.data[storage.cursor as usize] = item;
+    storage.cursor = (storage.cursor + 1u32) % 256u32;
+    if storage.count < 256u32 {
+        storage.count = storage.count + 1u32;
+    }
+}
+fn spark_storage_clear(storage: mut SparkStorage) -> unit {
+    storage.count = 0u32;
+    storage.cursor = 0u32;
+}

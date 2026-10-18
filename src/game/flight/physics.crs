@@ -44,6 +44,7 @@ fn simulate(
     full_spin: bool,
     auto_level: bool
 ) -> unit {
+    drone.contact = flight_contact_empty();
     drone.step_frame = space_identity();
     orient(mut drone, command.look, auto_level);
     flight_pulses(mut drone, command);

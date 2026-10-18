@@ -224,3 +224,24 @@ Use `crust tests.crs collision` for CPU crossing and tether checks.
 Use `crust tests.crs portals --width 320 --height 180` for a short check of the
 production room links, simulation, and GPU frames on both sides of a portal.
 This check does not run an expedition or assert room dimensions or mesh counts.
+
+## Contact sparks
+
+A drone impact above 1.5 body metres per second emits a short spark burst.
+Sliding contact above 1 body metre per second emits a sparse trail, up to 36
+sparks per second. A stationary contact emits no sparks. Speed is relative to
+the contacted surface, including moving surfaces and portal scale.
+
+Sparks start at the contact point and move into the free side of the surface.
+They inherit surface motion and part of the sliding velocity. They slow down,
+change from pale yellow to orange, and expire after 0.15 to 0.4 seconds. Solid
+contact ends a spark. Portal crossings transform its position, velocity, and
+size. Room overlap placements keep it visible at an opening.
+
+The cosmetic pool holds 256 records. New emissions replace the oldest slots
+when the pool is full. Reset clears the pool and its random sequence. The fixed
+simulation tick owns this state; prediction workers do not copy or update it.
+Sparks do not change drone motion, emit light, or cast shadows.
+
+Run `crust tests.crs particles` for contact and sprite checks. The check writes
+an impact image to `build/test-sparks.ppm`.

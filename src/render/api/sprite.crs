@@ -1,0 +1,52 @@
+// A fullbright, camera-facing rectangle in room coordinates. Width and height
+// must be positive and finite. Cutout uses the material transparent index.
+record Sprite {
+    space: u32;
+    material: u32;
+    x: f32;
+    y: f32;
+    z: f32;
+    width: f32;
+    height: f32;
+    cutout: bool;
+}
+fn input_sprite(input: mut FrameInput, sprite: Sprite) -> bool {
+    if!(sprite.width > 0f32 && sprite.height > 0f32) || sprite.width - sprite.width != 0f32 || sprite.height - sprite.height != 0f32 || sprite.x - sprite.x != 0f32 || sprite.y - sprite.y != 0f32 || sprite.z - sprite.z != 0f32 {
+        return error("sprite position and positive dimensions must be finite");
+    }
+    var first: u32 = input_word(read input, 3usize);
+    if first > 0xfffffffdu32 || !input_reserve_triangles(mut input, first + 2u32) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        var corner: u32 = i;
+        if i >= 3u32 {
+            corner = (i - 1u32) % 4u32;
+        }
+        var u: f32 = ((corner == 1u32 || corner == 2u32) as u32) as f32;
+        var v: f32 = ((corner >= 2u32) as u32) as f32;
+        var p: usize = (GEOMETRY + (first * 3u32 + i) * 5u32) as usize;
+        input_set_float(mut input, p, sprite.x);
+        input_set_float(mut input, p + 1usize, sprite.y);
+        input_set_float(mut input, p + 2usize, sprite.z);
+        input_set_float(mut input, p + 3usize, (u - 0.5f32) * sprite.width);
+        input_set_float(mut input, p + 4usize, (v - 0.5f32) * sprite.height);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 2u32 {
+        var meta: usize = (input_word(read input, META as usize) + (first + i) * 4u32) as usize;
+        input_set_word(mut input, meta, sprite.space);
+        input_set_word(mut input, meta + 1usize, sprite.material);
+        input_set_word(mut input, meta + 2usize, 0u32);
+        input_set_word(
+            mut input,
+            meta + 3usize,
+            TRIANGLE_SPRITE | TRIANGLE_NO_SHADOW | sprite.cutout as u32
+        );
+        i = i + 1u32;
+    }
+    input_set_word(mut input, 3usize, first + 2u32);
+    return true;
+}

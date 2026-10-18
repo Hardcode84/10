@@ -1,0 +1,268 @@
+fn spark_test_wall(scene: mut CollisionScene) -> bool {
+    var mesh: Mesh = mesh_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    if !static_solid(
+        mut mesh,
+        solid(vec(-20f32, -20f32, 4f32), vec(20f32, 20f32, 5f32), 0u32),
+        63u32
+    ) || !collision_append(
+        mut builder,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn spark_physics_checks(factor: f32) -> bool {
+    var scene: CollisionScene = collision_new();
+    if !spark_test_wall(mut scene) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    var ratio: Rational = rational_new((factor * 2f32) as u64, 2u64);
+    rational_assign(mut drone.size, read ratio);
+    drone.position = vec(0f32, 0f32, 4f32 - factor);
+    drone.velocity = vec(4f32, 0f32, 12f32);
+    var sparks: Sparks = sparks_new();
+    var i: u32 = 0u32;
+    while i < 12u32 {
+        simulate(read scene, mut drone, idle_command(), false, false);
+        sparks_step(read scene, mut sparks, false, (drone.clock - 1u32) as f32 * STEP);
+        sparks_contact(mut sparks, drone.contact, flight_scrape(read scene, read drone));
+        i = i + 1u32;
+    }
+    var first: u32 = spark_count(read sparks.storage);
+    if first < 3u32 {
+        return error("wall impact emitted no spark burst");
+    }
+    if spark_get(read sparks.storage, 0u32).size != 0.006f32 * factor {
+        return error("spark size differs from impact body scale");
+    }
+    i = 0u32;
+    while i < 30u32 {
+        simulate(read scene, mut drone, idle_command(), false, false);
+        sparks_step(read scene, mut sparks, false, (drone.clock - 1u32) as f32 * STEP);
+        sparks_contact(mut sparks, drone.contact, flight_scrape(read scene, read drone));
+        i = i + 1u32;
+    }
+    if spark_count(read sparks.storage) <= first {
+        return error("tangent wall slide emitted no sparks");
+    }
+    drone.velocity = vec(0f32, 0f32, 0f32);
+    first = spark_count(read sparks.storage);
+    i = 0u32;
+    while i < 60u32 {
+        simulate(read scene, mut drone, idle_command(), false, false);
+        sparks_step(read scene, mut sparks, false, (drone.clock - 1u32) as f32 * STEP);
+        sparks_contact(mut sparks, drone.contact, flight_scrape(read scene, read drone));
+        i = i + 1u32;
+    }
+    if spark_count(read sparks.storage) != first {
+        return error("stationary contact emitted sparks");
+    }
+    i = 0u32;
+    while i < first {
+        var item: Spark = spark_get(read sparks.storage, i);
+        if item.age < item.lifetime {
+            return error("spark survived its lifetime");
+        }
+        if item.position.z > 4f32 {
+            return error("spark passed through solid wall");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn sprite_test_input(input: mut FrameInput, factor: f32, sideways: bool, cutout: bool) -> unit {
+    game_palette(mut input);
+    input_frame(mut input);
+    input_set_word(mut input, 4usize, 0u32);
+    input_set_word(mut input, BACKGROUND as usize, 0xff123456u32);
+    input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
+    input_set_float(mut input, PROJECTION as usize, 1f32);
+    var basis: Basis = identity_basis();
+    if sideways {
+        basis = make Basis {
+            right: vec(0f32, 0f32, -1f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(1f32, 0f32, 0f32)
+        };
+    }
+    var eye: Vec3 = scale(basis.forward, -4f32 * factor);
+    camera_row(mut input, 0usize, basis.right, eye);
+    camera_row(mut input, 4usize, basis.up, eye);
+    camera_row(mut input, 8usize, basis.forward, eye);
+    var sprite: Sprite = make Sprite {
+        space: 0u32,
+        material: SPARK_MATERIAL,
+        x: 0f32,
+        y: 0f32,
+        z: 0f32,
+        width: 2f32 * factor,
+        height: factor,
+        cutout: cutout
+    };
+    if !input_sprite(mut input, sprite) {
+        trap;
+    }
+    if cutout {
+        var texture: u32 = app_texture(read input, SPARK_MATERIAL);
+        var i: u32 = 0u32;
+        while i < 64u32 {
+            input_texel(mut input, texture + i, SPARK_MATERIAL * 4u32);
+            i = i + 1u32;
+        }
+    }
+}
+fn sprite_test_portal(scene: mut CollisionScene, factor: f32) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var ratio: ScaleRatio = scale_ratio(2u64, 1u64);
+    if factor < 1f32 {
+        ratio = scale_ratio(1u64, 2u64);
+    }
+    if factor == 1f32 {
+        ratio = scale_identity();
+    }
+    var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
+        source_scale: scale_identity(),
+        target_scale: ratio,
+        reverse: 0xffffffffu32,
+        space: 0u32,
+        destination: 1u32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        radius: 3f32,
+        sides: 4u32,
+        phase: 0f32,
+        transform: make SpaceTransform {
+            factor: factor,
+            origin: vec(10f32, 0f32, 0f32),
+            basis: make Basis {
+                right: vec(0f32, 0f32, -1f32),
+                up: vec(0f32, 1f32, 0f32),
+                forward: vec(1f32, 0f32, 0f32)
+            }
+        }
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn sprite_portal_input(input: mut FrameInput, scene: read CollisionScene, factor: f32) -> unit {
+    sprite_test_input(mut input, 1f32, false, false);
+    input_frame(mut input);
+    render_portals(mut input, read scene);
+    input_set_word(mut input, 4usize, 1u32);
+    quad(
+        mut input,
+        0u32,
+        0u32,
+        1u32,
+        0u32,
+        -3f32,
+        -3f32,
+        0f32,
+        3f32,
+        -3f32,
+        0f32,
+        3f32,
+        3f32,
+        0f32,
+        -3f32,
+        3f32,
+        0f32
+    );
+    var sprite: Sprite = make Sprite {
+        space: 1u32,
+        material: SPARK_MATERIAL,
+        x: 10f32 + 2f32 * factor,
+        y: 0f32,
+        z: 0f32,
+        width: 2f32 * factor,
+        height: factor,
+        cutout: false
+    };
+    if !input_sprite(mut input, sprite) {
+        trap;
+    }
+}
+fn spark_portal_checks() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !sprite_test_portal(mut scene, 2f32) {
+        return false;
+    }
+    var item: Spark = make Spark {
+        position: vec(0f32, 0f32, -0.1f32),
+        velocity: vec(0f32, 0f32, 48f32),
+        space: 0u32,
+        size: 0.01f32,
+        age: 0u32,
+        lifetime: 40u32
+    };
+    item = spark_step(read scene, item, false, 0f32);
+    if item.space != 1u32 || item.size != 0.02f32 || item.velocity.x < 80f32 || absf(
+        item.velocity.z
+    ) > 0.0001f32 || item.position.x <= 10f32 {
+        return error("spark did not rotate and scale through portal");
+    }
+    return true;
+}
+fn spark_capture_input(input: mut FrameInput) -> bool {
+    var scene: CollisionScene = collision_new();
+    if !spark_test_wall(mut scene) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, 3f32);
+    drone.velocity = vec(4f32, 0f32, 12f32);
+    var sparks: Sparks = sparks_new();
+    var i: u32 = 0u32;
+    while i < 10u32 {
+        simulate(read scene, mut drone, idle_command(), false, false);
+        sparks_step(read scene, mut sparks, false, (drone.clock - 1u32) as f32 * STEP);
+        sparks_contact(mut sparks, drone.contact, flight_scrape(read scene, read drone));
+        i = i + 1u32;
+    }
+    game_palette(mut input);
+    input_frame(mut input);
+    input_set_word(mut input, 20usize, 0u32);
+    input_set_word(mut input, 4usize, 0u32);
+    input_set_float(mut input, PROJECTION as usize, 1f32);
+    camera_row(mut input, 0usize, drone.basis.right, drone.position);
+    camera_row(mut input, 4usize, drone.basis.up, drone.position);
+    camera_row(mut input, 8usize, drone.basis.forward, drone.position);
+    game_quad(
+        mut input,
+        0u32,
+        vec(-20f32, -20f32, 4f32),
+        vec(20f32, -20f32, 4f32),
+        vec(20f32, 20f32, 4f32),
+        vec(-20f32, 20f32, 4f32)
+    );
+    draw_sparks(read scene, mut input, read sparks);
+    return true;
+}
+fn sprite_depth_input(input: mut FrameInput, cutout: bool) -> unit {
+    sprite_test_input(mut input, 1f32, false, cutout);
+    game_quad(
+        mut input,
+        4u32,
+        vec(-2f32, -2f32, -1f32),
+        vec(0f32, -2f32, -1f32),
+        vec(0f32, 2f32, -1f32),
+        vec(-2f32, 2f32, -1f32)
+    );
+    game_quad(
+        mut input,
+        4u32,
+        vec(0f32, -2f32, 1f32),
+        vec(2f32, -2f32, 1f32),
+        vec(2f32, 2f32, 1f32),
+        vec(0f32, 2f32, 1f32)
+    );
+}

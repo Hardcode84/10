@@ -45,6 +45,20 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "asset-viewer") == 0i
 
 host_source(run, "tools/build/demo.crs");
 host_source(run, "tools/build/game.crs");
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "particles") == 0i32 {
+    if !build_game_target(
+        run,
+        backend.emit,
+        "tests/game/particles-entry.crs",
+        "build/tests-particles",
+        "tests/game/particles.crs"
+    ) || !build_render_shaders(run) {
+        return 1i32;
+    }
+    run -> argc = run -> argc - 1i32;
+    run -> argv = run -> argv + 1isize;
+    return launch_application(run, "build/tests-particles");
+};
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "scaling") == 0i32 {
     if !build_game_target(
         run,

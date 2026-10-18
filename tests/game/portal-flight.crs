@@ -58,6 +58,7 @@ fn portal_flight_capture(
 fn portal_flight_run(session: GameSession, config: GameConfig) -> i32 {
     var scene: CollisionScene = collision_new();
     var loop: GameLoop = make GameLoop {
+        sparks: sparks_new(),
         trial: new_trial(),
         input: input_new(),
         ticks: 0u32,

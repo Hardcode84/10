@@ -1,0 +1,131 @@
+fn sprite_pixels(renderer: read Renderer) -> u32 {
+    var pixels: *u32 = renderer.state.mapped as *u32;
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < 320u32 * 240u32 {
+        count = count + (pixels[(PIXELS + i) as usize] != 0xff123456u32) as u32;
+        i = i + 1u32;
+    }
+    return count;
+}
+fn main(argc: i32, argv: **u8) -> i32 {
+    if !spark_physics_checks(0.5f32) || !spark_physics_checks(1f32) || !spark_physics_checks(2f32) || !spark_portal_checks() {
+        return 1i32;
+    }
+    var launch: Launch = uninit;
+    if !game_options(argc, argv, &launch) {
+        return 1i32;
+    }
+    launch.config.width = 320u32;
+    launch.config.height = 240u32;
+    launch.capture = "build/test-sprites.ppm";
+    launch.shader_checks = true;
+    var renderer: Renderer = renderer_new();
+    if !game_renderer_open(&renderer.state, &launch, null(*u8), 2u32) {
+        return 1i32;
+    }
+    if !sprite_direct_checks(mut renderer) || !sprite_portal_checks(mut renderer) || !sprite_depth_checks(
+        mut renderer
+    ) {
+        return 1i32;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !spark_capture_input(mut input) {
+            return 1i32;
+        }
+    }
+    if !renderer_draw(&renderer.state) || !capture(
+        &renderer.state,
+        "build/test-sparks.ppm",
+        320u32,
+        240u32
+    ) {
+        return 1i32;
+    }
+    puts(
+        "Particles: impact, sliding, rest, expiry, wall collision, billboard scale/orientation and cutout passed."
+    );
+    return 0i32;
+}
+
+fn sprite_direct_checks(renderer: mut Renderer) -> bool {
+    var baseline: u32 = 0u32;
+    var mode: u32 = 0u32;
+    while mode < 7u32 {
+        var factor: f32 = (1u32 << (mode / 2u32)) as f32 * 0.5f32;
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            sprite_test_input(mut input, factor, mode % 2u32 != 0u32, mode == 6u32);
+        }
+        if !renderer_draw(&renderer.state) {
+            return false;
+        }
+        var count: u32 = sprite_pixels(read renderer);
+        if mode == 0u32 {
+            baseline = count;
+        }
+        if mode < 6u32 && (count != baseline || count != 1800u32) {
+            error("billboard orientation or scaled coverage is wrong");
+            return false;
+        }
+        if mode == 6u32 && count != 0u32 {
+            error("transparent sprite wrote pixels");
+            return false;
+        }
+        mode = mode + 1u32;
+    }
+    return true;
+}
+fn sprite_portal_checks(renderer: mut Renderer) -> bool {
+    var mode: u32 = 0u32;
+    while mode < 3u32 {
+        var factor: f32 = (1u32 << mode) as f32 * 0.5f32;
+        var scene: CollisionScene = collision_new();
+        if !sprite_test_portal(mut scene, factor) {
+            return false;
+        }
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            sprite_portal_input(mut input, read scene, factor);
+        }
+        if !renderer_draw(&renderer.state) {
+            return false;
+        }
+        var pixels: *u32 = renderer.state.mapped as *u32;
+        var count: u32 = 0u32;
+        var i: u32 = 0u32;
+        while i < 320u32 * 240u32 {
+            count = count + (pixels[(PIXELS + i) as usize] == 0xffccf4ffu32) as u32;
+            i = i + 1u32;
+        }
+        if count != 800u32 {
+            error("sprite lost area in rotated scaling portal");
+            return false;
+        }
+        mode = mode + 1u32;
+    }
+    return true;
+}
+fn sprite_depth_checks(renderer: mut Renderer) -> bool {
+    var mode: u32 = 0u32;
+    while mode < 2u32 {
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            sprite_depth_input(mut input, mode == 1u32);
+        }
+        if !renderer_draw(&renderer.state) {
+            return false;
+        }
+        var pixels: *u32 = renderer.state.mapped as *u32;
+        var left: u32 = pixels[(PIXELS + 120u32 * 320u32 + 145u32) as usize];
+        var right: u32 = pixels[(PIXELS + 120u32 * 320u32 + 175u32) as usize];
+        if left != 0xff44d4f0u32 || (mode == 0u32 && right != 0xffccf4ffu32) || (
+            mode == 1u32 && right != left
+        ) {
+            return error("sprite depth or transparent coverage is wrong");
+        }
+        mode = mode + 1u32;
+    }
+    return true;
+}

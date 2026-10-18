@@ -37,7 +37,7 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         null(*u8),
         "access conflicts with an active payload loan"
     };
-    var providers: [*u8; 27] = uninit;
+    var providers: [*u8; 96] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
     var good: bool = true;
     var i: usize = 0usize;
@@ -86,7 +86,7 @@ fn check_collision_ownership(root: *CrustRun) -> bool {
         "foreign calls require an explicit foreign contract",
         "opaque values require their declared constructor"
     };
-    var providers: [*u8; 64] = uninit;
+    var providers: [*u8; 96] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
     count = count + game_providers(root, &providers[count]);
     var args: [*u8; 128] = uninit;

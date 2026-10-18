@@ -133,6 +133,60 @@ fn triangle_near(tri: u32) -> f32 {
     }
     return near;
 }
+fn sprite_vertex(source: u32, matrix: u32, axis: u32) -> f32 {
+    var inverse_scale: f32 = 1f32 / floats_load(matrix + 16u32);
+    return floats_load(source + axis) + inverse_scale * (
+        floats_load(matrix + axis) * floats_load(source + 3u32) + floats_load(
+            matrix + 4u32 + axis
+        ) * floats_load(source + 4u32)
+    );
+}
+fn transform_vertices(tri: u32, matrix: u32, scratch: u32) -> unit {
+    var vertex: u32 = 0u32;
+    while vertex < 3u32 {
+        var source: u32 = GEOMETRY + tri * 15u32 + vertex * 5u32;
+        var sprite: bool = (
+            words_load(words_load(META) + tri * 4u32 + 3u32) & TRIANGLE_SPRITE
+        ) != 0u32;
+        var x: f32 = floats_load(source);
+        var y: f32 = floats_load(source + 1u32);
+        var z: f32 = floats_load(source + 2u32);
+        if sprite {
+            x = sprite_vertex(source, matrix, 0u32);
+            y = sprite_vertex(source, matrix, 1u32);
+            z = sprite_vertex(source, matrix, 2u32);
+        }
+        var r: u32 = 0u32;
+        while r < 3u32 {
+            floats_store(
+                scratch + vertex * 6u32 + r,
+                floats_load(matrix + r * 4u32) * x + floats_load(matrix + r * 4u32 + 1u32) * y + floats_load(
+                    matrix + r * 4u32 + 2u32
+                ) * z + floats_load(matrix + r * 4u32 + 3u32)
+            );
+            r = r + 1u32;
+        }
+        floats_store(scratch + vertex * 6u32 + 3u32, floats_load(source + 3u32));
+        floats_store(scratch + vertex * 6u32 + 4u32, floats_load(source + 4u32));
+        if sprite {
+            floats_store(
+                scratch + vertex * 6u32 + 3u32,
+                ((floats_load(source + 3u32) > 0f32) as u32) as f32
+            );
+            floats_store(
+                scratch + vertex * 6u32 + 4u32,
+                ((floats_load(source + 4u32) > 0f32) as u32) as f32
+            );
+        }
+        floats_store(
+            scratch + vertex * 6u32 + 5u32,
+            floats_load(matrix + 12u32) * x + floats_load(matrix + 13u32) * y + floats_load(
+                matrix + 14u32
+            ) * z + floats_load(matrix + 15u32)
+        );
+        vertex = vertex + 1u32;
+    }
+}
 fn prepare_triangle(index: u32) -> unit {
     var stride: u32 = words_load(PROJECTION_CAPACITY);
     var view: u32 = words_load(9u32) + index / stride;
@@ -161,32 +215,7 @@ fn prepare_triangle(index: u32) -> unit {
     }
     var scratch: u32 = words_load(CLIP_OFFSET) + slot * 144u32;
     var matrix: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
-    var vertex: u32 = 0u32;
-    while vertex < 3u32 {
-        var source: u32 = GEOMETRY + tri * 15u32 + vertex * 5u32;
-        var x: f32 = floats_load(source);
-        var y: f32 = floats_load(source + 1u32);
-        var z: f32 = floats_load(source + 2u32);
-        var r: u32 = 0u32;
-        while r < 3u32 {
-            floats_store(
-                scratch + vertex * 6u32 + r,
-                floats_load(matrix + r * 4u32) * x + floats_load(matrix + r * 4u32 + 1u32) * y + floats_load(
-                    matrix + r * 4u32 + 2u32
-                ) * z + floats_load(matrix + r * 4u32 + 3u32)
-            );
-            r = r + 1u32;
-        }
-        floats_store(scratch + vertex * 6u32 + 3u32, floats_load(source + 3u32));
-        floats_store(scratch + vertex * 6u32 + 4u32, floats_load(source + 4u32));
-        floats_store(
-            scratch + vertex * 6u32 + 5u32,
-            floats_load(matrix + 12u32) * x + floats_load(matrix + 13u32) * y + floats_load(
-                matrix + 14u32
-            ) * z + floats_load(matrix + 15u32)
-        );
-        vertex = vertex + 1u32;
-    }
+    transform_vertices(tri, matrix, scratch);
     var count: u32 = 3u32;
     var near: f32 = triangle_near(tri);
     var plane: u32 = 0u32;
@@ -197,7 +226,7 @@ fn prepare_triangle(index: u32) -> unit {
     if count < 3u32 {
         return;
     }
-    vertex = 0u32;
+    var vertex: u32 = 0u32;
     while vertex < count {
         // A polygon through the eye has no projected area.
         if floats_load(scratch + vertex * 6u32 + 2u32) <= 0f32 {

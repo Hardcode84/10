@@ -1,0 +1,146 @@
+record Spark {
+    position: Vec3;
+    velocity: Vec3;
+    space: u32;
+    size: f32;
+    age: u32;
+    lifetime: u32;
+}
+// Cosmetic budget: new sparks replace the oldest slot after 256 emissions.
+record Sparks {
+    storage: SparkStorage;
+    random: u32;
+    scrape: f32;
+}
+fn sparks_new() -> Sparks {
+    return make Sparks {
+        storage: spark_storage_new(),
+        random: 1729u32,
+        scrape: 0f32
+    };
+}
+fn spark_random(sparks: mut Sparks) -> f32 {
+    sparks.random = sparks.random * 1664525u32 + 1013904223u32;
+    return (sparks.random >> 8u32) as f32 / 16777216f32;
+}
+fn spark_emit(sparks: mut Sparks, contact: FlightContact) -> unit {
+    var x: f32 = spark_random(mut sparks) * 2f32 - 1f32;
+    var y: f32 = spark_random(mut sparks) * 2f32 - 1f32;
+    var z: f32 = spark_random(mut sparks) * 2f32 - 1f32;
+    var direction: Vec3 = vec(x, y, z);
+    direction = sub(direction, scale(contact.normal, dot(direction, contact.normal)));
+    direction = add(direction, scale(contact.normal, 0.3f32 + spark_random(mut sparks)));
+    var speed: f32 = (
+        1f32 + spark_random(mut sparks) * 3f32 + clamp(contact.impact * 0.2f32, 0f32, 8f32)
+    ) * contact.size;
+    var item: Spark = make Spark {
+        position: add(contact.point, scale(contact.normal, 0.025f32 * contact.size)),
+        velocity: add(
+            contact.surface_velocity,
+            add(scale(contact.tangent, 0.25f32), scale(direction, speed))
+        ),
+        space: contact.space,
+        size: 0.006f32 * contact.size,
+        age: 0u32,
+        lifetime: 18u32 + (spark_random(mut sparks) * 30f32) as u32
+    };
+    spark_store(mut sparks.storage, item);
+}
+fn sparks_contact(sparks: mut Sparks, impact: FlightContact, scrape: FlightContact) -> unit {
+    var i: u32 = 0u32;
+    var count: u32 = 0u32;
+    if impact.active && impact.impact > 1.5f32 {
+        count = clamp(impact.impact * 1.5f32, 3f32, 20f32) as u32;
+    }
+    while i < count {
+        spark_emit(mut sparks, impact);
+        i = i + 1u32;
+    }
+    if !scrape.active || length(scrape.tangent) / scrape.size < 1f32 {
+        sparks.scrape = 0f32;
+        return;
+    }
+    sparks.scrape = sparks.scrape + clamp(
+        length(scrape.tangent) / scrape.size * 6f32,
+        0f32,
+        36f32
+    ) * STEP;
+    while sparks.scrape >= 1f32 {
+        spark_emit(mut sparks, scrape);
+        sparks.scrape = sparks.scrape - 1f32;
+    }
+}
+fn spark_step(scene: read CollisionScene, item: Spark, full_spin: bool, time: f32) -> Spark {
+    item.age = item.age + 1u32;
+    item.velocity = scale(
+        add(
+            item.velocity,
+            scale(flight_acceleration(item.position, item.velocity, full_spin), STEP)
+        ),
+        0.96f32
+    );
+    var travel: Vec3 = scale(item.velocity, STEP);
+    var crossings: u32 = 0u32;
+    var left: f32 = STEP;
+    while crossings < 1024u32 {
+        var portal: PortalCrossing = portal_crossing(
+            read scene,
+            item.space,
+            item.position,
+            travel
+        );
+        var query: CollisionSweep = collision_sweep_interval(
+            read scene,
+            item.space,
+            item.position,
+            travel,
+            item.size * 0.25f32,
+            time + STEP - left,
+            left
+        );
+        if query.status != 0u32 {
+            scene_motion_failure();
+        }
+        var hit: CollisionContact = query.contact;
+        if hit.hit.time <= 1f32 && hit.hit.time <= portal.time {
+            item.age = item.lifetime;
+            return item;
+        }
+        if portal.time > 1f32 {
+            item.position = add(item.position, travel);
+            return item;
+        }
+        var link: CollisionPortal = collision_portal(read scene, portal.index);
+        item.position = space_point(
+            link.transform,
+            add(item.position, scale(travel, portal.time))
+        );
+        item.velocity = space_vector(link.transform, item.velocity);
+        item.size = item.size * link.transform.factor;
+        item.space = link.destination;
+        travel = space_vector(link.transform, scale(travel, 1f32 - portal.time));
+        left = left * (1f32 - portal.time);
+        crossings = crossings + 1u32;
+    }
+    scene_motion_failure();
+    return item;
+}
+fn sparks_step(scene: read CollisionScene, sparks: mut Sparks, full_spin: bool, time: f32) -> unit {
+    var i: u32 = 0u32;
+    while i < spark_count(read sparks.storage) {
+        var item: Spark = spark_get(read sparks.storage, i);
+        if item.age < item.lifetime {
+            spark_set(
+                mut sparks.storage,
+                i,
+                spark_step(read scene, item, full_spin, time)
+            );
+        }
+        i = i + 1u32;
+    }
+}
+fn sparks_clear(sparks: mut Sparks) -> unit {
+    spark_storage_clear(mut sparks.storage);
+    sparks.random = 1729u32;
+    sparks.scrape = 0f32;
+}

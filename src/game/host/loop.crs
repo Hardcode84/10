@@ -1,4 +1,5 @@
 record GameLoop {
+    sparks: Sparks;
     trial: Trial;
     input: InputState;
     ticks: u32;
@@ -21,7 +22,27 @@ fn game_tick(
         return true;
     }
     var finished: bool = loop.trial.finished;
+    var attempt: u32 = loop.trial.attempt;
+    var clock: u32 = loop.trial.drone.clock;
     trial_step(read collision, mut loop.trial, command);
+    if loop.trial.attempt != attempt {
+        sparks_clear(mut loop.sparks);
+    }
+    if loop.trial.drone.clock != 0u32 && (
+        loop.trial.drone.clock != clock || loop.trial.attempt != attempt
+    ) {
+        sparks_step(
+            read collision,
+            mut loop.sparks,
+            loop.trial.full_spin,
+            (loop.trial.drone.clock - 1u32) as f32 * STEP
+        );
+        sparks_contact(
+            mut loop.sparks,
+            loop.trial.drone.contact,
+            flight_scrape(read collision, read loop.trial.drone)
+        );
+    }
     game_trace_tick(mut session, loop.ticks + 1u32, command);
     game_graph_visit(mut session, read loop.trial, command.restart || command.spin);
     if loop.trial.finished && !finished {
@@ -62,6 +83,7 @@ fn game_prepare_begin(
     game_trace_snapshot(mut session, loop.ticks);
     var inputs: FrameInput = renderer_inputs(mut session.renderer);
     game_scene_begin(read collision, mut inputs, read loop.trial, config);
+    draw_sparks(read collision, mut inputs, read loop.sparks);
 }
 fn game_prepare_finish(
     collision: read CollisionScene,
@@ -126,6 +148,7 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
     var collision: CollisionScene = collision_new();
 
     var loop: GameLoop = make GameLoop {
+        sparks: sparks_new(),
         trial: new_trial(),
         input: input_new(),
         ticks: 0u32,

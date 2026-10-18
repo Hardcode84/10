@@ -1,0 +1,55 @@
+fn draw_spark(scene: read CollisionScene, input: mut FrameInput, item: Spark) -> unit {
+    var phase: u32 = 0u32;
+    if item.age >= 5u32 {
+        phase = 1u32;
+    }
+    if item.age * 2u32 > item.lifetime {
+        phase = 2u32;
+    }
+    var anchors: RoomAnchors = room_anchors_new();
+    var size: Rational = rational_new(1u64, 1u64);
+    var body: CollisionBody = collision_body(item.size * sqrtf(2f32), read size);
+    if !collision_scaled_anchors(
+        read scene,
+        mut anchors,
+        item.space,
+        item.position,
+        vec(0f32, 0f32, 0f32),
+        read body,
+        false
+    ) {
+        scene_motion_failure();
+    }
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        var anchor: RoomAnchor = room_anchor(read anchors, i);
+        if anchor.cap == 0xffffffffu32 {
+            var point: Vec3 = space_point(anchor.transform, item.position);
+            var extent: f32 = item.size * 2f32 * anchor.transform.factor;
+            var sprite: Sprite = make Sprite {
+                space: anchor.space,
+                material: SPARK_MATERIAL + phase,
+                x: point.x,
+                y: point.y,
+                z: point.z,
+                width: extent,
+                height: extent,
+                cutout: false
+            };
+            if !input_sprite(mut input, sprite) {
+                scene_overflow();
+            }
+        }
+        i = i + 1u32;
+    }
+}
+fn draw_sparks(scene: read CollisionScene, input: mut FrameInput, sparks: read Sparks) -> unit {
+    var i: u32 = 0u32;
+    while i < spark_count(read sparks.storage) {
+        var item: Spark = spark_get(read sparks.storage, i);
+        if item.age < item.lifetime {
+            draw_spark(read scene, mut input, item);
+        }
+        i = i + 1u32;
+    }
+}

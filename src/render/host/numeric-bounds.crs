@@ -145,9 +145,15 @@ fn render_geometry_bound(v: *RenderState, w: *u32, f: *f32) -> f32 {
         var j: u32 = 0u32;
         while j < 3u32 {
             var p: usize = (GEOMETRY + i * 15u32 + j * 5u32) as usize;
+            var extent: f32 = 0f32;
+            if (w[(w[META as usize] + i * 4u32 + 3u32) as usize] & TRIANGLE_SPRITE) != 0u32 {
+                extent = 2f32 * (
+                    render_bound_abs(f[p + 3usize]) + render_bound_abs(f[p + 4usize])
+                );
+            }
             bound = render_bound_max(
                 bound,
-                render_bound_abs(f[p]) + render_bound_abs(f[p + 1usize]) + render_bound_abs(
+                extent + render_bound_abs(f[p]) + render_bound_abs(f[p + 1usize]) + render_bound_abs(
                     f[p + 2usize]
                 )
             );

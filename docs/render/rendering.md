@@ -439,3 +439,18 @@ Each palette contains 256 colours with 512 light states per colour. Multiple
 materials can use the same table. The game uses 19 materials; the renderer has
 no fixed material count. Device memory and storage range bound the allocation.
 The [texture interface](textures.md) defines the host API and validation rules.
+
+## Particle sprites
+
+`input_sprite` submits a fullbright rectangle with a room ID, material, centre,
+width, and height. Dimensions use room metres and must be positive and finite.
+The compute transform faces each rectangle toward the camera of its current
+portal view. Rotated and scaled portal views use the same source sprite.
+
+Sprites use the material texture and its full UV range. Optional cutout uses the
+material's transparent palette index. Opaque texels use normal depth tests and
+portal clipping. Sprites do not cast shadows or add light. The renderer uses the
+normal dynamic geometry capacity and reports allocation errors to the caller.
+
+The application owns particle motion, lifetime, emission, and room overlap
+placements. Sprite submission has no game-specific emitter or particle limit.
