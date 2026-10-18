@@ -1,0 +1,152 @@
+const PIPE_NO_EXIT: u32 = 0xffffffffu32;
+record PipeCursor {
+    node: u32;
+}
+// Adds a waypoint. An exit label identifies a mouth; PIPE_NO_EXIT is an internal
+// waypoint or an independent termination. Radial is a unit vector perpendicular
+// to a mouth leg and sets its profile roll. At a joint it is the wall normal.
+fn pipe_point(graph: mut PipeGraph, position: Vec3, radial: Vec3, exit_id: u32) -> u32 {
+    return pipe_node_append(
+        mut graph,
+        make PipeNode {
+            position: position,
+            radial: radial,
+            exit_id: exit_id,
+            component: 0u32,
+            degree: 0u32,
+            links: make [u32; 3] {
+                0u32,
+                0u32,
+                0u32
+            }
+        }
+    );
+}
+fn pipe_component_has_exit(graph: read PipeGraph, component_id: u32, exit_id: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < pipe_node_count(read graph) {
+        var node: PipeNode = pipe_node(read graph, i);
+        if node.component == component_id && node.exit_id == exit_id {
+            return true;
+        }
+        i = i + 1u32;
+    }
+    return false;
+}
+// Networks can join only if they have no common exit and do not form a cycle.
+fn pipe_can_join(graph: read PipeGraph, a: u32, b: u32) -> bool {
+    var left: u32 = pipe_node(read graph, a).component;
+    var right: u32 = pipe_node(read graph, b).component;
+    if left == right {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < pipe_node_count(read graph) {
+        var node: PipeNode = pipe_node(read graph, i);
+        if node.component == left && node.exit_id != PIPE_NO_EXIT && pipe_component_has_exit(
+            read graph,
+            right,
+            node.exit_id
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn pipe_link_end(node: PipeNode) -> bool {
+    return node.degree < 3u32 && (node.exit_id == PIPE_NO_EXIT || node.degree == 0u32);
+}
+// Reserves an edge and its junction slots. Junctions have at most three legs.
+// Exit mouths have one leg. Rejected links leave the graph unchanged.
+fn pipe_link(graph: mut PipeGraph, a: u32, b: u32) -> bool {
+    var left: PipeNode = pipe_node(read graph, a);
+    var right: PipeNode = pipe_node(read graph, b);
+    if !pipe_link_end(left) || !pipe_link_end(right) || !pipe_can_join(read graph, a, b) {
+        return error("pipe link repeats an exit, creates a cycle, or fills a junction");
+    }
+    left.links[left.degree as usize] = b;
+    right.links[right.degree as usize] = a;
+    left.degree = left.degree + 1u32;
+    right.degree = right.degree + 1u32;
+    pipe_node_set(mut graph, a, left);
+    pipe_node_set(mut graph, b, right);
+    var i: u32 = 0u32;
+    while i < pipe_node_count(read graph) {
+        var node: PipeNode = pipe_node(read graph, i);
+        if node.component == right.component {
+            node.component = left.component;
+            pipe_node_set(mut graph, i, node);
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn pipe_waypoint(graph: mut PipeGraph, cursor: mut PipeCursor, position: Vec3) -> bool {
+    var index: u32 = pipe_point(mut graph, position, vec(0f32, 1f32, 0f32), PIPE_NO_EXIT);
+    if index == PIPE_NO_EXIT || !pipe_link(mut graph, cursor.node, index) {
+        return false;
+    }
+    cursor.node = index;
+    return true;
+}
+fn pipe_next(node: PipeNode, previous: u32) -> u32 {
+    if node.links[0usize] == previous {
+        return node.links[1usize];
+    }
+    return node.links[0usize];
+}
+fn pipe_chain_end(graph: read PipeGraph, start: u32, next: u32) -> u32 {
+    var previous: u32 = start;
+    var current: u32 = next;
+    while pipe_node(read graph, current).degree == 2u32 {
+        var following: u32 = pipe_next(pipe_node(read graph, current), previous);
+        previous = current;
+        current = following;
+    }
+    return current;
+}
+fn pipe_chain_radial(node: PipeNode, tangent: Vec3) -> Vec3 {
+    if node.degree == 1u32 {
+        return node.radial;
+    }
+    return unit_vector(
+        sub(node.radial, scale(tangent, dot(node.radial, tangent)))
+    );
+}
+// Emits one closed pipe between two mouths or junctions. Degree-two waypoints
+// get circular bends. Every leg must have room for both adjacent fillets.
+fn pipe_chain_mesh(
+    graph: read PipeGraph,
+    mesh: mut Mesh,
+    start: u32,
+    next: u32,
+    style: TubeStyle,
+    bend: f32
+) -> bool {
+    var node: PipeNode = pipe_node(read graph, start);
+    var tangent: Vec3 = unit_vector(
+        sub(pipe_node(read graph, next).position, node.position)
+    );
+    var sweep: TubeSweep = tube_sweep_begin(
+        node.position,
+        tangent,
+        pipe_chain_radial(node, tangent),
+        style
+    );
+    var previous: u32 = start;
+    var current: u32 = next;
+    while pipe_node(read graph, current).degree == 2u32 {
+        node = pipe_node(read graph, current);
+        var following: u32 = pipe_next(node, previous);
+        var outgoing: Vec3 = unit_vector(
+            sub(pipe_node(read graph, following).position, node.position)
+        );
+        if !tube_sweep_corner(mut mesh, mut sweep, node.position, outgoing, bend) {
+            return false;
+        }
+        previous = current;
+        current = following;
+    }
+    return tube_sweep_finish(mut mesh, mut sweep, pipe_node(read graph, current).position);
+}

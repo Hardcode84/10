@@ -1,0 +1,90 @@
+fn pipe_graph_part(asset: mut RoomAsset, first: u32) -> bool {
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: asset_name("PIPE"),
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: vec(0f32, 0f32, 0f32),
+            basis: identity_basis()
+        }
+    );
+}
+fn pipe_graph_joint(asset: mut RoomAsset, node: PipeNode, style: TubeStyle) -> bool {
+    var normal: Vec3 = node.radial;
+    var axis: Vec3 = vec(1f32, 0f32, 0f32);
+    if absf(normal.x) > 0.8f32 {
+        axis = vec(0f32, 1f32, 0f32);
+    }
+    var right: Vec3 = unit_vector(cross(axis, normal));
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !bevelled_body(
+        mut asset.geometry,
+        make BevelledBody {
+            sides: 6u32,
+            radius: style.radius * 2.2f32,
+            length: style.radius * 2.6f32,
+            bevel: style.radius * 0.25f32,
+            shell: style.region,
+            rear: style.region,
+            front: style.region
+        },
+        node.position,
+        make Basis {
+            right: right,
+            up: normal,
+            forward: cross(right, normal)
+        }
+    ) {
+        return false;
+    }
+    return pipe_graph_part(mut asset, first);
+}
+fn pipe_graph_branches(
+    asset: mut RoomAsset,
+    graph: read PipeGraph,
+    i: u32,
+    style: TubeStyle,
+    bend: f32
+) -> bool {
+    var node: PipeNode = pipe_node(read graph, i);
+    var j: u32 = 0u32;
+    while j < node.degree {
+        var next: u32 = node.links[j as usize];
+        if i < pipe_chain_end(read graph, i, next) {
+            var first: u32 = mesh_triangle_count(read asset.geometry);
+            if !pipe_chain_mesh(read graph, mut asset.geometry, i, next, style, bend) || !pipe_graph_part(
+                mut asset,
+                first
+            ) {
+                return false;
+            }
+        }
+        j = j + 1u32;
+    }
+    return true;
+}
+// Adds closed collidable pipes and three-way joints from an authored wall graph.
+// Corridors must have clearance for the pipe radius and rounded turns.
+fn pipe_graph_mesh(
+    asset: mut RoomAsset,
+    graph: read PipeGraph,
+    style: TubeStyle,
+    bend: f32
+) -> bool {
+    var i: u32 = 0u32;
+    while i < pipe_node_count(read graph) {
+        var node: PipeNode = pipe_node(read graph, i);
+        if node.degree == 0u32 {
+            return error("pipe graph has an unconnected waypoint");
+        }
+        if node.degree == 3u32 && !pipe_graph_joint(mut asset, node, style) {
+            return false;
+        }
+        if node.degree != 2u32 && !pipe_graph_branches(mut asset, read graph, i, style, bend) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

@@ -1,0 +1,107 @@
+fn asset_test_pipe_join() -> bool {
+    var graph: PipeGraph = pipe_graph_new();
+    var axis: Vec3 = vec(0f32, 0f32, 1f32);
+    var a: u32 = pipe_point(mut graph, vec(-3f32, 0f32, 0f32), axis, 901u32);
+    var b: u32 = pipe_point(mut graph, vec(3f32, 0f32, 0f32), axis, 902u32);
+    var duplicate: u32 = pipe_point(mut graph, vec(0f32, 3f32, 0f32), axis, 901u32);
+    var centre: u32 = pipe_point(mut graph, vec(0f32, 0f32, 0f32), axis, PIPE_NO_EXIT);
+    var branch: u32 = pipe_point(mut graph, vec(0f32, 1f32, 0f32), axis, PIPE_NO_EXIT);
+    if branch == PIPE_NO_EXIT || !pipe_link(mut graph, a, centre) || !pipe_link(
+        mut graph,
+        centre,
+        b
+    ) || !pipe_link(mut graph, duplicate, branch) {
+        return false;
+    }
+    if pipe_can_join(read graph, centre, branch) || pipe_can_join(read graph, a, b) || pipe_link(
+        mut graph,
+        centre,
+        branch
+    ) {
+        return error("pipe network accepted a repeated exit or cycle");
+    }
+    if pipe_node(read graph, centre).degree != 2u32 || pipe_node(read graph, branch).degree != 1u32 || pipe_node(
+        read graph,
+        centre
+    ).component == pipe_node(read graph, branch).component {
+        return error("rejected pipe join changed the graph");
+    }
+    return true;
+}
+fn asset_test_pipe_graph() -> bool {
+    if !asset_test_pipe_join() {
+        return false;
+    }
+    var graph: PipeGraph = pipe_graph_new();
+    var axis: Vec3 = vec(0f32, 0f32, 1f32);
+    var a: u32 = pipe_point(mut graph, vec(-4f32, 0f32, 0f32), axis, 10u32);
+    var b: u32 = pipe_point(mut graph, vec(4f32, 0f32, 0f32), axis, 20u32);
+    var c: u32 = pipe_point(mut graph, vec(2f32, 4f32, 0f32), axis, 30u32);
+    var centre: u32 = pipe_point(mut graph, vec(0f32, 0f32, 0f32), axis, PIPE_NO_EXIT);
+    var cursor: PipeCursor = make PipeCursor {
+        node: centre
+    };
+    if centre == PIPE_NO_EXIT || !pipe_link(mut graph, a, centre) || !pipe_link(
+        mut graph,
+        b,
+        centre
+    ) || !pipe_waypoint(mut graph, mut cursor, vec(0f32, 4f32, 0f32)) || !pipe_link(
+        mut graph,
+        cursor.node,
+        c
+    ) {
+        return false;
+    }
+    var asset: RoomAsset = room_asset_new();
+    if !pipe_graph_mesh(
+        mut asset,
+        read graph,
+        make TubeStyle {
+            radius: 0.2f32,
+            sides: 12u32,
+            tile_metres: 2f32,
+            region: 0u32
+        },
+        0.6f32
+    ) {
+        return false;
+    }
+    if asset_part_count(read asset.parts) != 4u32 {
+        return error("pipe graph duplicated or omitted a branch or joint");
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    if !room_parts_collision(read asset, mut builder, 0u32) {
+        return false;
+    }
+    if !collision_finish(move builder, mut asset.collision) {
+        return false;
+    }
+    if collision_position_valid(
+        read asset.collision,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        0.05f32
+    ) || collision_position_valid(
+        read asset.collision,
+        0u32,
+        vec(0f32, 2f32, 0f32),
+        0.05f32
+    ) || !collision_position_valid(
+        read asset.collision,
+        0u32,
+        vec(1f32, 2f32, 0f32),
+        0.05f32
+    ) {
+        return error("pipe graph lost its joint, branch, or outside clearance");
+    }
+    var hit: CollisionContact = collision_sweep(
+        read asset.collision,
+        0u32,
+        vec(3f32, 4f32, 0f32),
+        vec(-2f32, 0f32, 0f32),
+        0.1f32
+    );
+    return absf(hit.hit.time - 0.45f32) < 0.00001f32 || error(
+        "pipe graph lost its rounded branch end cap"
+    );
+}

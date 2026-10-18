@@ -8,6 +8,8 @@
 // Socket positions and dimensions stay fixed. The default inset is 1.75 m.
 // The spindle continues from SHAFT into the hub; core-diameter must match it.
 // Each octagonal mouth has four pipes. Runs follow the walls with round bends.
+// pipe-seed selects routes around the large openings and corner joint positions.
+// A connected pipe network has at most one mouth from each exit.
 // Three-way joints on the eight corner panels connect neighbouring openings.
 // Only four rear feeds enter the spindle; the centre stays clear.
 // Regions: 0 socket walls, 1 corner panels, 2 tunnel closures, 3 shaft closure,
@@ -15,9 +17,12 @@
 // Corner panels have one closed hexagonal service cover.
 // Wall edges have 0.06 m seams; portal edges have 0.10 m seams.
 fn room_parameter_count() -> u32 {
-    return 4u32;
+    return 5u32;
 }
 fn room_parameter_name(index: u32) -> AssetName {
+    if index == 4u32 {
+        return asset_name("pipe-seed");
+    }
     if index == 0u32 {
         return asset_name("shaft-diameter");
     }
@@ -30,6 +35,14 @@ fn room_parameter_name(index: u32) -> AssetName {
     return asset_name("corner-inset");
 }
 fn room_parameter(index: u32) -> AssetParameter {
+    if index == 4u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 65535f32,
+            initial: 1f32,
+            step: 1f32
+        };
+    }
     if index == 3u32 {
         return make AssetParameter {
             minimum: 1f32,
@@ -165,6 +178,10 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !asset_parameters_valid(read parameters) {
         return false;
     }
+    var pipe_seed: f32 = asset_value(read parameters, 4u32);
+    if pipe_seed != (pipe_seed as u32) as f32 {
+        return error("pipe-seed must be an integer");
+    }
     var diameter: f32 = asset_value(read parameters, 0u32);
     var core: f32 = asset_value(read parameters, 3u32) * 0.5f32;
     if diameter * 0.5f32 * cosf(3.14159265359f32 / 48f32) - core < 2f32 {
@@ -196,6 +213,8 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
         1.1f32,
         0.95f32 * (diagonal - oct_pipe_distance() - 0.05f32) / (1f32 + 2f32 * fold_trim)
     );
+    // Adjacent routes retain at least 1.8 m between their inner and outer lanes.
+    bend = mask_min(bend, (half_width - oct_pipe_distance() - 3f32) * 0.25f32);
     if !hub_service_pipes(
         mut asset,
         make HubPipeLayout {
@@ -204,7 +223,8 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
             corner_shift: asset_value(read parameters, 2u32) * 1.73205080757f32,
             core: core,
             bend: bend,
-            stand_off: bend + 0.05f32
+            stand_off: bend + 0.05f32,
+            seed: pipe_seed as u32
         }
     ) {
         return false;

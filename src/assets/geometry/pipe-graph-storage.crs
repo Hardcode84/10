@@ -1,0 +1,63 @@
+record PipeNode {
+    position: Vec3;
+    radial: Vec3;
+    exit_id: u32;
+    component: u32;
+    degree: u32;
+    links: [u32; 3];
+}
+resource PipeGraph {
+    nodes: *PipeNode;
+    count: u32;
+    capacity: u32;
+}
+opaque drop pipe_graph_drop;
+fn pipe_graph_new() -> PipeGraph {
+    return make PipeGraph {
+        nodes: null(*PipeNode),
+        count: 0u32,
+        capacity: 0u32
+    };
+}
+fn pipe_graph_drop(graph: mut PipeGraph) -> unit {
+    free(graph.nodes as *u8);
+}
+fn pipe_node_count(graph: read PipeGraph) -> u32 {
+    return graph.count;
+}
+fn pipe_node(graph: read PipeGraph, index: u32) -> PipeNode {
+    return graph.nodes[index as usize];
+}
+fn pipe_node_set(graph: mut PipeGraph, index: u32, node: PipeNode) -> unit {
+    graph.nodes[index as usize] = node;
+}
+fn pipe_node_append(graph: mut PipeGraph, node: PipeNode) -> u32 {
+    if graph.count == graph.capacity {
+        var requested: u64 = graph.capacity as u64 * 2u64 + 16u64;
+        if requested > 0xffffffffu64 || requested > (0usize - 1usize) as u64 / sizeof(PipeNode) as u64 {
+            error("pipe graph capacity exceeds address range");
+            return 0xffffffffu32;
+        }
+        var capacity: u32 = requested as u32;
+        var nodes: *PipeNode = malloc(capacity as usize * sizeof(PipeNode)) as *PipeNode;
+        if nodes == null(*PipeNode) {
+            error("pipe graph allocation failed");
+            return 0xffffffffu32;
+        }
+        if graph.count != 0u32 {
+            memcpy(
+                nodes as *u8,
+                graph.nodes as *u8,
+                graph.count as usize * sizeof(PipeNode)
+            );
+        }
+        free(graph.nodes as *u8);
+        graph.nodes = nodes;
+        graph.capacity = capacity;
+    }
+    var index: u32 = graph.count;
+    graph.nodes[index as usize] = node;
+    graph.nodes[index as usize].component = index;
+    graph.count = index + 1u32;
+    return index;
+}

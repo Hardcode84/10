@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 111] = make [*u8; 111] {
+    var files: [*u8; 114] = make [*u8; 114] {
         "src/assets/geometry/loft.crs",
         "src/assets/geometry/truncated-cube.crs",
         "src/assets/geometry/rhombicuboctahedron.crs",
@@ -8,6 +8,9 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/tube-bend.crs",
         "src/assets/geometry/tube-sweep.crs",
         "src/assets/geometry/rotor-hub-pipes.crs",
+        "src/assets/geometry/rotor-hub-routing.crs",
+        "src/assets/geometry/pipe-graph.crs",
+        "src/assets/geometry/pipe-graph-mesh.crs",
         "src/assets/geometry/oct-service.crs",
         "src/assets/geometry/oct-stopper.crs",
         "src/assets/geometry/stopper.crs",
@@ -113,20 +116,21 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 111usize {
+    while i < 114usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 37] = make [*u8; 37] {
+    var files: [*u8; 38] = make [*u8; 38] {
         "src/game/effects/storage.crs",
         "src/runtime/task/pool.crs",
         "src/runtime/platform/native-pool.crs",
         "src/game/tasks/prediction-work.crs",
         "src/assets/geometry/storage.crs",
         "src/assets/parts/storage.crs",
+        "src/assets/geometry/pipe-graph-storage.crs",
         "src/assets/parameter-storage.crs",
         "src/assets/connections/storage.crs",
         "src/app/window.crs",
@@ -160,7 +164,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/runtime/trace/frame.crs"
     };
     var i: usize = 0usize;
-    while i < 37usize {
+    while i < 38usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

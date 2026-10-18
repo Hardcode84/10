@@ -51,6 +51,7 @@ its inputs through a root Crust entry point.
 | Ring loft | Aligned rings along +Y; increasing heights; outward polygon winding |
 | Hex junction | Join active cardinal HEX-6M ports with a convex three-ring shell; collar separates adjacent openings; omitted branches become continuous walls |
 | Bent tube | Closed quarter-turn tube with straight ends and continuous axial and perimeter UV coordinates |
+| Pipe waypoint graph | Join distinct exits through wall corridors and three-way joints; reject cycles and repeated exits across a connected network; emit closed pipes with rounded bends |
 | Solid cylinder | Closed solid along +Y, with axial and continuous perimeter UV coordinates |
 | Caps | Close both end profiles with convex polygons |
 | Polygon inset | Insert a smaller concentric port with the same side count and phase; retain a solid ring around the opening |

@@ -5,6 +5,7 @@ record HubPipeLayout {
     core: f32;
     bend: f32;
     stand_off: f32;
+    seed: u32;
 }
 fn hub_pipe_radial(port: RoomPort, pipe: u32) -> Vec3 {
     var angle: f32 = pipe as f32 * 1.57079632679f32;
@@ -45,19 +46,7 @@ fn hub_pipe_part(asset: mut RoomAsset, first: u32, name: AssetName) -> bool {
         }
     );
 }
-fn hub_pipe_begin(port: RoomPort, pipe: u32) -> TubeSweep {
-    return tube_sweep_begin(
-        hub_pipe_mouth(port, pipe),
-        scale(port.basis.forward, -1f32),
-        hub_pipe_radial(port, pipe),
-        make TubeStyle {
-            radius: oct_pipe_radius(),
-            sides: 12u32,
-            tile_metres: 2f32,
-            region: 6u32
-        }
-    );
-}
+
 // Returns the intersection of three planes with independent unit normals.
 fn hub_pipe_intersection(a: Vec3, da: f32, b: Vec3, db: f32, c: Vec3, dc: f32) -> Vec3 {
     return scale(
@@ -79,45 +68,7 @@ fn hub_pipe_fold(a: Vec3, na: Vec3, b: Vec3, nb: Vec3) -> Vec3 {
         dot(plane, a)
     );
 }
-fn hub_pipe_wall_pair(
-    asset: mut RoomAsset,
-    a: RoomPort,
-    pipe: u32,
-    b: RoomPort,
-    layout: HubPipeLayout
-) -> bool {
-    var end: Vec3 = hub_pipe_mouth(b, hub_pipe_slot(b, a));
-    var first: u32 = mesh_triangle_count(read asset.geometry);
-    var sweep: TubeSweep = hub_pipe_begin(a, pipe);
-    var entry: Vec3 = sub(
-        sweep.last.centre,
-        scale(a.basis.forward, layout.stand_off)
-    );
-    var exit_point: Vec3 = sub(end, scale(b.basis.forward, layout.stand_off));
-    var fold: Vec3 = hub_pipe_fold(entry, a.basis.forward, exit_point, b.basis.forward);
-    if !tube_sweep_corner(
-        mut asset.geometry,
-        mut sweep,
-        entry,
-        unit_vector(sub(fold, entry)),
-        layout.bend
-    ) || !tube_sweep_corner(
-        mut asset.geometry,
-        mut sweep,
-        fold,
-        unit_vector(sub(exit_point, fold)),
-        layout.bend
-    ) || !tube_sweep_corner(
-        mut asset.geometry,
-        mut sweep,
-        exit_point,
-        b.basis.forward,
-        layout.bend
-    ) || !tube_sweep_finish(mut asset.geometry, mut sweep, end) {
-        return false;
-    }
-    return hub_pipe_part(mut asset, first, a.id);
-}
+
 fn hub_pipe_corner_signs(port: RoomPort, pipe: u32) -> Vec3 {
     var direction: Vec3 = add(port.basis.forward, hub_pipe_radial(port, pipe));
     var result: Vec3 = vec(1f32, 1f32, 1f32);
@@ -139,73 +90,7 @@ fn hub_pipe_corner_centre(signs: Vec3, layout: HubPipeLayout) -> Vec3 {
         scale(unit_vector(signs), layout.stand_off)
     );
 }
-fn hub_pipe_corner_leg(
-    asset: mut RoomAsset,
-    port: RoomPort,
-    pipe: u32,
-    layout: HubPipeLayout
-) -> bool {
-    var signs: Vec3 = hub_pipe_corner_signs(port, pipe);
-    var normal: Vec3 = unit_vector(signs);
-    var end: Vec3 = hub_pipe_corner_centre(signs, layout);
-    var first: u32 = mesh_triangle_count(read asset.geometry);
-    var sweep: TubeSweep = hub_pipe_begin(port, pipe);
-    var entry: Vec3 = sub(
-        sweep.last.centre,
-        scale(port.basis.forward, layout.stand_off)
-    );
-    var fold: Vec3 = hub_pipe_fold(entry, port.basis.forward, end, normal);
-    if !tube_sweep_corner(
-        mut asset.geometry,
-        mut sweep,
-        entry,
-        unit_vector(sub(fold, entry)),
-        layout.bend
-    ) || !tube_sweep_corner(
-        mut asset.geometry,
-        mut sweep,
-        fold,
-        unit_vector(sub(end, fold)),
-        layout.bend
-    ) || !tube_sweep_finish(mut asset.geometry, mut sweep, end) {
-        return false;
-    }
-    return hub_pipe_part(mut asset, first, port.id);
-}
-fn hub_pipe_corner_joints(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
-    var i: u32 = 0u32;
-    while i < 8u32 {
-        var signs: Vec3 = cube_corner_signs(i);
-        var normal: Vec3 = unit_vector(signs);
-        var frame: SurfaceFrame = hull_frame(
-            read asset.hull,
-            asset_face(read asset.hull, 18u32 + i)
-        );
-        var first: u32 = mesh_triangle_count(read asset.geometry);
-        if !bevelled_body(
-            mut asset.geometry,
-            make BevelledBody {
-                sides: 6u32,
-                radius: 0.75f32,
-                length: 0.9f32,
-                bevel: 0.1f32,
-                shell: 6u32,
-                rear: 6u32,
-                front: 6u32
-            },
-            hub_pipe_corner_centre(signs, layout),
-            make Basis {
-                right: frame.right,
-                up: normal,
-                forward: cross(frame.right, normal)
-            }
-        ) || !hub_pipe_part(mut asset, first, asset_name("CORNER-MANIFOLD")) {
-            return false;
-        }
-        i = i + 1u32;
-    }
-    return true;
-}
+
 fn hub_pipe_spindle(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
     var first: u32 = mesh_triangle_count(read asset.geometry);
     var hull: AssetHull = asset_hull_new();
@@ -234,46 +119,7 @@ fn hub_pipe_spindle(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
     }
     return hub_pipe_part(mut asset, first, asset_name("SPINDLE"));
 }
-fn hub_pipe_shaft_feed(
-    asset: mut RoomAsset,
-    port: RoomPort,
-    pipe: u32,
-    layout: HubPipeLayout
-) -> bool {
-    var first: u32 = mesh_triangle_count(read asset.geometry);
-    var sweep: TubeSweep = hub_pipe_begin(port, pipe);
-    var radial: Vec3 = unit_vector(vec(port.position.x, 0f32, port.position.z));
-    var end: Vec3 = add(
-        scale(radial, layout.core - oct_pipe_radius() - 0.1f32),
-        vec(0f32, -layout.extent + layout.stand_off, 0f32)
-    );
-    var entry: Vec3 = sub(
-        sweep.last.centre,
-        scale(port.basis.forward, layout.stand_off)
-    );
-    var fold: Vec3 = hub_pipe_fold(
-        entry,
-        port.basis.forward,
-        end,
-        vec(0f32, -1f32, 0f32)
-    );
-    if !tube_sweep_corner(
-        mut asset.geometry,
-        mut sweep,
-        entry,
-        unit_vector(sub(fold, entry)),
-        layout.bend
-    ) || !tube_sweep_corner(
-        mut asset.geometry,
-        mut sweep,
-        fold,
-        unit_vector(sub(end, fold)),
-        layout.bend
-    ) || !tube_sweep_finish(mut asset.geometry, mut sweep, end) {
-        return false;
-    }
-    return hub_pipe_part(mut asset, first, port.id);
-}
+
 fn hub_pipe_cardinal(port: RoomPort, pipe: u32) -> u32 {
     var i: u32 = 0u32;
     while i < 6u32 {
@@ -285,40 +131,4 @@ fn hub_pipe_cardinal(port: RoomPort, pipe: u32) -> u32 {
         i = i + 1u32;
     }
     return 0xffffffffu32;
-}
-fn hub_pipe_diagonal(
-    asset: mut RoomAsset,
-    port: RoomPort,
-    pipe: u32,
-    layout: HubPipeLayout
-) -> bool {
-    var cardinal: u32 = hub_pipe_cardinal(port, pipe);
-    if cardinal == 0xffffffffu32 {
-        return hub_pipe_corner_leg(mut asset, port, pipe, layout);
-    }
-    if cardinal == 2u32 {
-        return hub_pipe_shaft_feed(mut asset, port, pipe, layout);
-    }
-    var other: RoomPort = asset_port(read asset.ports, cardinal);
-    return hub_pipe_wall_pair(mut asset, port, pipe, other, layout);
-}
-// Wall runs connect adjacent mouths and meet in three-way corner joints.
-// Only four rear feeds reach the spindle; the centre remains clear.
-fn hub_service_pipes(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
-    if !hub_pipe_spindle(mut asset, layout) || !hub_pipe_corner_joints(mut asset, layout) {
-        return false;
-    }
-    var i: u32 = 6u32;
-    while i < 18u32 {
-        var port: RoomPort = asset_port(read asset.ports, i);
-        var pipe: u32 = 0u32;
-        while pipe < 4u32 {
-            if !hub_pipe_diagonal(mut asset, port, pipe, layout) {
-                return false;
-            }
-            pipe = pipe + 1u32;
-        }
-        i = i + 1u32;
-    }
-    return true;
 }
