@@ -42,7 +42,7 @@ fn move_drone_interval(
         );
         var contact: FlightContact = flight_contact(
             read collision,
-            read drone,
+            drone_size(read drone),
             motion.contact,
             incoming,
             time + motion.elapsed

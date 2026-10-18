@@ -27,6 +27,7 @@ fn hook_range_time(position: Vec3, travel: Vec3, origin: Vec3) -> f32 {
     return clamp((-b + sqrtf(b * b - a * c)) / a, 0f32, 1f32);
 }
 fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) -> unit {
+    drone.hook_contact = flight_contact_empty();
     if drone.cable.phase != CABLE_FLYING {
         return;
     }

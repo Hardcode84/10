@@ -37,6 +37,7 @@ fn game_tick(
             loop.trial.full_spin,
             (loop.trial.drone.clock - 1u32) as f32 * STEP
         );
+        sparks_impact(mut loop.sparks, loop.trial.drone.hook_contact);
         sparks_contact(
             mut loop.sparks,
             loop.trial.drone.contact,

@@ -266,3 +266,78 @@ fn sprite_depth_input(input: mut FrameInput, cutout: bool) -> unit {
         vec(0f32, 2f32, 1f32)
     );
 }
+fn hook_spark_checks(reverse: bool) -> bool {
+    var graph: RoomGraph = graph_new();
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    var trial: Trial = new_trial();
+    if !scaling_graph(mut graph) || !graph_assemble(mut graph, mut scene, mut mesh, mut trial) {
+        return false;
+    }
+    var portal: CollisionPortal = collision_portal(read scene, reverse as u32);
+    trial.drone.world = portal.space;
+    trial.drone.position = sub(portal.origin, scale(portal.basis.forward, 4f32));
+    trial.drone.basis = portal.basis;
+    hook_launch(mut trial.drone);
+    var sparks: Sparks = sparks_new();
+    var i: u32 = 0u32;
+    while trial.drone.cable.phase == CABLE_FLYING && i < 120u32 {
+        hook_step(read scene, mut trial.drone, false);
+        sparks_impact(mut sparks, trial.drone.hook_contact);
+        trial.drone.clock = trial.drone.clock + 1u32;
+        i = i + 1u32;
+    }
+    var contact: FlightContact = trial.drone.hook_contact;
+    var factor: f32 = rational_float(read trial.drone.cable.size);
+    if !hook_contact_check(read scene, read trial.drone, portal.destination) {
+        return false;
+    }
+    var count: u32 = spark_count(read sparks.storage);
+    if count == 0u32 {
+        return error("hook attachment emitted no sparks");
+    }
+    var item: Spark = spark_get(read sparks.storage, 0u32);
+    if item.space != contact.space || item.size != 0.006f32 * factor || length(
+        sub(
+            item.position,
+            add(contact.point, scale(contact.normal, 0.025f32 * factor))
+        )
+    ) > 0.0001f32 {
+        return error("hook spark placement differs from contact");
+    }
+    hook_step(read scene, mut trial.drone, false);
+    sparks_impact(mut sparks, trial.drone.hook_contact);
+    return !trial.drone.hook_contact.active && spark_count(read sparks.storage) == count || error(
+        "attached hook repeated its spark burst"
+    );
+}
+
+fn hook_contact_check(scene: read CollisionScene, drone: read Drone, destination: u32) -> bool {
+    var contact: FlightContact = drone.hook_contact;
+    if drone.cable.phase != CABLE_ATTACHED || !contact.active {
+        return error("missing hook impact");
+    }
+    if contact.space != destination {
+        return error("hook impact wrong room");
+    }
+    if contact.size != rational_float(read drone.cable.size) {
+        return error("hook impact wrong scale");
+    }
+    if contact.impact < 40f32 {
+        return error("hook impact wrong incoming speed");
+    }
+    var surface: Vec3 = space_point(
+        space_inverse(drone.cable.frame),
+        drone.cable.anchor
+    );
+    var velocity: Vec3 = collision_anchor_velocity(
+        read scene,
+        drone.cable.instance,
+        drone.cable.local_point,
+        drone.clock as f32 * STEP
+    );
+    // The surface can move between impact and the end-of-tick attachment pose.
+    return length(sub(surface, contact.point)) <= length(velocity) * STEP + 0.0001f32 || error(
+        "hook impact wrong position"
+    );
+}

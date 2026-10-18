@@ -22,7 +22,7 @@ fn flight_contact_empty() -> FlightContact {
 }
 fn flight_contact(
     scene: read CollisionScene,
-    drone: read Drone,
+    size: f32,
     contact: CollisionContact,
     velocity: Vec3,
     time: f32
@@ -47,7 +47,7 @@ fn flight_contact(
         contact.local_point,
         time
     );
-    result.size = drone_size(read drone) * inverse.factor;
+    result.size = size * inverse.factor;
     var relative: Vec3 = sub(space_vector(inverse, velocity), result.surface_velocity);
     var normal_speed: f32 = dot(relative, result.normal);
     result.impact = clamp(-normal_speed / result.size, 0f32, 1000f32);
@@ -75,7 +75,7 @@ fn flight_scrape(scene: read CollisionScene, drone: read Drone) -> FlightContact
     }
     return flight_contact(
         read scene,
-        read drone,
+        drone_size(read drone),
         query.contact,
         scale(drone.velocity, drone_size(read drone)),
         drone.clock as f32 * STEP

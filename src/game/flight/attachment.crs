@@ -7,6 +7,16 @@ fn hook_attach(
     time: f32
 ) -> unit {
     var contact: CollisionContact = query.contact;
+    drone.hook_contact = flight_contact(
+        read scene,
+        rational_float(read drone.cable.size),
+        contact,
+        space_vector(
+            space_inverse(drone.cable.frame),
+            scale(drone.cable.velocity, drone_size(read drone))
+        ),
+        contact_time
+    );
     var size: Rational = rational_product(read drone.cable.size, read query.ratio);
     var path: PortalPath = portal_path_clone(read drone.cable.path);
     var i: u32 = 0u32;

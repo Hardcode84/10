@@ -46,7 +46,7 @@ fn spark_emit(sparks: mut Sparks, contact: FlightContact) -> unit {
     };
     spark_store(mut sparks.storage, item);
 }
-fn sparks_contact(sparks: mut Sparks, impact: FlightContact, scrape: FlightContact) -> unit {
+fn sparks_impact(sparks: mut Sparks, impact: FlightContact) -> unit {
     var i: u32 = 0u32;
     var count: u32 = 0u32;
     if impact.active && impact.impact > 1.5f32 {
@@ -56,6 +56,9 @@ fn sparks_contact(sparks: mut Sparks, impact: FlightContact, scrape: FlightConta
         spark_emit(mut sparks, impact);
         i = i + 1u32;
     }
+}
+fn sparks_contact(sparks: mut Sparks, impact: FlightContact, scrape: FlightContact) -> unit {
+    sparks_impact(mut sparks, impact);
     if !scrape.active || length(scrape.tangent) / scrape.size < 1f32 {
         sparks.scrape = 0f32;
         return;

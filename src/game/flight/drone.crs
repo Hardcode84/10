@@ -41,6 +41,7 @@ fn empty_cable() -> Cable {
 }
 record Drone {
     contact: FlightContact;
+    hook_contact: FlightContact;
     size: Rational;
     step_frame: SpaceTransform;
     world: u32;
@@ -63,6 +64,7 @@ record Drone {
 fn new_drone() -> Drone {
     return make Drone {
         contact: flight_contact_empty(),
+        hook_contact: flight_contact_empty(),
         size: rational_new(1u64, 1u64),
         step_frame: space_identity(),
         world: 0u32,
@@ -116,6 +118,7 @@ fn clone_cable(value: read Cable) -> Cable {
 fn clone_drone(value: read Drone) -> Drone {
     return make Drone {
         contact: value.contact,
+        hook_contact: value.hook_contact,
         size: rational_clone(read value.size),
         step_frame: value.step_frame,
         world: value.world,
@@ -157,6 +160,7 @@ fn assign_cable(target: mut Cable, value: read Cable) -> unit {
 fn assign_drone(target: mut Drone, value: read Drone) -> unit {
     rational_assign(mut target.size, read value.size);
     target.contact = value.contact;
+    target.hook_contact = value.hook_contact;
     target.step_frame = value.step_frame;
     target.world = value.world;
     target.clock = value.clock;

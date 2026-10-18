@@ -229,8 +229,10 @@ This check does not run an expedition or assert room dimensions or mesh counts.
 
 A drone impact above 1.5 body metres per second emits a short spark burst.
 Sliding contact above 1 body metre per second emits a sparse trail, up to 36
-sparks per second. A stationary contact emits no sparks. Speed is relative to
-the contacted surface, including moving surfaces and portal scale.
+sparks per second. Hook impacts use the same burst threshold and the hook’s
+scale. A hit emits one burst; an attached hook emits no further sparks. A
+stationary drone contact emits no sparks. Speed is relative to the contacted
+surface, including moving surfaces and portal scale.
 
 Sparks start at the contact point and move into the free side of the surface.
 They inherit surface motion and part of the sliding velocity. They slow down,

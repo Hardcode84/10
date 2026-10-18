@@ -9,7 +9,9 @@ fn sprite_pixels(renderer: read Renderer) -> u32 {
     return count;
 }
 fn main(argc: i32, argv: **u8) -> i32 {
-    if !spark_physics_checks(0.5f32) || !spark_physics_checks(1f32) || !spark_physics_checks(2f32) || !spark_portal_checks() {
+    if !spark_physics_checks(0.5f32) || !spark_physics_checks(1f32) || !spark_physics_checks(2f32) || !spark_portal_checks() || !hook_spark_checks(
+        false
+    ) || !hook_spark_checks(true) {
         return 1i32;
     }
     var launch: Launch = uninit;
@@ -44,7 +46,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
         return 1i32;
     }
     puts(
-        "Particles: impact, sliding, rest, expiry, wall collision, billboard scale/orientation and cutout passed."
+        "Particles: drone/hook impacts, sliding, rest, expiry, wall collision, billboard scale/orientation and cutout passed."
     );
     return 0i32;
 }
