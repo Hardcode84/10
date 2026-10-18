@@ -119,3 +119,11 @@ fn oct_stopper_door_material() -> PanelMaterial {
     material.emission = 0x0000ffu32;
     return material;
 }
+fn oct_stopper_seat_material() -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.colour = 0u32;
+    material.accent = 0u32;
+    material.emission = 0u32;
+    material.texels_per_metre = 1u32;
+    return material;
+}

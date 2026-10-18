@@ -26,10 +26,19 @@ fn passage_shape(
         asset_face_set(mut asset.hull, profile.shape.sides + 1u32, cap);
     }
     hex_tunnel_surfaces(mut asset.hull, profile.shape.sides, length_metres);
+    return passage_ports(length_metres, through, profile, profile.shape.sides, mut asset);
+}
+fn passage_ports(
+    length_metres: f32,
+    through: bool,
+    profile: ConnectionProfile,
+    face: u32,
+    asset: mut RoomAsset
+) -> bool {
     var entry: RoomPort = make RoomPort {
         id: asset_name("ENTRY"),
         profile: profile,
-        face: profile.shape.sides,
+        face: face,
         position: vec(0f32, 0f32, 0f32),
         basis: make Basis {
             right: vec(1f32, 0f32, 0f32),
