@@ -22,3 +22,17 @@ fn connection_point(port: RoomPort, corner: u32) -> Vec3 {
         )
     );
 }
+// Octagon: 8 m across corners, cardinal wall faces, four pipe-aligned rolls.
+fn service_oct_profile() -> ConnectionProfile {
+    return make ConnectionProfile {
+        scale: scale_identity(),
+        name: asset_name("OCT-8M"),
+        shape: make RegularProfile {
+            sides: 8u32,
+            phase: 0.39269908169f32
+        },
+        radius: 4f32,
+        rotations: 4u32,
+        clearance: 2.75f32
+    };
+}

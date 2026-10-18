@@ -7,7 +7,7 @@ fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
 fn hex_passage_build(length_metres: f32, through: bool, asset: mut RoomAsset) -> bool {
     return hex_passage_profile(length_metres, through, service_hex_profile(), mut asset);
 }
-fn hex_passage_shape(
+fn passage_shape(
     length_metres: f32,
     through: bool,
     profile: ConnectionProfile,
@@ -86,7 +86,7 @@ fn hex_passage_profile(
     profile: ConnectionProfile,
     asset: mut RoomAsset
 ) -> bool {
-    return hex_passage_shape(length_metres, through, profile, mut asset) && room_asset_finish(
+    return passage_shape(length_metres, through, profile, mut asset) && room_asset_finish(
         mut asset
     );
 }

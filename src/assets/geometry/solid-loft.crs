@@ -124,3 +124,45 @@ fn solid_box(
     }
     return hull_solid_mesh(read hull, mut mesh, origin, basis, tile_metres);
 }
+// Appends a closed cylinder from Y=0 to length. Dimensions and tile size are
+// positive; sides is at least three. Side UVs run axially and around the perimeter.
+fn solid_cylinder(
+    mesh: mut Mesh,
+    sides: u32,
+    radius: f32,
+    extent: f32,
+    region: u32,
+    tile_metres: f32
+) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    var profile: RegularProfile = make RegularProfile {
+        sides: sides,
+        phase: 3.14159265359f32 / sides as f32
+    };
+    if !loft_allocate(mut hull, profile, 2u32) {
+        return false;
+    }
+    loft_ring(mut hull, profile, 0u32, 0f32, radius);
+    loft_ring(mut hull, profile, 1u32, extent, radius);
+    loft_span(mut hull, profile, 0u32, region);
+    loft_caps(mut hull, profile, 2u32, region, region);
+    var edge: f32 = 2f32 * radius * sinf(3.14159265359f32 / sides as f32);
+    var i: u32 = 0u32;
+    while i < sides {
+        var face: HullFace = asset_face(read hull, i);
+        var frame: SurfaceFrame = asset_surface(read hull, i);
+        frame.origin = sub(
+            hull_corner(read hull, face, 0u32),
+            scale(frame.up, edge * i as f32)
+        );
+        asset_surface_set(mut hull, i, frame);
+        i = i + 1u32;
+    }
+    return hull_solid_mesh(
+        read hull,
+        mut mesh,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        tile_metres
+    );
+}

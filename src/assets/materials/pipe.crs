@@ -1,0 +1,24 @@
+// Axial coordinates run along X. Coupling bands meet at the repeated tile ends.
+fn metal_pipe_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var end: f32 = mask_min(x, material.tile_metres - x);
+    if end < 0.025f32 {
+        return 35u32;
+    }
+    if end < 0.045f32 {
+        return 192u32;
+    }
+    if end < 0.12f32 {
+        return 108u32;
+    }
+    if end < 0.14f32 {
+        return 182u32;
+    }
+    return (153f32 + metal_grain(material, x, y) * 0.5f32) as u32;
+}
+fn service_pipe_material() -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.finish = METAL_PIPE;
+    material.colour = 0x6589b0u32;
+    material.panel_height = 2f32;
+    return material;
+}

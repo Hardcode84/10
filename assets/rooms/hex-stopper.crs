@@ -24,7 +24,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     var depth: f32 = asset_value(read parameters, 0u32);
     var profile: ConnectionProfile = service_hex_profile();
     asset.spawn_enabled = false;
-    if !hex_passage_shape(depth, false, profile, mut asset) {
+    if !passage_shape(depth, false, profile, mut asset) {
         return false;
     }
     var tile: f32 = room_material(1u32).tile_metres;
