@@ -1,0 +1,116 @@
+// Faces 0..5 use cube face order. Faces 6..17 use XY, XZ, YZ pairs,
+// with negative/positive signs in the low/high bits of each group of four.
+fn rhombi_face_basis(face: u32) -> Basis {
+    if face < 6u32 {
+        return cube_face_basis(face);
+    }
+    var pair: u32 = (face - 6u32) / 4u32;
+    var signs: u32 = (face - 6u32) % 4u32;
+    var first: Vec3 = vec(1f32, 0f32, 0f32);
+    var second: Vec3 = vec(0f32, 0f32, 1f32);
+    if pair == 0u32 {
+        second = vec(0f32, 1f32, 0f32);
+    }
+    if pair == 2u32 {
+        first = vec(0f32, 1f32, 0f32);
+    }
+    first = scale(first, (signs & 1u32) as f32 * 2f32 - 1f32);
+    second = scale(second, (signs >> 1u32) as f32 * 2f32 - 1f32);
+    var normal: Vec3 = scale(add(first, second), 0.70710678119f32);
+    var right: Vec3 = scale(sub(first, second), 0.70710678119f32);
+    return make Basis {
+        right: right,
+        up: cross(normal, right),
+        forward: normal
+    };
+}
+fn rhombi_face_vertex(face: u32, vertex: u32) -> bool {
+    var axis: u32 = vertex % 3u32;
+    var signs: u32 = vertex / 3u32;
+    if face < 6u32 {
+        return axis == face / 2u32 && ((signs >> axis) & 1u32) == face % 2u32;
+    }
+    var pair: u32 = (face - 6u32) / 4u32;
+    var first: u32 = 0u32;
+    var second: u32 = 2u32;
+    if pair == 0u32 {
+        second = 1u32;
+    }
+    if pair == 2u32 {
+        first = 1u32;
+    }
+    var choice: u32 = (face - 6u32) % 4u32;
+    return (axis == first || axis == second) && ((signs >> first) & 1u32) == (choice & 1u32) && (
+        (signs >> second) & 1u32
+    ) == choice >> 1u32;
+}
+// Centred convex shell with six square, twelve rectangular and eight triangular faces.
+// Extent exceeds half-width, which is positive. The regular form has
+// extent = (1 + sqrt(2)) * half-width. Faces 0..17 use rhombi_face_basis order.
+fn rhombi_hull(
+    hull: mut AssetHull,
+    extent: f32,
+    half_width: f32,
+    side: u32,
+    corner_region: u32
+) -> bool {
+    if !asset_hull_allocate(mut hull, 24u32, 26u32, 96u32) {
+        return false;
+    }
+    var vertex: u32 = 0u32;
+    while vertex < 24u32 {
+        var signs: Vec3 = cube_corner_signs(vertex / 3u32);
+        var p: Vec3 = scale(signs, half_width);
+        if vertex % 3u32 == 0u32 {
+            p.x = signs.x * extent;
+        }
+        if vertex % 3u32 == 1u32 {
+            p.y = signs.y * extent;
+        }
+        if vertex % 3u32 == 2u32 {
+            p.z = signs.z * extent;
+        }
+        asset_vertex_set(mut hull, vertex, p);
+        vertex = vertex + 1u32;
+    }
+    var face_id: u32 = 0u32;
+    while face_id < 18u32 {
+        var face: HullFace = make HullFace {
+            first: face_id * 4u32,
+            count: 4u32,
+            region: side
+        };
+        var count: u32 = 0u32;
+        vertex = 0u32;
+        while vertex < 24u32 {
+            if rhombi_face_vertex(face_id, vertex) {
+                asset_index_set(mut hull, face.first + count, vertex);
+                count = count + 1u32;
+            }
+            vertex = vertex + 1u32;
+        }
+        hull_order_face(mut hull, face, rhombi_face_basis(face_id));
+        asset_face_set(mut hull, face_id, face);
+        var surface: SurfaceFrame = hull_frame(read hull, face);
+        asset_surface_set(mut hull, face_id, surface);
+        face_id = face_id + 1u32;
+    }
+    var corner: u32 = 0u32;
+    while corner < 8u32 {
+        var face: HullFace = make HullFace {
+            first: 72u32 + corner * 3u32,
+            count: 3u32,
+            region: corner_region
+        };
+        var signs: Vec3 = cube_corner_signs(corner);
+        var forward: bool = signs.x * signs.y * signs.z > 0f32;
+        asset_index_set(mut hull, face.first, corner * 3u32);
+        asset_index_set(mut hull, face.first + 1u32, corner * 3u32 + 2u32 - forward as u32);
+        asset_index_set(mut hull, face.first + 2u32, corner * 3u32 + 1u32 + forward as u32);
+        asset_face_set(mut hull, 18u32 + corner, face);
+        var surface: SurfaceFrame = hull_frame(read hull, face);
+        asset_surface_set(mut hull, 18u32 + corner, surface);
+        corner = corner + 1u32;
+    }
+    return true;
+}

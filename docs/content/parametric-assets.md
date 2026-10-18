@@ -44,6 +44,8 @@ its inputs through a root Crust entry point.
 | Parameter metadata | Recipe-defined names, units, ranges, defaults, and steps; one source for command-line input and keyboard controls |
 | Indexed hull | Owned vertex, polygon, and corner-index storage; shared polygon edges use shared vertex IDs |
 | Regular profile | Side count and angular phase; positive radius supplied for each ring |
+| Rhombicuboctahedral hull | Six square, twelve rectangular and eight triangular faces; independent cardinal and diagonal face dimensions; full cube symmetry |
+| Radial vertex cut | Cut each vertex with a plane normal to its radius; preserve original face IDs and regions; add closed cut faces with shared edges |
 | Truncated cube | Six regular octagonal faces and eight triangular corners; shared boundary vertices; positive half-extent |
 | Ring loft | Aligned rings along +Y; increasing heights; outward polygon winding |
 | Hex junction | Join active cardinal HEX-6M ports with a convex three-ring shell; collar separates adjacent openings; omitted branches become continuous walls |

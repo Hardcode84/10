@@ -90,3 +90,14 @@ fn hull_contains(hull: read AssetHull, point: Vec3, radius: f32) -> bool {
     }
     return true;
 }
+
+// Returns the mean of a polygon's corner positions.
+fn hull_face_centre(hull: read AssetHull, face: HullFace) -> Vec3 {
+    var centre: Vec3 = vec(0f32, 0f32, 0f32);
+    var i: u32 = 0u32;
+    while i < face.count {
+        centre = add(centre, hull_corner(read hull, face, i));
+        i = i + 1u32;
+    }
+    return scale(centre, 1f32 / face.count as f32);
+}

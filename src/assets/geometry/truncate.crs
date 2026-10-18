@@ -1,0 +1,118 @@
+// Returns the corner index for an oriented edge in a closed hull.
+fn hull_edge_corner(hull: read AssetHull, a: u32, b: u32) -> u32 {
+    var f: u32 = 0u32;
+    while f < asset_face_count(read hull) {
+        var face: HullFace = asset_face(read hull, f);
+        var i: u32 = 0u32;
+        while i < face.count {
+            if asset_index(read hull, face.first + i) == a && asset_index(
+                read hull,
+                face.first + (i + 1u32) % face.count
+            ) == b {
+                return face.first + i;
+            }
+            i = i + 1u32;
+        }
+        f = f + 1u32;
+    }
+    error("closed hull has no reverse edge");
+    trap;
+}
+fn hull_radial_basis(point: Vec3) -> Basis {
+    var normal: Vec3 = unit_vector(point);
+    var reference: Vec3 = vec(0f32, 0f32, 1f32);
+    if absf(normal.z) > 0.9f32 {
+        reference = vec(0f32, 1f32, 0f32);
+    }
+    var right: Vec3 = unit_vector(cross(reference, normal));
+    return make Basis {
+        right: right,
+        up: cross(normal, right),
+        forward: normal
+    };
+}
+fn hull_truncate_face(source: read AssetHull, target: mut AssetHull, id: u32, depth: f32) -> unit {
+    var face: HullFace = asset_face(read source, id);
+    var output: HullFace = make HullFace {
+        first: face.first * 2u32,
+        count: face.count * 2u32,
+        region: face.region
+    };
+    var i: u32 = 0u32;
+    while i < face.count {
+        var index: u32 = face.first + i;
+        var a: u32 = asset_index(read source, index);
+        var b: u32 = asset_index(read source, face.first + (i + 1u32) % face.count);
+        var p: Vec3 = asset_vertex(read source, a);
+        var travel: Vec3 = sub(asset_vertex(read source, b), p);
+        var fraction: f32 = depth / -dot(unit_vector(p), travel);
+        asset_vertex_set(mut target, index, add(p, scale(travel, fraction)));
+        asset_index_set(mut target, output.first + i * 2u32, index);
+        asset_index_set(
+            mut target,
+            output.first + i * 2u32 + 1u32,
+            hull_edge_corner(read source, b, a)
+        );
+        i = i + 1u32;
+    }
+    asset_face_set(mut target, id, output);
+    asset_surface_set(mut target, id, asset_surface(read source, id));
+}
+// Truncates every vertex with a plane normal to its radius from the origin.
+// Source is a closed convex hull with packed corner indices and no unused vertices.
+// Depth is positive and each cut lies before the midpoint of every incident edge.
+// Original face IDs and regions stay intact; the added faces use cap_region.
+fn hull_truncate(
+    source: read AssetHull,
+    target: mut AssetHull,
+    depth: f32,
+    cap_region: u32
+) -> bool {
+    var corners: u64 = asset_index_count(read source) as u64;
+    var faces: u64 = asset_face_count(read source) as u64 + asset_vertex_count(read source) as u64;
+    if corners * 3u64 > 0xffffffffu64 || faces > 0xffffffffu64 {
+        return error("truncated hull exceeds address range");
+    }
+    if !asset_hull_allocate(
+        mut target,
+        corners as u32,
+        faces as u32,
+        (corners * 3u64) as u32
+    ) {
+        return false;
+    }
+    var f: u32 = 0u32;
+    while f < asset_face_count(read source) {
+        hull_truncate_face(read source, mut target, f, depth);
+        f = f + 1u32;
+    }
+    var first: u32 = corners as u32 * 2u32;
+    var vertex: u32 = 0u32;
+    while vertex < asset_vertex_count(read source) {
+        var count: u32 = 0u32;
+        var i: u32 = 0u32;
+        while i < corners as u32 {
+            if asset_index(read source, i) == vertex {
+                asset_index_set(mut target, first + count, i);
+                count = count + 1u32;
+            }
+            i = i + 1u32;
+        }
+        var face: HullFace = make HullFace {
+            first: first,
+            count: count,
+            region: cap_region
+        };
+        hull_order_face(
+            mut target,
+            face,
+            hull_radial_basis(asset_vertex(read source, vertex))
+        );
+        asset_face_set(mut target, f + vertex, face);
+        var surface: SurfaceFrame = hull_frame(read target, face);
+        asset_surface_set(mut target, f + vertex, surface);
+        first = first + count;
+        vertex = vertex + 1u32;
+    }
+    return true;
+}

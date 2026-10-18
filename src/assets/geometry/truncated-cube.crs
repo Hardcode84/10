@@ -27,13 +27,7 @@ fn cube_face_basis(face: u32) -> Basis {
 }
 // Orders the vertices of a convex planar face counterclockwise about its outward normal.
 fn hull_order_face(hull: mut AssetHull, face: HullFace, basis: Basis) -> unit {
-    var centre: Vec3 = vec(0f32, 0f32, 0f32);
-    var corner: u32 = 0u32;
-    while corner < face.count {
-        centre = add(centre, hull_corner(read hull, face, corner));
-        corner = corner + 1u32;
-    }
-    centre = scale(centre, 1f32 / face.count as f32);
+    var centre: Vec3 = hull_face_centre(read hull, face);
     var i: u32 = 1u32;
     while i < face.count {
         var id: u32 = asset_index(read hull, face.first + i);

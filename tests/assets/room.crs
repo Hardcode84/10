@@ -228,3 +228,34 @@ fn asset_test_truncated_cube(extent: f32) -> bool {
     }
     return true;
 }
+
+fn asset_test_truncation(extent: f32, width: f32, depth: f32) -> bool {
+    var source: RoomAsset = room_asset_new();
+    var target: RoomAsset = room_asset_new();
+    if !rhombi_hull(mut source.hull, extent, width, 0u32, 1u32) || !room_asset_finish(mut source) || !asset_test_shell(
+        read source
+    ) || !hull_truncate(read source.hull, mut target.hull, depth, 2u32) || !room_asset_finish(
+        mut target
+    ) || !asset_test_shell(read target) {
+        return false;
+    }
+    var vertex: u32 = 0u32;
+    while vertex < asset_vertex_count(read source.hull) {
+        var original: Vec3 = asset_vertex(read source.hull, vertex);
+        var normal: Vec3 = unit_vector(original);
+        var face: HullFace = asset_face(
+            read target.hull,
+            asset_face_count(read source.hull) + vertex
+        );
+        var i: u32 = 0u32;
+        while i < face.count {
+            var point: Vec3 = hull_corner(read target.hull, face, i);
+            if absf(dot(normal, point) - length(original) + depth) > length(original) * 0.00001f32 {
+                return error("vertex cut does not lie on its radial plane");
+            }
+            i = i + 1u32;
+        }
+        vertex = vertex + 1u32;
+    }
+    return true;
+}

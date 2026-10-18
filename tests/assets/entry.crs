@@ -1,4 +1,11 @@
 fn main(argc: i32, argv: **u8) -> i32 {
+    if !asset_test_truncation(1f32 + sqrtf(2f32), 1f32, 0.1f32) || !asset_test_truncation(
+        13.5f32,
+        7.25f32,
+        0.3f32
+    ) {
+        return 1i32;
+    }
     if !asset_test_truncated_cube(3.25f32) || !asset_test_truncated_cube(12.75f32) || !asset_tests() || !asset_test_junctions() || !asset_test_parts() || !asset_test_inset() || !asset_test_preview_room() || !asset_test_tube() {
         return 1i32;
     }
