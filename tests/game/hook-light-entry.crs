@@ -165,14 +165,15 @@ fn prediction_shadow_flags(input: mut FrameInput, config: GameConfig) -> bool {
         }
         var trail: PreviewTrail = preview_trail(4u32, material, 0f32);
         var first: u32 = input_word(read input, 3usize);
-        draw_preview_segment(
-            mut input,
+        var prediction: Prediction = prediction_new();
+        predict_segment(
+            mut prediction,
             mut trail,
             drone.position,
             vec(0f32, 0f32, 16f32),
-            drone,
-            config
+            drone
         );
+        draw_prediction(mut input, read prediction, config);
         var end: u32 = input_word(read input, 3usize);
         if first == end {
             return error("prediction fixture did not emit markers");
@@ -180,7 +181,7 @@ fn prediction_shadow_flags(input: mut FrameInput, config: GameConfig) -> bool {
         var i: u32 = first;
         while i < end {
             var flags: usize = (input_word(read input, META as usize) + i * 4u32 + 3u32) as usize;
-            if (input_word(read input, flags) & 4u32) == 0u32 {
+            if (input_word(read input, flags) & TRIANGLE_NO_SHADOW) == 0u32 {
                 return error("prediction marker casts shadows");
             }
             i = i + 1u32;
