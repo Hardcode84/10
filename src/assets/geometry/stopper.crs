@@ -66,10 +66,13 @@ fn stopper_open_shell(
     loft_caps(mut asset.hull, profile.shape, 4u32, 0u32, 0u32);
     var i: u32 = 0u32;
     while i < profile.shape.sides * 3u32 {
-        var frame: SurfaceFrame = asset_surface(read asset.hull, i);
-        frame.origin.y = 0f32;
-        frame.origin = sub(frame.origin, scale(frame.up, 0.5f32));
-        frame.right = scale(frame.right, 2f32);
+        var face: HullFace = asset_face(read asset.hull, i);
+        var start: Vec3 = hull_corner(read asset.hull, face, 0u32);
+        var end: Vec3 = hull_corner(read asset.hull, face, 1u32);
+        var frame: SurfaceFrame = tunnel_surface_frame(
+            asset_surface(read asset.hull, i),
+            end.y - start.y
+        );
         asset_surface_set(mut asset.hull, i, frame);
         i = i + 1u32;
     }
