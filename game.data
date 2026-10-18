@@ -3872,7 +3872,7 @@ var s_count: u32 = 0u;
 var s_i: u32 = s_begin;
 while ((s_i < s_end) && !failed) {
 var s_meta: u32 = (s_words_load(79u) + (s_i * 4u));
-if ((((!s_filter) || (s_words_load(s_meta) == s_space)) && ((s_words_load((s_meta + 3u)) & 4u) == 0u))) {
+if ((((!s_filter) || (s_words_load(s_meta) == s_space)) && ((s_words_load((s_meta + 3u)) & (4u | 8u)) == 0u))) {
 s_words_store(((s_words_load(86u) + s_first) + s_count), (s_i - s_shift));
 s_count = (s_count + 1u);
 }
@@ -4106,7 +4106,7 @@ var s_count: u32 = 0u;
 var s_i: u32 = s_begin;
 while ((s_i < s_end)) {
 var s_meta: u32 = (s_words_load(79u) + (s_i * 4u));
-if ((((!s_filter) || (s_words_load(s_meta) == s_space)) && ((s_words_load((s_meta + 3u)) & 4u) == 0u))) {
+if ((((!s_filter) || (s_words_load(s_meta) == s_space)) && ((s_words_load((s_meta + 3u)) & (4u | 8u)) == 0u))) {
 s_words_store(((s_words_load(86u) + s_first) + s_count), (s_i - s_shift));
 s_count = (s_count + 1u);
 }
@@ -4901,6 +4901,9 @@ fn s_triangle_visible(p_tri: u32, p_view: u32) -> bool {
 var s_tri = p_tri;
 var s_view = p_view;
 {
+if (((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 3u)) & 8u) != 0u)) {
+return false;
+}
 if ((s_tri >= s_words_load(57u))) {
 var s_instance: u32 = s_words_load((s_words_load(54u) + s_tri));
 if ((s_words_load(((s_words_load(55u) + (s_view * s_words_load(56u))) + s_instance)) == 0u)) {
@@ -5233,6 +5236,9 @@ fn s_triangle_visible(p_tri: u32, p_view: u32) -> bool {
 var s_tri = p_tri;
 var s_view = p_view;
 {
+if (((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 3u)) & 8u) != 0u)) {
+return false;
+}
 if ((s_tri >= s_words_load(57u))) {
 var s_instance: u32 = s_words_load((s_words_load(54u) + s_tri));
 if ((s_words_load(((s_words_load(55u) + (s_view * s_words_load(56u))) + s_instance)) == 0u)) {
