@@ -2,6 +2,14 @@ fn asset_flight_checks(asset: read RoomAsset, range: MeshRange) -> bool {
     var view: u32 = 0u32;
     while view < 3u32 {
         var state: AssetViewState = asset_view_state(view);
+        asset_view_adjust(mut state, 103u32);
+        if !state.waypoints {
+            return error("G did not enable waypoint view");
+        }
+        asset_view_adjust(mut state, 103u32);
+        if state.waypoints {
+            return error("G did not disable waypoint view");
+        }
         var before: AssetSpawn = asset_camera_pose(read asset, range, state.camera);
         asset_view_switch(mut state, read asset, range, 102u32);
         var after: AssetSpawn = asset_camera_pose(read asset, range, state.camera);

@@ -1,0 +1,289 @@
+fn route_walk_position(router: read PipeRouter, index: u32) -> Vec3 {
+    return route_nodes_get(read router, route_walk_get(read router, index)).position;
+}
+fn route_trim(incoming: Vec3, outgoing: Vec3, bend: f32) -> f32 {
+    return bend * length(cross(incoming, outgoing)) / (
+        1f32 + clamp(dot(incoming, outgoing), -1f32, 1f32)
+    );
+}
+fn route_walk_fits(router: read PipeRouter, bend: f32) -> bool {
+    var previous_trim: f32 = 0f32;
+    var i: u32 = 1u32;
+    while i < route_walk_count(read router) {
+        var leg: Vec3 = sub(
+            route_walk_position(read router, i),
+            route_walk_position(read router, i - 1u32)
+        );
+        var distance: f32 = length(leg);
+        if distance == 0f32 {
+            return false;
+        }
+        var trim: f32 = 0f32;
+        if i + 1u32 < route_walk_count(read router) {
+            var incoming: Vec3 = scale(leg, 1f32 / distance);
+            var outgoing: Vec3 = unit_vector(
+                sub(
+                    route_walk_position(read router, i + 1u32),
+                    route_walk_position(read router, i)
+                )
+            );
+            if dot(incoming, outgoing) <= -1f32 {
+                return false;
+            }
+            trim = route_trim(incoming, outgoing, bend);
+        }
+        if distance <= previous_trim + trim {
+            return false;
+        }
+        previous_trim = trim;
+        i = i + 1u32;
+    }
+    return true;
+}
+record RouteTrace {
+    last: Vec3;
+    tangent: Vec3;
+}
+fn route_trace_point(router: mut PipeRouter, trace: mut RouteTrace, point: Vec3) -> bool {
+    if length(sub(point, trace.last)) != 0f32 && route_segments_append(
+        mut router,
+        make RouteSegment {
+            a: trace.last,
+            b: point
+        }
+    ) == PIPE_NO_EXIT {
+        return false;
+    }
+    trace.last = point;
+    return true;
+}
+fn route_trace_corner(
+    router: mut PipeRouter,
+    trace: mut RouteTrace,
+    point: Vec3,
+    outgoing: Vec3,
+    bend: f32
+) -> bool {
+    var normal: Vec3 = cross(trace.tangent, outgoing);
+    var sine: f32 = length(normal);
+    var cosine: f32 = clamp(dot(trace.tangent, outgoing), -1f32, 1f32);
+    if sine == 0f32 {
+        return route_trace_point(mut router, mut trace, point);
+    }
+    var start: Vec3 = sub(point, scale(trace.tangent, bend * sine / (1f32 + cosine)));
+    var end: Vec3 = add(point, scale(outgoing, bend * sine / (1f32 + cosine)));
+    if length(sub(end, start)) == 0f32 {
+        trace.tangent = outgoing;
+        return route_trace_point(mut router, mut trace, point);
+    }
+    var axis: Vec3 = scale(normal, 1f32 / sine);
+    var inward: Vec3 = cross(axis, trace.tangent);
+    var centre: Vec3 = add(start, scale(inward, bend));
+    var angle: f32 = atan2f(sine, cosine);
+    var steps: u32 = (angle / 0.1308996939f32) as u32 + 1u32;
+    if !route_trace_point(mut router, mut trace, start) {
+        return false;
+    }
+    var i: u32 = 1u32;
+    while i <= steps {
+        var turn: f32 = angle * i as f32 / steps as f32;
+        if !route_trace_point(
+            mut router,
+            mut trace,
+            sub(centre, scale(tube_sweep_rotate(inward, axis, turn), bend))
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    trace.tangent = outgoing;
+    return true;
+}
+fn route_trace_walk(router: mut PipeRouter, bend: f32) -> bool {
+    var trace: RouteTrace = make RouteTrace {
+        last: route_walk_position(read router, 0u32),
+        tangent: unit_vector(
+            sub(
+                route_walk_position(read router, 1u32),
+                route_walk_position(read router, 0u32)
+            )
+        )
+    };
+    var i: u32 = 1u32;
+    while i + 1u32 < route_walk_count(read router) {
+        var point: Vec3 = route_walk_position(read router, i);
+        var outgoing: Vec3 = unit_vector(
+            sub(route_walk_position(read router, i + 1u32), point)
+        );
+        if !route_trace_corner(mut router, mut trace, point, outgoing, bend) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var end: Vec3 = route_walk_position(read router, i);
+    return route_trace_point(mut router, mut trace, end);
+}
+fn route_bounds(path: mut RoutePath, point: Vec3) -> unit {
+    path.low = vec(
+        mask_min(path.low.x, point.x),
+        mask_min(path.low.y, point.y),
+        mask_min(path.low.z, point.z)
+    );
+    path.high = vec(
+        -mask_min(-path.high.x, -point.x),
+        -mask_min(-path.high.y, -point.y),
+        -mask_min(-path.high.z, -point.z)
+    );
+}
+fn route_candidate(router: mut PipeRouter, bend: f32, seed: u32) -> bool {
+    if !route_walk_fits(read router, bend) {
+        return true;
+    }
+    var start: Vec3 = route_walk_position(read router, 0u32);
+    var path: RoutePath = make RoutePath {
+        first: route_indices_count(read router),
+        count: route_walk_count(read router),
+        segment_first: route_segments_count(read router),
+        segment_count: 0u32,
+        source: route_walk_get(read router, 0u32),
+        target: route_walk_get(read router, route_walk_count(read router) - 1u32),
+        priority: metal_hash(
+            route_walk_get(read router, 0u32),
+            route_walk_get(read router, route_walk_count(read router) - 1u32),
+            seed
+        ),
+        head: PIPE_NO_EXIT,
+        blocked: 0u32,
+        selected: false,
+        low: start,
+        high: start,
+        length: 0f32,
+        sink: route_nodes_get(
+            read router,
+            route_walk_get(read router, route_walk_count(read router) - 1u32)
+        ).sink
+    };
+    if !route_trace_walk(mut router, bend) {
+        return false;
+    }
+    path.segment_count = route_segments_count(read router) - path.segment_first;
+    var i: u32 = 0u32;
+    while i < path.segment_count {
+        var segment: RouteSegment = route_segments_get(read router, path.segment_first + i);
+        path.length = path.length + length(sub(segment.b, segment.a));
+        var point: Vec3 = segment.b;
+        route_bounds(mut path, point);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < path.count {
+        var node: u32 = route_walk_get(read router, i);
+        if route_indices_append(mut router, node) == PIPE_NO_EXIT {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return route_paths_append(mut router, path) != PIPE_NO_EXIT;
+}
+fn route_segment_distance(a: RouteSegment, b: RouteSegment) -> f32 {
+    var u: Vec3 = sub(a.b, a.a);
+    var v: Vec3 = sub(b.b, b.a);
+    var w: Vec3 = sub(a.a, b.a);
+    var aa: f32 = dot(u, u);
+    var ab: f32 = dot(u, v);
+    var bb: f32 = dot(v, v);
+    var aw: f32 = dot(u, w);
+    var bw: f32 = dot(v, w);
+    var denominator: f32 = aa * bb - ab * ab;
+    var s: f32 = 0f32;
+    if denominator > 0f32 {
+        s = clamp((ab * bw - bb * aw) / denominator, 0f32, 1f32);
+    }
+    var t: f32 = (ab * s + bw) / bb;
+    if t < 0f32 {
+        t = 0f32;
+        s = clamp(-aw / aa, 0f32, 1f32);
+    }
+    if t > 1f32 {
+        t = 1f32;
+        s = clamp((ab - aw) / aa, 0f32, 1f32);
+    }
+    var delta: Vec3 = sub(add(w, scale(u, s)), scale(v, t));
+    return dot(delta, delta);
+}
+fn route_bounds_overlap(a: RoutePath, b: RoutePath, clearance: f32) -> bool {
+    return a.low.x <= b.high.x + clearance && b.low.x <= a.high.x + clearance && a.low.y <= b.high.y + clearance && b.low.y <= a.high.y + clearance && a.low.z <= b.high.z + clearance && b.low.z <= a.high.z + clearance;
+}
+fn route_paths_overlap(router: read PipeRouter, a: RoutePath, b: RoutePath, clearance: f32) -> bool {
+    if !route_bounds_overlap(a, b, clearance) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < a.count {
+        var j: u32 = 0u32;
+        while j < b.count {
+            if route_indices_get(read router, a.first + i) == route_indices_get(
+                read router,
+                b.first + j
+            ) {
+                return true;
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < a.segment_count {
+        var j: u32 = 0u32;
+        while j < b.segment_count {
+            if route_segment_distance(
+                route_segments_get(read router, a.segment_first + i),
+                route_segments_get(read router, b.segment_first + j)
+            ) < clearance * clearance {
+                return true;
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return false;
+}
+fn route_conflict_link(router: mut PipeRouter, source: u32, target: u32) -> bool {
+    var path: RoutePath = route_paths_get(read router, source);
+    var edge: u32 = route_conflicts_append(
+        mut router,
+        make RouteArc {
+            target: target,
+            next: path.head,
+            used: false
+        }
+    );
+    if edge == PIPE_NO_EXIT {
+        return false;
+    }
+    path.head = edge;
+    route_paths_set(mut router, source, path);
+    return true;
+}
+fn route_conflicts(router: mut PipeRouter, radius: f32, bend: f32) -> bool {
+    var clearance: f32 = 2f32 * radius + 2f32 * bend * (1f32 - cosf(0.06544984695f32)) + 0.01f32;
+    var i: u32 = 0u32;
+    while i < route_paths_count(read router) {
+        var j: u32 = i + 1u32;
+        while j < route_paths_count(read router) {
+            if route_paths_overlap(
+                read router,
+                route_paths_get(read router, i),
+                route_paths_get(read router, j),
+                clearance
+            ) &&!(
+                route_conflict_link(mut router, i, j) && route_conflict_link(mut router, j, i)
+            ) {
+                return false;
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

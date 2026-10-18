@@ -32,6 +32,7 @@ record AssetViewState {
     selected: u32;
     running: bool;
     rotating: bool;
+    waypoints: bool;
 }
 fn asset_view_state(view: u32) -> AssetViewState {
     var pitch: f32 = 0.85f32;
@@ -51,10 +52,14 @@ fn asset_view_state(view: u32) -> AssetViewState {
         },
         selected: 0u32,
         running: true,
-        rotating: false
+        rotating: false,
+        waypoints: false
     };
 }
 fn asset_view_adjust(state: mut AssetViewState, key: u32) -> unit {
+    if key == 103u32 {
+        state.waypoints = !state.waypoints;
+    }
     if key == 27u32 {
         state.running = false;
     }

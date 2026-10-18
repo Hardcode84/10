@@ -59,9 +59,11 @@ fn asset_test_tube_case(diagonal: f32) -> bool {
     );
 }
 fn asset_test_tube() -> bool {
-    return asset_test_tube_case(0f32) && asset_test_tube_case(2f32) && asset_test_tube_sweep(0f32) && asset_test_tube_sweep(
-        0.1f32
-    ) && asset_test_tube_sweep(1.0471975512f32) && asset_test_tube_sweep(2.3f32) && asset_test_tube_spatial();
+    return asset_test_tube_sweep(0.0000001f32) && asset_test_tube_case(0f32) && asset_test_tube_case(
+        2f32
+    ) && asset_test_tube_sweep(0f32) && asset_test_tube_sweep(0.1f32) && asset_test_tube_sweep(
+        1.0471975512f32
+    ) && asset_test_tube_sweep(2.3f32) && asset_test_tube_spatial();
 }
 
 fn asset_test_sweep_closed(mesh: read Mesh, end: Vec3, direction: Vec3) -> bool {
@@ -113,11 +115,13 @@ fn asset_test_tube_sweep(angle: f32) -> bool {
     var corner: Vec3 = vec(2f32, 2f32, 3f32);
     var direction: Vec3 = vec(sinf(angle), cosf(angle), 0f32);
     var end: Vec3 = add(corner, scale(direction, 6f32));
-    if !tube_sweep_corner(mut mesh, mut sweep, corner, direction, 0.8f32) || !tube_sweep_finish(
+    if !tube_sweep_corner(mut mesh, mut sweep, corner, direction, 0.8f32) || !tube_sweep_corner(
         mut mesh,
         mut sweep,
-        end
-    ) {
+        add(corner, scale(direction, 3f32)),
+        direction,
+        0.8f32
+    ) || !tube_sweep_finish(mut mesh, mut sweep, end) {
         return false;
     }
     var first: MeshVertex = mesh_triangle(read mesh, 0u32).vertices[0usize];

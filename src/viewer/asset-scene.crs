@@ -26,8 +26,13 @@ fn asset_scene(
         mesh_identity(labels, 0u32)
     );
 }
-// Omits port closures for inspection. Shell walls and all solid parts remain.
-fn asset_view_open_mesh(asset: read RoomAsset, mesh: mut Mesh) -> bool {
+// Builds the selected shell and optional solid parts for inspection.
+fn asset_view_filtered_mesh(
+    asset: read RoomAsset,
+    mesh: mut Mesh,
+    open_portals: bool,
+    parts: bool
+) -> bool {
     var triangle: u32 = 0u32;
     var face: u32 = 0u32;
     while face < asset_face_count(read asset.hull) {
@@ -39,14 +44,17 @@ fn asset_view_open_mesh(asset: read RoomAsset, mesh: mut Mesh) -> bool {
         }
         var end: u32 = triangle + asset_face(read asset.hull, face).count - 2u32;
         while triangle < end {
-            if !port && !mesh_append(mut mesh, mesh_triangle(read asset.mesh, triangle)) {
+            if (!port || !open_portals) && !mesh_append(
+                mut mesh,
+                mesh_triangle(read asset.mesh, triangle)
+            ) {
                 return false;
             }
             triangle = triangle + 1u32;
         }
         face = face + 1u32;
     }
-    while triangle < mesh_triangle_count(read asset.mesh) {
+    while parts && triangle < mesh_triangle_count(read asset.mesh) {
         if !mesh_append(mut mesh, mesh_triangle(read asset.mesh, triangle)) {
             return false;
         }
@@ -64,7 +72,7 @@ fn asset_view_mesh_upload(
         return input_mesh(mut input, read asset.mesh, mut range);
     }
     var mesh: Mesh = mesh_new();
-    return asset_view_open_mesh(read asset, mut mesh) && input_mesh(
+    return asset_view_filtered_mesh(read asset, mut mesh, true, true) && input_mesh(
         mut input,
         read mesh,
         mut range
@@ -81,6 +89,16 @@ fn asset_view_upload(
     if !asset_labels_build(read asset, mut labels) {
         return false;
     }
+    var guides: Mesh = mesh_new();
+    if route_nodes_count(read asset.routes) != 0u32 &&!(
+        asset_view_filtered_mesh(read asset, mut guides, open_portals, false) && asset_waypoints_build(
+            read asset,
+            mut guides
+        )
+    ) {
+        return false;
+    }
+    var guide_range: MeshRange = mesh_empty_range();
     var label_range: MeshRange = mesh_empty_range();
     {
         var renderer: mut Renderer = asset_renderer(mut session);
@@ -90,11 +108,15 @@ fn asset_view_upload(
             mut input,
             read labels,
             mut label_range
-        ) || !asset_view_materials(mut input, read values) {
+        ) || !input_mesh(mut input, read guides, mut guide_range) || !asset_view_materials(
+            mut input,
+            read values
+        ) {
             return false;
         }
     }
     asset_label_range_set(mut session, label_range);
+    asset_guide_range_set(mut session, guide_range);
     return true;
 }
 fn asset_view_run(
@@ -123,6 +145,7 @@ fn asset_view_run(
     asset_view_window(mut session);
     var state: AssetViewState = asset_view_state(options.view);
     state.camera.flight = asset.spawn;
+    state.waypoints = options.waypoints;
     var previous: u64 = now();
     var frame: u32 = 0u32;
     while state.running && (options.frames == 0u32 || frame < options.frames) {
@@ -161,10 +184,16 @@ fn asset_view_run(
             asset_flight_move(mut state.camera, asset_flight_input(), seconds);
         }
         var labels: MeshRange = asset_label_range(read session);
+        var visible: MeshRange = asset_view_visible(
+            read state,
+            read asset,
+            read session,
+            range
+        );
         {
             var renderer: mut Renderer = asset_renderer(mut session);
             var output: FrameInput = renderer_inputs(mut renderer);
-            if !asset_scene(mut output, read asset, range, labels, state.camera) {
+            if !asset_scene(mut output, read asset, visible, labels, state.camera) {
                 return 1i32;
             }
         }
@@ -180,4 +209,16 @@ fn asset_view_run(
         frame = frame + 1u32;
     }
     return (!asset_session_finish(mut session)) as i32;
+}
+
+fn asset_view_visible(
+    state: read AssetViewState,
+    asset: read RoomAsset,
+    session: read AssetSession,
+    range: MeshRange
+) -> MeshRange {
+    if state.waypoints && route_nodes_count(read asset.routes) != 0u32 {
+        return asset_guide_range(read session);
+    }
+    return range;
 }

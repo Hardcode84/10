@@ -1,0 +1,377 @@
+record RouteNode {
+    position: Vec3;
+    radial: Vec3;
+    exit_id: u32;
+    head: u32;
+    owner: u32;
+    visited: bool;
+    matched: bool;
+    sink: bool;
+}
+record RouteArc {
+    target: u32;
+    next: u32;
+    used: bool;
+}
+record RouteSegment {
+    a: Vec3;
+    b: Vec3;
+}
+record RoutePath {
+    first: u32;
+    count: u32;
+    segment_first: u32;
+    segment_count: u32;
+    source: u32;
+    target: u32;
+    priority: u32;
+    head: u32;
+    blocked: u32;
+    selected: bool;
+    low: Vec3;
+    high: Vec3;
+    length: f32;
+    sink: bool;
+}
+resource PipeRouter {
+    conflicts: *RouteArc;
+    conflicts_count: u32;
+    conflicts_capacity: u32;
+    nodes: *RouteNode;
+    nodes_count: u32;
+    nodes_capacity: u32;
+    arcs: *RouteArc;
+    arcs_count: u32;
+    arcs_capacity: u32;
+    paths: *RoutePath;
+    paths_count: u32;
+    paths_capacity: u32;
+    indices: *u32;
+    indices_count: u32;
+    indices_capacity: u32;
+    segments: *RouteSegment;
+    segments_count: u32;
+    segments_capacity: u32;
+    walk: *u32;
+    walk_count: u32;
+    walk_capacity: u32;
+}
+opaque drop pipe_router_drop;
+fn pipe_router_new() -> PipeRouter {
+    return make PipeRouter {
+        conflicts: null(*RouteArc),
+        conflicts_count: 0u32,
+        conflicts_capacity: 0u32,
+        nodes: null(*RouteNode),
+        nodes_count: 0u32,
+        nodes_capacity: 0u32,
+        arcs: null(*RouteArc),
+        arcs_count: 0u32,
+        arcs_capacity: 0u32,
+        paths: null(*RoutePath),
+        paths_count: 0u32,
+        paths_capacity: 0u32,
+        indices: null(*u32),
+        indices_count: 0u32,
+        indices_capacity: 0u32,
+        segments: null(*RouteSegment),
+        segments_count: 0u32,
+        segments_capacity: 0u32,
+        walk: null(*u32),
+        walk_count: 0u32,
+        walk_capacity: 0u32
+    };
+}
+fn pipe_router_drop(router: mut PipeRouter) -> unit {
+    free(router.conflicts as *u8);
+    free(router.nodes as *u8);
+    free(router.arcs as *u8);
+    free(router.paths as *u8);
+    free(router.indices as *u8);
+    free(router.segments as *u8);
+    free(router.walk as *u8);
+}
+fn route_storage_grow(data: *u8, count: u32, capacity: *u32, size: usize) -> *u8 {
+    var requested: u64 = *capacity as u64 * 2u64 + 16u64;
+    if requested > 0xffffffffu64 || requested > (0usize - 1usize) as u64 / size as u64 {
+        error("pipe router capacity exceeds address range");
+        return null(*u8);
+    }
+    var next: *u8 = malloc(requested as usize * size);
+    if next == null(*u8) {
+        error("pipe router allocation failed");
+        return next;
+    }
+    if count != 0u32 {
+        memcpy(next, data, count as usize * size);
+    }
+    free(data);
+    *capacity = requested as u32;
+    return next;
+}
+fn route_nodes_count(router: read PipeRouter) -> u32 {
+    return router.nodes_count;
+}
+fn route_nodes_get(router: read PipeRouter, index: u32) -> RouteNode {
+    return router.nodes[index as usize];
+}
+fn route_nodes_set(router: mut PipeRouter, index: u32, value: RouteNode) -> unit {
+    router.nodes[index as usize] = value;
+}
+fn route_nodes_append(router: mut PipeRouter, value: RouteNode) -> u32 {
+    if router.nodes_count == router.nodes_capacity {
+        var next: *RouteNode = route_storage_grow(
+            router.nodes as *u8,
+            router.nodes_count,
+            &router.nodes_capacity,
+            sizeof(RouteNode)
+        ) as *RouteNode;
+        if next == null(*RouteNode) {
+            return 0xffffffffu32;
+        }
+        router.nodes = next;
+    }
+    var index: u32 = router.nodes_count;
+    router.nodes[index as usize] = value;
+    router.nodes_count = index + 1u32;
+    return index;
+}
+fn route_arcs_get(router: read PipeRouter, index: u32) -> RouteArc {
+    return router.arcs[index as usize];
+}
+fn route_arcs_set(router: mut PipeRouter, index: u32, value: RouteArc) -> unit {
+    router.arcs[index as usize] = value;
+}
+fn route_arcs_append(router: mut PipeRouter, value: RouteArc) -> u32 {
+    if router.arcs_count == router.arcs_capacity {
+        var next: *RouteArc = route_storage_grow(
+            router.arcs as *u8,
+            router.arcs_count,
+            &router.arcs_capacity,
+            sizeof(RouteArc)
+        ) as *RouteArc;
+        if next == null(*RouteArc) {
+            return 0xffffffffu32;
+        }
+        router.arcs = next;
+    }
+    var index: u32 = router.arcs_count;
+    router.arcs[index as usize] = value;
+    router.arcs_count = index + 1u32;
+    return index;
+}
+fn route_paths_count(router: read PipeRouter) -> u32 {
+    return router.paths_count;
+}
+fn route_paths_get(router: read PipeRouter, index: u32) -> RoutePath {
+    return router.paths[index as usize];
+}
+fn route_paths_set(router: mut PipeRouter, index: u32, value: RoutePath) -> unit {
+    router.paths[index as usize] = value;
+}
+fn route_paths_append(router: mut PipeRouter, value: RoutePath) -> u32 {
+    if router.paths_count == router.paths_capacity {
+        var next: *RoutePath = route_storage_grow(
+            router.paths as *u8,
+            router.paths_count,
+            &router.paths_capacity,
+            sizeof(RoutePath)
+        ) as *RoutePath;
+        if next == null(*RoutePath) {
+            return 0xffffffffu32;
+        }
+        router.paths = next;
+    }
+    var index: u32 = router.paths_count;
+    router.paths[index as usize] = value;
+    router.paths_count = index + 1u32;
+    return index;
+}
+fn route_indices_count(router: read PipeRouter) -> u32 {
+    return router.indices_count;
+}
+fn route_indices_get(router: read PipeRouter, index: u32) -> u32 {
+    return router.indices[index as usize];
+}
+fn route_indices_append(router: mut PipeRouter, value: u32) -> u32 {
+    if router.indices_count == router.indices_capacity {
+        var next: *u32 = route_storage_grow(
+            router.indices as *u8,
+            router.indices_count,
+            &router.indices_capacity,
+            sizeof(u32)
+        ) as *u32;
+        if next == null(*u32) {
+            return 0xffffffffu32;
+        }
+        router.indices = next;
+    }
+    var index: u32 = router.indices_count;
+    router.indices[index as usize] = value;
+    router.indices_count = index + 1u32;
+    return index;
+}
+fn route_segments_count(router: read PipeRouter) -> u32 {
+    return router.segments_count;
+}
+fn route_segments_get(router: read PipeRouter, index: u32) -> RouteSegment {
+    return router.segments[index as usize];
+}
+fn route_segments_append(router: mut PipeRouter, value: RouteSegment) -> u32 {
+    if router.segments_count == router.segments_capacity {
+        var next: *RouteSegment = route_storage_grow(
+            router.segments as *u8,
+            router.segments_count,
+            &router.segments_capacity,
+            sizeof(RouteSegment)
+        ) as *RouteSegment;
+        if next == null(*RouteSegment) {
+            return 0xffffffffu32;
+        }
+        router.segments = next;
+    }
+    var index: u32 = router.segments_count;
+    router.segments[index as usize] = value;
+    router.segments_count = index + 1u32;
+    return index;
+}
+fn route_walk_count(router: read PipeRouter) -> u32 {
+    return router.walk_count;
+}
+fn route_walk_get(router: read PipeRouter, index: u32) -> u32 {
+    return router.walk[index as usize];
+}
+fn route_walk_set(router: mut PipeRouter, index: u32, value: u32) -> unit {
+    router.walk[index as usize] = value;
+}
+fn route_walk_append(router: mut PipeRouter, value: u32) -> u32 {
+    if router.walk_count == router.walk_capacity {
+        var next: *u32 = route_storage_grow(
+            router.walk as *u8,
+            router.walk_count,
+            &router.walk_capacity,
+            sizeof(u32)
+        ) as *u32;
+        if next == null(*u32) {
+            return 0xffffffffu32;
+        }
+        router.walk = next;
+    }
+    var index: u32 = router.walk_count;
+    router.walk[index as usize] = value;
+    router.walk_count = index + 1u32;
+    return index;
+}
+fn route_walk_pop(router: mut PipeRouter) -> unit {
+    router.walk_count = router.walk_count - 1u32;
+}
+
+fn route_conflicts_get(router: read PipeRouter, index: u32) -> RouteArc {
+    return router.conflicts[index as usize];
+}
+fn route_conflicts_append(router: mut PipeRouter, value: RouteArc) -> u32 {
+    if router.conflicts_count == router.conflicts_capacity {
+        var next: *RouteArc = route_storage_grow(
+            router.conflicts as *u8,
+            router.conflicts_count,
+            &router.conflicts_capacity,
+            sizeof(RouteArc)
+        ) as *RouteArc;
+        if next == null(*RouteArc) {
+            return 0xffffffffu32;
+        }
+        router.conflicts = next;
+    }
+    var index: u32 = router.conflicts_count;
+    router.conflicts[index as usize] = value;
+    router.conflicts_count = index + 1u32;
+    return index;
+}
+
+fn route_discard_search(router: mut PipeRouter) -> unit {
+    free(router.paths as *u8);
+    router.paths = null(*RoutePath);
+    router.paths_count = 0u32;
+    router.paths_capacity = 0u32;
+    free(router.indices as *u8);
+    router.indices = null(*u32);
+    router.indices_count = 0u32;
+    router.indices_capacity = 0u32;
+    free(router.segments as *u8);
+    router.segments = null(*RouteSegment);
+    router.segments_count = 0u32;
+    router.segments_capacity = 0u32;
+    free(router.walk as *u8);
+    router.walk = null(*u32);
+    router.walk_count = 0u32;
+    router.walk_capacity = 0u32;
+    free(router.conflicts as *u8);
+    router.conflicts = null(*RouteArc);
+    router.conflicts_count = 0u32;
+    router.conflicts_capacity = 0u32;
+}
+fn pipe_router_swap(a: mut PipeRouter, b: mut PipeRouter) -> unit {
+    var old_nodes: *RouteNode = a.nodes;
+    a.nodes = b.nodes;
+    b.nodes = old_nodes;
+    var old_nodes_count: u32 = a.nodes_count;
+    a.nodes_count = b.nodes_count;
+    b.nodes_count = old_nodes_count;
+    var old_nodes_capacity: u32 = a.nodes_capacity;
+    a.nodes_capacity = b.nodes_capacity;
+    b.nodes_capacity = old_nodes_capacity;
+    var old_arcs: *RouteArc = a.arcs;
+    a.arcs = b.arcs;
+    b.arcs = old_arcs;
+    var old_arcs_count: u32 = a.arcs_count;
+    a.arcs_count = b.arcs_count;
+    b.arcs_count = old_arcs_count;
+    var old_arcs_capacity: u32 = a.arcs_capacity;
+    a.arcs_capacity = b.arcs_capacity;
+    b.arcs_capacity = old_arcs_capacity;
+    var old_paths: *RoutePath = a.paths;
+    a.paths = b.paths;
+    b.paths = old_paths;
+    var old_paths_count: u32 = a.paths_count;
+    a.paths_count = b.paths_count;
+    b.paths_count = old_paths_count;
+    var old_paths_capacity: u32 = a.paths_capacity;
+    a.paths_capacity = b.paths_capacity;
+    b.paths_capacity = old_paths_capacity;
+    var old_indices: *u32 = a.indices;
+    a.indices = b.indices;
+    b.indices = old_indices;
+    var old_indices_count: u32 = a.indices_count;
+    a.indices_count = b.indices_count;
+    b.indices_count = old_indices_count;
+    var old_indices_capacity: u32 = a.indices_capacity;
+    a.indices_capacity = b.indices_capacity;
+    b.indices_capacity = old_indices_capacity;
+    var old_segments: *RouteSegment = a.segments;
+    a.segments = b.segments;
+    b.segments = old_segments;
+    var old_segments_count: u32 = a.segments_count;
+    a.segments_count = b.segments_count;
+    b.segments_count = old_segments_count;
+    var old_segments_capacity: u32 = a.segments_capacity;
+    a.segments_capacity = b.segments_capacity;
+    b.segments_capacity = old_segments_capacity;
+    var old_walk: *u32 = a.walk;
+    a.walk = b.walk;
+    b.walk = old_walk;
+    var old_walk_count: u32 = a.walk_count;
+    a.walk_count = b.walk_count;
+    b.walk_count = old_walk_count;
+    var old_walk_capacity: u32 = a.walk_capacity;
+    a.walk_capacity = b.walk_capacity;
+    b.walk_capacity = old_walk_capacity;
+    var old_conflicts: *RouteArc = a.conflicts;
+    a.conflicts = b.conflicts;
+    b.conflicts = old_conflicts;
+    var old_conflicts_count: u32 = a.conflicts_count;
+    a.conflicts_count = b.conflicts_count;
+    b.conflicts_count = old_conflicts_count;
+    var old_conflicts_capacity: u32 = a.conflicts_capacity;
+    a.conflicts_capacity = b.conflicts_capacity;
+    b.conflicts_capacity = old_conflicts_capacity;
+}

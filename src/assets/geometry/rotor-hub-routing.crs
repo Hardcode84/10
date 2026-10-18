@@ -1,179 +1,223 @@
-// Each large socket wall has four disjoint quarter-wall corridors. A wall
-// selects radial, clockwise, or counterclockwise routes as one reservation.
-// Mixing these modes on one wall would cross pipes at the corridor mouths.
-fn hub_pipe_turn(layout: HubPipeLayout, face: u32) -> u32 {
-    var choice: u32 = metal_hash(face, 0u32, layout.seed) % 3u32;
-    if choice == 2u32 {
-        return 3u32;
-    }
-    return choice;
-}
-fn hub_pipe_entry(port: RoomPort, pipe: u32, layout: HubPipeLayout) -> Vec3 {
-    return sub(
-        hub_pipe_mouth(port, pipe),
-        scale(port.basis.forward, layout.stand_off)
-    );
-}
-fn hub_pipe_terminal(
-    graph: mut PipeGraph,
-    cursor: mut PipeCursor,
-    port: RoomPort,
-    pipe: u32,
-    exit_id: u32
-) -> bool {
-    cursor.node = pipe_point(
-        mut graph,
-        hub_pipe_mouth(port, pipe),
-        hub_pipe_radial(port, pipe),
-        exit_id
-    );
-    return cursor.node != PIPE_NO_EXIT;
-}
-fn hub_pipe_finish(
-    graph: mut PipeGraph,
-    cursor: PipeCursor,
-    port: RoomPort,
-    pipe: u32,
-    exit_id: u32
-) -> bool {
-    var end: u32 = pipe_point(
-        mut graph,
-        hub_pipe_mouth(port, pipe),
-        hub_pipe_radial(port, pipe),
-        exit_id
-    );
-    return end != PIPE_NO_EXIT && pipe_link(mut graph, cursor.node, end);
-}
-fn hub_pipe_wall_point(
-    port: RoomPort,
-    layout: HubPipeLayout,
-    u: Vec3,
-    v: Vec3,
-    x: f32,
-    y: f32
-) -> Vec3 {
-    return add(
-        sub(port.position, scale(port.basis.forward, layout.stand_off)),
-        add(scale(u, x), scale(v, y))
-    );
-}
-fn hub_pipe_quarter(
-    graph: mut PipeGraph,
-    cursor: mut PipeCursor,
-    port: RoomPort,
-    pipe: u32,
-    target: u32,
-    layout: HubPipeLayout
-) -> bool {
-    var u: Vec3 = hub_pipe_radial(port, pipe);
-    var v: Vec3 = hub_pipe_radial(port, target);
-    var variation: f32 = (metal_hash(port.face, pipe, layout.seed) % 256u32) as f32 / 255f32;
-    var inner: f32 = oct_pipe_distance() + 2f32 * layout.bend + 0.2f32 + 0.3f32 * variation;
-    var outer: f32 = layout.half_width - 2f32 * layout.bend - 0.4f32 - 0.3f32 * variation;
-    var middle: f32 = inner * 0.55f32;
-    return pipe_waypoint(
-        mut graph,
-        mut cursor,
-        hub_pipe_wall_point(port, layout, u, v, inner, 0f32)
-    ) && pipe_waypoint(
-        mut graph,
-        mut cursor,
-        hub_pipe_wall_point(port, layout, u, v, inner, middle)
-    ) && pipe_waypoint(
-        mut graph,
-        mut cursor,
-        hub_pipe_wall_point(port, layout, u, v, middle, outer)
-    ) && pipe_waypoint(
-        mut graph,
-        mut cursor,
-        hub_pipe_wall_point(port, layout, u, v, 0f32, outer)
-    );
-}
-fn hub_pipe_wall_route(
-    graph: mut PipeGraph,
-    diagonal: RoomPort,
-    slot: u32,
-    cardinal: RoomPort,
-    layout: HubPipeLayout
-) -> bool {
-    var target: u32 = hub_pipe_slot(cardinal, diagonal);
-    var turn: u32 = hub_pipe_turn(layout, cardinal.face);
-    var source: u32 = (target + 4u32 - turn) % 4u32;
-    var cursor: PipeCursor = make PipeCursor {
-        node: PIPE_NO_EXIT
-    };
-    if !hub_pipe_terminal(mut graph, mut cursor, cardinal, source, cardinal.face) || !pipe_waypoint(
-        mut graph,
-        mut cursor,
-        hub_pipe_entry(cardinal, source, layout)
-    ) {
-        return false;
-    }
-    if turn != 0u32 && !hub_pipe_quarter(
-        mut graph,
-        mut cursor,
-        cardinal,
-        source,
-        target,
-        layout
-    ) {
-        return false;
-    }
-    var end: Vec3 = hub_pipe_entry(diagonal, slot, layout);
-    var fold: Vec3 = hub_pipe_fold(
-        hub_pipe_entry(cardinal, target, layout),
-        cardinal.basis.forward,
-        end,
-        diagonal.basis.forward
-    );
-    return pipe_waypoint(mut graph, mut cursor, fold) && pipe_waypoint(
-        mut graph,
-        mut cursor,
-        end
-    ) && hub_pipe_finish(mut graph, cursor, diagonal, slot, diagonal.face);
-}
-fn hub_pipe_corner_index(signs: Vec3) -> u32 {
-    return (signs.x > 0f32) as u32 | ((signs.y > 0f32) as u32 << 1u32) | (
-        (signs.z > 0f32) as u32 << 2u32
-    );
-}
-fn hub_pipe_corner_point(index: u32, layout: HubPipeLayout) -> Vec3 {
-    var signs: Vec3 = cube_corner_signs(index);
-    var normal: Vec3 = unit_vector(signs);
-    var u: Vec3 = unit_vector(cross(normal, vec(0f32, 1f32, 0f32)));
-    var v: Vec3 = cross(normal, u);
-    var x: f32 = (metal_hash(index, 1u32, layout.seed) % 256u32) as f32 / 255f32 - 0.5f32;
-    var y: f32 = (metal_hash(index, 2u32, layout.seed) % 256u32) as f32 / 255f32 - 0.5f32;
-    return add(
-        hub_pipe_corner_centre(signs, layout),
-        add(scale(u, x), scale(v, y))
-    );
-}
-fn hub_pipe_corner_route(
-    graph: mut PipeGraph,
+fn hub_diagonal_lane(
+    asset: read RoomAsset,
+    router: mut PipeRouter,
+    lanes: read HubLanes,
     port: RoomPort,
     slot: u32,
-    junction: u32,
     layout: HubPipeLayout
 ) -> bool {
-    var end: Vec3 = pipe_node(read graph, junction).position;
-    var normal: Vec3 = pipe_node(read graph, junction).radial;
+    var cardinal: u32 = hub_pipe_cardinal(port, slot);
+    var target: u32 = PIPE_NO_EXIT;
+    var normal: Vec3 = vec(0f32, 0f32, 0f32);
+    if cardinal != PIPE_NO_EXIT {
+        var other: RoomPort = asset_port(read asset.ports, cardinal);
+        target = hub_lane_wall(
+            read lanes,
+            cardinal,
+            1u32,
+            hub_pipe_slot(other, port) * 2u32
+        );
+        normal = other.basis.forward;
+    } else {
+        var signs: Vec3 = hub_pipe_corner_signs(port, slot);
+        var axis: u32 = 2u32;
+        if absf(port.basis.forward.x) < 0.1f32 {
+            axis = 0u32;
+        }
+        if absf(port.basis.forward.y) < 0.1f32 {
+            axis = 1u32;
+        }
+        target = hub_lane_corner(read lanes, hub_corner_index(signs), axis, false);
+        normal = unit_vector(signs);
+    }
+    var mouth: u32 = hub_lane_mouth(mut router, port, slot);
     var entry: Vec3 = hub_pipe_entry(port, slot, layout);
-    var fold: Vec3 = hub_pipe_fold(entry, port.basis.forward, end, normal);
-    var cursor: PipeCursor = make PipeCursor {
-        node: PIPE_NO_EXIT
-    };
-    return hub_pipe_terminal(mut graph, mut cursor, port, slot, port.face) && pipe_waypoint(
-        mut graph,
-        mut cursor,
-        entry
-    ) && pipe_waypoint(mut graph, mut cursor, fold) && pipe_link(
-        mut graph,
-        cursor.node,
-        junction
+    var node: u32 = hub_lane_point(mut router, entry);
+    var fold: Vec3 = hub_pipe_fold(
+        entry,
+        port.basis.forward,
+        route_nodes_get(read router, target).position,
+        normal
+    );
+    return pipe_route_link(mut router, mouth, node) && pipe_route_via(
+        mut router,
+        node,
+        target,
+        fold
     );
 }
-fn hub_pipe_spindle_route(
+fn hub_lane_graph(
+    asset: read RoomAsset,
+    router: mut PipeRouter,
+    lanes: mut HubLanes,
+    layout: HubPipeLayout
+) -> bool {
+    var face: u32 = 0u32;
+    while face < 6u32 {
+        if face != 2u32 && !hub_wall_lanes(
+            mut router,
+            mut lanes,
+            asset_port(read asset.ports, face),
+            layout
+        ) {
+            return false;
+        }
+        face = face + 1u32;
+    }
+    var corner: u32 = 0u32;
+    while corner < 8u32 {
+        if !hub_corner_lanes(mut router, mut lanes, corner, layout) {
+            return false;
+        }
+        var axis: u32 = 0u32;
+        while axis < 3u32 {
+            if !hub_corner_bridge(read asset, mut router, read lanes, corner, axis, layout) {
+                return false;
+            }
+            axis = axis + 1u32;
+        }
+        corner = corner + 1u32;
+    }
+    face = 6u32;
+    while face < 18u32 {
+        var port: RoomPort = asset_port(read asset.ports, face);
+        var slot: u32 = 0u32;
+        while slot < 4u32 {
+            if hub_pipe_cardinal(port, slot) != 2u32 && !hub_diagonal_lane(
+                read asset,
+                mut router,
+                read lanes,
+                port,
+                slot,
+                layout
+            ) {
+                return false;
+            }
+            slot = slot + 1u32;
+        }
+        face = face + 1u32;
+    }
+    return true;
+}
+fn hub_service_pipes(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
+    var router: PipeRouter = pipe_router_new();
+    var wall: [u32; 8] = make [u32; 8] {
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        0u32
+    };
+    var corner: [u32; 6] = make [u32; 6] {
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        0u32,
+        0u32
+    };
+    var lanes: HubLanes = make HubLanes {
+        walls: make [[u32; 8]; 12] {
+            wall,
+            wall,
+            wall,
+            wall,
+            wall,
+            wall,
+            wall,
+            wall,
+            wall,
+            wall,
+            wall,
+            wall
+        },
+        corners: make [[u32; 6]; 8] {
+            corner,
+            corner,
+            corner,
+            corner,
+            corner,
+            corner,
+            corner,
+            corner
+        }
+    };
+    var graph: PipeGraph = pipe_graph_new();
+    if !hub_lane_graph(read asset, mut router, mut lanes, layout) || !pipe_route_solve(
+        mut router,
+        mut graph,
+        layout.bend,
+        oct_pipe_radius(),
+        layout.seed
+    ) {
+        return false;
+    }
+
+    if !hub_fixed_feeds(read asset.ports, mut router, mut graph, layout) {
+        return false;
+    }
+    if!(
+        hub_pipe_spindle(mut asset, layout) && pipe_graph_mesh(
+            mut asset,
+            read graph,
+            make TubeStyle {
+                radius: oct_pipe_radius(),
+                sides: 12u32,
+                tile_metres: 2f32,
+                region: 6u32
+            },
+            layout.bend
+        )
+    ) {
+        return false;
+    }
+    pipe_route_guides(mut router);
+    pipe_router_swap(mut asset.routes, mut router);
+    return true;
+}
+fn hub_lane_sink(router: mut PipeRouter, point: Vec3) -> u32 {
+    var sink: u32 = pipe_route_point(
+        mut router,
+        point,
+        vec(0f32, 1f32, 0f32),
+        PIPE_NO_EXIT
+    );
+    if sink == PIPE_NO_EXIT {
+        return sink;
+    }
+    var node: RouteNode = route_nodes_get(read router, sink);
+    node.sink = true;
+    route_nodes_set(mut router, sink, node);
+    return sink;
+}
+fn hub_lane_spindle(
+    router: mut PipeRouter,
+    lanes: read HubLanes,
+    corner: u32,
+    layout: HubPipeLayout
+) -> bool {
+    var signs: Vec3 = cube_corner_signs(corner);
+    var radial: Vec3 = unit_vector(vec(signs.x, 0f32, signs.z));
+    var end: Vec3 = add(
+        scale(radial, layout.core - oct_pipe_radius() - 0.1f32),
+        vec(0f32, -layout.extent + layout.stand_off, 0f32)
+    );
+    var from: u32 = hub_lane_corner(read lanes, corner, 1u32, true);
+    var point: Vec3 = route_nodes_get(read router, from).position;
+    var fold: Vec3 = hub_pipe_fold(
+        point,
+        unit_vector(signs),
+        end,
+        vec(0f32, -1f32, 0f32)
+    );
+    var sink: u32 = hub_lane_sink(mut router, end);
+    return pipe_route_via(mut router, from, sink, fold);
+}
+fn hub_lane_feed(
+    router: mut PipeRouter,
     graph: mut PipeGraph,
     port: RoomPort,
     slot: u32,
@@ -191,102 +235,72 @@ fn hub_pipe_spindle_route(
         end,
         vec(0f32, -1f32, 0f32)
     );
-    var cursor: PipeCursor = make PipeCursor {
-        node: PIPE_NO_EXIT
-    };
-    if !hub_pipe_terminal(mut graph, mut cursor, port, slot, port.face) || !pipe_waypoint(
-        mut graph,
-        mut cursor,
-        entry
-    ) || !pipe_waypoint(mut graph, mut cursor, fold) {
+    var mouth: u32 = hub_lane_mouth(mut router, port, slot);
+    var start: u32 = hub_lane_point(mut router, entry);
+    var turn: u32 = hub_lane_point(mut router, fold);
+    var sink: u32 = hub_lane_sink(mut router, end);
+    if !pipe_route_link(mut router, mouth, start) || !pipe_route_link(mut router, start, turn) || !pipe_route_link(
+        mut router,
+        turn,
+        sink
+    ) {
         return false;
     }
-    var sink: u32 = pipe_point(mut graph, end, vec(0f32, 1f32, 0f32), PIPE_NO_EXIT);
-    return sink != PIPE_NO_EXIT && pipe_link(mut graph, cursor.node, sink);
+    var first: u32 = route_indices_count(read router);
+    if route_indices_append(mut router, mouth) == PIPE_NO_EXIT || route_indices_append(
+        mut router,
+        start
+    ) == PIPE_NO_EXIT || route_indices_append(mut router, turn) == PIPE_NO_EXIT || route_indices_append(
+        mut router,
+        sink
+    ) == PIPE_NO_EXIT {
+        return false;
+    }
+    var path: RoutePath = make RoutePath {
+        first: first,
+        count: 4u32,
+        segment_first: 0u32,
+        segment_count: 0u32,
+        source: mouth,
+        target: sink,
+        priority: 0u32,
+        head: PIPE_NO_EXIT,
+        blocked: 0u32,
+        selected: true,
+        low: end,
+        high: end,
+        length: 0f32,
+        sink: true
+    };
+    return route_paths_append(mut router, path) != PIPE_NO_EXIT && route_copy_path(
+        read router,
+        mut graph,
+        path
+    );
 }
-fn hub_pipe_routes(
-    asset: read RoomAsset,
+fn hub_fixed_feeds(
+    ports: read AssetPorts,
+    router: mut PipeRouter,
     graph: mut PipeGraph,
-    layout: HubPipeLayout,
-    corners: read[u32; 8]
+    layout: HubPipeLayout
 ) -> bool {
     var face: u32 = 6u32;
     while face < 18u32 {
-        var port: RoomPort = asset_port(read asset.ports, face);
+        var port: RoomPort = asset_port(read ports, face);
         var slot: u32 = 0u32;
         while slot < 4u32 {
-            var cardinal: u32 = hub_pipe_cardinal(port, slot);
-            if cardinal == PIPE_NO_EXIT {
-                var index: u32 = hub_pipe_corner_index(hub_pipe_corner_signs(port, slot));
-                if !hub_pipe_corner_route(
-                    mut graph,
-                    port,
-                    slot,
-                    corners[index as usize],
-                    layout
-                ) {
-                    return false;
-                }
-            } else if cardinal == 2u32 {
-                if !hub_pipe_spindle_route(mut graph, port, slot, layout) {
-                    return false;
-                }
-            } else {
-                if !hub_pipe_wall_route(
-                    mut graph,
-                    port,
-                    slot,
-                    asset_port(read asset.ports, cardinal),
-                    layout
-                ) {
-                    return false;
-                }
+            if hub_pipe_cardinal(port, slot) == 2u32 && !hub_lane_feed(
+                mut router,
+                mut graph,
+                port,
+                slot,
+                layout
+            ) {
+                return false;
             }
             slot = slot + 1u32;
         }
         face = face + 1u32;
     }
     return true;
-}
-// Pipe-seed selects wall corridors and junction positions. All mouths terminate
-// at another exit, a three-way joint, or an independent spindle attachment.
-fn hub_service_pipes(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
-    var graph: PipeGraph = pipe_graph_new();
-    var corners: [u32; 8] = make [u32; 8] {
-        0u32,
-        0u32,
-        0u32,
-        0u32,
-        0u32,
-        0u32,
-        0u32,
-        0u32
-    };
-    var i: u32 = 0u32;
-    while i < 8u32 {
-        corners[i as usize] = pipe_point(
-            mut graph,
-            hub_pipe_corner_point(i, layout),
-            unit_vector(cube_corner_signs(i)),
-            PIPE_NO_EXIT
-        );
-        if corners[i as usize] == PIPE_NO_EXIT {
-            return false;
-        }
-        i = i + 1u32;
-    }
-    if !hub_pipe_routes(read asset, mut graph, layout, read corners) {
-        return false;
-    }
-    return hub_pipe_spindle(mut asset, layout) && pipe_graph_mesh(
-        mut asset,
-        read graph,
-        make TubeStyle {
-            radius: oct_pipe_radius(),
-            sides: 12u32,
-            tile_metres: 2f32,
-            region: 6u32
-        },
-        layout.bend
-    );
 }

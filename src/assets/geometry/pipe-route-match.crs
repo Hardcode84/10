@@ -1,0 +1,161 @@
+fn route_mouth_matched(router: mut PipeRouter, id: u32, matched: bool) -> unit {
+    var node: RouteNode = route_nodes_get(read router, id);
+    node.matched = matched;
+    route_nodes_set(mut router, id, node);
+}
+fn route_select(router: mut PipeRouter, index: u32, selected: bool) -> unit {
+    var path: RoutePath = route_paths_get(read router, index);
+    path.selected = selected;
+    route_paths_set(mut router, index, path);
+    route_mouth_matched(mut router, path.source, selected);
+    route_mouth_matched(mut router, path.target, selected);
+    var delta: u32 = 1u32;
+    if !selected {
+        delta = 0u32 - 1u32;
+    }
+    var edge: u32 = path.head;
+    while edge != PIPE_NO_EXIT {
+        var arc: RouteArc = route_conflicts_get(read router, edge);
+        var other: RoutePath = route_paths_get(read router, arc.target);
+        other.blocked = other.blocked + delta;
+        route_paths_set(mut router, arc.target, other);
+        edge = arc.next;
+    }
+}
+fn route_mouth_choices(router: read PipeRouter, mouth: u32) -> u32 {
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < route_paths_count(read router) {
+        var path: RoutePath = route_paths_get(read router, i);
+        if path.blocked == 0u32 && (path.source == mouth || path.target == mouth) {
+            count = count + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return count;
+}
+fn route_next_mouth(router: read PipeRouter) -> u32 {
+    var result: u32 = PIPE_NO_EXIT;
+    var least: u32 = PIPE_NO_EXIT;
+    var i: u32 = 0u32;
+    while i < route_nodes_count(read router) {
+        var node: RouteNode = route_nodes_get(read router, i);
+        if node.exit_id != PIPE_NO_EXIT && !node.matched {
+            var count: u32 = route_mouth_choices(read router, i);
+            if count < least {
+                least = count;
+                result = i;
+            }
+        }
+        i = i + 1u32;
+    }
+    return result;
+}
+fn route_precedes(router: read PipeRouter, a: u32, b: u32) -> bool {
+    var x: RoutePath = route_paths_get(read router, a);
+    var y: RoutePath = route_paths_get(read router, b);
+    if x.sink != y.sink {
+        return !x.sink;
+    }
+    if x.priority != y.priority {
+        return x.priority < y.priority;
+    }
+    if x.length != y.length {
+        return x.length < y.length;
+    }
+    return a < b;
+}
+fn route_next_choice(router: read PipeRouter, mouth: u32, previous: u32) -> u32 {
+    var result: u32 = PIPE_NO_EXIT;
+    var i: u32 = 0u32;
+    while i < route_paths_count(read router) {
+        var path: RoutePath = route_paths_get(read router, i);
+        if path.blocked == 0u32 && (path.source == mouth || path.target == mouth) && (
+            previous == PIPE_NO_EXIT || route_precedes(read router, previous, i)
+        ) && (result == PIPE_NO_EXIT || route_precedes(read router, i, result)) {
+            result = i;
+        }
+        i = i + 1u32;
+    }
+    return result;
+}
+fn route_match(router: mut PipeRouter) -> bool {
+    if !route_parity_possible(mut router) {
+        return false;
+    }
+    var mouth: u32 = route_next_mouth(read router);
+    if mouth == PIPE_NO_EXIT {
+        return true;
+    }
+    var choice: u32 = route_next_choice(read router, mouth, PIPE_NO_EXIT);
+    while choice != PIPE_NO_EXIT {
+        route_select(mut router, choice, true);
+        if route_match(mut router) {
+            return true;
+        }
+        route_select(mut router, choice, false);
+        choice = route_next_choice(read router, mouth, choice);
+    }
+    return false;
+}
+fn route_component(router: read PipeRouter, node: u32) -> u32 {
+    var current: u32 = node;
+    while route_walk_get(read router, current * 2u32) != current {
+        current = route_walk_get(read router, current * 2u32);
+    }
+    return current;
+}
+fn route_parity_possible(router: mut PipeRouter) -> bool {
+    var i: u32 = 0u32;
+    while i < route_nodes_count(read router) {
+        route_walk_set(mut router, i * 2u32, i);
+        route_walk_set(mut router, i * 2u32 + 1u32, 0u32);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < route_paths_count(read router) {
+        var path: RoutePath = route_paths_get(read router, i);
+        if path.blocked == 0u32 && !path.selected {
+            var source: u32 = route_component(read router, path.source);
+            var target: u32 = route_component(read router, path.target);
+            route_walk_set(mut router, target * 2u32, source);
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < route_nodes_count(read router) {
+        var node: RouteNode = route_nodes_get(read router, i);
+        if !node.matched && (node.exit_id != PIPE_NO_EXIT || node.sink) {
+            var root: u32 = route_component(read router, i) * 2u32 + 1u32;
+            var flags: u32 = route_walk_get(read router, root);
+            if node.sink {
+                flags = flags | 2u32;
+            } else {
+                flags = flags ^ 1u32;
+            }
+            route_walk_set(mut router, root, flags);
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < route_nodes_count(read router) {
+        if route_walk_get(read router, i * 2u32 + 1u32) == 1u32 {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn route_match_prepare(router: mut PipeRouter) -> bool {
+    var i: u32 = 0u32;
+    while i < route_nodes_count(read router) {
+        if route_walk_append(mut router, 0u32) == PIPE_NO_EXIT || route_walk_append(
+            mut router,
+            0u32
+        ) == PIPE_NO_EXIT {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

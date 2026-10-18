@@ -1,0 +1,98 @@
+fn asset_waypoint_beam(mesh: mut Mesh, a: Vec3, b: Vec3, radius: f32, material: u32) -> bool {
+    var tangent: Vec3 = unit_vector(sub(b, a));
+    var axis: Vec3 = vec(0f32, 1f32, 0f32);
+    if absf(tangent.y) > 0.8f32 {
+        axis = vec(1f32, 0f32, 0f32);
+    }
+    var sweep: TubeSweep = tube_sweep_begin(
+        a,
+        tangent,
+        unit_vector(cross(tangent, axis)),
+        make TubeStyle {
+            radius: radius,
+            sides: 6u32,
+            tile_metres: 1f32,
+            region: material
+        }
+    );
+    return tube_sweep_finish(mut mesh, mut sweep, b);
+}
+fn asset_waypoint_cross(mesh: mut Mesh, point: Vec3, material: u32) -> bool {
+    return asset_waypoint_beam(
+        mut mesh,
+        sub(point, vec(0.12f32, 0f32, 0f32)),
+        add(point, vec(0.12f32, 0f32, 0f32)),
+        0.04f32,
+        material
+    ) && asset_waypoint_beam(
+        mut mesh,
+        sub(point, vec(0f32, 0.12f32, 0f32)),
+        add(point, vec(0f32, 0.12f32, 0f32)),
+        0.04f32,
+        material
+    ) && asset_waypoint_beam(
+        mut mesh,
+        sub(point, vec(0f32, 0f32, 0.12f32)),
+        add(point, vec(0f32, 0f32, 0.12f32)),
+        0.04f32,
+        material
+    );
+}
+fn asset_waypoints_build(asset: read RoomAsset, mesh: mut Mesh) -> bool {
+    var i: u32 = 0u32;
+    while i < route_nodes_count(read asset.routes) {
+        var node: RouteNode = route_nodes_get(read asset.routes, i);
+        var selected: bool = false;
+        var edge: u32 = node.head;
+        while edge != PIPE_NO_EXIT {
+            var arc: RouteArc = route_arcs_get(read asset.routes, edge);
+            selected = selected || arc.used;
+            if i < arc.target {
+                var material: u32 = room_material_count() + 1u32 + arc.used as u32;
+                if !asset_waypoint_beam(
+                    mut mesh,
+                    node.position,
+                    route_nodes_get(read asset.routes, arc.target).position,
+                    0.025f32,
+                    material
+                ) {
+                    return false;
+                }
+            }
+            edge = arc.next;
+        }
+        if !asset_waypoint_cross(
+            mut mesh,
+            node.position,
+            room_material_count() + 1u32 + selected as u32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn asset_waypoint_material(input: mut FrameInput, index: u32, offset: u32, colour: u32) -> bool {
+    var material: Material = make Material {
+        texture: offset,
+        width: 1u32,
+        height: 1u32,
+        stride: 1u32,
+        palette: offset + 1u32,
+        style: 0u32,
+        unlit: 1u32,
+        address_u: ADDRESS_CLAMP,
+        address_v: ADDRESS_CLAMP,
+        transparent_index: 0u32
+    };
+    if !input_material(mut input, index, material) {
+        return false;
+    }
+    input_texel(mut input, offset, 1u32);
+    var i: u32 = 0u32;
+    while i < PALETTE_COLORS * LIGHT_STATES {
+        input_asset_set(mut input, offset + 1u32 + i, colour);
+        i = i + 1u32;
+    }
+    return true;
+}

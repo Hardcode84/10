@@ -2,6 +2,7 @@ record AssetViewOptions {
     frames: u32;
     view: u32;
     open_portals: bool;
+    waypoints: bool;
 }
 extern fn strtof(text: *u8, end: **u8) -> f32 = "strtof";
 fn asset_parse_parameter(values: mut AssetValues, name: *u8, text: *u8) -> bool {
@@ -26,6 +27,9 @@ fn asset_view_option(
     key: *u8,
     value: *u8
 ) -> bool {
+    if strcmp(key, "--waypoints") == 0i32 {
+        return asset_view_flag(value, &options -> waypoints);
+    }
     if strcmp(key, "--portals") == 0i32 {
         if strcmp(value, "open") == 0i32 || strcmp(value, "closed") == 0i32 {
             options -> open_portals = strcmp(value, "open") == 0i32;
@@ -98,11 +102,14 @@ fn asset_view_options(
 }
 fn asset_view_help() -> unit {
     puts("crust viewer.crs ROOM.crs [--set NAME VALUE] [--view inside|outside|start|fly]");
-    puts("  --width N --height N --frames N --capture FILE --portals open|closed");
+    puts(
+        "  --width N --height N --frames N --capture FILE --portals open|closed --waypoints on|off"
+    );
     puts("Tab: view; arrows: look/orbit; W/S: zoom; Space: auto rotate; Esc: close");
     puts("Left/right drag: look/orbit; mouse wheel: exterior zoom; spawn view stays fixed");
     puts("F: free flight from current view; WASD: move; Q/E: down/up; Shift: faster; drag: look");
     puts("[/]: select parameter; -/+: change; R: reset selected parameter");
+    puts("G: waypoint view; cyan: candidate lanes; yellow: selected routes; solid props hidden");
     puts("Recipe parameters:");
     var i: u32 = 0u32;
     while i < room_parameter_count() {
@@ -131,5 +138,13 @@ fn viewer_number(text: *u8, value: *u32) -> bool {
         return error("empty viewer option");
     }
     * value = result;
+    return true;
+}
+
+fn asset_view_flag(text: *u8, value: *bool) -> bool {
+    if strcmp(text, "on") != 0i32 && strcmp(text, "off") != 0i32 {
+        return error("viewer flag must be on or off");
+    }
+    * value = strcmp(text, "on") == 0i32;
     return true;
 }

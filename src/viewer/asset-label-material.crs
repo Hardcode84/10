@@ -1,7 +1,11 @@
 fn asset_view_materials(input: mut FrameInput, values: read AssetValues) -> bool {
-    var count: u32 = room_material_count() + 1u32;
+    var count: u32 = room_material_count() + 3u32;
     var room_words: u32 = room_material_payload(read values);
-    if !input_assets(mut input, count, room_words + 8192u32 + PALETTE_COLORS * LIGHT_STATES) {
+    if !input_assets(
+        mut input,
+        count,
+        room_words + 8194u32 + 3u32 * PALETTE_COLORS * LIGHT_STATES
+    ) {
         return false;
     }
     var offset: u32 = count * MATERIAL_WORDS;
@@ -36,5 +40,16 @@ fn asset_view_materials(input: mut FrameInput, values: read AssetValues) -> bool
         input_asset_set(mut input, material.palette + i, 0xffb8f4ffu32);
         i = i + 1u32;
     }
-    return true;
+    offset = material.palette + PALETTE_COLORS * LIGHT_STATES;
+    return asset_waypoint_material(
+        mut input,
+        room_material_count() + 1u32,
+        offset,
+        0xffc89035u32
+    ) && asset_waypoint_material(
+        mut input,
+        room_material_count() + 2u32,
+        offset + 1u32 + PALETTE_COLORS * LIGHT_STATES,
+        0xff35ddffu32
+    );
 }

@@ -1,0 +1,235 @@
+fn hub_pipe_entry(port: RoomPort, pipe: u32, layout: HubPipeLayout) -> Vec3 {
+    return sub(
+        hub_pipe_mouth(port, pipe),
+        scale(port.basis.forward, layout.stand_off)
+    );
+}
+record HubLanes {
+    walls: [[u32; 8]; 12];
+    corners: [[u32; 6]; 8];
+}
+fn hub_lane_point(router: mut PipeRouter, p: Vec3) -> u32 {
+    return pipe_route_point(mut router, p, vec(0f32, 1f32, 0f32), PIPE_NO_EXIT);
+}
+fn hub_lane_mouth(router: mut PipeRouter, port: RoomPort, slot: u32) -> u32 {
+    return pipe_route_point(
+        mut router,
+        hub_pipe_mouth(port, slot),
+        hub_pipe_radial(port, slot),
+        port.face
+    );
+}
+fn hub_lane_wall(lanes: read HubLanes, face: u32, ring: u32, slot: u32) -> u32 {
+    return lanes.walls[(face * 2u32 + ring) as usize][(slot % 8u32) as usize];
+}
+fn hub_lane_corner(lanes: read HubLanes, corner: u32, axis: u32, wall: bool) -> u32 {
+    return lanes.corners[corner as usize][(axis * 2u32 + wall as u32) as usize];
+}
+fn hub_wall_lanes(
+    router: mut PipeRouter,
+    lanes: mut HubLanes,
+    port: RoomPort,
+    layout: HubPipeLayout
+) -> bool {
+    var origin: Vec3 = sub(
+        port.position,
+        scale(port.basis.forward, layout.stand_off)
+    );
+    var ring: u32 = 0u32;
+    while ring < 2u32 {
+        var radius: f32 = oct_pipe_distance() + 3f32 * layout.bend + 0.25f32;
+        if ring == 1u32 {
+            radius = layout.half_width - 2.5f32 * layout.bend - 0.2f32;
+        }
+        var slot: u32 = 0u32;
+        while slot < 8u32 {
+            var direction: Vec3 = hub_pipe_radial(port, slot / 2u32);
+            if slot % 2u32 != 0u32 {
+                direction = scale(
+                    add(direction, hub_pipe_radial(port, (slot / 2u32 + 1u32) % 4u32)),
+                    0.70710678119f32
+                );
+            }
+            var point: Vec3 = add(origin, scale(direction, radius));
+            var id: u32 = hub_lane_point(mut router, point);
+            if id == PIPE_NO_EXIT {
+                return false;
+            }
+            lanes.walls[(port.face * 2u32 + ring) as usize][slot as usize] = id;
+            slot = slot + 1u32;
+            if ring == 0u32 {
+                slot = slot + 1u32;
+            }
+        }
+        slot = 0u32;
+        while slot < 8u32 {
+            if ring == 1u32 && !pipe_route_link(
+                mut router,
+                hub_lane_wall(read lanes, port.face, ring, slot),
+                hub_lane_wall(read lanes, port.face, ring, slot + 1u32)
+            ) {
+                return false;
+            }
+            slot = slot + 1u32;
+        }
+        ring = ring + 1u32;
+    }
+    return hub_wall_spokes(mut router, read lanes, port, layout);
+}
+fn hub_wall_spokes(
+    router: mut PipeRouter,
+    lanes: read HubLanes,
+    port: RoomPort,
+    layout: HubPipeLayout
+) -> bool {
+    var slot: u32 = 0u32;
+    while slot < 8u32 {
+        var from: u32 = hub_lane_wall(read lanes, port.face, 0u32, slot);
+        if !pipe_route_link(
+            mut router,
+            from,
+            hub_lane_wall(read lanes, port.face, 1u32, slot)
+        ) || !pipe_route_link(
+            mut router,
+            from,
+            hub_lane_wall(read lanes, port.face, 1u32, slot + 1u32)
+        ) || !pipe_route_link(
+            mut router,
+            from,
+            hub_lane_wall(read lanes, port.face, 1u32, slot + 7u32)
+        ) {
+            return false;
+        }
+        if !pipe_route_link(
+            mut router,
+            hub_lane_wall(read lanes, port.face, 1u32, slot),
+            hub_lane_wall(read lanes, port.face, 1u32, slot + 2u32)
+        ) {
+            return false;
+        }
+        var mouth: u32 = hub_lane_mouth(mut router, port, slot / 2u32);
+        if !pipe_route_via(
+            mut router,
+            mouth,
+            from,
+            hub_pipe_entry(port, slot / 2u32, layout)
+        ) {
+            return false;
+        }
+        slot = slot + 2u32;
+    }
+    return true;
+}
+
+fn hub_corner_axis(signs: Vec3, axis: u32) -> Vec3 {
+    if axis == 0u32 {
+        return vec(signs.x, 0f32, 0f32);
+    }
+    if axis == 1u32 {
+        return vec(0f32, signs.y, 0f32);
+    }
+    return vec(0f32, 0f32, signs.z);
+}
+fn hub_corner_lanes(
+    router: mut PipeRouter,
+    lanes: mut HubLanes,
+    corner: u32,
+    layout: HubPipeLayout
+) -> bool {
+    var signs: Vec3 = cube_corner_signs(corner);
+    var normal: Vec3 = unit_vector(signs);
+    var centre: Vec3 = hub_pipe_corner_centre(signs, layout);
+    var radius: f32 = (layout.extent - layout.half_width + layout.corner_shift) / 2.44948974278f32 * 0.62f32;
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        var outward: Vec3 = hub_corner_axis(signs, axis);
+        var direction: Vec3 = unit_vector(
+            sub(outward, scale(normal, dot(normal, outward)))
+        );
+        var i: u32 = 0u32;
+        while i < 2u32 {
+            var id: u32 = hub_lane_point(
+                mut router,
+                add(centre, scale(direction, (i as f32 * 2f32 - 1f32) * radius))
+            );
+            if id == PIPE_NO_EXIT {
+                return false;
+            }
+            lanes.corners[corner as usize][(axis * 2u32 + i) as usize] = id;
+            i = i + 1u32;
+        }
+        axis = axis + 1u32;
+    }
+    axis = 0u32;
+    while axis < 3u32 {
+        var mouth: u32 = hub_lane_corner(read lanes, corner, axis, false);
+        if !pipe_route_link(
+            mut router,
+            mouth,
+            hub_lane_corner(read lanes, corner, (axis + 1u32) % 3u32, false)
+        ) || !pipe_route_link(
+            mut router,
+            mouth,
+            hub_lane_corner(read lanes, corner, axis, true)
+        ) {
+            return false;
+        }
+        var from: u32 = hub_lane_corner(read lanes, corner, axis, true);
+        if !pipe_route_link(
+            mut router,
+            from,
+            hub_lane_corner(read lanes, corner, (axis + 1u32) % 3u32, false)
+        ) || !pipe_route_link(
+            mut router,
+            from,
+            hub_lane_corner(read lanes, corner, (axis + 2u32) % 3u32, false)
+        ) {
+            return false;
+        }
+        axis = axis + 1u32;
+    }
+    return true;
+}
+fn hub_corner_bridge(
+    asset: read RoomAsset,
+    router: mut PipeRouter,
+    lanes: read HubLanes,
+    corner: u32,
+    axis: u32,
+    layout: HubPipeLayout
+) -> bool {
+    var signs: Vec3 = cube_corner_signs(corner);
+    var outward: Vec3 = hub_corner_axis(signs, axis);
+    var face: u32 = axis * 2u32 + (outward.x + outward.y + outward.z > 0f32) as u32;
+    if face == 2u32 {
+        if layout.core - oct_pipe_radius() - 0.1f32 <= (oct_pipe_radius() + 0.02f32) / sinf(
+            0.39269908169f32
+        ) {
+            return true;
+        }
+        return hub_lane_spindle(mut router, read lanes, corner, layout);
+    }
+    var port: RoomPort = asset_port(read asset.ports, face);
+    var angle: f32 = atan2f(
+        dot(signs, port.basis.up),
+        dot(signs, port.basis.right)
+    );
+    if angle < 0f32 {
+        angle = angle + 6.28318530718f32;
+    }
+    var slot: u32 = (angle / 0.78539816339f32 + 0.5f32) as u32 % 8u32;
+    var from: u32 = hub_lane_corner(read lanes, corner, axis, true);
+    var to: u32 = hub_lane_wall(read lanes, face, 1u32, slot);
+    var fold: Vec3 = hub_pipe_fold(
+        route_nodes_get(read router, from).position,
+        unit_vector(signs),
+        route_nodes_get(read router, to).position,
+        port.basis.forward
+    );
+    return pipe_route_via(mut router, from, to, fold);
+}
+fn hub_corner_index(signs: Vec3) -> u32 {
+    return (signs.x > 0f32) as u32 | ((signs.y > 0f32) as u32 << 1u32) | (
+        (signs.z > 0f32) as u32 << 2u32
+    );
+}

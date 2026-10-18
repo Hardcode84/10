@@ -51,6 +51,7 @@ its inputs through a root Crust entry point.
 | Ring loft | Aligned rings along +Y; increasing heights; outward polygon winding |
 | Hex junction | Join active cardinal HEX-6M ports with a convex three-ring shell; collar separates adjacent openings; omitted branches become continuous walls |
 | Bent tube | Closed quarter-turn tube with straight ends and continuous axial and perimeter UV coordinates |
+| Pipe route planner | Select random destinations, take the shortest clear lane path for each destination, reserve rounded bend clearance, and use optional sinks after exit routes fail; retain the lane graph for inspection |
 | Pipe waypoint graph | Join distinct exits through wall corridors and three-way joints; reject cycles and repeated exits across a connected network; emit closed pipes with rounded bends |
 | Solid cylinder | Closed solid along +Y, with axial and continuous perimeter UV coordinates |
 | Caps | Close both end profiles with convex polygons |
@@ -169,6 +170,7 @@ Parameter edits rebuild the asset without recompiling source.
 | `[` / `]` | Select a parameter; print its name |
 | `-` / `+` or `=` | Change the selected parameter by one step |
 | R | Restore the selected parameter's default |
+| G | Toggle the waypoint graph; cyan shows candidate lanes, yellow shows selected routes; hide solid props in this view |
 | Esc | Close the viewer |
 
 The spawn view uses the recipe's exact frame. Interior and exterior views use
@@ -177,6 +179,10 @@ Use `--view fly` to start free flight at the recipe's spawn frame. Mouse drag
 turns the free-flight camera about its local axes. It can look past vertical.
 Movement uses elapsed time and passes through geometry. Rebuilding the asset
 keeps the camera position. Space and arrow keys do not change the flight camera.
+
+Use `--waypoints on` to start in waypoint view or to capture the graph.
+Recipes can retain their lane graphs for this view. Search buffers are released
+after route selection. Recipes without a graph keep their normal view.
 
 The viewer draws each port's local ID and compatibility name on its closure,
 with an outline of the actual hull polygon. Labels are readable from either

@@ -93,7 +93,9 @@ fn tube_sweep_arc(
     sweep: mut TubeSweep,
     axis: Vec3,
     radius: f32,
-    angle: f32
+    angle: f32,
+    end: Vec3,
+    outgoing: Vec3
 ) -> bool {
     var start: TubeRing = sweep.last;
     var inward: Vec3 = cross(axis, start.tangent);
@@ -108,6 +110,10 @@ fn tube_sweep_arc(
             tangent: tube_sweep_rotate(start.tangent, axis, turn),
             radial: tube_sweep_rotate(start.radial, axis, turn)
         };
+        if i == steps {
+            ring.centre = end;
+            ring.tangent = outgoing;
+        }
         if !tube_sweep_ring(mut mesh, mut sweep, ring, distance + radius * turn) {
             return false;
         }
@@ -139,12 +145,22 @@ fn tube_sweep_corner(
         return error("pipe fillet consumes a straight leg");
     }
     var start: Vec3 = sub(corner, scale(sweep.last.tangent, trim));
+    var end: Vec3 = add(corner, scale(outgoing, trim));
+    if length(sub(end, start)) == 0f32 {
+        var ring: TubeRing = sweep.last;
+        ring.centre = corner;
+        ring.tangent = outgoing;
+        var distance: f32 = sweep.distance + length(sub(corner, sweep.last.centre));
+        return tube_sweep_ring(mut mesh, mut sweep, ring, distance);
+    }
     return tube_sweep_straight(mut mesh, mut sweep, start) && tube_sweep_arc(
         mut mesh,
         mut sweep,
         scale(normal, 1f32 / sine),
         radius,
-        atan2f(sine, cosine)
+        atan2f(sine, cosine),
+        end,
+        outgoing
     );
 }
 // Ends the final straight leg and closes both ends of the pipe.

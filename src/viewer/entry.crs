@@ -16,7 +16,8 @@ fn main(argc: i32, argv: **u8) -> i32 {
     var options: AssetViewOptions = make AssetViewOptions {
         frames: 0u32,
         view: 0u32,
-        open_portals: false
+        open_portals: false,
+        waypoints: false
     };
     if !asset_view_options(argc, argv, &launch, &options, mut values) {
         return 2i32;

@@ -1,0 +1,231 @@
+fn asset_route_fixture(router: mut PipeRouter, detour: bool, repeated: bool) -> bool {
+    var radial: Vec3 = vec(0f32, 0f32, 1f32);
+    var a: u32 = pipe_route_point(mut router, vec(-3f32, 0f32, 0f32), radial, 100u32);
+    var exit_id: u32 = 200u32;
+    if repeated {
+        exit_id = 100u32;
+    }
+    var b: u32 = pipe_route_point(mut router, vec(3f32, 0f32, 0f32), radial, exit_id);
+    var c: u32 = pipe_route_point(mut router, vec(0f32, -6f32, 0f32), radial, 300u32);
+    var d: u32 = pipe_route_point(mut router, vec(0f32, 6f32, 0f32), radial, 400u32);
+    var low: u32 = pipe_route_point(
+        mut router,
+        vec(0f32, -4f32, 0f32),
+        radial,
+        PIPE_NO_EXIT
+    );
+    var high: u32 = pipe_route_point(
+        mut router,
+        vec(0f32, 4f32, 0f32),
+        radial,
+        PIPE_NO_EXIT
+    );
+    if !pipe_route_link(mut router, a, b) || !pipe_route_link(mut router, c, low) || !pipe_route_link(
+        mut router,
+        d,
+        high
+    ) || !pipe_route_link(mut router, low, high) {
+        return false;
+    }
+    if detour {
+        var x: u32 = pipe_route_point(
+            mut router,
+            vec(5f32, -4f32, 0f32),
+            radial,
+            PIPE_NO_EXIT
+        );
+        var y: u32 = pipe_route_point(
+            mut router,
+            vec(5f32, 4f32, 0f32),
+            radial,
+            PIPE_NO_EXIT
+        );
+        return pipe_route_link(mut router, low, x) && pipe_route_link(mut router, x, y) && pipe_route_link(
+            mut router,
+            y,
+            high
+        );
+    }
+    return true;
+}
+fn asset_route_rejection(detour: bool, repeated: bool) -> bool {
+    var router: PipeRouter = pipe_router_new();
+    var graph: PipeGraph = pipe_graph_new();
+    if !asset_route_fixture(mut router, detour, repeated) {
+        return false;
+    }
+    return !pipe_route_solve(mut router, mut graph, 0.5f32, 0.2f32, 7u32) && pipe_node_count(
+        read graph
+    ) == 0u32 || error("pipe router emitted crossing pipes or joined the same exit");
+}
+fn asset_route_detour(seed: u32) -> bool {
+    var router: PipeRouter = pipe_router_new();
+    var graph: PipeGraph = pipe_graph_new();
+    if !asset_route_fixture(mut router, true, false) || !pipe_route_solve(
+        mut router,
+        mut graph,
+        0.5f32,
+        0.2f32,
+        seed
+    ) {
+        return false;
+    }
+    var mouths: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < pipe_node_count(read graph) {
+        var node: PipeNode = pipe_node(read graph, i);
+        if node.degree == 0u32 || node.degree > 2u32 {
+            return error("pipe router emitted a branch or unused point");
+        }
+        if node.exit_id != PIPE_NO_EXIT {
+            mouths = mouths + 1u32;
+        }
+        i = i + 1u32;
+    }
+    if mouths != 4u32 {
+        return error("pipe router dropped a mouth");
+    }
+    var asset: RoomAsset = room_asset_new();
+    if !pipe_graph_mesh(
+        mut asset,
+        read graph,
+        make TubeStyle {
+            radius: 0.2f32,
+            sides: 12u32,
+            tile_metres: 2f32,
+            region: 0u32
+        },
+        0.5f32
+    ) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    if !room_parts_collision(read asset, mut builder, 0u32) {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    return !collision_position_valid(read scene, 0u32, vec(5f32, 0f32, 0f32), 0.05f32) && collision_position_valid(
+        read scene,
+        0u32,
+        vec(0f32, 2f32, 0f32),
+        0.05f32
+    ) || error("pipe router failed to take the clear detour");
+}
+fn asset_test_pipe_router() -> bool {
+    return asset_route_sink() && asset_route_random_destinations() && asset_route_rejection(
+        false,
+        false
+    ) && asset_route_rejection(true, true) && asset_route_detour(1u32) && asset_route_detour(
+        81u32
+    );
+}
+fn asset_route_sink() -> bool {
+    var router: PipeRouter = pipe_router_new();
+    var graph: PipeGraph = pipe_graph_new();
+    var radial: Vec3 = vec(0f32, 0f32, 1f32);
+    var mouth: u32 = pipe_route_point(mut router, vec(-2f32, 0f32, 0f32), radial, 9u32);
+    var sink: u32 = pipe_route_point(
+        mut router,
+        vec(2f32, 0f32, 0f32),
+        radial,
+        PIPE_NO_EXIT
+    );
+    if sink == PIPE_NO_EXIT {
+        return false;
+    }
+    var node: RouteNode = route_nodes_get(read router, sink);
+    node.sink = true;
+    route_nodes_set(mut router, sink, node);
+    if !pipe_route_link(mut router, mouth, sink) || !pipe_route_solve(
+        mut router,
+        mut graph,
+        0.5f32,
+        0.2f32,
+        3u32
+    ) {
+        return false;
+    }
+    pipe_route_guides(mut router);
+    var edge: u32 = route_nodes_get(read router, mouth).head;
+    return pipe_node_count(read graph) == 2u32 && route_paths_count(read router) == 0u32 && route_arcs_get(
+        read router,
+        edge
+    ).used || error("pipe sink or retained waypoint route failed");
+}
+fn asset_route_random_pair(seed: u32) -> u32 {
+    var router: PipeRouter = pipe_router_new();
+    var graph: PipeGraph = pipe_graph_new();
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        var x: f32 = -4f32;
+        var y: f32 = -3f32;
+        if i == 1u32 || i == 2u32 {
+            x = 4f32;
+        }
+        if i >= 2u32 {
+            y = 3f32;
+        }
+        var mouth: u32 = pipe_route_point(
+            mut router,
+            vec(x, y, 1f32),
+            vec(1f32, 0f32, 0f32),
+            i
+        );
+        var entry: u32 = pipe_route_point(
+            mut router,
+            vec(x, y, 0f32),
+            vec(1f32, 0f32, 0f32),
+            PIPE_NO_EXIT
+        );
+        if !pipe_route_link(mut router, mouth, entry) {
+            return PIPE_NO_EXIT;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 4u32 {
+        var j: u32 = i + 1u32;
+        while j < 4u32 {
+            if !pipe_route_link(mut router, i * 2u32 + 1u32, j * 2u32 + 1u32) {
+                return PIPE_NO_EXIT;
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    if !pipe_route_solve(mut router, mut graph, 0.25f32, 0.1f32, seed) {
+        return PIPE_NO_EXIT;
+    }
+    i = 0u32;
+    while i < pipe_node_count(read graph) {
+        var node: PipeNode = pipe_node(read graph, i);
+        if node.exit_id == 0u32 {
+            return pipe_node(
+                read graph,
+                pipe_chain_end(read graph, i, node.links[0usize])
+            ).exit_id;
+        }
+        i = i + 1u32;
+    }
+    return PIPE_NO_EXIT;
+}
+fn asset_route_random_destinations() -> bool {
+    var short_pair: bool = false;
+    var long_pair: bool = false;
+    var seed: u32 = 0u32;
+    while seed < 12u32 {
+        var paired: u32 = asset_route_random_pair(seed);
+        if paired == PIPE_NO_EXIT {
+            return false;
+        }
+        short_pair = short_pair || paired == 3u32;
+        long_pair = long_pair || paired == 1u32;
+        seed = seed + 1u32;
+    }
+    return short_pair && long_pair || error(
+        "pipe destinations were restricted to the nearest exit"
+    );
+}

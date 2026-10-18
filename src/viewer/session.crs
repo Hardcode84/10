@@ -10,6 +10,7 @@ record AssetSession {
     renderer: Renderer;
     launch: ViewerLaunch;
     labels: MeshRange;
+    guides: MeshRange;
 }
 opaque;
 fn asset_session(launch: *ViewerLaunch) -> AssetSession {
@@ -19,7 +20,8 @@ fn asset_session(launch: *ViewerLaunch) -> AssetSession {
         },
         renderer: renderer_new(),
         launch: *launch,
-        labels: mesh_empty_range()
+        labels: mesh_empty_range(),
+        guides: mesh_empty_range()
     };
 }
 fn asset_renderer(session: mut AssetSession) -> mut Renderer from session {
@@ -80,4 +82,11 @@ fn asset_label_range(session: read AssetSession) -> MeshRange {
 }
 fn asset_label_range_set(session: mut AssetSession, range: MeshRange) -> unit {
     session.labels = range;
+}
+
+fn asset_guide_range(session: read AssetSession) -> MeshRange {
+    return session.guides;
+}
+fn asset_guide_range_set(session: mut AssetSession, range: MeshRange) -> unit {
+    session.guides = range;
 }

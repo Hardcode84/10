@@ -8,11 +8,16 @@ record HubPipeLayout {
     seed: u32;
 }
 fn hub_pipe_radial(port: RoomPort, pipe: u32) -> Vec3 {
-    var angle: f32 = pipe as f32 * 1.57079632679f32;
-    return add(
-        scale(port.basis.right, cosf(angle)),
-        scale(port.basis.up, sinf(angle))
-    );
+    if pipe == 0u32 {
+        return port.basis.right;
+    }
+    if pipe == 1u32 {
+        return port.basis.up;
+    }
+    if pipe == 2u32 {
+        return scale(port.basis.right, -1f32);
+    }
+    return scale(port.basis.up, -1f32);
 }
 fn hub_pipe_mouth(port: RoomPort, pipe: u32) -> Vec3 {
     return add(
@@ -59,7 +64,7 @@ fn hub_pipe_intersection(a: Vec3, da: f32, b: Vec3, db: f32, c: Vec3, dc: f32) -
 }
 fn hub_pipe_fold(a: Vec3, na: Vec3, b: Vec3, nb: Vec3) -> Vec3 {
     var plane: Vec3 = unit_vector(cross(sub(b, a), add(na, nb)));
-    return hub_pipe_intersection(
+    var point: Vec3 = hub_pipe_intersection(
         na,
         dot(na, a),
         nb,
@@ -67,6 +72,21 @@ fn hub_pipe_fold(a: Vec3, na: Vec3, b: Vec3, nb: Vec3) -> Vec3 {
         plane,
         dot(plane, a)
     );
+    point = hub_pipe_axis_plane(point, a, na);
+    return hub_pipe_axis_plane(point, b, nb);
+}
+fn hub_pipe_axis_plane(point: Vec3, origin: Vec3, normal: Vec3) -> Vec3 {
+    var result: Vec3 = point;
+    if absf(normal.x) == 1f32 {
+        result.x = origin.x;
+    }
+    if absf(normal.y) == 1f32 {
+        result.y = origin.y;
+    }
+    if absf(normal.z) == 1f32 {
+        result.z = origin.z;
+    }
+    return result;
 }
 
 fn hub_pipe_corner_signs(port: RoomPort, pipe: u32) -> Vec3 {

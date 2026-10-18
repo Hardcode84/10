@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 114] = make [*u8; 114] {
+    var files: [*u8; 118] = make [*u8; 118] {
         "src/assets/geometry/loft.crs",
         "src/assets/geometry/truncated-cube.crs",
         "src/assets/geometry/rhombicuboctahedron.crs",
@@ -9,6 +9,10 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/tube-sweep.crs",
         "src/assets/geometry/rotor-hub-pipes.crs",
         "src/assets/geometry/rotor-hub-routing.crs",
+        "src/assets/geometry/rotor-hub-lanes.crs",
+        "src/assets/geometry/pipe-router.crs",
+        "src/assets/geometry/pipe-route-clearance.crs",
+        "src/assets/geometry/pipe-route-match.crs",
         "src/assets/geometry/pipe-graph.crs",
         "src/assets/geometry/pipe-graph-mesh.crs",
         "src/assets/geometry/oct-service.crs",
@@ -116,14 +120,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 114usize {
+    while i < 118usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 38] = make [*u8; 38] {
+    var files: [*u8; 39] = make [*u8; 39] {
         "src/game/effects/storage.crs",
         "src/runtime/task/pool.crs",
         "src/runtime/platform/native-pool.crs",
@@ -131,6 +135,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/storage.crs",
         "src/assets/parts/storage.crs",
         "src/assets/geometry/pipe-graph-storage.crs",
+        "src/assets/geometry/pipe-router-storage.crs",
         "src/assets/parameter-storage.crs",
         "src/assets/connections/storage.crs",
         "src/app/window.crs",
@@ -164,7 +169,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/runtime/trace/frame.crs"
     };
     var i: usize = 0usize;
-    while i < 38usize {
+    while i < 39usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

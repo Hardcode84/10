@@ -1,0 +1,241 @@
+// Candidate wall lanes. Exit mouths have one incident edge. Interior lanes
+// must leave room for circular fillets and keep each route clear of itself.
+fn pipe_route_point(router: mut PipeRouter, position: Vec3, radial: Vec3, exit_id: u32) -> u32 {
+    return route_nodes_append(
+        mut router,
+        make RouteNode {
+            position: position,
+            radial: radial,
+            exit_id: exit_id,
+            head: PIPE_NO_EXIT,
+            owner: PIPE_NO_EXIT,
+            visited: false,
+            matched: false,
+            sink: false
+        }
+    );
+}
+fn pipe_route_arc(router: mut PipeRouter, a: u32, b: u32) -> bool {
+    var node: RouteNode = route_nodes_get(read router, a);
+    var edge: u32 = route_arcs_append(
+        mut router,
+        make RouteArc {
+            target: b,
+            next: node.head,
+            used: false
+        }
+    );
+    if edge == PIPE_NO_EXIT {
+        return false;
+    }
+    node.head = edge;
+    route_nodes_set(mut router, a, node);
+    return true;
+}
+fn pipe_route_link(router: mut PipeRouter, a: u32, b: u32) -> bool {
+    if a == PIPE_NO_EXIT || b == PIPE_NO_EXIT {
+        return false;
+    }
+    return pipe_route_arc(mut router, a, b) && pipe_route_arc(mut router, b, a);
+}
+fn pipe_route_via(router: mut PipeRouter, a: u32, b: u32, position: Vec3) -> bool {
+    var middle: u32 = pipe_route_point(
+        mut router,
+        position,
+        vec(0f32, 1f32, 0f32),
+        PIPE_NO_EXIT
+    );
+    return pipe_route_link(mut router, a, middle) && pipe_route_link(mut router, middle, b);
+}
+fn route_mark_mouth(router: mut PipeRouter, mouth: u32) -> unit {
+    var previous: u32 = PIPE_NO_EXIT;
+    var current: u32 = mouth;
+    while true {
+        var node: RouteNode = route_nodes_get(read router, current);
+        if current != mouth && (node.exit_id != PIPE_NO_EXIT || node.sink) {
+            return;
+        }
+        node.owner = mouth;
+        route_nodes_set(mut router, current, node);
+        var next: u32 = PIPE_NO_EXIT;
+        var degree: u32 = 0u32;
+        var edge: u32 = node.head;
+        while edge != PIPE_NO_EXIT {
+            var arc: RouteArc = route_arcs_get(read router, edge);
+            if arc.target != previous {
+                next = arc.target;
+                degree = degree + 1u32;
+            }
+            edge = arc.next;
+        }
+        if degree != 1u32 {
+            return;
+        }
+        previous = current;
+        current = next;
+    }
+}
+fn route_walk_visit(router: mut PipeRouter, id: u32, visited: bool) -> unit {
+    var node: RouteNode = route_nodes_get(read router, id);
+    node.visited = visited;
+    route_nodes_set(mut router, id, node);
+}
+fn route_walk_edge(router: read PipeRouter, source: u32, current: u32, next: u32) -> bool {
+    var a: RouteNode = route_nodes_get(read router, current);
+    var b: RouteNode = route_nodes_get(read router, next);
+    if b.visited {
+        return false;
+    }
+    if a.owner != PIPE_NO_EXIT && a.owner != source {
+        return b.owner == a.owner;
+    }
+    return true;
+}
+fn route_enumerate_walk(
+    router: mut PipeRouter,
+    source: u32,
+    current: u32,
+    bend: f32,
+    seed: u32
+) -> bool {
+    var node: RouteNode = route_nodes_get(read router, current);
+    if (node.exit_id != PIPE_NO_EXIT || node.sink) && current != source {
+        if (current > source || node.sink) && node.exit_id != route_nodes_get(
+            read router,
+            source
+        ).exit_id {
+            return route_candidate(mut router, bend, seed);
+        }
+        return true;
+    }
+    var edge: u32 = node.head;
+    while edge != PIPE_NO_EXIT {
+        var arc: RouteArc = route_arcs_get(read router, edge);
+        if route_walk_edge(read router, source, current, arc.target) {
+            if route_walk_append(mut router, arc.target) == PIPE_NO_EXIT {
+                return false;
+            }
+            route_walk_visit(mut router, arc.target, true);
+            if !route_enumerate_walk(mut router, source, arc.target, bend, seed) {
+                return false;
+            }
+            route_walk_visit(mut router, arc.target, false);
+            route_walk_pop(mut router);
+        }
+        edge = arc.next;
+    }
+    return true;
+}
+fn route_enumerate(router: mut PipeRouter, bend: f32, seed: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < route_nodes_count(read router) {
+        if route_nodes_get(read router, i).exit_id != PIPE_NO_EXIT || route_nodes_get(
+            read router,
+            i
+        ).sink {
+            route_mark_mouth(mut router, i);
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < route_nodes_count(read router) {
+        if route_nodes_get(read router, i).exit_id != PIPE_NO_EXIT {
+            if route_walk_append(mut router, i) == PIPE_NO_EXIT {
+                return false;
+            }
+            route_walk_visit(mut router, i, true);
+            if !route_enumerate_walk(mut router, i, i, bend, seed) {
+                return false;
+            }
+            route_walk_visit(mut router, i, false);
+            route_walk_pop(mut router);
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn route_copy_path(router: read PipeRouter, graph: mut PipeGraph, path: RoutePath) -> bool {
+    var previous: u32 = PIPE_NO_EXIT;
+    var i: u32 = 0u32;
+    while i < path.count {
+        var node: RouteNode = route_nodes_get(
+            read router,
+            route_indices_get(read router, path.first + i)
+        );
+        var current: u32 = pipe_point(
+            mut graph,
+            node.position,
+            node.radial,
+            node.exit_id
+        );
+        if current == PIPE_NO_EXIT {
+            return false;
+        }
+        if previous != PIPE_NO_EXIT && !pipe_link(mut graph, previous, current) {
+            return false;
+        }
+        previous = current;
+        i = i + 1u32;
+    }
+    return true;
+}
+// Pairs every mouth with a different exit. Reserves whole routes and rounded
+// bend clearance. An unsatisfiable graph returns an error before mesh emission.
+fn pipe_route_solve(
+    router: mut PipeRouter,
+    graph: mut PipeGraph,
+    bend: f32,
+    radius: f32,
+    seed: u32
+) -> bool {
+    if !route_enumerate(mut router, bend, seed) || !route_conflicts(mut router, radius, bend) {
+        return false;
+    }
+    if !route_match_prepare(mut router) {
+        return false;
+    }
+    if !route_match(mut router) {
+        return error("wall lanes cannot connect every pipe mouth without intersections");
+    }
+    var i: u32 = 0u32;
+    while i < route_paths_count(read router) {
+        var path: RoutePath = route_paths_get(read router, i);
+        if path.selected && !route_copy_path(read router, mut graph, path) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn route_guide_edge(router: mut PipeRouter, source: u32, target: u32) -> unit {
+    var edge: u32 = route_nodes_get(read router, source).head;
+    while edge != PIPE_NO_EXIT {
+        var arc: RouteArc = route_arcs_get(read router, edge);
+        if arc.target == target {
+            arc.used = true;
+            route_arcs_set(mut router, edge, arc);
+            return;
+        }
+        edge = arc.next;
+    }
+}
+// Retains candidate lanes and selected edges for inspection. Releases route
+// search data after a successful solve; the retained graph cannot be solved again.
+fn pipe_route_guides(router: mut PipeRouter) -> unit {
+    var i: u32 = 0u32;
+    while i < route_paths_count(read router) {
+        var path: RoutePath = route_paths_get(read router, i);
+        if path.selected {
+            var j: u32 = 1u32;
+            while j < path.count {
+                var a: u32 = route_indices_get(read router, path.first + j - 1u32);
+                var b: u32 = route_indices_get(read router, path.first + j);
+                route_guide_edge(mut router, a, b);
+                route_guide_edge(mut router, b, a);
+                j = j + 1u32;
+            }
+        }
+        i = i + 1u32;
+    }
+    route_discard_search(mut router);
+}

@@ -4,7 +4,7 @@ fn build_viewer(
     recipe: *u8,
     checks: bool
 ) -> bool {
-    var sources: [*u8; 80] = uninit;
+    var sources: [*u8; 96] = uninit;
     var providers: [*u8; 64] = uninit;
     var source_count: usize = asset_sources(root, &sources[0usize]);
     source_count = source_count + asset_collision_sources(root, &sources[source_count]);
@@ -14,7 +14,7 @@ fn build_viewer(
         &providers[provider_count]
     );
     provider_count = provider_count + asset_providers(root, &providers[provider_count]);
-    var files: [*u8; 10] = make [*u8; 10] {
+    var files: [*u8; 11] = make [*u8; 11] {
         "src/viewer/asset-controls.crs",
         "src/viewer/asset-camera.crs",
         "src/viewer/asset-flight.crs",
@@ -24,6 +24,7 @@ fn build_viewer(
         "src/viewer/asset-labels.crs",
         "src/viewer/asset-label-material.crs",
         "src/viewer/asset-scene.crs",
+        "src/viewer/asset-waypoints.crs",
         "src/assets/materials/upload.crs"
     };
     var native: [*u8; 10] = make [*u8; 10] {
@@ -47,7 +48,7 @@ fn build_viewer(
         output = "build/tests-assets-viewer";
     }
     var i: usize = 0usize;
-    while i < 10usize {
+    while i < 11usize {
         sources[source_count] = host_path(root, files[i]);
         source_count = source_count + 1usize;
         i = i + 1usize;

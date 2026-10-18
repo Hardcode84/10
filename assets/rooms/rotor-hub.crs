@@ -8,10 +8,11 @@
 // Socket positions and dimensions stay fixed. The default inset is 1.75 m.
 // The spindle continues from SHAFT into the hub; core-diameter must match it.
 // Each octagonal mouth has four pipes. Runs follow the walls with round bends.
-// pipe-seed selects routes around the large openings and corner joint positions.
-// A connected pipe network has at most one mouth from each exit.
-// Three-way joints on the eight corner panels connect neighbouring openings.
-// Only four rear feeds enter the spindle; the centre stays clear.
+// pipe-seed selects separate routes through wall and corner lanes.
+// Each pipe connects two different exits or ends at the spindle.
+// Routes have no branches and reserve clearance for their rounded bends.
+// Four rear feeds enter the spindle. Other mouths can use rear wall lanes
+// to reach it if their exit routes are blocked. The centre stays clear.
 // Regions: 0 socket walls, 1 corner panels, 2 tunnel closures, 3 shaft closure,
 // 4 dark structural joints, 5 polygon and portal seams, 6 pipes, 7 spindle.
 // Corner panels have one closed hexagonal service cover.
@@ -141,6 +142,7 @@ fn hub_connections(asset: mut RoomAsset, diameter: f32) -> bool {
             read asset.hull,
             asset_face(read asset.hull, face)
         );
+        centre = scale(basis.forward, dot(centre, basis.forward));
         var profile: ConnectionProfile = service_oct_profile();
         var closure: u32 = 2u32;
         if face == 2u32 {
@@ -213,8 +215,8 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
         1.1f32,
         0.95f32 * (diagonal - oct_pipe_distance() - 0.05f32) / (1f32 + 2f32 * fold_trim)
     );
-    // Adjacent routes retain at least 1.8 m between their inner and outer lanes.
-    bend = mask_min(bend, (half_width - oct_pipe_distance() - 3f32) * 0.25f32);
+    // Inner and outer lanes retain at least 2.05 m of separation.
+    bend = mask_min(bend, (half_width - oct_pipe_distance() - 2.5f32) / 5.5f32);
     if !hub_service_pipes(
         mut asset,
         make HubPipeLayout {

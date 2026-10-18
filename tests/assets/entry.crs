@@ -6,7 +6,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     ) {
         return 1i32;
     }
-    if !asset_test_truncated_cube(3.25f32) || !asset_test_truncated_cube(12.75f32) || !asset_tests() || !asset_test_junctions() || !asset_test_parts() || !asset_test_inset() || !asset_test_preview_room() || !asset_test_tube() || !asset_test_pipe_graph() {
+    if !asset_test_truncated_cube(3.25f32) || !asset_test_truncated_cube(12.75f32) || !asset_tests() || !asset_test_junctions() || !asset_test_parts() || !asset_test_inset() || !asset_test_preview_room() || !asset_test_tube() || !asset_test_pipe_graph() || !asset_test_pipe_router() {
         return 1i32;
     }
     puts(

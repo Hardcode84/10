@@ -8,6 +8,7 @@ record RoomAsset {
     mesh: Mesh;
     geometry: Mesh;
     parts: AssetParts;
+    routes: PipeRouter;
     collision: CollisionScene;
     spawn: AssetSpawn;
     spawn_enabled: bool;
@@ -20,6 +21,7 @@ fn room_asset_new() -> RoomAsset {
         mesh: mesh_new(),
         geometry: mesh_new(),
         parts: asset_parts_new(),
+        routes: pipe_router_new(),
         collision: collision_new(),
         spawn: make AssetSpawn {
             position: vec(0f32, 0f32, 0f32),
