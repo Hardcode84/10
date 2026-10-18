@@ -3,6 +3,7 @@ record ShaftPipeBay {
     core: f32;
     spacing: f32;
     station: u32;
+    seed: u32;
 }
 fn shaft_pipe_point(basis: Basis, radial: f32, horizontal: f32, height: f32) -> Vec3 {
     return add(
@@ -11,18 +12,21 @@ fn shaft_pipe_point(basis: Basis, radial: f32, horizontal: f32, height: f32) -> 
     );
 }
 fn shaft_pipe_run(asset: mut RoomAsset, bay: ShaftPipeBay, lane: u32) -> bool {
-    var angle: f32 = 1.57079632679f32 * ((lane + bay.station) % 4u32) as f32 + 0.39269908169f32 * bay.station as f32;
+    var choice: u32 = metal_hash(lane, bay.station, bay.seed);
+    var angle: f32 = 1.57079632679f32 * lane as f32 + 0.1308996939f32 * (bay.seed % 48u32) as f32;
     var basis: Basis = make Basis {
         right: vec(cosf(angle), 0f32, sinf(angle)),
         up: vec(0f32, 1f32, 0f32),
         forward: vec(-sinf(angle), 0f32, cosf(angle))
     };
-    var width: f32 = mask_min(2.2f32, bay.radius * 0.22f32);
+    var width: f32 = mask_min(2.2f32, bay.radius * 0.22f32) * (
+        0.8f32 + 0.05f32 * (choice % 9u32) as f32
+    );
     var wall: f32 = sqrtf(bay.radius * bay.radius - width * width) - 0.6f32;
     var clearance: f32 = -mask_min(-0.75f32, -bay.spacing * 0.22f32);
     var low: f32 = bay.spacing * bay.station as f32 + clearance;
     var high: f32 = bay.spacing * (bay.station + 1u32) as f32 - clearance;
-    if (lane + bay.station) % 2u32 != 0u32 {
+    if (choice & 16u32) != 0u32 {
         var swap: f32 = low;
         low = high;
         high = swap;
@@ -30,7 +34,7 @@ fn shaft_pipe_run(asset: mut RoomAsset, bay: ShaftPipeBay, lane: u32) -> bool {
     var middle: f32 = (low + high) * 0.5f32;
     var finish: f32 = width;
     var end: f32 = bay.radius + 0.25f32;
-    if lane == bay.station % 3u32 {
+    if lane == (bay.seed >> 8u32) % 3u32 {
         finish = 0f32;
         end = bay.core - 0.25f32;
     }
@@ -81,7 +85,8 @@ fn shaft_service_pipes(
     radius: f32,
     core: f32,
     height: f32,
-    count: u32
+    count: u32,
+    seed: u32
 ) -> bool {
     var station: u32 = 1u32;
     while station < count {
@@ -89,7 +94,8 @@ fn shaft_service_pipes(
             radius: radius,
             core: core,
             spacing: height / (count + 1u32) as f32,
-            station: station
+            station: station,
+            seed: metal_hash(station, 0u32, seed)
         };
         var lane: u32 = 0u32;
         while lane < 3u32 {

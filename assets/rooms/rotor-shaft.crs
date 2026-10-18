@@ -11,11 +11,15 @@
 // Three separate service pipes occupy each gap between rotor stations.
 // Runs have axial and horizontal legs with rounded 90-degree elbows.
 // Two return to the wall; one feeds the spindle. All stay clear of the rotors.
+// pipe-seed selects pipe positions, widths, directions and spindle feeds.
 // Materials: 0 shell, 1 far cap, 2 spindle, 3 rotor wings, 4 bottom, 5 port closures, 6 pipes.
 fn room_parameter_count() -> u32 {
-    return 4u32;
+    return 5u32;
 }
 fn room_parameter_name(index: u32) -> AssetName {
+    if index == 4u32 {
+        return asset_name("pipe-seed");
+    }
     if index == 0u32 {
         return asset_name("height");
     }
@@ -28,6 +32,14 @@ fn room_parameter_name(index: u32) -> AssetName {
     return asset_name("rotor-count");
 }
 fn room_parameter(index: u32) -> AssetParameter {
+    if index == 4u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 65535f32,
+            initial: 1f32,
+            step: 1f32
+        };
+    }
     if index == 0u32 {
         return make AssetParameter {
             minimum: 12f32,
@@ -152,6 +164,10 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !asset_parameters_valid(read parameters) {
         return false;
     }
+    var pipe_seed: f32 = asset_value(read parameters, 4u32);
+    if pipe_seed != (pipe_seed as u32) as f32 {
+        return error("pipe-seed must be an integer");
+    }
     var height: f32 = asset_value(read parameters, 0u32);
     var diameter: f32 = asset_value(read parameters, 1u32);
     var radius: f32 = diameter * 0.5f32;
@@ -172,7 +188,8 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
         radius,
         core,
         height,
-        count as u32
+        count as u32,
+        pipe_seed as u32
     ) {
         return false;
     }
