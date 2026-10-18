@@ -119,13 +119,7 @@ fn hub_pipe_spindle(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
         return false;
     }
     loft_ring(mut hull, profile, 0u32, -layout.extent, layout.core);
-    loft_ring(
-        mut hull,
-        profile,
-        1u32,
-        -layout.extent + 2f32 * layout.stand_off,
-        layout.core
-    );
+    loft_ring(mut hull, profile, 1u32, 0f32, layout.core);
     loft_span(mut hull, profile, 0u32, 7u32);
     loft_caps(mut hull, profile, 2u32, 7u32, 7u32);
     if !hull_solid_mesh(

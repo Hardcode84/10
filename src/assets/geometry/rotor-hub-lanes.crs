@@ -162,18 +162,6 @@ fn hub_corner_lanes(
     }
     axis = 0u32;
     while axis < 3u32 {
-        var mouth: u32 = hub_lane_corner(read lanes, corner, axis, false);
-        if !pipe_route_link(
-            mut router,
-            mouth,
-            hub_lane_corner(read lanes, corner, (axis + 1u32) % 3u32, false)
-        ) || !pipe_route_link(
-            mut router,
-            mouth,
-            hub_lane_corner(read lanes, corner, axis, true)
-        ) {
-            return false;
-        }
         var from: u32 = hub_lane_corner(read lanes, corner, axis, true);
         if !pipe_route_link(
             mut router,

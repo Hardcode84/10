@@ -160,7 +160,7 @@ fn hub_service_pipes(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
         return false;
     }
     if!(
-        hub_pipe_spindle(mut asset, layout) && pipe_graph_mesh(
+        hub_pipe_spindle(mut asset, layout) && hub_structure(mut asset, layout) && pipe_graph_mesh(
             mut asset,
             read graph,
             make TubeStyle {

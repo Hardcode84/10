@@ -12,9 +12,12 @@
 // Each pipe connects two different exits or ends at the spindle.
 // Routes have no branches and reserve clearance for their rounded bends.
 // Four rear feeds enter the spindle. Other mouths can use rear wall lanes
-// to reach it if their exit routes are blocked. The centre stays clear.
+// to reach it if their exit routes are blocked.
+// The spindle ends in a smaller copy of the hub at the room centre.
+// Eight hexagonal beams connect it to the corner panels. Dark collars mark
+// both ends. Pipe routes stay on the corner perimeters, clear of the beams.
 // Regions: 0 socket walls, 1 corner panels, 2 tunnel closures, 3 shaft closure,
-// 4 dark structural joints, 5 polygon and portal seams, 6 pipes, 7 spindle.
+// 4 dark structural joints, 5 polygon and portal seams, 6 pipes, 7 spindle, 8 structural beams.
 // Corner panels have one closed hexagonal service cover.
 // Wall edges have 0.06 m seams; portal edges have 0.10 m seams.
 fn room_parameter_count() -> u32 {
@@ -232,18 +235,23 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
         return false;
     }
     asset.spawn = make AssetSpawn {
-        position: vec(0f32, 0f32, 0f32),
-        basis: cube_face_basis(3u32)
+        position: vec(0f32, extent * 0.7f32, 0f32),
+        basis: cube_face_basis(2u32)
     };
     return room_asset_finish(mut asset);
 }
 fn room_material_count() -> u32 {
-    return 8u32;
+    return 9u32;
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     var material: PanelMaterial = hex_tunnel_material();
     material.colour = 0x807769u32;
     material.panel_height = 2f32;
+    if region == 8u32 {
+        material.finish = METAL_PLAIN;
+        material.colour = 0x857f72u32;
+        return material;
+    }
     if region == 6u32 {
         return service_pipe_material();
     }
