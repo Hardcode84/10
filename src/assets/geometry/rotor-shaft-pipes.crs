@@ -5,24 +5,25 @@ record ShaftPipeBay {
     station: u32;
     seed: u32;
 }
-fn shaft_pipe_point(basis: Basis, radial: f32, horizontal: f32, height: f32) -> Vec3 {
-    return add(
-        add(scale(basis.right, radial), scale(basis.forward, horizontal)),
-        vec(0f32, height, 0f32)
-    );
+record ShaftPipeRun {
+    start_angle: f32;
+    end_angle: f32;
+    low: f32;
+    high: f32;
+    radius: f32;
+    wall: f32;
+    target: f32;
+    inner: bool;
 }
-fn shaft_pipe_run(asset: mut RoomAsset, bay: ShaftPipeBay, lane: u32) -> bool {
+fn shaft_pipe_normal(angle: f32) -> Vec3 {
+    return vec(cosf(angle), 0f32, sinf(angle));
+}
+fn shaft_pipe_position(angle: f32, radius: f32, height: f32) -> Vec3 {
+    return add(scale(shaft_pipe_normal(angle), radius), vec(0f32, height, 0f32));
+}
+fn shaft_pipe_layout(bay: ShaftPipeBay, lane: u32) -> ShaftPipeRun {
     var choice: u32 = metal_hash(lane, bay.station, bay.seed);
     var angle: f32 = 1.57079632679f32 * lane as f32 + 0.1308996939f32 * (bay.seed % 48u32) as f32;
-    var basis: Basis = make Basis {
-        right: vec(cosf(angle), 0f32, sinf(angle)),
-        up: vec(0f32, 1f32, 0f32),
-        forward: vec(-sinf(angle), 0f32, cosf(angle))
-    };
-    var width: f32 = mask_min(2.2f32, bay.radius * 0.22f32) * (
-        0.8f32 + 0.05f32 * (choice % 9u32) as f32
-    );
-    var wall: f32 = sqrtf(bay.radius * bay.radius - width * width) - 0.6f32;
     var clearance: f32 = -mask_min(-0.75f32, -bay.spacing * 0.22f32);
     var low: f32 = bay.spacing * bay.station as f32 + clearance;
     var high: f32 = bay.spacing * (bay.station + 1u32) as f32 - clearance;
@@ -31,65 +32,148 @@ fn shaft_pipe_run(asset: mut RoomAsset, bay: ShaftPipeBay, lane: u32) -> bool {
         low = high;
         high = swap;
     }
-    var middle: f32 = (low + high) * 0.5f32;
-    var finish: f32 = width;
-    var end: f32 = bay.radius + 0.25f32;
-    if lane == (bay.seed >> 8u32) % 3u32 {
-        finish = 0f32;
-        end = bay.core - 0.25f32;
-    }
-    var graph: PipeGraph = pipe_graph_new();
-    var first: u32 = pipe_point(
-        mut graph,
-        shaft_pipe_point(basis, bay.radius + 0.25f32, -width, low),
-        basis.up,
-        PIPE_NO_EXIT
-    );
-    if first == PIPE_NO_EXIT {
-        return false;
-    }
-    var cursor: PipeCursor = make PipeCursor {
-        node: first
-    };
-    if !pipe_waypoint(mut graph, mut cursor, shaft_pipe_point(basis, wall, -width, low)) || !pipe_waypoint(
-        mut graph,
-        mut cursor,
-        shaft_pipe_point(basis, wall, -width, middle)
-    ) || !pipe_waypoint(
-        mut graph,
-        mut cursor,
-        shaft_pipe_point(basis, wall, finish, middle)
-    ) || !pipe_waypoint(
-        mut graph,
-        mut cursor,
-        shaft_pipe_point(basis, wall, finish, high)
-    ) || !pipe_waypoint(mut graph, mut cursor, shaft_pipe_point(basis, end, finish, high)) {
-        return false;
-    }
-    var target_radius: f32 = bay.radius;
+    var target: f32 = bay.radius;
     var inner: bool = true;
     if lane == (bay.seed >> 8u32) % 3u32 {
-        target_radius = bay.core;
+        target = bay.core;
         inner = false;
     }
-    return shaft_pipe_mount(mut asset, basis, -width, low, bay.radius, true) && shaft_pipe_mount(
-        mut asset,
-        basis,
-        finish,
-        high,
-        target_radius,
-        inner
-    ) && pipe_graph_mesh(
-        mut asset,
-        read graph,
+    return make ShaftPipeRun {
+        start_angle: angle,
+        end_angle: angle + (2u32 + choice % 3u32) as f32 * 0.1308996939f32,
+        low: low,
+        high: high,
+        radius: bay.radius * cosf(0.06544984695f32) - 0.6f32,
+        wall: bay.radius,
+        target: target,
+        inner: inner
+    };
+}
+// Quarter turns on a cylinder retain the radius and meet axial and circumferential legs tangentially.
+fn shaft_pipe_turn(mesh: mut Mesh, sweep: mut TubeSweep, run: ShaftPipeRun, entering: bool) -> bool {
+    var vertical: f32 = 1f32;
+    if run.high < run.low {
+        vertical = -1f32;
+    }
+    var middle: f32 = (run.low + run.high) * 0.5f32;
+    var distance: f32 = sweep.distance;
+    var i: u32 = 1u32;
+    while i <= 12u32 {
+        var turn: f32 = 1.57079632679f32 * i as f32 / 12f32;
+        var s: f32 = sinf(turn);
+        var c: f32 = cosf(turn);
+        if i == 12u32 {
+            s = 1f32;
+            c = 0f32;
+        }
+        var angle: f32 = run.end_angle - 0.36f32 / run.radius + 0.36f32 / run.radius * s;
+        var height: f32 = middle + vertical * 0.36f32 * (1f32 - c);
+        var axial: f32 = s * vertical;
+        var around: f32 = c;
+        if i == 12u32 {
+            angle = run.end_angle;
+        }
+        if entering {
+            angle = run.start_angle + 0.36f32 / run.radius * (1f32 - c);
+            height = middle - vertical * 0.36f32 * (1f32 - s);
+            axial = c * vertical;
+            around = s;
+        }
+        var radial: Vec3 = shaft_pipe_normal(angle);
+        var tangent: Vec3 = add(
+            scale(vec(-radial.z, 0f32, radial.x), around),
+            vec(0f32, axial, 0f32)
+        );
+        var ring: TubeRing = make TubeRing {
+            centre: shaft_pipe_position(angle, run.radius, height),
+            tangent: tangent,
+            radial: radial
+        };
+        if !tube_sweep_ring(mut mesh, mut sweep, ring, distance + 0.36f32 * turn) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_pipe_mesh(asset: mut RoomAsset, run: ShaftPipeRun) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var vertical: f32 = 1f32;
+    var outward: f32 = 1f32;
+    if run.high < run.low {
+        vertical = -1f32;
+    }
+    if !run.inner {
+        outward = -1f32;
+    }
+    var start: Vec3 = shaft_pipe_normal(run.start_angle);
+    var end: Vec3 = shaft_pipe_normal(run.end_angle);
+    var up: Vec3 = vec(0f32, vertical, 0f32);
+    var middle: f32 = (run.low + run.high) * 0.5f32;
+    var sweep: TubeSweep = tube_sweep_begin(
+        shaft_pipe_position(run.start_angle, run.wall + 0.25f32, run.low),
+        scale(start, -1f32),
+        up,
         make TubeStyle {
             radius: 0.18f32,
             sides: 12u32,
             tile_metres: 2f32,
             region: 6u32
-        },
-        0.36f32
+        }
     );
+    if !tube_sweep_corner(
+        mut asset.geometry,
+        mut sweep,
+        shaft_pipe_position(run.start_angle, run.radius, run.low),
+        up,
+        0.36f32
+    ) || !tube_sweep_straight(
+        mut asset.geometry,
+        mut sweep,
+        shaft_pipe_position(run.start_angle, run.radius, middle - vertical * 0.36f32)
+    ) || !shaft_pipe_turn(mut asset.geometry, mut sweep, run, true) {
+        return false;
+    }
+    var arc_end: f32 = run.end_angle - 0.36f32 / run.radius;
+    var radial: Vec3 = shaft_pipe_normal(arc_end);
+    if !tube_sweep_arc(
+        mut asset.geometry,
+        mut sweep,
+        vec(0f32, -1f32, 0f32),
+        run.radius,
+        run.end_angle - run.start_angle - 0.72f32 / run.radius,
+        shaft_pipe_position(arc_end, run.radius, middle),
+        vec(-radial.z, 0f32, radial.x)
+    ) || !shaft_pipe_turn(mut asset.geometry, mut sweep, run, false) || !tube_sweep_corner(
+        mut asset.geometry,
+        mut sweep,
+        shaft_pipe_position(run.end_angle, run.radius, run.high),
+        scale(end, outward),
+        0.36f32
+    ) || !tube_sweep_finish(
+        mut asset.geometry,
+        mut sweep,
+        shaft_pipe_position(run.end_angle, run.target + outward * 0.25f32, run.high)
+    ) {
+        return false;
+    }
+    return pipe_graph_part(mut asset, first);
+}
+fn shaft_pipe_run(asset: mut RoomAsset, bay: ShaftPipeBay, lane: u32) -> bool {
+    var run: ShaftPipeRun = shaft_pipe_layout(bay, lane);
+    return shaft_pipe_mount(
+        mut asset,
+        shaft_pipe_normal(run.start_angle),
+        run.low,
+        run.wall,
+        true
+    ) && shaft_pipe_mount(
+        mut asset,
+        shaft_pipe_normal(run.end_angle),
+        run.high,
+        run.target,
+        run.inner
+    ) && shaft_pipe_mesh(mut asset, run);
 }
 // Adds separate wall runs inside the gaps between rotor stations.
 // Spacing is at least 3 m. The pipe surfaces stay clear of each rotor plane.

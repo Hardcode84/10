@@ -9,7 +9,9 @@
 // The spindle reaches TOP; passage remains around it.
 // Matching diameters connect at unit relative scale.
 // Three separate service pipes occupy each gap between rotor stations.
-// Runs have axial and horizontal legs with rounded 90-degree elbows.
+// Runs have axial legs and circumferential arcs with rounded 90-degree elbows.
+// Horizontal runs and their elbows follow the cylinder at a fixed radius.
+// Attachments lie at facet centres and enter normal to the wall or spindle.
 // Two return to the wall; one feeds the spindle. All stay clear of the rotors.
 // pipe-seed selects pipe positions, widths, directions and spindle feeds.
 // Wall and spindle tracks are 0.8 m wide, centred on the rotor stations.

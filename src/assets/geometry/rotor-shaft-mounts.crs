@@ -4,23 +4,6 @@ record ShaftMount {
     radius: f32;
     inner: bool;
 }
-fn shaft_mount_distance(basis: Basis, offset: f32, radius: f32) -> f32 {
-    var distance: f32 = radius * 2f32;
-    var i: u32 = 0u32;
-    while i < 48u32 {
-        var angle: f32 = (i + 1u32) as f32 * 0.1308996939f32;
-        var normal: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
-        var facing: f32 = dot(normal, basis.right);
-        if facing > 0f32 {
-            distance = mask_min(
-                distance,
-                (radius * cosf(0.06544984695f32) - offset * dot(normal, basis.forward)) / facing
-            );
-        }
-        i = i + 1u32;
-    }
-    return distance;
-}
 fn shaft_mount_flange(asset: mut RoomAsset, mount: ShaftMount, axis: Vec3) -> bool {
     var first: u32 = mesh_triangle_count(read asset.geometry);
     if !bevelled_body(
@@ -118,25 +101,22 @@ fn shaft_leak_face(mesh: mut Mesh, mount: ShaftMount, i: u32) -> bool {
 }
 fn shaft_pipe_mount(
     asset: mut RoomAsset,
-    basis: Basis,
-    offset: f32,
+    normal: Vec3,
     height: f32,
     radius: f32,
     inner: bool
 ) -> bool {
-    var centre: Vec3 = shaft_pipe_point(
-        basis,
-        shaft_mount_distance(basis, offset, radius),
-        offset,
-        height
+    var centre: Vec3 = add(
+        scale(normal, radius * cosf(0.06544984695f32)),
+        vec(0f32, height, 0f32)
     );
     var mount: ShaftMount = make ShaftMount {
         centre: centre,
-        outward: unit_vector(vec(centre.x, 0f32, centre.z)),
+        outward: normal,
         radius: radius,
         inner: inner
     };
-    if !shaft_mount_flange(mut asset, mount, basis.right) {
+    if !shaft_mount_flange(mut asset, mount, normal) {
         return false;
     }
     var i: u32 = 0u32;
