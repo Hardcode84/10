@@ -36,5 +36,12 @@ fn room_parts_render(asset: mut RoomAsset) -> bool {
         }
         i = i + 1u32;
     }
+    i = 0u32;
+    while i < mesh_triangle_count(read asset.decals) {
+        if !mesh_append(mut asset.mesh, mesh_triangle(read asset.decals, i)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
     return true;
 }

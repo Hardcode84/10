@@ -34,3 +34,26 @@ fn oct_service_material(region: u32) -> PanelMaterial {
     }
     return material;
 }
+
+// Transparent grime patch with its source at (0.55, 0.4) m and streaks along +Y.
+fn metal_leak_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var across: f32 = absf(x - 0.55f32);
+    var along: f32 = y - 0.4f32;
+    var noise: u32 = metal_hash((x * 64f32) as u32, (y * 64f32) as u32, material.seed);
+    var pool: f32 = 1f32 - sqrtf(across * across + along * along) / 0.43f32;
+    var stripe: u32 = metal_hash((x * 48f32) as u32, 0u32, material.seed);
+    var reach: f32 = 0.55f32 + (stripe % 100u32) as f32 * 0.008f32;
+    var trail: f32 = 0f32;
+    if along >= 0f32 {
+        trail = clamp(1f32 - along / reach, 0f32, 1f32) * clamp(
+            1f32 - across / 0.34f32,
+            0f32,
+            1f32
+        );
+    }
+    var coverage: f32 = -mask_min(-pool, -trail);
+    if coverage <= 0f32 || (noise % 256u32) as f32 / 256f32 > coverage * 0.85f32 {
+        return 0u32;
+    }
+    return 70u32 + noise % 30u32;
+}

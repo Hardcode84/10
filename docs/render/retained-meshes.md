@@ -9,6 +9,10 @@ cross product `(B - A) × (C - A)` points toward the visible side. A one-sided
 triangle casts a shadow only when this side faces the light. Lighting uses
 normals from transformed positions. Bit 2 disables shadow casting. Negative scale reverses winding.
 
+Room recipes can add surface marks to `RoomAsset.decals`. These triangles use
+room-local positions and appear after the solid parts. They do not enter collision
+meshes. Use cutout coverage and disable shadow casting for stains.
+
 Call `input_mesh` with a scoped `FrameInput` borrow. It copies the mesh into
 renderer-owned storage and returns a `MeshRange`. The source mesh can then
 be released. The range stays valid until that renderer closes or

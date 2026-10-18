@@ -1,0 +1,150 @@
+record ShaftMount {
+    centre: Vec3;
+    outward: Vec3;
+    radius: f32;
+    inner: bool;
+}
+fn shaft_mount_distance(basis: Basis, offset: f32, radius: f32) -> f32 {
+    var distance: f32 = radius * 2f32;
+    var i: u32 = 0u32;
+    while i < 48u32 {
+        var angle: f32 = (i + 1u32) as f32 * 0.1308996939f32;
+        var normal: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
+        var facing: f32 = dot(normal, basis.right);
+        if facing > 0f32 {
+            distance = mask_min(
+                distance,
+                (radius * cosf(0.06544984695f32) - offset * dot(normal, basis.forward)) / facing
+            );
+        }
+        i = i + 1u32;
+    }
+    return distance;
+}
+fn shaft_mount_flange(asset: mut RoomAsset, mount: ShaftMount, axis: Vec3) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !bevelled_body(
+        mut asset.geometry,
+        make BevelledBody {
+            sides: 12u32,
+            radius: 0.31f32,
+            length: 0.24f32,
+            bevel: 0.025f32,
+            shell: 7u32,
+            rear: 7u32,
+            front: 7u32
+        },
+        sub(mount.centre, scale(axis, 0.03f32)),
+        make Basis {
+            right: vec(0f32, 1f32, 0f32),
+            up: axis,
+            forward: cross(vec(0f32, 1f32, 0f32), axis)
+        }
+    ) {
+        return false;
+    }
+    return pipe_graph_part(mut asset, first);
+}
+fn shaft_leak_vertex(p: Vec3, mount: ShaftMount, height: f32) -> MeshVertex {
+    var tangent: Vec3 = cross(mount.outward, vec(0f32, 1f32, 0f32));
+    var horizontal: f32 = dot(sub(p, mount.centre), tangent);
+    var offset: f32 = 0.003f32;
+    if mount.inner {
+        offset = -offset;
+    }
+    var placed: Vec3 = scale(p, 1f32 + offset / (mount.radius * cosf(0.06544984695f32)));
+    return make MeshVertex {
+        x: placed.x,
+        y: height,
+        z: placed.z,
+        u: (horizontal + 0.55f32) / 1.1f32,
+        v: (height - mount.centre.y + 0.4f32) / 1.8f32
+    };
+}
+fn shaft_leak_triangle(mesh: mut Mesh, a: MeshVertex, b: MeshVertex, c: MeshVertex) -> bool {
+    return mesh_append(
+        mut mesh,
+        make MeshTriangle {
+            vertices: make [MeshVertex; 3] {
+                a,
+                b,
+                c
+            },
+            material: 8u32,
+            portal: 0u32,
+            flags: 5u32
+        }
+    );
+}
+fn shaft_leak_face(mesh: mut Mesh, mount: ShaftMount, i: u32) -> bool {
+    var angle: f32 = (i as f32 + 0.5f32) * 0.1308996939f32;
+    var a: Vec3 = vec(mount.radius * cosf(angle), 0f32, mount.radius * sinf(angle));
+    var b: Vec3 = vec(
+        mount.radius * cosf(angle + 0.1308996939f32),
+        0f32,
+        mount.radius * sinf(angle + 0.1308996939f32)
+    );
+    if dot(add(a, b), mount.outward) <= 0f32 {
+        return true;
+    }
+    var tangent: Vec3 = cross(mount.outward, vec(0f32, 1f32, 0f32));
+    var x: f32 = dot(sub(a, mount.centre), tangent);
+    var dx: f32 = dot(sub(b, a), tangent);
+    if dx == 0f32 {
+        return true;
+    }
+    var width: f32 = mask_min(0.55f32, mount.radius * 0.8f32);
+    var low: f32 = (-width - x) / dx;
+    var high: f32 = (width - x) / dx;
+    var start: f32 = clamp(mask_min(low, high), 0f32, 1f32);
+    var end: f32 = clamp(-mask_min(-low, -high), 0f32, 1f32);
+    if end <= start {
+        return true;
+    }
+    var p: Vec3 = add(a, scale(sub(b, a), start));
+    var q: Vec3 = add(a, scale(sub(b, a), end));
+    var bottom: f32 = mount.centre.y - 0.4f32;
+    var top: f32 = mount.centre.y + 1.4f32;
+    var pa: MeshVertex = shaft_leak_vertex(p, mount, bottom);
+    var pb: MeshVertex = shaft_leak_vertex(q, mount, bottom);
+    var pc: MeshVertex = shaft_leak_vertex(q, mount, top);
+    var pd: MeshVertex = shaft_leak_vertex(p, mount, top);
+    return shaft_leak_triangle(mut mesh, pa, pb, pc) && shaft_leak_triangle(
+        mut mesh,
+        pa,
+        pc,
+        pd
+    );
+}
+fn shaft_pipe_mount(
+    asset: mut RoomAsset,
+    basis: Basis,
+    offset: f32,
+    height: f32,
+    radius: f32,
+    inner: bool
+) -> bool {
+    var centre: Vec3 = shaft_pipe_point(
+        basis,
+        shaft_mount_distance(basis, offset, radius),
+        offset,
+        height
+    );
+    var mount: ShaftMount = make ShaftMount {
+        centre: centre,
+        outward: unit_vector(vec(centre.x, 0f32, centre.z)),
+        radius: radius,
+        inner: inner
+    };
+    if !shaft_mount_flange(mut asset, mount, basis.right) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 48u32 {
+        if !shaft_leak_face(mut asset.decals, mount, i) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

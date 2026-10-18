@@ -7,6 +7,8 @@ record RoomAsset {
     ports: AssetPorts;
     mesh: Mesh;
     geometry: Mesh;
+    // Room-local visual surfaces, appended after solids and excluded from collision.
+    decals: Mesh;
     parts: AssetParts;
     routes: PipeRouter;
     collision: CollisionScene;
@@ -20,6 +22,7 @@ fn room_asset_new() -> RoomAsset {
         ports: asset_ports_new(),
         mesh: mesh_new(),
         geometry: mesh_new(),
+        decals: mesh_new(),
         parts: asset_parts_new(),
         routes: pipe_router_new(),
         collision: collision_new(),

@@ -66,7 +66,20 @@ fn shaft_pipe_run(asset: mut RoomAsset, bay: ShaftPipeBay, lane: u32) -> bool {
     ) || !pipe_waypoint(mut graph, mut cursor, shaft_pipe_point(basis, end, finish, high)) {
         return false;
     }
-    return pipe_graph_mesh(
+    var target_radius: f32 = bay.radius;
+    var inner: bool = true;
+    if lane == (bay.seed >> 8u32) % 3u32 {
+        target_radius = bay.core;
+        inner = false;
+    }
+    return shaft_pipe_mount(mut asset, basis, -width, low, bay.radius, true) && shaft_pipe_mount(
+        mut asset,
+        basis,
+        finish,
+        high,
+        target_radius,
+        inner
+    ) && pipe_graph_mesh(
         mut asset,
         read graph,
         make TubeStyle {

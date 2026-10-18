@@ -45,7 +45,9 @@ fn asset_test_part_room(asset: mut RoomAsset) -> bool {
 }
 fn asset_test_parts() -> bool {
     var asset: RoomAsset = room_asset_new();
-    if !asset_test_part_room(mut asset) || !room_asset_finish(mut asset) {
+    if !asset_test_part_room(mut asset) || !asset_test_decal(mut asset) || !room_asset_finish(
+        mut asset
+    ) {
         return false;
     }
     var render: Mesh = mesh_new();
@@ -53,7 +55,7 @@ fn asset_test_parts() -> bool {
     if !room_linked_mesh(read asset, mut render, mut walls, 7u32) {
         return false;
     }
-    if mesh_triangle_count(read render) != mesh_triangle_count(read walls) + 24u32 || mesh_triangle_count(
+    if mesh_triangle_count(read render) != mesh_triangle_count(read walls) + 25u32 || mesh_triangle_count(
         read render
     ) != mesh_triangle_count(read asset.mesh) || mesh_triangle(
         read render,
@@ -78,12 +80,49 @@ fn asset_test_parts() -> bool {
     if !asset_test_part_contacts(read asset.collision, read linked) {
         return false;
     }
+    if !asset_test_decal_contacts(read asset.collision, read linked, read render) {
+        return false;
+    }
     var rejected: RoomAsset = room_asset_new();
     if !asset_test_part_room(mut rejected) {
         return false;
     }
     rejected.spawn.position = vec(-3f32, 5f32, 0f32);
     return !room_asset_finish(mut rejected) || error("spawn inside a solid part was accepted");
+}
+
+fn asset_test_decal(asset: mut RoomAsset) -> bool {
+    return mesh_append(
+        mut asset.decals,
+        make MeshTriangle {
+            vertices: make [MeshVertex; 3] {
+                make MeshVertex {
+                    x: -2f32,
+                    y: 2f32,
+                    z: -2f32,
+                    u: 0f32,
+                    v: 0f32
+                },
+                make MeshVertex {
+                    x: 2f32,
+                    y: 2f32,
+                    z: -2f32,
+                    u: 1f32,
+                    v: 0f32
+                },
+                make MeshVertex {
+                    x: 0f32,
+                    y: 2f32,
+                    z: 2f32,
+                    u: 0.5f32,
+                    v: 1f32
+                }
+            },
+            material: 2u32,
+            portal: 0u32,
+            flags: 5u32
+        }
+    );
 }
 
 fn asset_test_part_contacts(original: read CollisionScene, linked: read CollisionScene) -> bool {
@@ -130,4 +169,33 @@ fn asset_test_preview_room() -> bool {
     return !hex_passage_build(0.5f32, false, mut rejected) || error(
         "thin room accepted a player spawn without sphere clearance"
     );
+}
+
+fn asset_test_decal_contacts(
+    original_scene: read CollisionScene,
+    linked: read CollisionScene,
+    render: read Mesh
+) -> bool {
+    var contact: CollisionContact = collision_sweep(
+        read linked,
+        0u32,
+        vec(0f32, 1f32, 0f32),
+        vec(0f32, 2f32, 0f32),
+        0.25f32
+    );
+    var original: CollisionContact = collision_sweep(
+        read original_scene,
+        0u32,
+        vec(0f32, 1f32, 0f32),
+        vec(0f32, 2f32, 0f32),
+        0.25f32
+    );
+    var decal: MeshTriangle = mesh_triangle(
+        read render,
+        mesh_triangle_count(read render) - 1u32
+    );
+    if contact.hit.time <= 1f32 || original.hit.time <= 1f32 || decal.material != 9u32 || decal.flags != 5u32 {
+        return error("room decal lost its render data or entered collision");
+    }
+    return true;
 }
