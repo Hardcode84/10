@@ -1,0 +1,18 @@
+fn oct_pipe_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("RIGHT-PIPE");
+    }
+    if index == 1u32 {
+        return asset_name("TOP-PIPE");
+    }
+    if index == 2u32 {
+        return asset_name("LEFT-PIPE");
+    }
+    return asset_name("BOTTOM-PIPE");
+}
+fn oct_pipe_radius() -> f32 {
+    return 0.35f32;
+}
+fn oct_pipe_distance() -> f32 {
+    return service_oct_profile().radius * cosf(0.39269908169f32) - oct_pipe_radius() - 0.08f32;
+}

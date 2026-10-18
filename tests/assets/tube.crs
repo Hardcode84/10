@@ -1,0 +1,59 @@
+fn asset_test_tube() -> bool {
+    var mesh: Mesh = mesh_new();
+    var bend: TubeBend = make TubeBend {
+        radius: 1f32,
+        tube_radius: 0.2f32,
+        incoming: 2f32,
+        outgoing: 2f32,
+        sides: 12u32,
+        steps: 8u32,
+        tile_metres: 2f32
+    };
+    if !solid_tube_bend(mut mesh, bend, 0u32) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_append_solid(
+        mut builder,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var middle: Vec3 = vec(
+        1f32 - cosf(0.78539816339f32),
+        2f32 + sinf(0.78539816339f32),
+        0f32
+    );
+    if collision_position_valid(read scene, 0u32, middle, 0.05f32) || !collision_position_valid(
+        read scene,
+        0u32,
+        add(middle, vec(0f32, 0f32, 0.6f32)),
+        0.05f32
+    ) {
+        return error("bent tube lost its solid interior or exterior clearance");
+    }
+    var entry: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        vec(0f32, -1f32, 0f32),
+        vec(0f32, 4f32, 0f32),
+        0.1f32
+    );
+    var exit_hit: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        vec(4f32, 3f32, 0f32),
+        vec(-4f32, 0f32, 0f32),
+        0.1f32
+    );
+    return absf(entry.hit.time - 0.225f32) < 0.0001f32 && absf(exit_hit.hit.time - 0.225f32) < 0.0001f32 || error(
+        "bent tube end caps are open or misplaced"
+    );
+}

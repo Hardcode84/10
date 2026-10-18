@@ -19,20 +19,8 @@ fn room_parameter(index: u32) -> AssetParameter {
         step: 1f32
     };
 }
-fn oct_pipe_name(index: u32) -> AssetName {
-    if index == 0u32 {
-        return asset_name("RIGHT-PIPE");
-    }
-    if index == 1u32 {
-        return asset_name("TOP-PIPE");
-    }
-    if index == 2u32 {
-        return asset_name("LEFT-PIPE");
-    }
-    return asset_name("BOTTOM-PIPE");
-}
 fn oct_tunnel_pipes(asset: mut RoomAsset, extent: f32) -> bool {
-    var radius: f32 = 0.35f32;
+    var radius: f32 = oct_pipe_radius();
     var first: u32 = mesh_triangle_count(read asset.geometry);
     var material: PanelMaterial = room_material(1u32);
     var sections: u32 = (extent / material.tile_metres) as u32;
@@ -48,7 +36,7 @@ fn oct_tunnel_pipes(asset: mut RoomAsset, extent: f32) -> bool {
         return false;
     }
     var count: u32 = mesh_triangle_count(read asset.geometry) - first;
-    var distance: f32 = service_oct_profile().radius * cosf(0.39269908169f32) - radius - 0.08f32;
+    var distance: f32 = oct_pipe_distance();
     var i: u32 = 0u32;
     while i < 4u32 {
         var angle: f32 = i as f32 * 1.57079632679f32;
@@ -90,15 +78,7 @@ fn room_material_count() -> u32 {
     return 3u32;
 }
 fn room_material(region: u32) -> PanelMaterial {
-    if region == 1u32 {
-        return service_pipe_material();
-    }
-    var material: PanelMaterial = hex_tunnel_material();
-    material.colour = 0xafa69cu32;
-    if region == 2u32 {
-        material.colour = 0x686e74u32;
-    }
-    return material;
+    return oct_service_material(region);
 }
 
 fn oct_pipe_mounts(mesh: mut Mesh, extent: f32, count: u32) -> bool {

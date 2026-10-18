@@ -1,0 +1,106 @@
+fn oct_elbow_vertices(hull: mut AssetHull, distance: f32) -> unit {
+    var radius: f32 = service_oct_profile().radius;
+    var narrow: f32 = radius * sinf(0.39269908169f32);
+    var wide: f32 = radius * cosf(0.39269908169f32);
+    var layer: u32 = 0u32;
+    while layer < 4u32 {
+        var z: f32 = -wide;
+        var width: f32 = narrow;
+        if layer == 1u32 {
+            z = -narrow;
+            width = wide;
+        }
+        if layer == 2u32 {
+            z = narrow;
+            width = wide;
+        }
+        if layer == 3u32 {
+            z = wide;
+        }
+        var base: u32 = layer * 5u32;
+        asset_vertex_set(mut hull, base, vec(-width, -distance, z));
+        asset_vertex_set(mut hull, base + 1u32, vec(width, -distance, z));
+        asset_vertex_set(mut hull, base + 2u32, vec(distance, -width, z));
+        asset_vertex_set(mut hull, base + 3u32, vec(distance, width, z));
+        asset_vertex_set(mut hull, base + 4u32, vec(-width, width, z));
+        layer = layer + 1u32;
+    }
+}
+fn oct_elbow_mouth(hull: mut AssetHull, face: u32, side: u32) -> unit {
+    var corners: [u32; 8] = make [u32; 8] {
+        6u32,
+        11u32,
+        16u32,
+        15u32,
+        10u32,
+        5u32,
+        0u32,
+        1u32
+    };
+    var i: u32 = 0u32;
+    while i < 8u32 {
+        asset_index_set(mut hull, face * 8u32 + i, corners[i as usize] + side);
+        i = i + 1u32;
+    }
+    junction_face(mut hull, face, face * 8u32, 8u32);
+}
+fn oct_elbow_shell(hull: mut AssetHull, distance: f32) -> bool {
+    if !asset_hull_allocate(mut hull, 20u32, 13u32, 62u32) {
+        return false;
+    }
+    oct_elbow_vertices(mut hull, distance);
+    oct_elbow_mouth(mut hull, 0u32, 0u32);
+    oct_elbow_mouth(mut hull, 1u32, 2u32);
+    var side: u32 = 0u32;
+    while side < 3u32 {
+        var a: u32 = 1u32;
+        if side == 1u32 {
+            a = 3u32;
+        }
+        if side == 2u32 {
+            a = 4u32;
+        }
+        var layer: u32 = 0u32;
+        while layer < 3u32 {
+            var id: u32 = 2u32 + side * 3u32 + layer;
+            var first: u32 = 16u32 + (id - 2u32) * 4u32;
+            var low: u32 = layer * 5u32;
+            var next: u32 = (a + 1u32) % 5u32;
+            hex_surround_face(
+                mut hull,
+                id,
+                first,
+                0u32,
+                low + a,
+                low + next,
+                low + 5u32 + next,
+                low + 5u32 + a
+            );
+            var frame: SurfaceFrame = hull_frame(read hull, asset_face(read hull, id));
+            asset_surface_set(mut hull, id, frame);
+            layer = layer + 1u32;
+        }
+        side = side + 1u32;
+    }
+    var i: u32 = 0u32;
+    while i < 5u32 {
+        asset_index_set(mut hull, 52u32 + i, 4u32 - i);
+        asset_index_set(mut hull, 57u32 + i, 15u32 + i);
+        i = i + 1u32;
+    }
+    junction_face(mut hull, 11u32, 52u32, 5u32);
+    junction_face(mut hull, 12u32, 57u32, 5u32);
+    return true;
+}
+fn oct_elbow_ports(asset: mut RoomAsset, distance: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var port: RoomPort = junction_port(i, i, distance);
+        port.profile = service_oct_profile();
+        if !asset_port_append(mut asset.ports, port) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

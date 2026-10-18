@@ -19,7 +19,8 @@ fn run_asset_checks(
     sources[count + 4usize] = host_path(root, "tests/assets/parts.crs");
     sources[count + 5usize] = host_path(root, "src/assets/connections/link.crs");
     sources[count + 6usize] = host_path(root, "tests/assets/inset.crs");
-    count = count + 7usize;
+    sources[count + 7usize] = host_path(root, "tests/assets/tube.crs");
+    count = count + 8usize;
     var provider_count: usize = asset_providers(root, &providers[0usize]);
     provider_count = provider_count + asset_collision_providers(
         root,

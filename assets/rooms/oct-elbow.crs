@@ -1,0 +1,146 @@
+// Convex OCT-8M corner room. ENTRY faces -Y; EAST faces +X; +Z is up.
+// Four 0.7 m service pipes follow rounded 90-degree bends between the mouths.
+// Their end positions and four permitted mating rolls match the straight section.
+// Leg is the distance from the axis intersection to either mouth, in metres.
+// Bend-radius is the centreline radius of each pipe bend. The inner pipe needs
+// a positive straight lead at both mouths. Region 0 is wall, 1 pipe, 2 bracket.
+fn room_parameter_count() -> u32 {
+    return 2u32;
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("leg");
+    }
+    return asset_name("bend-radius");
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 4.5f32,
+            maximum: 12f32,
+            initial: 5f32,
+            step: 0.5f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 0.75f32,
+        maximum: 4f32,
+        initial: 1.2f32,
+        step: 0.1f32
+    };
+}
+fn elbow_mounts(mesh: mut Mesh, bend: TubeBend, direction: Vec3) -> bool {
+    var count: u32 = (bend.incoming / 2f32) as u32 + 1u32;
+    var i: u32 = 0u32;
+    while i < count {
+        var along: f32 = (i as f32 + 0.5f32) * bend.incoming / count as f32;
+        var origin: Vec3 = add(vec(0f32, along, 0f32), scale(direction, 0.315f32));
+        var basis: Basis = make Basis {
+            right: direction,
+            up: vec(0f32, 1f32, 0f32),
+            forward: cross(direction, vec(0f32, 1f32, 0f32))
+        };
+        if !solid_box(
+            mut mesh,
+            vec(0.23f32, 0.18f32, 0.32f32),
+            2u32,
+            origin,
+            basis,
+            2f32
+        ) {
+            return false;
+        }
+        var exit_direction: Vec3 = vec(0f32, -direction.x, direction.z);
+        origin = add(
+            vec(bend.radius + along, bend.incoming + bend.radius, 0f32),
+            scale(exit_direction, 0.315f32)
+        );
+        basis = make Basis {
+            right: exit_direction,
+            up: vec(1f32, 0f32, 0f32),
+            forward: cross(exit_direction, vec(1f32, 0f32, 0f32))
+        };
+        if !solid_box(
+            mut mesh,
+            vec(0.23f32, 0.18f32, 0.32f32),
+            2u32,
+            origin,
+            basis,
+            2f32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn elbow_pipe(asset: mut RoomAsset, leg: f32, radius: f32, index: u32) -> bool {
+    var angle: f32 = index as f32 * 1.57079632679f32;
+    var direction: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
+    var offset: Vec3 = scale(direction, oct_pipe_distance());
+    var lead: f32 = leg - offset.x - radius;
+    var path_length: f32 = 2f32 * lead + radius * 1.57079632679f32;
+    var bands: u32 = (path_length / 2f32) as u32 + 1u32;
+    var bend: TubeBend = make TubeBend {
+        radius: radius,
+        tube_radius: oct_pipe_radius(),
+        incoming: lead,
+        outgoing: lead,
+        sides: 12u32,
+        steps: 8u32,
+        tile_metres: path_length / bands as f32
+    };
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !solid_tube_bend(mut asset.geometry, bend, 1u32) || !elbow_mounts(
+        mut asset.geometry,
+        bend,
+        direction
+    ) {
+        return false;
+    }
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: oct_pipe_name(index),
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: vec(offset.x, -leg, offset.z),
+            basis: identity_basis()
+        }
+    );
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !asset_parameters_valid(read parameters) {
+        return false;
+    }
+    var leg: f32 = asset_value(read parameters, 0u32);
+    var radius: f32 = asset_value(read parameters, 1u32);
+    if leg - oct_pipe_distance() - radius < 0.2f32 {
+        return error("elbow leg must leave at least 0.2 m of straight pipe before the bend");
+    }
+    if !oct_elbow_shell(mut asset.hull, leg) || !oct_elbow_ports(mut asset, leg) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        if !elbow_pipe(mut asset, leg, radius, i) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    asset.spawn = make AssetSpawn {
+        position: vec(0f32, -leg + 1f32, 0f32),
+        basis: make Basis {
+            right: vec(-1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(0f32, 1f32, 0f32)
+        }
+    };
+    return room_asset_finish(mut asset);
+}
+fn room_material_count() -> u32 {
+    return 3u32;
+}
+fn room_material(region: u32) -> PanelMaterial {
+    return oct_service_material(region);
+}
