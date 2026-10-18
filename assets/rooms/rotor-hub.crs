@@ -14,6 +14,7 @@
 // Four rear feeds enter the spindle. Other mouths can use rear wall lanes
 // to reach it if their exit routes are blocked.
 // The spindle ends in a smaller copy of the hub at the room centre.
+// Dark seams follow each polygon edge on the spindle end.
 // Eight hexagonal beams connect it to the corner panels. Dark collars mark
 // both ends. Pipe routes stay on the corner perimeters, clear of the beams.
 // Regions: 0 socket walls, 1 corner panels, 2 tunnel closures, 3 shaft closure,

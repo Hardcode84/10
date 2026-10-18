@@ -17,6 +17,14 @@ fn hub_structure_end(asset: mut RoomAsset, layout: HubPipeLayout, ratio: f32) ->
         return false;
     }
     rhombi_inset_corners(mut hull, layout.corner_shift * ratio / 1.73205080757f32);
+    var face: u32 = 0u32;
+    while face < 26u32 {
+        if !hull_face_border(read hull, mut base, face, 0.18f32 * ratio, 5u32) {
+            return false;
+        }
+        asset_hull_swap(mut hull, mut base);
+        face = face + 1u32;
+    }
     var first: u32 = mesh_triangle_count(read asset.geometry);
     if !hull_solid_mesh(
         read hull,
