@@ -80,6 +80,7 @@ fn game_scene_begin(
     input_set_word(mut v, SHARED_AMBIENT as usize, trial.graph_run as u32);
     input_set_word(mut v, BACKGROUND as usize, 0xff0d0906u32);
     input_set_float(mut v, RENDER_STYLE as usize, 0.04f32 * drone_size(read trial.drone));
+    input_set_float(mut v, DETAIL_NEAR as usize, 6f32 * drone_size(read trial.drone));
     var angle: f32 = config.fov * 0.00872664626f32;
     input_set_float(mut v, PROJECTION as usize, sinf(angle) / cosf(angle));
     camera_row(mut v, 0usize, trial.drone.basis.right, trial.drone.position);

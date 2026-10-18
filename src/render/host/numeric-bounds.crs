@@ -199,6 +199,11 @@ fn render_numeric_bounds(v: *RenderState) -> bool {
     bound = render_bound_max(bound, v -> bounds_plane * (world + 1f32));
     var clip_near: f32 = f[RENDER_STYLE as usize];
     var lens: f32 = f[PROJECTION as usize];
+    var detail_near: f32 = f[DETAIL_NEAR as usize];
+    if!(detail_near >= 0f32) {
+        return error("detail near plane must be non-negative and finite");
+    }
+    bound = render_bound_max(bound, detail_near);
     if!(clip_near > 0f32 && lens > 0f32) {
         return error("near plane and projection must be positive and finite");
     }

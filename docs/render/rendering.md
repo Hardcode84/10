@@ -213,6 +213,12 @@ Resolve parent geometry and portal surfaces together. A nearer opaque object
 must hide the portal pixels behind it. A completely hidden portal creates no
 child work.
 
+Transient detail can use a separate camera-space near plane. Triangles with
+`TRIANGLE_DETAIL_NEAR` use the larger of `DETAIL_NEAR` and the normal near
+plane. Apply this clipping after each portal view transform. Zero keeps the
+normal near plane. This lets nearby markers disappear while their distant
+recursive copies remain visible.
+
 Clip portal apertures against the eye plane, not the geometry near plane.
 An aperture between the eye and the geometry near plane must still select child
 pixels until the camera crosses its plane. Keep the geometry near plane for

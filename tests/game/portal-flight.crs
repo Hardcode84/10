@@ -97,13 +97,12 @@ fn hook_preview_stations(session: mut GameSession, config: GameConfig, linked: b
             forward: vec(1f32, 0f32, 0f32)
         }
     };
-    if linked && !collision_portal_append(
-        mut builder,
-        make CollisionPortal {
+    if linked {
+        var portal: CollisionPortal = make CollisionPortal {
             support_bound: 0f32,
             source_scale: scale_identity(),
             target_scale: scale_identity(),
-            reverse: 0xffffffffu32,
+            reverse: 1u32,
             space: 0u32,
             destination: 0u32,
             origin: vec(0f32, 1f32, 6f32),
@@ -112,9 +111,24 @@ fn hook_preview_stations(session: mut GameSession, config: GameConfig, linked: b
             sides: 6u32,
             phase: 0f32,
             transform: transform
+        };
+        if !collision_portal_append(mut builder, portal) {
+            return false;
         }
-    ) {
-        return false;
+        portal.reverse = 0u32;
+        portal.origin = space_point(transform, portal.origin);
+        portal.basis = space_basis(
+            transform,
+            make Basis {
+                right: vec(-1f32, 0f32, 0f32),
+                up: vec(0f32, 1f32, 0f32),
+                forward: vec(0f32, 0f32, -1f32)
+            }
+        );
+        portal.transform = space_inverse(transform);
+        if !collision_portal_append(mut builder, portal) {
+            return false;
+        }
     }
     if !collision_finish(move builder, mut scene) {
         return false;
@@ -125,12 +139,12 @@ fn hook_preview_stations(session: mut GameSession, config: GameConfig, linked: b
     var input: FrameInput = renderer_inputs(mut renderer);
     input_frame(mut input);
     draw_hook_preview(read scene, mut input, read trial, config, 8u32);
-    // The 4 m marker is hidden. The seven visible quads start at 8 m.
-    if input_word(read input, 3usize) != 14u32 {
+    // All stations reach the renderer; each view clips its near copies.
+    if input_word(read input, 3usize) != 16u32 {
         return error("hook preview must retain its visible distance stations");
     }
     var i: u32 = 0u32;
-    while i < 7u32 {
+    while i < 8u32 {
         var base: usize = (GEOMETRY + i * 30u32) as usize;
         var a: Vec3 = vec(
             input_float(read input, base),
@@ -142,8 +156,8 @@ fn hook_preview_stations(session: mut GameSession, config: GameConfig, linked: b
             input_float(read input, base + 11usize),
             input_float(read input, base + 12usize)
         );
-        var expected: Vec3 = vec(0f32, 1f32, (i + 2u32) as f32 * 4f32);
-        if linked {
+        var expected: Vec3 = vec(0f32, 1f32, (i + 1u32) as f32 * 4f32);
+        if linked && i > 0u32 {
             expected = space_point(transform, expected);
         }
         if length(sub(scale(add(a, c), 0.5f32), expected)) > 0.001f32 {

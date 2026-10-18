@@ -121,6 +121,18 @@ fn clip_polygon(base: u32, count: u32, plane: u32, near: f32) -> u32 {
     }
     return output;
 }
+fn triangle_near(tri: u32) -> f32 {
+    var near: f32 = floats_load(RENDER_STYLE);
+    if (words_load(words_load(META) + tri * 4u32 + 3u32) & TRIANGLE_DETAIL_NEAR) != 0u32 && floats_load(
+        DETAIL_NEAR
+    ) > near {
+        near = floats_load(DETAIL_NEAR);
+    }
+    if words_load(words_load(META) + tri * 4u32 + 2u32) != 0u32 {
+        near = 0f32;
+    }
+    return near;
+}
 fn prepare_triangle(index: u32) -> unit {
     var stride: u32 = words_load(PROJECTION_CAPACITY);
     var view: u32 = words_load(9u32) + index / stride;
@@ -176,10 +188,7 @@ fn prepare_triangle(index: u32) -> unit {
         vertex = vertex + 1u32;
     }
     var count: u32 = 3u32;
-    var near: f32 = floats_load(RENDER_STYLE);
-    if words_load(words_load(META) + tri * 4u32 + 2u32) != 0u32 {
-        near = 0f32;
-    }
+    var near: f32 = triangle_near(tri);
     var plane: u32 = 0u32;
     while plane < 6u32 && count >= 3u32 {
         count = clip_polygon(scratch, count, plane, near);

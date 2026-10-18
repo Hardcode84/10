@@ -75,8 +75,11 @@ The paths share a limit of eight markers. When the hook preview is active, the
 drone path uses up to four markers. The hook path uses the remaining markers.
 Both paths use the same 4 m spacing and solid colours. Cyan markers remain
 hollow with scaled pixel borders. Pink markers are filled. Both paths hide
-markers within 6 m of the ship. This does not move farther markers or add
-replacement markers at the far end.
+marker geometry within six body-scale metres of camera depth. The renderer
+applies this near plane separately in each portal view. Recursive copies
+remain visible when they are far enough from the camera. This does not move
+farther markers or add replacement markers at the far end.
+Marker dimensions and spacing scale with the predicted body size.
 Pink markers stay relative to the ship: they start 4 m along the predicted
 hook path on each frame, followed by markers at 8 m, 12 m, and so on. The path
 still includes inherited velocity and forces. A change in aim changes the path.

@@ -10,8 +10,14 @@ fn draw_hook_preview(
     draw_prediction(mut v, read prediction, config);
 }
 
-fn draw_hook_marker(v: mut FrameInput, center: Vec3, basis: Basis, pixel: f32) -> unit {
-    var half: f32 = 0.04f32;
+fn draw_hook_marker(
+    v: mut FrameInput,
+    center: Vec3,
+    basis: Basis,
+    pixel: f32,
+    factor: f32
+) -> unit {
+    var half: f32 = 0.04f32 * factor;
     if pixel * 0.5f32 > half {
         half = pixel * 0.5f32;
     }

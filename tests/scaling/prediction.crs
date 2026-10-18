@@ -1,0 +1,199 @@
+fn prediction_view_scene(scene: mut CollisionScene, size: f32) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
+        source_scale: scale_identity(),
+        target_scale: scale_ratio(2u64, 1u64),
+        reverse: 1u32,
+        space: 0u32,
+        destination: 0u32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        radius: 3f32 * size,
+        sides: 8u32,
+        phase: 0f32,
+        transform: make SpaceTransform {
+            factor: 2f32,
+            origin: vec(0f32, 0f32, -10f32 * size),
+            basis: identity_basis()
+        }
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.reverse = 0u32;
+    portal.origin = portal.transform.origin;
+    portal.basis.right.x = -1f32;
+    portal.basis.forward.z = -1f32;
+    portal.radius = portal.radius * 2f32;
+    portal.source_scale = scale_ratio(2u64, 1u64);
+    portal.target_scale = scale_identity();
+    portal.transform = space_inverse(portal.transform);
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn prediction_view_input(
+    input: mut FrameInput,
+    scene: read CollisionScene,
+    config: GameConfig,
+    size: f32,
+    mode: u32
+) -> unit {
+    game_palette(mut input);
+    input_frame(mut input);
+    render_portals(mut input, read scene);
+    input_set_word(mut input, 4usize, (mode == 2u32) as u32);
+    input_set_word(mut input, BACKGROUND as usize, 0xff123456u32);
+    input_set_float(mut input, RENDER_STYLE as usize, 0.04f32 * size);
+    input_set_float(
+        mut input,
+        DETAIL_NEAR as usize,
+        6f32 * size * ((mode != 0u32) as u32) as f32
+    );
+    var eye: Vec3 = vec(0f32, 0f32, -4f32 * size);
+    camera_row(mut input, 0usize, vec(1f32, 0f32, 0f32), eye);
+    camera_row(mut input, 4usize, vec(0f32, 1f32, 0f32), eye);
+    camera_row(mut input, 8usize, vec(0f32, 0f32, 1f32), eye);
+    input_set_float(mut input, PROJECTION as usize, 1f32);
+    if mode == 2u32 {
+        quad(
+            mut input,
+            0u32,
+            5u32,
+            1u32,
+            0u32,
+            -3f32 * size,
+            -3f32 * size,
+            0f32,
+            3f32 * size,
+            -3f32 * size,
+            0f32,
+            3f32 * size,
+            3f32 * size,
+            0f32,
+            -3f32 * size,
+            3f32 * size,
+            0f32
+        );
+    }
+    var prediction: Prediction = prediction_new();
+    prediction.count = 2u32;
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        prediction.markers[i as usize] = make PredictionMarker {
+            center: vec((i as f32 * 2f32 - 1f32) * size, 0f32, -2f32 * size),
+            eye: make PredictionEye {
+                position: vec(0f32, 0f32, -18f32 * size),
+                basis: identity_basis(),
+                world: 0u32,
+                factor: 2f32 * size
+            },
+            material: PREVIEW_MATERIAL + i
+        };
+        i = i + 1u32;
+    }
+    draw_prediction(mut input, read prediction, config);
+}
+fn prediction_hook_mesh(scene: read CollisionScene, input: mut FrameInput, drone: read Drone) -> bool {
+    var point: Vec3 = space_point(
+        space_inverse(drone.cable.frame),
+        drone.cable.anchor
+    );
+    var surface: Vec3 = collision_anchor(
+        read scene,
+        drone.cable.instance,
+        drone.cable.local_point,
+        drone.clock as f32 * STEP
+    );
+    if length(sub(point, surface)) > 0.0001f32 {
+        return error("attached hook moved away from its contacted surface");
+    }
+    input_frame(mut input);
+    draw_hook_anchors(
+        read scene,
+        mut input,
+        drone.cable.space,
+        point,
+        read drone.cable.size
+    );
+    if input_word(read input, 3usize) != 12u32 {
+        return error("distant attached hook must have one body placement");
+    }
+    var low: Vec3 = vec(1e10f32, 1e10f32, 1e10f32);
+    var high: Vec3 = scale(low, -1f32);
+    var i: u32 = 0u32;
+    while i < 36u32 {
+        var base: usize = (GEOMETRY + i * 5u32) as usize;
+        var p: Vec3 = vec(
+            input_float(read input, base),
+            input_float(read input, base + 1usize),
+            input_float(read input, base + 2usize)
+        );
+        low = vec(
+            prediction_min(low.x, p.x),
+            prediction_min(low.y, p.y),
+            prediction_min(low.z, p.z)
+        );
+        high = vec(
+            prediction_max(high.x, p.x),
+            prediction_max(high.y, p.y),
+            prediction_max(high.z, p.z)
+        );
+        i = i + 1u32;
+    }
+    var radius: f32 = hook_radius(read drone);
+    return length(sub(scale(add(low, high), 0.5f32), surface)) < 0.0001f32 && length(
+        sub(sub(high, low), vec(radius * 2f32, radius * 2f32, radius * 2f32))
+    ) < 0.0001f32 || error("attached hook mesh size differs from physical hook size");
+}
+fn prediction_attachment(input: mut FrameInput, reverse: bool) -> bool {
+    var graph: RoomGraph = graph_new();
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    var trial: Trial = new_trial();
+    if !scaling_graph(mut graph) || !graph_assemble(mut graph, mut scene, mut mesh, mut trial) {
+        return false;
+    }
+    var index: u32 = reverse as u32;
+    var portal: CollisionPortal = collision_portal(read scene, index);
+    trial.drone.world = portal.space;
+    trial.drone.position = sub(portal.origin, scale(portal.basis.forward, 4f32));
+    trial.drone.basis = portal.basis;
+    hook_launch(mut trial.drone);
+    var i: u32 = 0u32;
+    while trial.drone.cable.phase == CABLE_FLYING && i < 120u32 {
+        hook_step(read scene, mut trial.drone, false);
+        trial.drone.clock = trial.drone.clock + 1u32;
+        i = i + 1u32;
+    }
+    if trial.drone.cable.phase != CABLE_ATTACHED || trial.drone.cable.space != portal.destination {
+        return error("hook did not attach through the scaling portal");
+    }
+    var expected: f32 = 2f32;
+    if reverse {
+        expected = 0.5f32;
+    }
+    if hook_radius(read trial.drone) != HOOK_RADIUS * expected {
+        return error("attached hook has the wrong physical scale");
+    }
+    if !prediction_hook_mesh(read scene, mut input, read trial.drone) {
+        return false;
+    }
+    drone_portal(read scene, mut trial.drone, index);
+    return prediction_hook_mesh(read scene, mut input, read trial.drone);
+}
+
+fn prediction_min(a: f32, b: f32) -> f32 {
+    if a < b {
+        return a;
+    }
+    return b;
+}
+fn prediction_max(a: f32, b: f32) -> f32 {
+    if a > b {
+        return a;
+    }
+    return b;
+}

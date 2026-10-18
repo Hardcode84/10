@@ -18,15 +18,12 @@ fn draw_preview_marker(
     config: GameConfig,
     material: u32
 ) -> unit {
-    if length(sub(center, drone.position)) < 6f32 * drone.factor {
-        return;
-    }
     var pixel: f32 = preview_pixel_size(center, drone, config) * preview_border_pixels(config) as f32;
     if pixel <= 0f32 {
         return;
     }
     if material == HOOK_PREVIEW_MATERIAL {
-        draw_hook_marker(mut v, center, drone.basis, pixel);
+        draw_hook_marker(mut v, center, drone.basis, pixel, drone.factor);
         return;
     }
     if pixel >= 0.12f32 * drone.factor {
@@ -71,6 +68,12 @@ fn draw_prediction(v: mut FrameInput, prediction: read Prediction, config: GameC
         draw_preview_marker(mut v, marker.center, marker.eye, config, marker.material);
         game_dynamic_space(mut v, first, marker.eye.world);
         game_dynamic_no_shadow(mut v, first);
+        while first < input_word(read v, 3usize) {
+            var flags: usize = (input_word(read v, META as usize) + first * 4u32 + 3u32) as usize;
+            var value: u32 = input_word(read v, flags) | TRIANGLE_DETAIL_NEAR;
+            input_set_word(mut v, flags, value);
+            first = first + 1u32;
+        }
         i = i + 1u32;
     }
 }
@@ -79,7 +82,10 @@ fn frame_point(drone: read Drone, config: GameConfig, x: f32, y: f32) -> Vec3 {
     var tangent: f32 = sinf(angle) / cosf(angle);
     return add(
         drone.position,
-        basis_vector(drone.basis, vec(x * tangent, y * tangent, 0.15f32))
+        scale(
+            basis_vector(drone.basis, vec(x * tangent, y * tangent, 0.15f32)),
+            drone_size(read drone)
+        )
     );
 }
 fn frame_rect(

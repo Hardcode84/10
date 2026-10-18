@@ -51,7 +51,7 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "scaling") == 0i32 {
         backend.emit,
         "tests/scaling/entry.crs",
         "build/tests-scaling",
-        null(*u8)
+        "tests/scaling/prediction.crs"
     ) || !build_render_shaders(run) {
         return 1i32;
     }
@@ -199,13 +199,15 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "graph") == 0i32 {
     run -> argv = run -> argv + 1isize;
     return launch_application(run, "build/tests-graph");
 };
+host_source(run, "tools/build/demo-level.crs");
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "portals") == 0i32 {
-    if !build_game_target(
+    if !build_demo_target(
         run,
         backend.emit,
+        host_path(run, "levels/radial.crs"),
         "tests/game/portal-flight-entry.crs",
-        "build/tests-portals",
-        "tests/game/portal-flight.crs"
+        "tests/game/portal-flight.crs",
+        "build/tests-portals"
     ) || !build_render_shaders(run) {
         return 1i32;
     }

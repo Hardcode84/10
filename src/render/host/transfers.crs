@@ -67,7 +67,7 @@ fn upload_scene(v: *RenderState) -> unit {
         true
     );
     var base: u64 = (v -> words as u64 + 1u64) * 4u64;
-    copy_region(v, v -> staging, v -> buffer, base, 22u64 * 4u64);
+    copy_region(v, v -> staging, v -> buffer, base, (DETAIL_NEAR as u64 + 2u64) * 4u64);
     copy_region(
         v,
         v -> staging,
