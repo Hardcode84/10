@@ -1,4 +1,18 @@
-// Samples a closed two-leaf door within one square tile. Dimensions are metres.
+// Returns the lateral offset of a repeating trapezoidal door joint in metres.
+fn metal_door_joint(y: f32) -> f32 {
+    var phase: f32 = mask_repeat(y, 1.6f32);
+    if phase < 0.4f32 {
+        return -0.22f32 + phase * 1.1f32;
+    }
+    if phase < 0.8f32 {
+        return 0.22f32;
+    }
+    if phase < 1.2f32 {
+        return 0.22f32 - (phase - 0.8f32) * 1.1f32;
+    }
+    return -0.22f32;
+}
+// Samples a closed two-leaf door with an interlocking joint. Dimensions are metres.
 // Two indicators use the material's full-bright palette entries.
 fn metal_door_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     var px: f32 = x - material.tile_metres * 0.5f32;
@@ -11,15 +25,12 @@ fn metal_door_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     if absf(led_x) < 0.13f32 && absf(led_y) < 0.11f32 {
         return 28u32;
     }
-    if absf(px) < 0.035f32 {
+    var joint: f32 = absf(px - metal_door_joint(y));
+    if joint < 0.035f32 {
         return 12u32;
     }
-    if absf(px) < 0.075f32 {
+    if joint < 0.075f32 {
         return 190u32;
-    }
-    var handle_x: f32 = absf(px) - 0.25f32;
-    if absf(handle_x) < 0.07f32 && absf(py + 0.25f32) < 0.32f32 {
-        return 65u32;
     }
     var apothem: f32 = material.tile_metres * 0.43301270189f32;
     var edge: f32 = apothem - absf(py);
