@@ -1,0 +1,98 @@
+resource PortalPath {
+    data: *u32;
+    count: u32;
+    capacity: u32;
+}
+opaque send share drop portal_path_drop;
+fn portal_path_new() -> PortalPath {
+    return make PortalPath {
+        data: null(*u32),
+        count: 0u32,
+        capacity: 0u32
+    };
+}
+fn portal_path_drop(path: mut PortalPath) -> unit {
+    free(path.data as *u8);
+}
+fn portal_path_count(path: read PortalPath) -> u32 {
+    return path.count;
+}
+fn portal_path_at(path: read PortalPath, index: u32) -> u32 {
+    return path.data[index as usize];
+}
+fn portal_path_clear(path: mut PortalPath) -> unit {
+    path.count = 0u32;
+}
+fn portal_path_reserve(path: mut PortalPath, count: u32) -> unit {
+    if count <= path.capacity {
+        return;
+    }
+    var capacity: u64 = count as u64 * 2u64;
+    if capacity > 0xffffffffu64 || capacity * sizeof(u32) as u64 > ~0usize as u64 {
+        error("portal path exceeds address range");
+        trap;
+    }
+    var data: *u32 = malloc(capacity as usize * sizeof(u32)) as *u32;
+    if data == null(*u32) {
+        error("portal path allocation failed");
+        trap;
+    }
+    if path.count != 0u32 {
+        memcpy(data as *u8, path.data as *u8, path.count as usize * sizeof(u32));
+    }
+    free(path.data as *u8);
+    path.data = data;
+    path.capacity = capacity as u32;
+}
+fn portal_path_assign(target: mut PortalPath, source: read PortalPath) -> unit {
+    portal_path_reserve(mut target, source.count);
+    if source.count != 0u32 {
+        memcpy(
+            target.data as *u8,
+            source.data as *u8,
+            source.count as usize * sizeof(u32)
+        );
+    }
+    target.count = source.count;
+}
+fn portal_path_clone(path: read PortalPath) -> PortalPath {
+    var result: PortalPath = portal_path_new();
+    portal_path_assign(mut result, read path);
+    return move result;
+}
+fn portal_path_append(path: mut PortalPath, portal: u32, reverse: u32) -> unit {
+    if path.count != 0u32 && path.data[(path.count - 1u32) as usize] == reverse {
+        path.count = path.count - 1u32;
+        return;
+    }
+    if path.count == 0xffffffffu32 {
+        error("portal path exceeds address range");
+        trap;
+    }
+    portal_path_reserve(mut path, path.count + 1u32);
+    path.data[path.count as usize] = portal;
+    path.count = path.count + 1u32;
+}
+fn portal_path_prepend(path: mut PortalPath, portal: u32, reverse: u32) -> unit {
+    if path.count != 0u32 && path.data[0usize] == reverse {
+        var i: u32 = 1u32;
+        while i < path.count {
+            path.data[(i - 1u32) as usize] = path.data[i as usize];
+            i = i + 1u32;
+        }
+        path.count = path.count - 1u32;
+        return;
+    }
+    if path.count == 0xffffffffu32 {
+        error("portal path exceeds address range");
+        trap;
+    }
+    portal_path_reserve(mut path, path.count + 1u32);
+    var i: u32 = path.count;
+    while i > 0u32 {
+        path.data[i as usize] = path.data[(i - 1u32) as usize];
+        i = i - 1u32;
+    }
+    path.data[0usize] = portal;
+    path.count = path.count + 1u32;
+}

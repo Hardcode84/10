@@ -44,7 +44,8 @@ fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mu
     return collision_finish(move builder, mut collision);
 }
 fn demo_room_start(asset: read RoomAsset, trial: mut Trial) -> unit {
-    trial.spawn = new_drone();
+    var spawn: Drone = new_drone();
+    assign_drone(mut trial.spawn, read spawn);
     trial.spawn.position = asset.spawn.position;
     trial.spawn.basis = asset.spawn.basis;
     trial.auto_level = false;

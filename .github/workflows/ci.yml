@@ -50,6 +50,7 @@ jobs:
         run: crust tests.crs assets
       - name: Check flight and tether reeling
         run: |
+          crust tests.crs ratios
           crust tests.crs flight
           crust tests.crs reel
       - name: Check labyrinth topology
@@ -82,6 +83,7 @@ jobs:
           crust tests.crs collision
           crust tests.crs hook-light
           crust tests.crs body-view
+          crust tests.crs scaling
       - name: Build native application entry points
         run: |
           crust main.crs --build-only

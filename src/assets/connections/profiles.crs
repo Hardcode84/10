@@ -1,6 +1,7 @@
 // Regular hexagon: 6 m across corners, horizontal corner pair, six roll choices.
 fn service_hex_profile() -> ConnectionProfile {
     return make ConnectionProfile {
+        scale: scale_identity(),
         name: asset_name("HEX-6M"),
         shape: make RegularProfile {
             sides: 6u32,

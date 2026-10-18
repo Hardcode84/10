@@ -30,3 +30,37 @@ fn new_trial() -> Trial {
         preview_phase: 0f32
     };
 }
+
+fn clone_trial(value: read Trial) -> Trial {
+    return make Trial {
+        graph_run: value.graph_run,
+        goal_world: value.goal_world,
+        returning: value.returning,
+        spawn: clone_drone(read value.spawn),
+        drone: clone_drone(read value.drone),
+        tick: value.tick,
+        finished: value.finished,
+        started: value.started,
+        full_spin: value.full_spin,
+        auto_level: value.auto_level,
+        preview_enabled: value.preview_enabled,
+        attempt: value.attempt,
+        preview_phase: value.preview_phase
+    };
+}
+
+fn assign_trial(target: mut Trial, value: read Trial) -> unit {
+    target.graph_run = value.graph_run;
+    target.goal_world = value.goal_world;
+    target.returning = value.returning;
+    assign_drone(mut target.spawn, read value.spawn);
+    assign_drone(mut target.drone, read value.drone);
+    target.tick = value.tick;
+    target.finished = value.finished;
+    target.started = value.started;
+    target.full_spin = value.full_spin;
+    target.auto_level = value.auto_level;
+    target.preview_enabled = value.preview_enabled;
+    target.attempt = value.attempt;
+    target.preview_phase = value.preview_phase;
+}

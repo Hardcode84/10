@@ -1,0 +1,63 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var value: Rational = rational_new(1u64, 1u64);
+    var three: Rational = rational_new(3u64, 2u64);
+    var half: Rational = rational_new(1u64, 2u64);
+    var i: u32 = 0u32;
+    while i < 100u32 {
+        rational_multiply(mut value, read three);
+        if rational_float(read value) > 2f32 {
+            rational_multiply(mut value, read half);
+        }
+        i = i + 1u32;
+    }
+    var inverse: Rational = rational_inverse(read value);
+    var identity: Rational = rational_product(read value, read inverse);
+    var one: Rational = rational_new(1u64, 1u64);
+    if !rational_equal(read identity, read one) || rational_float(read identity) != 1f32 {
+        return 1i32;
+    }
+    var small: Rational = rational_new(1u64, 3u64);
+    if rational_float(read small) != 0.3333333333333333f32 {
+        return 2i32;
+    }
+    if !ratio_rounding_checks() {
+        return 3i32;
+    }
+    puts("Expandable rational composition and reciprocal cancellation passed.");
+    return 0i32;
+}
+
+fn ratio_rounding_checks() -> bool {
+    var tie_even: Rational = rational_new(16777217u64, 16777216u64);
+    var tie_odd: Rational = rational_new(16777219u64, 16777216u64);
+    if rational_float(read tie_even) != rational_bits(0x3f800000u32) || rational_float(
+        read tie_odd
+    ) != rational_bits(0x3f800002u32) {
+        return error("rational ties must round to an even significand");
+    }
+    var value: Rational = rational_new(1u64, 1u64);
+    var half: Rational = rational_new(1u64, 2u64);
+    var i: u32 = 0u32;
+    while i < 149u32 {
+        rational_multiply(mut value, read half);
+        i = i + 1u32;
+    }
+    if rational_float(read value) != rational_bits(1u32) {
+        return error("minimum subnormal conversion");
+    }
+    rational_multiply(mut value, read half);
+    if rational_float(read value) != 0f32 {
+        return error("half minimum subnormal must round to zero");
+    }
+    var three: Rational = rational_new(3u64, 1u64);
+    rational_multiply(mut value, read three);
+    if rational_float(read value) != rational_bits(2u32) {
+        return error("subnormal tie must round up to even");
+    }
+    var inverse: Rational = rational_inverse(read value);
+    if rational_float(read inverse) != rational_bits(0x7f800000u32) {
+        return error("overflow conversion");
+    }
+    var identity: Rational = rational_product(read value, read inverse);
+    return rational_float(read identity) == 1f32;
+}

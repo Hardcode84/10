@@ -21,7 +21,11 @@ fn light_object_submit(input: mut FrameInput, light: LightObject, anchor: RoomAn
     input_set_float(mut input, p, point.x);
     input_set_float(mut input, p + 1usize, point.y);
     input_set_float(mut input, p + 2usize, point.z);
-    input_set_float(mut input, p + 3usize, light.radius * light.radius);
+    input_set_float(
+        mut input,
+        p + 3usize,
+        (light.radius * anchor.transform.factor) * (light.radius * anchor.transform.factor)
+    );
     input_set_float(mut input, p + 4usize, light.colour.x);
     input_set_float(mut input, p + 5usize, light.colour.y);
     input_set_float(mut input, p + 6usize, light.colour.z);
@@ -55,11 +59,11 @@ fn game_object_lighting(scene: read CollisionScene, input: mut FrameInput, trial
         space: trial.drone.world,
         position: trial.drone.position,
         colour: vec(1f32, 1f32, 1f32),
-        radius: 6f32,
+        radius: 6f32 * drone_size(read trial.drone),
         mode: LIGHT_HEADLAMP
     };
     input_set_float(mut input, CAMERA_LIGHT as usize, 0f32);
     light_object_anchors(read scene, mut input, player);
-    hook_light(read scene, mut input, trial.drone);
+    hook_light(read scene, mut input, read trial.drone);
     graph_lighting(read scene, mut input, read trial);
 }

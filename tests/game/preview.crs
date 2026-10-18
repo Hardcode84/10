@@ -1,5 +1,5 @@
 fn test_preview_station(collision: read CollisionScene, trial: read Trial, index: u32) -> Vec3 {
-    var drone: Drone = trial.drone;
+    var drone: Drone = clone_drone(read trial.drone);
     var distance: f32 = trial.preview_phase;
     var station: f32 = index as f32 * PREVIEW_SPACING;
     var i: u32 = 0u32;

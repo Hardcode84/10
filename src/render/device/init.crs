@@ -48,5 +48,6 @@ fn compute() -> unit {
         floats_store(words_load(VIEW_FLOAT) + 13u32, 0f32);
         floats_store(words_load(VIEW_FLOAT) + 14u32, 0f32);
         floats_store(words_load(VIEW_FLOAT) + 15u32, 1f32);
+        floats_store(words_load(VIEW_FLOAT) + 16u32, 1f32);
     }
 }

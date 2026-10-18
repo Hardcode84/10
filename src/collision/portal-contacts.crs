@@ -16,17 +16,21 @@ fn collision_anchored_planes(
     transformed.basis = space_compose(
         frame,
         make SpaceTransform {
+            factor: 1f32,
             origin: pose.origin,
             basis: pose.basis
         }
     ).basis;
-    transformed.linear = basis_vector(frame.basis, pose.linear);
+    transformed.linear = space_vector(frame, pose.linear);
+    var factor: f32 = frame.factor;
+    proximity.point = scale(proximity.point, factor);
+    proximity.distance = proximity.distance * factor;
     transformed.angular = basis_vector(frame.basis, pose.angular);
     return collision_contact_planes(
         transformed,
         proximity,
-        radius,
-        skin,
+        radius * factor,
+        skin * factor,
         mut separate,
         mut speeds
     );
@@ -44,6 +48,9 @@ fn collision_anchor_contacts(
 ) -> bool {
     var anchor: RoomAnchor = room_anchor(read anchors, index);
     var p: Vec3 = space_point(anchor.transform, center);
+    var factor: f32 = anchor.transform.factor;
+    radius = radius * factor;
+    skin = skin * factor;
     var range: CollisionSpace = collision_space(read scene, anchor.space);
     var i: u32 = range.root;
     while i < range.end {

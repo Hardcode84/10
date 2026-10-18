@@ -1,5 +1,5 @@
 fn plane_coefficient(view: u32, plane: u32, axis: u32) -> f32 {
-    var p: u32 = words_load(VIEW_FLOAT) + view * 16u32;
+    var p: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
     if plane == 0u32 {
         return floats_load(p + 8u32 + axis);
     }
@@ -69,7 +69,7 @@ fn compute() -> unit {
 }
 
 fn plane_magnitude(view: u32, plane: u32, axis: u32) -> f32 {
-    var p: u32 = words_load(VIEW_FLOAT) + view * 16u32;
+    var p: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
     if plane < 2u32 {
         var value: f32 = floats_load(p + (8u32 + plane * 4u32) + axis);
         if value < 0f32 {

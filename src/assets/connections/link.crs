@@ -3,7 +3,17 @@ fn connection_transform(a: RoomPort, b: RoomPort, roll: u32) -> SpaceTransform {
     var angle: f32 = 6.28318530718f32 * roll as f32 / connection_rotations(a, b) as f32;
     var c: f32 = cosf(angle);
     var s: f32 = sinf(angle);
+    var source_scale: Rational = rational_new(
+        a.profile.scale.denominator,
+        a.profile.scale.numerator
+    );
+    var target_scale: Rational = rational_new(
+        b.profile.scale.numerator,
+        b.profile.scale.denominator
+    );
+    var ratio: Rational = rational_product(read source_scale, read target_scale);
     var mating: SpaceTransform = make SpaceTransform {
+        factor: rational_float(read ratio),
         origin: b.position,
         basis: make Basis {
             right: add(scale(b.basis.right, c), scale(b.basis.up, s)),
@@ -15,6 +25,7 @@ fn connection_transform(a: RoomPort, b: RoomPort, roll: u32) -> SpaceTransform {
         mating,
         space_inverse(
             make SpaceTransform {
+                factor: 1f32,
                 origin: a.position,
                 basis: a.basis
             }
@@ -36,6 +47,8 @@ fn connection_link(
     return collision_portal_append(
         mut builder,
         make CollisionPortal {
+            source_scale: a.profile.scale,
+            target_scale: b.profile.scale,
             reverse: reverse,
             space: space,
             destination: destination,

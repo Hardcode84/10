@@ -1,0 +1,252 @@
+resource Natural {
+    words: *u32;
+    count: usize;
+    capacity: usize;
+}
+opaque send share drop natural_drop;
+fn natural_drop(value: mut Natural) -> unit {
+    free(value.words as *u8);
+}
+fn natural_new() -> Natural {
+    return make Natural {
+        words: null(*u32),
+        count: 0usize,
+        capacity: 0usize
+    };
+}
+fn natural_reserve(value: mut Natural, count: usize) -> unit {
+    if count <= value.capacity {
+        return;
+    }
+    if count > (~0usize) / sizeof(u32) {
+        error("integer storage exceeds address range");
+        trap;
+    }
+    var data: *u32 = malloc(count * sizeof(u32)) as *u32;
+    if data == null(*u32) {
+        error("integer allocation failed");
+        trap;
+    }
+    zero(data as *u8, count * sizeof(u32));
+    var i: usize = 0usize;
+    while i < value.count {
+        data[i] = value.words[i];
+        i = i + 1usize;
+    }
+    free(value.words as *u8);
+    value.words = data;
+    value.capacity = count;
+}
+fn natural_trim(value: mut Natural) -> unit {
+    while value.count != 0usize && value.words[value.count - 1usize] == 0u32 {
+        value.count = value.count - 1usize;
+    }
+}
+fn natural_u64(value: u64) -> Natural {
+    var result: Natural = natural_new();
+    if value == 0u64 {
+        return move result;
+    }
+    natural_reserve(mut result, 2usize);
+    result.words[0usize] = value as u32;
+    result.words[1usize] = (value >> 32u64) as u32;
+    result.count = 2usize;
+    natural_trim(mut result);
+    return move result;
+}
+fn natural_clone(value: read Natural) -> Natural {
+    var result: Natural = natural_new();
+    natural_reserve(mut result, value.count);
+    result.count = value.count;
+    var i: usize = 0usize;
+    while i < value.count {
+        result.words[i] = value.words[i];
+        i = i + 1usize;
+    }
+    return move result;
+}
+fn natural_compare(a: read Natural, b: read Natural) -> i32 {
+    if a.count < b.count {
+        return -1i32;
+    }
+    if a.count > b.count {
+        return 1i32;
+    }
+    var i: usize = a.count;
+    while i > 0usize {
+        i = i - 1usize;
+        if a.words[i] < b.words[i] {
+            return -1i32;
+        }
+        if a.words[i] > b.words[i] {
+            return 1i32;
+        }
+    }
+    return 0i32;
+}
+fn natural_subtract(a: mut Natural, b: read Natural) -> unit {
+    var borrow: u64 = 0u64;
+    var i: usize = 0usize;
+    while i < a.count {
+        var right: u64 = borrow;
+        if i < b.count {
+            right = right + b.words[i] as u64;
+        }
+        var left: u64 = a.words[i] as u64;
+        a.words[i] = (left - right) as u32;
+        borrow = (left < right) as u64;
+        i = i + 1usize;
+    }
+    if borrow != 0u64 {
+        trap;
+    }
+    natural_trim(mut a);
+}
+fn natural_shift(a: mut Natural, bits: usize) -> unit {
+    if a.count == 0usize || bits == 0usize {
+        return;
+    }
+    var full: usize = bits / 32usize;
+    var part: u32 = (bits % 32usize) as u32;
+    if a.count > ~0usize - full - 1usize {
+        error("integer shift exceeds address range");
+        trap;
+    }
+    var old: usize = a.count;
+    natural_reserve(mut a, old + full + 1usize);
+    var i: usize = old;
+    while i > 0usize {
+        i = i - 1usize;
+        a.words[i + full] = a.words[i];
+    }
+    i = 0usize;
+    while i < full {
+        a.words[i] = 0u32;
+        i = i + 1usize;
+    }
+    var carry: u64 = 0u64;
+    i = full;
+    while i < old + full {
+        var word: u64 = ((a.words[i] as u64) << part as u64) | carry;
+        a.words[i] = word as u32;
+        carry = word >> 32u64;
+        i = i + 1usize;
+    }
+    a.words[i] = carry as u32;
+    a.count = old + full + 1usize;
+    natural_trim(mut a);
+}
+fn natural_half(a: mut Natural) -> unit {
+    var carry: u32 = 0u32;
+    var i: usize = a.count;
+    while i > 0usize {
+        i = i - 1usize;
+        var word: u32 = a.words[i];
+        a.words[i] = (word >> 1u32) | carry;
+        carry = word << 31u32;
+    }
+    natural_trim(mut a);
+}
+fn natural_bits(a: read Natural) -> usize {
+    if a.count == 0usize {
+        return 0usize;
+    }
+    var word: u32 = a.words[a.count - 1usize];
+    var result: usize = (a.count - 1usize) * 32usize;
+    while word != 0u32 {
+        word = word >> 1u32;
+        result = result + 1usize;
+    }
+    return result;
+}
+fn natural_product(a: read Natural, b: read Natural) -> Natural {
+    var result: Natural = natural_new();
+    if a.count > ~0usize - b.count {
+        error("integer product exceeds address range");
+        trap;
+    }
+    natural_reserve(mut result, a.count + b.count);
+    result.count = a.count + b.count;
+    var i: usize = 0usize;
+    while i < a.count {
+        var carry: u64 = 0u64;
+        var j: usize = 0usize;
+        while j < b.count {
+            var word: u64 = a.words[i] as u64 * b.words[j] as u64 + result.words[i + j] as u64 + carry;
+            result.words[i + j] = word as u32;
+            carry = word >> 32u64;
+            j = j + 1usize;
+        }
+        result.words[i + b.count] = carry as u32;
+        i = i + 1usize;
+    }
+    natural_trim(mut result);
+    return move result;
+}
+fn natural_divide(a: read Natural, b: read Natural, quotient: mut Natural) -> Natural {
+    if b.count == 0usize {
+        trap;
+    }
+    var remainder: Natural = natural_clone(read a);
+    natural_drop(mut quotient);
+    quotient.words = null(*u32);
+    quotient.count = 0usize;
+    quotient.capacity = 0usize;
+    if natural_compare(read a, read b) >= 0i32 {
+        var shift: usize = natural_bits(read a) - natural_bits(read b);
+        var divisor: Natural = natural_clone(read b);
+        natural_shift(mut divisor, shift);
+        natural_reserve(mut quotient, shift / 32usize + 1usize);
+        quotient.count = shift / 32usize + 1usize;
+        var done: bool = false;
+        while !done {
+            if natural_compare(read remainder, read divisor) >= 0i32 {
+                natural_subtract(mut remainder, read divisor);
+                quotient.words[shift / 32usize] = quotient.words[shift / 32usize] | (
+                    1u32 << (shift % 32usize) as u32
+                );
+            }
+            done = shift == 0usize;
+            if !done {
+                shift = shift - 1usize;
+                natural_half(mut divisor);
+            }
+        }
+        natural_trim(mut quotient);
+    }
+    return move remainder;
+}
+fn natural_gcd(a: Natural, b: Natural) -> Natural {
+    while b.count != 0usize {
+        var quotient: Natural = natural_new();
+        var remainder: Natural = natural_divide(read a, read b, mut quotient);
+        natural_swap(mut a, mut b);
+        natural_swap(mut b, mut remainder);
+    }
+    return move a;
+}
+fn natural_small(a: read Natural) -> u64 {
+    if a.count > 2usize {
+        trap;
+    }
+    var result: u64 = 0u64;
+    if a.count != 0usize {
+        result = a.words[0usize] as u64;
+    }
+    if a.count == 2usize {
+        result = result | ((a.words[1usize] as u64) << 32u64);
+    }
+    return result;
+}
+
+fn natural_swap(a: mut Natural, b: mut Natural) -> unit {
+    var words: *u32 = a.words;
+    var count: usize = a.count;
+    var capacity: usize = a.capacity;
+    a.words = b.words;
+    a.count = b.count;
+    a.capacity = b.capacity;
+    b.words = words;
+    b.count = count;
+    b.capacity = capacity;
+}

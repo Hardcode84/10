@@ -148,7 +148,7 @@ fn prepare_triangle(index: u32) -> unit {
         return;
     }
     var scratch: u32 = words_load(CLIP_OFFSET) + slot * 144u32;
-    var matrix: u32 = words_load(VIEW_FLOAT) + view * 16u32;
+    var matrix: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
     var vertex: u32 = 0u32;
     while vertex < 3u32 {
         var source: u32 = GEOMETRY + tri * 15u32 + vertex * 5u32;

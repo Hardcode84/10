@@ -1,7 +1,7 @@
 fn draw_cable(
     collision: read CollisionScene,
     v: mut FrameInput,
-    drone: Drone,
+    drone: read Drone,
     config: GameConfig
 ) -> unit {
     if drone.cable.phase != CABLE_ATTACHED && drone.cable.phase != CABLE_FLYING {
@@ -13,14 +13,25 @@ fn draw_cable(
         drone.cable.anchor
     );
     var first: u32 = input_word(read v, 3usize);
-    draw_hook_anchors(read collision, mut v, drone.cable.space, physical);
+    draw_hook_anchors(
+        read collision,
+        mut v,
+        drone.cable.space,
+        physical,
+        hook_radius(read drone)
+    );
     var start: Vec3 = add(
         drone.position,
-        basis_vector(drone.basis, vec(0f32, -0.12f32, 0.2f32))
+        scale(
+            basis_vector(drone.basis, vec(0f32, -0.12f32, 0.2f32)),
+            drone_size(read drone)
+        )
     );
     var middle: Vec3 = scale(add(start, drone.cable.anchor), 0.5f32);
     var slack: f32 = clamp(
-        drone.cable.extent - length(sub(drone.position, drone.cable.anchor)),
+        drone.cable.extent * drone_size(read drone) - length(
+            sub(drone.position, drone.cable.anchor)
+        ),
         0f32,
         10f32
     );
@@ -29,10 +40,31 @@ fn draw_cable(
         scale(unit_vector(drum_position(drone.position)), slack * 0.5f32)
     );
     if collision_portal_count(read collision) == 0u32 {
-        draw_ribbon(mut v, start, middle, drone.position, 0.004f32, mat);
-        draw_ribbon(mut v, middle, drone.cable.anchor, drone.position, 0.004f32, mat);
+        draw_ribbon(
+            mut v,
+            start,
+            middle,
+            drone.position,
+            0.004f32 * drone_size(read drone),
+            mat
+        );
+        draw_ribbon(
+            mut v,
+            middle,
+            drone.cable.anchor,
+            drone.position,
+            0.004f32 * drone_size(read drone),
+            mat
+        );
     } else {
-        draw_portal_cable(read collision, mut v, drone, start, drone.cable.anchor, mat);
+        draw_portal_cable(
+            read collision,
+            mut v,
+            read drone,
+            start,
+            drone.cable.anchor,
+            mat
+        );
     }
     game_dynamic_no_shadow(mut v, first);
     var direction: Vec3 = unit_vector(sub(drone.cable.anchor, drone.position));
@@ -46,7 +78,7 @@ fn draw_cable(
         }
         frame_rect(
             mut v,
-            drone,
+            read drone,
             config,
             x / m * 0.12f32,
             y / m * 0.12f32,
@@ -60,11 +92,12 @@ fn draw_cable(
 fn draw_portal_cable(
     collision: read CollisionScene,
     v: mut FrameInput,
-    drone: Drone,
+    drone: read Drone,
     start: Vec3,
     end: Vec3,
     material: u32
 ) -> unit {
+    var width: f32 = 0.004f32 * drone_size(read drone);
     var space: u32 = drone.world;
     var eye: Vec3 = drone.position;
     var count: u32 = 0u32;
@@ -73,25 +106,26 @@ fn draw_portal_cable(
         var crossing: PortalCrossing = portal_crossing(read collision, space, start, travel);
         if crossing.time > 1f32 {
             var first: u32 = input_word(read v, 3usize);
-            draw_ribbon(mut v, start, end, eye, 0.004f32, material);
+            draw_ribbon(mut v, start, end, eye, width, material);
             game_dynamic_space(mut v, first, space);
             return;
         }
         var point: Vec3 = add(start, scale(travel, crossing.time));
         var first: u32 = input_word(read v, 3usize);
-        draw_ribbon(mut v, start, point, eye, 0.004f32, material);
+        draw_ribbon(mut v, start, point, eye, width, material);
         game_dynamic_space(mut v, first, space);
         var portal: CollisionPortal = collision_portal(read collision, crossing.index);
         start = space_point(portal.transform, point);
         end = space_point(portal.transform, end);
         eye = space_point(portal.transform, eye);
+        width = width * portal.transform.factor;
         space = portal.destination;
         count = count + 1u32;
     }
     scene_motion_failure();
 }
 
-fn hook_light_position(collision: read CollisionScene, drone: Drone) -> Vec3 {
+fn hook_light_position(collision: read CollisionScene, drone: read Drone) -> Vec3 {
     var point: Vec3 = space_point(
         space_inverse(drone.cable.frame),
         drone.cable.anchor
@@ -105,22 +139,22 @@ fn hook_light_position(collision: read CollisionScene, drone: Drone) -> Vec3 {
             point,
             scale(
                 basis_vector(pose.basis, drone.cable.local_normal),
-                HOOK_RADIUS * 2f32
+                hook_radius(read drone) * 2f32
             )
         );
     }
     return point;
 }
-fn hook_light(collision: read CollisionScene, input: mut FrameInput, drone: Drone) -> unit {
+fn hook_light(collision: read CollisionScene, input: mut FrameInput, drone: read Drone) -> unit {
     if drone.cable.phase != CABLE_FLYING && drone.cable.phase != CABLE_ATTACHED {
         return;
     }
     var light: LightObject = make LightObject {
         id: 1u32,
         space: drone.cable.space,
-        position: hook_light_position(read collision, drone),
+        position: hook_light_position(read collision, read drone),
         colour: vec(2f32, 1.6f32, 0.1f32),
-        radius: 6f32,
+        radius: 6f32 * rational_float(read drone.cable.size),
         mode: LIGHT_UNSHADOWED
     };
     light_object_anchors(read collision, mut input, light);
@@ -130,7 +164,8 @@ fn draw_hook_anchors(
     scene: read CollisionScene,
     input: mut FrameInput,
     space: u32,
-    point: Vec3
+    point: Vec3,
+    radius: f32
 ) -> unit {
     var anchors: RoomAnchors = room_anchors_new();
     var still: Vec3 = vec(0f32, 0f32, 0f32);
@@ -140,11 +175,11 @@ fn draw_hook_anchors(
         space,
         point,
         still,
-        HOOK_RADIUS * sqrtf(3f32)
+        radius * sqrtf(3f32)
     ) {
         scene_motion_failure();
     }
-    var size: Vec3 = vec(HOOK_RADIUS, HOOK_RADIUS, HOOK_RADIUS);
+    var size: Vec3 = vec(radius, radius, radius);
     var i: u32 = 0u32;
     while i < room_anchor_count(read anchors) {
         var first: u32 = input_word(read input, 3usize);

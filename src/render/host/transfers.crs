@@ -59,7 +59,13 @@ fn upload_scene(v: *RenderState) -> unit {
         (v -> mapped as *u32)[DYNAMIC_COUNT as usize] as u64 * 16u64
     );
     retained_transfer(v, PORTAL_META, v -> portal_capacity * 4u32, false, true);
-    retained_transfer(v, PORTAL_FLOAT, v -> portal_capacity * 16u32, true, true);
+    retained_transfer(
+        v,
+        PORTAL_FLOAT,
+        v -> portal_capacity * PORTAL_TRANSFORM_WORDS,
+        true,
+        true
+    );
     var base: u64 = (v -> words as u64 + 1u64) * 4u64;
     copy_region(v, v -> staging, v -> buffer, base, 22u64 * 4u64);
     copy_region(

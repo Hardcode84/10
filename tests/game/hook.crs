@@ -105,11 +105,11 @@ fn test_hook_range(collision: read CollisionScene) -> bool {
 fn test_hook_hash() -> bool {
     var a: Trial = new_trial();
     hook_launch(mut a.drone);
-    var b: Trial = a;
+    var b: Trial = clone_trial(read a);
     b.drone.cable.velocity.x = b.drone.cable.velocity.x + 1f32;
-    var c: Trial = a;
+    var c: Trial = clone_trial(read a);
     c.drone.cable.phase = CABLE_ATTACHED;
-    var d: Trial = a;
+    var d: Trial = clone_trial(read a);
     d.drone.cable.reeling = true;
     return game_check(
         trial_hash(read a) != trial_hash(read b) && trial_hash(read a) != trial_hash(read c) && trial_hash(
@@ -142,6 +142,6 @@ fn test_attach_surface(scene: read CollisionScene, drone: mut Drone, travel: Vec
     ) {
         return false;
     }
-    hook_attach(read scene, mut drone, hit.contact, time, time);
+    hook_attach(read scene, mut drone, read hit, time, time);
     return true;
 }

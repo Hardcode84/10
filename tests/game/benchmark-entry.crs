@@ -183,7 +183,7 @@ fn graph_benchmark_lamps(
     if !graph_benchmark_view(read scene, mut session, read loop, config) {
         return false;
     }
-    loop.trial.drone.cable = empty_cable();
+    reset_cable(mut loop.trial.drone.cable);
     loop.trial.drone.world = loop.trial.goal_world;
     loop.trial.drone.position = vec(0f32, 2f32, 0f32);
     loop.trial.drone.basis = make Basis {

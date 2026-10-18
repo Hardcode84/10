@@ -1,0 +1,161 @@
+fn scaling_render_scene(scene: mut CollisionScene, factor: ScaleRatio) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var transform: SpaceTransform = make SpaceTransform {
+        factor: scale_float(factor),
+        origin: vec(7f32, 2f32, -5f32),
+        basis: make Basis {
+            right: vec(0f32, 0f32, 1f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(-1f32, 0f32, 0f32)
+        }
+    };
+    var portal: CollisionPortal = make CollisionPortal {
+        source_scale: scale_identity(),
+        target_scale: factor,
+        reverse: 1u32,
+        space: 0u32,
+        destination: 1u32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        radius: 3f32,
+        sides: 6u32,
+        phase: 0f32,
+        transform: transform
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.reverse = 0u32;
+    portal.space = 1u32;
+    portal.destination = 0u32;
+    portal.origin = transform.origin;
+    portal.radius = portal.radius * scale_float(factor);
+    portal.basis = space_basis(
+        transform,
+        make Basis {
+            right: vec(-1f32, 0f32, 0f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(0f32, 0f32, -1f32)
+        }
+    );
+    portal.transform = space_inverse(transform);
+    portal.target_scale = scale_inverse(factor);
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn scaling_render_input(scene: read CollisionScene, input: mut FrameInput) -> unit {
+    game_palette(mut input);
+    input_frame(mut input);
+    render_portals(mut input, read scene);
+    input_set_word(mut input, 20usize, 0u32);
+    input_set_word(mut input, 4usize, 2u32);
+    input_set_word(mut input, BACKGROUND as usize, 0xff123456u32);
+    input_set_float(mut input, RENDER_STYLE as usize, 0.04f32);
+    input_set_float(mut input, PROJECTION as usize, 1f32);
+    input_set_float(mut input, CAMERA_LIGHT as usize, 0f32);
+    var eye: Vec3 = vec(0f32, 0f32, -4f32);
+    camera_row(mut input, 0usize, vec(1f32, 0f32, 0f32), eye);
+    camera_row(mut input, 4usize, vec(0f32, 1f32, 0f32), eye);
+    camera_row(mut input, 8usize, vec(0f32, 0f32, 1f32), eye);
+    quad(
+        mut input,
+        0u32,
+        0u32,
+        1u32,
+        0u32,
+        -2f32,
+        -2f32,
+        0f32,
+        2f32,
+        -2f32,
+        0f32,
+        2f32,
+        2f32,
+        0f32,
+        -2f32,
+        2f32,
+        0f32
+    );
+    var first: u32 = input_word(read input, 3usize);
+    draw_solid(
+        mut input,
+        solid(vec(-3f32, -3f32, 4f32), vec(3f32, 3f32, 5f32), 4u32)
+    );
+    var anchor: RoomAnchor = primary_anchor(1u32, 1u32);
+    anchor.transform = collision_portal(read scene, 0u32).transform;
+    game_dynamic_anchor(mut input, first, anchor);
+    input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
+    var light: LightObject = make LightObject {
+        id: 0u32,
+        space: 0u32,
+        position: vec(0f32, 0f32, -1f32),
+        colour: vec(2f32, 1.6f32, 0.1f32),
+        radius: 6f32,
+        mode: LIGHT_UNSHADOWED
+    };
+    light_object_anchors(read scene, mut input, light);
+}
+fn scaling_image_hash(renderer: read Renderer) -> u64 {
+    var pixels: *u32 = renderer.state.mapped as *u32;
+    var hash: u64 = 14695981039346656037u64;
+    var changed: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < 320u32 * 240u32 {
+        var pixel: u32 = pixels[(PIXELS + i) as usize];
+        hash = (hash ^ pixel as u64) * 1099511628211u64;
+        changed = changed + (pixel != 0xff123456u32) as u32;
+        i = i + 1u32;
+    }
+    if changed == 0u32 {
+        error("scaled portal image contains no geometry");
+        trap;
+    }
+    return hash;
+}
+fn main(argc: i32, argv: **u8) -> i32 {
+    var launch: Launch = uninit;
+    if !game_options(argc, argv, &launch) {
+        return 1i32;
+    }
+    launch.config.width = 320u32;
+    launch.config.height = 240u32;
+    launch.shader_checks = true;
+    var renderer: Renderer = renderer_new();
+    if !game_renderer_open(&renderer.state, &launch, null(*u8), 2u32) {
+        return 1i32;
+    }
+    var baseline: u64 = 0u64;
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var factor: ScaleRatio = scale_identity();
+        if i == 1u32 {
+            factor = scale_ratio(2u64, 1u64);
+        }
+        if i == 2u32 {
+            factor = scale_ratio(1u64, 2u64);
+        }
+        var scene: CollisionScene = collision_new();
+        if !scaling_render_scene(mut scene, factor) {
+            return 1i32;
+        }
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            scaling_render_input(read scene, mut input);
+        }
+        if !renderer_draw(&renderer.state) {
+            return 1i32;
+        }
+        var hash: u64 = scaling_image_hash(read renderer);
+        if i == 0u32 {
+            baseline = hash;
+        }
+        if hash != baseline {
+            return error("scaled room geometry and lights changed their portal image") as i32 + 1i32;
+        }
+        i = i + 1u32;
+    }
+    puts("Scaled portal geometry and propagated light images match identity.");
+    return 0i32;
+}

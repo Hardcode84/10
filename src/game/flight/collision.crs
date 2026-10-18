@@ -18,7 +18,7 @@ fn move_drone_interval(
         drone.world,
         drone.position,
         tether_travel(read drone, travel),
-        drone.velocity,
+        scale(drone.velocity, drone_size(read drone)),
         time
     );
     var planes: CollisionPlanes = collision_planes_new();
@@ -31,7 +31,7 @@ fn move_drone_interval(
         done = collision_interval_step(
             read collision,
             drone.world,
-            DRONE_RADIUS,
+            drone_radius(read drone),
             time,
             duration,
             mut planes,
@@ -43,20 +43,30 @@ fn move_drone_interval(
     if motion.status != 0u32 {
         game_collision_failure(motion);
     }
-    drone.velocity = motion.velocity;
+    drone.velocity = scale(motion.velocity, 1f32 / drone_size(read drone));
     drone.contact_work = drone.contact_work + motion.contact_work;
 }
 
-fn drone_portal(drone: mut Drone, portal: CollisionPortal) -> unit {
+fn drone_portal(scene: read CollisionScene, drone: mut Drone, index: u32) -> unit {
+    var portal: CollisionPortal = collision_portal(read scene, index);
     var t: SpaceTransform = portal.transform;
     drone.step_frame = space_compose(t, drone.step_frame);
+    var factor: Rational = portal_ratio(portal);
+    rational_multiply(mut drone.size, read factor);
     drone.world = portal.destination;
     drone.position = space_point(t, drone.position);
     drone.velocity = basis_vector(t.basis, drone.velocity);
     drone.basis = space_basis(t, drone.basis);
     drone.cable.anchor = space_point(t, drone.cable.anchor);
     drone.cable.velocity = basis_vector(t.basis, drone.cable.velocity);
-    drone.cable.frame = space_compose(t, drone.cable.frame);
+    if drone.cable.phase == CABLE_FLYING || drone.cable.phase == CABLE_ATTACHED {
+        if portal.reverse == 0xffffffffu32 {
+            error("a tether crossing requires a reciprocal portal");
+            trap;
+        }
+        portal_path_prepend(mut drone.cable.path, portal.reverse, index);
+        tether_rebuild(read scene, mut drone.cable);
+    }
 }
 fn drone_portal_step(
     collision: read CollisionScene,
@@ -79,7 +89,7 @@ fn drone_portal_step(
         drone.world,
         motion.position,
         motion.remaining,
-        DRONE_RADIUS,
+        drone_radius(read drone),
         time + motion.elapsed,
         duration - motion.elapsed
     );
@@ -88,12 +98,12 @@ fn drone_portal_step(
     }
     var portal: CollisionPortal = collision_portal(read collision, crossing.index);
     drone.position = add(motion.position, scale(motion.remaining, crossing.time));
-    drone.velocity = motion.velocity;
-    drone_portal(mut drone, portal);
+    drone.velocity = scale(motion.velocity, 1f32 / drone_size(read drone));
+    drone_portal(read collision, mut drone, crossing.index);
     motion.position = drone.position;
-    motion.velocity = drone.velocity;
-    motion.remaining = basis_vector(
-        portal.transform.basis,
+    motion.velocity = scale(drone.velocity, drone_size(read drone));
+    motion.remaining = space_vector(
+        portal.transform,
         scale(motion.remaining, 1f32 - crossing.time)
     );
     motion.elapsed = motion.elapsed + (duration - motion.elapsed) * crossing.time;

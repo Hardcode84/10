@@ -83,7 +83,7 @@ fn collision_anchor_children(
     radius: f32
 ) -> bool {
     var start: Vec3 = space_point(anchor.transform, position);
-    var delta: Vec3 = basis_vector(anchor.transform.basis, travel);
+    var delta: Vec3 = space_vector(anchor.transform, travel);
     var i: u32 = 0u32;
     while i < collision_portal_count(read scene) {
         var portal: CollisionPortal = collision_portal(read scene, i);
@@ -91,7 +91,7 @@ fn collision_anchor_children(
             portal,
             start,
             delta,
-            radius
+            radius * anchor.transform.factor
         ) {
             var next: RoomAnchor = make RoomAnchor {
                 object: anchor.object,
@@ -102,7 +102,7 @@ fn collision_anchor_children(
                 incoming: portal.reverse,
                 depth: anchor.depth + 1u32
             };
-            if !room_anchor_add(mut anchors, next) {
+            if !room_anchor_link(mut anchors, next, portal) {
                 return false;
             }
         }

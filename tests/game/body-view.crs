@@ -1,6 +1,8 @@
 fn body_portals(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var portal: CollisionPortal = make CollisionPortal {
+        source_scale: scale_identity(),
+        target_scale: scale_identity(),
         reverse: 1u32,
         space: 0u32,
         destination: 0u32,
@@ -10,6 +12,7 @@ fn body_portals(scene: mut CollisionScene) -> bool {
         sides: 4u32,
         phase: 0.78539816339f32,
         transform: make SpaceTransform {
+            factor: 1f32,
             origin: vec(0f32, 0f32, -2f32),
             basis: make Basis {
                 right: vec(0f32, 1f32, 0f32),
@@ -51,7 +54,7 @@ fn body_input(
     camera_row(mut input, 4usize, drone.basis.up, drone.position);
     camera_row(mut input, 8usize, drone.basis.forward, drone.position);
     if mode != 2u32 && mode != 5u32 {
-        draw_drone(read scene, mut input, read mesh, drone);
+        draw_drone(read scene, mut input, read mesh, read drone);
     }
     if mode == 1u32 || mode == 5u32 {
         render_portals(mut input, read scene);
@@ -120,7 +123,7 @@ fn body_overlap_check(scene: read CollisionScene, input: mut FrameInput, mesh: r
     drone.world = 0u32;
     drone.position = vec(0f32, 0f32, 0.9f32);
     drone.basis = turn_basis(identity_basis(), vec(1f32, 0f32, 0f32), 0.3f32);
-    draw_drone(read scene, mut input, read mesh, drone);
+    draw_drone(read scene, mut input, read mesh, read drone);
     var count: u32 = mesh_triangle_count(read mesh);
     if input_word(read input, 3usize) != count * 2u32 {
         return false;

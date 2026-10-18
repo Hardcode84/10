@@ -36,11 +36,15 @@ fn collision_anchor_velocity(
     );
 }
 record CollisionSweep {
+    path: PortalPath;
+    ratio: Rational;
     contact: CollisionContact;
     status: u32;
 }
 fn collision_sweep_result(contact: CollisionContact) -> CollisionSweep {
     return make CollisionSweep {
+        path: portal_path_new(),
+        ratio: rational_new(1u64, 1u64),
         contact: contact,
         status: 0u32
     };
@@ -117,15 +121,15 @@ fn collision_filtered_sweep_interval(
                 anchor_index
             );
             if next.status != 0u32 {
-                return next;
+                return move next;
             }
             if collision_better(next.contact, result.contact) {
-                result = next;
+                collision_sweep_assign(mut result, read next);
             }
         }
         index = item.next_moving;
     }
-    return result;
+    return move result;
 }
 fn collision_embedded_at(scene: read CollisionScene, space: u32, p: Vec3, time: f32) -> u32 {
     var found: u32 = collision_embedded(read scene, space, p);
@@ -172,4 +176,11 @@ fn collision_position_valid_at(
         0f32
     );
     return query.status == 0u32 && query.contact.penetration <= collision_tolerance(p, radius) * 0.25f32;
+}
+
+fn collision_sweep_assign(target: mut CollisionSweep, value: read CollisionSweep) -> unit {
+    portal_path_assign(mut target.path, read value.path);
+    target.contact = value.contact;
+    target.status = value.status;
+    rational_assign(mut target.ratio, read value.ratio);
 }

@@ -39,6 +39,7 @@ record Ray {
     direction: Vec;
 }
 record Hit {
+    factor: f32;
     eye: Vec;
     right: Vec;
     up: Vec;
@@ -108,7 +109,7 @@ fn intersect(
         return false;
     }
     if clip != 0xffffffffu32 {
-        var plane: usize = (w[PORTAL_FLOAT as usize] + clip * 16u32 + 12u32) as usize;
+        var plane: usize = (w[PORTAL_FLOAT as usize] + clip * PORTAL_TRANSFORM_WORDS + 12u32) as usize;
         var normal: Vec = vertex(f, plane);
         var da: f32 = dot(normal, a) + f[plane + 3usize];
         var db: f32 = dot(normal, b) + f[plane + 3usize];
@@ -140,7 +141,7 @@ fn intersect(
     return true;
 }
 fn through(ray: Ray, w: *u32, f: *f32, portal: u32) -> Ray {
-    var p: usize = (w[PORTAL_FLOAT as usize] + portal * 16u32) as usize;
+    var p: usize = (w[PORTAL_FLOAT as usize] + portal * PORTAL_TRANSFORM_WORDS) as usize;
     var o: Vec = sub(
         ray.origin,
         make Vec {
@@ -164,16 +165,17 @@ fn through(ray: Ray, w: *u32, f: *f32, portal: u32) -> Ray {
         y: f[p + 6usize],
         z: f[p + 10usize]
     };
+    var inverse_scale: f32 = 1f32 / (f[p + 16usize] * f[p + 16usize]);
     return make Ray {
         origin: make Vec {
-            x: dot(o, x),
-            y: dot(o, y),
-            z: dot(o, z)
+            x: dot(o, x) * inverse_scale,
+            y: dot(o, y) * inverse_scale,
+            z: dot(o, z) * inverse_scale
         },
         direction: make Vec {
-            x: dot(ray.direction, x),
-            y: dot(ray.direction, y),
-            z: dot(ray.direction, z)
+            x: dot(ray.direction, x) * inverse_scale,
+            y: dot(ray.direction, y) * inverse_scale,
+            z: dot(ray.direction, z) * inverse_scale
         }
     };
 }
@@ -250,6 +252,7 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
             z: f[2usize] * d.x + f[6usize] * d.y + f[10usize] * d.z
         }
     };
+    var factor: f32 = 1f32;
     var right: Ray = ray;
     right.direction = make Vec {
         x: f[0usize],
@@ -267,6 +270,7 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
     var clip: u32 = 0xffffffffu32;
     while depth <= w[4usize] {
         var hit: Hit = make Hit {
+            factor: factor,
             eye: ray.origin,
             right: right.direction,
             up: up.direction,
@@ -329,6 +333,9 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
             return reference_color(w, f, hit, x, y);
         }
         portal = portal - 1u32;
+        factor = factor / f[
+            (w[PORTAL_FLOAT as usize] + portal * PORTAL_TRANSFORM_WORDS + 16u32) as usize
+        ];
         ray = through(ray, w, f, portal);
         right = through(right, w, f, portal);
         up = through(up, w, f, portal);
@@ -646,7 +653,7 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
         var contribution: Vec = reference_point(
             sub(hit.eye, hit.position),
             normal,
-            f[CAMERA_LIGHT as usize],
+            f[CAMERA_LIGHT as usize] * hit.factor * hit.factor,
             vertex(f, (CAMERA_LIGHT + 1u32) as usize),
             false
         );
@@ -660,10 +667,14 @@ fn reference_illumination(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> Vec {
         var transported: bool = f[l + 7usize] == LIGHT_VIEW as f32;
         if transported || w[(w[LIGHT_SPACE as usize] + i) as usize] == space {
             var position: Vec = reference_light_position(f, l, hit);
+            var radius: f32 = f[l + 3usize];
+            if transported {
+                radius = radius * hit.factor * hit.factor;
+            }
             var contribution: Vec = reference_point(
                 sub(position, hit.position),
                 normal,
-                f[l + 3usize],
+                radius,
                 vertex(f, l + 4usize),
                 f[l + 7usize] != LIGHT_HEADLAMP as f32
             );
@@ -730,7 +741,9 @@ fn reference_intersect(
     var portal: u32 = w[(w[META as usize] + tri * 4u32 + 2u32) as usize];
     if portal != 0u32 {
         var destination: Ray = through(ray, w, f, portal - 1u32);
-        var plane: usize = (w[PORTAL_FLOAT as usize] + (portal - 1u32) * 16u32 + 12u32) as usize;
+        var plane: usize = (
+            w[PORTAL_FLOAT as usize] + (portal - 1u32) * PORTAL_TRANSFORM_WORDS + 12u32
+        ) as usize;
         if dot(destination.origin, vertex(f, plane)) + f[plane + 3usize] >= 0f32 {
             return false;
         }
@@ -799,6 +812,9 @@ fn reference_light_position(f: *f32, p: usize, hit: Hit) -> Vec {
         return point;
     }
     var forward: Vec = cross(hit.right, hit.up);
+    forward.x = forward.x / hit.factor;
+    forward.y = forward.y / hit.factor;
+    forward.z = forward.z / hit.factor;
     return make Vec {
         x: hit.eye.x + hit.right.x * point.x + hit.up.x * point.y + forward.x * point.z,
         y: hit.eye.y + hit.right.y * point.x + hit.up.y * point.y + forward.y * point.z,

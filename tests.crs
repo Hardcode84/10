@@ -8,6 +8,10 @@ var stages: *StageSession = project_open(run, &backend);
 if stages == null(*StageSession) {
     return 1i32;
 };
+host_source(run, "tools/build/ratios.crs");
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "ratios") == 0i32 {
+    return run_ratio_checks(run, backend.emit);
+};
 host_source(run, "tools/build/runtime.crs");
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "runtime") == 0i32 {
     return run_runtime_checks(run, backend.emit);
@@ -41,6 +45,20 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "asset-viewer") == 0i
 
 host_source(run, "tools/build/demo.crs");
 host_source(run, "tools/build/game.crs");
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "scaling") == 0i32 {
+    if !build_game_target(
+        run,
+        backend.emit,
+        "tests/scaling/entry.crs",
+        "build/tests-scaling",
+        null(*u8)
+    ) || !build_render_shaders(run) {
+        return 1i32;
+    }
+    run -> argc = run -> argc - 1i32;
+    run -> argv = run -> argv + 1isize;
+    return launch_application(run, "build/tests-scaling");
+};
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "body-view") == 0i32 {
     if !build_game_target(
         run,

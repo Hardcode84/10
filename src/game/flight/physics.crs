@@ -53,11 +53,18 @@ fn simulate(
         thrust = unit_vector(thrust);
     }
     var acceleration: Vec3 = add(
-        flight_acceleration(drone.position, drone.velocity, full_spin),
+        scale(
+            flight_acceleration(
+                drone.position,
+                scale(drone.velocity, drone_size(read drone)),
+                full_spin
+            ),
+            1f32 / drone_size(read drone)
+        ),
         scale(basis_vector(drone.basis, thrust), 0.5f32)
     );
     drone.velocity = add(drone.velocity, scale(acceleration, STEP));
-    var travel: Vec3 = scale(drone.velocity, STEP);
+    var travel: Vec3 = scale(drone.velocity, STEP * drone_size(read drone));
     var end_time: f32 = (drone.clock + 1u32) as f32 * STEP;
     hook_follow(read collision, mut drone, end_time);
     move_drone_interval(read collision, mut drone, travel, STEP);

@@ -8,13 +8,28 @@ fn render_portals(input: mut FrameInput, collision: read CollisionScene) -> unit
         var meta: usize = (input_word(read input, PORTAL_META as usize) + i * 4u32) as usize;
         input_set_word(mut input, meta, p.space);
         input_set_word(mut input, meta + 1usize, p.destination);
-        var base: usize = (input_word(read input, PORTAL_FLOAT as usize) + i * 16u32) as usize;
+        var base: usize = (
+            input_word(read input, PORTAL_FLOAT as usize) + i * PORTAL_TRANSFORM_WORDS
+        ) as usize;
+        input_set_float(mut input, base + 16usize, t.factor);
         var row: u32 = 0u32;
         while row < 3u32 {
             var offset: usize = base + (row * 4u32) as usize;
-            input_set_float(mut input, offset, component(t.basis.right, row));
-            input_set_float(mut input, offset + 1usize, component(t.basis.up, row));
-            input_set_float(mut input, offset + 2usize, component(t.basis.forward, row));
+            input_set_float(
+                mut input,
+                offset,
+                component(t.basis.right, row) * t.factor
+            );
+            input_set_float(
+                mut input,
+                offset + 1usize,
+                component(t.basis.up, row) * t.factor
+            );
+            input_set_float(
+                mut input,
+                offset + 2usize,
+                component(t.basis.forward, row) * t.factor
+            );
             input_set_float(mut input, offset + 3usize, component(t.origin, row));
             row = row + 1u32;
         }

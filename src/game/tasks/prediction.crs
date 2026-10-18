@@ -1,7 +1,21 @@
+record PredictionEye {
+    position: Vec3;
+    basis: Basis;
+    world: u32;
+    factor: f32;
+}
+fn prediction_eye(drone: read Drone) -> PredictionEye {
+    return make PredictionEye {
+        position: drone.position,
+        basis: drone.basis,
+        world: drone.world,
+        factor: drone_size(read drone)
+    };
+}
 const PREVIEW_MARKERS: u32 = 8u32;
 record PredictionMarker {
     center: Vec3;
-    eye: Drone;
+    eye: PredictionEye;
     material: u32;
 }
 record Prediction {
@@ -9,9 +23,10 @@ record Prediction {
     count: u32;
 }
 fn prediction_new() -> Prediction {
+    var drone: Drone = new_drone();
     var marker: PredictionMarker = make PredictionMarker {
         center: vec(0f32, 0f32, 0f32),
-        eye: new_drone(),
+        eye: prediction_eye(read drone),
         material: 0u32
     };
     return make Prediction {
@@ -47,13 +62,20 @@ fn predict_segment(
     trail: mut PreviewTrail,
     before: Vec3,
     after: Vec3,
-    eye: Drone,
+    eye: PredictionEye,
 ) -> unit {
     var travel: Vec3 = sub(after, before);
-    var segment: f32 = length(travel);
-    var next: f32 = (trail.markers + 1u32) as f32 * PREVIEW_SPACING;
+    var body_scale: f32 = eye.factor;
+    var segment: f32 = length(travel) / body_scale;
+    var spacing: f32 = PREVIEW_SPACING;
+    var next: f32 = (trail.markers + 1u32) as f32 * spacing;
     while segment > 0f32 && next <= trail.distance + segment && trail.markers < trail.limit {
-        var point: Vec3 = preview_station(before, after, trail.distance, next);
+        var point: Vec3 = preview_station(
+            before,
+            after,
+            trail.distance * body_scale,
+            next * body_scale
+        );
         prediction.markers[prediction.count as usize] = make PredictionMarker {
             center: point,
             eye: eye,
@@ -61,7 +83,7 @@ fn predict_segment(
         };
         prediction.count = prediction.count + 1u32;
         trail.markers = trail.markers + 1u32;
-        next = (trail.markers + 1u32) as f32 * PREVIEW_SPACING;
+        next = (trail.markers + 1u32) as f32 * spacing;
     }
     trail.distance = trail.distance + segment;
 }
@@ -87,8 +109,8 @@ fn predict_drone(
     if !trial.preview_enabled {
         return 0u32;
     }
-    var drone: Drone = trial.drone;
-    var eye: Drone = trial.drone;
+    var drone: Drone = clone_drone(read trial.drone);
+    var eye: PredictionEye = prediction_eye(read trial.drone);
     var command: Command = idle_command();
     command.tether = drone.cable.phase == CABLE_ATTACHED || drone.cable.phase == CABLE_FLYING;
     var i: u32 = 0u32;
@@ -115,7 +137,7 @@ fn predict_portal(
     trail: mut PreviewTrail,
     before: Vec3,
     after: Vec3,
-    eye: Drone,
+    eye: PredictionEye,
 ) -> unit {
     var crossings: u32 = 0u32;
     while crossings < 1024u32 {
@@ -146,11 +168,11 @@ fn predict_hook(
     trial: read Trial,
     limit: u32
 ) -> unit {
-    var drone: Drone = trial.drone;
+    var drone: Drone = clone_drone(read trial.drone);
     var command: Command = idle_command();
     command.tether = true;
     var trail: PreviewTrail = preview_trail(limit, HOOK_PREVIEW_MATERIAL, 0f32);
-    var eye: Drone = trial.drone;
+    var eye: PredictionEye = prediction_eye(read trial.drone);
     var i: u32 = 0u32;
     while i < 240u32 && trail.markers < trail.limit {
         var before: Vec3 = drone.position;
@@ -185,7 +207,8 @@ fn predict_hook(
     }
 }
 
-fn preview_eye(eye: Drone, transform: SpaceTransform, space: u32) -> Drone {
+fn preview_eye(eye: PredictionEye, transform: SpaceTransform, space: u32) -> PredictionEye {
+    eye.factor = transform.factor * eye.factor;
     eye.position = space_point(transform, eye.position);
     eye.basis = space_basis(transform, eye.basis);
     eye.world = space;

@@ -79,14 +79,14 @@ fn game_scene_begin(
     input_set_word(mut v, 20usize, trial.drone.world);
     input_set_word(mut v, SHARED_AMBIENT as usize, trial.graph_run as u32);
     input_set_word(mut v, BACKGROUND as usize, 0xff0d0906u32);
-    input_set_float(mut v, RENDER_STYLE as usize, 0.04f32);
+    input_set_float(mut v, RENDER_STYLE as usize, 0.04f32 * drone_size(read trial.drone));
     var angle: f32 = config.fov * 0.00872664626f32;
     input_set_float(mut v, PROJECTION as usize, sinf(angle) / cosf(angle));
     camera_row(mut v, 0usize, trial.drone.basis.right, trial.drone.position);
     camera_row(mut v, 4usize, trial.drone.basis.up, trial.drone.position);
     camera_row(mut v, 8usize, trial.drone.basis.forward, trial.drone.position);
     game_object_lighting(read collision, mut v, read trial);
-    draw_cable(read collision, mut v, trial.drone, config);
+    draw_cable(read collision, mut v, read trial.drone, config);
 }
 fn game_dynamic_space(v: mut FrameInput, first: u32, space: u32) -> unit {
     var i: u32 = first;

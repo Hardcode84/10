@@ -5,6 +5,8 @@ const CABLE_FLYING: u32 = 1u32;
 const CABLE_ATTACHED: u32 = 2u32;
 const CABLE_SNAPPED: u32 = 3u32;
 record Cable {
+    path: PortalPath;
+    size: Rational;
     frame: SpaceTransform;
     space: u32;
     phase: u32;
@@ -20,6 +22,8 @@ record Cable {
 }
 fn empty_cable() -> Cable {
     return make Cable {
+        path: portal_path_new(),
+        size: rational_new(1u64, 1u64),
         frame: space_identity(),
         space: 0u32,
         phase: CABLE_READY,
@@ -35,6 +39,7 @@ fn empty_cable() -> Cable {
     };
 }
 record Drone {
+    size: Rational;
     step_frame: SpaceTransform;
     world: u32;
     clock: u32;
@@ -55,6 +60,7 @@ record Drone {
 }
 fn new_drone() -> Drone {
     return make Drone {
+        size: rational_new(1u64, 1u64),
         step_frame: space_identity(),
         world: 0u32,
         clock: 0u32,
@@ -73,4 +79,99 @@ fn new_drone() -> Drone {
         brake_speed: 0f32,
         winch_work: 0f32
     };
+}
+
+fn drone_size(drone: read Drone) -> f32 {
+    return rational_float(read drone.size);
+}
+fn drone_radius(drone: read Drone) -> f32 {
+    return DRONE_RADIUS * drone_size(read drone);
+}
+fn hook_radius(drone: read Drone) -> f32 {
+    return HOOK_RADIUS * rational_float(read drone.cable.size);
+}
+
+fn clone_cable(value: read Cable) -> Cable {
+    return make Cable {
+        path: portal_path_clone(read value.path),
+        size: rational_clone(read value.size),
+        frame: value.frame,
+        space: value.space,
+        phase: value.phase,
+        instance: value.instance,
+        surface: value.surface,
+        local_point: value.local_point,
+        local_normal: value.local_normal,
+        anchor: value.anchor,
+        velocity: value.velocity,
+        extent: value.extent,
+        reel_speed: value.reel_speed,
+        reeling: value.reeling
+    };
+}
+
+fn clone_drone(value: read Drone) -> Drone {
+    return make Drone {
+        size: rational_clone(read value.size),
+        step_frame: value.step_frame,
+        world: value.world,
+        clock: value.clock,
+        machine_work: value.machine_work,
+        cable_loss: value.cable_loss,
+        contact_work: value.contact_work,
+        position: value.position,
+        velocity: value.velocity,
+        basis: value.basis,
+        cable: clone_cable(read value.cable),
+        bursts: value.bursts,
+        boost_ticks: value.boost_ticks,
+        pulse_cooldown: value.pulse_cooldown,
+        brake_ticks: value.brake_ticks,
+        brake_rate: value.brake_rate,
+        brake_speed: value.brake_speed,
+        winch_work: value.winch_work
+    };
+}
+
+fn assign_cable(target: mut Cable, value: read Cable) -> unit {
+    portal_path_assign(mut target.path, read value.path);
+    rational_assign(mut target.size, read value.size);
+    target.frame = value.frame;
+    target.space = value.space;
+    target.phase = value.phase;
+    target.instance = value.instance;
+    target.surface = value.surface;
+    target.local_point = value.local_point;
+    target.local_normal = value.local_normal;
+    target.anchor = value.anchor;
+    target.velocity = value.velocity;
+    target.extent = value.extent;
+    target.reel_speed = value.reel_speed;
+    target.reeling = value.reeling;
+}
+
+fn assign_drone(target: mut Drone, value: read Drone) -> unit {
+    rational_assign(mut target.size, read value.size);
+    target.step_frame = value.step_frame;
+    target.world = value.world;
+    target.clock = value.clock;
+    target.machine_work = value.machine_work;
+    target.cable_loss = value.cable_loss;
+    target.contact_work = value.contact_work;
+    target.position = value.position;
+    target.velocity = value.velocity;
+    target.basis = value.basis;
+    assign_cable(mut target.cable, read value.cable);
+    target.bursts = value.bursts;
+    target.boost_ticks = value.boost_ticks;
+    target.pulse_cooldown = value.pulse_cooldown;
+    target.brake_ticks = value.brake_ticks;
+    target.brake_rate = value.brake_rate;
+    target.brake_speed = value.brake_speed;
+    target.winch_work = value.winch_work;
+}
+
+fn reset_cable(target: mut Cable) -> unit {
+    var value: Cable = empty_cable();
+    assign_cable(mut target, read value);
 }

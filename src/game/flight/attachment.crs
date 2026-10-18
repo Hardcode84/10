@@ -2,10 +2,11 @@
 fn hook_attach(
     scene: read CollisionScene,
     drone: mut Drone,
-    contact: CollisionContact,
+    query: read CollisionSweep,
     contact_time: f32,
     time: f32
 ) -> unit {
+    var contact: CollisionContact = query.contact;
     drone.cable.instance = contact.instance;
     drone.cable.surface = contact.surface;
     drone.cable.local_point = contact.local_point;
@@ -17,12 +18,20 @@ fn hook_attach(
         pose.basis,
         basis_vector(space_inverse(contact.frame).basis, contact.hit.normal)
     );
-    drone.cable.frame = space_compose(drone.cable.frame, contact.frame);
+    rational_multiply(mut drone.cable.size, read query.ratio);
+    var i: u32 = 0u32;
+    while i < portal_path_count(read query.path) {
+        var index: u32 = portal_path_at(read query.path, i);
+        var link: CollisionPortal = collision_portal(read scene, index);
+        portal_path_append(mut drone.cable.path, index, link.reverse);
+        i = i + 1u32;
+    }
+    tether_rebuild(read scene, mut drone.cable);
     drone.cable.space = contact.space;
     drone.cable.phase = CABLE_ATTACHED;
     hook_follow(read scene, mut drone, time);
     drone.cable.extent = clamp(
-        length(sub(drone.position, drone.cable.anchor)),
+        length(sub(drone.position, drone.cable.anchor)) / drone_size(read drone),
         0.75f32,
         120f32
     );
@@ -40,19 +49,22 @@ fn hook_follow(scene: read CollisionScene, drone: mut Drone, time: f32) -> unit 
             time
         )
     );
-    drone.cable.velocity = basis_vector(
-        drone.cable.frame.basis,
-        collision_anchor_velocity(
-            read scene,
-            drone.cable.instance,
-            drone.cable.local_point,
-            time
-        )
+    drone.cable.velocity = scale(
+        space_vector(
+            drone.cable.frame,
+            collision_anchor_velocity(
+                read scene,
+                drone.cable.instance,
+                drone.cable.local_point,
+                time
+            )
+        ),
+        1f32 / drone_size(read drone)
     );
 }
 // Release preserves the velocity acquired from a machine or the winch.
 fn hook_release(drone: mut Drone) -> unit {
-    drone.cable = empty_cable();
+    reset_cable(mut drone.cable);
 }
 // Applies an inelastic, unit-player-mass constraint in the current space frame.
 fn tether_constraint(drone: mut Drone) -> unit {
@@ -60,7 +72,7 @@ fn tether_constraint(drone: mut Drone) -> unit {
         return;
     }
     var offset: Vec3 = sub(drone.position, drone.cable.anchor);
-    if length(offset) < drone.cable.extent - 0.001f32 {
+    if length(offset) / drone_size(read drone) < drone.cable.extent - 0.001f32 {
         return;
     }
     var normal: Vec3 = unit_vector(offset);

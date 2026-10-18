@@ -1,4 +1,5 @@
 record ConnectionProfile {
+    scale: ScaleRatio;
     name: AssetName;
     shape: RegularProfile;
     radius: f32;

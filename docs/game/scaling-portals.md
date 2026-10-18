@@ -2,7 +2,28 @@
 
 ## Status and scope
 
-This is a proposed design. Current portal links use rigid transforms.
+Implementation is in progress. The current code has similarity transforms,
+expandable exact object and anchor scales, owned task snapshots, retained cable
+paths, and scaled renderer inputs. Targeted checks cover reciprocal flight,
+pre-crossing overlap, independent hook crossing, and scaled geometry and light
+images. Generated levels still use identity scale.
+
+The following contracts still require implementation before the playable slice
+can pass its acceptance gate:
+
+- Collision queries must carry the base radius and exact object scale through
+  every anchor. Some queries still multiply an already converted radius by the
+  anchor factor.
+- Contact planes must carry their converted coordinate error bounds. Admission
+  must cap an unsupported opening before the first sphere overlap and show the
+  cap to the player.
+- Cable drawing must use the retained path. It still searches for intersections
+  from the current segment. Admission must also check the retained cable map.
+- Recursive shader transforms need conservative host bounds before dispatch.
+- A playable two-room fixture must combine scaled asset profiles, a moving
+  contact surface, body and light appearances, and an attached cable. The
+  current focused fixtures exercise these systems separately.
+
 Implement positive uniform scale with rotation and translation. Keep one shared
 simulation and renderer for native and web builds. Room recipes remain Crust
 code. The design extends [room connections](../content/room-format.md),
@@ -16,9 +37,10 @@ outside this transform contract and must be rejected at authoring boundaries.
 
 ## Exact scale
 
-Define `ScaleRatio` as two positive unsigned integers, numerator and denominator.
-Use inline `u64` magnitudes for small values and owned limb storage for larger
-values. Every stored ratio is reduced by GCD. Identity is `1/1`. Zero is invalid.
+Use `ScaleRatio` for authored positive `u64` numerator and denominator pairs.
+Each portal stores the source and destination profile ratios separately. Use
+`Rational` for composed values, with inline `u64` magnitudes and owned limb
+storage for larger values. Every stored ratio is reduced by GCD. Identity is `1/1`. Zero is invalid.
 Integer and rational operations belong to shared numeric infrastructure, with
 no portal or game rules.
 Author ratios directly in Crust. Do not infer them from floating-point geometry.
@@ -57,9 +79,9 @@ object, cable, or room state. Allocation failure leaves the crossing uncommitted
 and stops the simulation with the object and portal identity. Never wrap,
 saturate, approximate the ratio, or skip the crossing.
 
-Treat ratios as immutable values. Copies of large magnitudes share immutable
-storage through explicit owned handles; small values remain inline. Snapshots
-retain this storage until their tasks and GPU submissions retire. Cache derived
+Treat ratios as immutable values. Explicit clone functions copy large magnitudes;
+small values remain inline. Snapshots own their copies until their tasks and GPU
+submissions retire. Cache derived
 anchor ratios within their normal storage lifetime. Do not intern every scale
 visited for the lifetime of a run. Exact arithmetic belongs at scale changes and
 anchor construction, not inside triangle or pixel loops.
@@ -71,7 +93,8 @@ Do not increase contact tolerances to hide loss of geometric resolution.
 
 ## Transform contract
 
-Extend the shared space transform with a ratio. Keep its basis a proper
+Store the exact ratio with its portal, object, or anchor owner. The copyable
+`SpaceTransform` stores the converted factor. Keep its basis a proper
 orthonormal rotation. A transform from room A to room B is:
 
 ```text
@@ -348,9 +371,9 @@ Exact physical scales must never be reconstructed from GPU view matrices.
 The first source changes are in `src/collision/portal-storage.crs`,
 `src/collision/portals.crs`, `src/spatial/anchors.crs`,
 `src/game/flight/collision.crs`, and `src/game/flight/tether.crs`.
-`src/game/view/portals.crs` currently uploads inverse rigid transforms.
-`src/game/view/light-anchors.crs` currently propagates an unchanged light reach.
-Both require the new unit conversions.
+`src/game/view/portals.crs` uploads inverse similarity transforms.
+`src/game/view/light-anchors.crs` propagates light reach through the cached
+anchor scale. Exact total object-scale conversion is still required.
 
 Declare all new state in the checked ownership interfaces. Task inputs capture
 one immutable snapshot containing ratios and their derived values. Do not read

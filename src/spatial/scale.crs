@@ -1,0 +1,38 @@
+record ScaleRatio {
+    numerator: u64;
+    denominator: u64;
+}
+fn scale_gcd(a: u64, b: u64) -> u64 {
+    while b != 0u64 {
+        var remainder: u64 = a % b;
+        a = b;
+        b = remainder;
+    }
+    return a;
+}
+fn scale_ratio(numerator: u64, denominator: u64) -> ScaleRatio {
+    if numerator == 0u64 || denominator == 0u64 {
+        error("scale ratio must be positive");
+        trap;
+    }
+    var divisor: u64 = scale_gcd(numerator, denominator);
+    return make ScaleRatio {
+        numerator: numerator / divisor,
+        denominator: denominator / divisor
+    };
+}
+fn scale_identity() -> ScaleRatio {
+    return make ScaleRatio {
+        numerator: 1u64,
+        denominator: 1u64
+    };
+}
+fn scale_inverse(value: ScaleRatio) -> ScaleRatio {
+    return make ScaleRatio {
+        numerator: value.denominator,
+        denominator: value.numerator
+    };
+}
+fn scale_float(value: ScaleRatio) -> f32 {
+    return rational_small_float(value.numerator, value.denominator);
+}

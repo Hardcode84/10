@@ -24,6 +24,7 @@ fn prediction_context(pool: read TaskPool, collision: read CollisionScene) -> Pr
         task_error("prediction task allocation failed");
     } else {
         payload -> collision = &collision;
+        payload -> trial = new_trial();
     }
     return make PredictionContext {
         pool: read pool,
@@ -39,6 +40,9 @@ fn prediction_context_ready(context: read PredictionContext) -> bool {
     return context.payload != null(*PredictionPayload);
 }
 fn prediction_context_drop(context: mut PredictionContext) -> unit {
+    if context.payload != null(*PredictionPayload) {
+        drop context.payload -> trial;
+    }
     task_release(context.payload as *u8);
 }
 fn prediction_execute(data: *u8) -> bool {
@@ -46,10 +50,8 @@ fn prediction_execute(data: *u8) -> bool {
     payload -> result = predict_paths(read * payload -> collision, read payload -> trial);
     return true;
 }
-fn prediction_start(context: mut PredictionContext, trial: Trial) -> PredictionTask transfers(
-    trial
-) from context {
-    context.payload -> trial = trial;
+fn prediction_start(context: mut PredictionContext, trial: read Trial) -> PredictionTask from context {
+    assign_trial(mut context.payload -> trial, read trial);
     var job: PoolJob = pool_submit(
         read context.pool,
         prediction_execute,

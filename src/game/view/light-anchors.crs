@@ -30,7 +30,7 @@ fn light_anchor_children(
 ) -> bool {
     var anchor: RoomAnchor = room_anchor(read anchors, parent);
     var point: Vec3 = space_point(anchor.transform, light.position);
-    var radius: f32 = light_object_reach(light);
+    var radius: f32 = light_object_reach(light) * anchor.transform.factor;
     var i: u32 = 0u32;
     while i < collision_portal_count(read scene) {
         var portal: CollisionPortal = collision_portal(read scene, i);
@@ -50,7 +50,7 @@ fn light_anchor_children(
                 incoming: portal.reverse,
                 depth: anchor.depth + 1u32
             };
-            if !room_anchor_add(mut anchors, next) {
+            if !room_anchor_link(mut anchors, next, portal) {
                 return false;
             }
         }

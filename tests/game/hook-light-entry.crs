@@ -55,7 +55,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
             camera_row(mut input, 4usize, vec(0f32, 1f32, 0f32), drone.position);
             camera_row(mut input, 8usize, vec(0f32, 0f32, 1f32), drone.position);
             draw_solid(mut input, wall);
-            if !hook_light_transformed(read scene, mut input, drone) {
+            if !hook_light_transformed(read scene, mut input, read drone) {
                 return 1i32;
             }
             if state >= 3u32 {
@@ -85,9 +85,13 @@ fn main(argc: i32, argv: **u8) -> i32 {
     return (!recursive_light_capture(&options)) as i32;
 }
 
-fn hook_light_transformed(scene: read CollisionScene, input: mut FrameInput, drone: Drone) -> bool {
-    var moved: Drone = drone;
-    var expected: Vec3 = hook_light_position(read scene, drone);
+fn hook_light_transformed(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    drone: read Drone
+) -> bool {
+    var moved: Drone = clone_drone(read drone);
+    var expected: Vec3 = hook_light_position(read scene, read drone);
     moved.cable.frame.origin = vec(10f32, 20f32, 30f32);
     moved.cable.frame.basis = make Basis {
         right: vec(0f32, 0f32, -1f32),
@@ -98,7 +102,7 @@ fn hook_light_transformed(scene: read CollisionScene, input: mut FrameInput, dro
     moved.position = vec(-2f32, 3f32, 5f32);
     moved.basis = moved.cable.frame.basis;
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
-    hook_light(read scene, mut input, moved);
+    hook_light(read scene, mut input, read moved);
     if drone.cable.phase != CABLE_FLYING && drone.cable.phase != CABLE_ATTACHED {
         return input_word(read input, LIGHT_COUNT as usize) == 0u32;
     }
@@ -109,7 +113,7 @@ fn hook_light_transformed(scene: read CollisionScene, input: mut FrameInput, dro
         input_float(read input, p + 2usize)
     );
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
-    hook_light(read scene, mut input, drone);
+    hook_light(read scene, mut input, read drone);
     return length(sub(expected, actual)) < 0.00001f32 || error(
         "hook light changed room-local position across a transformed connection"
     );
@@ -135,7 +139,7 @@ fn hook_light_state(scene: read CollisionScene, drone: mut Drone, state: u32) ->
     if state == 1u32 {
         drone.cable.velocity = vec(0f32, 0f32, 1000f32);
         hook_step(read scene, mut drone, false);
-        if drone.cable.phase != CABLE_ATTACHED || hook_light_position(read scene, drone).z >= 6f32 {
+        if drone.cable.phase != CABLE_ATTACHED || hook_light_position(read scene, read drone).z >= 6f32 {
             error("attached hook lamp must be outside the contacted wall");
             return false;
         }
@@ -147,7 +151,7 @@ fn hook_light_state(scene: read CollisionScene, drone: mut Drone, state: u32) ->
         drone.world = 73u32;
     }
     if state == 2u32 {
-        drone.cable = empty_cable();
+        reset_cable(mut drone.cable);
     }
     return true;
 }
@@ -171,7 +175,7 @@ fn prediction_shadow_flags(input: mut FrameInput, config: GameConfig) -> bool {
             mut trail,
             drone.position,
             vec(0f32, 0f32, 16f32),
-            drone
+            prediction_eye(read drone)
         );
         draw_prediction(mut input, read prediction, config);
         var end: u32 = input_word(read input, 3usize);

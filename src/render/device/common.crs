@@ -64,7 +64,7 @@ fn light_normal(tri: u32, axis: u32) -> f32 {
     );
 }
 fn view_position(view: u32, z: f32, x: u32, y: u32, axis: u32) -> f32 {
-    var p: u32 = words_load(VIEW_FLOAT) + view * 16u32;
+    var p: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
     var h: f32 = words_load(1u32) as f32;
     var a: f32 = ((2f32 * (x as f32 + 0.5f32) - words_load(0u32) as f32) / h) * floats_load(
         PROJECTION
@@ -73,9 +73,11 @@ fn view_position(view: u32, z: f32, x: u32, y: u32, axis: u32) -> f32 {
         p + 7u32
     );
     var c: f32 = z - floats_load(p + 11u32);
-    return floats_load(p + axis) * a + floats_load(p + 4u32 + axis) * b + floats_load(
-        p + 8u32 + axis
-    ) * c;
+    return (
+        floats_load(p + axis) * a + floats_load(p + 4u32 + axis) * b + floats_load(
+            p + 8u32 + axis
+        ) * c
+    ) / view_scale_squared(p);
 }
 fn light_amount(
     dx: f32,
@@ -152,7 +154,9 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
             nx,
             ny,
             nz,
-            floats_load(CAMERA_LIGHT),
+            floats_load(CAMERA_LIGHT) / view_scale_squared(
+                words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS
+            ),
             false
         );
         amount = light_band(
@@ -177,7 +181,7 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
                 nx,
                 ny,
                 nz,
-                floats_load(p + 3u32),
+                light_radius_squared(p, view),
                 floats_load(p + 7u32) != LIGHT_HEADLAMP as f32
             );
             amount = light_band(
@@ -320,7 +324,7 @@ fn portal_facing(view: u32, portal: u32) -> bool {
     if portal > words_load(PORTAL_CAPACITY) {
         return false;
     }
-    var p: u32 = words_load(PORTAL_FLOAT) + (portal - 1u32) * 16u32;
+    var p: u32 = words_load(PORTAL_FLOAT) + (portal - 1u32) * PORTAL_TRANSFORM_WORDS;
     var x: f32 = view_position(view, 0f32, 0u32, 0u32, 0u32) - floats_load(p + 3u32);
     var y: f32 = view_position(view, 0f32, 0u32, 0u32, 1u32) - floats_load(p + 7u32);
     var z: f32 = view_position(view, 0f32, 0u32, 0u32, 2u32) - floats_load(p + 11u32);
@@ -331,7 +335,7 @@ fn portal_facing(view: u32, portal: u32) -> bool {
             floats_load(p + axis) * x + floats_load(p + 4u32 + axis) * y + floats_load(
                 p + 8u32 + axis
             ) * z
-        );
+        ) / view_scale_squared(p);
         axis = axis + 1u32;
     }
     return distance < 0f32;
@@ -484,12 +488,14 @@ fn light_position(light: u32, view: u32, axis: u32) -> f32 {
     if floats_load(light + 7u32) != LIGHT_VIEW as f32 {
         return floats_load(light + axis);
     }
-    var p: u32 = words_load(VIEW_FLOAT) + view * 16u32;
-    return floats_load(p + axis) * (floats_load(light) - floats_load(p + 3u32)) + floats_load(
-        p + 4u32 + axis
-    ) * (floats_load(light + 1u32) - floats_load(p + 7u32)) + floats_load(p + 8u32 + axis) * (
-        floats_load(light + 2u32) - floats_load(p + 11u32)
-    );
+    var p: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
+    return (
+        floats_load(p + axis) * (floats_load(light) - floats_load(p + 3u32)) + floats_load(
+            p + 4u32 + axis
+        ) * (floats_load(light + 1u32) - floats_load(p + 7u32)) + floats_load(p + 8u32 + axis) * (
+            floats_load(light + 2u32) - floats_load(p + 11u32)
+        )
+    ) / view_scale_squared(p);
 }
 
 fn view_space(view: u32, space: u32) -> unit {
@@ -521,4 +527,17 @@ fn view_triangles(view: u32) -> u32 {
 fn view_triangle(view: u32, local: u32) -> u32 {
     var first: u32 = words_load(words_load(VIEW_META) + view * 4u32 + 2u32);
     return words_load(words_load(SPACE_TRIANGLES) + (first + local) * 2u32 + 1u32);
+}
+
+fn view_scale_squared(p: u32) -> f32 {
+    return floats_load(p + 16u32) * floats_load(p + 16u32);
+}
+
+fn light_radius_squared(light: u32, view: u32) -> f32 {
+    var radius: f32 = floats_load(light + 3u32);
+    if floats_load(light + 7u32) == LIGHT_VIEW as f32 {
+        var p: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
+        radius = radius / view_scale_squared(p);
+    }
+    return radius;
 }

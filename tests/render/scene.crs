@@ -64,7 +64,7 @@ fn portal_setup(v: mut FrameInput) -> unit {
     var portal_meta: u32 = input_word(read v, PORTAL_META as usize);
     var i: u32 = 0u32;
     while i < 4u32 {
-        var p: usize = (portal_float + i * 16u32) as usize;
+        var p: usize = (portal_float + i * PORTAL_TRANSFORM_WORDS) as usize;
         input_set_float(mut v, p, 1f32);
         input_set_float(mut v, p + 5usize, 1f32);
         input_set_float(mut v, p + 10usize, 1f32);
@@ -74,7 +74,7 @@ fn portal_setup(v: mut FrameInput) -> unit {
     }
     input_set_float(mut v, (portal_float + 11u32) as usize, 9f32);
     input_set_float(mut v, (portal_float + 15u32) as usize, 0f32);
-    var p: usize = (portal_float + 16u32) as usize;
+    var p: usize = (portal_float + PORTAL_TRANSFORM_WORDS) as usize;
     input_set_float(mut v, p, 0f32);
     input_set_float(mut v, p + 2usize, 1f32);
     input_set_float(mut v, p + 3usize, 4f32);
@@ -84,7 +84,7 @@ fn portal_setup(v: mut FrameInput) -> unit {
     input_set_float(mut v, p + 12usize, -1f32);
     input_set_float(mut v, p + 14usize, 0f32);
     input_set_float(mut v, p + 15usize, 0f32);
-    p = (portal_float + 32u32) as usize;
+    p = (portal_float + 2u32 * PORTAL_TRANSFORM_WORDS) as usize;
     input_set_float(mut v, p + 11usize, 26f32);
     input_set_float(mut v, p + 14usize, 1f32);
     input_set_float(mut v, p + 15usize, 8f32);

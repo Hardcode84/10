@@ -3,7 +3,7 @@ fn game_collision_spawn(collision: read CollisionScene, trial: read Trial) -> bo
         read collision,
         trial.drone.world,
         trial.drone.position,
-        DRONE_RADIUS,
+        drone_radius(read trial.drone),
         trial.drone.clock as f32 * STEP
     ) {
         return error("drone spawn intersects collision geometry");

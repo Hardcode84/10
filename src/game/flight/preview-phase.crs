@@ -12,7 +12,9 @@ fn advance_preview_phase(trial: mut Trial, before: Vec3) -> unit {
         trial.drone.position,
         space_point(trial.drone.step_frame, before)
     );
-    trial.preview_phase = wrap_preview_phase(trial.preview_phase + length(travel));
+    trial.preview_phase = wrap_preview_phase(
+        trial.preview_phase + length(travel) / drone_size(read trial.drone)
+    );
 
 }
 fn preview_station(before: Vec3, after: Vec3, distance: f32, next: f32) -> Vec3 {

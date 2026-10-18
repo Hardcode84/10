@@ -82,7 +82,7 @@ fn anchor_contact(anchor: RoomAnchor, contact: CollisionContact) -> CollisionCon
     result.frame = space_inverse(anchor.transform);
     result.point = space_point(result.frame, contact.point);
     result.hit.normal = basis_vector(result.frame.basis, contact.hit.normal);
-    return result;
+    return move result;
 }
 // Contact positions and normals use the query room. frame maps the contacted room to the query room.
 fn collision_sweep_interval(
@@ -110,9 +110,10 @@ fn collision_sweep_interval(
     var travel: Vec3 = scale(d, fraction);
     var anchors: RoomAnchors = room_anchors_new();
     var result: CollisionSweep = collision_sweep_result(collision_miss(space));
+    var selected: u32 = 0xffffffffu32;
     if !collision_body_anchors(read scene, mut anchors, space, p, travel, radius) {
         result.status = 7u32;
-        return result;
+        return move result;
     }
     var i: u32 = 0u32;
     while i < room_anchor_count(read anchors) {
@@ -121,26 +122,31 @@ fn collision_sweep_interval(
             read scene,
             anchor.space,
             space_point(anchor.transform, p),
-            basis_vector(anchor.transform.basis, travel),
-            radius,
+            space_vector(anchor.transform, travel),
+            radius * anchor.transform.factor,
             time,
             duration * fraction,
             read anchors,
             i
         );
         if next.status != 0u32 {
-            return next;
+            return move next;
         }
         if next.contact.hit.time <= 1f32 {
             next.contact = anchor_contact(anchor, next.contact);
+            rational_assign(mut next.ratio, room_anchor_ratio(read anchors, i));
             next.contact.hit.time = next.contact.hit.time * fraction;
             if collision_better(next.contact, result.contact) {
-                result = next;
+                collision_sweep_assign(mut result, read next);
+                selected = i;
             }
         }
         i = i + 1u32;
     }
-    return result;
+    if selected != 0xffffffffu32 {
+        collision_anchor_path(read scene, read anchors, selected, mut result.path);
+    }
+    return move result;
 }
 fn collision_correction_blocked(
     scene: read CollisionScene,
@@ -160,7 +166,7 @@ fn collision_correction_blocked(
     if !collision_body_anchors(read scene, mut anchors, space, p, d, radius) {
         var failure: CollisionSweep = collision_sweep_result(result);
         failure.status = 7u32;
-        return failure;
+        return move failure;
     }
     var i: u32 = 0u32;
     while i < room_anchor_count(read anchors) {
@@ -169,8 +175,8 @@ fn collision_correction_blocked(
             read scene,
             anchor.space,
             space_point(anchor.transform, p),
-            basis_vector(anchor.transform.basis, d),
-            radius,
+            space_vector(anchor.transform, d),
+            radius * anchor.transform.factor,
             time,
             read anchors,
             i
@@ -184,4 +190,19 @@ fn collision_correction_blocked(
         i = i + 1u32;
     }
     return collision_sweep_result(result);
+}
+
+fn collision_anchor_path(
+    scene: read CollisionScene,
+    anchors: read RoomAnchors,
+    index: u32,
+    path: mut PortalPath
+) -> unit {
+    portal_path_clear(mut path);
+    var anchor: RoomAnchor = room_anchor(read anchors, index);
+    while anchor.parent != 0xffffffffu32 {
+        var link: CollisionPortal = collision_portal(read scene, anchor.portal);
+        portal_path_prepend(mut path, anchor.portal, link.reverse);
+        anchor = room_anchor(read anchors, anchor.parent);
+    }
 }

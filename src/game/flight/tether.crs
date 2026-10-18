@@ -3,6 +3,7 @@ fn tether_winch(collision: read CollisionScene, drone: mut Drone) -> unit {
     if drone.cable.phase != CABLE_ATTACHED {
         return;
     }
+    var body_scale: f32 = drone_size(read drone);
     var old: f32 = drone.cable.extent;
     var speed: f32 = 0f32;
     if drone.cable.reeling {
@@ -10,15 +11,15 @@ fn tether_winch(collision: read CollisionScene, drone: mut Drone) -> unit {
     }
     var extent: f32 = clamp(old + speed * STEP, 0.75f32, CABLE_REACH);
     var offset: Vec3 = sub(drone.position, drone.cable.anchor);
-    var distance: f32 = length(offset);
+    var distance: f32 = length(offset) / drone_size(read drone);
     if distance > extent {
         move_drone(
             read collision,
             mut drone,
-            scale(unit_vector(offset), extent - distance)
+            scale(unit_vector(offset), (extent - distance) * body_scale)
         );
         extent = clamp(
-            length(sub(drone.position, drone.cable.anchor)),
+            length(sub(drone.position, drone.cable.anchor)) / drone_size(read drone),
             extent,
             old
         );
@@ -46,11 +47,32 @@ fn tether_travel(drone: read Drone, travel: Vec3) -> Vec3 {
     }
     var endpoint: Vec3 = add(drone.position, travel);
     var offset: Vec3 = sub(endpoint, drone.cable.anchor);
-    if length(offset) <= drone.cable.extent {
+    if length(offset) <= drone.cable.extent * drone_size(read drone) {
         return travel;
     }
     return sub(
-        add(drone.cable.anchor, scale(unit_vector(offset), drone.cable.extent)),
+        add(
+            drone.cable.anchor,
+            scale(unit_vector(offset), drone.cable.extent * drone_size(read drone))
+        ),
         drone.position
     );
+}
+
+fn tether_rebuild(scene: read CollisionScene, cable: mut Cable) -> unit {
+    var frame: SpaceTransform = space_identity();
+    var ratio: Rational = rational_new(1u64, 1u64);
+    var i: u32 = 0u32;
+    while i < portal_path_count(read cable.path) {
+        var link: CollisionPortal = collision_portal(
+            read scene,
+            portal_path_at(read cable.path, i)
+        );
+        var factor: Rational = portal_ratio(link);
+        rational_multiply(mut ratio, read factor);
+        frame = space_compose(link.transform, frame);
+        frame.factor = rational_float(read ratio);
+        i = i + 1u32;
+    }
+    cable.frame = space_inverse(frame);
 }

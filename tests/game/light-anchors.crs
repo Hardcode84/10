@@ -1,6 +1,8 @@
 fn anchor_light_scene(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var portal: CollisionPortal = make CollisionPortal {
+        source_scale: scale_identity(),
+        target_scale: scale_identity(),
         reverse: 1u32,
         space: 0u32,
         destination: 0u32,
@@ -10,6 +12,7 @@ fn anchor_light_scene(scene: mut CollisionScene) -> bool {
         sides: 4u32,
         phase: 0.78539816339f32,
         transform: make SpaceTransform {
+            factor: 1f32,
             origin: vec(0f32, 0f32, -6f32),
             basis: make Basis {
                 right: vec(0f32, 1f32, 0f32),
@@ -81,7 +84,7 @@ fn anchor_light_input(scene: read CollisionScene, input: mut FrameInput, lit: bo
     drone.position = eye;
     hook_launch(mut drone);
     drone.cable.anchor = vec(0f32, 0f32, 1f32);
-    hook_light(read scene, mut input, drone);
+    hook_light(read scene, mut input, read drone);
     var count: u32 = input_word(read input, LIGHT_COUNT as usize);
     if count < 3u32 {
         return error("recursive same-room light must have multiple anchors");
@@ -102,6 +105,8 @@ fn anchor_light_input(scene: read CollisionScene, input: mut FrameInput, lit: bo
 fn light_direction_scene(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var portal: CollisionPortal = make CollisionPortal {
+        source_scale: scale_identity(),
+        target_scale: scale_identity(),
         reverse: 1u32,
         space: 0u32,
         destination: 0u32,
@@ -111,6 +116,7 @@ fn light_direction_scene(scene: mut CollisionScene) -> bool {
         sides: 4u32,
         phase: 0f32,
         transform: make SpaceTransform {
+            factor: 1f32,
             origin: vec(2f32, 0f32, 0f32),
             basis: make Basis {
                 right: vec(0f32, 0f32, 1f32),

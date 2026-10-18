@@ -1,6 +1,6 @@
 fn valid_worker_reuse(context: mut PredictionContext, trial: Trial) -> unit {
     {
-        var first: PredictionTask = prediction_start(mut context, trial);
+        var first: PredictionTask = prediction_start(mut context, read trial);
     }
-    var second: PredictionTask = prediction_start(mut context, trial);
+    var second: PredictionTask = prediction_start(mut context, read trial);
 }

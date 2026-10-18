@@ -6,7 +6,7 @@ fn preview_border_pixels(config: GameConfig) -> u32 {
     }
     return height;
 }
-fn preview_pixel_size(center: Vec3, drone: Drone, config: GameConfig) -> f32 {
+fn preview_pixel_size(center: Vec3, drone: PredictionEye, config: GameConfig) -> f32 {
     var depth: f32 = dot(sub(center, drone.position), drone.basis.forward);
     var angle: f32 = config.fov * 0.00872664626f32;
     return 2f32 * depth * sinf(angle) / (cosf(angle) * config.height as f32);
@@ -14,11 +14,11 @@ fn preview_pixel_size(center: Vec3, drone: Drone, config: GameConfig) -> f32 {
 fn draw_preview_marker(
     v: mut FrameInput,
     center: Vec3,
-    drone: Drone,
+    drone: PredictionEye,
     config: GameConfig,
     material: u32
 ) -> unit {
-    if length(sub(center, drone.position)) < 6f32 {
+    if length(sub(center, drone.position)) < 6f32 * drone.factor {
         return;
     }
     var pixel: f32 = preview_pixel_size(center, drone, config) * preview_border_pixels(config) as f32;
@@ -29,11 +29,11 @@ fn draw_preview_marker(
         draw_hook_marker(mut v, center, drone.basis, pixel);
         return;
     }
-    if pixel >= 0.12f32 {
+    if pixel >= 0.12f32 * drone.factor {
         return;
     }
-    var outer: f32 = 0.12f32 + pixel * 0.5f32;
-    var inner: f32 = 0.12f32 - pixel * 0.5f32;
+    var outer: f32 = 0.12f32 * drone.factor + pixel * 0.5f32;
+    var inner: f32 = 0.12f32 * drone.factor - pixel * 0.5f32;
     var r: Vec3 = drone.basis.right;
     var u: Vec3 = drone.basis.up;
     var edge: u32 = 0u32;
@@ -74,7 +74,7 @@ fn draw_prediction(v: mut FrameInput, prediction: read Prediction, config: GameC
         i = i + 1u32;
     }
 }
-fn frame_point(drone: Drone, config: GameConfig, x: f32, y: f32) -> Vec3 {
+fn frame_point(drone: read Drone, config: GameConfig, x: f32, y: f32) -> Vec3 {
     var angle: f32 = config.fov * 0.00872664626f32;
     var tangent: f32 = sinf(angle) / cosf(angle);
     return add(
@@ -84,7 +84,7 @@ fn frame_point(drone: Drone, config: GameConfig, x: f32, y: f32) -> Vec3 {
 }
 fn frame_rect(
     v: mut FrameInput,
-    drone: Drone,
+    drone: read Drone,
     config: GameConfig,
     x: f32,
     y: f32,
@@ -96,19 +96,19 @@ fn frame_rect(
     game_quad(
         mut v,
         mat,
-        frame_point(drone, config, x, y),
-        frame_point(drone, config, x + w, y),
-        frame_point(drone, config, x + w, y + h),
-        frame_point(drone, config, x, y + h)
+        frame_point(read drone, config, x, y),
+        frame_point(read drone, config, x + w, y),
+        frame_point(read drone, config, x + w, y + h),
+        frame_point(read drone, config, x, y + h)
     );
     game_dynamic_no_shadow(mut v, first);
 }
-fn draw_frame(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
+fn draw_frame(v: mut FrameInput, drone: read Drone, config: GameConfig) -> unit {
     var aspect: f32 = config.width as f32 / config.height as f32;
-    frame_rect(mut v, drone, config, -0.035f32, 0.13f32, 0.07f32, 0.02f32, 7u32);
+    frame_rect(mut v, read drone, config, -0.035f32, 0.13f32, 0.07f32, 0.02f32, 7u32);
     frame_rect(
         mut v,
-        drone,
+        read drone,
         config,
         -0.15f32 * aspect,
         -0.15f32,
@@ -118,7 +118,7 @@ fn draw_frame(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
     );
     frame_rect(
         mut v,
-        drone,
+        read drone,
         config,
         0.15f32 * aspect - 0.025f32,
         -0.15f32,
@@ -126,6 +126,24 @@ fn draw_frame(v: mut FrameInput, drone: Drone, config: GameConfig) -> unit {
         0.06f32,
         7u32
     );
-    frame_rect(mut v, drone, config, -0.0005f32, -0.004f32, 0.001f32, 0.008f32, 4u32);
-    frame_rect(mut v, drone, config, -0.004f32, -0.0005f32, 0.008f32, 0.001f32, 4u32);
+    frame_rect(
+        mut v,
+        read drone,
+        config,
+        -0.0005f32,
+        -0.004f32,
+        0.001f32,
+        0.008f32,
+        4u32
+    );
+    frame_rect(
+        mut v,
+        read drone,
+        config,
+        -0.004f32,
+        -0.0005f32,
+        0.008f32,
+        0.001f32,
+        4u32
+    );
 }

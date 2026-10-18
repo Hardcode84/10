@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 86] = make [*u8; 86] {
+    var files: [*u8; 87] = make [*u8; 87] {
         "src/assets/geometry/loft.crs",
         "src/assets/geometry/solid-loft.crs",
         "assets/objects/player-drone.crs",
@@ -36,6 +36,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/math.crs",
         "src/app/frame-rate.crs",
         "src/collision/primitives.crs",
+        "src/spatial/scale.crs",
         "src/collision/portals.crs",
         "src/collision/anchors.crs",
         "src/collision/portal-query.crs",
@@ -88,14 +89,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 86usize {
+    while i < 87usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 32] = make [*u8; 32] {
+    var files: [*u8; 35] = make [*u8; 35] {
         "src/runtime/task/pool.crs",
         "src/runtime/platform/native-pool.crs",
         "src/game/tasks/prediction-work.crs",
@@ -108,6 +109,9 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/collision/storage.crs",
         "src/collision/portal-storage.crs",
         "src/spatial/anchors.crs",
+        "src/numeric/natural.crs",
+        "src/numeric/rational.crs",
+        "src/spatial/portal-path.crs",
         "src/collision/contact-storage.crs",
         "src/collision/index-build.crs",
         "src/collision/adjacency-build.crs",
@@ -130,7 +134,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/runtime/trace/frame.crs"
     };
     var i: usize = 0usize;
-    while i < 32usize {
+    while i < 35usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

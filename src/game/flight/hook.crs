@@ -3,7 +3,9 @@ const HOOK_MASS_RATIO: f32 = 0.02f32;
 const HOOK_RADIUS: f32 = 0.06f32;
 const CABLE_REACH: f32 = 120f32;
 fn hook_launch(drone: mut Drone) -> unit {
+    portal_path_clear(mut drone.cable.path);
     drone.cable.phase = CABLE_FLYING;
+    rational_assign(mut drone.cable.size, read drone.size);
     drone.cable.space = drone.world;
     drone.cable.frame = space_identity();
     drone.cable.anchor = drone.position;
@@ -31,12 +33,15 @@ fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) 
     var inverse: SpaceTransform = space_inverse(drone.cable.frame);
     var acceleration: Vec3 = flight_acceleration(
         space_point(inverse, drone.cable.anchor),
-        basis_vector(inverse.basis, drone.cable.velocity),
+        space_vector(inverse, scale(drone.cable.velocity, drone_size(read drone))),
         full_spin
     );
     drone.cable.velocity = add(
         drone.cable.velocity,
-        scale(basis_vector(drone.cable.frame.basis, acceleration), STEP)
+        scale(
+            space_vector(drone.cable.frame, acceleration),
+            STEP / drone_size(read drone)
+        )
     );
     var left: f32 = STEP;
     var crossings: u32 = 0u32;
@@ -51,9 +56,16 @@ fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) 
 fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) -> f32 {
     var inverse: SpaceTransform = space_inverse(drone.cable.frame);
     var position: Vec3 = space_point(inverse, drone.cable.anchor);
-    var travel: Vec3 = scale(drone.cable.velocity, left);
-    var local_travel: Vec3 = basis_vector(inverse.basis, travel);
-    var limit: f32 = hook_range_time(drone.cable.anchor, travel, drone.position);
+    var travel: Vec3 = scale(drone.cable.velocity, left * drone_size(read drone));
+    var local_travel: Vec3 = space_vector(inverse, travel);
+    var limit: f32 = hook_range_time(
+        scale(
+            sub(drone.cable.anchor, drone.position),
+            1f32 / drone_size(read drone)
+        ),
+        scale(travel, 1f32 / drone_size(read drone)),
+        vec(0f32, 0f32, 0f32)
+    );
     var portal: PortalCrossing = portal_crossing(
         read collision,
         drone.cable.space,
@@ -65,7 +77,7 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
         drone.cable.space,
         position,
         local_travel,
-        HOOK_RADIUS,
+        hook_radius(read drone),
         drone.clock as f32 * STEP + STEP - left,
         left
     );
@@ -75,7 +87,7 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
             drone.cable.space,
             position,
             local_travel,
-            basis_vector(inverse.basis, drone.cable.velocity)
+            space_vector(inverse, scale(drone.cable.velocity, drone_size(read drone)))
         );
         failure.status = query.status;
         failure.contact = query.contact;
@@ -84,10 +96,10 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
     if portal.time < query.contact.hit.time && portal.time <= limit {
         var link: CollisionPortal = collision_portal(read collision, portal.index);
         drone.cable.anchor = add(drone.cable.anchor, scale(travel, portal.time));
-        drone.cable.frame = space_compose(
-            drone.cable.frame,
-            space_inverse(link.transform)
-        );
+        portal_path_append(mut drone.cable.path, portal.index, link.reverse);
+        tether_rebuild(read collision, mut drone.cable);
+        var factor: Rational = portal_ratio(link);
+        rational_multiply(mut drone.cable.size, read factor);
         drone.cable.space = link.destination;
         return left * (1f32 - portal.time);
     }
@@ -96,12 +108,12 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
         hook_attach(
             read collision,
             mut drone,
-            query.contact,
+            read query,
             end_time - left + left * query.contact.hit.time,
             end_time
         );
     } else if limit < 1f32 {
-        drone.cable = empty_cable();
+        reset_cable(mut drone.cable);
         drone.cable.phase = CABLE_SNAPPED;
     } else {
         drone.cable.anchor = add(drone.cable.anchor, travel);

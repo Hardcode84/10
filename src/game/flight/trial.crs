@@ -1,6 +1,6 @@
 fn reset_trial(trial: mut Trial) -> unit {
     trial.returning = false;
-    trial.drone = trial.spawn;
+    assign_drone(mut trial.drone, read trial.spawn);
     trial.tick = 0u32;
     trial.preview_phase = 0f32;
     trial.finished = false;

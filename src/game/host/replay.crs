@@ -8,8 +8,16 @@ fn hash_vec(hash: u32, v: Vec3) -> u32 {
     );
 }
 fn trial_hash(trial: read Trial) -> u32 {
-    var d: Drone = trial.drone;
+    var d: read Drone = read trial.drone;
     var hash: u32 = hash_vec(2166136261u32, d.position);
+    hash = hash_ratio(hash, read d.size);
+    hash = hash_ratio(hash, read d.cable.size);
+    hash = hash_word(hash, portal_path_count(read d.cable.path));
+    var path_index: u32 = 0u32;
+    while path_index < portal_path_count(read d.cable.path) {
+        hash = hash_word(hash, portal_path_at(read d.cable.path, path_index));
+        path_index = path_index + 1u32;
+    }
     hash = hash_word(hash, d.world);
     hash = hash_word(hash, d.clock);
     hash = hash_word(hash, float_bits(d.machine_work));
@@ -57,4 +65,20 @@ fn command_flags(c: Command) -> u32 {
     return c.burst as u32 | ((c.brake as u32) << 1u32) | ((c.tether as u32) << 2u32) | (
         (c.restart as u32) << 3u32
     ) | ((c.spin as u32) << 4u32) | ((c.assist as u32) << 5u32) | ((c.preview as u32) << 6u32);
+}
+
+fn hash_ratio(hash: u32, ratio: read Rational) -> u32 {
+    var part: u32 = 0u32;
+    while part < 2u32 {
+        var count: usize = rational_word_count(read ratio, part == 0u32);
+        hash = hash_word(hash, count as u32);
+        hash = hash_word(hash, (count as u64 >> 32u64) as u32);
+        var i: usize = 0usize;
+        while i < count {
+            hash = hash_word(hash, rational_word(read ratio, part == 0u32, i));
+            i = i + 1usize;
+        }
+        part = part + 1u32;
+    }
+    return hash;
 }

@@ -89,6 +89,7 @@ fn hook_preview_stations(session: mut GameSession, config: GameConfig, linked: b
     var scene: CollisionScene = collision_new();
     var builder: CollisionBuilder = collision_builder_new();
     var transform: SpaceTransform = make SpaceTransform {
+        factor: 1f32,
         origin: vec(10f32, 0f32, 0f32),
         basis: make Basis {
             right: vec(0f32, 0f32, -1f32),
@@ -99,6 +100,8 @@ fn hook_preview_stations(session: mut GameSession, config: GameConfig, linked: b
     if linked && !collision_portal_append(
         mut builder,
         make CollisionPortal {
+            source_scale: scale_identity(),
+            target_scale: scale_identity(),
             reverse: 0xffffffffu32,
             space: 0u32,
             destination: 0u32,

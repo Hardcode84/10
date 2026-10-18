@@ -38,7 +38,7 @@ fn game_task_frame(
         );
     }
     {
-        var work: PredictionTask = prediction_start(mut context, loop.trial);
+        var work: PredictionTask = prediction_start(mut context, read loop.trial);
         if task_next(mut graph) != 4u32 {
             trap;
         }

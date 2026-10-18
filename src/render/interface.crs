@@ -1,3 +1,4 @@
+const PORTAL_TRANSFORM_WORDS: u32 = 17u32;
 const TRIANGLE_NO_SHADOW: u32 = 4u32;
 const TRIANGLE_INACTIVE: u32 = 8u32;
 // Shared buffer layout. All offsets and lengths count four-byte elements.

@@ -141,7 +141,7 @@ fn tour_portal(
     }
     var portal_float: u32 = input_word(read v, PORTAL_FLOAT as usize);
     var portal_meta: u32 = input_word(read v, PORTAL_META as usize);
-    var p: usize = (portal_float + index * 16u32) as usize;
+    var p: usize = (portal_float + index * PORTAL_TRANSFORM_WORDS) as usize;
     var i: usize = 0usize;
     while i < 16usize {
         input_set_float(mut v, p + i, 0f32);

@@ -1,0 +1,157 @@
+fn scaling_scene(scene: mut CollisionScene, factor: ScaleRatio, depth: f32) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var mesh: Mesh = mesh_new();
+    var size: f32 = scale_float(factor);
+    if !collision_test_quad(
+        mut mesh,
+        vec(-4f32 * size, -4f32 * size, depth * size),
+        vec(4f32 * size, -4f32 * size, depth * size),
+        vec(4f32 * size, 4f32 * size, depth * size),
+        vec(-4f32 * size, 4f32 * size, depth * size),
+        vec(0f32, 0f32, -1f32)
+    ) {
+        return false;
+    }
+    var transform: SpaceTransform = make SpaceTransform {
+        factor: scale_float(factor),
+        origin: vec(7f32, 2f32, -5f32),
+        basis: collision_test_basis()
+    };
+    if !collision_append(mut builder, read mesh, 1u32, transform.origin, transform.basis) {
+        return false;
+    }
+    var portal: CollisionPortal = make CollisionPortal {
+        source_scale: scale_identity(),
+        target_scale: factor,
+        reverse: 1u32,
+        space: 0u32,
+        destination: 1u32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        radius: 2f32,
+        sides: 6u32,
+        phase: 0f32,
+        transform: transform
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.reverse = 0u32;
+    portal.space = 1u32;
+    portal.destination = 0u32;
+    portal.origin = transform.origin;
+    portal.radius = portal.radius * size;
+    portal.basis = space_basis(
+        transform,
+        make Basis {
+            right: vec(-1f32, 0f32, 0f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(0f32, 0f32, -1f32)
+        }
+    );
+    portal.transform = space_inverse(transform);
+    portal.target_scale = scale_inverse(factor);
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn test_scaled_crossing(factor: ScaleRatio) -> bool {
+    var scene: CollisionScene = collision_new();
+    if !scaling_scene(mut scene, factor, 3f32) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -1f32);
+    drone.velocity = vec(0f32, 0f32, 3f32);
+    move_drone(read scene, mut drone, vec(0f32, 0f32, 2f32));
+    var transform: SpaceTransform = collision_portal(read scene, 0u32).transform;
+    var expected_size: Rational = rational_new(factor.numerator, factor.denominator);
+    if drone.world != 1u32 || !rational_equal(read drone.size, read expected_size) || length(
+        sub(drone.position, space_point(transform, vec(0f32, 0f32, 1f32)))
+    ) > 0.00001f32 {
+        return error("scaled crossing lost position or exact size");
+    }
+    var expected: Vec3 = basis_vector(transform.basis, vec(0f32, 0f32, 3f32));
+    if length(sub(drone.velocity, expected)) > 0.00001f32 {
+        return error("scaled crossing changed base velocity");
+    }
+    var back: Vec3 = space_vector(transform, vec(0f32, 0f32, -2f32));
+    move_drone(read scene, mut drone, back);
+    var original_size: Rational = rational_new(1u64, 1u64);
+    if drone.world != 0u32 || !rational_equal(read drone.size, read original_size) || drone_radius(
+        read drone
+    ) != DRONE_RADIUS {
+        return error("reciprocal crossing failed to restore size");
+    }
+    return true;
+}
+fn test_scaled_overlap(factor: ScaleRatio) -> bool {
+    var scene: CollisionScene = collision_new();
+    if !scaling_scene(mut scene, factor, 0.1f32) {
+        return false;
+    }
+    var query: CollisionSweep = collision_sweep_interval(
+        read scene,
+        0u32,
+        vec(0f32, 0f32, -1f32),
+        vec(0f32, 0f32, 2f32),
+        0.35f32,
+        0f32,
+        0f32
+    );
+    if query.status != 0u32 || query.contact.hit.time > 0.37501f32 || query.contact.hit.time < 0.37499f32 {
+
+        return error("scaled overlap has the wrong contact time");
+    }
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -1f32);
+    move_drone(read scene, mut drone, vec(0f32, 0f32, 2f32));
+    if drone.world != 0u32 || drone.position.z > -0.2499f32 {
+        return error("scaled overlap crossed a blocking wall");
+    }
+    return true;
+}
+fn test_scaling() -> bool {
+    return test_scaled_hook() && test_scaled_crossing(scale_ratio(2u64, 1u64)) && test_scaled_crossing(
+        scale_ratio(1u64, 2u64)
+    ) && test_scaled_overlap(scale_ratio(2u64, 1u64)) && test_scaled_overlap(
+        scale_ratio(1u64, 2u64)
+    );
+}
+
+fn test_scaled_hook() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !scaling_scene(mut scene, scale_ratio(2u64, 1u64), 3f32) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -0.1f32);
+    hook_launch(mut drone);
+    var left: f32 = hook_interval(read scene, mut drone, STEP);
+    if left <= 0f32 || drone.cable.space != 1u32 || hook_radius(read drone) != HOOK_RADIUS * 2f32 || portal_path_count(
+        read drone.cable.path
+    ) != 1u32 {
+        return error("hook scale or retained portal path after crossing");
+    }
+    hook_interval(read scene, mut drone, left);
+    var extent: f32 = length(sub(drone.cable.anchor, drone.position)) / drone_size(read drone);
+    drone_portal(read scene, mut drone, 0u32);
+    if portal_path_count(read drone.cable.path) != 0u32 || drone.cable.frame.factor != 1f32 {
+        return error("player following hook must cancel the cable portal path");
+    }
+    var after: f32 = length(sub(drone.cable.anchor, drone.position)) / drone_size(read drone);
+    if absf(after - extent) > 0.00001f32 {
+        return error("portal crossing changed the cable metric");
+    }
+    drone_portal(read scene, mut drone, 1u32);
+    if portal_path_count(read drone.cable.path) != 1u32 || drone_size(read drone) != 1f32 {
+        return error("player reciprocal crossing must restore size and cable path");
+    }
+    var snapshot: Drone = clone_drone(read drone);
+    hook_release(mut drone);
+    if portal_path_count(read snapshot.cable.path) != 1u32 || hook_radius(read snapshot) != HOOK_RADIUS * 2f32 {
+        return error("flight snapshot lost owned scale or cable path");
+    }
+    return true;
+}

@@ -28,7 +28,9 @@ fn portal_plane_check(v: *RenderState) -> bool {
     while tri < w[3usize] {
         var portal: u32 = w[(w[META as usize] + tri * 4u32 + 2u32) as usize];
         if portal != 0u32 {
-            var p: usize = (w[PORTAL_FLOAT as usize] + (portal - 1u32) * 16u32) as usize;
+            var p: usize = (
+                w[PORTAL_FLOAT as usize] + (portal - 1u32) * PORTAL_TRANSFORM_WORDS
+            ) as usize;
             var vertex: u32 = 0u32;
             while vertex < 3u32 {
                 var g: usize = (GEOMETRY + tri * 15u32 + vertex * 5u32) as usize;

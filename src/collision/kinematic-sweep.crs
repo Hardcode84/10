@@ -36,10 +36,10 @@ fn collision_rotating_face(
                 basis_vector(pose.basis, proximity.point)
             );
             result.contact.penetration = clamp(-gap, 0f32, radius);
-            return result;
+            return move result;
         }
         if bound == 0f32 {
-            return result;
+            return move result;
         }
         var advance: f32 = collision_rotation_advance(
             item,
@@ -52,7 +52,7 @@ fn collision_rotating_face(
             bound
         );
         if advance > 1f32 - fraction {
-            return result;
+            return move result;
         }
         var next: f32 = fraction + advance * 0.9f32;
         if next <= fraction {
@@ -62,7 +62,7 @@ fn collision_rotating_face(
         attempts = attempts + 1u32;
     }
     result.status = 6u32;
-    return result;
+    return move result;
 }
 fn collision_sweep_moving(
     scene: read CollisionScene,
@@ -88,7 +88,7 @@ fn collision_sweep_moving(
         scale(extent, -1f32),
         extent
     ) {
-        return result;
+        return move result;
     }
     if dot(item.angular, item.angular) == 0f32 || duration == 0f32 {
         result.contact = collision_query_pose_filtered(
@@ -107,7 +107,7 @@ fn collision_sweep_moving(
             result.contact.point,
             scale(item.linear, duration * result.contact.hit.time)
         );
-        return result;
+        return move result;
     }
     var face: u32 = 0u32;
     while face < item.count {
@@ -122,7 +122,7 @@ fn collision_sweep_moving(
             duration
         );
         if next.status != 0u32 {
-            return next;
+            return move next;
         }
         if collision_better(next.contact, result.contact) && collision_anchor_accept(
             read scene,
@@ -131,11 +131,11 @@ fn collision_sweep_moving(
             add(p, scale(d, next.contact.hit.time)),
             next.contact.point
         ) {
-            result = next;
+            collision_sweep_assign(mut result, read next);
         }
         face = face + 1u32;
     }
-    return result;
+    return move result;
 }
 
 fn collision_rotation_advance(

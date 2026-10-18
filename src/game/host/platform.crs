@@ -143,8 +143,8 @@ fn game_scene_finish(
 ) -> unit {
     var input: FrameInput = renderer_inputs(mut session.renderer);
     draw_prediction(mut input, read prediction, config);
-    draw_frame(mut input, trial.drone, config);
-    draw_drone(read collision, mut input, read session.drone_mesh, trial.drone);
+    draw_frame(mut input, read trial.drone, config);
+    draw_drone(read collision, mut input, read session.drone_mesh, read trial.drone);
     if trial.graph_run {
         graph_scene(read session.control.graph, mut input, read trial, config);
     }

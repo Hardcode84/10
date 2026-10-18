@@ -8,7 +8,7 @@ fn attached_test_drone(collision: read CollisionScene) -> Drone {
         simulate(read collision, mut d, command, false, true);
         i = i + 1u32;
     }
-    return d;
+    return move d;
 }
 fn test_tether(collision: read CollisionScene) -> bool {
     var d: Drone = attached_test_drone(read collision);
@@ -191,7 +191,8 @@ fn test_reel_contact_case(frame: SpaceTransform) -> bool {
     if !game_check(contact.hit.time <= 1f32, "reel fixture must attach to the wall") {
         return false;
     }
-    hook_attach(read scene, mut drone, contact, 0f32, 0f32);
+    var query: CollisionSweep = collision_sweep_result(contact);
+    hook_attach(read scene, mut drone, read query, 0f32, 0f32);
     // A cable through a wall can request an unreachable position. Collision
     // must finish without feeding the rejected pull back into the slide.
     drone.position = space_point(frame, vec(0f32, 0f32, 0.3501f32));
@@ -222,6 +223,7 @@ fn test_reel_contact_case(frame: SpaceTransform) -> bool {
 fn test_reel_contact() -> bool {
     return test_reel_contact_case(space_identity()) && test_reel_contact_case(
         make SpaceTransform {
+            factor: 1f32,
             origin: vec(-12f32, 9f32, 37f32),
             basis: collision_test_basis()
         }

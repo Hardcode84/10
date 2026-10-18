@@ -1,3 +1,4 @@
+extern fn anchor_copy(destination: *u8, source: *u8, size: usize) -> *u8 = "memcpy";
 // An object can have several placements in one room. Transform maps its primary room to this room.
 record RoomAnchor {
     object: u32;
@@ -8,9 +9,14 @@ record RoomAnchor {
     incoming: u32;
     depth: u32;
 }
+record AnchorEntry {
+    placement: RoomAnchor;
+    ratio: Rational;
+}
 resource RoomAnchors {
     local: [RoomAnchor; 8];
-    extra: *RoomAnchor;
+    ratios: [Rational; 8];
+    extra: *AnchorEntry;
     count: u32;
     capacity: u32;
 }
@@ -19,50 +25,103 @@ fn room_anchors_new() -> RoomAnchors {
     var local: [RoomAnchor; 8] = uninit;
     return make RoomAnchors {
         local: local,
-        extra: null(*RoomAnchor),
+        ratios: make [Rational; 8] {
+            rational_new(1u64, 1u64),
+            rational_new(1u64, 1u64),
+            rational_new(1u64, 1u64),
+            rational_new(1u64, 1u64),
+            rational_new(1u64, 1u64),
+            rational_new(1u64, 1u64),
+            rational_new(1u64, 1u64),
+            rational_new(1u64, 1u64)
+        },
+        extra: null(*AnchorEntry),
         count: 0u32,
         capacity: 8u32
     };
 }
 fn room_anchors_drop(anchors: mut RoomAnchors) -> unit {
+    room_anchors_clear(mut anchors);
     free(anchors.extra as *u8);
 }
 fn room_anchor_count(anchors: read RoomAnchors) -> u32 {
     return anchors.count;
 }
 fn room_anchor(anchors: read RoomAnchors, index: u32) -> RoomAnchor {
-    if anchors.extra != null(*RoomAnchor) {
-        return anchors.extra[index as usize];
+    if anchors.extra == null(*AnchorEntry) {
+        return anchors.local[index as usize];
     }
-    return anchors.local[index as usize];
+    return anchors.extra[index as usize].placement;
 }
-fn room_anchor_add(anchors: mut RoomAnchors, anchor: RoomAnchor) -> bool {
+fn room_anchor_take(anchors: mut RoomAnchors, anchor: RoomAnchor, ratio: Rational) -> bool {
+    anchor.transform.factor = rational_float(read ratio);
     if anchors.count == anchors.capacity {
         var size: u64 = anchors.capacity as u64 * 2u64;
-        if size > 0xffffffffu64 || size * sizeof(RoomAnchor) as u64 > 0xffffffffu64 {
+        if size == 0u64 {
+            size = 8u64;
+        }
+        if size > 0xffffffffu64 || size * sizeof(AnchorEntry) as u64 > 0xffffffffu64 {
             return error("room anchor storage exceeds address range");
         }
-        var next: *RoomAnchor = malloc(size as usize * sizeof(RoomAnchor)) as *RoomAnchor;
-        if next == null(*RoomAnchor) {
+        var next: *AnchorEntry = malloc(size as usize * sizeof(AnchorEntry)) as *AnchorEntry;
+        if next == null(*AnchorEntry) {
             return error("room anchor allocation failed");
         }
-        var i: u32 = 0u32;
-        while i < anchors.count {
-            next[i as usize] = room_anchor(read anchors, i);
-            i = i + 1u32;
+        if anchors.extra != null(*AnchorEntry) {
+            anchor_copy(
+                next as *u8,
+                anchors.extra as *u8,
+                anchors.count as usize * sizeof(AnchorEntry)
+            );
+        } else {
+            var i: u32 = 0u32;
+            while i < anchors.count {
+                next[i as usize] = make AnchorEntry {
+                    placement: anchors.local[i as usize],
+                    ratio: rational_clone(read anchors.ratios[i as usize])
+                };
+                i = i + 1u32;
+            }
         }
         free(anchors.extra as *u8);
         anchors.extra = next;
         anchors.capacity = size as u32;
     }
-    if anchors.extra != null(*RoomAnchor) {
-        anchors.extra[anchors.count as usize] = anchor;
+    if anchors.extra != null(*AnchorEntry) {
+        anchors.extra[anchors.count as usize] = make AnchorEntry {
+            placement: anchor,
+            ratio: rational_clone(read ratio)
+        };
     } else {
         anchors.local[anchors.count as usize] = anchor;
+        rational_assign(mut anchors.ratios[anchors.count as usize], read ratio);
     }
     anchors.count = anchors.count + 1u32;
     return true;
 }
 fn room_anchors_clear(anchors: mut RoomAnchors) -> unit {
+    var i: u32 = 0u32;
+    while anchors.extra != null(*AnchorEntry) && i < anchors.count {
+        drop anchors.extra[i as usize];
+        i = i + 1u32;
+    }
     anchors.count = 0u32;
+}
+
+fn room_anchor_ratio(anchors: read RoomAnchors, index: u32) -> read Rational from anchors {
+    if anchors.extra == null(*AnchorEntry) {
+        return read anchors.ratios[index as usize];
+    }
+    return read anchors.extra[index as usize].ratio;
+}
+fn room_anchor_add(anchors: mut RoomAnchors, anchor: RoomAnchor) -> bool {
+    return room_anchor_take(mut anchors, anchor, rational_new(1u64, 1u64));
+}
+fn room_anchor_link(anchors: mut RoomAnchors, anchor: RoomAnchor, portal: CollisionPortal) -> bool {
+    var link: Rational = portal_ratio(portal);
+    var ratio: Rational = rational_product(
+        room_anchor_ratio(read anchors, anchor.parent),
+        read link
+    );
+    return room_anchor_take(mut anchors, anchor, move ratio);
 }

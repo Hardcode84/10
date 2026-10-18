@@ -54,7 +54,7 @@ fn geometry_header(v: *RenderState) -> unit {
     w[MESH_FLOAT as usize] = w[CLIP_OFFSET as usize] + v -> projection_capacity * v -> view_capacity * 144u32;
     w[INSTANCE_FLOAT as usize] = w[MESH_FLOAT as usize] + v -> mesh_capacity * 15u32;
     traversal_header(v);
-    w[LIGHT_DATA as usize] = w[PORTAL_FLOAT as usize] + v -> portal_capacity * 16u32;
+    w[LIGHT_DATA as usize] = w[PORTAL_FLOAT as usize] + v -> portal_capacity * PORTAL_TRANSFORM_WORDS;
     w[SHADOW_BOUNDS as usize] = w[LIGHT_DATA as usize] + v -> light_capacity * 8u32;
     w[SHADOW_INDEX as usize] = w[VIEW_KEYS as usize] + ((v -> task_capacity + 63u32) / 64u32) * (
         (v -> view_capacity * v -> portal_capacity + 31u32) / 32u32
@@ -64,6 +64,12 @@ fn geometry_header(v: *RenderState) -> unit {
     w[INSTANCE_CAPACITY as usize] = v -> instance_capacity;
     w[WORD_COUNT as usize] = v -> words;
     w[FLOAT_COUNT as usize] = v -> floats;
+    var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
+    var portal: u32 = 0u32;
+    while portal < v -> portal_capacity {
+        f[(w[PORTAL_FLOAT as usize] + portal * PORTAL_TRANSFORM_WORDS + 16u32) as usize] = 1f32;
+        portal = portal + 1u32;
+    }
 }
 fn geometry_copy(v: *RenderState, old: *RenderState) -> unit {
     memcpy(v -> mapped, old -> mapped, PIXELS as usize * 4usize);
@@ -84,7 +90,13 @@ fn geometry_copy(v: *RenderState, old: *RenderState) -> unit {
     retained_copy_region(v, old, LIGHT_DATA, old -> light_capacity * 8u32, true);
     retained_copy_region(v, old, LIGHT_SPACE, old -> light_capacity, false);
     retained_copy_region(v, old, PORTAL_META, old -> portal_capacity * 4u32, false);
-    retained_copy_region(v, old, PORTAL_FLOAT, old -> portal_capacity * 16u32, true);
+    retained_copy_region(
+        v,
+        old,
+        PORTAL_FLOAT,
+        old -> portal_capacity * PORTAL_TRANSFORM_WORDS,
+        true
+    );
     memcpy(
         v -> mapped + (v -> mapped as *u32)[ASSET_OFFSET as usize] as isize * 4isize,
         old -> mapped + (old -> mapped as *u32)[ASSET_OFFSET as usize] as isize * 4isize,
@@ -161,7 +173,7 @@ fn geometry_limit(v: *RenderState) -> u32 {
 }
 
 fn traversal_floats(v: *RenderState) -> u64 {
-    return (v -> portal_capacity as u64 + v -> view_capacity as u64) * 16u64;
+    return (v -> portal_capacity as u64 + v -> view_capacity as u64) * PORTAL_TRANSFORM_WORDS as u64;
 }
 fn traversal_words(v: *RenderState) -> u64 {
     return v -> task_capacity as u64 * (10u64 + LOCAL_SIZE as u64 * 3u64) + (
@@ -191,7 +203,7 @@ fn traversal_header(v: *RenderState) -> unit {
         (v -> task_capacity + 32767u32) / 32768u32
     ) * 9u32;
     w[VIEW_FLOAT as usize] = w[INSTANCE_FLOAT as usize] + v -> instance_capacity * 18u32;
-    w[PORTAL_FLOAT as usize] = w[VIEW_FLOAT as usize] + v -> view_capacity * 16u32;
+    w[PORTAL_FLOAT as usize] = w[VIEW_FLOAT as usize] + v -> view_capacity * PORTAL_TRANSFORM_WORDS;
     w[PORTAL_CAPACITY as usize] = v -> portal_capacity;
     w[TASK_CAPACITY as usize] = v -> task_capacity;
 }

@@ -1,11 +1,12 @@
 fn space_identity() -> SpaceTransform {
     return make SpaceTransform {
+        factor: 1f32,
         origin: vec(0f32, 0f32, 0f32),
         basis: identity_basis()
     };
 }
 fn space_point(t: SpaceTransform, p: Vec3) -> Vec3 {
-    return add(t.origin, basis_vector(t.basis, p));
+    return add(t.origin, space_vector(t, p));
 }
 fn space_inverse(t: SpaceTransform) -> SpaceTransform {
     var b: Basis = make Basis {
@@ -14,7 +15,8 @@ fn space_inverse(t: SpaceTransform) -> SpaceTransform {
         forward: vec(t.basis.right.z, t.basis.up.z, t.basis.forward.z)
     };
     return make SpaceTransform {
-        origin: basis_vector(b, scale(t.origin, -1f32)),
+        factor: 1f32 / t.factor,
+        origin: scale(basis_vector(b, scale(t.origin, -1f32)), 1f32 / t.factor),
         basis: b
     };
 }
@@ -27,6 +29,7 @@ fn space_basis(t: SpaceTransform, b: Basis) -> Basis {
 }
 fn space_compose(a: SpaceTransform, b: SpaceTransform) -> SpaceTransform {
     return make SpaceTransform {
+        factor: a.factor * b.factor,
         origin: space_point(a, b.origin),
         basis: space_basis(a, b.basis)
     };
@@ -77,4 +80,8 @@ fn portal_crossing(scene: read CollisionScene, space: u32, position: Vec3, trave
         i = i + 1u32;
     }
     return result;
+}
+
+fn space_vector(t: SpaceTransform, v: Vec3) -> Vec3 {
+    return scale(basis_vector(t.basis, v), t.factor);
 }
