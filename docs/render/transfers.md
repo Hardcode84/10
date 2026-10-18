@@ -12,7 +12,7 @@ match this setting. The applications select the matching modules:
 
 ```sh
 crust main.crs --debug-shaders 1
-crust demo.crs --debug-shaders 1
+crust demo.crs levels/radial.crs --debug-shaders 1
 ```
 
 The default is zero. Demo pixel debugging and fault injection also select checked

@@ -1,0 +1,94 @@
+// A 12 m wide, 20 m long cylinder with two connected circular openings.
+// The 4 m opening leads to the 8 m opening and doubles body size.
+// The reverse crossing halves body size. Both ends lead back into this room.
+// Levels supply demo_room_build and set asset.spawn. Controls and physics
+// come from the game. Material indices use the shared game room palette.
+fn cylinder_port(shape: RegularProfile, far: bool) -> RoomPort {
+    var profile: ConnectionProfile = make ConnectionProfile {
+        name: asset_name("CIRCLE-4M"),
+        shape: shape,
+        scale: scale_identity(),
+        radius: 2f32,
+        rotations: shape.sides,
+        clearance: 1.5f32
+    };
+    var port: RoomPort = make RoomPort {
+        id: asset_name("GROW"),
+        profile: profile,
+        face: shape.sides,
+        position: vec(0f32, 0f32, 0f32),
+        basis: make Basis {
+            right: vec(1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(0f32, -1f32, 0f32)
+        }
+    };
+    if far {
+        var angle: f32 = 6.28318530718f32 * (shape.sides - 1u32) as f32 / shape.sides as f32;
+        port.id = asset_name("SHRINK");
+        port.profile.scale.numerator = 2u64;
+        port.profile.radius = 4f32;
+        port.profile.clearance = 3f32;
+        port.face = port.face + 1u32;
+        port.position.y = 20f32;
+        port.basis.right = vec(cosf(angle), 0f32, sinf(angle));
+        port.basis.up = vec(sinf(angle), 0f32, -cosf(angle));
+        port.basis.forward = vec(0f32, 1f32, 0f32);
+    }
+    return port;
+}
+fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mut Mesh) -> bool {
+    var shape: RegularProfile = make RegularProfile {
+        sides: 32u32,
+        phase: 0f32
+    };
+    var shell: AssetHull = asset_hull_new();
+    if !loft_allocate(mut shell, shape, 2u32) {
+        return false;
+    }
+    loft_ring(mut shell, shape, 0u32, 0f32, 6f32);
+    loft_ring(mut shell, shape, 1u32, 20f32, 6f32);
+    loft_span(mut shell, shape, 0u32, 0u32);
+    loft_caps(mut shell, shape, 2u32, 1u32, 1u32);
+    hex_tunnel_surfaces(mut shell, shape.sides, 20f32);
+    var a: RoomPort = cylinder_port(shape, false);
+    var b: RoomPort = cylinder_port(shape, true);
+    var inset: AssetHull = asset_hull_new();
+    if !hull_polygon_partition(read shell, mut inset, a, 1u32) || !hull_polygon_partition(
+        read inset,
+        mut asset.hull,
+        b,
+        1u32
+    ) || !asset_port_append(mut asset.ports, a) || !asset_port_append(mut asset.ports, b) {
+        return false;
+    }
+    asset.spawn = make AssetSpawn {
+        position: vec(0f32, 10f32, 0f32),
+        basis: a.basis
+    };
+    if !room_asset_finish(mut asset) {
+        return false;
+    }
+    var walls: Mesh = mesh_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    if!(
+        room_linked_mesh(read asset, mut mesh, mut walls, GAME_MATERIALS) && collision_append(
+            mut builder,
+            read walls,
+            0u32,
+            vec(0f32, 0f32, 0f32),
+            identity_basis()
+        ) && connection_link(mut builder, a, b, 0u32, 0u32, 0u32, 1u32) && connection_link(
+            mut builder,
+            b,
+            a,
+            0u32,
+            0u32,
+            0u32,
+            0u32
+        )
+    ) {
+        return false;
+    }
+    return collision_finish(move builder, mut collision);
+}

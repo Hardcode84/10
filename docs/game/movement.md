@@ -1,6 +1,6 @@
 # Flight controls and physics
 
-Run `crust main.crs` for [There and Back](expedition.md), or `crust demo.crs`
+Run `crust main.crs` for [There and Back](expedition.md), or `crust demo.crs levels/radial.crs`
 for the linked-room flight demo. Both use the same input and physics code.
 
 Boost applies 100 m/s² along the current forward axis for 0.15 seconds.
@@ -170,13 +170,26 @@ axes have a 15 percent dead zone. Mouse motion controls look directly.
 
 ## Generated-room flight demo
 
-Run `crust demo.crs`. The demo uses the game input, fixed-step simulation,
+Run `crust demo.crs LEVEL.crs [options]`. For example, use
+`levels/radial.crs` or `levels/cylinder.crs`. The demo uses the game input, fixed-step simulation,
 collision solver, tether, HUD, and prediction code. The room recipe supplies
 its spawn, surfaces, and generated textures. Room-specific connections are
-specified in the demo content source. Backspace returns to the recipe spawn.
+specified in the selected level source. Backspace returns to the recipe spawn.
 The demo has no completion condition.
 
-Each pair of room openings connects through a one-metre hexagonal tunnel.
+A level is a checked Crust source file. It defines
+`demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene,
+mesh: mut Mesh) -> bool`. The function sets the spawn, room ports, rendered
+mesh, and finished collision scene. Portal triangle IDs start at one and
+refer to the collision link order. The room port count must equal the
+collision link count. Level geometry uses local space zero and the shared
+game material palette. Return false on a build error.
+
+`levels/cylinder.crs` connects two ends of one cylindrical room. The small
+opening doubles player size; the large opening halves it. The hook uses
+the same portal transforms. All runtime options follow the level filename.
+
+In `levels/radial.crs`, each pair of room openings connects through a one-metre hexagonal tunnel.
 The near end joins the room directly. The far end transfers the drone and
 hook to the paired opening. The tunnel has solid walls and generated metal
 textures. Inspect its recipe with `crust viewer.crs assets/rooms/hex-tunnel.crs`.
@@ -190,7 +203,7 @@ Tab pauses; Esc closes the window. All bindings use the game binding file.
 A portal transfers position, orientation, velocity, and remaining motion.
 Wall and rim contacts before the centre crossing take priority. The hook
 uses the same link table. Its local mesh anchor remains in its owning space.
-The cable stores a rigid transform into the player frame. Length and reeling
+The cable stores a similarity transform into the player frame. Length and reeling
 use this unfolded frame, not the short distance between two local positions
 in the same room. The cable passes through obstacles, as in the game.
 A flying hook still snaps at 120 m of unfolded distance. An attached cable
@@ -199,7 +212,8 @@ retains its extent until the winch shortens it or the player releases it.
 The renderer shows up to six portal crossings. Reaching this view depth does
 not stop physical traversal. View storage is a separate render budget; an
 exhausted budget rejects the frame with an error. Recordings identify the demo
-scene and reject playback in the graph game.
+application and reject playback in the graph game. Use the same level file
+for recording and playback.
 
 Use `crust tests.crs collision` for CPU crossing and tether checks.
 Use `crust tests.crs portals --width 320 --height 180` for a short check of the

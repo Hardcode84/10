@@ -7,7 +7,7 @@ program with the Crust ownership stage. Device programs use the shader stage.
 | --- | --- |
 | `crust main.crs` | Play the portal graph. Use `--seed N --complexity N`. |
 | `crust main.crs --web` | Build the same game for WebAssembly and WebGPU. |
-| `crust demo.crs` | Fly through the generated room with game controls and linked portals. |
+| `crust demo.crs levels/radial.crs` | Fly through the generated room with game controls and linked portals. |
 | `crust viewer.crs ROOM.crs` | Build and inspect a Crust room recipe. |
 | `crust tests.crs` | Run all automated checks. |
 

@@ -58,7 +58,8 @@ crust main.crs --seed 42 --complexity 8
 crust main.crs --fullscreen --width 1024 --height 768
 
 # Fly through the room demo with the game physics and tether.
-crust demo.crs
+crust demo.crs levels/radial.crs
+crust demo.crs levels/cylinder.crs
 
 # Inspect a generated room recipe.
 crust viewer.crs assets/rooms/radial-start.crs
@@ -79,7 +80,8 @@ recording exchange, and the focused browser check.
 | Path | Purpose |
 | --- | --- |
 | `main.crs` | Playable game build and entry point |
-| `demo.crs` | Room flight demo build and entry point |
+| `demo.crs` | Selected level flight demo build and entry point |
+| `levels/` | Crust demo level recipes |
 | `viewer.crs` | Prefab viewer build and entry point |
 | `tests.crs` | Automated test build and runner |
 | `src/render/` | Shared renderer, Vulkan and WebGPU providers, and compute shaders |

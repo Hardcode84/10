@@ -11,7 +11,7 @@ time. The demo and viewer use Vulkan.
 Build the Crust seed as described in [bootstrap](../build/bootstrap.md). Add
 `crust/build` to `PATH`.
 
-`crust demo.crs` starts interactive flight in the generated room. It uses the
+`crust demo.crs levels/radial.crs` starts interactive flight in the generated room. It uses the
 game input, physics, tether, and host loop. See the [flight controls](../game/movement.md#generated-room-flight-demo).
 The root builds the ownership-checked host and compute shaders. It does not
 build test fixtures or the CPU reference. Crust generates geometry, textures,
@@ -23,9 +23,9 @@ links at `build/toolchain/llvm` and `build/toolchain/spirv-val`. Missing tools
 stop the build with a diagnostic.
 
 ```sh
-crust demo.crs --build-only
-crust demo.crs --width 1280 --height 960
-crust demo.crs --capture build/room.ppm --width 960 --height 540
+crust demo.crs levels/radial.crs --build-only
+crust demo.crs levels/radial.crs --width 1280 --height 960
+crust demo.crs levels/radial.crs --capture build/room.ppm --width 960 --height 540
 ```
 
 Capture mode runs one simulation tick by default. Use `--ticks N` to change

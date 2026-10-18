@@ -27,7 +27,7 @@ Add the seed directory to `PATH` and run the application root:
 
 ```sh
 export PATH="$PWD/crust/build:$PATH"
-crust demo.crs
+crust demo.crs levels/radial.crs
 ```
 
 The demo root builds host and device code, then starts the interactive flight demo.
@@ -130,5 +130,5 @@ Run `crust main.crs` to build and start the expedition. See
 [the expedition guide](../game/expedition.md) for objectives, seeds, and recording.
 Use `crust tests.crs game` for the simulation checks.
 See [movement](../game/movement.md) for controls and replay
-commands. The generated-room flight demo starts with `crust demo.crs`. It uses the same
+commands. The generated-room flight demo starts with `crust demo.crs levels/radial.crs`. It uses the same
 flight, tether, input, and fixed-step loop as the game.

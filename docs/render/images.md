@@ -67,7 +67,7 @@ it does not claim that a retired swapchain can be restored.
 crust tests.crs render 9
 crust tests.crs render 10 # requires a Vulkan-capable display
 crust tests.crs ownership
-crust demo.crs --capture build/4k.ppm --width 3840 --height 2160
+crust demo.crs levels/radial.crs --capture build/4k.ppm --width 3840 --height 2160
 ```
 
 Case 9 keeps the same retained mesh and texture data across landscape, portrait,

@@ -87,7 +87,8 @@ jobs:
       - name: Build native application entry points
         run: |
           crust main.crs --build-only
-          crust demo.crs --build-only
+          crust demo.crs levels/radial.crs --build-only
+          crust demo.crs levels/cylinder.crs --build-only
           crust viewer.crs assets/rooms/radial-start.crs --build-only
 
   web:
