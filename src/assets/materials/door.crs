@@ -47,3 +47,58 @@ fn metal_door_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     }
     return (145f32 + metal_grain(material, x, y)) as u32;
 }
+// Four indicators form a square on each leaf. Dimensions are in metres.
+fn metal_oct_door_led(along: f32, across: f32) -> u32 {
+    var dx: f32 = absf(across) - 0.15f32;
+    var dy: f32 = absf(along - 0.85f32) - 0.15f32;
+    if absf(dx) < 0.055f32 && absf(dy) < 0.055f32 {
+        return 248u32;
+    }
+    if absf(dx) < 0.09f32 && absf(dy) < 0.09f32 {
+        return 22u32;
+    }
+    return 0u32;
+}
+// An octagonal four-leaf door has an X joint and four fixed triangular pipe plates.
+// Each leaf has four full-bright indicators near the centre. Tile size is diameter.
+fn metal_oct_door_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var radius: f32 = material.tile_metres * 0.5f32;
+    var px: f32 = absf(x - radius);
+    var py: f32 = absf(y - radius);
+    var across: f32 = mask_min(px, py);
+    var along: f32 = px + py - across;
+    var led: u32 = metal_oct_door_led(along, across);
+    if led != 0u32 {
+        return led;
+    }
+    var wide: f32 = radius * cosf(0.39269908169f32);
+    var narrow: f32 = radius * sinf(0.39269908169f32);
+    var edge: f32 = mask_min(wide - along, (wide + narrow - px - py) * 0.70710678f32);
+    if edge < 0.07f32 {
+        return 22u32;
+    }
+    if edge < 0.13f32 {
+        return 185u32;
+    }
+    var plate: f32 = along - (wide - narrow) - across;
+    if plate > -0.04f32 {
+        return metal_oct_pipe_plate(material, x, y, plate);
+    }
+    var joint: f32 = (along - across) * 0.70710678f32;
+    if joint < 0.035f32 {
+        return 12u32;
+    }
+    if joint < 0.08f32 {
+        return 190u32;
+    }
+    return (149f32 + metal_grain(material, x, y)) as u32;
+}
+fn metal_oct_pipe_plate(material: PanelMaterial, x: f32, y: f32, edge: f32) -> u32 {
+    if edge < 0.035f32 {
+        return 20u32;
+    }
+    if edge < 0.095f32 {
+        return 181u32;
+    }
+    return (100f32 + metal_grain(material, x, y)) as u32;
+}

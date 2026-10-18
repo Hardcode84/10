@@ -4,12 +4,14 @@ const METAL_RIBBED: u32 = 2u32;
 const METAL_HEX: u32 = 3u32;
 const METAL_DOOR: u32 = 4u32;
 const METAL_PIPE: u32 = 5u32;
+const METAL_OCT_DOOR: u32 = 6u32;
 // Dimensions are in metres. Panel height must divide tile size; pitch must
 // divide both panel dimensions. Sizes and texel density must be positive.
 // Ribbed metal requires a pitch greater than the 0.065 m seam width.
 // METAL_HEX uses tile width as three plate radii and ignores panel height/pitch.
 // Marking is 0 (none), 1 (paired strips), 2 (split bars), or 3 (inset studs).
-// Finish is METAL_PLATE, METAL_TREAD, METAL_RIBBED, METAL_HEX, METAL_DOOR, or METAL_PIPE. Colours use packed RGB.
+// Finish is METAL_PLATE, METAL_TREAD, METAL_RIBBED, METAL_HEX, METAL_DOOR,
+// METAL_PIPE, or METAL_OCT_DOOR. Colours use packed RGB.
 record PanelMaterial {
     colour: u32;
     accent: u32;
@@ -93,6 +95,9 @@ fn metal_fastener(material: PanelMaterial, x: f32, y: f32) -> u32 {
 }
 // Returns a palette index for a point within one repeated panel tile.
 fn panel_base_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
+    if material.finish == METAL_OCT_DOOR {
+        return metal_oct_door_sample(material, x, tile_y);
+    }
     if material.finish == METAL_PIPE {
         return metal_pipe_sample(material, x, tile_y);
     }
