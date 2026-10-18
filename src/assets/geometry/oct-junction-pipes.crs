@@ -41,9 +41,16 @@ fn oct_junction_straight_pipe(
     }
     return oct_junction_pipe_part(mut asset, first, origin, side, name);
 }
-fn oct_junction_corner_pipe(asset: mut RoomAsset, leg: f32, side: u32) -> bool {
+// Joins adjacent mouths with a 1.2 m pipe bend. Offset is relative to the first mouth.
+fn oct_junction_bent_pipe(
+    asset: mut RoomAsset,
+    leg: f32,
+    side: u32,
+    offset: Vec3,
+    name: AssetName
+) -> bool {
     var radius: f32 = 1.2f32;
-    var lead: f32 = leg - oct_pipe_distance() - radius;
+    var lead: f32 = leg - offset.x - radius;
     var extent: f32 = lead * 2f32 + radius * 1.57079632679f32;
     var bands: u32 = (extent / 2f32) as u32 + 1u32;
     var first: u32 = mesh_triangle_count(read asset.geometry);
@@ -62,9 +69,9 @@ fn oct_junction_corner_pipe(asset: mut RoomAsset, leg: f32, side: u32) -> bool {
     return oct_junction_pipe_part(
         mut asset,
         first,
-        junction_quarter(vec(oct_pipe_distance(), -leg, 0f32), side),
+        junction_quarter(vec(offset.x, -leg, offset.z), side),
         side,
-        junction_port(side, 0u32, leg).id
+        name
     );
 }
 fn oct_junction_overhead(
@@ -96,14 +103,20 @@ fn oct_junction_overhead(
         name
     );
 }
-// Side pipes join successive mouths. Ceiling and floor pipes form a tee or cross.
-fn oct_junction_pipes(asset: mut RoomAsset, plan: JunctionPlan) -> bool {
+// Side pipes join successive mouths and leave the central flight path clear.
+fn oct_junction_side_pipes(asset: mut RoomAsset, plan: JunctionPlan) -> bool {
     var i: u32 = 0u32;
     while i < plan.count {
         var side: u32 = plan.sides[i as usize];
         var next: u32 = plan.sides[((i + 1u32) % plan.count) as usize];
         if (next + 4u32 - side) % 4u32 == 1u32 {
-            if !oct_junction_corner_pipe(mut asset, plan.distance, side) {
+            if !oct_junction_bent_pipe(
+                mut asset,
+                plan.distance,
+                side,
+                vec(oct_pipe_distance(), 0f32, 0f32),
+                junction_port(side, 0u32, plan.distance).id
+            ) {
                 return false;
             }
         } else {
@@ -119,7 +132,11 @@ fn oct_junction_pipes(asset: mut RoomAsset, plan: JunctionPlan) -> bool {
         }
         i = i + 1u32;
     }
-    return oct_junction_overhead(
+    return true;
+}
+// Side pipes join successive mouths. Ceiling and floor pipes form a tee or cross.
+fn oct_junction_pipes(asset: mut RoomAsset, plan: JunctionPlan) -> bool {
+    return oct_junction_side_pipes(mut asset, plan) && oct_junction_overhead(
         mut asset,
         plan,
         oct_pipe_distance(),

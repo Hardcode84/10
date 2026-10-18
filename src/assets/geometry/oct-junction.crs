@@ -99,10 +99,10 @@ fn oct_junction_caps(hull: mut AssetHull, count: u32) -> unit {
     asset_surface_set(mut hull, count * 4u32, bottom);
     asset_surface_set(mut hull, count * 4u32 + 1u32, top);
 }
-// Builds a convex OCT-8M T or cross junction with a clear central flight path.
-// Connections is 7 (T) or 15 (cross). Leg is at least 5 m; +Z is up.
-fn oct_junction_build(connections: u32, leg: f32, asset: mut RoomAsset) -> bool {
-    var plan: JunctionPlan = junction_plan(connections, service_oct_profile().radius, leg);
+// Builds the hull and ports of a convex OCT-8M T or cross junction.
+// The plan selects south/east/north, with optional west. Distance is at least 5 m.
+fn oct_junction_shell(plan: JunctionPlan, asset: mut RoomAsset) -> bool {
+    var leg: f32 = plan.distance;
     if !asset_hull_allocate(
         mut asset.hull,
         plan.count * 8u32,
@@ -128,5 +128,13 @@ fn oct_junction_build(connections: u32, leg: f32, asset: mut RoomAsset) -> bool 
         position: vec(0f32, -leg + 1f32, 0f32),
         basis: junction_port(2u32, 0u32, leg).basis
     };
-    return oct_junction_pipes(mut asset, plan) && room_asset_finish(mut asset);
+    return true;
+}
+// Builds a convex OCT-8M T or cross junction with a clear central flight path.
+// Connections is 7 (T) or 15 (cross). Leg is at least 5 m; +Z is up.
+fn oct_junction_build(connections: u32, leg: f32, asset: mut RoomAsset) -> bool {
+    var plan: JunctionPlan = junction_plan(connections, service_oct_profile().radius, leg);
+    return oct_junction_shell(plan, mut asset) && oct_junction_pipes(mut asset, plan) && room_asset_finish(
+        mut asset
+    );
 }
