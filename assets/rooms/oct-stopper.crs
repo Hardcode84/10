@@ -1,6 +1,6 @@
 // OCT-8M stopper, 0.5 m deep along +Y. ENTRY has four mating rolls.
 // The solid far cap has four fixed triangular plates at the pipe positions.
-// Four door leaves meet at an X joint. Each leaf has four red full-bright LEDs
+// Four door leaves meet at a + joint. Each leaf has one red full-bright LED
 // near the centre. The LEDs do not emit light. The door is closed and static.
 // +Z is up. This room has no player spawn; its centre pose is for inspection.
 // Regions: 0 sleeve and entry closure, 1 door. Depth is in metres.
