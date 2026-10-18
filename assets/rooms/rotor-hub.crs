@@ -8,7 +8,7 @@
 // Socket positions and dimensions stay fixed. The default inset is 1.75 m.
 // The spindle stays in the shaft. The centre is a clear player spawn facing +Y.
 // Regions: 0 socket walls, 1 corner panels, 2 tunnel closures, 3 shaft closure,
-// 4 dark structural joints.
+// 4 dark structural joints. Corner panels have one closed hexagonal service cover.
 fn room_parameter_count() -> u32 {
     return 3u32;
 }
@@ -168,6 +168,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     }
     rhombi_inset_corners(mut asset.hull, asset_value(read parameters, 2u32));
     hub_joint_surfaces(mut asset, read parameters);
+    hub_corner_surfaces(mut asset, read parameters);
     if !hub_connections(mut asset, diameter) {
         return false;
     }
@@ -185,7 +186,7 @@ fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     material.colour = 0x807769u32;
     material.panel_height = 2f32;
     if region == 1u32 {
-        return hex_bulkhead_material();
+        return hub_corner_material(read parameters);
     }
     if region == 2u32 {
         material.colour = 0x788dadu32;
@@ -228,6 +229,39 @@ fn hub_joint_surfaces(asset: mut RoomAsset, parameters: read AssetValues) -> uni
             axis = vec(0f32, 0f32, 1f32);
         }
         var frame: SurfaceFrame = hull_trapezoid_frame(read asset.hull, face, axis);
+        frame.right = scale(frame.right, asset.tile_metres / material.tile_metres);
+        frame.up = scale(frame.up, asset.tile_metres / material.tile_height);
+        asset_surface_set(mut asset.hull, i, frame);
+        i = i + 1u32;
+    }
+}
+
+fn hub_corner_material(parameters: read AssetValues) -> PanelMaterial {
+    var diagonal: f32 = service_oct_profile().radius + asset_value(read parameters, 1u32);
+    var inset: f32 = asset_value(read parameters, 2u32);
+    var material: PanelMaterial = hex_tunnel_material();
+    material.colour = 0x8b8070u32;
+    material.finish = METAL_HEX_COVER;
+    material.border = 0.06f32;
+    material.tile_metres = 3f32 * diagonal + 4f32 * inset;
+    material.tile_height = material.tile_metres;
+    var span: f32 = 1.41421356237f32 * diagonal;
+    var cut: f32 = 0.3f32 * diagonal * diagonal / span;
+    var shift: f32 = 1.73205080757f32 * inset;
+    material.hex_apothem = (span + 2f32 * shift) / 2.44948974278f32;
+    material.hex_clip_apothem = (2f32 * span + shift - 3f32 * cut) / 2.44948974278f32;
+    return material;
+}
+fn hub_corner_surfaces(asset: mut RoomAsset, parameters: read AssetValues) -> unit {
+    var material: PanelMaterial = hub_corner_material(read parameters);
+    var i: u32 = 18u32;
+    while i < 26u32 {
+        var face: HullFace = asset_face(read asset.hull, i);
+        var frame: SurfaceFrame = hull_frame(read asset.hull, face);
+        frame.origin = sub(
+            hull_face_centre(read asset.hull, face),
+            scale(add(frame.right, frame.up), material.tile_metres * 0.5f32)
+        );
         frame.right = scale(frame.right, asset.tile_metres / material.tile_metres);
         frame.up = scale(frame.up, asset.tile_metres / material.tile_height);
         asset_surface_set(mut asset.hull, i, frame);

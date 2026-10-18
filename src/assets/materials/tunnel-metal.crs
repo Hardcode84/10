@@ -5,6 +5,8 @@ fn hex_tunnel_material() -> PanelMaterial {
         emission: 0xd6ffc0u32,
         tile_metres: 2f32,
         top_width: 0f32,
+        hex_apothem: 0f32,
+        hex_clip_apothem: 0f32,
         tile_height: 2f32,
         panel_height: 1f32,
         texels_per_metre: 64u32,

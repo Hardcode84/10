@@ -6,15 +6,18 @@ const METAL_DOOR: u32 = 4u32;
 const METAL_PIPE: u32 = 5u32;
 const METAL_OCT_DOOR: u32 = 6u32;
 const METAL_TRAPEZOID: u32 = 7u32;
+const METAL_HEX_COVER: u32 = 8u32;
 // Dimensions are in metres. Repeated plate height must divide tile height.
 // Sizes and texel density must be positive.
 // Ribbed metal requires a pitch greater than the 0.065 m seam width.
 // METAL_HEX uses width = 3 radii and height = sqrt(3) radii.
 // METAL_HEX ignores panel height and pitch.
 // METAL_TRAPEZOID requires 0 < top_width <= tile_metres; it fills one tile.
+// METAL_HEX_COVER has one centred cover with alternating edge apothems.
+// Its first edge faces -Y. Both apothems must exceed 0.6 m.
 // Marking is 0 (none), 1 (paired strips), 2 (split bars), or 3 (inset studs).
 // Finish is METAL_PLATE, METAL_TREAD, METAL_RIBBED, METAL_HEX, METAL_DOOR,
-// METAL_PIPE, METAL_TRAPEZOID, or METAL_OCT_DOOR. Colours use packed RGB.
+// METAL_PIPE, METAL_TRAPEZOID, METAL_HEX_COVER, or METAL_OCT_DOOR. Colours use packed RGB.
 record PanelMaterial {
     colour: u32;
     accent: u32;
@@ -24,6 +27,8 @@ record PanelMaterial {
     panel_height: f32;
     // METAL_TRAPEZOID has a centred top edge of this width, in metres.
     top_width: f32;
+    hex_apothem: f32;
+    hex_clip_apothem: f32;
     texels_per_metre: u32;
     border: f32;
     finish: u32;
@@ -101,6 +106,9 @@ fn metal_fastener(material: PanelMaterial, x: f32, y: f32) -> u32 {
 }
 // Returns a palette index for a point within one repeated panel tile.
 fn panel_base_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
+    if material.finish == METAL_HEX_COVER {
+        return metal_hex_cover_sample(material, x, tile_y);
+    }
     if material.finish == METAL_TRAPEZOID {
         return metal_trapezoid_sample(material, x, tile_y);
     }
@@ -188,4 +196,67 @@ fn metal_trapezoid_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
         return 82u32;
     }
     return (150f32 + metal_grain(material, x, y)) as u32;
+}
+
+// Samples six recessed fasteners around a hexagonal cover, in physical metres.
+fn metal_hex_cover_bolts(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        var angle: f32 = i as f32 * 1.0471975512f32 - 1.57079632679f32;
+        var radius: f32 = material.hex_apothem - 0.25f32;
+        if i % 2u32 != 0u32 {
+            radius = material.hex_clip_apothem - 0.25f32;
+        }
+        var dx: f32 = x - radius * cosf(angle);
+        var dy: f32 = y - radius * sinf(angle);
+        var distance: f32 = dx * dx + dy * dy;
+        if distance < 0.0064f32 {
+            if distance > 0.0036f32 {
+                return 72u32;
+            }
+            if absf(dy) < 0.012f32 {
+                return 85u32;
+            }
+            return 174u32;
+        }
+        i = i + 1u32;
+    }
+    return 0u32;
+}
+// Samples a cast-metal panel with one closed, bevelled hexagonal service cover.
+fn metal_hex_cover_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var px: f32 = x - material.tile_metres * 0.5f32;
+    var py: f32 = y - material.tile_height * 0.5f32;
+    var diagonal: f32 = absf(px) * 0.86602540378f32;
+    var first: f32 = -mask_min(py, -diagonal - py * 0.5f32);
+    var second: f32 = -mask_min(-py, -diagonal + py * 0.5f32);
+    var distance: f32 = mask_min(
+        material.hex_apothem - first,
+        material.hex_clip_apothem - second
+    );
+    var edge: f32 = 0.5f32 - distance;
+    var shade: f32 = 144f32;
+    if edge < -0.16f32 {
+        shade = 125f32;
+    } else if edge < -0.12f32 {
+        shade = 79f32;
+    } else if edge < -0.07f32 {
+        shade = 172f32;
+    } else if edge < 0f32 {
+        shade = 156f32;
+    } else if edge < 0.035f32 {
+        shade = 65f32;
+    } else if edge < 0.075f32 {
+        shade = 162f32;
+    }
+    if distance < material.border {
+        return 24u32;
+    } else if distance < material.border + 0.025f32 {
+        shade = 174f32;
+    }
+    var bolt: u32 = metal_hex_cover_bolts(material, px, py);
+    if bolt != 0u32 {
+        return bolt;
+    }
+    return (shade + metal_grain(material, x, y)) as u32;
 }
