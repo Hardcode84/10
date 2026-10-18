@@ -8,7 +8,8 @@ const METAL_OCT_DOOR: u32 = 6u32;
 const METAL_TRAPEZOID: u32 = 7u32;
 const METAL_HEX_COVER: u32 = 8u32;
 const METAL_PLAIN: u32 = 9u32;
-// Dimensions are in metres. Repeated plate height must divide tile height.
+// Dimensions are in metres. Repeated plate height must divide the tile height
+// remaining after band_width is removed.
 // Sizes and texel density must be positive.
 // Ribbed metal requires a pitch greater than the 0.065 m seam width.
 // METAL_HEX uses width = 3 radii and height = sqrt(3) radii.
@@ -26,6 +27,9 @@ record PanelMaterial {
     tile_metres: f32;
     tile_height: f32;
     panel_height: f32;
+    // Dark band centred on each tile boundary along Y; zero disables it.
+    // Width is smaller than tile_height. Metal starts at the band edge.
+    band_width: f32;
     // METAL_TRAPEZOID has a centred top edge of this width, in metres.
     top_width: f32;
     hex_apothem: f32;
@@ -178,11 +182,18 @@ fn metal_plate_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
 }
 
 fn panel_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
-    var marking: u32 = panel_mark_sample(material, x, y);
+    var local_y: f32 = y;
+    if material.band_width > 0f32 {
+        if y < material.band_width * 0.5f32 || y >= material.tile_height - material.band_width * 0.5f32 {
+            return 8u32;
+        }
+        local_y = y - material.band_width * 0.5f32;
+    }
+    var marking: u32 = panel_mark_sample(material, x, local_y);
     if marking != 0u32 {
         return marking;
     }
-    return panel_base_sample(material, x, y);
+    return panel_base_sample(material, x, local_y);
 }
 
 // Samples a single isosceles trapezoid with constant-width perimeter seams.

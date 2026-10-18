@@ -142,6 +142,7 @@ fn radial_material(region: u32) -> PanelMaterial {
         hex_clip_apothem: 0f32,
         tile_height: tile_height,
         panel_height: panel_height,
+        band_width: 0f32,
         texels_per_metre: 64u32,
         border: 0.025f32,
         indicator: region == REGION_START,

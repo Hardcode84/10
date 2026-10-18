@@ -1,3 +1,25 @@
+fn asset_test_material_bands() -> bool {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.tile_height = 5f32;
+    material.band_width = 1f32;
+    material.panel_height = 2f32;
+    material.marking = 2u32;
+    if panel_sample(material, 1f32, 0.25f32) != 8u32 || panel_sample(material, 1f32, 4.75f32) != 8u32 {
+        return error("material band must cover both tile edges and markings");
+    }
+    material.marking = 0u32;
+    if panel_sample(material, 1f32, 0.5f32) != 24u32 || panel_sample(material, 1f32, 4.49f32) != 24u32 || panel_sample(
+        material,
+        1f32,
+        1f32
+    ) <= 24u32 {
+        return error("metal panels must begin and end at the band edges");
+    }
+    material.band_width = 0f32;
+    return panel_sample(material, 1f32, 0.25f32) == panel_base_sample(material, 1f32, 0.25f32) || error(
+        "zero band must preserve the metal pattern"
+    );
+}
 fn asset_test_face(hull: read AssetHull, face: HullFace) -> bool {
     var frame: SurfaceFrame = hull_frame(read hull, face);
     var i: u32 = 0u32;

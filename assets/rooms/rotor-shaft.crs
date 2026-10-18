@@ -12,6 +12,8 @@
 // Runs have axial and horizontal legs with rounded 90-degree elbows.
 // Two return to the wall; one feeds the spindle. All stay clear of the rotors.
 // pipe-seed selects pipe positions, widths, directions and spindle feeds.
+// Wall and spindle tracks are 0.8 m wide, centred on the rotor stations.
+// Metal rows fill each gap between tracks; the end rims have half-width tracks.
 // Materials: 0 shell, 1 far cap, 2 spindle, 3 rotor wings, 4 bottom, 5 port closures, 6 pipes.
 fn room_parameter_count() -> u32 {
     return 5u32;
@@ -89,11 +91,12 @@ fn shaft_basis(angle: f32) -> Basis {
         forward: vec(-sinf(angle), 0f32, cosf(angle))
     };
 }
-fn shaft_core(asset: mut RoomAsset, radius: f32, height: f32) -> bool {
+fn shaft_core(asset: mut RoomAsset, radius: f32, height: f32, spacing: f32) -> bool {
     var hull: AssetHull = asset_hull_new();
     if !shaft_cylinder(mut hull, radius, height, 2u32, 2u32) {
         return false;
     }
+    shaft_track_surfaces(mut hull, asset.tile_metres, spacing);
     var first: u32 = mesh_triangle_count(read asset.geometry);
     if !hull_solid_mesh(
         read hull,
@@ -182,7 +185,8 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !shaft_cylinder(mut asset.hull, radius, height, 0u32, 1u32) || !shaft_core(
         mut asset,
         core,
-        height
+        height,
+        height / (count + 1f32)
     ) || !shaft_rotors(mut asset, radius, core, height, count as u32) || !shaft_service_pipes(
         mut asset,
         radius,
@@ -193,6 +197,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     ) {
         return false;
     }
+    shaft_track_surfaces(mut asset.hull, asset.tile_metres, height / (count + 1f32));
     asset.spawn = make AssetSpawn {
         position: vec((radius + core) * 0.5f32, 1.5f32, 0f32),
         basis: make Basis {
@@ -216,7 +221,43 @@ fn room_material_count() -> u32 {
     return 7u32;
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 0u32 || region == 2u32 {
+        return shaft_track_material(region, read parameters);
+    }
     return shaft_material(region);
+}
+fn shaft_track_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = shaft_material(region);
+    var diameter: f32 = asset_value(read parameters, 1u32);
+    if region == 2u32 {
+        diameter = asset_value(read parameters, 2u32);
+    }
+    material.tile_metres = diameter * sinf(3.14159265359f32 / 48f32);
+    material.tile_height = asset_value(read parameters, 0u32) / (
+        asset_value(read parameters, 3u32) + 1f32
+    );
+    material.band_width = 0.8f32;
+    var span: f32 = material.tile_height - material.band_width;
+    var rows: u32 = panel_pixel_extent(span, 1u32);
+    material.panel_height = span / rows as f32;
+    material.pitch = span / panel_pixel_extent(span, 2u32) as f32;
+    return material;
+}
+fn shaft_track_surfaces(hull: mut AssetHull, tile: f32, spacing: f32) -> unit {
+    var i: u32 = 0u32;
+    while i < 48u32 {
+        var face: HullFace = asset_face(read hull, i);
+        var origin: Vec3 = hull_corner(read hull, face, 0u32);
+        var edge: Vec3 = sub(hull_corner(read hull, face, 3u32), origin);
+        var surface: SurfaceFrame = make SurfaceFrame {
+            origin: origin,
+            right: scale(edge, tile / dot(edge, edge)),
+            up: vec(0f32, tile / spacing, 0f32),
+            normal: hull_frame(read hull, face).normal
+        };
+        asset_surface_set(mut hull, i, surface);
+        i = i + 1u32;
+    }
 }
 fn shaft_material(region: u32) -> PanelMaterial {
     if region == 6u32 {

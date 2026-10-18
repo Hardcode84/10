@@ -1,4 +1,7 @@
 fn asset_test_inset() -> bool {
+    if !asset_test_inset_remainder() {
+        return false;
+    }
     var asset: RoomAsset = room_asset_new();
     var profile: RegularProfile = make RegularProfile {
         sides: 12u32,
@@ -85,6 +88,46 @@ fn asset_test_inset() -> bool {
     return through.hit.time > 1f32 && wall.hit.time < 1f32 || error(
         "convex inset failed to open only the port polygon"
     );
+}
+
+fn asset_test_inset_remainder() -> bool {
+    var hull: AssetHull = asset_hull_new();
+    if !asset_hull_allocate(mut hull, 5u32, 3u32, 14u32) {
+        return false;
+    }
+    asset_vertex_set(mut hull, 0u32, vec(0f32, 0f32, 0f32));
+    asset_vertex_set(mut hull, 1u32, vec(1f32, 0f32, 0.00000001f32));
+    asset_vertex_set(mut hull, 2u32, vec(2f32, 0f32, 0f32));
+    asset_vertex_set(mut hull, 3u32, vec(3f32, 0f32, 0f32));
+    asset_vertex_set(mut hull, 4u32, vec(1.5f32, 0f32, 2f32));
+    var i: u32 = 0u32;
+    while i < 5u32 {
+        asset_index_set(mut hull, 9u32 + i, i);
+        i = i + 1u32;
+    }
+    var surface: SurfaceFrame = make SurfaceFrame {
+        origin: vec(0f32, 0f32, 0f32),
+        right: vec(1f32, 0f32, 0f32),
+        up: vec(0f32, 0f32, 1f32),
+        normal: vec(0f32, -1f32, 0f32)
+    };
+    if !inset_triangulate(mut hull, 9u32, 5u32, 0u32, 0u32, 0u32, surface) {
+        return false;
+    }
+    i = 0u32;
+    while i < 3u32 {
+        var face: HullFace = asset_face(read hull, i);
+        if inset_turn(
+            hull_corner(read hull, face, 0u32),
+            hull_corner(read hull, face, 1u32),
+            hull_corner(read hull, face, 2u32),
+            surface.normal
+        ) < 1f32 {
+            return error("inset triangulation left a thin remainder");
+        }
+        i = i + 1u32;
+    }
+    return true;
 }
 
 fn asset_test_face_border(hull: mut AssetHull, next: mut AssetHull, id: u32) -> bool {

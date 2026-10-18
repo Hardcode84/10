@@ -9,6 +9,7 @@ fn hex_tunnel_material() -> PanelMaterial {
         hex_clip_apothem: 0f32,
         tile_height: 2f32,
         panel_height: 1f32,
+        band_width: 0f32,
         texels_per_metre: 64u32,
         border: 0.025f32,
         finish: METAL_PLATE,
