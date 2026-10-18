@@ -1,9 +1,11 @@
 // OCT-8M stopper, 0.5 m deep along +Y. ENTRY has four mating rolls.
 // The solid far cap has four fixed triangular plates at the pipe positions.
+// Four solid 0.7 m pipes run from ENTRY to these plates, aligned with the tunnel.
+// Pipe ends project 0.05 m through the back of the plates.
 // Four door leaves meet at a + joint. Each leaf has one red full-bright LED
 // near the centre. The LEDs do not emit light. The door is closed and static.
 // +Z is up. This room has no player spawn; its centre pose is for inspection.
-// Regions: 0 sleeve and entry closure, 1 door. Depth is in metres.
+// Regions: 0 sleeve and entry closure, 1 door, 2 pipes. Depth is in metres.
 fn room_parameter_count() -> u32 {
     return 1u32;
 }
@@ -17,6 +19,46 @@ fn room_parameter(index: u32) -> AssetParameter {
         initial: 0.5f32,
         step: 0.1f32
     };
+}
+fn oct_stopper_pipes(asset: mut RoomAsset, depth: f32) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !solid_cylinder(
+        mut asset.geometry,
+        12u32,
+        oct_pipe_radius(),
+        depth + 0.05f32,
+        2u32,
+        depth
+    ) {
+        return false;
+    }
+    var count: u32 = mesh_triangle_count(read asset.geometry) - first;
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        var angle: f32 = i as f32 * 1.57079632679f32;
+        if !asset_part_append(
+            mut asset.parts,
+            make AssetPart {
+                name: oct_pipe_name(i),
+                first: first,
+                count: count,
+                origin: vec(
+                    oct_pipe_distance() * cosf(angle),
+                    0f32,
+                    oct_pipe_distance() * sinf(angle)
+                ),
+                basis: make Basis {
+                    right: vec(cosf(angle), 0f32, sinf(angle)),
+                    up: vec(0f32, 1f32, 0f32),
+                    forward: vec(-sinf(angle), 0f32, cosf(angle))
+                }
+            }
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
 }
 fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !asset_parameters_valid(read parameters) {
@@ -39,12 +81,15 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
             normal: vec(0f32, 1f32, 0f32)
         }
     );
-    return room_asset_finish(mut asset);
+    return oct_stopper_pipes(mut asset, depth) && room_asset_finish(mut asset);
 }
 fn room_material_count() -> u32 {
-    return 2u32;
+    return 3u32;
 }
 fn room_material(region: u32) -> PanelMaterial {
+    if region == 2u32 {
+        return service_pipe_material();
+    }
     var material: PanelMaterial = oct_service_material(0u32);
     if region == 1u32 {
         material.finish = METAL_OCT_DOOR;
