@@ -50,13 +50,8 @@ fn room_material(region: u32) -> PanelMaterial {
     if region == 2u32 {
         return service_pipe_material();
     }
-    var material: PanelMaterial = oct_service_material(0u32);
     if region == 1u32 {
-        material.finish = METAL_OCT_DOOR;
-        material.tile_metres = service_oct_profile().radius * 2f32;
-        material.panel_height = material.tile_metres;
-        material.colour = 0x949ba4u32;
-        material.emission = 0x0000ffu32;
+        return oct_stopper_door_material();
     }
-    return material;
+    return oct_service_material(0u32);
 }
