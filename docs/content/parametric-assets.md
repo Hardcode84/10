@@ -41,7 +41,7 @@ its inputs through a root Crust entry point.
 
 | Component | Contract |
 | --- | --- |
-| Parameter metadata | Recipe-defined names, metre ranges, defaults, and steps; one source for command-line input and keyboard controls |
+| Parameter metadata | Recipe-defined names, units, ranges, defaults, and steps; one source for command-line input and keyboard controls |
 | Indexed hull | Owned vertex, polygon, and corner-index storage; shared polygon edges use shared vertex IDs |
 | Regular profile | Side count and angular phase; positive radius supplied for each ring |
 | Ring loft | Aligned rings along +Y; increasing heights; outward polygon winding |
@@ -49,7 +49,7 @@ its inputs through a root Crust entry point.
 | Caps | Close both end profiles with convex polygons |
 | Polygon inset | Insert a smaller concentric port with the same side count and phase; retain a solid ring around the opening |
 | Surface conversion | Triangulate convex polygons; preserve region IDs; derive planar UV coordinates at a fixed physical scale |
-| Room bundle | Own the hull, render mesh, collision index, and spawn frame |
+| Room bundle | Own the hull, render mesh, local solid-part geometry and placements, collision index, and spawn frame |
 | Material masks | Reusable rectangle and border operations in metres |
 | Panel material | Repeated rectangular or hexagonal metal plates, tread, or ribs with grain, recessed joints, fasteners, and an optional full-bright strip |
 | Viewer session | Own the window and renderer; compile no game or expedition sources |
@@ -62,6 +62,15 @@ necessarily convex: a room recipe must use a convex radius/height sequence.
 Polygons retain semantic region IDs. Triangles have inward winding and render
 on both sides for exterior inspection. Collision uses the same triangles as
 an interior shell. Hull containment supplies the interior half-spaces.
+
+Room parts contain closed, outward-facing solid geometry in local coordinates.
+Each placement selects a triangle range, a label, and a rigid pivot frame.
+Several placements can share one geometry range. Part indices identify placements;
+labels can repeat. The room build appends placed triangles after the shell and
+creates one solid collider per placement. Connected rooms keep these solid
+colliders when they open the shell ports. Spawn checks include solid parts.
+The viewer uses the spawn point when the room centre has no player clearance.
+Parts remain static until a consumer supplies motion for their pivots.
 
 UV coordinates use metres in each polygon plane. Panel materials specify tile
 size, texture density, and border width. Size changes repeat the tile without
@@ -190,8 +199,8 @@ path. It checks rejected-edit recovery, retained mesh replacement, and visible
 pixels after the final upload. It does not run the expedition.
 
 Inspect interior, exterior, and spawn captures before adding detail. This proof
-covers a generated room, its closed named ports, and collision data. Connected rooms, props,
-and gameplay transfer still require the checks in the room-format document.
+covers a generated room, its closed named ports, and collision data. Connected rooms and
+gameplay transfer require the checks in the room-format document.
 
 ## Authoring layers
 

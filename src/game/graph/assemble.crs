@@ -65,6 +65,9 @@ fn graph_assemble_room(
     ) {
         return false;
     }
+    if !room_parts_collision(read asset, mut builder, id) {
+        return false;
+    }
     node.mesh.first = mesh_triangle_count(read mesh);
     node.mesh.count = mesh_triangle_count(read render);
     node.mesh.bounds = graph_mesh_bounds(read render);

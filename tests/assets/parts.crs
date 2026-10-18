@@ -1,0 +1,119 @@
+fn asset_test_part_room(asset: mut RoomAsset) -> bool {
+    var profile: RegularProfile = make RegularProfile {
+        sides: 8u32,
+        phase: 0f32
+    };
+    if !loft_allocate(mut asset.hull, profile, 2u32) {
+        return false;
+    }
+    loft_ring(mut asset.hull, profile, 0u32, 0f32, 8f32);
+    loft_ring(mut asset.hull, profile, 1u32, 10f32, 8f32);
+    loft_span(mut asset.hull, profile, 0u32, 0u32);
+    loft_caps(mut asset.hull, profile, 2u32, 0u32, 0u32);
+    if !solid_box(
+        mut asset.geometry,
+        vec(4f32, 1f32, 1f32),
+        1u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        2f32
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        if !asset_part_append(
+            mut asset.parts,
+            make AssetPart {
+                name: asset_name("beam"),
+                first: 0u32,
+                count: 12u32,
+                origin: vec(-3f32 + 6f32 * i as f32, 5f32, 0f32),
+                basis: make Basis {
+                    right: vec(0f32, 0f32, 1f32),
+                    up: vec(0f32, 1f32, 0f32),
+                    forward: vec(-1f32, 0f32, 0f32)
+                }
+            }
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    asset.spawn.position = vec(0f32, 1f32, 0f32);
+    return true;
+}
+fn asset_test_parts() -> bool {
+    var asset: RoomAsset = room_asset_new();
+    if !asset_test_part_room(mut asset) || !room_asset_finish(mut asset) {
+        return false;
+    }
+    var render: Mesh = mesh_new();
+    var walls: Mesh = mesh_new();
+    if !room_linked_mesh(read asset, mut render, mut walls, 7u32) {
+        return false;
+    }
+    if mesh_triangle_count(read render) != mesh_triangle_count(read walls) + 24u32 || mesh_triangle_count(
+        read render
+    ) != mesh_triangle_count(read asset.mesh) || mesh_triangle(
+        read render,
+        mesh_triangle_count(read walls)
+    ).material != 8u32 {
+        return error("linked room lost solid render parts or material offsets");
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    var linked: CollisionScene = collision_new();
+    if !collision_append(
+        mut builder,
+        read walls,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) || !room_parts_collision(read asset, mut builder, 0u32) {
+        return false;
+    }
+    if !collision_finish(move builder, mut linked) {
+        return false;
+    }
+    if !asset_test_part_contacts(read asset.collision, read linked) {
+        return false;
+    }
+    var rejected: RoomAsset = room_asset_new();
+    if !asset_test_part_room(mut rejected) {
+        return false;
+    }
+    rejected.spawn.position = vec(-3f32, 5f32, 0f32);
+    return !room_asset_finish(mut rejected) || error("spawn inside a solid part was accepted");
+}
+
+fn asset_test_part_contacts(original: read CollisionScene, linked: read CollisionScene) -> bool {
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var centre: Vec3 = vec(-3f32 + 6f32 * i as f32, 5f32, 0f32);
+        if collision_position_valid(read original, 0u32, centre, 0.1f32) || collision_position_valid(
+            read linked,
+            0u32,
+            centre,
+            0.1f32
+        ) || !collision_position_valid(
+            read linked,
+            0u32,
+            add(centre, vec(1f32, 0f32, 0f32)),
+            0.1f32
+        ) {
+            return error("shared part collision lost its rigid placement or solid volume");
+        }
+        var hit: CollisionContact = collision_sweep(
+            read linked,
+            0u32,
+            add(centre, vec(0f32, -2f32, 0f32)),
+            vec(0f32, 3f32, 0f32),
+            0.25f32
+        );
+        if absf(hit.hit.time - 1.25f32 / 3f32) > 0.0001f32 {
+            return error("placed solid part has incorrect sweep contact");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

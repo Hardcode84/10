@@ -1,5 +1,5 @@
 fn main(argc: i32, argv: **u8) -> i32 {
-    if !asset_tests() || !asset_test_junctions() {
+    if !asset_tests() || !asset_test_junctions() || !asset_test_parts() {
         return 1i32;
     }
     puts(

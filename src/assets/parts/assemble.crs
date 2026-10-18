@@ -1,0 +1,40 @@
+// Append each placed part as a closed solid in the requested room space.
+fn room_parts_collision(asset: read RoomAsset, builder: mut CollisionBuilder, space: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_part_count(read asset.parts) {
+        var part: AssetPart = asset_part(read asset.parts, i);
+        var mesh: Mesh = mesh_new();
+        var j: u32 = 0u32;
+        while j < part.count {
+            if !mesh_append(mut mesh, mesh_triangle(read asset.geometry, part.first + j)) {
+                return false;
+            }
+            j = j + 1u32;
+        }
+        if !collision_append_solid(mut builder, read mesh, space, part.origin, part.basis) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+// Append placed parts after the shell. Local geometry and pivots stay available.
+fn room_parts_render(asset: mut RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_part_count(read asset.parts) {
+        var part: AssetPart = asset_part(read asset.parts, i);
+        var j: u32 = 0u32;
+        while j < part.count {
+            var t: MeshTriangle = mesh_triangle(read asset.geometry, part.first + j);
+            if !mesh_append(
+                mut asset.mesh,
+                placed_triangle(t, part.origin, part.basis)
+            ) {
+                return false;
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

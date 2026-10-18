@@ -4,7 +4,7 @@ record AssetParameter {
     initial: f32;
     step: f32;
 }
-// Parameter values are in metres. The recipe also checks coupled constraints.
+// The recipe defines parameter units. The recipe also checks coupled constraints.
 fn asset_parameters_reset(values: mut AssetValues) -> unit {
     var i: u32 = 0u32;
     while i < room_parameter_count() {

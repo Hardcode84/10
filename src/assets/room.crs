@@ -6,6 +6,8 @@ record RoomAsset {
     hull: AssetHull;
     ports: AssetPorts;
     mesh: Mesh;
+    geometry: Mesh;
+    parts: AssetParts;
     collision: CollisionScene;
     spawn: AssetSpawn;
     tile_metres: f32;
@@ -15,6 +17,8 @@ fn room_asset_new() -> RoomAsset {
         hull: asset_hull_new(),
         ports: asset_ports_new(),
         mesh: mesh_new(),
+        geometry: mesh_new(),
+        parts: asset_parts_new(),
         collision: collision_new(),
         spawn: make AssetSpawn {
             position: vec(0f32, 0f32, 0f32),
@@ -40,5 +44,16 @@ fn room_asset_finish(asset: mut RoomAsset) -> bool {
     ) {
         return false;
     }
-    return collision_finish(move builder, mut asset.collision);
+    if !room_parts_collision(read asset, mut builder, 0u32) || !room_parts_render(mut asset) {
+        return false;
+    }
+    if !collision_finish(move builder, mut asset.collision) {
+        return false;
+    }
+    return collision_position_valid(
+        read asset.collision,
+        0u32,
+        asset.spawn.position,
+        0.35f32
+    ) || error("room spawn overlaps a solid part");
 }
