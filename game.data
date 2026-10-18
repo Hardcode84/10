@@ -113,9 +113,9 @@ var s_parent = p_parent;
 var s_portal = p_portal;
 var s_view = p_view;
 {
-var s_src: u32 = (s_words_load(65u) + (s_parent * 16u));
-var s_transform: u32 = (s_words_load(66u) + (s_portal * 16u));
-var s_dst: u32 = (s_words_load(65u) + (s_view * 16u));
+var s_src: u32 = (s_words_load(65u) + (s_parent * 17u));
+var s_transform: u32 = (s_words_load(66u) + (s_portal * 17u));
+var s_dst: u32 = (s_words_load(65u) + (s_view * 17u));
 var s_r: u32 = 0u;
 while ((s_r < 3u)) {
 var s_c: u32 = 0u;
@@ -134,6 +134,7 @@ while ((s_r < 4u) && !failed) {
 s_floats_store(((s_dst + 12u) + s_r), s_floats_load(((s_transform + 12u) + s_r)));
 s_r = (s_r + 1u);
 }
+s_floats_store((s_dst + 16u), (s_floats_load((s_src + 16u)) * s_floats_load((s_transform + 16u))));
 s_view_space(s_view, s_words_load(((s_words_load(64u) + (s_portal * 4u)) + 1u)));
 }
 }
@@ -345,9 +346,9 @@ var s_parent = p_parent;
 var s_portal = p_portal;
 var s_view = p_view;
 {
-var s_src: u32 = (s_words_load(65u) + (s_parent * 16u));
-var s_transform: u32 = (s_words_load(66u) + (s_portal * 16u));
-var s_dst: u32 = (s_words_load(65u) + (s_view * 16u));
+var s_src: u32 = (s_words_load(65u) + (s_parent * 17u));
+var s_transform: u32 = (s_words_load(66u) + (s_portal * 17u));
+var s_dst: u32 = (s_words_load(65u) + (s_view * 17u));
 var s_r: u32 = 0u;
 while ((s_r < 3u)) {
 var s_c: u32 = 0u;
@@ -366,6 +367,7 @@ while ((s_r < 4u)) {
 s_floats_store(((s_dst + 12u) + s_r), s_floats_load(((s_transform + 12u) + s_r)));
 s_r = (s_r + 1u);
 }
+s_floats_store((s_dst + 16u), (s_floats_load((s_src + 16u)) * s_floats_load((s_transform + 16u))));
 s_view_space(s_view, s_words_load(((s_words_load(64u) + (s_portal * 4u)) + 1u)));
 }
 }
@@ -1314,6 +1316,7 @@ s_floats_store((s_words_load(65u) + 12u), bitcast<f32>(0u));
 s_floats_store((s_words_load(65u) + 13u), bitcast<f32>(0u));
 s_floats_store((s_words_load(65u) + 14u), bitcast<f32>(0u));
 s_floats_store((s_words_load(65u) + 15u), bitcast<f32>(1065353216u));
+s_floats_store((s_words_load(65u) + 16u), bitcast<f32>(1065353216u));
 }
 }
 }
@@ -1468,6 +1471,7 @@ s_floats_store((s_words_load(65u) + 12u), bitcast<f32>(0u));
 s_floats_store((s_words_load(65u) + 13u), bitcast<f32>(0u));
 s_floats_store((s_words_load(65u) + 14u), bitcast<f32>(0u));
 s_floats_store((s_words_load(65u) + 15u), bitcast<f32>(1065353216u));
+s_floats_store((s_words_load(65u) + 16u), bitcast<f32>(1065353216u));
 }
 }
 }
@@ -1758,12 +1762,12 @@ var s_x = p_x;
 var s_y = p_y;
 var s_axis = p_axis;
 {
-var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
 var s_h: f32 = f32(s_words_load(1u));
 var s_a: f32 = ((((((bitcast<f32>(1073741824u) * (f32(s_x) + bitcast<f32>(1056964608u))) - f32(s_words_load(0u))) / s_h) * s_floats_load(20u)) * s_z) - s_floats_load((s_p + 3u)));
 var s_b: f32 = ((((bitcast<f32>(1065353216u) - ((bitcast<f32>(1073741824u) * (f32(s_y) + bitcast<f32>(1056964608u))) / s_h)) * s_floats_load(20u)) * s_z) - s_floats_load((s_p + 7u)));
 var s_c: f32 = (s_z - s_floats_load((s_p + 11u)));
-return (((s_floats_load((s_p + s_axis)) * s_a) + (s_floats_load(((s_p + 4u) + s_axis)) * s_b)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_c));
+return ((((s_floats_load((s_p + s_axis)) * s_a) + (s_floats_load(((s_p + 4u) + s_axis)) * s_b)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_c)) / s_view_scale_squared(s_p));
 }
 }
 fn s_light_amount(p_dx: f32, p_dy: f32, p_dz: f32, p_nx: f32, p_ny: f32, p_nz: f32, p_radius: f32, p_soft: bool) -> f32 {
@@ -1847,7 +1851,7 @@ s_ny = (-s_ny);
 s_nz = (-s_nz);
 }
 if ((s_floats_load(1008u) > bitcast<f32>(0u))) {
-var s_amount: f32 = s_light_amount(s_ex, s_ey, s_ez, s_nx, s_ny, s_nz, s_floats_load(1008u), false);
+var s_amount: f32 = s_light_amount(s_ex, s_ey, s_ez, s_nx, s_ny, s_nz, (s_floats_load(1008u) / s_view_scale_squared((s_words_load(65u) + (s_view * 17u)))), false);
 s_amount = s_light_band(s_amount, s_floats_load((1008u + 1u)), s_floats_load((1008u + 2u)), s_floats_load((1008u + 3u)));
 s_red = (s_red + (s_floats_load((1008u + 1u)) * s_amount));
 s_green = (s_green + (s_floats_load((1008u + 2u)) * s_amount));
@@ -1858,7 +1862,7 @@ while ((s_i < s_words_load(35u)) && !failed) {
 var s_p: u32 = (s_words_load(82u) + (s_i * 8u));
 var s_transported: bool = (s_floats_load((s_p + 7u)) == f32(1u));
 if ((s_transported || (s_words_load((s_words_load(85u) + s_i)) == s_space))) {
-var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_floats_load((s_p + 3u)), (s_floats_load((s_p + 7u)) != f32(3u)));
+var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_light_radius_squared(s_p, s_view), (s_floats_load((s_p + 7u)) != f32(3u)));
 s_amount = s_light_band(s_amount, s_floats_load((s_p + 4u)), s_floats_load((s_p + 5u)), s_floats_load((s_p + 6u)));
 if ((((s_floats_load((s_p + 7u)) == f32(0u)) && (s_amount > bitcast<f32>(0u))) && (!s_light_visible(s_i, s_tri, s_px, s_py, s_pz, s_floats_load(s_p), s_floats_load((s_p + 1u)), s_floats_load((s_p + 2u)))))) {
 s_amount = bitcast<f32>(0u);
@@ -2011,6 +2015,9 @@ var s_x = p_x;
 var s_y = p_y;
 {
 var s_mat: u32 = s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 1u));
+if (((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 3u)) & 32u) != 0u)) {
+return s_words_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
+}
 if ((s_words_load(36u) == 0u)) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
@@ -2089,8 +2096,8 @@ var s_axis = p_axis;
 if ((s_floats_load((s_light + 7u)) != f32(1u))) {
 return s_floats_load((s_light + s_axis));
 }
-var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
-return (((s_floats_load((s_p + s_axis)) * (s_floats_load(s_light) - s_floats_load((s_p + 3u)))) + (s_floats_load(((s_p + 4u) + s_axis)) * (s_floats_load((s_light + 1u)) - s_floats_load((s_p + 7u))))) + (s_floats_load(((s_p + 8u) + s_axis)) * (s_floats_load((s_light + 2u)) - s_floats_load((s_p + 11u)))));
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
+return ((((s_floats_load((s_p + s_axis)) * (s_floats_load(s_light) - s_floats_load((s_p + 3u)))) + (s_floats_load(((s_p + 4u) + s_axis)) * (s_floats_load((s_light + 1u)) - s_floats_load((s_p + 7u))))) + (s_floats_load(((s_p + 8u) + s_axis)) * (s_floats_load((s_light + 2u)) - s_floats_load((s_p + 11u))))) / s_view_scale_squared(s_p));
 }
 }
 fn s_view_triangles(p_view: u32) -> u32 {
@@ -2105,6 +2112,24 @@ var s_local = p_local;
 {
 var s_first: u32 = s_words_load(((s_words_load(63u) + (s_view * 4u)) + 2u));
 return s_words_load(((s_words_load(93u) + ((s_first + s_local) * 2u)) + 1u));
+}
+}
+fn s_view_scale_squared(p_p: u32) -> f32 {
+var s_p = p_p;
+{
+return (s_floats_load((s_p + 16u)) * s_floats_load((s_p + 16u)));
+}
+}
+fn s_light_radius_squared(p_light: u32, p_view: u32) -> f32 {
+var s_light = p_light;
+var s_view = p_view;
+{
+var s_radius: f32 = s_floats_load((s_light + 3u));
+if ((s_floats_load((s_light + 7u)) == f32(1u))) {
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
+s_radius = (s_radius / s_view_scale_squared(s_p));
+}
+return s_radius;
 }
 }
 fn s_light_blocks(p_tri: u32, p_ox: f32, p_oy: f32, p_oz: f32, p_dx: f32, p_dy: f32, p_dz: f32) -> bool {
@@ -2755,12 +2780,12 @@ var s_x = p_x;
 var s_y = p_y;
 var s_axis = p_axis;
 {
-var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
 var s_h: f32 = f32(s_words_load(1u));
 var s_a: f32 = ((((((bitcast<f32>(1073741824u) * (f32(s_x) + bitcast<f32>(1056964608u))) - f32(s_words_load(0u))) / s_h) * s_floats_load(20u)) * s_z) - s_floats_load((s_p + 3u)));
 var s_b: f32 = ((((bitcast<f32>(1065353216u) - ((bitcast<f32>(1073741824u) * (f32(s_y) + bitcast<f32>(1056964608u))) / s_h)) * s_floats_load(20u)) * s_z) - s_floats_load((s_p + 7u)));
 var s_c: f32 = (s_z - s_floats_load((s_p + 11u)));
-return (((s_floats_load((s_p + s_axis)) * s_a) + (s_floats_load(((s_p + 4u) + s_axis)) * s_b)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_c));
+return ((((s_floats_load((s_p + s_axis)) * s_a) + (s_floats_load(((s_p + 4u) + s_axis)) * s_b)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_c)) / s_view_scale_squared(s_p));
 }
 }
 fn s_light_amount(p_dx: f32, p_dy: f32, p_dz: f32, p_nx: f32, p_ny: f32, p_nz: f32, p_radius: f32, p_soft: bool) -> f32 {
@@ -2844,7 +2869,7 @@ s_ny = (-s_ny);
 s_nz = (-s_nz);
 }
 if ((s_floats_load(1008u) > bitcast<f32>(0u))) {
-var s_amount: f32 = s_light_amount(s_ex, s_ey, s_ez, s_nx, s_ny, s_nz, s_floats_load(1008u), false);
+var s_amount: f32 = s_light_amount(s_ex, s_ey, s_ez, s_nx, s_ny, s_nz, (s_floats_load(1008u) / s_view_scale_squared((s_words_load(65u) + (s_view * 17u)))), false);
 s_amount = s_light_band(s_amount, s_floats_load((1008u + 1u)), s_floats_load((1008u + 2u)), s_floats_load((1008u + 3u)));
 s_red = (s_red + (s_floats_load((1008u + 1u)) * s_amount));
 s_green = (s_green + (s_floats_load((1008u + 2u)) * s_amount));
@@ -2855,7 +2880,7 @@ while ((s_i < s_words_load(35u))) {
 var s_p: u32 = (s_words_load(82u) + (s_i * 8u));
 var s_transported: bool = (s_floats_load((s_p + 7u)) == f32(1u));
 if ((s_transported || (s_words_load((s_words_load(85u) + s_i)) == s_space))) {
-var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_floats_load((s_p + 3u)), (s_floats_load((s_p + 7u)) != f32(3u)));
+var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_light_radius_squared(s_p, s_view), (s_floats_load((s_p + 7u)) != f32(3u)));
 s_amount = s_light_band(s_amount, s_floats_load((s_p + 4u)), s_floats_load((s_p + 5u)), s_floats_load((s_p + 6u)));
 if ((((s_floats_load((s_p + 7u)) == f32(0u)) && (s_amount > bitcast<f32>(0u))) && (!s_light_visible(s_i, s_tri, s_px, s_py, s_pz, s_floats_load(s_p), s_floats_load((s_p + 1u)), s_floats_load((s_p + 2u)))))) {
 s_amount = bitcast<f32>(0u);
@@ -3008,6 +3033,9 @@ var s_x = p_x;
 var s_y = p_y;
 {
 var s_mat: u32 = s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 1u));
+if (((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 3u)) & 32u) != 0u)) {
+return s_words_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
+}
 if ((s_words_load(36u) == 0u)) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
@@ -3086,8 +3114,8 @@ var s_axis = p_axis;
 if ((s_floats_load((s_light + 7u)) != f32(1u))) {
 return s_floats_load((s_light + s_axis));
 }
-var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
-return (((s_floats_load((s_p + s_axis)) * (s_floats_load(s_light) - s_floats_load((s_p + 3u)))) + (s_floats_load(((s_p + 4u) + s_axis)) * (s_floats_load((s_light + 1u)) - s_floats_load((s_p + 7u))))) + (s_floats_load(((s_p + 8u) + s_axis)) * (s_floats_load((s_light + 2u)) - s_floats_load((s_p + 11u)))));
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
+return ((((s_floats_load((s_p + s_axis)) * (s_floats_load(s_light) - s_floats_load((s_p + 3u)))) + (s_floats_load(((s_p + 4u) + s_axis)) * (s_floats_load((s_light + 1u)) - s_floats_load((s_p + 7u))))) + (s_floats_load(((s_p + 8u) + s_axis)) * (s_floats_load((s_light + 2u)) - s_floats_load((s_p + 11u))))) / s_view_scale_squared(s_p));
 }
 }
 fn s_view_triangles(p_view: u32) -> u32 {
@@ -3102,6 +3130,24 @@ var s_local = p_local;
 {
 var s_first: u32 = s_words_load(((s_words_load(63u) + (s_view * 4u)) + 2u));
 return s_words_load(((s_words_load(93u) + ((s_first + s_local) * 2u)) + 1u));
+}
+}
+fn s_view_scale_squared(p_p: u32) -> f32 {
+var s_p = p_p;
+{
+return (s_floats_load((s_p + 16u)) * s_floats_load((s_p + 16u)));
+}
+}
+fn s_light_radius_squared(p_light: u32, p_view: u32) -> f32 {
+var s_light = p_light;
+var s_view = p_view;
+{
+var s_radius: f32 = s_floats_load((s_light + 3u));
+if ((s_floats_load((s_light + 7u)) == f32(1u))) {
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
+s_radius = (s_radius / s_view_scale_squared(s_p));
+}
+return s_radius;
 }
 }
 fn s_light_blocks(p_tri: u32, p_ox: f32, p_oy: f32, p_oz: f32, p_dx: f32, p_dy: f32, p_dz: f32) -> bool {
@@ -4858,12 +4904,12 @@ var s_x = p_x;
 var s_y = p_y;
 var s_axis = p_axis;
 {
-var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
 var s_h: f32 = f32(s_words_load(1u));
 var s_a: f32 = ((((((bitcast<f32>(1073741824u) * (f32(s_x) + bitcast<f32>(1056964608u))) - f32(s_words_load(0u))) / s_h) * s_floats_load(20u)) * s_z) - s_floats_load((s_p + 3u)));
 var s_b: f32 = ((((bitcast<f32>(1065353216u) - ((bitcast<f32>(1073741824u) * (f32(s_y) + bitcast<f32>(1056964608u))) / s_h)) * s_floats_load(20u)) * s_z) - s_floats_load((s_p + 7u)));
 var s_c: f32 = (s_z - s_floats_load((s_p + 11u)));
-return (((s_floats_load((s_p + s_axis)) * s_a) + (s_floats_load(((s_p + 4u) + s_axis)) * s_b)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_c));
+return ((((s_floats_load((s_p + s_axis)) * s_a) + (s_floats_load(((s_p + 4u) + s_axis)) * s_b)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_c)) / s_view_scale_squared(s_p));
 }
 }
 fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
@@ -4884,14 +4930,14 @@ s_render_debug_assert((s_portal <= s_words_load(71u)));
 if ((s_portal > s_words_load(71u))) {
 return false;
 }
-var s_p: u32 = (s_words_load(66u) + ((s_portal - 1u) * 16u));
+var s_p: u32 = (s_words_load(66u) + ((s_portal - 1u) * 17u));
 var s_x: f32 = (s_view_position(s_view, bitcast<f32>(0u), 0u, 0u, 0u) - s_floats_load((s_p + 3u)));
 var s_y: f32 = (s_view_position(s_view, bitcast<f32>(0u), 0u, 0u, 1u) - s_floats_load((s_p + 7u)));
 var s_z: f32 = (s_view_position(s_view, bitcast<f32>(0u), 0u, 0u, 2u) - s_floats_load((s_p + 11u)));
 var s_distance: f32 = s_floats_load((s_p + 15u));
 var s_axis: u32 = 0u;
 while ((s_axis < 3u)) {
-s_distance = (s_distance + (s_floats_load(((s_p + 12u) + s_axis)) * (((s_floats_load((s_p + s_axis)) * s_x) + (s_floats_load(((s_p + 4u) + s_axis)) * s_y)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_z))));
+s_distance = (s_distance + ((s_floats_load(((s_p + 12u) + s_axis)) * (((s_floats_load((s_p + s_axis)) * s_x) + (s_floats_load(((s_p + 4u) + s_axis)) * s_y)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_z))) / s_view_scale_squared(s_p)));
 s_axis = (s_axis + 1u);
 }
 return (s_distance < bitcast<f32>(0u));
@@ -4935,6 +4981,12 @@ var s_local = p_local;
 {
 var s_first: u32 = s_words_load(((s_words_load(63u) + (s_view * 4u)) + 2u));
 return s_words_load(((s_words_load(93u) + ((s_first + s_local) * 2u)) + 1u));
+}
+}
+fn s_view_scale_squared(p_p: u32) -> f32 {
+var s_p = p_p;
+{
+return (s_floats_load((s_p + 16u)) * s_floats_load((s_p + 16u)));
 }
 }
 fn s_project_fan(p_scratch: u32, p_output: u32, p_count: u32, p_tri: u32) {
@@ -5062,6 +5114,61 @@ s_i = (s_i + 1u);
 return s_output;
 }
 }
+fn s_triangle_near(p_tri: u32) -> f32 {
+var s_tri = p_tri;
+{
+var s_near: f32 = s_floats_load(16u);
+if ((((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 3u)) & 16u) != 0u) && (s_floats_load(21u) > s_near))) {
+s_near = s_floats_load(21u);
+}
+if ((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 2u)) != 0u)) {
+s_near = bitcast<f32>(0u);
+}
+return s_near;
+}
+}
+fn s_sprite_vertex(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+var s_inverse_scale: f32 = (bitcast<f32>(1065353216u) / s_floats_load((s_matrix + 16u)));
+return (s_floats_load((s_source + s_axis)) + (s_inverse_scale * ((s_floats_load((s_matrix + s_axis)) * s_floats_load((s_source + 3u))) + (s_floats_load(((s_matrix + 4u) + s_axis)) * s_floats_load((s_source + 4u))))));
+}
+}
+fn s_transform_vertices(p_tri: u32, p_matrix: u32, p_scratch: u32) {
+var s_tri = p_tri;
+var s_matrix = p_matrix;
+var s_scratch = p_scratch;
+{
+var s_vertex: u32 = 0u;
+while ((s_vertex < 3u)) {
+var s_source: u32 = ((1024u + (s_tri * 15u)) + (s_vertex * 5u));
+var s_sprite: bool = ((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 3u)) & 32u) != 0u);
+var s_x: f32 = s_floats_load(s_source);
+var s_y: f32 = s_floats_load((s_source + 1u));
+var s_z: f32 = s_floats_load((s_source + 2u));
+if (s_sprite) {
+s_x = s_sprite_vertex(s_source, s_matrix, 0u);
+s_y = s_sprite_vertex(s_source, s_matrix, 1u);
+s_z = s_sprite_vertex(s_source, s_matrix, 2u);
+}
+var s_r: u32 = 0u;
+while ((s_r < 3u)) {
+s_floats_store(((s_scratch + (s_vertex * 6u)) + s_r), ((((s_floats_load((s_matrix + (s_r * 4u))) * s_x) + (s_floats_load(((s_matrix + (s_r * 4u)) + 1u)) * s_y)) + (s_floats_load(((s_matrix + (s_r * 4u)) + 2u)) * s_z)) + s_floats_load(((s_matrix + (s_r * 4u)) + 3u))));
+s_r = (s_r + 1u);
+}
+s_floats_store(((s_scratch + (s_vertex * 6u)) + 3u), s_floats_load((s_source + 3u)));
+s_floats_store(((s_scratch + (s_vertex * 6u)) + 4u), s_floats_load((s_source + 4u)));
+if (s_sprite) {
+s_floats_store(((s_scratch + (s_vertex * 6u)) + 3u), f32(select(u32(0), u32(1), (s_floats_load((s_source + 3u)) > bitcast<f32>(0u)))));
+s_floats_store(((s_scratch + (s_vertex * 6u)) + 4u), f32(select(u32(0), u32(1), (s_floats_load((s_source + 4u)) > bitcast<f32>(0u)))));
+}
+s_floats_store(((s_scratch + (s_vertex * 6u)) + 5u), ((((s_floats_load((s_matrix + 12u)) * s_x) + (s_floats_load((s_matrix + 13u)) * s_y)) + (s_floats_load((s_matrix + 14u)) * s_z)) + s_floats_load((s_matrix + 15u))));
+s_vertex = (s_vertex + 1u);
+}
+}
+}
 fn s_prepare_triangle(p_index: u32) {
 var s_index = p_index;
 {
@@ -5089,28 +5196,10 @@ if ((!s_portal_facing(s_view, s_words_load(((s_words_load(79u) + (s_tri * 4u)) +
 return;
 }
 var s_scratch: u32 = (s_words_load(43u) + (s_slot * 144u));
-var s_matrix: u32 = (s_words_load(65u) + (s_view * 16u));
-var s_vertex: u32 = 0u;
-while ((s_vertex < 3u)) {
-var s_source: u32 = ((1024u + (s_tri * 15u)) + (s_vertex * 5u));
-var s_x: f32 = s_floats_load(s_source);
-var s_y: f32 = s_floats_load((s_source + 1u));
-var s_z: f32 = s_floats_load((s_source + 2u));
-var s_r: u32 = 0u;
-while ((s_r < 3u)) {
-s_floats_store(((s_scratch + (s_vertex * 6u)) + s_r), ((((s_floats_load((s_matrix + (s_r * 4u))) * s_x) + (s_floats_load(((s_matrix + (s_r * 4u)) + 1u)) * s_y)) + (s_floats_load(((s_matrix + (s_r * 4u)) + 2u)) * s_z)) + s_floats_load(((s_matrix + (s_r * 4u)) + 3u))));
-s_r = (s_r + 1u);
-}
-s_floats_store(((s_scratch + (s_vertex * 6u)) + 3u), s_floats_load((s_source + 3u)));
-s_floats_store(((s_scratch + (s_vertex * 6u)) + 4u), s_floats_load((s_source + 4u)));
-s_floats_store(((s_scratch + (s_vertex * 6u)) + 5u), ((((s_floats_load((s_matrix + 12u)) * s_x) + (s_floats_load((s_matrix + 13u)) * s_y)) + (s_floats_load((s_matrix + 14u)) * s_z)) + s_floats_load((s_matrix + 15u))));
-s_vertex = (s_vertex + 1u);
-}
+var s_matrix: u32 = (s_words_load(65u) + (s_view * 17u));
+s_transform_vertices(s_tri, s_matrix, s_scratch);
 var s_count: u32 = 3u;
-var s_near: f32 = s_floats_load(16u);
-if ((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 2u)) != 0u)) {
-s_near = bitcast<f32>(0u);
-}
+var s_near: f32 = s_triangle_near(s_tri);
 var s_plane: u32 = 0u;
 while (((s_plane < 6u) && (s_count >= 3u)) && !failed) {
 s_count = s_clip_polygon(s_scratch, s_count, s_plane, s_near);
@@ -5119,7 +5208,7 @@ s_plane = (s_plane + 1u);
 if ((s_count < 3u)) {
 return;
 }
-s_vertex = 0u;
+var s_vertex: u32 = 0u;
 while ((s_vertex < s_count) && !failed) {
 if ((s_floats_load(((s_scratch + (s_vertex * 6u)) + 2u)) <= bitcast<f32>(0u))) {
 return;
@@ -5193,12 +5282,12 @@ var s_x = p_x;
 var s_y = p_y;
 var s_axis = p_axis;
 {
-var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
 var s_h: f32 = f32(s_words_load(1u));
 var s_a: f32 = ((((((bitcast<f32>(1073741824u) * (f32(s_x) + bitcast<f32>(1056964608u))) - f32(s_words_load(0u))) / s_h) * s_floats_load(20u)) * s_z) - s_floats_load((s_p + 3u)));
 var s_b: f32 = ((((bitcast<f32>(1065353216u) - ((bitcast<f32>(1073741824u) * (f32(s_y) + bitcast<f32>(1056964608u))) / s_h)) * s_floats_load(20u)) * s_z) - s_floats_load((s_p + 7u)));
 var s_c: f32 = (s_z - s_floats_load((s_p + 11u)));
-return (((s_floats_load((s_p + s_axis)) * s_a) + (s_floats_load(((s_p + 4u) + s_axis)) * s_b)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_c));
+return ((((s_floats_load((s_p + s_axis)) * s_a) + (s_floats_load(((s_p + 4u) + s_axis)) * s_b)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_c)) / s_view_scale_squared(s_p));
 }
 }
 fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
@@ -5219,14 +5308,14 @@ s_render_debug_assert((s_portal <= s_words_load(71u)));
 if ((s_portal > s_words_load(71u))) {
 return false;
 }
-var s_p: u32 = (s_words_load(66u) + ((s_portal - 1u) * 16u));
+var s_p: u32 = (s_words_load(66u) + ((s_portal - 1u) * 17u));
 var s_x: f32 = (s_view_position(s_view, bitcast<f32>(0u), 0u, 0u, 0u) - s_floats_load((s_p + 3u)));
 var s_y: f32 = (s_view_position(s_view, bitcast<f32>(0u), 0u, 0u, 1u) - s_floats_load((s_p + 7u)));
 var s_z: f32 = (s_view_position(s_view, bitcast<f32>(0u), 0u, 0u, 2u) - s_floats_load((s_p + 11u)));
 var s_distance: f32 = s_floats_load((s_p + 15u));
 var s_axis: u32 = 0u;
 while ((s_axis < 3u)) {
-s_distance = (s_distance + (s_floats_load(((s_p + 12u) + s_axis)) * (((s_floats_load((s_p + s_axis)) * s_x) + (s_floats_load(((s_p + 4u) + s_axis)) * s_y)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_z))));
+s_distance = (s_distance + ((s_floats_load(((s_p + 12u) + s_axis)) * (((s_floats_load((s_p + s_axis)) * s_x) + (s_floats_load(((s_p + 4u) + s_axis)) * s_y)) + (s_floats_load(((s_p + 8u) + s_axis)) * s_z))) / s_view_scale_squared(s_p)));
 s_axis = (s_axis + 1u);
 }
 return (s_distance < bitcast<f32>(0u));
@@ -5270,6 +5359,12 @@ var s_local = p_local;
 {
 var s_first: u32 = s_words_load(((s_words_load(63u) + (s_view * 4u)) + 2u));
 return s_words_load(((s_words_load(93u) + ((s_first + s_local) * 2u)) + 1u));
+}
+}
+fn s_view_scale_squared(p_p: u32) -> f32 {
+var s_p = p_p;
+{
+return (s_floats_load((s_p + 16u)) * s_floats_load((s_p + 16u)));
 }
 }
 fn s_project_fan(p_scratch: u32, p_output: u32, p_count: u32, p_tri: u32) {
@@ -5397,6 +5492,61 @@ s_i = (s_i + 1u);
 return s_output;
 }
 }
+fn s_triangle_near(p_tri: u32) -> f32 {
+var s_tri = p_tri;
+{
+var s_near: f32 = s_floats_load(16u);
+if ((((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 3u)) & 16u) != 0u) && (s_floats_load(21u) > s_near))) {
+s_near = s_floats_load(21u);
+}
+if ((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 2u)) != 0u)) {
+s_near = bitcast<f32>(0u);
+}
+return s_near;
+}
+}
+fn s_sprite_vertex(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+var s_inverse_scale: f32 = (bitcast<f32>(1065353216u) / s_floats_load((s_matrix + 16u)));
+return (s_floats_load((s_source + s_axis)) + (s_inverse_scale * ((s_floats_load((s_matrix + s_axis)) * s_floats_load((s_source + 3u))) + (s_floats_load(((s_matrix + 4u) + s_axis)) * s_floats_load((s_source + 4u))))));
+}
+}
+fn s_transform_vertices(p_tri: u32, p_matrix: u32, p_scratch: u32) {
+var s_tri = p_tri;
+var s_matrix = p_matrix;
+var s_scratch = p_scratch;
+{
+var s_vertex: u32 = 0u;
+while ((s_vertex < 3u)) {
+var s_source: u32 = ((1024u + (s_tri * 15u)) + (s_vertex * 5u));
+var s_sprite: bool = ((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 3u)) & 32u) != 0u);
+var s_x: f32 = s_floats_load(s_source);
+var s_y: f32 = s_floats_load((s_source + 1u));
+var s_z: f32 = s_floats_load((s_source + 2u));
+if (s_sprite) {
+s_x = s_sprite_vertex(s_source, s_matrix, 0u);
+s_y = s_sprite_vertex(s_source, s_matrix, 1u);
+s_z = s_sprite_vertex(s_source, s_matrix, 2u);
+}
+var s_r: u32 = 0u;
+while ((s_r < 3u)) {
+s_floats_store(((s_scratch + (s_vertex * 6u)) + s_r), ((((s_floats_load((s_matrix + (s_r * 4u))) * s_x) + (s_floats_load(((s_matrix + (s_r * 4u)) + 1u)) * s_y)) + (s_floats_load(((s_matrix + (s_r * 4u)) + 2u)) * s_z)) + s_floats_load(((s_matrix + (s_r * 4u)) + 3u))));
+s_r = (s_r + 1u);
+}
+s_floats_store(((s_scratch + (s_vertex * 6u)) + 3u), s_floats_load((s_source + 3u)));
+s_floats_store(((s_scratch + (s_vertex * 6u)) + 4u), s_floats_load((s_source + 4u)));
+if (s_sprite) {
+s_floats_store(((s_scratch + (s_vertex * 6u)) + 3u), f32(select(u32(0), u32(1), (s_floats_load((s_source + 3u)) > bitcast<f32>(0u)))));
+s_floats_store(((s_scratch + (s_vertex * 6u)) + 4u), f32(select(u32(0), u32(1), (s_floats_load((s_source + 4u)) > bitcast<f32>(0u)))));
+}
+s_floats_store(((s_scratch + (s_vertex * 6u)) + 5u), ((((s_floats_load((s_matrix + 12u)) * s_x) + (s_floats_load((s_matrix + 13u)) * s_y)) + (s_floats_load((s_matrix + 14u)) * s_z)) + s_floats_load((s_matrix + 15u))));
+s_vertex = (s_vertex + 1u);
+}
+}
+}
 fn s_prepare_triangle(p_index: u32) {
 var s_index = p_index;
 {
@@ -5424,28 +5574,10 @@ if ((!s_portal_facing(s_view, s_words_load(((s_words_load(79u) + (s_tri * 4u)) +
 return;
 }
 var s_scratch: u32 = (s_words_load(43u) + (s_slot * 144u));
-var s_matrix: u32 = (s_words_load(65u) + (s_view * 16u));
-var s_vertex: u32 = 0u;
-while ((s_vertex < 3u)) {
-var s_source: u32 = ((1024u + (s_tri * 15u)) + (s_vertex * 5u));
-var s_x: f32 = s_floats_load(s_source);
-var s_y: f32 = s_floats_load((s_source + 1u));
-var s_z: f32 = s_floats_load((s_source + 2u));
-var s_r: u32 = 0u;
-while ((s_r < 3u)) {
-s_floats_store(((s_scratch + (s_vertex * 6u)) + s_r), ((((s_floats_load((s_matrix + (s_r * 4u))) * s_x) + (s_floats_load(((s_matrix + (s_r * 4u)) + 1u)) * s_y)) + (s_floats_load(((s_matrix + (s_r * 4u)) + 2u)) * s_z)) + s_floats_load(((s_matrix + (s_r * 4u)) + 3u))));
-s_r = (s_r + 1u);
-}
-s_floats_store(((s_scratch + (s_vertex * 6u)) + 3u), s_floats_load((s_source + 3u)));
-s_floats_store(((s_scratch + (s_vertex * 6u)) + 4u), s_floats_load((s_source + 4u)));
-s_floats_store(((s_scratch + (s_vertex * 6u)) + 5u), ((((s_floats_load((s_matrix + 12u)) * s_x) + (s_floats_load((s_matrix + 13u)) * s_y)) + (s_floats_load((s_matrix + 14u)) * s_z)) + s_floats_load((s_matrix + 15u))));
-s_vertex = (s_vertex + 1u);
-}
+var s_matrix: u32 = (s_words_load(65u) + (s_view * 17u));
+s_transform_vertices(s_tri, s_matrix, s_scratch);
 var s_count: u32 = 3u;
-var s_near: f32 = s_floats_load(16u);
-if ((s_words_load(((s_words_load(79u) + (s_tri * 4u)) + 2u)) != 0u)) {
-s_near = bitcast<f32>(0u);
-}
+var s_near: f32 = s_triangle_near(s_tri);
 var s_plane: u32 = 0u;
 while (((s_plane < 6u) && (s_count >= 3u))) {
 s_count = s_clip_polygon(s_scratch, s_count, s_plane, s_near);
@@ -5454,7 +5586,7 @@ s_plane = (s_plane + 1u);
 if ((s_count < 3u)) {
 return;
 }
-s_vertex = 0u;
+var s_vertex: u32 = 0u;
 while ((s_vertex < s_count)) {
 if ((s_floats_load(((s_scratch + (s_vertex * 6u)) + 2u)) <= bitcast<f32>(0u))) {
 return;
@@ -5516,7 +5648,7 @@ var s_view = p_view;
 var s_plane = p_plane;
 var s_axis = p_axis;
 {
-var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
 if ((s_plane == 0u)) {
 return s_floats_load(((s_p + 8u) + s_axis));
 }
@@ -5595,7 +5727,7 @@ var s_view = p_view;
 var s_plane = p_plane;
 var s_axis = p_axis;
 {
-var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
 if ((s_plane < 2u)) {
 var s_value: f32 = s_floats_load(((s_p + (8u + (s_plane * 4u))) + s_axis));
 if ((s_value < bitcast<f32>(0u))) {
@@ -5645,7 +5777,7 @@ var s_view = p_view;
 var s_plane = p_plane;
 var s_axis = p_axis;
 {
-var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
 if ((s_plane == 0u)) {
 return s_floats_load(((s_p + 8u) + s_axis));
 }
@@ -5724,7 +5856,7 @@ var s_view = p_view;
 var s_plane = p_plane;
 var s_axis = p_axis;
 {
-var s_p: u32 = (s_words_load(65u) + (s_view * 16u));
+var s_p: u32 = (s_words_load(65u) + (s_view * 17u));
 if ((s_plane < 2u)) {
 var s_value: f32 = s_floats_load(((s_p + (8u + (s_plane * 4u))) + s_axis));
 if ((s_value < bitcast<f32>(0u))) {

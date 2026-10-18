@@ -70,7 +70,7 @@ form.addEventListener('submit', event => {
   if (!game || running) return;
   const args = [];
   for (const name of ['seed','complexity','width','height','fov','ticks']) args.push('--'+name, form.elements[name].value);
-  for (const name of ['fullscreen','slow','full-spin','headless']) if(form.elements[name].checked) args.push('--'+name);
+  for (const name of ['fullscreen','slow','full-spin','headless','scaling']) if(form.elements[name].checked) args.push('--'+name);
   if(form.elements['debug-shaders'].checked) args.push('--debug-shaders','1');
   if(form.elements.record.checked) args.push('--record','/flight.swr');
   if(form.elements.capture.checked) args.push('--capture','/capture.ppm');
