@@ -1,12 +1,12 @@
-fn oct_stopper_pipes(asset: mut RoomAsset, depth: f32) -> bool {
+fn oct_stopper_pipes(asset: mut RoomAsset, extent: f32, period: f32) -> bool {
     var first: u32 = mesh_triangle_count(read asset.geometry);
     if !solid_cylinder(
         mut asset.geometry,
         12u32,
         oct_pipe_radius(),
-        depth + 0.05f32,
+        extent,
         2u32,
-        depth
+        period
     ) {
         return false;
     }
@@ -39,13 +39,21 @@ fn oct_stopper_pipes(asset: mut RoomAsset, depth: f32) -> bool {
     return true;
 }
 // Four solid plates occupy the fixed triangular regions of the octagonal door.
-// Plates are 0.08 m thick and finish at the far end of the sleeve.
-fn oct_stopper_plates(asset: mut RoomAsset, depth: f32) -> bool {
+// Plates are 0.08 m thick, centred at the specified local Y coordinate.
+// A 0.02 m clearance separates their outer edges from the sleeve.
+fn oct_stopper_plates(asset: mut RoomAsset, centre: f32) -> bool {
     var radius: f32 = service_oct_profile().radius;
     var narrow: f32 = radius * sinf(0.39269908169f32);
     var wide: f32 = radius * cosf(0.39269908169f32);
     var first: u32 = mesh_triangle_count(read asset.geometry);
-    if !solid_triangular_prism(mut asset.geometry, narrow, narrow, 0.08f32, 1u32, 2f32) {
+    if !solid_triangular_prism(
+        mut asset.geometry,
+        narrow - 0.02f32,
+        narrow - 0.02f32,
+        0.08f32,
+        1u32,
+        2f32
+    ) {
         return false;
     }
     var count: u32 = mesh_triangle_count(read asset.geometry) - first;
@@ -60,7 +68,7 @@ fn oct_stopper_plates(asset: mut RoomAsset, depth: f32) -> bool {
                 count: count,
                 origin: vec(
                     (wide - narrow) * cosf(angle),
-                    depth - 0.08f32,
+                    centre - 0.04f32,
                     (wide - narrow) * sinf(angle)
                 ),
                 basis: make Basis {

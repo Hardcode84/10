@@ -41,7 +41,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
             normal: vec(0f32, 1f32, 0f32)
         }
     );
-    return oct_stopper_pipes(mut asset, depth) && room_asset_finish(mut asset);
+    return oct_stopper_pipes(mut asset, depth + 0.05f32, depth) && room_asset_finish(mut asset);
 }
 fn room_material_count() -> u32 {
     return 3u32;
