@@ -1,6 +1,7 @@
 record AssetViewOptions {
     frames: u32;
     view: u32;
+    open_portals: bool;
 }
 extern fn strtof(text: *u8, end: **u8) -> f32 = "strtof";
 fn asset_parse_parameter(values: mut AssetValues, name: *u8, text: *u8) -> bool {
@@ -25,6 +26,13 @@ fn asset_view_option(
     key: *u8,
     value: *u8
 ) -> bool {
+    if strcmp(key, "--portals") == 0i32 {
+        if strcmp(value, "open") == 0i32 || strcmp(value, "closed") == 0i32 {
+            options -> open_portals = strcmp(value, "open") == 0i32;
+            return true;
+        }
+        return error("portals must be open or closed");
+    }
     if strcmp(key, "--frames") == 0i32 {
         return viewer_number(value, &options -> frames);
     }
@@ -90,7 +98,7 @@ fn asset_view_options(
 }
 fn asset_view_help() -> unit {
     puts("crust viewer.crs ROOM.crs [--set NAME VALUE] [--view inside|outside|start|fly]");
-    puts("  --width N --height N --frames N --capture FILE");
+    puts("  --width N --height N --frames N --capture FILE --portals open|closed");
     puts("Tab: view; arrows: look/orbit; W/S: zoom; Space: auto rotate; Esc: close");
     puts("Left/right drag: look/orbit; mouse wheel: exterior zoom; spawn view stays fixed");
     puts("F: free flight from current view; WASD: move; Q/E: down/up; Shift: faster; drag: look");

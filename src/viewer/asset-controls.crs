@@ -106,6 +106,7 @@ fn asset_view_edit(
     asset: RoomAsset,
     range: mut MeshRange,
     key: u32,
+    open_portals: bool,
     good: mut bool
 ) -> RoomAsset {
     if room_parameter_count() == 0u32 {
@@ -133,7 +134,7 @@ fn asset_view_edit(
         return move asset;
     }
     asset_build_report(read next, now() - start);
-    if !asset_view_upload(mut session, read next, mut range) {
+    if !asset_view_upload(mut session, read next, mut range, open_portals) {
         good = false;
         return move asset;
     }

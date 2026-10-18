@@ -166,3 +166,41 @@ fn solid_cylinder(
         tile_metres
     );
 }
+// Appends a solid isosceles triangular prism along +Y. Dimensions are positive.
+// The apex is at X=0, Z=0; the base is at X=height, Z=+/-half_width.
+fn solid_triangular_prism(
+    mesh: mut Mesh,
+    half_width: f32,
+    height: f32,
+    depth: f32,
+    region: u32,
+    tile_metres: f32
+) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    var profile: RegularProfile = make RegularProfile {
+        sides: 3u32,
+        phase: 3.14159265359f32
+    };
+    if !loft_allocate(mut hull, profile, 2u32) {
+        return false;
+    }
+    loft_ring(mut hull, profile, 0u32, 0f32, 1f32);
+    loft_ring(mut hull, profile, 1u32, depth, 1f32);
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        var p: Vec3 = asset_vertex(read hull, i);
+        p.x = (p.x + 1f32) * height / 1.5f32;
+        p.z = p.z * half_width / 0.86602540378f32;
+        asset_vertex_set(mut hull, i, p);
+        i = i + 1u32;
+    }
+    loft_span(mut hull, profile, 0u32, region);
+    loft_caps(mut hull, profile, 2u32, region, region);
+    return hull_solid_mesh(
+        read hull,
+        mut mesh,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        tile_metres
+    );
+}

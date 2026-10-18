@@ -1,0 +1,43 @@
+// Open OCT-8M stopper, 0.5 m deep along +Y. ENTRY and EXIT have four mating rolls.
+// Four solid triangular plates and service pipes remain around the clear opening.
+// Door leaves and LEDs are absent. Plates are 0.08 m thick at the far end.
+// Pipe ends project 0.05 m beyond EXIT, as on the closed stopper. +Z is up.
+// This room has no player spawn; its centre pose is for inspection.
+// Regions: 0 sleeve, 1 fixed plates, 2 pipes. Depth is in metres.
+fn room_parameter_count() -> u32 {
+    return 1u32;
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return asset_name("depth");
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return make AssetParameter {
+        minimum: 0.1f32,
+        maximum: 2f32,
+        initial: 0.5f32,
+        step: 0.1f32
+    };
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !asset_parameters_valid(read parameters) {
+        return false;
+    }
+    var depth: f32 = asset_value(read parameters, 0u32);
+    asset.spawn_enabled = false;
+    return passage_shape(depth, true, service_oct_profile(), mut asset) && oct_stopper_pipes(
+        mut asset,
+        depth
+    ) && oct_stopper_plates(mut asset, depth) && room_asset_finish(mut asset);
+}
+fn room_material_count() -> u32 {
+    return 3u32;
+}
+fn room_material(region: u32) -> PanelMaterial {
+    if region == 2u32 {
+        return service_pipe_material();
+    }
+    if region == 1u32 {
+        return oct_service_material(2u32);
+    }
+    return oct_service_material(0u32);
+}

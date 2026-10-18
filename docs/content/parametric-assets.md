@@ -399,6 +399,10 @@ bootstrap and build through the same Crust root mechanism as the game. Reuse
 the SDL window, Vulkan renderer, capture path, and asset library. Keep viewer
 input and state separate from game missions and simulation progression.
 
+Use `--portals open` to hide connection face closures during inspection. Shell
+walls, solid parts, and port labels remain visible. The default is `--portals closed`.
+This option changes the preview mesh only; collision and connection data stay intact.
+
 The first viewer must provide:
 
 - Asset and named configuration selection.

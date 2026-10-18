@@ -26,7 +26,56 @@ fn asset_scene(
         mesh_identity(labels, 0u32)
     );
 }
-fn asset_view_upload(session: mut AssetSession, asset: read RoomAsset, range: mut MeshRange) -> bool {
+// Omits port closures for inspection. Shell walls and all solid parts remain.
+fn asset_view_open_mesh(asset: read RoomAsset, mesh: mut Mesh) -> bool {
+    var triangle: u32 = 0u32;
+    var face: u32 = 0u32;
+    while face < asset_face_count(read asset.hull) {
+        var port: bool = false;
+        var i: u32 = 0u32;
+        while i < asset_port_count(read asset.ports) {
+            port = port || asset_port(read asset.ports, i).face == face;
+            i = i + 1u32;
+        }
+        var end: u32 = triangle + asset_face(read asset.hull, face).count - 2u32;
+        while triangle < end {
+            if !port && !mesh_append(mut mesh, mesh_triangle(read asset.mesh, triangle)) {
+                return false;
+            }
+            triangle = triangle + 1u32;
+        }
+        face = face + 1u32;
+    }
+    while triangle < mesh_triangle_count(read asset.mesh) {
+        if !mesh_append(mut mesh, mesh_triangle(read asset.mesh, triangle)) {
+            return false;
+        }
+        triangle = triangle + 1u32;
+    }
+    return true;
+}
+fn asset_view_mesh_upload(
+    input: mut FrameInput,
+    asset: read RoomAsset,
+    range: mut MeshRange,
+    open_portals: bool
+) -> bool {
+    if !open_portals {
+        return input_mesh(mut input, read asset.mesh, mut range);
+    }
+    var mesh: Mesh = mesh_new();
+    return asset_view_open_mesh(read asset, mut mesh) && input_mesh(
+        mut input,
+        read mesh,
+        mut range
+    );
+}
+fn asset_view_upload(
+    session: mut AssetSession,
+    asset: read RoomAsset,
+    range: mut MeshRange,
+    open_portals: bool
+) -> bool {
     var labels: Mesh = mesh_new();
     if !asset_labels_build(read asset, mut labels) {
         return false;
@@ -36,7 +85,7 @@ fn asset_view_upload(session: mut AssetSession, asset: read RoomAsset, range: mu
         var renderer: mut Renderer = asset_renderer(mut session);
         var input: FrameInput = renderer_inputs(mut renderer);
         input_clear_meshes(mut input);
-        if !input_mesh(mut input, read asset.mesh, mut range) || !input_mesh(
+        if !asset_view_mesh_upload(mut input, read asset, mut range, open_portals) || !input_mesh(
             mut input,
             read labels,
             mut label_range
@@ -64,7 +113,8 @@ fn asset_view_run(
     if !asset_session_open(mut session) || !asset_view_upload(
         mut session,
         read asset,
-        mut range
+        mut range,
+        options.open_portals
     ) {
         return 1i32;
     }
@@ -97,6 +147,7 @@ fn asset_view_run(
                     move asset,
                     mut range,
                     key,
+                    options.open_portals,
                     mut good
                 );
                 if !good {

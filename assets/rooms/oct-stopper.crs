@@ -20,46 +20,6 @@ fn room_parameter(index: u32) -> AssetParameter {
         step: 0.1f32
     };
 }
-fn oct_stopper_pipes(asset: mut RoomAsset, depth: f32) -> bool {
-    var first: u32 = mesh_triangle_count(read asset.geometry);
-    if !solid_cylinder(
-        mut asset.geometry,
-        12u32,
-        oct_pipe_radius(),
-        depth + 0.05f32,
-        2u32,
-        depth
-    ) {
-        return false;
-    }
-    var count: u32 = mesh_triangle_count(read asset.geometry) - first;
-    var i: u32 = 0u32;
-    while i < 4u32 {
-        var angle: f32 = i as f32 * 1.57079632679f32;
-        if !asset_part_append(
-            mut asset.parts,
-            make AssetPart {
-                name: oct_pipe_name(i),
-                first: first,
-                count: count,
-                origin: vec(
-                    oct_pipe_distance() * cosf(angle),
-                    0f32,
-                    oct_pipe_distance() * sinf(angle)
-                ),
-                basis: make Basis {
-                    right: vec(cosf(angle), 0f32, sinf(angle)),
-                    up: vec(0f32, 1f32, 0f32),
-                    forward: vec(-sinf(angle), 0f32, cosf(angle))
-                }
-            }
-        ) {
-            return false;
-        }
-        i = i + 1u32;
-    }
-    return true;
-}
 fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !asset_parameters_valid(read parameters) {
         return false;
