@@ -2,6 +2,9 @@ fn game_world_open(session: mut GameSession, collision: mut CollisionScene, tria
     if !demo_room_build(mut session.room, mut collision, mut session.room_mesh) {
         return false;
     }
+    if !room_asset_player_spawn(read session.room) {
+        return false;
+    }
     demo_room_start(read session.room, mut trial);
     return true;
 }

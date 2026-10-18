@@ -1,4 +1,4 @@
-// Builds a straight HEX-6M passage along local +Y. Length is at least 0.75 m.
+// Builds a straight HEX-6M passage along local +Y. Length is positive.
 // End ports remain closed until assembly. The spawn has sphere clearance.
 fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
     return hex_passage_build(length_metres, true, mut asset);
@@ -7,7 +7,7 @@ fn hex_tunnel_build(length_metres: f32, asset: mut RoomAsset) -> bool {
 fn hex_passage_build(length_metres: f32, through: bool, asset: mut RoomAsset) -> bool {
     return hex_passage_profile(length_metres, through, service_hex_profile(), mut asset);
 }
-fn hex_passage_profile(
+fn hex_passage_shape(
     length_metres: f32,
     through: bool,
     profile: ConnectionProfile,
@@ -53,7 +53,7 @@ fn hex_passage_profile(
         position: vec(0f32, length_metres * 0.5f32, 0f32),
         basis: far.basis
     };
-    return room_asset_finish(mut asset);
+    return true;
 }
 // Both passage ends lie on plate seams. Axial plates are at most one metre long.
 fn hex_tunnel_surfaces(hull: mut AssetHull, sides: u32, length_metres: f32) -> unit {
@@ -79,4 +79,14 @@ fn hex_tunnel_surfaces(hull: mut AssetHull, sides: u32, length_metres: f32) -> u
         asset_surface_set(mut hull, i, frame);
         i = i + 1u32;
     }
+}
+fn hex_passage_profile(
+    length_metres: f32,
+    through: bool,
+    profile: ConnectionProfile,
+    asset: mut RoomAsset
+) -> bool {
+    return hex_passage_shape(length_metres, through, profile, mut asset) && room_asset_finish(
+        mut asset
+    );
 }

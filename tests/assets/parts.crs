@@ -117,3 +117,17 @@ fn asset_test_part_contacts(original: read CollisionScene, linked: read Collisio
     }
     return true;
 }
+fn asset_test_preview_room() -> bool {
+    var room: RoomAsset = room_asset_new();
+    room.spawn_enabled = false;
+    if !hex_passage_build(0.5f32, false, mut room) {
+        return false;
+    }
+    if room_asset_player_spawn(read room) {
+        return error("preview-only room accepted as player spawn");
+    }
+    var rejected: RoomAsset = room_asset_new();
+    return !hex_passage_build(0.5f32, false, mut rejected) || error(
+        "thin room accepted a player spawn without sphere clearance"
+    );
+}

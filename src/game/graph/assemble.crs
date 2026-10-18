@@ -40,6 +40,9 @@ fn graph_assemble_room(
         return false;
     }
     if id == 0u32 {
+        if !room_asset_player_spawn(read asset) {
+            return false;
+        }
         trial.spawn.position = asset.spawn.position;
         trial.spawn.basis = asset.spawn.basis;
     }

@@ -53,7 +53,7 @@ its inputs through a root Crust entry point.
 | Surface conversion | Triangulate convex polygons; preserve region IDs; derive planar UV coordinates at a fixed physical scale |
 | Room bundle | Own the hull, render mesh, local solid-part geometry and placements, collision index, and spawn frame |
 | Material masks | Reusable rectangle and border operations in metres |
-| Panel material | Repeated rectangular or hexagonal metal plates, tread, or ribs with grain, recessed joints, fasteners, and an optional full-bright strip |
+| Panel material | Repeated rectangular or hexagonal metal plates, tread, ribs, or a closed two-leaf door with grain, recessed joints, fasteners, and full-bright indicators |
 | Viewer session | Own the window and renderer; compile no game or expedition sources |
 
 The loft operations consume valid construction data. The recipe checks public
@@ -70,7 +70,9 @@ Each placement selects a triangle range, a label, and a rigid pivot frame.
 Several placements can share one geometry range. Part indices identify placements;
 labels can repeat. The room build appends placed triangles after the shell and
 creates one solid collider per placement. Connected rooms keep these solid
-colliders when they open the shell ports. Spawn checks include solid parts.
+colliders when they open the shell ports. Spawn checks include solid parts. A room can disable player spawning and supply
+only a preview camera pose. Such rooms can be shallower than the player diameter.
+Game and demo entry points reject these rooms as starting locations.
 The viewer uses the spawn point when the room centre has no player clearance.
 Parts remain static until a consumer supplies motion for their pivots.
 

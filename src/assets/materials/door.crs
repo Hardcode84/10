@@ -1,0 +1,38 @@
+// Samples a closed two-leaf door within one square tile. Dimensions are metres.
+// Two indicators use the material's full-bright palette entries.
+fn metal_door_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var px: f32 = x - material.tile_metres * 0.5f32;
+    var py: f32 = y - material.tile_metres * 0.5f32;
+    var led_x: f32 = absf(px) - 0.28f32;
+    var led_y: f32 = py - 1.15f32;
+    if absf(led_x) < 0.065f32 && absf(led_y) < 0.045f32 {
+        return 248u32;
+    }
+    if absf(led_x) < 0.13f32 && absf(led_y) < 0.11f32 {
+        return 28u32;
+    }
+    if absf(px) < 0.035f32 {
+        return 12u32;
+    }
+    if absf(px) < 0.075f32 {
+        return 190u32;
+    }
+    var handle_x: f32 = absf(px) - 0.25f32;
+    if absf(handle_x) < 0.07f32 && absf(py + 0.25f32) < 0.32f32 {
+        return 65u32;
+    }
+    var apothem: f32 = material.tile_metres * 0.43301270189f32;
+    var edge: f32 = apothem - absf(py);
+    edge = mask_min(edge, apothem - absf(px) * 0.86602540378f32 - absf(py) * 0.5f32);
+    if edge < 0.09f32 {
+        return 24u32;
+    }
+    if edge < 0.19f32 {
+        return 185u32;
+    }
+    var seam: f32 = absf(absf(py) - 1.8f32);
+    if seam < 0.025f32 {
+        return 55u32;
+    }
+    return (145f32 + metal_grain(material, x, y)) as u32;
+}

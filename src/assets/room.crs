@@ -10,6 +10,7 @@ record RoomAsset {
     parts: AssetParts;
     collision: CollisionScene;
     spawn: AssetSpawn;
+    spawn_enabled: bool;
     tile_metres: f32;
 }
 fn room_asset_new() -> RoomAsset {
@@ -24,12 +25,17 @@ fn room_asset_new() -> RoomAsset {
             position: vec(0f32, 0f32, 0f32),
             basis: identity_basis()
         },
+        spawn_enabled: true,
         tile_metres: 2f32
     };
 }
 fn room_asset_finish(asset: mut RoomAsset) -> bool {
-    if !hull_contains(read asset.hull, asset.spawn.position, 0.35f32) {
-        return error("room spawn does not have player clearance");
+    var clearance: f32 = 0f32;
+    if asset.spawn_enabled {
+        clearance = 0.35f32;
+    }
+    if !hull_contains(read asset.hull, asset.spawn.position, clearance) {
+        return error("room camera or spawn lacks hull clearance");
     }
     if !hull_mesh(read asset.hull, mut asset.mesh, asset.tile_metres) {
         return false;
@@ -50,10 +56,19 @@ fn room_asset_finish(asset: mut RoomAsset) -> bool {
     if !collision_finish(move builder, mut asset.collision) {
         return false;
     }
+    if !asset.spawn_enabled {
+        return collision_embedded(read asset.collision, 0u32, asset.spawn.position) == 0xffffffffu32 || error(
+            "room preview camera is inside a solid part"
+        );
+    }
     return collision_position_valid(
         read asset.collision,
         0u32,
         asset.spawn.position,
         0.35f32
     ) || error("room spawn overlaps a solid part");
+}
+// Returns an error when this room provides only a preview camera pose.
+fn room_asset_player_spawn(asset: read RoomAsset) -> bool {
+    return asset.spawn_enabled || error("room has no player spawn");
 }
