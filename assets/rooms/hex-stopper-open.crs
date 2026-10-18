@@ -1,0 +1,40 @@
+// Open HEX-6M stopper, 1 m deep along +Y. ENTRY and EXIT have six mating rolls.
+// The door leaves and LEDs are absent. A centred black band marks the 0.2 m seat.
+// The default leaves 0.4 m from each portal to the door seat. Local +Z is up.
+// This room has no player spawn; its centre pose is for inspection.
+// Regions: 0 sleeve and preview closures, 1 black door seat. Depth is in metres.
+fn room_parameter_count() -> u32 {
+    return 1u32;
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return asset_name("depth");
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return make AssetParameter {
+        minimum: 0.4f32,
+        maximum: 2f32,
+        initial: 1f32,
+        step: 0.1f32
+    };
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !asset_parameters_valid(read parameters) {
+        return false;
+    }
+    asset.spawn_enabled = false;
+    return stopper_open_shell(
+        mut asset,
+        asset_value(read parameters, 0u32),
+        service_hex_profile(),
+        1u32
+    ) && room_asset_finish(mut asset);
+}
+fn room_material_count() -> u32 {
+    return 2u32;
+}
+fn room_material(region: u32) -> PanelMaterial {
+    if region == 1u32 {
+        return stopper_seat_material();
+    }
+    return hex_tunnel_material();
+}

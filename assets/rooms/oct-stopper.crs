@@ -43,9 +43,11 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
             normal: vec(0f32, 1f32, 0f32)
         }
     );
-    return oct_stopper_pipes(mut asset, depth + 0.05f32, depth) && room_asset_finish(mut asset) && oct_stopper_door_back(
+    return oct_stopper_pipes(mut asset, depth + 0.05f32, depth) && room_asset_finish(mut asset) && stopper_door_back(
         mut asset,
-        depth
+        depth,
+        profile,
+        3u32
     );
 }
 fn room_material_count() -> u32 {
@@ -53,7 +55,7 @@ fn room_material_count() -> u32 {
 }
 fn room_material(region: u32) -> PanelMaterial {
     if region == 3u32 {
-        return oct_stopper_seat_material();
+        return stopper_seat_material();
     }
     if region == 2u32 {
         return service_pipe_material();

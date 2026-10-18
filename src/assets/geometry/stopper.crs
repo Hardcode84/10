@@ -1,0 +1,125 @@
+fn stopper_surface_uvs(
+    mesh: mut Mesh,
+    plate: read Mesh,
+    origin: Vec3,
+    basis: Basis,
+    tile: f32,
+    rim: u32
+) -> bool {
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read plate) {
+        var primitive: MeshTriangle = mesh_triangle(read plate, i);
+        if primitive.vertices[0usize].y != primitive.vertices[1usize].y || primitive.vertices[
+            0usize
+        ].y != primitive.vertices[2usize].y {
+            primitive.material = rim;
+        }
+        var j: usize = 0usize;
+        while j < 3usize {
+            var vertex: MeshVertex = primitive.vertices[j];
+            var p: Vec3 = add(
+                origin,
+                basis_vector(basis, vec(vertex.x, vertex.y, vertex.z))
+            );
+            vertex.u = (p.x + tile * 0.5f32) / tile;
+            vertex.v = (p.z + tile * 0.5f32) / tile;
+            primitive.vertices[j] = vertex;
+            j = j + 1usize;
+        }
+        if !mesh_append(mut mesh, primitive) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+const DOOR_THICKNESS: f32 = 0.2f32;
+// Open sleeve with a black band at the centred door seat. Depth exceeds door thickness.
+fn stopper_open_shell(
+    asset: mut RoomAsset,
+    depth: f32,
+    profile: ConnectionProfile,
+    rim: u32
+) -> bool {
+    if !loft_allocate(mut asset.hull, profile.shape, 4u32) {
+        return false;
+    }
+    loft_ring(mut asset.hull, profile.shape, 0u32, 0f32, profile.radius);
+    loft_ring(
+        mut asset.hull,
+        profile.shape,
+        1u32,
+        (depth - DOOR_THICKNESS) * 0.5f32,
+        profile.radius
+    );
+    loft_ring(
+        mut asset.hull,
+        profile.shape,
+        2u32,
+        (depth + DOOR_THICKNESS) * 0.5f32,
+        profile.radius
+    );
+    loft_ring(mut asset.hull, profile.shape, 3u32, depth, profile.radius);
+    loft_span(mut asset.hull, profile.shape, 0u32, 0u32);
+    loft_span(mut asset.hull, profile.shape, 1u32, rim);
+    loft_span(mut asset.hull, profile.shape, 2u32, 0u32);
+    loft_caps(mut asset.hull, profile.shape, 4u32, 0u32, 0u32);
+    var i: u32 = 0u32;
+    while i < profile.shape.sides * 3u32 {
+        var frame: SurfaceFrame = asset_surface(read asset.hull, i);
+        frame.origin.y = 0f32;
+        frame.origin = sub(frame.origin, scale(frame.up, 0.5f32));
+        frame.right = scale(frame.right, 2f32);
+        asset_surface_set(mut asset.hull, i, frame);
+        i = i + 1u32;
+    }
+    return passage_ports(depth, true, profile, profile.shape.sides * 3u32, mut asset);
+}
+// Adds the rear face and black rim of the closed door behind the collision wall.
+// The room's far cap supplies the front face. Door thickness is 0.2 m.
+fn stopper_door_back(
+    asset: mut RoomAsset,
+    depth: f32,
+    profile: ConnectionProfile,
+    rim: u32
+) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    if !loft_allocate(mut hull, profile.shape, 2u32) {
+        return false;
+    }
+    loft_ring(mut hull, profile.shape, 0u32, depth, profile.radius);
+    loft_ring(mut hull, profile.shape, 1u32, depth + DOOR_THICKNESS, profile.radius);
+    loft_span(mut hull, profile.shape, 0u32, rim);
+    loft_caps(mut hull, profile.shape, 2u32, 1u32, 1u32);
+    var slab_mesh: Mesh = mesh_new();
+    var mapped: Mesh = mesh_new();
+    if !hull_solid_mesh(
+        read hull,
+        mut slab_mesh,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        2f32
+    ) || !stopper_surface_uvs(
+        mut mapped,
+        read slab_mesh,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        profile.radius * 2f32,
+        rim
+    ) {
+        return false;
+    }
+    var front: u32 = profile.shape.sides * 2u32;
+    var back: u32 = front + profile.shape.sides - 2u32;
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read mapped) {
+        if (i < front || i >= back) && !mesh_append(
+            mut asset.mesh,
+            mesh_triangle(read mapped, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

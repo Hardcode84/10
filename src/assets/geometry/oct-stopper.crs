@@ -51,7 +51,7 @@ fn oct_stopper_plates(asset: mut RoomAsset, centre: f32) -> bool {
         mut plate,
         narrow - 0.02f32,
         narrow - 0.02f32,
-        OCT_DOOR_THICKNESS,
+        DOOR_THICKNESS,
         1u32,
         2f32
     ) {
@@ -63,7 +63,7 @@ fn oct_stopper_plates(asset: mut RoomAsset, centre: f32) -> bool {
         var angle: f32 = i as f32 * 1.57079632679f32;
         var origin: Vec3 = vec(
             (wide - narrow) * cosf(angle),
-            centre - OCT_DOOR_THICKNESS * 0.5f32,
+            centre - DOOR_THICKNESS * 0.5f32,
             (wide - narrow) * sinf(angle)
         );
         var basis: Basis = make Basis {
@@ -72,7 +72,14 @@ fn oct_stopper_plates(asset: mut RoomAsset, centre: f32) -> bool {
             forward: vec(-sinf(angle), 0f32, cosf(angle))
         };
         var first: u32 = mesh_triangle_count(read asset.geometry);
-        if !oct_stopper_plate_uvs(mut asset.geometry, read plate, origin, basis) {
+        if !stopper_surface_uvs(
+            mut asset.geometry,
+            read plate,
+            origin,
+            basis,
+            oct_stopper_door_material().tile_metres,
+            3u32
+        ) {
             return false;
         }
         if !asset_part_append(
@@ -84,115 +91,6 @@ fn oct_stopper_plates(asset: mut RoomAsset, centre: f32) -> bool {
                 origin: origin,
                 basis: basis
             }
-        ) {
-            return false;
-        }
-        i = i + 1u32;
-    }
-    return true;
-}
-fn oct_stopper_plate_uvs(mesh: mut Mesh, plate: read Mesh, origin: Vec3, basis: Basis) -> bool {
-    var tile: f32 = oct_stopper_door_material().tile_metres;
-    var i: u32 = 0u32;
-    while i < mesh_triangle_count(read plate) {
-        var primitive: MeshTriangle = mesh_triangle(read plate, i);
-        if primitive.vertices[0usize].y != primitive.vertices[1usize].y || primitive.vertices[
-            0usize
-        ].y != primitive.vertices[2usize].y {
-            primitive.material = 3u32;
-        }
-        var j: usize = 0usize;
-        while j < 3usize {
-            var vertex: MeshVertex = primitive.vertices[j];
-            var p: Vec3 = add(
-                origin,
-                basis_vector(basis, vec(vertex.x, vertex.y, vertex.z))
-            );
-            vertex.u = (p.x + tile * 0.5f32) / tile;
-            vertex.v = (p.z + tile * 0.5f32) / tile;
-            primitive.vertices[j] = vertex;
-            j = j + 1usize;
-        }
-        if !mesh_append(mut mesh, primitive) {
-            return false;
-        }
-        i = i + 1u32;
-    }
-    return true;
-}
-const OCT_DOOR_THICKNESS: f32 = 0.2f32;
-// Open sleeve with a black band at the centred door seat. Depth exceeds door thickness.
-fn oct_stopper_open_shell(asset: mut RoomAsset, depth: f32) -> bool {
-    var profile: ConnectionProfile = service_oct_profile();
-    if !loft_allocate(mut asset.hull, profile.shape, 4u32) {
-        return false;
-    }
-    loft_ring(mut asset.hull, profile.shape, 0u32, 0f32, profile.radius);
-    loft_ring(
-        mut asset.hull,
-        profile.shape,
-        1u32,
-        (depth - OCT_DOOR_THICKNESS) * 0.5f32,
-        profile.radius
-    );
-    loft_ring(
-        mut asset.hull,
-        profile.shape,
-        2u32,
-        (depth + OCT_DOOR_THICKNESS) * 0.5f32,
-        profile.radius
-    );
-    loft_ring(mut asset.hull, profile.shape, 3u32, depth, profile.radius);
-    loft_span(mut asset.hull, profile.shape, 0u32, 0u32);
-    loft_span(mut asset.hull, profile.shape, 1u32, 3u32);
-    loft_span(mut asset.hull, profile.shape, 2u32, 0u32);
-    loft_caps(mut asset.hull, profile.shape, 4u32, 0u32, 0u32);
-    var i: u32 = 0u32;
-    while i < profile.shape.sides * 3u32 {
-        var frame: SurfaceFrame = asset_surface(read asset.hull, i);
-        frame.origin.y = 0f32;
-        frame.origin = sub(frame.origin, scale(frame.up, 0.5f32));
-        frame.right = scale(frame.right, 2f32);
-        asset_surface_set(mut asset.hull, i, frame);
-        i = i + 1u32;
-    }
-    return passage_ports(depth, true, profile, profile.shape.sides * 3u32, mut asset);
-}
-// Adds the rear face and black rim of the closed door behind the collision wall.
-// The room's far cap supplies the front face. Door thickness is 0.2 m.
-fn oct_stopper_door_back(asset: mut RoomAsset, depth: f32) -> bool {
-    var profile: ConnectionProfile = service_oct_profile();
-    var hull: AssetHull = asset_hull_new();
-    if !loft_allocate(mut hull, profile.shape, 2u32) {
-        return false;
-    }
-    loft_ring(mut hull, profile.shape, 0u32, depth, profile.radius);
-    loft_ring(mut hull, profile.shape, 1u32, depth + OCT_DOOR_THICKNESS, profile.radius);
-    loft_span(mut hull, profile.shape, 0u32, 3u32);
-    loft_caps(mut hull, profile.shape, 2u32, 1u32, 1u32);
-    var slab_mesh: Mesh = mesh_new();
-    var mapped: Mesh = mesh_new();
-    if !hull_solid_mesh(
-        read hull,
-        mut slab_mesh,
-        vec(0f32, 0f32, 0f32),
-        identity_basis(),
-        2f32
-    ) || !oct_stopper_plate_uvs(
-        mut mapped,
-        read slab_mesh,
-        vec(0f32, 0f32, 0f32),
-        identity_basis()
-    ) {
-        return false;
-    }
-    var front: u32 = profile.shape.sides * 2u32;
-    var back: u32 = front + profile.shape.sides - 2u32;
-    var i: u32 = 0u32;
-    while i < mesh_triangle_count(read mapped) {
-        if (i < front || i >= back) && !mesh_append(
-            mut asset.mesh,
-            mesh_triangle(read mapped, i)
         ) {
             return false;
         }

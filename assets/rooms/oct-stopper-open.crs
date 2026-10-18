@@ -25,7 +25,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     }
     var depth: f32 = asset_value(read parameters, 0u32);
     asset.spawn_enabled = false;
-    return oct_stopper_open_shell(mut asset, depth) && oct_stopper_pipes(
+    return stopper_open_shell(mut asset, depth, service_oct_profile(), 3u32) && oct_stopper_pipes(
         mut asset,
         depth,
         depth
@@ -36,7 +36,7 @@ fn room_material_count() -> u32 {
 }
 fn room_material(region: u32) -> PanelMaterial {
     if region == 3u32 {
-        return oct_stopper_seat_material();
+        return stopper_seat_material();
     }
     if region == 2u32 {
         return service_pipe_material();
