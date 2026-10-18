@@ -1,0 +1,133 @@
+fn oct_junction_pipe_part(
+    asset: mut RoomAsset,
+    first: u32,
+    origin: Vec3,
+    side: u32,
+    name: AssetName
+) -> bool {
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: name,
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: origin,
+            basis: make Basis {
+                right: junction_quarter(vec(1f32, 0f32, 0f32), side),
+                up: junction_quarter(vec(0f32, 1f32, 0f32), side),
+                forward: vec(0f32, 0f32, 1f32)
+            }
+        }
+    );
+}
+fn oct_junction_straight_pipe(
+    asset: mut RoomAsset,
+    origin: Vec3,
+    side: u32,
+    extent: f32,
+    name: AssetName
+) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var bands: u32 = (extent / 2f32) as u32 + 1u32;
+    if !solid_cylinder(
+        mut asset.geometry,
+        12u32,
+        oct_pipe_radius(),
+        extent,
+        1u32,
+        extent / bands as f32
+    ) {
+        return false;
+    }
+    return oct_junction_pipe_part(mut asset, first, origin, side, name);
+}
+fn oct_junction_corner_pipe(asset: mut RoomAsset, leg: f32, side: u32) -> bool {
+    var radius: f32 = 1.2f32;
+    var lead: f32 = leg - oct_pipe_distance() - radius;
+    var extent: f32 = lead * 2f32 + radius * 1.57079632679f32;
+    var bands: u32 = (extent / 2f32) as u32 + 1u32;
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var bend: TubeBend = make TubeBend {
+        radius: radius,
+        tube_radius: oct_pipe_radius(),
+        incoming: lead,
+        outgoing: lead,
+        sides: 12u32,
+        steps: 8u32,
+        tile_metres: extent / bands as f32
+    };
+    if !solid_tube_bend(mut asset.geometry, bend, 1u32) {
+        return false;
+    }
+    return oct_junction_pipe_part(
+        mut asset,
+        first,
+        junction_quarter(vec(oct_pipe_distance(), -leg, 0f32), side),
+        side,
+        junction_port(side, 0u32, leg).id
+    );
+}
+fn oct_junction_overhead(
+    asset: mut RoomAsset,
+    plan: JunctionPlan,
+    height: f32,
+    name: AssetName
+) -> bool {
+    if !oct_junction_straight_pipe(
+        mut asset,
+        vec(0f32, -plan.distance, height),
+        0u32,
+        plan.distance * 2f32,
+        name
+    ) {
+        return false;
+    }
+    var start: f32 = 0f32;
+    var extent: f32 = plan.distance;
+    if plan.count == 4u32 {
+        start = -plan.distance;
+        extent = plan.distance * 2f32;
+    }
+    return oct_junction_straight_pipe(
+        mut asset,
+        vec(start, 0f32, height),
+        3u32,
+        extent,
+        name
+    );
+}
+// Side pipes join successive mouths. Ceiling and floor pipes form a tee or cross.
+fn oct_junction_pipes(asset: mut RoomAsset, plan: JunctionPlan) -> bool {
+    var i: u32 = 0u32;
+    while i < plan.count {
+        var side: u32 = plan.sides[i as usize];
+        var next: u32 = plan.sides[((i + 1u32) % plan.count) as usize];
+        if (next + 4u32 - side) % 4u32 == 1u32 {
+            if !oct_junction_corner_pipe(mut asset, plan.distance, side) {
+                return false;
+            }
+        } else {
+            if !oct_junction_straight_pipe(
+                mut asset,
+                junction_quarter(vec(oct_pipe_distance(), -plan.distance, 0f32), side),
+                side,
+                plan.distance * 2f32,
+                junction_port(side, 0u32, plan.distance).id
+            ) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return oct_junction_overhead(
+        mut asset,
+        plan,
+        oct_pipe_distance(),
+        asset_name("TOP-PIPE")
+    ) && oct_junction_overhead(
+        mut asset,
+        plan,
+        -oct_pipe_distance(),
+        asset_name("BOTTOM-PIPE")
+    );
+}

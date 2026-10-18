@@ -1,7 +1,8 @@
 fn asset_test_junctions() -> bool {
     var mask: u32 = 1u32;
     while mask < 16u32 {
-        var plan: HexJunction = junction_plan(mask, 0.5f32);
+        var radius: f32 = service_hex_profile().radius;
+        var plan: JunctionPlan = junction_plan(mask, radius, radius + 0.5f32);
         if plan.count >= 2u32 && mask != 5u32 && mask != 10u32 {
             var collar: f32 = 0.25f32;
             while collar <= 3f32 {

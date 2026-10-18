@@ -58,15 +58,6 @@ fn oct_elbow_wall_frame(hull: read AssetHull, id: u32, side: u32) -> SurfaceFram
     frame.up = vec(0f32, 0f32, 3f32 / (high.z - low.z));
     return frame;
 }
-// Floor and ceiling plates share the room XY grid.
-fn oct_elbow_cap_frame(hull: read AssetHull, id: u32) -> SurfaceFrame {
-    var frame: SurfaceFrame = hull_frame(read hull, asset_face(read hull, id));
-    var narrow: f32 = service_oct_profile().radius * sinf(0.39269908169f32);
-    frame.origin = vec(-narrow, narrow, frame.origin.z);
-    frame.right = vec(2f32, 0f32, 0f32);
-    frame.up = vec(0f32, 1f32, 0f32);
-    return frame;
-}
 fn oct_elbow_shell(hull: mut AssetHull, distance: f32) -> bool {
     if !asset_hull_allocate(mut hull, 20u32, 13u32, 62u32) {
         return false;
@@ -113,8 +104,8 @@ fn oct_elbow_shell(hull: mut AssetHull, distance: f32) -> bool {
     }
     junction_face(mut hull, 11u32, 52u32, 5u32);
     junction_face(mut hull, 12u32, 57u32, 5u32);
-    var bottom: SurfaceFrame = oct_elbow_cap_frame(read hull, 11u32);
-    var top: SurfaceFrame = oct_elbow_cap_frame(read hull, 12u32);
+    var bottom: SurfaceFrame = oct_service_cap_frame(read hull, 11u32);
+    var top: SurfaceFrame = oct_service_cap_frame(read hull, 12u32);
     asset_surface_set(mut hull, 11u32, bottom);
     asset_surface_set(mut hull, 12u32, top);
     return true;

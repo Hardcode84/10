@@ -1,0 +1,132 @@
+fn oct_junction_vertices(hull: mut AssetHull, plan: JunctionPlan) -> unit {
+    var narrow: f32 = plan.radius * sinf(0.39269908169f32);
+    var wide: f32 = plan.radius * cosf(0.39269908169f32);
+    var layer: u32 = 0u32;
+    while layer < 4u32 {
+        var z: f32 = -wide;
+        var width: f32 = narrow;
+        if layer == 1u32 || layer == 2u32 {
+            width = wide;
+            z = (layer as f32 * 2f32 - 3f32) * narrow;
+        }
+        if layer == 3u32 {
+            z = wide;
+        }
+        var port: u32 = 0u32;
+        while port < plan.count {
+            var first: u32 = (layer * plan.count + port) * 2u32;
+            var side: u32 = plan.sides[port as usize];
+            asset_vertex_set(
+                mut hull,
+                first,
+                junction_quarter(vec(-width, -plan.distance, z), side)
+            );
+            asset_vertex_set(
+                mut hull,
+                first + 1u32,
+                junction_quarter(vec(width, -plan.distance, z), side)
+            );
+            port = port + 1u32;
+        }
+        layer = layer + 1u32;
+    }
+}
+fn oct_junction_mouth(hull: mut AssetHull, port: u32, count: u32) -> unit {
+    var n: u32 = count * 2u32;
+    var base: u32 = port * 2u32;
+    var corners: [u32; 8] = make [u32; 8] {
+        n + 1u32,
+        n * 2u32 + 1u32,
+        n * 3u32 + 1u32,
+        n * 3u32,
+        n * 2u32,
+        n,
+        0u32,
+        1u32
+    };
+    var i: u32 = 0u32;
+    while i < 8u32 {
+        asset_index_set(mut hull, port * 8u32 + i, base + corners[i as usize]);
+        i = i + 1u32;
+    }
+    junction_face(mut hull, port, port * 8u32, 8u32);
+}
+fn oct_junction_wall(hull: mut AssetHull, id: u32) -> unit {
+    var face: HullFace = asset_face(read hull, id);
+    var frame: SurfaceFrame = hull_frame(read hull, face);
+    var a: Vec3 = hull_corner(read hull, face, 0u32);
+    var b: Vec3 = hull_corner(read hull, face, 3u32);
+    frame.origin = vec(0f32, 0f32, a.z);
+    frame.right = scale(frame.right, 2f32);
+    frame.up = vec(0f32, 0f32, 3f32 / (b.z - a.z));
+    asset_surface_set(mut hull, id, frame);
+}
+fn oct_junction_spans(hull: mut AssetHull, port: u32, count: u32) -> unit {
+    var n: u32 = count * 2u32;
+    var a: u32 = port * 2u32 + 1u32;
+    var b: u32 = (a + 1u32) % n;
+    var layer: u32 = 0u32;
+    while layer < 3u32 {
+        var id: u32 = count + port * 3u32 + layer;
+        var first: u32 = count * 8u32 + (port * 3u32 + layer) * 4u32;
+        hex_surround_face(
+            mut hull,
+            id,
+            first,
+            0u32,
+            layer * n + a,
+            layer * n + b,
+            (layer + 1u32) * n + b,
+            (layer + 1u32) * n + a
+        );
+        oct_junction_wall(mut hull, id);
+        layer = layer + 1u32;
+    }
+}
+fn oct_junction_caps(hull: mut AssetHull, count: u32) -> unit {
+    var n: u32 = count * 2u32;
+    var first: u32 = count * 20u32;
+    var i: u32 = 0u32;
+    while i < n {
+        asset_index_set(mut hull, first + i, n - 1u32 - i);
+        asset_index_set(mut hull, first + n + i, n * 3u32 + i);
+        i = i + 1u32;
+    }
+    junction_face(mut hull, count * 4u32, first, n);
+    junction_face(mut hull, count * 4u32 + 1u32, first + n, n);
+    var bottom: SurfaceFrame = oct_service_cap_frame(read hull, count * 4u32);
+    var top: SurfaceFrame = oct_service_cap_frame(read hull, count * 4u32 + 1u32);
+    asset_surface_set(mut hull, count * 4u32, bottom);
+    asset_surface_set(mut hull, count * 4u32 + 1u32, top);
+}
+// Builds a convex OCT-8M T or cross junction with a clear central flight path.
+// Connections is 7 (T) or 15 (cross). Leg is at least 5 m; +Z is up.
+fn oct_junction_build(connections: u32, leg: f32, asset: mut RoomAsset) -> bool {
+    var plan: JunctionPlan = junction_plan(connections, service_oct_profile().radius, leg);
+    if !asset_hull_allocate(
+        mut asset.hull,
+        plan.count * 8u32,
+        plan.count * 4u32 + 2u32,
+        plan.count * 24u32
+    ) {
+        return false;
+    }
+    oct_junction_vertices(mut asset.hull, plan);
+    var i: u32 = 0u32;
+    while i < plan.count {
+        oct_junction_mouth(mut asset.hull, i, plan.count);
+        oct_junction_spans(mut asset.hull, i, plan.count);
+        var port: RoomPort = junction_port(plan.sides[i as usize], i, leg);
+        port.profile = service_oct_profile();
+        if !asset_port_append(mut asset.ports, port) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    oct_junction_caps(mut asset.hull, plan.count);
+    asset.spawn = make AssetSpawn {
+        position: vec(0f32, -leg + 1f32, 0f32),
+        basis: junction_port(2u32, 0u32, leg).basis
+    };
+    return oct_junction_pipes(mut asset, plan) && room_asset_finish(mut asset);
+}

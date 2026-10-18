@@ -32,7 +32,7 @@ fn build_render_tests(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    var sources: [*u8; 128] = uninit;
+    var sources: [*u8; 160] = uninit;
     var providers: [*u8; 96] = uninit;
     var source_count: usize = demo_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
@@ -86,7 +86,7 @@ fn build_game_tests(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    var sources: [*u8; 128] = uninit;
+    var sources: [*u8; 160] = uninit;
     var providers: [*u8; 96] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
@@ -162,7 +162,7 @@ fn build_viewer_tests(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    var sources: [*u8; 128] = uninit;
+    var sources: [*u8; 160] = uninit;
     var providers: [*u8; 96] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
