@@ -6,13 +6,16 @@
 // Rim controls the minimum wall border around shaft and diagonal openings.
 // corner-inset moves the eight hexagonal faces inward, in metres.
 // Socket positions and dimensions stay fixed. The default inset is 1.75 m.
-// The spindle stays in the shaft. The centre is a clear player spawn facing +Y.
+// The spindle continues from SHAFT into the hub; core-diameter must match it.
+// Each octagonal mouth has four pipes. Runs follow the walls with round bends.
+// Three-way joints on the eight corner panels connect neighbouring openings.
+// Only four rear feeds enter the spindle; the centre stays clear.
 // Regions: 0 socket walls, 1 corner panels, 2 tunnel closures, 3 shaft closure,
-// 4 dark structural joints, 5 polygon and portal seams.
+// 4 dark structural joints, 5 polygon and portal seams, 6 pipes, 7 spindle.
 // Corner panels have one closed hexagonal service cover.
 // Wall edges have 0.06 m seams; portal edges have 0.10 m seams.
 fn room_parameter_count() -> u32 {
-    return 3u32;
+    return 4u32;
 }
 fn room_parameter_name(index: u32) -> AssetName {
     if index == 0u32 {
@@ -21,9 +24,20 @@ fn room_parameter_name(index: u32) -> AssetName {
     if index == 1u32 {
         return asset_name("rim");
     }
+    if index == 3u32 {
+        return asset_name("core-diameter");
+    }
     return asset_name("corner-inset");
 }
 fn room_parameter(index: u32) -> AssetParameter {
+    if index == 3u32 {
+        return make AssetParameter {
+            minimum: 1f32,
+            maximum: 12f32,
+            initial: 3f32,
+            step: 0.5f32
+        };
+    }
     if index == 0u32 {
         return make AssetParameter {
             minimum: 16f32,
@@ -152,6 +166,10 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
         return false;
     }
     var diameter: f32 = asset_value(read parameters, 0u32);
+    var core: f32 = asset_value(read parameters, 3u32) * 0.5f32;
+    if diameter * 0.5f32 * cosf(3.14159265359f32 / 48f32) - core < 2f32 {
+        return error("hub needs at least 2 m between the spindle and shaft wall");
+    }
     var rim: f32 = asset_value(read parameters, 1u32);
     var half_width: f32 = diameter * 0.5f32 + rim;
     var diagonal: f32 = service_oct_profile().radius + rim;
@@ -173,6 +191,24 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !hub_connections(mut asset, diameter) {
         return false;
     }
+    var fold_trim: f32 = sinf(0.39269908169f32) / cosf(0.39269908169f32);
+    var bend: f32 = mask_min(
+        1.1f32,
+        0.95f32 * (diagonal - oct_pipe_distance() - 0.05f32) / (1f32 + 2f32 * fold_trim)
+    );
+    if !hub_service_pipes(
+        mut asset,
+        make HubPipeLayout {
+            extent: extent,
+            half_width: half_width,
+            corner_shift: asset_value(read parameters, 2u32) * 1.73205080757f32,
+            core: core,
+            bend: bend,
+            stand_off: bend + 0.05f32
+        }
+    ) {
+        return false;
+    }
     asset.spawn = make AssetSpawn {
         position: vec(0f32, 0f32, 0f32),
         basis: cube_face_basis(3u32)
@@ -180,12 +216,21 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     return room_asset_finish(mut asset);
 }
 fn room_material_count() -> u32 {
-    return 6u32;
+    return 8u32;
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     var material: PanelMaterial = hex_tunnel_material();
     material.colour = 0x807769u32;
     material.panel_height = 2f32;
+    if region == 6u32 {
+        return service_pipe_material();
+    }
+    if region == 7u32 {
+        material.colour = 0x9c9687u32;
+        material.finish = METAL_RIBBED;
+        material.pitch = 0.5f32;
+        return material;
+    }
     if region == 5u32 {
         material.finish = METAL_PLAIN;
         material.colour = 0x15191du32;

@@ -1,0 +1,175 @@
+record TubeRing {
+    centre: Vec3;
+    tangent: Vec3;
+    radial: Vec3;
+}
+record TubeStyle {
+    radius: f32;
+    sides: u32;
+    tile_metres: f32;
+    region: u32;
+}
+record TubeSweep {
+    start: TubeRing;
+    last: TubeRing;
+    distance: f32;
+    style: TubeStyle;
+}
+// Starts a solid pipe. Tangent and radial are perpendicular unit vectors.
+// Radius and tile size are positive; sides is at least three.
+fn tube_sweep_begin(centre: Vec3, tangent: Vec3, radial: Vec3, style: TubeStyle) -> TubeSweep {
+    var ring: TubeRing = make TubeRing {
+        centre: centre,
+        tangent: tangent,
+        radial: radial
+    };
+    return make TubeSweep {
+        start: ring,
+        last: ring,
+        distance: 0f32,
+        style: style
+    };
+}
+fn tube_sweep_vertex(ring: TubeRing, style: TubeStyle, distance: f32, corner: u32) -> MeshVertex {
+    var angle: f32 = 3.14159265359f32 / style.sides as f32 + 6.28318530718f32 * (
+        corner % style.sides
+    ) as f32 / style.sides as f32;
+    var offset: Vec3 = add(
+        scale(ring.radial, cosf(angle)),
+        scale(cross(ring.radial, ring.tangent), sinf(angle))
+    );
+    var p: Vec3 = add(ring.centre, scale(offset, style.radius));
+    var edge: f32 = 2f32 * style.radius * sinf(3.14159265359f32 / style.sides as f32);
+    return make MeshVertex {
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        u: distance / style.tile_metres,
+        v: corner as f32 * edge / style.tile_metres
+    };
+}
+fn tube_sweep_ring(mesh: mut Mesh, sweep: mut TubeSweep, ring: TubeRing, distance: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < sweep.style.sides {
+        var a: MeshVertex = tube_sweep_vertex(sweep.last, sweep.style, sweep.distance, i);
+        var b: MeshVertex = tube_sweep_vertex(ring, sweep.style, distance, i);
+        var c: MeshVertex = tube_sweep_vertex(ring, sweep.style, distance, i + 1u32);
+        var d: MeshVertex = tube_sweep_vertex(
+            sweep.last,
+            sweep.style,
+            sweep.distance,
+            i + 1u32
+        );
+        if !tube_triangle(mut mesh, a, b, c, sweep.style.region) || !tube_triangle(
+            mut mesh,
+            a,
+            c,
+            d,
+            sweep.style.region
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    sweep.last = ring;
+    sweep.distance = distance;
+    return true;
+}
+// Extends along the current tangent to an endpoint ahead of the last ring.
+fn tube_sweep_straight(mesh: mut Mesh, sweep: mut TubeSweep, end: Vec3) -> bool {
+    var ring: TubeRing = sweep.last;
+    var distance: f32 = sweep.distance + length(sub(end, ring.centre));
+    ring.centre = end;
+    return tube_sweep_ring(mut mesh, mut sweep, ring, distance);
+}
+fn tube_sweep_rotate(v: Vec3, axis: Vec3, angle: f32) -> Vec3 {
+    return add(
+        add(scale(v, cosf(angle)), scale(cross(axis, v), sinf(angle))),
+        scale(axis, dot(axis, v) * (1f32 - cosf(angle)))
+    );
+}
+fn tube_sweep_arc(
+    mesh: mut Mesh,
+    sweep: mut TubeSweep,
+    axis: Vec3,
+    radius: f32,
+    angle: f32
+) -> bool {
+    var start: TubeRing = sweep.last;
+    var inward: Vec3 = cross(axis, start.tangent);
+    var centre: Vec3 = add(start.centre, scale(inward, radius));
+    var distance: f32 = sweep.distance;
+    var steps: u32 = (angle / 0.1308996939f32) as u32 + 1u32;
+    var i: u32 = 1u32;
+    while i <= steps {
+        var turn: f32 = angle * i as f32 / steps as f32;
+        var ring: TubeRing = make TubeRing {
+            centre: sub(centre, scale(tube_sweep_rotate(inward, axis, turn), radius)),
+            tangent: tube_sweep_rotate(start.tangent, axis, turn),
+            radial: tube_sweep_rotate(start.radial, axis, turn)
+        };
+        if !tube_sweep_ring(mut mesh, mut sweep, ring, distance + radius * turn) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+// Rounds a polyline corner with a circular fillet, preserving cross-section roll.
+// Corner lies ahead on the current tangent; outgoing is a unit vector.
+// Radius exceeds the pipe radius. The fillet must leave a positive straight leg.
+fn tube_sweep_corner(
+    mesh: mut Mesh,
+    sweep: mut TubeSweep,
+    corner: Vec3,
+    outgoing: Vec3,
+    radius: f32
+) -> bool {
+    var normal: Vec3 = cross(sweep.last.tangent, outgoing);
+    var sine: f32 = length(normal);
+    var cosine: f32 = clamp(dot(sweep.last.tangent, outgoing), -1f32, 1f32);
+    if cosine <= -1f32 {
+        return error("pipe path cannot reverse direction");
+    }
+    if sine == 0f32 {
+        return tube_sweep_straight(mut mesh, mut sweep, corner);
+    }
+    var trim: f32 = radius * sine / (1f32 + cosine);
+    if dot(sub(corner, sweep.last.centre), sweep.last.tangent) <= trim {
+        return error("pipe fillet consumes a straight leg");
+    }
+    var start: Vec3 = sub(corner, scale(sweep.last.tangent, trim));
+    return tube_sweep_straight(mut mesh, mut sweep, start) && tube_sweep_arc(
+        mut mesh,
+        mut sweep,
+        scale(normal, 1f32 / sine),
+        radius,
+        atan2f(sine, cosine)
+    );
+}
+// Ends the final straight leg and closes both ends of the pipe.
+fn tube_sweep_finish(mesh: mut Mesh, sweep: mut TubeSweep, end: Vec3) -> bool {
+    if !tube_sweep_straight(mut mesh, mut sweep, end) {
+        return false;
+    }
+    var i: u32 = 1u32;
+    while i + 1u32 < sweep.style.sides {
+        if !tube_triangle(
+            mut mesh,
+            tube_sweep_vertex(sweep.start, sweep.style, 0f32, 0u32),
+            tube_sweep_vertex(sweep.start, sweep.style, 0f32, i),
+            tube_sweep_vertex(sweep.start, sweep.style, 0f32, i + 1u32),
+            sweep.style.region
+        ) || !tube_triangle(
+            mut mesh,
+            tube_sweep_vertex(sweep.last, sweep.style, sweep.distance, 0u32),
+            tube_sweep_vertex(sweep.last, sweep.style, sweep.distance, i + 1u32),
+            tube_sweep_vertex(sweep.last, sweep.style, sweep.distance, i),
+            sweep.style.region
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

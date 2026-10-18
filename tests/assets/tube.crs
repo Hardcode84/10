@@ -59,5 +59,111 @@ fn asset_test_tube_case(diagonal: f32) -> bool {
     );
 }
 fn asset_test_tube() -> bool {
-    return asset_test_tube_case(0f32) && asset_test_tube_case(2f32);
+    return asset_test_tube_case(0f32) && asset_test_tube_case(2f32) && asset_test_tube_sweep(0f32) && asset_test_tube_sweep(
+        0.1f32
+    ) && asset_test_tube_sweep(1.0471975512f32) && asset_test_tube_sweep(2.3f32) && asset_test_tube_spatial();
+}
+
+fn asset_test_sweep_closed(mesh: read Mesh, end: Vec3, direction: Vec3) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_append_solid(
+        mut builder,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var hit: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        add(end, direction),
+        scale(direction, -2f32),
+        0.1f32
+    );
+    if absf(hit.hit.time - 0.45f32) > 0.00001f32 || collision_position_valid(
+        read scene,
+        0u32,
+        sub(end, direction),
+        0.05f32
+    ) {
+        return error("swept pipe missed its end cap or solid interior");
+    }
+    return true;
+}
+fn asset_test_tube_sweep(angle: f32) -> bool {
+    var mesh: Mesh = mesh_new();
+    var radial: Vec3 = vec(cosf(0.4f32), 0f32, sinf(0.4f32));
+    var sweep: TubeSweep = tube_sweep_begin(
+        vec(2f32, -1f32, 3f32),
+        vec(0f32, 1f32, 0f32),
+        radial,
+        make TubeStyle {
+            radius: 0.2f32,
+            sides: 12u32,
+            tile_metres: 2f32,
+            region: 0u32
+        }
+    );
+    var corner: Vec3 = vec(2f32, 2f32, 3f32);
+    var direction: Vec3 = vec(sinf(angle), cosf(angle), 0f32);
+    var end: Vec3 = add(corner, scale(direction, 6f32));
+    if !tube_sweep_corner(mut mesh, mut sweep, corner, direction, 0.8f32) || !tube_sweep_finish(
+        mut mesh,
+        mut sweep,
+        end
+    ) {
+        return false;
+    }
+    var first: MeshVertex = mesh_triangle(read mesh, 0u32).vertices[0usize];
+    var expected: Vec3 = add(
+        vec(2f32, -1f32, 3f32),
+        add(
+            scale(radial, 0.2f32 * cosf(0.2617993878f32)),
+            scale(
+                cross(radial, vec(0f32, 1f32, 0f32)),
+                0.2f32 * sinf(0.2617993878f32)
+            )
+        )
+    );
+    if length(sub(vec(first.x, first.y, first.z), expected)) > 0.00001f32 {
+        return error("swept pipe moved or rotated its entry profile");
+    }
+    return asset_test_sweep_closed(read mesh, end, direction);
+}
+fn asset_test_tube_spatial() -> bool {
+    var mesh: Mesh = mesh_new();
+    var sweep: TubeSweep = tube_sweep_begin(
+        vec(0f32, 0f32, 0f32),
+        vec(0f32, 1f32, 0f32),
+        vec(1f32, 0f32, 0f32),
+        make TubeStyle {
+            radius: 0.2f32,
+            sides: 12u32,
+            tile_metres: 2f32,
+            region: 0u32
+        }
+    );
+    var end: Vec3 = vec(4f32, 3f32, 5f32);
+    if !tube_sweep_corner(
+        mut mesh,
+        mut sweep,
+        vec(0f32, 3f32, 0f32),
+        vec(1f32, 0f32, 0f32),
+        1f32
+    ) || !tube_sweep_corner(
+        mut mesh,
+        mut sweep,
+        vec(4f32, 3f32, 0f32),
+        vec(0f32, 0f32, 1f32),
+        0.75f32
+    ) || !tube_sweep_finish(mut mesh, mut sweep, end) {
+        return false;
+    }
+    return asset_test_sweep_closed(read mesh, end, vec(0f32, 0f32, 1f32));
 }
