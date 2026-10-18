@@ -130,7 +130,11 @@ Instance room and material changes take effect through the current metadata.
 The room-light instance trees and dynamic trees are rebuilt each frame.
 These builds read instance metadata and dynamic triangles; they do not scan
 retained triangles. Portable lights skip both per-light tree construction and
-shadow queries. Retained trees build in parallel across instances. Each tree splits
+shadow queries. Tree construction runs one depth per compute pass. Independent
+nodes build in parallel within a mesh and across meshes. Each node owns a
+disjoint index range; the first index in that range builds the node. Children
+become available after a compute barrier. The host derives the pass count from
+the largest source range and the minimum accepted split. Each tree splits
 on the longest box axis. Unbalanced partitions use equal counts. Bounds are
 expanded conservatively for floating-point box intersection. Compute barriers
 make completed trees available to raster queries. There is no tree readback.

@@ -115,3 +115,6 @@ const PROJECTION_CAPACITY: u32 = 92u32;
 const SPACE_TRIANGLES: u32 = 93u32;
 const SPACE_META: u32 = 94u32;
 const SPACE_COUNT: u32 = 95u32;
+
+// Current shadow-tree construction depth. Updated between compute dispatches.
+const SHADOW_LEVEL: u32 = 96u32;

@@ -121,26 +121,8 @@ fn lighting_test(base: *Options) -> bool {
     if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
         return false;
     }
-    var index: u32 = 0u32;
-    while index < 12u32 {
-        {
-            var input: FrameInput = renderer_inputs(mut renderer);
-            lighting_scene(mut input, index);
-        }
-        if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
-            return false;
-        }
-        var w: *u32 = renderer.state.mapped as *u32;
-        var color: u32 = w[(PIXELS + 24u32 * 64u32 + 24u32) as usize] & 0xffffffu32;
-        var dark: bool = index == 1u32 || index == 4u32 || index == 5u32 || index == 10u32;
-        if (color == 0u32) != dark {
-            print_number(index as i64);
-            return error("bulkhead lighting differs from expected visibility");
-        }
-        if (index == 0u32 || index == 8u32) && !lighting_resize(mut renderer) {
-            return false;
-        }
-        index = index + 1u32;
+    if !lighting_cases(mut renderer) {
+        return false;
     }
     if !portable_lights_test(base) || !lighting_cache_test(mut renderer) || !lighting_shared_ambient(
         mut renderer
@@ -150,7 +132,7 @@ fn lighting_test(base: *Options) -> bool {
     puts(
         "light occlusion, cutouts, space isolation, retained blockers, distant lights and 17 lights passed"
     );
-    return lighting_capacity_reuse(mut renderer);
+    return lighting_capacity_reuse(mut renderer) && lighting_large_mesh_test(mut renderer);
 }
 fn lighting_rejections(renderer: mut Renderer) -> bool {
     var capacity: u32 = renderer.state.light_capacity;
@@ -477,4 +459,47 @@ fn lighting_cache_growth(renderer: mut Renderer) -> bool {
         mut renderer,
         true
     );
+}
+
+fn lighting_large_mesh_test(renderer: mut Renderer) -> bool {
+    if !renderer_resize(&renderer.state, 8u32, 8u32, 8u32, 8u32) {
+        return false;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !lighting_large_mesh_input(mut input) {
+            return false;
+        }
+    }
+    // The second frame exercises reuse of the large retained tree.
+    if !lighting_cache_check(mut renderer, true) || !lighting_cache_check(mut renderer, false) {
+        return false;
+    }
+    puts("large retained shadow mesh passed (8 x 8 image)");
+    return true;
+}
+
+fn lighting_cases(renderer: mut Renderer) -> bool {
+    var index: u32 = 0u32;
+    while index < 12u32 {
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            lighting_scene(mut input, index);
+        }
+        if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
+            return false;
+        }
+        var w: *u32 = renderer.state.mapped as *u32;
+        var color: u32 = w[(PIXELS + 24u32 * 64u32 + 24u32) as usize] & 0xffffffu32;
+        var dark: bool = index == 1u32 || index == 4u32 || index == 5u32 || index == 10u32;
+        if (color == 0u32) != dark {
+            print_number(index as i64);
+            return error("bulkhead lighting differs from expected visibility");
+        }
+        if (index == 0u32 || index == 8u32) && !lighting_resize(mut renderer) {
+            return false;
+        }
+        index = index + 1u32;
+    }
+    return true;
 }

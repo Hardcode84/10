@@ -1,0 +1,41 @@
+fn shadow_retained_level(index: u32) -> unit {
+    var shift: u32 = words_load(DYNAMIC_COUNT);
+    var instance: u32 = words_load(words_load(INSTANCE_OWNER) + shift + index);
+    var p: u32 = words_load(INSTANCE_META) + instance * 5u32;
+    var first: u32 = words_load(p + 2u32) - shift;
+    shadow_build_level(first * 2u32, index, shift, false);
+}
+fn shadow_light_level(index: u32, dynamic: u32) -> unit {
+    var count: u32 = dynamic + words_load(INSTANCE_COUNT);
+    var light: u32 = index / count;
+    var local: u32 = index % count;
+    if floats_load(words_load(LIGHT_DATA) + light * 8u32 + 7u32) != LIGHT_ROOM as f32 {
+        return;
+    }
+    var first: u32 = (light + 1u32) * words_load(SCENE_CAPACITY);
+    var top: bool = local >= dynamic;
+    if top {
+        local = local - dynamic;
+        first = words_load(SHADOW_TOP) + light * words_load(INSTANCE_CAPACITY);
+    }
+    shadow_build_level(first * 2u32, first + local, 0u32, top);
+}
+fn compute() -> unit {
+    var dynamic: u32 = words_load(DYNAMIC_COUNT);
+    var retained: u32 = 0u32;
+    if words_load(SHADOW_RESET) != 0u32 {
+        retained = words_load(3u32) - dynamic;
+    }
+    var total: u32 = retained + words_load(LIGHT_COUNT) * (
+        dynamic + words_load(INSTANCE_COUNT)
+    );
+    var index: u32 = shader_global_x();
+    while index < total {
+        if index < retained {
+            shadow_retained_level(index);
+        } else {
+            shadow_light_level(index - retained, dynamic);
+        }
+        index = index + MAX_INVOCATIONS;
+    }
+}

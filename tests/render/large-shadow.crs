@@ -1,0 +1,90 @@
+fn shadow_test_vertex(input: read FrameInput, p: usize) -> MeshVertex {
+    return make MeshVertex {
+        x: input_float(read input, p),
+        y: input_float(read input, p + 1usize),
+        z: input_float(read input, p + 2usize),
+        u: input_float(read input, p + 3usize),
+        v: input_float(read input, p + 4usize)
+    };
+}
+fn shadow_test_mesh(input: read FrameInput, mesh: mut Mesh) -> bool {
+    var i: u32 = 0u32;
+    while i < input_word(read input, 3usize) {
+        var p: usize = (GEOMETRY + i * 15u32) as usize;
+        var meta: usize = (input_word(read input, META as usize) + i * 4u32) as usize;
+        if !mesh_append(
+            mut mesh,
+            make MeshTriangle {
+                vertices: make [MeshVertex; 3] {
+                    shadow_test_vertex(read input, p),
+                    shadow_test_vertex(read input, p + 5usize),
+                    shadow_test_vertex(read input, p + 10usize)
+                },
+                material: input_word(read input, meta + 1usize),
+                portal: input_word(read input, meta + 2usize),
+                flags: input_word(read input, meta + 3usize)
+            }
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 49152u32 {
+        var x: f32 = 40f32 + (i % 256u32) as f32 * 0.125f32;
+        var y: f32 = (i / 256u32) as f32 * 0.125f32;
+        if !mesh_append(
+            mut mesh,
+            make MeshTriangle {
+                vertices: make [MeshVertex; 3] {
+                    make MeshVertex {
+                        x: x,
+                        y: y,
+                        z: 3f32,
+                        u: 0f32,
+                        v: 0f32
+                    },
+                    make MeshVertex {
+                        x: x + 0.1f32,
+                        y: y,
+                        z: 3f32,
+                        u: 1f32,
+                        v: 0f32
+                    },
+                    make MeshVertex {
+                        x: x,
+                        y: y + 0.1f32,
+                        z: 3f32,
+                        u: 0f32,
+                        v: 1f32
+                    }
+                },
+                material: 0u32,
+                portal: 0u32,
+                flags: 0u32
+            }
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn lighting_large_mesh_input(input: mut FrameInput) -> bool {
+    input_clear_meshes(mut input);
+    lighting_scene(mut input, 1u32);
+    if !input_lights(mut input, 1u32) {
+        return false;
+    }
+    tour_light(mut input, 0u32, 0u32, 4f32, 0f32, 3f32, 100f32, 2f32, 2f32, 2f32);
+    var mesh: Mesh = mesh_new();
+    if !shadow_test_mesh(read input, mut mesh) {
+        return false;
+    }
+    input_frame(mut input);
+    var range: MeshRange = mesh_empty_range();
+    return input_mesh(mut input, read mesh, mut range) && input_instance(
+        mut input,
+        mesh_identity(range, 0u32)
+    );
+}

@@ -28,10 +28,7 @@ fn commands_setup_body(v: *RenderState) -> unit {
     command_barrier(v, BARRIER_UPLOAD);
     retained_dispatch(v, 8usize, v -> instance_capacity);
     command_barrier(v, BARRIER_COMPUTE);
-    retained_dispatch(v, 11usize, v -> instance_capacity + v -> light_capacity);
-    command_barrier(v, BARRIER_COMPUTE);
-    retained_dispatch(v, 12usize, v -> light_capacity);
-    command_barrier(v, BARRIER_COMPUTE);
+    commands_shadow_build(v);
 }
 fn commands_raster_body(v: *RenderState) -> unit {
     retained_dispatch(v, 0usize, (v -> width * v -> height + 63u32) / 64u32);
@@ -108,5 +105,53 @@ fn compact_dispatch(v: *RenderState) -> unit {
         command_barrier(v, BARRIER_UPDATED_COMPUTE);
         retained_dispatch(v, 5usize, count);
         base = base + count;
+    }
+}
+
+fn shadow_build_size(v: *RenderState) -> u32 {
+    var w: *u32 = v -> mapped as *u32;
+    var size: u32 = 0u32;
+    if w[LIGHT_COUNT as usize] != 0u32 {
+        size = w[DYNAMIC_COUNT as usize];
+        if w[INSTANCE_COUNT as usize] > size {
+            size = w[INSTANCE_COUNT as usize];
+        }
+    }
+    if w[SHADOW_RESET as usize] != 0u32 {
+        var i: u32 = 0u32;
+        while i < w[INSTANCE_COUNT as usize] {
+            var count: u32 = w[(w[INSTANCE_META as usize] + i * 5u32 + 1u32) as usize];
+            if count > size {
+                size = count;
+            }
+            i = i + 1u32;
+        }
+    }
+    return size;
+}
+fn commands_shadow_build(v: *RenderState) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var instances: u32 = w[INSTANCE_COUNT as usize];
+    var lights: u32 = w[LIGHT_COUNT as usize];
+    retained_dispatch(v, 11usize, (instances + lights * 2u32 + 63u32) / 64u32);
+    command_barrier(v, BARRIER_COMPUTE);
+    var size: u32 = shadow_build_size(v);
+    var count: u32 = lights * (w[DYNAMIC_COUNT as usize] + instances);
+    if w[SHADOW_RESET as usize] != 0u32 {
+        count = count + w[3usize] - w[DYNAMIC_COUNT as usize];
+    }
+    var level: u32 = 0u32;
+    while size != 0u32 {
+        command_barrier(v, BARRIER_BEFORE_UPDATE);
+        command_word(v, SHADOW_LEVEL + 1u32, level);
+        command_barrier(v, BARRIER_UPDATED_COMPUTE);
+        retained_dispatch(v, 12usize, (count + 63u32) / 64u32);
+        command_barrier(v, BARRIER_COMPUTE);
+        if size <= 4u32 {
+            size = 0u32;
+        } else {
+            size = size - size / 4u32;
+        }
+        level = level + 1u32;
     }
 }

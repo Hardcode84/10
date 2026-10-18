@@ -182,7 +182,7 @@ fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
         "src/render/device/visibility.crs",
         "src/render/device/bin.crs",
         "src/render/device/shadow-build.crs",
-        "src/render/device/shadow-top.crs",
+        "src/render/device/shadow-level.crs",
         "src/render/device/status.crs"
     };
     var i: usize = 0usize;
