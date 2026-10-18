@@ -1,6 +1,6 @@
 # SPINWARD
 
-A 6DOF exploration game in a rotating megastructure.
+A 6DOF exploration game in a megastructure.
 
 ## Design and language
 
@@ -47,11 +47,7 @@ A 6DOF exploration game in a rotating megastructure.
   Git records revisions. Keep exact source links when they support a technical claim.
 
 - Before every commit, run `crust tests.crs` and the additional CI test commands
-  for the components changed. For a Crust submodule update, run all CI test
-  commands. A successful build or pre-commit check does not replace tests.
-  Fix failures and rerun the failed checks before committing. Report the commands
-  and results. If a required test cannot run, report the exact blocker and leave
-  the changes uncommitted.
+  for the components changed. For a Crust submodule update, run all CI test commands.
 - Run `pre-commit run --all-files` before committing. Stage hook changes and rerun.
 - Write short, direct comments and replies. Remove filler and repeated code descriptions.
 - Document public behaviour, preconditions, and postconditions for functions and types.

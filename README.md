@@ -1,6 +1,6 @@
 # SPINWARD
 
-SPINWARD is a 6DOF exploration game in a rotating megastructure. Fly through a
+SPINWARD is a 6DOF exploration game in a megastructure. Fly through a
 seeded network of rooms and tunnels, use a launched tether to change course,
 reach the ending room, and return to the start. Portal connections can rotate
 and translate space; rooms do not need to fit into one global coordinate system.
