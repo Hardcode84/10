@@ -20,3 +20,7 @@ fn game_world_open(session: mut GameSession, collision: mut CollisionScene, tria
         mut trial
     );
 }
+
+fn game_world_ambient() -> Vec3 {
+    return vec(0f32, 0f32, 0f32);
+}

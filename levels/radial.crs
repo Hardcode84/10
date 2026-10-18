@@ -43,3 +43,8 @@ fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mu
     }
     return collision_finish(move builder, mut collision);
 }
+
+// Constant room light, added to player and hook lighting.
+fn demo_room_ambient() -> Vec3 {
+    return vec(0f32, 0f32, 0f32);
+}

@@ -184,6 +184,8 @@ mesh, and finished collision scene. Portal triangle IDs start at one and
 refer to the collision link order. The room port count must equal the
 collision link count. Level geometry uses local space zero and the shared
 game material palette. Return false on a build error.
+The level also defines `demo_room_ambient() -> Vec3`. This returns the
+constant red, green, and blue light added to player and hook lighting.
 
 `levels/cylinder.crs` connects two ends of one cylindrical room. The small
 opening doubles player size; the large opening halves it. The hook uses

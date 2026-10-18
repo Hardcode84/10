@@ -185,6 +185,10 @@ fn game_materials_open(session: mut GameSession, config: GameConfig) -> bool {
     if !game_room_palette(mut inputs) {
         return false;
     }
+    var ambient: Vec3 = game_world_ambient();
+    input_set_float(mut inputs, SPACE_LIGHT as usize, ambient.x);
+    input_set_float(mut inputs, (SPACE_LIGHT + 1u32) as usize, ambient.y);
+    input_set_float(mut inputs, (SPACE_LIGHT + 2u32) as usize, ambient.z);
     hud_font(mut inputs);
     return true;
 }

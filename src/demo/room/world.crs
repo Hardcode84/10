@@ -13,3 +13,7 @@ fn demo_room_start(asset: read RoomAsset, trial: mut Trial) -> unit {
     trial.auto_level = false;
     reset_trial(mut trial);
 }
+
+fn game_world_ambient() -> Vec3 {
+    return demo_room_ambient();
+}
