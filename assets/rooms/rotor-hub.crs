@@ -167,6 +167,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
         return false;
     }
     rhombi_inset_corners(mut asset.hull, asset_value(read parameters, 2u32));
+    hub_joint_surfaces(mut asset, read parameters);
     if !hub_connections(mut asset, diameter) {
         return false;
     }
@@ -190,10 +191,46 @@ fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
         material.colour = 0x788dadu32;
     }
     if region == 4u32 {
-        material.colour = 0x343b43u32;
+        return hub_joint_material(read parameters);
     }
     if region == 3u32 {
         material.colour = 0x9c9687u32;
     }
     return material;
+}
+
+fn hub_joint_material(parameters: read AssetValues) -> PanelMaterial {
+    var rim: f32 = asset_value(read parameters, 1u32);
+    var b: f32 = asset_value(read parameters, 0u32) * 0.5f32 + rim;
+    var diagonal: f32 = service_oct_profile().radius + rim;
+    var a: f32 = b + 1.41421356237f32 * diagonal;
+    var cut: f32 = 0.3f32 * diagonal * diagonal;
+    var q: f32 = cut / (a - b);
+    var inset: f32 = 1.73205080757f32 * asset_value(read parameters, 2u32);
+    var material: PanelMaterial = hex_tunnel_material();
+    material.colour = 0x343b43u32;
+    material.finish = METAL_TRAPEZOID;
+    material.tile_metres = 1.41421356237f32 * ((-mask_min(-q, -cut / b)) + inset);
+    material.top_width = 1.41421356237f32 * (mask_min(q, cut / b) + inset);
+    material.tile_height = q * sqrtf(1f32 + a * a / (2f32 * b * b));
+    return material;
+}
+fn hub_joint_surfaces(asset: mut RoomAsset, parameters: read AssetValues) -> unit {
+    var material: PanelMaterial = hub_joint_material(read parameters);
+    var i: u32 = 26u32;
+    while i < 50u32 {
+        var face: HullFace = asset_face(read asset.hull, i);
+        var normal: Vec3 = hull_frame(read asset.hull, face).normal;
+        var axis: Vec3 = vec(1f32, 0f32, 0f32);
+        if absf(normal.y) > absf(normal.x) && absf(normal.y) > absf(normal.z) {
+            axis = vec(0f32, 1f32, 0f32);
+        } else if absf(normal.z) > absf(normal.x) {
+            axis = vec(0f32, 0f32, 1f32);
+        }
+        var frame: SurfaceFrame = hull_trapezoid_frame(read asset.hull, face, axis);
+        frame.right = scale(frame.right, asset.tile_metres / material.tile_metres);
+        frame.up = scale(frame.up, asset.tile_metres / material.tile_height);
+        asset_surface_set(mut asset.hull, i, frame);
+        i = i + 1u32;
+    }
 }

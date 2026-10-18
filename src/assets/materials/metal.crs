@@ -5,14 +5,16 @@ const METAL_HEX: u32 = 3u32;
 const METAL_DOOR: u32 = 4u32;
 const METAL_PIPE: u32 = 5u32;
 const METAL_OCT_DOOR: u32 = 6u32;
-// Dimensions are in metres. Panel height must divide tile height.
+const METAL_TRAPEZOID: u32 = 7u32;
+// Dimensions are in metres. Repeated plate height must divide tile height.
 // Sizes and texel density must be positive.
 // Ribbed metal requires a pitch greater than the 0.065 m seam width.
 // METAL_HEX uses width = 3 radii and height = sqrt(3) radii.
 // METAL_HEX ignores panel height and pitch.
+// METAL_TRAPEZOID requires 0 < top_width <= tile_metres; it fills one tile.
 // Marking is 0 (none), 1 (paired strips), 2 (split bars), or 3 (inset studs).
 // Finish is METAL_PLATE, METAL_TREAD, METAL_RIBBED, METAL_HEX, METAL_DOOR,
-// METAL_PIPE, or METAL_OCT_DOOR. Colours use packed RGB.
+// METAL_PIPE, METAL_TRAPEZOID, or METAL_OCT_DOOR. Colours use packed RGB.
 record PanelMaterial {
     colour: u32;
     accent: u32;
@@ -20,6 +22,8 @@ record PanelMaterial {
     tile_metres: f32;
     tile_height: f32;
     panel_height: f32;
+    // METAL_TRAPEZOID has a centred top edge of this width, in metres.
+    top_width: f32;
     texels_per_metre: u32;
     border: f32;
     finish: u32;
@@ -97,6 +101,9 @@ fn metal_fastener(material: PanelMaterial, x: f32, y: f32) -> u32 {
 }
 // Returns a palette index for a point within one repeated panel tile.
 fn panel_base_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
+    if material.finish == METAL_TRAPEZOID {
+        return metal_trapezoid_sample(material, x, tile_y);
+    }
     if material.finish == METAL_OCT_DOOR {
         return metal_oct_door_sample(material, x, tile_y);
     }
@@ -112,6 +119,9 @@ fn panel_base_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
     if material.finish == METAL_HEX {
         return metal_hex_sample(material, x, tile_y);
     }
+    return metal_plate_sample(material, x, tile_y);
+}
+fn metal_plate_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
     var y: f32 = mask_repeat(tile_y, material.panel_height);
     if mask_border(x, y, material.tile_metres, material.panel_height, material.border) {
         return 24u32;
@@ -161,4 +171,21 @@ fn panel_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
         return marking;
     }
     return panel_base_sample(material, x, y);
+}
+
+// Samples a single isosceles trapezoid with constant-width perimeter seams.
+// The bottom edge fills the tile width; the narrower top edge is centred.
+fn metal_trapezoid_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var slope: f32 = (material.tile_metres - material.top_width) / (2f32 * material.tile_height);
+    var side: f32 = (mask_min(x, material.tile_metres - x) - slope * y) / sqrtf(
+        1f32 + slope * slope
+    );
+    var distance: f32 = mask_min(side, mask_min(y, material.tile_height - y));
+    if distance < material.border {
+        return 24u32;
+    }
+    if distance < material.border + 0.025f32 {
+        return 82u32;
+    }
+    return (150f32 + metal_grain(material, x, y)) as u32;
 }

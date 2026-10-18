@@ -101,3 +101,37 @@ fn hull_face_centre(hull: read AssetHull, face: HullFace) -> Vec3 {
     }
     return scale(centre, 1f32 / face.count as f32);
 }
+
+// Returns a metre-scale frame at the wide base of an isosceles trapezoid.
+// The face has four corners. Axis is perpendicular to both parallel bases.
+fn hull_trapezoid_frame(hull: read AssetHull, face: HullFace, axis: Vec3) -> SurfaceFrame {
+    var frame: SurfaceFrame = hull_frame(read hull, face);
+    var best: f32 = 2f32;
+    var base: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var edge: Vec3 = sub(
+            hull_corner(read hull, face, i + 1u32),
+            hull_corner(read hull, face, i)
+        );
+        var opposite: Vec3 = sub(
+            hull_corner(read hull, face, (i + 3u32) % 4u32),
+            hull_corner(read hull, face, i + 2u32)
+        );
+        var alignment: f32 = dot(unit_vector(edge), unit_vector(axis));
+        if alignment * alignment < best {
+            best = alignment * alignment;
+            base = i;
+            if dot(opposite, opposite) > dot(edge, edge) {
+                base = i + 2u32;
+            }
+        }
+        i = i + 1u32;
+    }
+    frame.origin = hull_corner(read hull, face, base);
+    frame.right = unit_vector(
+        sub(hull_corner(read hull, face, (base + 1u32) % 4u32), frame.origin)
+    );
+    frame.up = cross(frame.normal, frame.right);
+    return frame;
+}

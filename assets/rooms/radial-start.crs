@@ -137,6 +137,7 @@ fn radial_material(region: u32) -> PanelMaterial {
         pitch: pitch,
         seed: 147u32 + region,
         tile_metres: tile,
+        top_width: 0f32,
         tile_height: tile_height,
         panel_height: panel_height,
         texels_per_metre: 64u32,
