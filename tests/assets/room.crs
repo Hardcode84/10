@@ -257,5 +257,32 @@ fn asset_test_truncation(extent: f32, width: f32, depth: f32) -> bool {
         }
         vertex = vertex + 1u32;
     }
+    var inset: RoomAsset = room_asset_new();
+    asset_hull_swap(mut inset.hull, mut target.hull);
+    rhombi_inset_corners(mut inset.hull, width * 0.1f32);
+    return room_asset_finish(mut inset) && asset_test_shell(read inset) && asset_test_corner_planes(
+        read source.hull,
+        read inset.hull,
+        width * 0.1f32
+    );
+}
+
+fn asset_test_corner_planes(source: read AssetHull, target: read AssetHull, depth: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_face_count(read source) {
+        var face: HullFace = asset_face(read source, i);
+        var before: SurfaceFrame = hull_frame(read source, face);
+        var after: SurfaceFrame = hull_frame(read target, asset_face(read target, i));
+        var expected: f32 = 0f32;
+        if face.region == 1u32 {
+            expected = depth;
+        }
+        if dot(before.normal, after.normal) < 0.99999f32 || absf(
+            dot(before.normal, sub(before.origin, after.origin)) - expected
+        ) > 0.0001f32 {
+            return error("corner inset changed a socket plane or missed its corner depth");
+        }
+        i = i + 1u32;
+    }
     return true;
 }

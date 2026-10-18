@@ -4,17 +4,22 @@
 // Eight hexagonal corners and twenty-four small cut faces separate the sockets.
 // shaft-diameter must match the shaft for an unscaled link.
 // Rim controls the minimum wall border around shaft and diagonal openings.
+// corner-inset moves the eight hexagonal faces inward, in metres.
+// Socket positions and dimensions stay fixed. The default inset is 1.75 m.
 // The spindle stays in the shaft. The centre is a clear player spawn facing +Y.
 // Regions: 0 socket walls, 1 corner panels, 2 tunnel closures, 3 shaft closure,
 // 4 dark structural joints.
 fn room_parameter_count() -> u32 {
-    return 2u32;
+    return 3u32;
 }
 fn room_parameter_name(index: u32) -> AssetName {
     if index == 0u32 {
         return asset_name("shaft-diameter");
     }
-    return asset_name("rim");
+    if index == 1u32 {
+        return asset_name("rim");
+    }
+    return asset_name("corner-inset");
 }
 fn room_parameter(index: u32) -> AssetParameter {
     if index == 0u32 {
@@ -23,6 +28,14 @@ fn room_parameter(index: u32) -> AssetParameter {
             maximum: 40f32,
             initial: 16f32,
             step: 1f32
+        };
+    }
+    if index == 2u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 2f32,
+            initial: 1.75f32,
+            step: 0.25f32
         };
     }
     return make AssetParameter {
@@ -150,7 +163,11 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
         mut asset.hull,
         depth,
         4u32
-    ) || !hub_connections(mut asset, diameter) {
+    ) {
+        return false;
+    }
+    rhombi_inset_corners(mut asset.hull, asset_value(read parameters, 2u32));
+    if !hub_connections(mut asset, diameter) {
         return false;
     }
     asset.spawn = make AssetSpawn {

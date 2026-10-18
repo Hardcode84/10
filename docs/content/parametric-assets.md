@@ -45,6 +45,7 @@ its inputs through a root Crust entry point.
 | Indexed hull | Owned vertex, polygon, and corner-index storage; shared polygon edges use shared vertex IDs |
 | Regular profile | Side count and angular phase; positive radius supplied for each ring |
 | Rhombicuboctahedral hull | Six square, twelve rectangular and eight triangular faces; independent cardinal and diagonal face dimensions; full cube symmetry |
+| Rhombi corner inset | Enlarge the eight corner faces inward; keep cardinal and diagonal socket planes fixed; preserve closed planar faces |
 | Radial vertex cut | Cut each vertex with a plane normal to its radius; preserve original face IDs and regions; add closed cut faces with shared edges |
 | Truncated cube | Six regular octagonal faces and eight triangular corners; shared boundary vertices; positive half-extent |
 | Ring loft | Aligned rings along +Y; increasing heights; outward polygon winding |

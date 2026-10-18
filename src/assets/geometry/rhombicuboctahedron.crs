@@ -114,3 +114,31 @@ fn rhombi_hull(
     }
     return true;
 }
+
+// Enlarges the eight corner faces of a radially truncated rhombi_hull.
+// Depth is the inward distance normal to each hexagonal corner face.
+// The cardinal and diagonal socket planes stay fixed. Depth is nonnegative;
+// sqrt(3) * depth must be smaller than every vertex's smallest absolute coordinate.
+fn rhombi_inset_corners(hull: mut AssetHull, depth: f32) -> unit {
+    var shift: f32 = depth * 1.73205080757f32;
+    var i: u32 = 0u32;
+    while i < asset_vertex_count(read hull) {
+        var p: Vec3 = asset_vertex(read hull, i);
+        var direction: Vec3 = vec(0f32, 0f32, 0f32);
+        if absf(p.x) < absf(p.y) && absf(p.x) < absf(p.z) {
+            direction.x = p.x / absf(p.x);
+        } else if absf(p.y) < absf(p.z) {
+            direction.y = p.y / absf(p.y);
+        } else {
+            direction.z = p.z / absf(p.z);
+        }
+        asset_vertex_set(mut hull, i, sub(p, scale(direction, shift)));
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < asset_face_count(read hull) {
+        var frame: SurfaceFrame = hull_frame(read hull, asset_face(read hull, i));
+        asset_surface_set(mut hull, i, frame);
+        i = i + 1u32;
+    }
+}
