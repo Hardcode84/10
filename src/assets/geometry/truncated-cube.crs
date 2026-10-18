@@ -1,0 +1,123 @@
+// Corner signs follow the X, Y, and Z bits, with a set bit on the positive side.
+fn cube_corner_signs(corner: u32) -> Vec3 {
+    return vec(
+        (corner & 1u32) as f32 * 2f32 - 1f32,
+        ((corner >> 1u32) & 1u32) as f32 * 2f32 - 1f32,
+        ((corner >> 2u32) & 1u32) as f32 * 2f32 - 1f32
+    );
+}
+// Face order is -X, +X, -Y, +Y, -Z, +Z. Frames point out of the cube.
+fn cube_face_basis(face: u32) -> Basis {
+    var normal: Vec3 = vec(0f32, 0f32, 0f32);
+    var sign: f32 = (face % 2u32) as f32 * 2f32 - 1f32;
+    var right: Vec3 = vec(1f32, 0f32, 0f32);
+    if face / 2u32 == 0u32 {
+        normal.x = sign;
+        right = vec(0f32, 1f32, 0f32);
+    } else if face / 2u32 == 1u32 {
+        normal.y = sign;
+    } else {
+        normal.z = sign;
+    }
+    return make Basis {
+        right: right,
+        up: cross(normal, right),
+        forward: normal
+    };
+}
+// Orders the vertices of a convex planar face counterclockwise about its outward normal.
+fn hull_order_face(hull: mut AssetHull, face: HullFace, basis: Basis) -> unit {
+    var centre: Vec3 = vec(0f32, 0f32, 0f32);
+    var corner: u32 = 0u32;
+    while corner < face.count {
+        centre = add(centre, hull_corner(read hull, face, corner));
+        corner = corner + 1u32;
+    }
+    centre = scale(centre, 1f32 / face.count as f32);
+    var i: u32 = 1u32;
+    while i < face.count {
+        var id: u32 = asset_index(read hull, face.first + i);
+        var point: Vec3 = sub(asset_vertex(read hull, id), centre);
+        var angle: f32 = atan2f(dot(point, basis.up), dot(point, basis.right));
+        var j: u32 = i;
+        while j > 0u32 {
+            var previous: u32 = asset_index(read hull, face.first + j - 1u32);
+            var p: Vec3 = sub(asset_vertex(read hull, previous), centre);
+            if atan2f(dot(p, basis.up), dot(p, basis.right)) <= angle {
+                break;
+            }
+            asset_index_set(mut hull, face.first + j, previous);
+            j = j - 1u32;
+        }
+        asset_index_set(mut hull, face.first + j, id);
+        i = i + 1u32;
+    }
+}
+// A regular truncated cube centred at the origin. Half-extent is positive.
+// Faces 0..5 are octagons in cube_face_basis order; 6..13 are corner triangles.
+fn truncated_cube_hull(hull: mut AssetHull, extent: f32, side: u32, corner_region: u32) -> bool {
+    if !asset_hull_allocate(mut hull, 24u32, 14u32, 72u32) {
+        return false;
+    }
+    var corner: u32 = 0u32;
+    while corner < 8u32 {
+        var signs: Vec3 = cube_corner_signs(corner);
+        var axis: u32 = 0u32;
+        while axis < 3u32 {
+            var p: Vec3 = scale(signs, extent);
+            if axis == 0u32 {
+                p.x = p.x * 0.41421356237f32;
+            }
+            if axis == 1u32 {
+                p.y = p.y * 0.41421356237f32;
+            }
+            if axis == 2u32 {
+                p.z = p.z * 0.41421356237f32;
+            }
+            asset_vertex_set(mut hull, corner * 3u32 + axis, p);
+            axis = axis + 1u32;
+        }
+        corner = corner + 1u32;
+    }
+    var face_id: u32 = 0u32;
+    while face_id < 6u32 {
+        var basis: Basis = cube_face_basis(face_id);
+        var face: HullFace = make HullFace {
+            first: face_id * 8u32,
+            count: 8u32,
+            region: side
+        };
+        var count: u32 = 0u32;
+        var vertex: u32 = 0u32;
+        while vertex < 24u32 {
+            if vertex % 3u32 != face_id / 2u32 && ((vertex / 3u32 >> (face_id / 2u32)) & 1u32) == face_id % 2u32 {
+                asset_index_set(mut hull, face.first + count, vertex);
+                count = count + 1u32;
+            }
+            vertex = vertex + 1u32;
+        }
+        hull_order_face(mut hull, face, basis);
+        asset_face_set(mut hull, face_id, face);
+        var surface: SurfaceFrame = hull_frame(read hull, face);
+        asset_surface_set(mut hull, face_id, surface);
+        face_id = face_id + 1u32;
+    }
+    corner = 0u32;
+    while corner < 8u32 {
+        var face: HullFace = make HullFace {
+            first: 48u32 + corner * 3u32,
+            count: 3u32,
+            region: corner_region
+        };
+        var signs: Vec3 = cube_corner_signs(corner);
+        var forward: bool = signs.x * signs.y * signs.z > 0f32;
+        asset_index_set(mut hull, face.first, corner * 3u32);
+        asset_index_set(mut hull, face.first + 1u32, corner * 3u32 + 2u32 - forward as u32);
+        asset_index_set(mut hull, face.first + 2u32, corner * 3u32 + 1u32 + forward as u32);
+        asset_face_set(mut hull, corner + 6u32, face);
+        var surface: SurfaceFrame = hull_frame(read hull, face);
+        asset_surface_set(mut hull, corner + 6u32, surface);
+        corner = corner + 1u32;
+    }
+    return true;
+}

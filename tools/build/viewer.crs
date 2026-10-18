@@ -4,7 +4,7 @@ fn build_viewer(
     recipe: *u8,
     checks: bool
 ) -> bool {
-    var sources: [*u8; 64] = uninit;
+    var sources: [*u8; 80] = uninit;
     var providers: [*u8; 64] = uninit;
     var source_count: usize = asset_sources(root, &sources[0usize]);
     source_count = source_count + asset_collision_sources(root, &sources[source_count]);

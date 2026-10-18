@@ -36,3 +36,25 @@ fn service_oct_profile() -> ConnectionProfile {
         clearance: 2.75f32
     };
 }
+
+// Round shaft profile, 16 m at unit scale. Diameter is in the range 16..40 m.
+// Four mating rolls preserve the shaft's X rotor orientation.
+fn rotor_shaft_profile(diameter: f32) -> ConnectionProfile {
+    var numerator: f32 = diameter;
+    var denominator: u64 = 16u64;
+    while numerator != numerator as u64 as f32 {
+        numerator = numerator * 2f32;
+        denominator = denominator * 2u64;
+    }
+    return make ConnectionProfile {
+        scale: scale_ratio(numerator as u64, denominator),
+        name: asset_name("ROTOR-SHAFT"),
+        shape: make RegularProfile {
+            sides: 48u32,
+            phase: 3.14159265359f32 / 48f32
+        },
+        radius: diameter * 0.5f32,
+        rotations: 4u32,
+        clearance: diameter / 16f32
+    };
+}

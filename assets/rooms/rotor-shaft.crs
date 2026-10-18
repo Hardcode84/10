@@ -1,10 +1,13 @@
-// Rotor shaft: a closed 60 m cylinder, 16 m across, with a 3 m central spindle.
+// Rotor shaft: a 60 m cylinder, 16 m across, with a 3 m central spindle.
 // The axis is +Y. Six static X rotors divide the annulus into open sectors.
 // Wings reach the wall. Fly between wings to pass each rotor station.
 // Each rotor has a local pivot on the shaft axis and shares one solid mesh.
 // Successive stations turn 22.5 degrees. Rotation is not enabled.
 // Dimensions are metres; rotor-count is an integer. BOTTOM-0 through BOTTOM-2
 // are HEX-6M ports at Y=0, facing -Y, with six mating rotations each.
+// TOP is the full round cap at +Y, with a ROTOR-SHAFT connection.
+// The spindle reaches TOP; passage remains around it.
+// Matching diameters connect at unit relative scale.
 // Materials: 0 shell, 1 far cap, 2 spindle, 3 rotor wings, 4 bottom, 5 port closures.
 fn room_parameter_count() -> u32 {
     return 4u32;
@@ -54,10 +57,7 @@ fn room_parameter(index: u32) -> AssetParameter {
     };
 }
 fn shaft_cylinder(hull: mut AssetHull, radius: f32, height: f32, side: u32, cap: u32) -> bool {
-    var profile: RegularProfile = make RegularProfile {
-        sides: 48u32,
-        phase: 3.14159265359f32 / 48f32
-    };
+    var profile: RegularProfile = rotor_shaft_profile(16f32).shape;
     if !loft_allocate(mut hull, profile, 2u32) {
         return false;
     }
@@ -150,7 +150,8 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
         return false;
     }
     var height: f32 = asset_value(read parameters, 0u32);
-    var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
+    var diameter: f32 = asset_value(read parameters, 1u32);
+    var radius: f32 = diameter * 0.5f32;
     var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
     var count: f32 = asset_value(read parameters, 3u32);
     if count != count as u32 as f32 || height / (count + 1f32) < 3f32 {
@@ -174,7 +175,16 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
             forward: vec(0f32, 1f32, 0f32)
         }
     };
-    return shaft_connections(mut asset, core) && room_asset_finish(mut asset);
+    return shaft_connections(mut asset, core) && asset_port_append(
+        mut asset.ports,
+        make RoomPort {
+            id: asset_name("TOP"),
+            profile: rotor_shaft_profile(diameter),
+            face: 49u32,
+            position: vec(0f32, height, 0f32),
+            basis: cube_face_basis(3u32)
+        }
+    ) && room_asset_finish(mut asset);
 }
 fn room_material_count() -> u32 {
     return 6u32;

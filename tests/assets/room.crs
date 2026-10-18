@@ -203,3 +203,28 @@ fn asset_hull_contact(hull: read AssetHull, start: Vec3, travel: Vec3, radius: f
     }
     return result;
 }
+
+fn asset_test_truncated_cube(extent: f32) -> bool {
+    var asset: RoomAsset = room_asset_new();
+    if !truncated_cube_hull(mut asset.hull, extent, 0u32, 1u32) || !room_asset_finish(mut asset) || !asset_test_shell(
+        read asset
+    ) {
+        return false;
+    }
+    var edge: f32 = 2f32 * extent * (sqrtf(2f32) - 1f32);
+    var face_id: u32 = 0u32;
+    while face_id < asset_face_count(read asset.hull) {
+        var face: HullFace = asset_face(read asset.hull, face_id);
+        var i: u32 = 0u32;
+        while i < face.count {
+            var a: Vec3 = hull_corner(read asset.hull, face, i);
+            var b: Vec3 = hull_corner(read asset.hull, face, (i + 1u32) % face.count);
+            if absf(length(sub(b, a)) - edge) > edge * 0.00001f32 {
+                return error("truncated cube edges are not regular");
+            }
+            i = i + 1u32;
+        }
+        face_id = face_id + 1u32;
+    }
+    return true;
+}

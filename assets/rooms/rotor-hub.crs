@@ -1,0 +1,127 @@
+// Regular truncated-cube hub: six octagonal faces and eight triangular corners.
+// SHAFT occupies the -Y face with a full-size round ROTOR-SHAFT opening.
+// LEFT, RIGHT, FORWARD, DOWN, and UP are centred OCT-8M tunnel connections.
+// The default hub is 24 m across, with a 16 m shaft port and a 4 m rim.
+// shaft-diameter must match the shaft for an unscaled link.
+// Different shaft diameters use the connection's declared rational scale.
+// The centre is a clear player spawn facing the forward tunnel along +Y.
+// Regions: 0 octagonal walls, 1 corner plates, 2 tunnel closures, 3 shaft closure.
+fn room_parameter_count() -> u32 {
+    return 2u32;
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("shaft-diameter");
+    }
+    return asset_name("rim");
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 16f32,
+            maximum: 40f32,
+            initial: 16f32,
+            step: 1f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 0.25f32,
+        maximum: 8f32,
+        initial: 4f32,
+        step: 0.25f32
+    };
+}
+fn hub_port_name(face: u32) -> AssetName {
+    if face == 0u32 {
+        return asset_name("LEFT");
+    }
+    if face == 1u32 {
+        return asset_name("RIGHT");
+    }
+    if face == 2u32 {
+        return asset_name("SHAFT");
+    }
+    if face == 3u32 {
+        return asset_name("FORWARD");
+    }
+    if face == 4u32 {
+        return asset_name("DOWN");
+    }
+    return asset_name("UP");
+}
+fn hub_connections(asset: mut RoomAsset, extent: f32, diameter: f32) -> bool {
+    var next: AssetHull = asset_hull_new();
+    var face: u32 = 0u32;
+    while face < 6u32 {
+        var basis: Basis = cube_face_basis(face);
+        var profile: ConnectionProfile = service_oct_profile();
+        var closure: u32 = 2u32;
+        if face == 2u32 {
+            profile = rotor_shaft_profile(diameter);
+            closure = 3u32;
+        }
+        var port: RoomPort = make RoomPort {
+            id: hub_port_name(face),
+            profile: profile,
+            face: face,
+            position: scale(basis.forward, extent),
+            basis: basis
+        };
+        asset_surface_set(
+            mut asset.hull,
+            face,
+            make SurfaceFrame {
+                origin: port.position,
+                right: basis.right,
+                up: basis.up,
+                normal: basis.forward
+            }
+        );
+        if !hull_convex_partition(read asset.hull, mut next, port, closure) || !asset_port_append(
+            mut asset.ports,
+            port
+        ) {
+            return false;
+        }
+        asset_hull_swap(mut asset.hull, mut next);
+        face = face + 1u32;
+    }
+    return true;
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !asset_parameters_valid(read parameters) {
+        return false;
+    }
+    var diameter: f32 = asset_value(read parameters, 0u32);
+    var extent: f32 = diameter * 0.5f32 + asset_value(read parameters, 1u32);
+    if !truncated_cube_hull(mut asset.hull, extent, 0u32, 1u32) || !hub_connections(
+        mut asset,
+        extent,
+        diameter
+    ) {
+        return false;
+    }
+    asset.spawn = make AssetSpawn {
+        position: vec(0f32, 0f32, 0f32),
+        basis: cube_face_basis(3u32)
+    };
+    return room_asset_finish(mut asset);
+}
+fn room_material_count() -> u32 {
+    return 4u32;
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.colour = 0x807769u32;
+    material.panel_height = 2f32;
+    if region == 1u32 {
+        return hex_bulkhead_material();
+    }
+    if region == 2u32 {
+        material.colour = 0x788dadu32;
+    }
+    if region == 3u32 {
+        material.colour = 0x9c9687u32;
+    }
+    return material;
+}
