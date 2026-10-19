@@ -82,36 +82,9 @@ fn solid_box(
     tile_metres: f32
 ) -> bool {
     var hull: AssetHull = asset_hull_new();
-    var profile: RegularProfile = make RegularProfile {
-        sides: 4u32,
-        phase: 0f32
-    };
-    if !loft_allocate(mut hull, profile, 2u32) {
+    if !solid_box_hull(mut hull, dimensions, region) {
         return false;
     }
-    var ring: u32 = 0u32;
-    while ring < 2u32 {
-        var i: u32 = 0u32;
-        while i < 4u32 {
-            var x: f32 = dimensions.x * 0.5f32;
-            var z: f32 = dimensions.z * 0.5f32;
-            if i == 1u32 || i == 2u32 {
-                x = -x;
-            }
-            if i >= 2u32 {
-                z = -z;
-            }
-            asset_vertex_set(
-                mut hull,
-                ring * 4u32 + i,
-                vec(x, (ring as f32 - 0.5f32) * dimensions.y, z)
-            );
-            i = i + 1u32;
-        }
-        ring = ring + 1u32;
-    }
-    loft_span(mut hull, profile, 0u32, region);
-    loft_caps(mut hull, profile, 2u32, region, region);
     var face: u32 = 0u32;
     while face < asset_face_count(read hull) {
         var frame: SurfaceFrame = asset_surface(read hull, face);
@@ -203,4 +176,96 @@ fn solid_triangular_prism(
         identity_basis(),
         tile_metres
     );
+}
+
+fn solid_box_hull(hull: mut AssetHull, dimensions: Vec3, region: u32) -> bool {
+    var profile: RegularProfile = make RegularProfile {
+        sides: 4u32,
+        phase: 0f32
+    };
+    if !loft_allocate(mut hull, profile, 2u32) {
+        return false;
+    }
+    var ring: u32 = 0u32;
+    while ring < 2u32 {
+        var i: u32 = 0u32;
+        while i < 4u32 {
+            var x: f32 = dimensions.x * 0.5f32;
+            var z: f32 = dimensions.z * 0.5f32;
+            if i == 1u32 || i == 2u32 {
+                x = -x;
+            }
+            if i >= 2u32 {
+                z = -z;
+            }
+            asset_vertex_set(
+                mut hull,
+                ring * 4u32 + i,
+                vec(x, (ring as f32 - 0.5f32) * dimensions.y, z)
+            );
+            i = i + 1u32;
+        }
+        ring = ring + 1u32;
+    }
+    loft_span(mut hull, profile, 0u32, region);
+    loft_caps(mut hull, profile, 2u32, region, region);
+    return true;
+}
+
+// Wraps the four long faces around local X. V repeats twice around the section.
+// Material tile width is tile_metres; tile height is dimensions.y + dimensions.z.
+fn solid_box_wrapped(
+    mesh: mut Mesh,
+    dimensions: Vec3,
+    region: u32,
+    origin: Vec3,
+    basis: Basis,
+    tile_metres: f32
+) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    if !solid_box_hull(mut hull, dimensions, region) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        var frame: SurfaceFrame = asset_surface(read hull, i);
+        if absf(frame.normal.x) < 0.5f32 {
+            frame = solid_box_wrap_frame(frame.normal, dimensions, tile_metres);
+        } else {
+            frame.origin = sub(
+                frame.origin,
+                scale(add(frame.right, frame.up), tile_metres * 0.5f32)
+            );
+        }
+        asset_surface_set(mut hull, i, frame);
+        i = i + 1u32;
+    }
+    return hull_solid_mesh(read hull, mut mesh, origin, basis, tile_metres);
+}
+fn solid_box_wrap_frame(normal: Vec3, dimensions: Vec3, tile: f32) -> SurfaceFrame {
+    var right: Vec3 = vec(-1f32, 0f32, 0f32);
+    var up: Vec3 = vec(0f32, 0f32, 1f32);
+    var offset: f32 = 0f32;
+    if normal.y < -0.5f32 {
+        up.z = -1f32;
+        offset = dimensions.z + dimensions.y;
+    } else if normal.z > 0.5f32 {
+        up = vec(0f32, -1f32, 0f32);
+        offset = (dimensions.z + dimensions.y) * 0.5f32;
+    } else if normal.z < -0.5f32 {
+        up = vec(0f32, 1f32, 0f32);
+        offset = (dimensions.z + dimensions.y) * 1.5f32;
+    }
+    return make SurfaceFrame {
+        origin: scale(
+            add(
+                scale(right, tile * 0.5f32),
+                scale(up, offset + (dimensions.y + dimensions.z) * 0.5f32)
+            ),
+            -1f32
+        ),
+        right: right,
+        up: scale(up, tile / (dimensions.y + dimensions.z)),
+        normal: normal
+    };
 }

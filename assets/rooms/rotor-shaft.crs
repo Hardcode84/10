@@ -3,6 +3,7 @@
 // Wings reach the wall. Fly between wings to pass each rotor station.
 // Each rotor has a local pivot on the shaft axis and shares one solid mesh.
 // Successive stations turn 22.5 degrees. Rotation is not enabled.
+// Wing metal wraps around the long axis; side and cap rows share one phase.
 // Dimensions are metres; rotor-count is an integer. BOTTOM-0 through BOTTOM-2
 // are HEX-6M ports at Y=0, facing -Y, with six mating rotations each.
 // TOP is the full round cap at +Y, with a ROTOR-SHAFT connection.
@@ -130,7 +131,7 @@ fn shaft_wings(mesh: mut Mesh, radius: f32, core: f32) -> bool {
     while i < 4u32 {
         var basis: Basis = shaft_basis(1.57079632679f32 * i as f32);
         var centre: Vec3 = scale(basis.right, (rim + core) * 0.5f32);
-        if !solid_box(
+        if !solid_box_wrapped(
             mut mesh,
             vec(rim - core, 0.6f32, width),
             3u32,
@@ -226,6 +227,15 @@ fn room_material_count() -> u32 {
     return 9u32;
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 3u32 {
+        var material: PanelMaterial = shaft_material(region);
+        var rim: f32 = asset_value(read parameters, 1u32) * 0.5f32 * cosf(
+            3.14159265359f32 / 48f32
+        );
+        material.tile_height = mask_min(1.2f32, rim * 0.12f32) + 0.6f32;
+        material.panel_height = material.tile_height;
+        return material;
+    }
     if region == 0u32 || region == 2u32 {
         return shaft_track_material(region, read parameters);
     }
