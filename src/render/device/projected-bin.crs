@@ -1,0 +1,66 @@
+fn projected_bin_leaf(task: u32, view: u32, group: u32, count: u32, x: f32, y: f32) -> unit {
+    var bits: u32 = 0u32;
+    var item: u32 = group * PROJECTED_LEAF;
+    while item < (group + 1u32) * PROJECTED_LEAF && item < count {
+        var id: u32 = words_load(
+            words_load(COMPACT_OFFSET) + batch_offset(view) * MAX_FAN + item
+        );
+        if triangle_tile_overlap(projected_pointer(view, id), x, y) {
+            bits = bits | (1u32 << (item % PROJECTED_LEAF));
+        }
+        item = item + 1u32;
+    }
+    words_store(words_load(TILE_BITS) + task * tile_bit_stride() + group, bits);
+}
+fn projected_bin(task: u32, lane: u32) -> unit {
+    if task >= words_load(6u32) || words_load(5u32) != 0u32 {
+        return;
+    }
+    var base: u32 = task_base() + task * 4u32;
+    var view: u32 = words_load(base + 1u32);
+    if !batch_active(view) {
+        return;
+    }
+    var count: u32 = words_load(words_load(COMPACT_COUNT) + view);
+    var groups: u32 = (count + PROJECTED_LEAF - 1u32) / PROJECTED_LEAF;
+    var power: u32 = projected_power(groups);
+    var partition: u32 = 1u32;
+    var root: u32 = power + lane;
+    if power >= LOCAL_SIZE {
+        partition = power / LOCAL_SIZE;
+        root = LOCAL_SIZE + lane;
+    }
+    var first: u32 = lane * partition;
+    if first >= groups {
+        return;
+    }
+    var group: u32 = first;
+    while group < first + partition && group < groups {
+        words_store(words_load(TILE_BITS) + task * tile_bit_stride() + group, 0u32);
+        group = group + 1u32;
+    }
+    var tile: u32 = words_load(base);
+    var cols: u32 = (words_load(0u32) + 7u32) / 8u32;
+    var x: f32 = (tile % cols * 8u32) as f32;
+    var y: f32 = (tile / cols * 8u32) as f32;
+    var node: u32 = root;
+    var end: u32 = projected_next(root);
+    while node != end {
+        if projected_overlap(view, node, x, y) {
+            if node < power {
+                node = node * 2u32;
+            } else {
+                projected_bin_leaf(task, view, node - power, count, x, y);
+                node = projected_next(node);
+            }
+        } else {
+            node = projected_next(node);
+        }
+    }
+}
+fn compute() -> unit {
+    projected_bin(
+        shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE),
+        shader_local_x()
+    );
+}

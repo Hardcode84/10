@@ -5,7 +5,7 @@ fn shader_source(
     report: bool,
     checked: bool
 ) -> bool {
-    var paths: [*u8; 11] = make [*u8; 11] {
+    var paths: [*u8; 12] = make [*u8; 12] {
         "src/render/interface.crs",
         "src/render/device/common.crs",
         "src/render/device/shadows.crs",
@@ -16,11 +16,24 @@ fn shader_source(
         "src/render/device/projection-math.crs",
         "src/render/device/raster-math.crs",
         "src/render/device/projection-storage.crs",
-        "src/render/device/tile-tree.crs"
+        "src/render/device/tile-tree.crs",
+        "src/render/device/projected-tree.crs"
     };
     var count: usize = 10usize;
     if cache_strcmp(name, "src/render/device/tile-raster.crs") == 0i32 {
         paths[9usize] = "src/render/device/tile-storage.crs";
+        count = 11usize;
+    }
+    if cache_strcmp(name, "src/render/device/compact.crs") == 0i32 {
+        paths[10usize] = "src/render/device/compact-data.crs";
+        count = 11usize;
+    }
+    if cache_strcmp(name, "src/render/device/projected-build.crs") == 0i32 {
+        paths[10usize] = "src/render/device/compact-data.crs";
+        count = 12usize;
+    }
+    if cache_strcmp(name, "src/render/device/projected-bin.crs") == 0i32 {
+        paths[10usize] = paths[11usize];
         count = 11usize;
     }
     if checked {
@@ -30,7 +43,7 @@ fn shader_source(
         paths[1usize] = name;
         count = 2usize;
     }
-    var parts: [CrustSource; 11] = uninit;
+    var parts: [CrustSource; 12] = uninit;
     var size: usize = count;
     var part: usize = 0usize;
     while part < count {
@@ -191,7 +204,7 @@ fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
             "set LLVM_DIRECTORY and SPIRV_VAL, or provide build/toolchain/llvm and build/toolchain/spirv-val"
         );
     }
-    var sources: [*u8; 17] = make [*u8; 17] {
+    var sources: [*u8; 19] = make [*u8; 19] {
         "src/render/device/init.crs",
         "src/render/device/transform.crs",
         "src/render/device/raster.crs",
@@ -208,10 +221,12 @@ fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
         "src/render/device/shade.crs",
         "src/render/device/batch-plan.crs",
         "src/render/device/tile-raster.crs",
+        "src/render/device/projected-build.crs",
+        "src/render/device/projected-bin.crs",
         "src/render/device/status.crs"
     };
     var i: usize = 0usize;
-    while i < 17usize {
+    while i < 19usize {
         var shared_length: u32 = render_shader_shared(i);
         if !build_shader(
             root,
@@ -221,13 +236,13 @@ fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
             validator,
             SHADER_WORKGROUP_U32,
             shared_length,
-            i == 16usize,
+            i == 18usize,
             true,
             web
         ) {
             return false;
         }
-        if i < 16usize && !build_shader(
+        if i < 18usize && !build_shader(
             root,
             sources[i],
             render_build_shader_path(root, i, false, web),
@@ -263,6 +278,9 @@ fn build_render_shaders(root: *CrustRun) -> bool {
 }
 
 fn render_shader_shared(index: usize) -> u32 {
+    if index == 16usize {
+        return 64u32;
+    }
     if index == 15usize {
         return 128u32;
     }
@@ -275,7 +293,7 @@ fn render_shader_shared(index: usize) -> u32 {
     if index == 5usize {
         return 64u32;
     }
-    if index == 16usize {
+    if index == 18usize {
         return 192u32;
     }
     return 0u32;

@@ -2,8 +2,8 @@ fn demo_renderer_configured(v: *RenderState, config: *RenderConfig, window: *u8)
     if !window_instance(v, window) {
         return false;
     }
-    var shaders: [ShaderCode; 17] = uninit;
-    zero(&shaders as *u8, sizeof([ShaderCode; 17]));
+    var shaders: [ShaderCode; 19] = uninit;
+    zero(&shaders as *u8, sizeof([ShaderCode; 19]));
     var good: bool = true;
     var i: usize = 0usize;
     while good && i < (PIPELINE_COUNT as usize - 1usize + (config -> shader_checks) as usize) {

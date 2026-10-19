@@ -44,6 +44,13 @@ fn course_benchmark(
         credit: 0u64,
         running: true
     };
+    session.renderer.state.tile_owned = benchmark_environment("SPINWARD_TILE_PROOF") != null(*u8);
+    session.renderer.state.projected_tree = benchmark_environment("SPINWARD_PROJECTED_PROOF") != null(
+        *u8
+    );
+    if session.renderer.state.tile_owned && session.renderer.state.projected_tree {
+        return error("select only one renderer experiment");
+    }
     if !game_run_setup(mut session, mut scene, mut loop, config) {
         return false;
     }
@@ -78,7 +85,6 @@ fn course_benchmark(
     print_number(graph_count(read session.control.graph) as i64);
     print_number(graph_ports(read session.control.graph) as i64);
     print_number(mesh_triangle_count(read session.room_mesh) as i64);
-    session.renderer.state.tile_owned = benchmark_environment("SPINWARD_TILE_PROOF") != null(*u8);
     if !course_benchmark_frames(read scene, mut session, read loop, config, samples) {
         return false;
     }

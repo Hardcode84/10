@@ -13,8 +13,8 @@ record RenderBackend {
     staging_memory: *u8;
     layout: *u8;
     pipeline_layout: *u8;
-    modules: [*u8; 17];
-    pipelines: [*u8; 17];
+    modules: [*u8; 19];
+    pipelines: [*u8; 19];
     pool: *u8;
     set: *u8;
     command_pool: *u8;

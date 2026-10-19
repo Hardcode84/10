@@ -629,3 +629,34 @@ fn task_pixel_active(base: u32, lane: u32, x: u32, y: u32, width: u32) -> bool {
         ) == 0u32
     );
 }
+
+fn edge_tile_overlap(ax: f32, ay: f32, bx: f32, by: f32, x: f32, y: f32) -> bool {
+    var px: f32 = x;
+    var py: f32 = y;
+    if by < ay {
+        px = px + 8f32;
+    }
+    if bx > ax {
+        py = py + 8f32;
+    }
+    return coverage_edge(ax, ay, bx, by, px, py) >= 0f32;
+}
+fn triangle_tile_overlap(p: u32, x: f32, y: f32) -> bool {
+    if !tile_overlap(p, x, y) {
+        return false;
+    }
+    var ax: f32 = floats_load(p);
+    var ay: f32 = floats_load(p + 1u32);
+    var bx: f32 = floats_load(p + 6u32);
+    var by: f32 = floats_load(p + 7u32);
+    var cx: f32 = floats_load(p + 12u32);
+    var cy: f32 = floats_load(p + 13u32);
+    return edge_tile_overlap(ax, ay, bx, by, x, y) && edge_tile_overlap(bx, by, cx, cy, x, y) && edge_tile_overlap(
+        cx,
+        cy,
+        ax,
+        ay,
+        x,
+        y
+    );
+}

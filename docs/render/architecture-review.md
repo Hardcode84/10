@@ -500,3 +500,101 @@ the per-plane inside test; disable the unconditional inside test for the control
 Keep all branches in one shader binary for paired comparisons. Mode numbers in
 the CSV are the sums of these bits. Move the first-depth end timestamp before
 `shade` for the setup series. Restore all diagnostic edits after the experiment.
+
+## Shared projected-geometry proof
+
+The bounded proof reuses the current batch producer and projection pass. Each
+triangle is transformed and clipped once per view and batch. A binary hierarchy
+contains screen bounds for groups of 32 compact projected triangles. Each tile
+workgroup searches disjoint parts of this hierarchy. It writes the existing
+candidate bitmap and uses the normal raster and shade passes.
+
+The hierarchy occupies clipping scratch after projection has completed. For N
+projected triangles, even a tree with one triangle per leaf needs fewer than 4N
+nodes and four floats per node. N is at most eight times the source batch size.
+The tree thus needs fewer than 128 floats per source triangle. The existing
+scratch reserves 144. Grouping the leaves reduces this requirement further.
+Each view's tree stays within its own batch slice. Empty padded leaves have
+empty bounds. No hierarchy lookup crosses a view's allocation.
+
+This proof adds no geometry-sized allocation, reference queue, or host readback.
+It keeps the current bounded completion schedule. The final candidate bitmap,
+identity order, clipping, cutout tests, portal masks, and lighting are unchanged.
+The proof is selected only by test entry points:
+
+```sh
+crust tests.crs course-benchmark levels/prefabs.crs --build-only
+SPINWARD_PROJECTED_PROOF=1 build/course-benchmark 11 0 --samples 128 \
+  --width 1920 --height 1080 --capture build/projected-hub.ppm
+SPINWARD_PROJECTED_PROOF=1 crust tests.crs render 7
+```
+
+Unset `SPINWARD_PROJECTED_PROOF` for the control. Select the same Vulkan device
+for both runs. The test rejects simultaneous selection of the tile-owned and
+projected-tree experiments.
+
+### Result and decision
+
+The [paired results](projected-proof.csv) use the Intel Arc Pro B60, eight warm-up
+frames, and 128 measured frames at 1920 by 1080. The renderer does not present
+frames or read pixels during timing. Each pair has a byte-identical final
+capture. Both paths allocate 836,759,040 device bytes and the same staging size.
+These tests use fixed production room views. They do not prove moving-camera
+frame pacing or room-shadow performance.
+
+| Room | Normal GPU p99 | Projected tree GPU p99 | Projected tree frame p99 |
+| --- | ---: | ---: | ---: |
+| Passage | 13.65 ms | 13.35 ms | 16.54 ms |
+| Rotor shaft | 22.17 ms | 21.37 ms | 25.16 ms |
+| Rotor hub | 25.34 ms | 23.32 ms | 27.35 ms |
+
+The proof fails the 10 ms GPU and 12 ms frame targets. Keep the normal path as
+the application default. Do not expand this experiment into a new scheduling
+system on the strength of the small relative gain.
+
+### Why the proof still fails
+
+Temporary GPU timestamps isolate the first four hub batches in one measured
+frame. Projection takes 0.321 ms, compaction and tree construction take 0.826 ms,
+binning takes 4.430 ms, and rasterization takes 4.581 ms. The first three shade
+calls have no finished view. The fourth shade call takes 5.406 ms, including
+portal-mask output. These are pass intervals from a diagnostic frame, not
+independent percentile measurements.
+
+Shared projection removes repeated setup, but tile admission still searches
+projected groups for each screen tile. Rasterization still searches the dense
+candidate bitmap for each pixel. The tree narrows the admission search. It does
+not remove either screen-sized cost, and it leaves the batch command schedule
+and portal processing in place.
+
+A separate diagnostic removes only the `lit_state` evaluation from
+`surface_color`, while retaining texture access and portal classification. The
+hub then takes 18.922 ms GPU median and 18.947 ms p99 over 128 samples. The full
+proof takes 23.292 ms median. Thus surface lighting accounts for about 4.37 ms
+of this comparison. Even removing that work entirely leaves the geometry and
+portal path above the target. The diagnostic image is not a valid game image.
+The lighting bypass and temporary timestamps are removed from the source.
+
+### Rejected variants
+
+All variants below use the same hub pose and resolution. Each valid-output
+variant produces the control capture byte for byte. These short trials use
+sixteen measured frames and do not replace the paired acceptance run.
+
+| Variant | GPU median | Cause of rejection |
+| --- | ---: | --- |
+| Triangle-leaf tree with serial tile collection | 45.33 ms | About 20.5 million serial node visits |
+| Grouped tree with shared candidate packing | 49.51 ms | Collection and repeated chunk synchronization remain costly |
+| Nonempty-word summary hierarchy | 37.82 ms | Summary construction and dependent successor searches exceed the saved scans |
+| Packed nonempty words | 24.01 ms | A second traversal to count and write entries exceeds the raster savings |
+
+The packed-word variant also increases device and staging storage to
+1,102,309,376 bytes each. The final proof retains the faster parallel tree
+binning and the original dense bitmap. The rejected variants are removed.
+
+The next geometry contract must avoid a tile-by-projected-group search and a
+pixel-by-empty-word search together. A bounded spatial assignment pass must
+produce only tile intersections and supply directly enumerable candidates.
+Before replacing the current producer, prove its overflow continuation through
+recursive portal masks and the final image. Measure the whole frame: the
+lighting ablation shows that a lighting-only change cannot meet the target.

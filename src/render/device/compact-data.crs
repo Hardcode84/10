@@ -1,0 +1,113 @@
+fn compact_view() -> unit {
+    var index: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
+    var lane: u32 = shader_local_x();
+
+    var view: u32 = words_load(9u32) + index;
+    var size: u32 = 0u32;
+    if index < words_load(10u32) && words_load(5u32) == 0u32 && batch_active(view) {
+        size = batch_size(view);
+    }
+    var chunk: u32 = (size + LOCAL_SIZE - 1u32) / LOCAL_SIZE;
+    var begin: u32 = lane * chunk;
+    var end: u32 = begin + chunk;
+    if end > size {
+        end = size;
+    }
+    var base: u32 = 0u32;
+    if size != 0u32 {
+        base = words_load(PROJECTED_OFFSET) + batch_offset(view) * MAX_FAN * 20u32;
+    }
+    var count: u32 = 0u32;
+    var i: u32 = begin;
+    while i < end {
+        count = count + compact_source_count(base + i * MAX_FAN * 20u32);
+        i = i + 1u32;
+    }
+    shared_store(lane, count);
+    shader_barrier();
+    var offset: u32 = 0u32;
+    i = 0u32;
+    while i < lane {
+        offset = offset + shared_load(i);
+        i = i + 1u32;
+    }
+    if lane == LOCAL_SIZE - 1u32 && index < words_load(10u32) {
+        words_store(words_load(COMPACT_COUNT) + view, offset + count);
+    }
+    i = begin;
+    while i < end {
+        offset = compact_source_write(view, i, base + i * MAX_FAN * 20u32, offset);
+        i = i + 1u32;
+    }
+    shader_barrier();
+}
+
+fn compact_bounds(view: u32, lane: u32) -> unit {
+    var count: u32 = words_load(words_load(COMPACT_COUNT) + view);
+    var group: u32 = lane;
+    while group < (count + 31u32) / 32u32 {
+        var min_x: f32 = 1e30f32;
+        var min_y: f32 = 1e30f32;
+        var max_x: f32 = -1e30f32;
+        var max_y: f32 = -1e30f32;
+        var i: u32 = group * 32u32;
+        while i < (group + 1u32) * 32u32 && i < count {
+            var id: u32 = words_load(
+                words_load(COMPACT_OFFSET) + batch_offset(view) * MAX_FAN + i
+            );
+            var p: u32 = words_load(PROJECTED_OFFSET) + (batch_offset(view) * MAX_FAN + id) * 20u32;
+            var vertex: u32 = 0u32;
+            while vertex < 3u32 {
+                var x: f32 = floats_load(p + vertex * 6u32);
+                var y: f32 = floats_load(p + vertex * 6u32 + 1u32);
+                if x < min_x {
+                    min_x = x;
+                }
+                if y < min_y {
+                    min_y = y;
+                }
+                if x > max_x {
+                    max_x = x;
+                }
+                if y > max_y {
+                    max_y = y;
+                }
+                vertex = vertex + 1u32;
+            }
+            i = i + 1u32;
+        }
+        var output: u32 = batch_bounds(view, group);
+        floats_store(output, min_x);
+        floats_store(output + 1u32, min_y);
+        floats_store(output + 2u32, max_x);
+        floats_store(output + 3u32, max_y);
+        group = group + LOCAL_SIZE;
+    }
+}
+
+fn compact_source_count(p: u32) -> u32 {
+    var count: u32 = 0u32;
+    var fan: u32 = 0u32;
+    while fan < floats_load(p + 19u32) as u32 {
+        if floats_load(p + fan * 20u32 + 18u32) > 0f32 {
+            count = count + 1u32;
+        }
+        fan = fan + 1u32;
+    }
+    return count;
+}
+fn compact_source_write(view: u32, source: u32, p: u32, offset: u32) -> u32 {
+    var result: u32 = offset;
+    var fan: u32 = 0u32;
+    while fan < floats_load(p + 19u32) as u32 {
+        if floats_load(p + fan * 20u32 + 18u32) > 0f32 {
+            words_store(
+                words_load(COMPACT_OFFSET) + batch_offset(view) * MAX_FAN + result,
+                source * MAX_FAN + fan
+            );
+            result = result + 1u32;
+        }
+        fan = fan + 1u32;
+    }
+    return result;
+}

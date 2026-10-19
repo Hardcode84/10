@@ -1,0 +1,82 @@
+fn projected_leaf(view: u32, node: u32, leaf: u32, count: u32) -> unit {
+    var min_x: f32 = 1e30f32;
+    var min_y: f32 = 1e30f32;
+    var max_x: f32 = -1e30f32;
+    var max_y: f32 = -1e30f32;
+    var item: u32 = leaf * PROJECTED_LEAF;
+    while item < count && item < (leaf + 1u32) * PROJECTED_LEAF {
+        var id: u32 = words_load(
+            words_load(COMPACT_OFFSET) + batch_offset(view) * MAX_FAN + item
+        );
+        var p: u32 = projected_pointer(view, id);
+        var vertex: u32 = 0u32;
+        while vertex < 3u32 {
+            var x: f32 = floats_load(p + vertex * 6u32);
+            var y: f32 = floats_load(p + vertex * 6u32 + 1u32);
+            if x < min_x {
+                min_x = x;
+            }
+            if x > max_x {
+                max_x = x;
+            }
+            if y < min_y {
+                min_y = y;
+            }
+            if y > max_y {
+                max_y = y;
+            }
+            vertex = vertex + 1u32;
+        }
+        item = item + 1u32;
+    }
+    var out: u32 = batch_bounds(view, node);
+    floats_store(out, min_x);
+    floats_store(out + 1u32, min_y);
+    floats_store(out + 2u32, max_x);
+    floats_store(out + 3u32, max_y);
+}
+fn projected_merge(view: u32, node: u32) -> unit {
+    var field: u32 = 0u32;
+    while field < 4u32 {
+        var a: f32 = floats_load(batch_bounds(view, node * 2u32) + field);
+        var b: f32 = floats_load(batch_bounds(view, node * 2u32 + 1u32) + field);
+        if (field < 2u32 && b < a) || (field >= 2u32 && b > a) {
+            a = b;
+        }
+        floats_store(batch_bounds(view, node) + field, a);
+        field = field + 1u32;
+    }
+}
+fn compute() -> unit {
+    compact_view();
+    var lane: u32 = shader_local_x();
+    var index: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
+    var view: u32 = words_load(9u32) + index;
+    var count: u32 = 0u32;
+    if index < words_load(10u32) && words_load(5u32) == 0u32 && batch_active(view) {
+        count = words_load(words_load(COMPACT_COUNT) + view);
+    }
+    var power: u32 = projected_power((count + PROJECTED_LEAF - 1u32) / PROJECTED_LEAF);
+    if lane == 0u32 {
+        shared_store(0u32, power);
+    }
+    var leaf: u32 = lane;
+    while count != 0u32 && leaf < power {
+        projected_leaf(view, power + leaf, leaf, count);
+        leaf = leaf + LOCAL_SIZE;
+    }
+    shader_barrier();
+    while shared_uniform_load(0u32) > 1u32 {
+        if lane == 0u32 {
+            shared_store(0u32, shared_load(0u32) / 2u32);
+        }
+        shader_workgroup_barrier();
+        var level: u32 = shared_load(0u32);
+        var node: u32 = level + lane;
+        while node < level * 2u32 {
+            projected_merge(view, node);
+            node = node + LOCAL_SIZE;
+        }
+        shader_barrier();
+    }
+}

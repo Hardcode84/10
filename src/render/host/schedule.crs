@@ -161,12 +161,21 @@ fn commands_geometry_batches(v: *RenderState, depth: u32) -> unit {
         command_bind(v, 1usize);
         command_indirect(v, 68u64);
         command_barrier(v, BARRIER_COMPUTE);
-        view_dispatch(v, 5usize);
-        command_barrier(v, BARRIER_COMPUTE);
-        task_dispatch(v, 10usize, 0u32);
-        command_barrier(v, BARRIER_COMPUTE);
-        task_dispatch(v, 2usize, 0u32);
-        command_barrier(v, BARRIER_COMPUTE);
+        if v -> projected_tree {
+            view_dispatch(v, 16usize);
+            command_barrier(v, BARRIER_COMPUTE);
+            task_dispatch(v, 17usize, 0u32);
+            command_barrier(v, BARRIER_COMPUTE);
+            task_dispatch(v, 2usize, 0u32);
+            command_barrier(v, BARRIER_COMPUTE);
+        } else {
+            view_dispatch(v, 5usize);
+            command_barrier(v, BARRIER_COMPUTE);
+            task_dispatch(v, 10usize, 0u32);
+            command_barrier(v, BARRIER_COMPUTE);
+            task_dispatch(v, 2usize, 0u32);
+            command_barrier(v, BARRIER_COMPUTE);
+        }
         task_dispatch(v, 13usize, 9u32);
         command_barrier(v, BARRIER_COMPUTE);
         round = round + 1u64;
