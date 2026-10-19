@@ -71,7 +71,7 @@ fn compute() -> unit {
             u = sample_uv(selected, px, py, 3u32, style);
             v = sample_uv(selected, px, py, 4u32, style);
         }
-        shader_barrier();
+        shader_workgroup_barrier();
         if lane == 0u32 {
             tile_finish_chunk();
             shared_store(96u32, shared_load(96u32) + 1u32);
@@ -94,7 +94,7 @@ fn tile_chunk(lane: u32, view: u32) -> unit {
     if lane == 0u32 {
         tile_range_setup(view);
     }
-    shader_barrier();
+    shader_workgroup_barrier();
     if lane < 48u32 && shared_load(8u32) != 0u32 {
         local_store(
             2432u32 + lane,
@@ -110,15 +110,15 @@ fn tile_chunk(lane: u32, view: u32) -> unit {
     if lane < 8u32 && shared_load(8u32) != 0u32 {
         tile_seed(lane, shared_load(9u32));
     }
-    shader_barrier();
+    shader_workgroup_barrier();
     if lane < 8u32 {
         tile_worker(lane);
     }
-    shader_barrier();
+    shader_workgroup_barrier();
     if lane < 8u32 && shared_load(64u32 + lane) != 0xffffffffu32 {
         tile_prepare(lane, view);
     }
-    shader_barrier();
+    shader_workgroup_barrier();
 }
 
 fn tile_select(px: f32, py: f32, best: f32, winner: u32) -> u32 {

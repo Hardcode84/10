@@ -1,0 +1,15 @@
+series,variant,barrier_scope,first_view_interval,samples,gpu_median_ns,first_view_median_ns
+scope,0,device_and_workgroup,geometry_and_resolve,4,915528704,871828032
+scope,2,device_and_workgroup,geometry_and_resolve,4,839924352,839041152
+scope,3,device_and_workgroup,geometry_and_resolve,4,396566016,395683936
+scope,0,workgroup,geometry_and_resolve,4,559029120,532209568
+scope,2,workgroup,geometry_and_resolve,4,472370624,471489248
+scope,3,workgroup,geometry_and_resolve,4,114874376,113989944
+setup,0,workgroup,geometry_only,4,577308224,544423104
+setup,2,workgroup,geometry_only,4,484632064,481155520
+setup,3,workgroup,geometry_only,4,118592136,115085464
+setup,6,workgroup,geometry_only,4,431453728,427934560
+setup,7,workgroup,geometry_only,4,111148432,107662704
+setup,8,workgroup,geometry_only,4,476842240,449613120
+setup,10,workgroup,geometry_only,4,387984416,384519328
+setup,14,workgroup,geometry_only,4,337654432,334135968

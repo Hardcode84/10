@@ -74,6 +74,9 @@ fn clip_distance(base: u32, plane: u32, near: f32) -> f32 {
     return z - y;
 }
 fn clip_polygon(base: u32, count: u32, plane: u32, near: f32) -> u32 {
+    if clip_inside(base, count, plane, near) {
+        return count;
+    }
     var output: u32 = 0u32;
     var i: u32 = 0u32;
     while i < count {
@@ -181,4 +184,15 @@ fn transform_vertices(tri: u32, matrix: u32, scratch: u32) -> unit {
         );
         vertex = vertex + 1u32;
     }
+}
+
+fn clip_inside(base: u32, count: u32, plane: u32, near: f32) -> bool {
+    var vertex: u32 = 0u32;
+    while vertex < count {
+        if!(clip_distance(base + vertex * 6u32, plane, near) >= 0f32) {
+            return false;
+        }
+        vertex = vertex + 1u32;
+    }
+    return true;
 }

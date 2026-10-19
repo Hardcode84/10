@@ -364,3 +364,139 @@ The next architecture comparison must move triangle setup out of these small
 tile loops, with an explicit bounded storage and completion contract, or test
 the declared primary-ray challenger. Either must first produce the same
 production image. The 60 FPS requirement remains unmet.
+
+## Why the tile experiment failed
+
+The [follow-up probes](tile-cost-probes.csv) separate synchronization scope,
+triangle setup, pixel tests, and transient geometry. Each run uses the same
+stationary hub view, eight warm-up frames, and four measured frames. Timed
+frames have no pixel readback. Diagnostic counts come from a separate frame.
+
+The first portal depth always has the same camera, geometry, and full-screen
+tile masks. Removing pixel tests changes later portal views. Therefore use
+the first-depth timestamp interval for those comparisons. The scope series
+includes material resolve in this interval. The setup series moves its end
+timestamp before resolve. Do not subtract values between these series.
+
+### Device-storage fences in a shared-memory loop
+
+The original Crust barrier lowered to
+`OpControlBarrier Workgroup Device AcquireRelease|UniformMemory|WorkgroupMemory|ImageMemory`.
+The generated Intel instructions include both a device-memory eviction fence
+and a shared-memory fence. The tile loop has seven synchronization points per
+chunk: five explicit barriers and two inside its uniform load.
+
+Only workgroup storage is exchanged between lanes in this loop. Mesh and
+texture buffers are read-only here. Each output pixel has one owner. The
+next dispatch has a separate command-buffer barrier. Device-storage fences
+inside each chunk thus exceed this loop's synchronization requirements.
+
+Changing only the three barrier instructions in the unoptimized SPIR-V module
+to workgroup scope and workgroup memory reduces the full frame from 915.529 ms
+to 559.029 ms. The capture is byte-identical. The loop and work counts stay
+the same. This isolates the barrier contract from geometry changes.
+
+Crust now has `shader_workgroup_barrier()`. Uniform workgroup loads and shared
+storage initialization also use workgroup scope. The original
+`shader_barrier()` retains storage-buffer and image synchronization. Native
+tests check the SPIR-V operands as well as collective execution. WGSL uses
+`workgroupBarrier()` for the narrower operation.
+
+### Repeated setup with mostly empty chunks
+
+The first view contains 220 transient triangles. Each is offered to all
+32,400 tiles: 7,128,000 transient candidates and 907,200 rounds. There is no
+spatial rejection for these triangles before setup.
+
+Retained geometry adds 2,410,904 candidates in 1,682,426 rounds. That is only
+1.43 candidates per eight-slot chunk. Eight traversal lanes start in eight
+fixed subtrees. A small tile usually intersects a narrow part of the tree.
+When seven subtree walkers finish, the remaining walker still supplies only
+one triangle per round. Empty slots are not filled from that walker's next
+triangles. At most eight of the 64 lanes perform setup; sparse chunks use
+still fewer.
+
+Adjacent tiles repeat tree traversal, instance reads, vertex transforms,
+clipping, and projection for the same source triangles. The normal renderer
+queues 34,273 candidates across the complete frame. The tile experiment queues
+9,764,086. These counts measure setup attempts, including candidates rejected
+by facing or clipping tests.
+
+| Setup-series control | First-view geometry median, ms |
+| --- | ---: |
+| Complete tile kernel | 544.423 |
+| Pixel tests and winner updates skipped | 481.156 |
+| Pixel tests and triangle setup skipped | 115.085 |
+| Transient candidates skipped; pixel tests skipped | 427.935 |
+| Transient candidates and all setup skipped; pixel tests skipped | 107.663 |
+
+The remaining 115 ms includes traversal, chunk control, shared synchronization,
+and the compiled kernel's register costs. It excludes projection and pixel
+coverage work. Thus faster pixel tests alone cannot rescue this implementation.
+Removing transient candidates saves about 53 ms with setup enabled. Retained
+setup and traversal dominate the remaining time.
+
+These are runtime branches in the same compiled shader. They preserve the
+first view's membership and tile masks. They do not produce valid final images.
+Differences estimate removable work in this kernel; they are not independent
+pass timings.
+
+### Clipping copies for polygons already inside a plane
+
+For each clip plane, the old clipper copied every surviving vertex to scratch
+and then back. A triangle wholly inside all six planes caused 216 component
+stores and 216 corresponding copy loads, in addition to distance calculations.
+These copies occur in shared memory in the tile kernel.
+
+A per-plane inside test can return the unchanged polygon immediately. It
+preserves vertex order and floating-point values; intersecting polygons still
+use the existing clipping arithmetic. In the controlled setup series, this
+test reduces first-view geometry from 544.423 ms to 449.613 ms. The complete
+capture is byte-identical. With transient candidates skipped, it removes
+approximately 94 ms. The extra copies therefore mainly affect retained setup.
+
+The shared clipper now contains this fast path. Both renderer paths use it.
+
+### Register allocation is evidence, not a complete explanation
+
+An Intel Mesa shader dump identifies the original raw tile kernel as SIMD16,
+with 5,790 reported instructions, 10 spill stores, 13 reloads, and 10,432 bytes
+of workgroup storage. These are static compiler counts. They do not measure
+dynamic spill traffic or occupancy.
+
+The lighting shader has 195 spill stores and 183 reloads. It is shared by the
+normal renderer and the experiment. Assigning that count to the tile kernel
+would be incorrect. The fixed-view probes locate most of the regression before
+lighting. No claim that spills alone caused the failure is supported.
+
+Use Mesa's [shader dump controls](https://docs.mesa3d.org/envvars.html) to inspect
+the generated code. Match native-code records to pipeline creation order;
+this application compiles every pipeline at startup. Disable the shader disk
+cache for the dump. Do not use the driver cost estimate as a measured duration.
+
+### Consequence for the replacement
+
+The selected granularity duplicates expensive setup and gives sparse walkers
+too little useful work per synchronization round. Correct barrier scope and
+an efficient clipper remove avoidable costs, but leave this structural problem.
+
+The next proof needs shared setup across screen tiles and compact candidate
+chunks whose occupancy is independent of which subtree supplied them. It also
+needs spatial admission for transient geometry. A larger chunk alone does not
+repair an idle subtree lane, and removing global dispatch rounds does not
+guarantee less GPU work. Preserve the bounded storage and completion contract
+when testing that replacement.
+
+After applying the two generic fixes, a separate paired run measures 458.316 ms
+for the tile renderer and 25.275 ms for the normal renderer at 1080p. This run
+uses eight warm-up frames and sixteen measured frames. Both captures match the
+original hub capture byte for byte. The tile path remains disabled by default.
+
+To reproduce the diagnostic series in a separate checkout, reserve one uploaded
+header word for a runtime bit mask. Mask value 1 returns from `tile_prepare` after
+clearing the fan count. Value 2 skips `tile_select` and winner updates. Value 4
+advances over all consecutive transient ranges in one empty round. Value 8 enables
+the per-plane inside test; disable the unconditional inside test for the control.
+Keep all branches in one shader binary for paired comparisons. Mode numbers in
+the CSV are the sums of these bits. Move the first-depth end timestamp before
+`shade` for the setup series. Restore all diagnostic edits after the experiment.
