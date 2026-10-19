@@ -1,0 +1,140 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var room: u32 = 0u32;
+    var pose: u32 = 0u32;
+    if argc < 3i32 || !game_number(argv[1usize], &room) || !game_number(argv[2usize], &pose) {
+        return (
+            !error(
+                "use course-benchmark LEVEL ROOM POSE followed by game options; pose 0 uses the recipe spawn, other poses face that numbered portal"
+            )
+        ) as i32;
+    }
+    argv[2usize] = argv[0usize];
+    var options: Launch = uninit;
+    if !game_options_scene(argc - 2i32, argv + 2isize, &options, true) {
+        return 2i32;
+    }
+    options.config.headless = true;
+    return (!course_benchmark(game_session(&options), room, pose, options.config)) as i32;
+}
+fn course_benchmark(session: GameSession, room: u32, pose: u32, config: GameConfig) -> bool {
+    var scene: CollisionScene = collision_new();
+    var loop: GameLoop = make GameLoop {
+        sparks: sparks_new(),
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    if !game_run_setup(mut session, mut scene, mut loop, config) {
+        return false;
+    }
+    if room >= graph_count(read session.control.graph) {
+        return error("benchmark room is outside the level");
+    }
+    var node: GraphNode = graph_node(read session.control.graph, room);
+    var asset: RoomAsset = room_asset_new();
+    var values: AssetValues = asset_values_new();
+    if !course_values(node.kind, node.style, mut values) || !course_build(
+        node.kind,
+        read values,
+        mut asset
+    ) {
+        return false;
+    }
+    loop.trial.drone.world = room;
+    loop.trial.drone.position = asset.spawn.position;
+    loop.trial.drone.basis = asset.spawn.basis;
+    if pose != 0u32 {
+        if pose > node.count {
+            return error("benchmark portal pose is outside the room");
+        }
+        var port: RoomPort = graph_socket(
+            read session.control.graph,
+            node.first + pose - 1u32
+        ).port;
+        loop.trial.drone.position = sub(port.position, scale(port.basis.forward, 1f32));
+        loop.trial.drone.basis = port.basis;
+    }
+    puts("rooms / portals / source triangles");
+    print_number(graph_count(read session.control.graph) as i64);
+    print_number(graph_ports(read session.control.graph) as i64);
+    print_number(mesh_triangle_count(read session.room_mesh) as i64);
+    if !course_benchmark_frames(read scene, mut session, read loop, config) {
+        return false;
+    }
+    session.renderer.state.read_pixels = true;
+    (session.renderer.state.mapped as *u32)[26usize] = 1u32;
+    if !game_render(read scene, mut session, read loop, config) {
+        return false;
+    }
+    var words: *u32 = session.renderer.state.mapped as *u32;
+    if words[WORK_NODES as usize] == 0xffffffffu32 || words[WORK_TRIANGLES as usize] == 0xffffffffu32 || words[
+        WORK_BATCHES as usize
+    ] == 0xffffffffu32 {
+        return error("diagnostic work counts exceed the 32-bit reporting range");
+    }
+    puts("diagnostic hierarchy nodes / queued triangles / nonempty batches");
+    print_number(words[WORK_NODES as usize] as i64);
+    print_number(words[WORK_TRIANGLES as usize] as i64);
+    print_number(words[WORK_BATCHES as usize] as i64);
+    return game_finish(mut session);
+}
+fn course_sample_insert(values: *u64, index: usize, value: u64) -> unit {
+    var i: usize = index;
+    while i != 0usize && values[i - 1usize] > value {
+        values[i] = values[i - 1usize];
+        i = i - 1usize;
+    }
+    values[i] = value;
+}
+fn course_benchmark_frames(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig
+) -> bool {
+    var elapsed: [u64; 128] = uninit;
+    var gpu: [u64; 128] = uninit;
+    var query: [u64; 64] = uninit;
+    var v: *RenderState = &session.renderer.state;
+    if v -> query_count > 64u32 {
+        return error("benchmark timestamp capacity exceeded");
+    }
+    v -> read_pixels = false;
+    var frame: u32 = 0u32;
+    while frame < 136u32 {
+        var start: u64 = now();
+        if !game_render(read scene, mut session, read loop, config) {
+            return false;
+        }
+        var duration: u64 = now() - start;
+        if !queries_read(v, &query[0usize]) {
+            return false;
+        }
+        if frame >= 8u32 {
+            course_sample_insert(&elapsed[0usize], (frame - 8u32) as usize, duration);
+            var ticks: u64 = (query[(v -> query_count - 2u32) as usize] - query[0usize]) & v -> timestamp_mask;
+            course_sample_insert(
+                &gpu[0usize],
+                (frame - 8u32) as usize,
+                (ticks as f32 * v -> timestamp_period) as u64
+            );
+        }
+        frame = frame + 1u32;
+    }
+    puts("synchronous frame ns p50 / p95 / p99 (no pixel readback, no presentation)");
+    print_number(elapsed[63usize] as i64);
+    print_number(elapsed[121usize] as i64);
+    print_number(elapsed[126usize] as i64);
+    puts("GPU ns p50 / p95 / p99");
+    print_number(gpu[63usize] as i64);
+    print_number(gpu[121usize] as i64);
+    print_number(gpu[126usize] as i64);
+    puts("warm mesh upload bytes / total upload bytes / device bytes / staging bytes");
+    print_number(v -> mesh_upload_bytes as i64);
+    print_number(v -> frame_upload_bytes as i64);
+    print_number(v -> device_bytes as i64);
+    print_number(v -> staging_bytes as i64);
+    return true;
+}

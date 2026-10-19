@@ -20,6 +20,9 @@ fn retained_copy_region(
 fn retained_copy(v: *RenderState, old: *RenderState) -> unit {
     retained_copy_region(v, old, MESH_META, old -> mesh_count * 4u32, false);
     retained_copy_region(v, old, MESH_FLOAT, old -> mesh_count * 15u32, true);
+    retained_copy_region(v, old, MESH_INDEX, old -> mesh_count, false);
+    retained_copy_region(v, old, MESH_NODES, old -> mesh_count * 10u32, false);
+    retained_copy_region(v, old, MESH_BOUNDS, old -> mesh_count * 14u32, true);
     retained_copy_region(v, old, INSTANCE_META, old -> instance_capacity * 5u32, false);
     retained_copy_region(v, old, INSTANCE_FLOAT, old -> instance_capacity * 18u32, true);
 }
@@ -65,7 +68,19 @@ fn mesh_empty_range() -> MeshRange {
 }
 // Copies a mesh into renderer-owned storage. The returned range belongs to this renderer.
 fn input_mesh(input: mut FrameInput, mesh: read Mesh, result: mut MeshRange) -> bool {
-    var total: u64 = input.storage.mesh_count as u64 + mesh.count as u64;
+    return input_mesh_slice(mut input, read mesh, 0u32, mesh.count, mut result);
+}
+fn input_mesh_slice(
+    input: mut FrameInput,
+    mesh: read Mesh,
+    start: u32,
+    count: u32,
+    result: mut MeshRange
+) -> bool {
+    if start > mesh.count || count > mesh.count - start {
+        return error("mesh slice exceeds source range");
+    }
+    var total: u64 = input.storage.mesh_count as u64 + count as u64;
     if total > 0xffffffffu64 || !retained_reserve(
         &input.storage,
         total as u32,
@@ -74,16 +89,17 @@ fn input_mesh(input: mut FrameInput, mesh: read Mesh, result: mut MeshRange) -> 
         return error("retained mesh storage exhausted");
     }
     result.first = input.storage.mesh_count;
-    result.count = mesh.count;
+    result.count = count;
     result.bounds = mesh.bounds;
     var first: u32 = input_word(read input, MESH_FLOAT as usize) + result.first * 15u32;
     var metadata: u32 = input_word(read input, MESH_META as usize) + result.first * 4u32;
     var i: u32 = 0u32;
-    while i < mesh.count {
-        var t: MeshTriangle = mesh.triangles[i as usize];
+    while i < count {
+        var t: MeshTriangle = mesh.triangles[(start + i) as usize];
         var j: u32 = 0u32;
         while j < 3u32 {
             var vertex: MeshVertex = t.vertices[j as usize];
+            range_vertex_bounds(mut result, vertex, i == 0u32 && j == 0u32);
             var values: [f32; 5] = make [f32; 5] {
                 vertex.x,
                 vertex.y,
@@ -106,6 +122,9 @@ fn input_mesh(input: mut FrameInput, mesh: read Mesh, result: mut MeshRange) -> 
         input_set_word(mut input, (metadata + i * 4u32 + 1u32) as usize, t.portal);
         input_set_word(mut input, (metadata + i * 4u32 + 2u32) as usize, t.flags);
         i = i + 1u32;
+    }
+    if count != 0u32 {
+        input_set_word(mut input, (metadata + 3u32) as usize, count);
     }
     input.storage.mesh_count = total as u32;
     input.storage.mesh_dirty = true;
@@ -156,7 +175,19 @@ fn input_frame(input: mut FrameInput) -> unit {
     input_set_word(mut input, INSTANCE_COUNT as usize, 0u32);
     input_set_word(mut input, DYNAMIC_COUNT as usize, 0u32);
 }
+// The mesh range must be an unchanged result of input_mesh or input_mesh_slice.
 fn input_instance(input: mut FrameInput, instance: MeshInstance) -> bool {
+    if instance.mesh.count != 0u32 {
+        if instance.mesh.first >= input.storage.mesh_count || instance.mesh.count > input.storage.mesh_count - instance.mesh.first {
+            return error("instance mesh range exceeds retained storage");
+        }
+        var mesh: usize = (
+            input_word(read input, MESH_META as usize) + instance.mesh.first * 4u32 + 3u32
+        ) as usize;
+        if input_word(read input, mesh) != instance.mesh.count {
+            return error("instance requires a complete uploaded mesh range");
+        }
+    }
     var index: u32 = input_word(read input, INSTANCE_COUNT as usize);
     var first: u32 = input_word(read input, 3usize);
     var total: u64 = first as u64 + instance.mesh.count as u64;
@@ -205,4 +236,22 @@ fn input_clear_meshes(input: mut FrameInput) -> unit {
     input_frame(mut input);
     input.storage.mesh_count = 0u32;
     input.storage.mesh_dirty = true;
+}
+
+fn range_vertex_bounds(range: mut MeshRange, vertex: MeshVertex, first: bool) -> unit {
+    var values: [f32; 3] = make [f32; 3] {
+        vertex.x,
+        vertex.y,
+        vertex.z
+    };
+    var axis: usize = 0usize;
+    while axis < 3usize {
+        if first || values[axis] < range.bounds[axis] {
+            range.bounds[axis] = values[axis];
+        }
+        if first || values[axis] > range.bounds[axis + 3usize] {
+            range.bounds[axis + 3usize] = values[axis];
+        }
+        axis = axis + 1usize;
+    }
 }

@@ -16,9 +16,7 @@ fn project_fan(scratch: u32, output: u32, count: u32, tri: u32) -> unit {
                 PROJECTION
             );
             var py: f32 = h - floats_load(src + 1u32) * iz * h / floats_load(PROJECTION);
-            if (
-                material_field(words_load(words_load(META) + tri * 4u32 + 1u32), 5u32) & 4u32
-            ) != 0u32 {
+            if (material_field(scene_meta(tri, 1u32), 5u32) & 4u32) != 0u32 {
                 px = ((px + 0.5f32) as i32) as f32;
                 py = ((py + 0.5f32) as i32) as f32;
             }
@@ -124,34 +122,30 @@ fn clip_polygon(base: u32, count: u32, plane: u32, near: f32) -> u32 {
 }
 fn triangle_near(tri: u32) -> f32 {
     var near: f32 = floats_load(RENDER_STYLE);
-    if (words_load(words_load(META) + tri * 4u32 + 3u32) & TRIANGLE_DETAIL_NEAR) != 0u32 && floats_load(
-        DETAIL_NEAR
-    ) > near {
+    if (scene_meta(tri, 3u32) & TRIANGLE_DETAIL_NEAR) != 0u32 && floats_load(DETAIL_NEAR) > near {
         near = floats_load(DETAIL_NEAR);
     }
-    if words_load(words_load(META) + tri * 4u32 + 2u32) != 0u32 {
+    if scene_meta(tri, 2u32) != 0u32 {
         near = 0f32;
     }
     return near;
 }
 fn sprite_vertex(source: u32, matrix: u32, axis: u32) -> f32 {
     var inverse_scale: f32 = 1f32 / floats_load(matrix + 16u32);
-    return floats_load(source + axis) + inverse_scale * (
-        floats_load(matrix + axis) * floats_load(source + 3u32) + floats_load(
+    return scene_float(source + axis) + inverse_scale * (
+        floats_load(matrix + axis) * scene_float(source + 3u32) + floats_load(
             matrix + 4u32 + axis
-        ) * floats_load(source + 4u32)
+        ) * scene_float(source + 4u32)
     );
 }
 fn transform_vertices(tri: u32, matrix: u32, scratch: u32) -> unit {
     var vertex: u32 = 0u32;
     while vertex < 3u32 {
-        var source: u32 = GEOMETRY + tri * 15u32 + vertex * 5u32;
-        var sprite: bool = (
-            words_load(words_load(META) + tri * 4u32 + 3u32) & TRIANGLE_SPRITE
-        ) != 0u32;
-        var x: f32 = floats_load(source);
-        var y: f32 = floats_load(source + 1u32);
-        var z: f32 = floats_load(source + 2u32);
+        var source: u32 = tri * 15u32 + vertex * 5u32;
+        var sprite: bool = (scene_meta(tri, 3u32) & TRIANGLE_SPRITE) != 0u32;
+        var x: f32 = scene_float(source);
+        var y: f32 = scene_float(source + 1u32);
+        var z: f32 = scene_float(source + 2u32);
         if sprite {
             x = sprite_vertex(source, matrix, 0u32);
             y = sprite_vertex(source, matrix, 1u32);
@@ -167,16 +161,16 @@ fn transform_vertices(tri: u32, matrix: u32, scratch: u32) -> unit {
             );
             r = r + 1u32;
         }
-        floats_store(scratch + vertex * 6u32 + 3u32, floats_load(source + 3u32));
-        floats_store(scratch + vertex * 6u32 + 4u32, floats_load(source + 4u32));
+        floats_store(scratch + vertex * 6u32 + 3u32, scene_float(source + 3u32));
+        floats_store(scratch + vertex * 6u32 + 4u32, scene_float(source + 4u32));
         if sprite {
             floats_store(
                 scratch + vertex * 6u32 + 3u32,
-                ((floats_load(source + 3u32) > 0f32) as u32) as f32
+                ((scene_float(source + 3u32) > 0f32) as u32) as f32
             );
             floats_store(
                 scratch + vertex * 6u32 + 4u32,
-                ((floats_load(source + 4u32) > 0f32) as u32) as f32
+                ((scene_float(source + 4u32) > 0f32) as u32) as f32
             );
         }
         floats_store(
@@ -192,6 +186,7 @@ fn prepare_triangle(index: u32) -> unit {
     var view: u32 = batch_slot_view(index);
     var local: u32 = index - batch_offset(view);
     var tri: u32 = batch_triangle(view, local);
+    words_store(words_load(BATCH_PRIMITIVES) + index, tri);
     var slot: u32 = index;
     var output: u32 = words_load(PROJECTED_OFFSET) + slot * MAX_FAN * 20u32;
     floats_store(output + 19u32, 0f32);
@@ -200,7 +195,7 @@ fn prepare_triangle(index: u32) -> unit {
         floats_store(output + fan * 20u32 + 18u32, 0f32);
         fan = fan + 1u32;
     }
-    if tri >= words_load(3u32) || words_load(words_load(META) + tri * 4u32) != words_load(
+    if tri >= words_load(3u32) || scene_meta(tri, 0u32) != words_load(
         words_load(VIEW_META) + view * 4u32
     ) {
         return;
@@ -208,7 +203,7 @@ fn prepare_triangle(index: u32) -> unit {
     if !triangle_visible(tri, view) {
         return;
     }
-    if !portal_facing(view, words_load(words_load(META) + tri * 4u32 + 2u32)) {
+    if !portal_facing(view, scene_meta(tri, 2u32)) {
         return;
     }
     var scratch: u32 = words_load(CLIP_OFFSET) + slot * 144u32;

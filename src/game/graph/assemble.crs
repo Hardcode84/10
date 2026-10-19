@@ -141,14 +141,13 @@ fn graph_upload(
     instances: mut InstanceList,
     mesh: read Mesh
 ) -> bool {
-    var all: MeshRange = mesh_empty_range();
-    if !input_mesh(mut input, read mesh, mut all) {
-        return false;
-    }
     var i: u32 = 0u32;
     while i < graph_count(read graph) {
         var range: MeshRange = graph_node(read graph, i).mesh;
-        range.first = range.first + all.first;
+        var source: MeshRange = range;
+        if !input_mesh_slice(mut input, read mesh, source.first, source.count, mut range) {
+            return false;
+        }
         if !instances_append(mut instances, mesh_identity(range, i)) {
             return false;
         }

@@ -325,8 +325,8 @@ fn lighting_cache_check(renderer: mut Renderer, rebuild: bool) -> bool {
         return false;
     }
     var w: *u32 = renderer.state.mapped as *u32;
-    return (w[SHADOW_RESET as usize] != 0u32) == rebuild || error(
-        "shadow tree reuse differs from the submission contract"
+    return (w[INSTANCE_MAP_RESET as usize] != 0u32) == rebuild || error(
+        "retained instance index reuse differs from the submission contract"
     );
 }
 fn lighting_cache_test(renderer: mut Renderer) -> bool {
@@ -363,7 +363,7 @@ fn lighting_cache_test(renderer: mut Renderer) -> bool {
         var input: FrameInput = renderer_inputs(mut renderer);
         lighting_cache_move(mut input);
     }
-    if !lighting_cache_check(mut renderer, true) || !lighting_cache_check(mut renderer, false) {
+    if !lighting_cache_check(mut renderer, false) || !lighting_cache_check(mut renderer, false) {
         return false;
     }
     {

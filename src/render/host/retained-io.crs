@@ -21,7 +21,10 @@ fn retained_upload(v: *RenderState) -> unit {
     if v -> mesh_dirty {
         retained_transfer(v, MESH_FLOAT, v -> mesh_count * 15u32, true, true);
         retained_transfer(v, MESH_META, v -> mesh_count * 4u32, false, true);
-        v -> mesh_upload_bytes = v -> mesh_count as u64 * 76u64;
+        retained_transfer(v, MESH_INDEX, v -> mesh_count, false, true);
+        retained_transfer(v, MESH_NODES, v -> mesh_count * 10u32, false, true);
+        retained_transfer(v, MESH_BOUNDS, v -> mesh_count * 14u32, true, true);
+        v -> mesh_upload_bytes = v -> mesh_count as u64 * 176u64;
     }
     if !v -> instance_dirty {
         return;

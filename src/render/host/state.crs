@@ -14,8 +14,8 @@ record RenderState {
     mesh_count: u32;
     instance_capacity: u32;
     mesh_dirty: bool;
-    shadow_dirty: bool;
-    shadow_instances: u32;
+    instance_map_dirty: bool;
+    instance_map_count: u32;
     instance_dirty: bool;
     asset_dirty_begin: u32;
     asset_dirty_end: u32;
@@ -44,6 +44,7 @@ record RenderState {
     floats: u32;
     triangle_capacity: u32;
     projection_capacity: u32;
+    batch_triangle_limit: u32;
     projection_maximum: u32;
     view_capacity: u32;
     portal_capacity: u32;

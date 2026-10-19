@@ -1,94 +1,82 @@
-fn plane_coefficient(view: u32, plane: u32, axis: u32) -> f32 {
-    var p: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
-    if plane == 0u32 {
-        return floats_load(p + 8u32 + axis);
+fn view_rect_lane(view: u32, lane: u32) -> unit {
+    var low_x: u32 = words_load(0u32);
+    var low_y: u32 = words_load(1u32);
+    var high_x: u32 = 0u32;
+    var high_y: u32 = 0u32;
+    var cols: u32 = (words_load(0u32) + 7u32) / 8u32;
+    var task: u32 = lane;
+    while task < words_load(6u32) {
+        var p: u32 = task_base() + task * 4u32;
+        if words_load(p + 1u32) == view {
+            var tile: u32 = words_load(p);
+            var x: u32 = tile % cols * 8u32;
+            var y: u32 = tile / cols * 8u32;
+            if x < low_x {
+                low_x = x;
+            }
+            if y < low_y {
+                low_y = y;
+            }
+            if x + 8u32 > high_x {
+                high_x = x + 8u32;
+            }
+            if y + 8u32 > high_y {
+                high_y = y + 8u32;
+            }
+        }
+        task = task + LOCAL_SIZE;
     }
-    if plane == 1u32 {
-        return floats_load(p + 12u32 + axis);
-    }
-    var z: f32 = floats_load(p + 8u32 + axis) * floats_load(PROJECTION);
-    if plane < 4u32 {
-        z = z * words_load(0u32) as f32 / words_load(1u32) as f32;
-    }
-    var row: u32 = 0u32;
-    if plane >= 4u32 {
-        row = 4u32;
-    }
-    if plane % 2u32 == 0u32 {
-        return z + floats_load(p + row + axis);
-    }
-    return z - floats_load(p + row + axis);
+    shared_store(lane * 4u32, low_x);
+    shared_store(lane * 4u32 + 1u32, low_y);
+    shared_store(lane * 4u32 + 2u32, high_x);
+    shared_store(lane * 4u32 + 3u32, high_y);
 }
-fn bounds_visible(view: u32, instance: u32) -> bool {
-    var bounds: u32 = words_load(INSTANCE_FLOAT) + instance * 18u32 + 12u32;
-    var plane: u32 = 0u32;
-    while plane < 6u32 {
-        var maximum: f32 = plane_coefficient(view, plane, 3u32);
-        var magnitude: f32 = plane_magnitude(view, plane, 3u32);
-        if magnitude < 0f32 {
-            magnitude = -magnitude;
+fn view_rect_reduce(view: u32, axis: u32) -> unit {
+    var value: u32 = shared_load(axis);
+    var lane: u32 = 1u32;
+    while lane < LOCAL_SIZE {
+        var next: u32 = shared_load(lane * 4u32 + axis);
+        if (axis < 2u32 && next < value) || (axis >= 2u32 && next > value) {
+            value = next;
         }
-        var axis: u32 = 0u32;
-        while axis < 3u32 {
-            var coefficient: f32 = plane_coefficient(view, plane, axis);
-            var value: f32 = floats_load(bounds + axis + 3u32);
-            if coefficient < 0f32 {
-                value = floats_load(bounds + axis);
-            }
-            var term: f32 = coefficient * value;
-            maximum = maximum + term;
-            var low: f32 = floats_load(bounds + axis);
-            var high: f32 = floats_load(bounds + axis + 3u32);
-            if low < 0f32 {
-                low = -low;
-            }
-            if high < 0f32 {
-                high = -high;
-            }
-            magnitude = magnitude + plane_magnitude(view, plane, axis) * (low + high);
-            axis = axis + 1u32;
-        }
-        // Retain touching bounds and allow for Float32 transforms and plane evaluation.
-        if maximum < -0.00001f32 * (magnitude + 1f32) {
-            return false;
-        }
-        plane = plane + 1u32;
+        lane = lane + 1u32;
     }
-    return true;
+    words_store(words_load(VIEW_RECT) + view * 4u32 + axis, value);
 }
 fn compute() -> unit {
-    var i: u32 = shader_global_x();
-    var count: u32 = words_load(INSTANCE_COUNT);
-    while i < words_load(10u32) * count {
-        var view: u32 = words_load(9u32) + i / count;
-        var instance: u32 = i % count;
-        var visible: bool = words_load(CULL_DISABLED) != 0u32 || bounds_visible(view, instance);
-        words_store(words_load(INSTANCE_VISIBLE) + view * count + instance, visible as u32);
-        i = i + MAX_INVOCATIONS;
+    var index: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
+    var lane: u32 = shader_local_x();
+    var view: u32 = words_load(9u32) + index;
+    if index < words_load(10u32) {
+        view_rect_lane(view, lane);
     }
-}
-
-fn plane_magnitude(view: u32, plane: u32, axis: u32) -> f32 {
-    var p: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
-    if plane < 2u32 {
-        var value: f32 = floats_load(p + (8u32 + plane * 4u32) + axis);
-        if value < 0f32 {
-            value = -value;
+    shader_barrier();
+    if index < words_load(10u32) && lane < 4u32 {
+        view_rect_reduce(view, lane);
+    }
+    shader_barrier();
+    if index < words_load(10u32) {
+        var instance: u32 = lane;
+        while instance < words_load(INSTANCE_COUNT) {
+            if words_load(words_load(INSTANCE_META) + instance * 5u32 + 1u32) != 0u32 && words_load(
+                words_load(INSTANCE_META) + instance * 5u32 + 3u32
+            ) == words_load(words_load(VIEW_META) + view * 4u32) {
+                scene_instance_planes(view, instance);
+                var root: u32 = words_load(words_load(INSTANCE_META) + instance * 5u32) * 2u32;
+                var sprite: bool = (
+                    words_load(words_load(MESH_NODES) + root * 5u32 + 4u32) & 2u32
+                ) != 0u32;
+                var visible: bool = sprite || words_load(CULL_DISABLED) != 0u32 || scene_bounds_visible(
+                    view,
+                    0xffffffffu32,
+                    words_load(INSTANCE_FLOAT) + instance * 18u32 + 12u32
+                );
+                words_store(
+                    words_load(INSTANCE_VISIBLE) + view * words_load(INSTANCE_COUNT) + instance,
+                    visible as u32
+                );
+            }
+            instance = instance + LOCAL_SIZE;
         }
-        return value;
     }
-    var z: f32 = floats_load(p + 8u32 + axis) * floats_load(PROJECTION);
-    if z < 0f32 {
-        z = -z;
-    }
-    var row: u32 = 4u32;
-    if plane < 4u32 {
-        z = z * words_load(0u32) as f32 / words_load(1u32) as f32;
-        row = 0u32;
-    }
-    var value: f32 = floats_load(p + row + axis);
-    if value < 0f32 {
-        value = -value;
-    }
-    return z + value;
 }

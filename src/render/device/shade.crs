@@ -9,7 +9,7 @@ fn shade_pixel(view: u32, lane: u32, x: u32, y: u32) -> unit {
     var color: u32 = words_load(BACKGROUND);
     if identity != 0xffffffffu32 {
         winner = identity / MAX_FAN;
-        var portal: u32 = words_load(words_load(META) + winner * 4u32 + 2u32);
+        var portal: u32 = scene_meta(winner, 2u32);
         if portal != 0u32 && words_load(12u32) < words_load(4u32) {
             shared_store(320u32 + lane, portal);
             return;

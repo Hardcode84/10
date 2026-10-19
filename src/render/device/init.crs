@@ -26,6 +26,9 @@ fn compute() -> unit {
             tiles = 0u32;
         }
         words_store(PEAK_TASKS, tiles);
+        words_store(WORK_NODES, 0u32);
+        words_store(WORK_TRIANGLES, 0u32);
+        words_store(WORK_BATCHES, 0u32);
         task_commands(tiles, 0u32);
         words_store(5u32, bad);
         words_store(6u32, tiles);

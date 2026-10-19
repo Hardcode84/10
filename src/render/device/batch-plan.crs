@@ -1,0 +1,310 @@
+fn batch_range_next() -> unit {
+    words_store(BATCH_RANGE, words_load(BATCH_RANGE) + 1u32);
+    words_store(BATCH_NODE, 0xffffffffu32);
+}
+fn batch_view_begin(view: u32) -> unit {
+    words_store(BATCH_RANGE, words_load(words_load(VIEW_META) + view * 4u32 + 1u32));
+    words_store(BATCH_NODE, 0xffffffffu32);
+}
+fn batch_cluster(end: u32, source: u32, shift: u32) -> unit {
+    var count: u32 = words_load(BATCH_CLUSTERS);
+    var p: u32 = words_load(BATCH_IDS) + count * 3u32;
+    words_store(p, end);
+    words_store(p + 1u32, source);
+    words_store(p + 2u32, shift);
+    words_store(BATCH_CLUSTERS, count + 1u32);
+}
+fn batch_initialize() -> unit {
+    words_store(16u32, 0u32);
+    words_store(BATCH_COUNT, 0u32);
+    words_store(BATCH_CLUSTERS, 0u32);
+    words_store(BATCH_SHADE, 0u32);
+    var begin: u32 = words_load(9u32);
+    var end: u32 = begin + words_load(10u32);
+    var i: u32 = begin;
+    while i < end {
+        words_store(words_load(BATCH_META) + i * 4u32 + 3u32, 0u32);
+        i = i + 1u32;
+    }
+    if (words_load(BATCH_MODE) & 2u32) != 0u32 {
+        words_store(BATCH_VIEW, begin);
+        words_store(BATCH_TRIANGLE, 0u32);
+        if begin < end {
+            batch_view_begin(begin);
+        }
+    }
+    words_store(BATCH_FIRST, words_load(BATCH_VIEW));
+    words_store(BATCH_END, words_load(BATCH_VIEW));
+}
+fn batch_add_count(count: u32) -> unit {
+    words_store(BATCH_COUNT, words_load(BATCH_COUNT) + count);
+    words_store(BATCH_TRIANGLE, words_load(BATCH_TRIANGLE) + count);
+    var p: u32 = words_load(BATCH_META) + words_load(BATCH_VIEW) * 4u32;
+    words_store(p + 1u32, words_load(p + 1u32) + count);
+}
+fn batch_step_begin() -> unit {
+    var end: u32 = words_load(9u32) + words_load(10u32);
+    while words_load(BATCH_VIEW) < end && words_load(5u32) == 0u32 {
+        var view: u32 = words_load(BATCH_VIEW);
+        var p: u32 = words_load(BATCH_META) + view * 4u32;
+        var meta: u32 = words_load(VIEW_META) + view * 4u32;
+        if words_load(p + 3u32) == 0u32 {
+            if words_load(BATCH_COUNT) == words_load(PROJECTION_CAPACITY) {
+                return;
+            }
+            words_store(p, words_load(BATCH_TRIANGLE));
+            words_store(p + 1u32, 0u32);
+            words_store(p + 2u32, words_load(BATCH_COUNT));
+            words_store(p + 3u32, 1u32);
+            words_store(BATCH_END, view + 1u32);
+        }
+        if words_load(BATCH_RANGE) == words_load(meta + 1u32) + words_load(meta + 2u32) {
+            words_store(p + 3u32, 3u32);
+            words_store(BATCH_SHADE, 1u32);
+            words_store(BATCH_VIEW, view + 1u32);
+            words_store(BATCH_TRIANGLE, 0u32);
+            if view + 1u32 < end {
+                batch_view_begin(view + 1u32);
+            }
+        } else {
+            if words_load(BATCH_COUNT) == words_load(PROJECTION_CAPACITY) {
+                return;
+            }
+            if batch_prepare_range(view) {
+                return;
+            }
+        }
+    }
+}
+fn batch_has_tree() -> bool {
+    return words_load(5u32) == 0u32 && words_load(BATCH_VIEW) < words_load(9u32) + words_load(
+        10u32
+    ) && words_load(BATCH_COUNT) < words_load(PROJECTION_CAPACITY);
+}
+fn batch_seed_worker(lane: u32, instance: u32) -> unit {
+    var node: u32 = words_load(words_load(INSTANCE_META) + instance * 5u32) * 2u32;
+    var bits: u32 = 6u32;
+    while bits != 0u32 {
+        var p: u32 = words_load(MESH_NODES) + node * 5u32;
+        if words_load(p + 1u32) <= 64u32 {
+            if lane % (1u32 << bits) != 0u32 {
+                node = 0xffffffffu32;
+            }
+            bits = 0u32;
+        } else {
+            bits = bits - 1u32;
+            node = words_load(p + 3u32);
+            if (lane & (1u32 << bits)) != 0u32 {
+                node = words_load(words_load(MESH_NODES) + node * 5u32 + 2u32);
+            }
+        }
+    }
+    var end: u32 = 0xffffffffu32;
+    if node != 0xffffffffu32 {
+        end = words_load(words_load(MESH_NODES) + node * 5u32 + 2u32);
+    }
+    var state: u32 = words_load(BATCH_WALKERS) + lane * 3u32;
+    words_store(state, node);
+    words_store(state + 1u32, end);
+    words_store(state + 2u32, 0u32);
+}
+fn batch_worker_find(lane: u32, instance: u32) -> u32 {
+    if words_load(BATCH_NODE) == 0xffffffffu32 {
+        batch_seed_worker(lane, instance);
+    }
+    var state: u32 = words_load(BATCH_WALKERS) + lane * 3u32;
+    var node: u32 = words_load(state);
+    var end: u32 = words_load(state + 1u32);
+    var view: u32 = words_load(BATCH_VIEW);
+    var visited: u32 = 0u32;
+    while node != end {
+        visited = visited + 1u32;
+        var p: u32 = words_load(MESH_NODES) + node * 5u32;
+        if words_load(CULL_DISABLED) != 0u32 || scene_node_visible(view, instance, node) {
+            if words_load(p + 1u32) <= 64u32 {
+                words_store(state, node);
+                shared_store(192u32 + lane, visited);
+                return words_load(p + 1u32) - words_load(state + 2u32);
+            }
+            node = words_load(p + 3u32);
+        } else {
+            node = words_load(p + 2u32);
+        }
+    }
+    words_store(state, end);
+    shared_store(192u32 + lane, visited);
+    return 0u32;
+}
+fn batch_worker_count(lane: u32) -> unit {
+    shared_store(192u32 + lane, 0u32);
+    var count: u32 = 0u32;
+    if batch_has_tree() {
+        var range: u32 = words_load(SPACE_TRIANGLES) + words_load(BATCH_RANGE) * 4u32;
+        count = batch_worker_find(lane, words_load(range + 3u32));
+    }
+    shared_store(lane, count);
+}
+fn batch_worker_emit(lane: u32) -> unit {
+    shared_store(64u32 + lane, 0u32);
+    shared_store(128u32 + lane, 0u32);
+    if !batch_has_tree() {
+        return;
+    }
+    var prefix: u32 = 0u32;
+    var clusters: u32 = 0u32;
+    var remaining: u32 = words_load(PROJECTION_CAPACITY) - words_load(BATCH_COUNT);
+    var i: u32 = 0u32;
+    while i < lane {
+        if shared_load(i) != 0u32 && prefix < remaining {
+            clusters = clusters + 1u32;
+        }
+        prefix = prefix + shared_load(i);
+        i = i + 1u32;
+    }
+    var count: u32 = shared_load(lane);
+    if prefix >= remaining {
+        count = 0u32;
+    } else if count > remaining - prefix {
+        count = remaining - prefix;
+    }
+    if count != 0u32 {
+        batch_worker_write(lane, prefix, clusters, count);
+    }
+    shared_store(64u32 + lane, count);
+    var state: u32 = words_load(BATCH_WALKERS) + lane * 3u32;
+    shared_store(128u32 + lane, (words_load(state) != words_load(state + 1u32)) as u32);
+}
+fn batch_worker_write(lane: u32, prefix: u32, cluster: u32, count: u32) -> unit {
+    var state: u32 = words_load(BATCH_WALKERS) + lane * 3u32;
+    var p: u32 = words_load(MESH_NODES) + words_load(state) * 5u32;
+    var range: u32 = words_load(SPACE_TRIANGLES) + words_load(BATCH_RANGE) * 4u32;
+    var info: u32 = words_load(INSTANCE_META) + words_load(range + 3u32) * 5u32;
+    var out: u32 = words_load(BATCH_IDS) + (words_load(BATCH_CLUSTERS) + cluster) * 3u32;
+    var first: u32 = words_load(state + 2u32);
+    words_store(out, words_load(BATCH_COUNT) + prefix + count);
+    words_store(out + 1u32, words_load(p) + first);
+    words_store(out + 2u32, words_load(info + 2u32) - words_load(info));
+    first = first + count;
+    if first == words_load(p + 1u32) {
+        words_store(state, words_load(p + 2u32));
+        first = 0u32;
+    }
+    words_store(state + 2u32, first);
+}
+fn batch_workers_finish() -> unit {
+    if !batch_has_tree() {
+        return;
+    }
+    var count: u32 = 0u32;
+    var clusters: u32 = 0u32;
+    var active: u32 = 0u32;
+    var visited: u32 = 0u32;
+    var lane: u32 = 0u32;
+    while lane < LOCAL_SIZE {
+        var size: u32 = shared_load(64u32 + lane);
+        count = count + size;
+        if size != 0u32 {
+            clusters = clusters + 1u32;
+        }
+        active = active | shared_load(128u32 + lane);
+        visited = visited + shared_load(192u32 + lane);
+        lane = lane + 1u32;
+    }
+    work_count_add(WORK_NODES, visited);
+    batch_add_count(count);
+    words_store(BATCH_CLUSTERS, words_load(BATCH_CLUSTERS) + clusters);
+    words_store(BATCH_NODE, 0u32);
+    if active == 0u32 {
+        batch_range_next();
+    }
+}
+fn batch_task_commands(active: bool) -> unit {
+    var base: u32 = 0u32;
+    var batch: u32 = 0u32;
+    while base < words_load(TASK_CAPACITY) {
+        var count: u32 = 0u32;
+        if active && words_load(6u32) > base {
+            count = words_load(6u32) - base;
+        }
+        if count > MAX_INVOCATIONS / LOCAL_SIZE {
+            count = MAX_INVOCATIONS / LOCAL_SIZE;
+        }
+        words_store(words_load(TASK_COMMANDS) + batch * 12u32, count);
+        if words_load(BATCH_SHADE) == 0u32 {
+            count = 0u32;
+        }
+        words_store(words_load(TASK_COMMANDS) + batch * 12u32 + 9u32, count);
+        base = base + MAX_INVOCATIONS / LOCAL_SIZE;
+        batch = batch + 1u32;
+    }
+}
+fn batch_finish() -> unit {
+    batch_step_begin();
+    work_count_add(WORK_TRIANGLES, words_load(BATCH_COUNT));
+    if words_load(BATCH_COUNT) != 0u32 {
+        work_count_add(WORK_BATCHES, 1u32);
+    }
+    batch_task_commands(words_load(BATCH_FIRST) < words_load(BATCH_END));
+    words_store(16u32, geometry_groups(words_load(BATCH_COUNT)));
+    if words_load(5u32) == 0u32 && (words_load(BATCH_MODE) & 4u32) != 0u32 && words_load(
+        BATCH_VIEW
+    ) != words_load(9u32) + words_load(10u32) {
+        words_store(5u32, 3u32);
+    }
+}
+fn compute() -> unit {
+    var lane: u32 = shader_local_x();
+    if lane == 0u32 {
+        batch_initialize();
+    }
+    shader_barrier();
+    var round: u32 = 0u32;
+    while round < 8u32 {
+        if lane == 0u32 {
+            batch_step_begin();
+        }
+        shader_barrier();
+        batch_worker_count(lane);
+        shader_barrier();
+        batch_worker_emit(lane);
+        shader_barrier();
+        if lane == 0u32 {
+            batch_workers_finish();
+        }
+        shader_barrier();
+        round = round + 1u32;
+    }
+    if lane == 0u32 {
+        batch_finish();
+    }
+}
+
+fn work_count_add(field: u32, count: u32) -> unit {
+    var value: u32 = words_load(field);
+    if count > 0xffffffffu32 - value {
+        words_store(field, 0xffffffffu32);
+    } else {
+        words_store(field, value + count);
+    }
+}
+
+fn batch_prepare_range(view: u32) -> bool {
+    var range: u32 = words_load(SPACE_TRIANGLES) + words_load(BATCH_RANGE) * 4u32;
+    var instance: u32 = words_load(range + 3u32);
+    if instance != 0xffffffffu32 {
+        if words_load(CULL_DISABLED) != 0u32 || words_load(
+            words_load(INSTANCE_VISIBLE) + view * words_load(INSTANCE_COUNT) + instance
+        ) != 0u32 {
+            return true;
+        }
+    } else {
+        batch_cluster(
+            words_load(BATCH_COUNT) + 1u32,
+            0xffffffffu32,
+            words_load(range + 1u32)
+        );
+        batch_add_count(1u32);
+    }
+    batch_range_next();
+    return false;
+}

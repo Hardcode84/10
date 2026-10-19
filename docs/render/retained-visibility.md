@@ -2,10 +2,19 @@
 
 ## Status and decision
 
-This document specifies a renderer replacement. The current implementation
-still uses the frame path described in [retained meshes](retained-meshes.md).
-Do not claim that this design improves frame rate until the production checks
-below pass.
+The first implementation is on the renderer branch. It has mesh-local trees,
+parallel subtree traversal, resumable cluster batches, persistent instance
+lookup, and shared mesh shadow data. Warm camera-only frames upload no mesh
+data and perform no retained triangle expansion or triangle sort. Debug
+reference checks can still request an expanded copy.
+
+The complete-frame performance gate below is open. The course benchmark
+measures synchronous CPU and GPU work without presentation. Keep the measured
+scope explicit. Passing image checks and lower headless times do not establish
+the required presented-frame p99.
+
+See [the implementation contract](retained-meshes.md) and
+[the benchmark command](renderer-build.md#persistent-visibility-measurements).
 
 Build a persistent spatial hierarchy for each mesh. Store instances in their
 own room spaces. Traverse these hierarchies for each visible portal view.
@@ -16,13 +25,13 @@ Camera movement must not expand, sort, validate, or upload all static triangles.
 Instance movement must not rebuild the mesh hierarchy. Dynamic triangle count
 must not change static geometry addresses.
 
-## Current failure mechanism
+## Baseline failure mechanism
 
 The prefab course submits 117,110 triangles in 80 room instances. The shaft
 has approximately 24,600 triangles and the hub has approximately 60,300.
 Dynamic effects can change the exact submitted counts.
 
-The current hot path has these costs:
+The baseline frame path had these costs:
 
 | Path | Work on each frame | Required replacement |
 | --- | --- | --- |
@@ -33,7 +42,7 @@ The current hot path has these costs:
 | [Projection](../../src/render/device/transform.crs) | Clear fan slots, test faces, transform, and clip scheduled triangles. | Perform this work only for surviving clusters. |
 | [Tile binning](../../src/render/device/bin.crs) | Each active tile visits the compacted triangle groups. | Use coarse screen bins to restrict each tile's candidate groups. |
 
-The current per-instance bounds test cannot reject parts of a large room mesh.
+The baseline per-instance bounds test cannot reject parts of a large room mesh.
 The projected group bounds are computed after triangle projection. They reduce
 raster work but cannot remove the earlier triangle work.
 
@@ -237,3 +246,96 @@ lighting, portal depth, and input-to-display behaviour during the comparison.
 Document failures with the measured pass, workload count, and ownership or
 algorithm contract that must change. Do not replace this gate with an average
 FPS claim or a lower-resolution run.
+
+## Implemented vertical slice
+
+Mesh upload creates a separate range for each room. A cold median partition
+builds a binary tree in local space. Leaves hold at most four triangles. A
+visibility work item can accept a subtree with at most 64 triangles. Stable
+source IDs preserve depth ties after this spatial reordering.
+
+At each portal depth, the GPU computes active tile rectangles and instance
+planes. Up to 64 lanes traverse disjoint subtrees. Eight traversal rounds form
+one work quantum. Per-lane cursors preserve the node, subtree end, and partial
+leaf offset. The host records a conservative batch bound from source counts
+and instance counts. Queue completion needs no host readback.
+
+A batch queues index ranges. Projection resolves a range once per triangle
+and records its source ID for rasterization. Retained instance lookup is built
+when mesh ranges or instance count change. A dynamic prefix or pose change
+preserves that lookup. The shadow path shares the local tree and transforms
+bounds for each query. It supports singular affine instance transforms.
+
+The public batch limit permits small scratch budgets. The retained regression
+alternates ordinary instances with grouped room meshes and seven-triangle
+batches. It checks final images against the CPU ray reference. The diagnostic
+course runner records selected work outside its timed frames. Work counters
+saturate at the unsigned 32-bit maximum; the runner rejects a saturated report.
+
+## Measured result
+
+The [measurement table](retained-visibility-results.csv) records 128 frames
+after eight warm-up frames for each pose. The GPU is an Intel Arc Pro B60
+(BMG G21), with Mesa 25.2.8 and Vulkan loader 1.3.275. Both builds use the same
+course, camera poses, resolution, lighting, and portal settings. All 12 final
+images match byte for byte. The baseline uses the frame path described above.
+
+These are synchronous frame times. They include CPU submission and GPU
+completion. They exclude presentation and pixel readback. Pose 0 uses the room
+spawn. Pose 1 faces the first portal from one metre inside the room.
+
+| Resolution | Room | Pose | Baseline p99, ms | Persistent p99, ms |
+| --- | --- | --- | --- | --- |
+| 1024 × 768 | Shaft | 0 | 22.18 | 18.89 |
+| 1024 × 768 | Shaft | 1 | 21.96 | 14.53 |
+| 1024 × 768 | Hub | 0 | 23.16 | 17.63 |
+| 1024 × 768 | Hub | 1 | 21.42 | 11.57 |
+| 1920 × 1080 | Shaft | 0 | 30.26 | 26.27 |
+| 1920 × 1080 | Shaft | 1 | 38.31 | 23.09 |
+| 1920 × 1080 | Hub | 0 | 39.42 | 29.49 |
+| 1920 × 1080 | Hub | 1 | 38.61 | 17.93 |
+
+The CSV also includes the open hex stopper as a passage control. Its GPU p99
+increases from 12.14 to 13.61 ms at 1080p, pose 0. Its synchronous frame p99
+decreases from 19.25 to 17.10 ms. The extra traversal work has a GPU cost when
+little geometry is visible. The shaft spawn GPU time is almost unchanged.
+The strongest GPU gains occur at the rotor portal poses.
+
+Warm upload at the shaft spawn decreases from 973,480 to 40,076 bytes per
+frame. Mesh upload remains zero. Each device and staging allocation increases
+from 818,496,000 to 836,240,640 bytes at 1080p. Capacity separation remains
+necessary to remove the large scene-wide scratch reservation.
+
+At 1024 × 768, the shaft spawn visits 2,241 hierarchy nodes and queues 49,830
+triangles in 11 nonempty batches. The hub spawn visits 1,329 nodes and queues
+32,698 triangles in six batches. These counts include all recursive portal
+views. They are not unique source triangle counts.
+
+Decision: retain this measured vertical slice on the renderer branch. The
+16.67 ms completion gate remains open. Use these poses to test the next change
+before expanding the architecture.
+
+## Remaining acceptance work
+
+The following contracts still require replacement and measurement:
+
+- Room membership is a sorted range list rebuilt each frame. Persistent room
+  records must update only changed placements and dynamic ranges.
+- Vertex storage has separate attributes for each triangle. An exact cold
+  vertex index must preserve UV seams. Visible batches must reuse transformed
+  indexed vertices before this representation can reduce projection work.
+- Fine tiles still visit compacted triangle groups and candidate bitsets.
+  Bounded coarse bins and compact candidate queues must preserve coverage,
+  source tie order, and queue continuation. A new pass must beat the measured
+  pixel cost before it replaces this path.
+- Dynamic geometry and shadow scratch still reserve capacity from the total
+  submitted triangle count. Split that capacity from the retained instance
+  index. Check allocation growth and retirement with changing particle counts.
+- The final gate requires presented-frame p99 at both target resolutions.
+  The headless course measurements exclude presentation and input scheduling.
+
+Two measured experiments were removed. Sharing lighting results within one
+tile increased GPU time. A summary over empty triangle-bitset words also
+increased GPU time. These implementations provide no basis for another layer
+of production machinery. Re-test a replacement with packed work and the same
+camera recordings before adoption.

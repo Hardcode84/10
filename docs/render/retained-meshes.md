@@ -13,11 +13,13 @@ Room recipes can add surface marks to `RoomAsset.decals`. These triangles use
 room-local positions and appear after the solid parts. They do not enter collision
 meshes. Use cutout coverage and disable shadow casting for stains.
 
-Call `input_mesh` with a scoped `FrameInput` borrow. It copies the mesh into
+Call `input_mesh` with a scoped `FrameInput` borrow. Use `input_mesh_slice`
+to upload a contiguous source range as a separate mesh. It copies the mesh into
 renderer-owned storage and returns a `MeshRange`. The source mesh can then
 be released. The range stays valid until that renderer closes or
 `input_clear_meshes` is called, including across storage growth. Use the range
-only with its originating renderer. Mesh storage is append-only between clears.
+only with its originating renderer. Keep the returned range unchanged. Mesh
+storage is append-only between clears.
 
 Call `input_frame` before each frame. Submit dynamic triangles first, then
 retained instances. Each `MeshInstance` contains a range, a row-major 3 by 4
@@ -37,31 +39,51 @@ unchanged mesh data is not uploaded again.
 
 ## Visibility and GPU work
 
-The host transforms each local bound into a world-space axis-aligned bound.
-It expands that bound for Float32 rounding. Changed instance data uploads 92 bytes per
-instance: five words and eighteen floats. The GPU expands retained triangles
-once per instance before view traversal. Dynamic triangles and expanded
-triangles then use the same clipping, lighting, and raster passes. Retained
-shadow trees are shared by lights and reused until geometry changes. See
-[light visibility](lighting.md#cost-and-checks) for the invalidation contract.
+Each uploaded mesh has a local spatial tree. Mesh changes rebuild this tree
+before upload. The tree contains source triangle indices, bounds, escape links,
+and flags for shadow casters and sprites. Its leaves contain at most four
+triangles. Visibility traversal can stop at a subtree of at most 64 triangles.
+Source IDs preserve equal-depth order after spatial partitioning.
 
-At each portal depth, the GPU tests bounds against each actual view's camera
-and destination clip plane. It keeps bounds that touch a plane, with a rounding
-margin based on the uncombined plane terms. It does not reuse the root camera's
-result for a transformed view. A separate one-sided face test also uses the
-camera for that view. Portal masks and depth tests determine final coverage.
+The host submits one space range per instance and per dynamic triangle.
+It sorts these ranges by space. It does not sort retained triangles each frame.
+An instance index uses offsets relative to the retained prefix. A changed
+particle count preserves this index. Mesh selection and instance count changes
+update it. Pose changes update the instance transform and bounds.
 
-Each graph room has its own space ID. All room instances are submitted.
-A portal view selects its destination space before bounds and face tests.
+For each portal view, the GPU finds the rectangle that contains its active
+tiles. It builds culling planes for the instances in that room. Up to 64 lanes
+traverse disjoint mesh subtrees. Each batch has a fixed traversal work budget.
+When work or projection storage is full, the next batch resumes the saved
+node and leaf offsets. Dynamic geometry uses the same nearest-hit state.
 
-Expansion storage depends on all submitted triangles. Projection and clipping
-use at most 8192 source triangles per batch, shared across views. Larger rooms
-and multiple visible rooms use more batches. Per-pixel hit state preserves
-depth, texture coordinates, and triangle tie order across those batches.
-The visibility table uses four bytes per instance per reserved view. Each mesh
-triangle uses 76 bytes in the retained pool. The instance table uses 92 bytes
-per reserved instance. See the engine register for the separate frame-transfer
-and portal-capacity tasks.
+Normal frames read mesh-local vertices through instance transforms. The
+expanded triangle copy is produced only for debug reference checks. Mesh
+trees remain unchanged when the camera, portal view, or instance pose changes.
+Shadow queries share those trees across placements. They transform bounds to
+the instance space used by the ray. This supports finite affine transforms,
+including singular transforms, without an inverse matrix.
+
+The default projection batch holds at most 8192 source triangles. Call
+`input_batch_limit` to select another maximum; zero selects the default.
+A smaller limit changes the number of batches, with identical coverage and
+triangle tie order. Scratch allocation can retain spare capacity. The active
+batch limit still applies after allocation growth.
+
+Per-pixel hit state preserves depth, UVs, and source identity across batches.
+A completed view is shaded once. Batches with no completed views suppress
+that shading dispatch. Tile masks and exact triangle coverage remain in the
+raster pass. Sprites bypass bounds that cannot describe their camera-facing
+extent. Their UV extents enter the host numeric-envelope check.
+
+The retained pool reserves 176 bytes per source triangle for vertices,
+metadata, the spatial index, and tree storage. Each instance uses 92 bytes.
+The visibility table uses four bytes per instance per reserved view. Culling
+planes use 192 bytes per instance per reserved view. Queue descriptors,
+projected vertices, and traversal cursors use bounded scratch storage.
+
+See [persistent visibility](retained-visibility.md) for the full architecture
+and its performance gates.
 
 ## Shared game assets
 
@@ -105,7 +127,8 @@ crust tests.crs viewer
 ```
 
 The graph check renders each room with checked shaders. Test 7 converts the portal regression scene to retained instances
-with nonidentity transforms. It checks 25 camera states against the CPU ray
+with nonidentity transforms. Alternate frames group triangles into room meshes
+and use a seven-triangle projection batch. It checks 25 camera states against the CPU ray
 reference and compares enabled and disabled culling. The viewer check requires
 at least one rejected instance at its first frame when copies exceed one.
 All comparisons also check that a second draw uploads no unchanged mesh data.

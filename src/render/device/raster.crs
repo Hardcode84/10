@@ -112,11 +112,11 @@ fn candidate_depth(p: u32, px: f32, py: f32) -> f32 {
     return 0f32;
 }
 fn candidate_opaque(triangle: u32, p: u32, px: f32, py: f32) -> bool {
-    var meta: u32 = words_load(META) + triangle * 4u32;
-    if (words_load(meta + 3u32) & 1u32) == 0u32 {
+
+    if (scene_meta(triangle, 3u32) & 1u32) == 0u32 {
         return true;
     }
-    var mat: u32 = words_load(meta + 1u32);
+    var mat: u32 = scene_meta(triangle, 1u32);
     var style: u32 = material_field(mat, 5u32) & 3u32;
     return material_texel(
         mat,
@@ -157,7 +157,9 @@ fn raster_candidates(task: u32, view: u32, x: u32, y: u32) -> unit {
             id = words_load(words_load(COMPACT_OFFSET) + batch_offset(view) * MAX_FAN + i);
         }
         var p: u32 = words_load(PROJECTED_OFFSET) + (batch_offset(view) * MAX_FAN + id) * 20u32;
-        var triangle: u32 = batch_triangle(view, id / MAX_FAN);
+        var triangle: u32 = words_load(
+            words_load(BATCH_PRIMITIVES) + batch_offset(view) + id / MAX_FAN
+        );
         var identity: u32 = triangle * MAX_FAN + id % MAX_FAN;
         if tile_overlap(p, (x / 8u32 * 8u32) as f32, (y / 8u32 * 8u32) as f32) {
             var depth: f32 = candidate_depth(p, px, py);
@@ -173,7 +175,7 @@ fn raster_candidates(task: u32, view: u32, x: u32, y: u32) -> unit {
         }
     }
     if selected != 0xffffffffu32 {
-        var mat: u32 = words_load(words_load(META) + winner / MAX_FAN * 4u32 + 1u32);
+        var mat: u32 = scene_meta(winner / MAX_FAN, 1u32);
         var style: u32 = material_field(mat, 5u32) & 3u32;
         floats_store(cache + 1u32, sample_uv(selected, px, py, 3u32, style));
         floats_store(cache + 2u32, sample_uv(selected, px, py, 4u32, style));

@@ -121,12 +121,16 @@ fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
     if w[INSTANCE_COUNT as usize] == 0u32 {
         w[DYNAMIC_COUNT as usize] = w[3usize];
     }
-    if !render_numeric_bounds(v) || !projection_admit(v, extra) {
+    if !projection_admit(v, extra) {
+        return false;
+    }
+    mesh_trees_prepare(v);
+    if !render_numeric_bounds(v) {
         return false;
     }
     w = v -> mapped as *u32;
-    w[SHADOW_RESET as usize] = (
-        v -> mesh_dirty || v -> shadow_dirty || v -> shadow_instances != w[
+    w[INSTANCE_MAP_RESET as usize] = (
+        v -> mesh_dirty || v -> instance_map_dirty || v -> instance_map_count != w[
             INSTANCE_COUNT as usize
         ]
     ) as u32;
@@ -150,8 +154,8 @@ fn renderer_complete(v: *RenderState) -> bool {
         return false;
     }
     v -> mesh_dirty = false;
-    v -> shadow_dirty = false;
-    v -> shadow_instances = (v -> mapped as *u32)[INSTANCE_COUNT as usize];
+    v -> instance_map_dirty = false;
+    v -> instance_map_count = (v -> mapped as *u32)[INSTANCE_COUNT as usize];
     v -> asset_dirty_begin = 0u32;
     v -> asset_dirty_end = 0u32;
     v -> font_dirty = false;
@@ -188,5 +192,5 @@ fn renderer_pipelines(v: *RenderState, shaders: *ShaderCode) -> bool {
     return true;
 }
 fn renderer_pipeline_count(v: *RenderState) -> usize {
-    return 14usize + v -> shader_checks as usize;
+    return PIPELINE_COUNT as usize - 1usize + v -> shader_checks as usize;
 }

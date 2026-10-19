@@ -112,20 +112,19 @@ must not be presented. Correct the input before submitting another frame.
 
 ## Cost and checks
 
-After instance expansion, the GPU uses two levels of bounding-volume trees.
-Each retained instance has a triangle tree. Room lights share these trees.
-A small tree for each room light selects instances in its room. A separate
-tree contains dynamic shadow-casting triangles in that room. A shadow ray
-visits intersected bounds and candidate leaves, not the scene triangle list.
-Each leaf contains at most four triangles or instances. Escape links avoid
-a fixed-size traversal stack and a tree depth limit.
+Each retained mesh has a persistent triangle tree in mesh-local coordinates.
+Room lights and mesh placements share this tree. A small tree for each room
+light selects instances in its room. A separate tree contains dynamic shadow
+casters in that room. A shadow ray visits intersected bounds and candidate
+leaves. Each leaf contains at most four triangles or instances. Escape links
+remove the need for a fixed-depth traversal stack.
 
-Retained trees remain on the GPU between frames. Mesh data, instance mesh
-ranges, transforms, or instance count changes cause a rebuild. Buffer
-replacement also causes a rebuild. A changed light or camera does not rebuild
-retained trees. Triangle indices are relative to the retained geometry, so
-changes in the number of preceding dynamic triangles do not invalidate them.
+Mesh changes rebuild the retained tree. Buffer replacement uploads the tree
+to the new allocation. Camera, light, pose, and dynamic triangle count changes
+preserve its structure. A node flag skips subtrees with no shadow casters.
 Instance room and material changes take effect through the current metadata.
+Query bounds use the instance transform. They support singular affine
+transforms as well as rotations, translations, and scales.
 
 The room-light instance trees and dynamic trees are rebuilt each frame.
 These builds read instance metadata and dynamic triangles; they do not scan

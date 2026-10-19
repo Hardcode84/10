@@ -31,7 +31,7 @@ fn expand_triangle(instance: u32, local: u32) -> unit {
     words_store(words_load(META) + triangle * 4u32 + 1u32, material);
     words_store(words_load(META) + triangle * 4u32 + 2u32, words_load(meta + 1u32));
     words_store(words_load(META) + triangle * 4u32 + 3u32, words_load(meta + 2u32));
-    words_store(words_load(INSTANCE_OWNER) + triangle, instance);
+
 }
 fn compute() -> unit {
     var instance: u32 = shader_global_x() / LOCAL_SIZE;
@@ -39,7 +39,12 @@ fn compute() -> unit {
         var i: u32 = shader_local_x();
         var count: u32 = words_load(words_load(INSTANCE_META) + instance * 5u32 + 1u32);
         while i < count {
-            expand_triangle(instance, i);
+            var info: u32 = words_load(INSTANCE_META) + instance * 5u32;
+            var first: u32 = words_load(info + 2u32) - words_load(DYNAMIC_COUNT);
+            words_store(words_load(INSTANCE_OWNER) + first + i, instance);
+            if words_load(26u32) != 0u32 {
+                expand_triangle(instance, i);
+            }
             i = i + LOCAL_SIZE;
         }
         instance = instance + MAX_INVOCATIONS / LOCAL_SIZE;

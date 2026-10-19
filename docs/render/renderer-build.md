@@ -574,8 +574,8 @@ when no reciprocal link is declared. A declared reciprocal must lead back
 through the same aperture. The GPU excludes that immediate return from a
 child view. Other recursive views remain valid.
 
-Source meshes, expanded instances, shadow trees, and output pixels retain
-their separate storage. Tile candidate bits depend on image task capacity
+Source meshes, instance metadata, shadow trees, and output pixels retain
+their separate storage. Expanded instances are used only by debug checks. Tile candidate bits depend on image task capacity
 and batch size. Batch work storage no longer multiplies the largest room by
 the view budget. The capacity checks compare split batches with the CPU
 reference, including equal depths and cutout texels.
@@ -605,3 +605,22 @@ These times include upload, geometry, lighting, and composition. They exclude
 capture readback, CPU work, and window presentation. Captures of both views
 match byte for byte. These measurements do not establish a frame-rate bound
 for other cameras or resolutions.
+
+## Persistent visibility measurements
+
+The persistent mesh path and its checks are described in
+[persistent visibility](retained-visibility.md). Run the production course
+benchmark with a level, room index, and camera pose:
+
+```sh
+crust tests.crs course-benchmark levels/prefabs.crs 10 0 --width 1024 --height 768 --capture build/shaft.ppm
+crust tests.crs course-benchmark levels/prefabs.crs 11 1 --width 1920 --height 1080 --capture build/hub-portal.ppm
+```
+
+Pose zero uses the room recipe spawn. Other poses face the numbered room
+portal from one metre inside the room. The benchmark uses eight warm-up
+frames and 128 measured frames. It reports p50, p95, and p99 for synchronous
+frame work and GPU execution. Pixel readback and presentation are excluded.
+A separate diagnostic frame reports hierarchy visits, queued triangles, and
+nonempty batches, then writes the capture. Use the same build, camera, device,
+and resolution for each comparison.

@@ -58,13 +58,13 @@ fn light_color(mat: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
 }
 
 fn light_normal(tri: u32, axis: u32) -> f32 {
-    var p: u32 = GEOMETRY + tri * 15u32;
+    var p: u32 = tri * 15u32;
     var a: u32 = (axis + 1u32) % 3u32;
     var b: u32 = (axis + 2u32) % 3u32;
-    return (floats_load(p + 5u32 + a) - floats_load(p + a)) * (
-        floats_load(p + 10u32 + b) - floats_load(p + b)
-    ) - (floats_load(p + 5u32 + b) - floats_load(p + b)) * (
-        floats_load(p + 10u32 + a) - floats_load(p + a)
+    return (scene_float(p + 5u32 + a) - scene_float(p + a)) * (
+        scene_float(p + 10u32 + b) - scene_float(p + b)
+    ) - (scene_float(p + 5u32 + b) - scene_float(p + b)) * (
+        scene_float(p + 10u32 + a) - scene_float(p + a)
     );
 }
 fn view_position(view: u32, z: f32, x: u32, y: u32, axis: u32) -> f32 {
@@ -123,9 +123,18 @@ fn light_band(amount: f32, r: f32, g: f32, b: f32) -> f32 {
     var level: u32 = scaled as u32;
     return level as f32 / (7f32 * peak);
 }
-fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
-    var mat: u32 = words_load(words_load(META) + tri * 4u32 + 1u32);
-    var space: u32 = words_load(words_load(META) + tri * 4u32);
+fn light_at(
+    tri: u32,
+    view: u32,
+    z: f32,
+    x: u32,
+    y: u32,
+    normal_x: f32,
+    normal_y: f32,
+    normal_z: f32
+) -> u32 {
+    var mat: u32 = scene_meta(tri, 1u32);
+    var space: u32 = scene_meta(tri, 0u32);
     var ambient: u32 = space;
     if words_load(SHARED_AMBIENT) != 0u32 {
         ambient = 0u32;
@@ -139,9 +148,9 @@ fn light_at(tri: u32, view: u32, z: f32, x: u32, y: u32) -> u32 {
     var px: f32 = view_position(view, z, x, y, 0u32);
     var py: f32 = view_position(view, z, x, y, 1u32);
     var pz: f32 = view_position(view, z, x, y, 2u32);
-    var nx: f32 = light_normal(tri, 0u32);
-    var ny: f32 = light_normal(tri, 1u32);
-    var nz: f32 = light_normal(tri, 2u32);
+    var nx: f32 = normal_x;
+    var ny: f32 = normal_y;
+    var nz: f32 = normal_z;
     var ex: f32 = view_position(view, 0f32, x, y, 0u32) - px;
     var ey: f32 = view_position(view, 0f32, x, y, 1u32) - py;
     var ez: f32 = view_position(view, 0f32, x, y, 2u32) - pz;
@@ -238,10 +247,7 @@ fn light_corner(x: u32, y: u32) -> u32 {
     }
     return 3u32;
 }
-fn light_grid_depth(tri: u32, view: u32, sx: u32, sy: u32) -> f32 {
-    var nx: f32 = light_normal(tri, 0u32);
-    var ny: f32 = light_normal(tri, 1u32);
-    var nz: f32 = light_normal(tri, 2u32);
+fn light_grid_depth(tri: u32, view: u32, sx: u32, sy: u32, nx: f32, ny: f32, nz: f32) -> f32 {
     var ex: f32 = view_position(view, 0f32, sx, sy, 0u32);
     var ey: f32 = view_position(view, 0f32, sx, sy, 1u32);
     var ez: f32 = view_position(view, 0f32, sx, sy, 2u32);
@@ -252,10 +258,10 @@ fn light_grid_depth(tri: u32, view: u32, sx: u32, sy: u32) -> f32 {
     if denominator == 0f32 {
         return 0f32;
     }
-    var p: u32 = GEOMETRY + tri * 15u32;
+    var p: u32 = tri * 15u32;
     return (
-        nx * (floats_load(p) - ex) + ny * (floats_load(p + 1u32) - ey) + nz * (
-            floats_load(p + 2u32) - ez
+        nx * (scene_float(p) - ex) + ny * (scene_float(p + 1u32) - ey) + nz * (
+            scene_float(p + 2u32) - ez
         )
     ) / denominator;
 }
@@ -263,7 +269,19 @@ fn lit_state(tri: u32, view: u32, x: u32, y: u32) -> u32 {
     var corner: u32 = light_corner(x, y);
     var sx: u32 = (x / 16u32 + (corner & 1u32)) * 16u32;
     var sy: u32 = (y / 16u32 + (corner >> 1u32)) * 16u32;
-    return light_at(tri, view, light_grid_depth(tri, view, sx, sy), sx, sy);
+    var nx: f32 = light_normal(tri, 0u32);
+    var ny: f32 = light_normal(tri, 1u32);
+    var nz: f32 = light_normal(tri, 2u32);
+    return light_at(
+        tri,
+        view,
+        light_grid_depth(tri, view, sx, sy, nx, ny, nz),
+        sx,
+        sy,
+        nx,
+        ny,
+        nz
+    );
 }
 fn light_quantize(value: f32) -> u32 {
     if value >= 1f32 {
@@ -310,8 +328,8 @@ fn material_texel(mat: u32, u: f32, v: f32) -> u32 {
     );
 }
 fn surface_color(tri: u32, view: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
-    var mat: u32 = words_load(words_load(META) + tri * 4u32 + 1u32);
-    if (words_load(words_load(META) + tri * 4u32 + 3u32) & TRIANGLE_SPRITE) != 0u32 {
+    var mat: u32 = scene_meta(tri, 1u32);
+    if (scene_meta(tri, 3u32) & TRIANGLE_SPRITE) != 0u32 {
         return words_load(
             material_palette(mat) + material_texel(mat, u, v) * LIGHT_STATES + LIGHT_STATES - 1u32
         );
@@ -353,26 +371,26 @@ fn portal_facing(view: u32, portal: u32) -> bool {
     return distance < 0f32;
 }
 fn triangle_visible(tri: u32, view: u32) -> bool {
-    if (words_load(words_load(META) + tri * 4u32 + 3u32) & TRIANGLE_INACTIVE) != 0u32 {
+    if (scene_meta(tri, 3u32) & TRIANGLE_INACTIVE) != 0u32 {
         return false;
     }
     if tri >= words_load(DYNAMIC_COUNT) {
-        var instance: u32 = words_load(words_load(INSTANCE_OWNER) + tri);
+        var instance: u32 = scene_instance(tri);
         if words_load(
             words_load(INSTANCE_VISIBLE) + view * words_load(INSTANCE_COUNT) + instance
         ) == 0u32 {
             return false;
         }
     }
-    if (words_load(words_load(META) + tri * 4u32 + 3u32) & 2u32) == 0u32 {
+    if (scene_meta(tri, 3u32) & 2u32) == 0u32 {
         return true;
     }
-    var p: u32 = GEOMETRY + tri * 15u32;
+    var p: u32 = tri * 15u32;
     var distance: f32 = 0f32;
     var axis: u32 = 0u32;
     while axis < 3u32 {
         distance = distance + light_normal(tri, axis) * (
-            view_position(view, 0f32, 0u32, 0u32, axis) - floats_load(p + axis)
+            view_position(view, 0f32, 0u32, 0u32, axis) - scene_float(p + axis)
         );
         axis = axis + 1u32;
     }
@@ -397,7 +415,7 @@ fn task_commands(tasks: u32, previous: u32) -> unit {
         if fill > MAX_INVOCATIONS / LOCAL_SIZE {
             fill = MAX_INVOCATIONS / LOCAL_SIZE;
         }
-        var p: u32 = words_load(TASK_COMMANDS) + batch * 9u32;
+        var p: u32 = words_load(TASK_COMMANDS) + batch * 12u32;
         words_store(p, count);
         words_store(p + 1u32, 1u32);
         words_store(p + 2u32, 1u32);
@@ -407,6 +425,9 @@ fn task_commands(tasks: u32, previous: u32) -> unit {
         words_store(p + 6u32, (fill + 63u32) / 64u32);
         words_store(p + 7u32, 1u32);
         words_store(p + 8u32, 1u32);
+        words_store(p + 9u32, 0u32);
+        words_store(p + 10u32, 1u32);
+        words_store(p + 11u32, 1u32);
         base = base + MAX_INVOCATIONS / LOCAL_SIZE;
         batch = batch + 1u32;
     }
@@ -516,7 +537,7 @@ fn view_space(view: u32, space: u32) -> unit {
     var table: u32 = words_load(SPACE_META);
     while begin < end {
         var middle: u32 = begin + (end - begin) / 2u32;
-        if words_load(table + middle * 3u32) < space {
+        if words_load(table + middle * 4u32) < space {
             begin = middle + 1u32;
         } else {
             end = middle;
@@ -524,21 +545,14 @@ fn view_space(view: u32, space: u32) -> unit {
     }
     var count: u32 = 0u32;
     var first: u32 = 0u32;
-    if begin < words_load(SPACE_COUNT) && words_load(table + begin * 3u32) == space {
-        first = words_load(table + begin * 3u32 + 1u32);
-        count = words_load(table + begin * 3u32 + 2u32);
+    if begin < words_load(SPACE_COUNT) && words_load(table + begin * 4u32) == space {
+        first = words_load(table + begin * 4u32 + 1u32);
+        count = words_load(table + begin * 4u32 + 2u32);
     }
     var meta: u32 = words_load(VIEW_META) + view * 4u32;
     words_store(meta, space);
-    words_store(meta + 1u32, count);
-    words_store(meta + 2u32, first);
-}
-fn view_triangles(view: u32) -> u32 {
-    return words_load(words_load(VIEW_META) + view * 4u32 + 1u32);
-}
-fn view_triangle(view: u32, local: u32) -> u32 {
-    var first: u32 = words_load(words_load(VIEW_META) + view * 4u32 + 2u32);
-    return words_load(words_load(SPACE_TRIANGLES) + (first + local) * 2u32 + 1u32);
+    words_store(meta + 1u32, first);
+    words_store(meta + 2u32, count);
 }
 
 fn view_scale_squared(p: u32) -> f32 {
@@ -566,10 +580,31 @@ fn batch_active(view: u32) -> bool {
     return words_load(words_load(BATCH_META) + view * 4u32 + 3u32) != 0u32;
 }
 fn batch_finished(view: u32) -> bool {
-    return batch_active(view) && batch_start(view) + batch_size(view) == view_triangles(view);
+    return (words_load(words_load(BATCH_META) + view * 4u32 + 3u32) & 2u32) != 0u32;
 }
 fn batch_triangle(view: u32, local: u32) -> u32 {
-    return view_triangle(view, batch_start(view) + local);
+    var slot: u32 = batch_offset(view) + local;
+    var begin: u32 = 0u32;
+    var end: u32 = words_load(BATCH_CLUSTERS);
+    var base: u32 = words_load(BATCH_IDS);
+    while begin < end {
+        var mid: u32 = begin + (end - begin) / 2u32;
+        if words_load(base + mid * 3u32) <= slot {
+            begin = mid + 1u32;
+        } else {
+            end = mid;
+        }
+    }
+    var p: u32 = base + begin * 3u32;
+    var first: u32 = 0u32;
+    if begin != 0u32 {
+        first = words_load(p - 3u32);
+    }
+    var source: u32 = words_load(p + 1u32);
+    if source == 0xffffffffu32 {
+        return words_load(p + 2u32);
+    }
+    return words_load(words_load(MESH_INDEX) + source + slot - first) + words_load(p + 2u32);
 }
 fn batch_slot_view(slot: u32) -> u32 {
     var begin: u32 = words_load(BATCH_FIRST);

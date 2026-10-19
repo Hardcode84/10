@@ -91,3 +91,9 @@ fn presentation_drop(operation: mut Presentation) -> unit {
         presentation_idle(mut operation);
     }
 }
+
+// Sets the maximum triangles in a projection batch. Zero selects the default.
+// Remaining geometry is rendered in subsequent batches of the same frame.
+fn input_batch_limit(input: mut FrameInput, triangles: u32) -> unit {
+    input.storage.batch_triangle_limit = triangles;
+}

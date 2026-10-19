@@ -173,6 +173,13 @@ fn render_geometry_bound(v: *RenderState, w: *u32, f: *f32) -> f32 {
             );
             j = j + 1usize;
         }
+        var meta: u32 = w[INSTANCE_META as usize] + i * 5u32;
+        if w[(meta + 1u32) as usize] != 0u32 {
+            var root: u32 = w[meta as usize] * 2u32;
+            extent = extent + 2f32 * f[
+                (w[MESH_BOUNDS as usize] + root * 7u32 + 6u32) as usize
+            ];
+        }
         bound = render_bound_max(bound, extent);
         i = i + 1u32;
     }

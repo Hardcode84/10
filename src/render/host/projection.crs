@@ -22,46 +22,53 @@ fn projection_compare(left: *u8, right: *u8) -> i32 {
 }
 fn projection_members(v: *RenderState) -> unit {
     var w: *u32 = v -> mapped as *u32;
-    var pairs: *u32 = w + w[SPACE_TRIANGLES as usize] as isize;
+    var ranges: *u32 = w + w[SPACE_TRIANGLES as usize] as isize;
+    var count: u32 = 0u32;
     var i: u32 = 0u32;
     while i < w[DYNAMIC_COUNT as usize] {
-        pairs[(i * 2u32) as usize] = w[(w[META as usize] + i * 4u32) as usize];
-        pairs[(i * 2u32 + 1u32) as usize] = i;
+        ranges[(count * 4u32) as usize] = w[(w[META as usize] + i * 4u32) as usize];
+        ranges[(count * 4u32 + 1u32) as usize] = i;
+        ranges[(count * 4u32 + 2u32) as usize] = 1u32;
+        ranges[(count * 4u32 + 3u32) as usize] = 0xffffffffu32;
+        count = count + 1u32;
         i = i + 1u32;
     }
     i = 0u32;
     while i < w[INSTANCE_COUNT as usize] {
         var p: u32 = w[INSTANCE_META as usize] + i * 5u32;
-        var first: u32 = w[(p + 2u32) as usize];
-        var local: u32 = 0u32;
-        while local < w[(p + 1u32) as usize] {
-            var id: u32 = first + local;
-            pairs[(id * 2u32) as usize] = w[(p + 3u32) as usize];
-            pairs[(id * 2u32 + 1u32) as usize] = id;
-            local = local + 1u32;
+        if w[(p + 1u32) as usize] != 0u32 {
+            ranges[(count * 4u32) as usize] = w[(p + 3u32) as usize];
+            ranges[(count * 4u32 + 1u32) as usize] = w[(p + 2u32) as usize];
+            ranges[(count * 4u32 + 2u32) as usize] = w[(p + 1u32) as usize];
+            ranges[(count * 4u32 + 3u32) as usize] = i;
+            count = count + 1u32;
         }
         i = i + 1u32;
     }
-    projection_sort(pairs as *u8, w[3usize] as usize, 8usize, projection_compare);
+    w[SPACE_RANGE_COUNT as usize] = count;
+    projection_sort(ranges as *u8, count as usize, 16usize, projection_compare);
 }
 fn projection_spaces(v: *RenderState) -> u32 {
     var w: *u32 = v -> mapped as *u32;
-    var pairs: *u32 = w + w[SPACE_TRIANGLES as usize] as isize;
+    var ranges: *u32 = w + w[SPACE_TRIANGLES as usize] as isize;
     var spaces: *u32 = w + w[SPACE_META as usize] as isize;
     var largest: u32 = 1u32;
     var count: u32 = 0u32;
     var i: u32 = 0u32;
-    while i < w[3usize] {
+    while i < w[SPACE_RANGE_COUNT as usize] {
         var begin: u32 = i;
-        var space: u32 = pairs[(i * 2u32) as usize];
-        while i < w[3usize] && pairs[(i * 2u32) as usize] == space {
+        var space: u32 = ranges[(i * 4u32) as usize];
+        var triangles: u32 = 0u32;
+        while i < w[SPACE_RANGE_COUNT as usize] && ranges[(i * 4u32) as usize] == space {
+            triangles = triangles + ranges[(i * 4u32 + 2u32) as usize];
             i = i + 1u32;
         }
-        spaces[(count * 3u32) as usize] = space;
-        spaces[(count * 3u32 + 1u32) as usize] = begin;
-        spaces[(count * 3u32 + 2u32) as usize] = i - begin;
-        if i - begin > largest {
-            largest = i - begin;
+        spaces[(count * 4u32) as usize] = space;
+        spaces[(count * 4u32 + 1u32) as usize] = begin;
+        spaces[(count * 4u32 + 2u32) as usize] = i - begin;
+        spaces[(count * 4u32 + 3u32) as usize] = triangles;
+        if triangles > largest {
+            largest = triangles;
         }
         count = count + 1u32;
     }
@@ -79,11 +86,15 @@ fn projection_admit(v: *RenderState, extra: u32) -> bool {
     }
     v -> projection_maximum = size as u32;
     var queued: u64 = size * v -> view_capacity as u64;
-    var required: u32 = GEOMETRY_BATCH_TRIANGLES;
-    if queued < GEOMETRY_BATCH_TRIANGLES as u64 {
+    var required: u32 = v -> batch_triangle_limit;
+    if required == 0u32 {
+        required = GEOMETRY_BATCH_TRIANGLES;
+    }
+    if queued < required as u64 {
         required = queued as u32;
     }
     if required <= v -> projection_capacity {
+        (v -> mapped as *u32)[PROJECTION_CAPACITY as usize] = required;
         return true;
     }
     var next: RenderState = *v;
@@ -94,11 +105,21 @@ fn projection_admit(v: *RenderState, extra: u32) -> bool {
     if !geometry_layout(&next, next.triangle_capacity) {
         return false;
     }
-    return storage_replace(v, &next);
+    if !storage_replace(v, &next) {
+        return false;
+    }
+    (v -> mapped as *u32)[PROJECTION_CAPACITY as usize] = required;
+    return true;
 }
 // Counts possible geometry at one traversal depth. Reciprocal entry portals
 // cannot be crossed immediately back. The queue is bounded by the view budget.
 fn projection_depth_work(v: *RenderState, depth: u32) -> u64 {
+    return projection_depth_bound(v, depth, false);
+}
+fn projection_depth_steps(v: *RenderState, depth: u32) -> u64 {
+    return projection_depth_bound(v, depth, true);
+}
+fn projection_depth_bound(v: *RenderState, depth: u32, steps: bool) -> u64 {
     var w: *u32 = v -> mapped as *u32;
     var queue: *u32 = w + w[VIEW_META as usize] as isize;
     queue[0usize] = w[20usize];
@@ -112,13 +133,22 @@ fn projection_depth_work(v: *RenderState, depth: u32) -> u64 {
         var level: u32 = queue[(index * 4u32 + 1u32) as usize];
         var reverse: u32 = queue[(index * 4u32 + 2u32) as usize];
         if level == depth {
-            work = work + projection_space_size(v, space) as u64;
+            if steps {
+                work = work + projection_space_steps(v, space);
+            } else {
+                work = work + projection_space_size(v, space) as u64;
+            }
         } else {
             var portal: u32 = 0u32;
             while portal < v -> portal_capacity {
                 var p: u32 = w[PORTAL_META as usize] + portal * 4u32;
                 if w[p as usize] == space && portal + 1u32 != reverse {
                     if end == v -> view_capacity {
+                        if steps {
+                            return (
+                                w[INSTANCE_COUNT as usize] as u64 * 3u64 + w[3usize] as u64 / 2048u64 + 1u64
+                            ) * v -> view_capacity as u64;
+                        }
                         return v -> projection_maximum as u64 * v -> view_capacity as u64;
                     }
                     queue[(end * 4u32) as usize] = w[(p + 1u32) as usize];
@@ -137,11 +167,25 @@ fn projection_space_size(v: *RenderState, space: u32) -> u32 {
     var w: *u32 = v -> mapped as *u32;
     var index: u32 = 0u32;
     while index < w[SPACE_COUNT as usize] {
-        var p: u32 = w[SPACE_META as usize] + index * 3u32;
+        var p: u32 = w[SPACE_META as usize] + index * 4u32;
         if w[p as usize] == space {
-            return w[(p + 2u32) as usize];
+            return w[(p + 3u32) as usize];
         }
         index = index + 1u32;
     }
     return 0u32;
+}
+
+fn projection_space_steps(v: *RenderState, space: u32) -> u64 {
+    var w: *u32 = v -> mapped as *u32;
+    var i: u32 = 0u32;
+    var steps: u64 = 1u64;
+    while i < w[SPACE_RANGE_COUNT as usize] {
+        var p: u32 = w[SPACE_TRIANGLES as usize] + i * 4u32;
+        if w[p as usize] == space && w[(p + 3u32) as usize] != 0xffffffffu32 {
+            steps = steps + 3u64 + w[(p + 2u32) as usize] as u64 / 2048u64;
+        }
+        i = i + 1u32;
+    }
+    return steps;
 }

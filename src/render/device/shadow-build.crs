@@ -13,18 +13,6 @@ fn shadow_seed(first: u32, begin: u32, end: u32, shift: u32, space: u32, filter:
     }
     return count;
 }
-fn shadow_instance(instance: u32) -> unit {
-    var p: u32 = words_load(INSTANCE_META) + instance * 5u32;
-    var size: u32 = words_load(p + 1u32);
-    if size == 0u32 {
-        return;
-    }
-    var begin: u32 = words_load(p + 2u32);
-    var shift: u32 = words_load(DYNAMIC_COUNT);
-    var first: u32 = begin - shift;
-    var count: u32 = shadow_seed(first, begin, begin + size, shift, 0u32, false);
-    shadow_node_set(first * 2u32, first, count, 0xffffffffu32);
-}
 fn shadow_dynamic_seed(light: u32) -> unit {
     var first: u32 = (light + 1u32) * words_load(SCENE_CAPACITY);
     var space: u32 = words_load(words_load(LIGHT_SPACE) + light);
@@ -58,21 +46,14 @@ fn shadow_top_seed(light: u32) -> unit {
 }
 fn compute() -> unit {
     var item: u32 = shader_global_x();
-    var instances: u32 = words_load(INSTANCE_COUNT);
     var lights: u32 = words_load(LIGHT_COUNT);
-    while item < instances + lights * 2u32 {
-        if item < instances {
-            if words_load(SHADOW_RESET) != 0u32 {
-                shadow_instance(item);
-            }
-        } else {
-            var light: u32 = (item - instances) % lights;
-            if floats_load(words_load(LIGHT_DATA) + light * 8u32 + 7u32) == LIGHT_ROOM as f32 {
-                if item - instances < lights {
-                    shadow_dynamic_seed(light);
-                } else {
-                    shadow_top_seed(light);
-                }
+    while item < lights * 2u32 {
+        var light: u32 = item % lights;
+        if floats_load(words_load(LIGHT_DATA) + light * 8u32 + 7u32) == LIGHT_ROOM as f32 {
+            if item < lights {
+                shadow_dynamic_seed(light);
+            } else {
+                shadow_top_seed(light);
             }
         }
         item = item + MAX_INVOCATIONS;

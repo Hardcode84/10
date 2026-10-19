@@ -1,0 +1,165 @@
+fn scene_instance(triangle: u32) -> u32 {
+    return words_load(words_load(INSTANCE_OWNER) + triangle - words_load(DYNAMIC_COUNT));
+}
+
+fn scene_meta(triangle: u32, field: u32) -> u32 {
+    if triangle < words_load(DYNAMIC_COUNT) {
+        return words_load(words_load(META) + triangle * 4u32 + field);
+    }
+    var instance: u32 = words_load(INSTANCE_META) + scene_instance(triangle) * 5u32;
+    if field == 0u32 {
+        return words_load(instance + 3u32);
+    }
+    if field == 1u32 && words_load(instance + 4u32) != 0xffffffffu32 {
+        return words_load(instance + 4u32);
+    }
+    var source: u32 = words_load(instance) + triangle - words_load(instance + 2u32);
+    return words_load(words_load(MESH_META) + source * 4u32 + field - 1u32);
+}
+fn scene_float(address: u32) -> f32 {
+    var triangle: u32 = address / 15u32;
+    if triangle < words_load(DYNAMIC_COUNT) {
+        return floats_load(GEOMETRY + address);
+    }
+    var id: u32 = scene_instance(triangle);
+    var instance: u32 = words_load(INSTANCE_META) + id * 5u32;
+    var source: u32 = words_load(instance) + triangle - words_load(instance + 2u32);
+    var vertex: u32 = address % 15u32 / 5u32;
+    var axis: u32 = address % 5u32;
+    var p: u32 = words_load(MESH_FLOAT) + source * 15u32 + vertex * 5u32;
+    if axis >= 3u32 {
+        return floats_load(p + axis);
+    }
+    var matrix: u32 = words_load(INSTANCE_FLOAT) + id * 18u32 + axis * 4u32;
+    return floats_load(matrix) * floats_load(p) + floats_load(matrix + 1u32) * floats_load(
+        p + 1u32
+    ) + floats_load(matrix + 2u32) * floats_load(p + 2u32) + floats_load(matrix + 3u32);
+}
+fn scene_plane(view: u32, plane: u32, axis: u32, absolute: bool) -> f32 {
+    var p: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
+    if plane < 2u32 {
+        var value: f32 = floats_load(p + (8u32 + plane * 4u32) + axis);
+        if absolute {
+            return shadow_abs(value);
+        }
+        return value;
+    }
+    var rect: u32 = words_load(VIEW_RECT) + view * 4u32;
+    var h: f32 = words_load(1u32) as f32;
+    var w: f32 = words_load(0u32) as f32;
+    var factor: f32 = (w - 2f32 * words_load(rect) as f32) / h;
+    if plane == 3u32 {
+        factor = (2f32 * words_load(rect + 2u32) as f32 - w) / h;
+    }
+    if plane == 4u32 {
+        factor = 2f32 * words_load(rect + 3u32) as f32 / h - 1f32;
+    }
+    if plane == 5u32 {
+        factor = 1f32 - 2f32 * words_load(rect + 1u32) as f32 / h;
+    }
+    var row: u32 = 0u32;
+    if plane >= 4u32 {
+        row = 4u32;
+    }
+    var value: f32 = floats_load(p + row + axis);
+    if plane % 2u32 != 0u32 {
+        value = -value;
+    }
+    var z: f32 = floats_load(p + 8u32 + axis) * floats_load(PROJECTION) * factor;
+    if absolute {
+        return shadow_abs(z) + shadow_abs(value);
+    }
+    return z + value;
+}
+fn scene_local_plane(view: u32, instance: u32, plane: u32, axis: u32, absolute: bool) -> f32 {
+    if instance == 0xffffffffu32 {
+        return scene_plane(view, plane, axis, absolute);
+    }
+    var matrix: u32 = words_load(INSTANCE_FLOAT) + instance * 18u32;
+    var value: f32 = 0f32;
+    if axis == 3u32 {
+        value = scene_plane(view, plane, 3u32, absolute);
+    }
+    var row: u32 = 0u32;
+    while row < 3u32 {
+        var coefficient: f32 = floats_load(matrix + row * 4u32 + axis);
+        if absolute {
+            coefficient = shadow_abs(coefficient);
+        }
+        value = value + scene_plane(view, plane, row, absolute) * coefficient;
+        row = row + 1u32;
+    }
+    return value;
+}
+fn scene_bounds_visible(view: u32, instance: u32, bounds: u32) -> bool {
+    var plane: u32 = 0u32;
+    while plane < 6u32 {
+        var maximum: f32 = scene_local_plane(view, instance, plane, 3u32, false);
+        var magnitude: f32 = scene_local_plane(view, instance, plane, 3u32, true);
+        var axis: u32 = 0u32;
+        while axis < 3u32 {
+            var coefficient: f32 = scene_local_plane(view, instance, plane, axis, false);
+            var low: f32 = floats_load(bounds + axis);
+            var high: f32 = floats_load(bounds + axis + 3u32);
+            var value: f32 = high;
+            if coefficient < 0f32 {
+                value = low;
+            }
+            maximum = maximum + coefficient * value;
+            magnitude = magnitude + scene_local_plane(view, instance, plane, axis, true) * (
+                shadow_abs(low) + shadow_abs(high)
+            );
+            axis = axis + 1u32;
+        }
+        if maximum < -0.00001f32 * (magnitude + 1f32) {
+            return false;
+        }
+        plane = plane + 1u32;
+    }
+    return true;
+}
+
+fn scene_instance_planes(view: u32, instance: u32) -> unit {
+    var p: u32 = words_load(INSTANCE_PLANES) + (view * words_load(INSTANCE_COUNT) + instance) * 48u32;
+    var i: u32 = 0u32;
+    while i < 24u32 {
+        floats_store(p + i, scene_local_plane(view, instance, i / 4u32, i % 4u32, false));
+        floats_store(
+            p + i + 24u32,
+            scene_local_plane(view, instance, i / 4u32, i % 4u32, true)
+        );
+        i = i + 1u32;
+    }
+}
+fn scene_node_visible(view: u32, instance: u32, node: u32) -> bool {
+    if (words_load(words_load(MESH_NODES) + node * 5u32 + 4u32) & 2u32) != 0u32 {
+        return true;
+    }
+    var p: u32 = words_load(INSTANCE_PLANES) + (view * words_load(INSTANCE_COUNT) + instance) * 48u32;
+    var bounds: u32 = words_load(MESH_BOUNDS) + node * 7u32;
+    var plane: u32 = 0u32;
+    while plane < 6u32 {
+        var maximum: f32 = floats_load(p + plane * 4u32 + 3u32);
+        var magnitude: f32 = floats_load(p + plane * 4u32 + 27u32);
+        var axis: u32 = 0u32;
+        while axis < 3u32 {
+            var coefficient: f32 = floats_load(p + plane * 4u32 + axis);
+            var low: f32 = floats_load(bounds + axis);
+            var high: f32 = floats_load(bounds + axis + 3u32);
+            var value: f32 = high;
+            if coefficient < 0f32 {
+                value = low;
+            }
+            maximum = maximum + coefficient * value;
+            magnitude = magnitude + floats_load(p + plane * 4u32 + axis + 24u32) * (
+                shadow_abs(low) + shadow_abs(high)
+            );
+            axis = axis + 1u32;
+        }
+        if maximum < -0.00001f32 * (magnitude + 1f32) {
+            return false;
+        }
+        plane = plane + 1u32;
+    }
+    return true;
+}

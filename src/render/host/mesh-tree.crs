@@ -1,0 +1,161 @@
+record MeshTreeBuild {
+    words: *u32;
+    index: *u32;
+    nodes: *u32;
+    bounds: *f32;
+    vertices: *f32;
+}
+opaque;
+fn mesh_tree_center(b: *MeshTreeBuild, index: u32, axis: u32) -> f32 {
+    var p: usize = b -> index[index as usize] as usize * 15usize + axis as usize;
+    return b -> vertices[p] / 3f32 + b -> vertices[p + 5usize] / 3f32 + b -> vertices[p + 10usize] / 3f32;
+}
+fn mesh_tree_swap(b: *MeshTreeBuild, a: u32, c: u32) -> unit {
+    var value: u32 = b -> index[a as usize];
+    b -> index[a as usize] = b -> index[c as usize];
+    b -> index[c as usize] = value;
+}
+fn mesh_tree_median(b: *MeshTreeBuild, first: u32, count: u32, axis: u32) -> unit {
+    var begin: u32 = first;
+    var end: u32 = first + count;
+    var target: u32 = first + count / 2u32;
+    while end - begin > 1u32 {
+        var pivot: f32 = mesh_tree_center(b, begin + (end - begin) / 2u32, axis);
+        var low: u32 = begin;
+        var high: u32 = end;
+        var i: u32 = begin;
+        while i < high {
+            var value: f32 = mesh_tree_center(b, i, axis);
+            if value < pivot {
+                mesh_tree_swap(b, low, i);
+                low = low + 1u32;
+                i = i + 1u32;
+            } else if value > pivot {
+                high = high - 1u32;
+                mesh_tree_swap(b, high, i);
+            } else {
+                i = i + 1u32;
+            }
+        }
+        if target < low {
+            end = low;
+        } else if target >= high {
+            begin = high;
+        } else {
+            return;
+        }
+    }
+}
+fn mesh_tree_bounds(b: *MeshTreeBuild, node: u32, first: u32, count: u32) -> u32 {
+    var extent: f32 = -1f32;
+    var longest: u32 = 0u32;
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        var low: f32 = 3.4028234e38f32;
+        var high: f32 = -3.4028234e38f32;
+        var i: u32 = first;
+        while i < first + count {
+            var p: usize = b -> index[i as usize] as usize * 15usize + axis as usize;
+            var vertex: usize = 0usize;
+            while vertex < 3usize {
+                var value: f32 = b -> vertices[p + vertex * 5usize];
+                if value < low {
+                    low = value;
+                }
+                if value > high {
+                    high = value;
+                }
+                vertex = vertex + 1usize;
+            }
+            i = i + 1u32;
+        }
+        b -> bounds[(node * 7u32 + axis) as usize] = low;
+        b -> bounds[(node * 7u32 + axis + 3u32) as usize] = high;
+        if high - low > extent {
+            extent = high - low;
+            longest = axis;
+        }
+        axis = axis + 1u32;
+    }
+    return longest;
+}
+fn mesh_tree_node(b: *MeshTreeBuild, node: u32, first: u32, count: u32, escape: u32) -> unit {
+    var p: usize = node as usize * 5usize;
+    b -> nodes[p] = first;
+    b -> nodes[p + 1usize] = count;
+    b -> nodes[p + 2usize] = escape;
+    b -> nodes[p + 3usize] = 0xffffffffu32;
+    var flags: u32 = 0u32;
+    var sprite: f32 = 0f32;
+    var i: u32 = first;
+    while i < first + count {
+        var source: u32 = b -> index[i as usize];
+        var value: u32 = b -> words[
+            (b -> words[MESH_META as usize] + source * 4u32 + 2u32) as usize
+        ];
+        if (value & (TRIANGLE_NO_SHADOW | TRIANGLE_INACTIVE)) == 0u32 {
+            flags = flags | 1u32;
+        }
+        if (value & TRIANGLE_SPRITE) != 0u32 {
+            flags = flags | 2u32;
+            var extent: f32 = mesh_tree_sprite_extent(b, source);
+            if extent > sprite {
+                sprite = extent;
+            }
+        }
+        i = i + 1u32;
+    }
+    b -> nodes[p + 4usize] = flags;
+    b -> bounds[(node * 7u32 + 6u32) as usize] = sprite;
+    var axis: u32 = mesh_tree_bounds(b, node, first, count);
+    if count <= 4u32 {
+        return;
+    }
+    mesh_tree_median(b, first, count, axis);
+    var left: u32 = count / 2u32;
+    var right: u32 = node + left * 2u32;
+    b -> nodes[p + 3usize] = node + 1u32;
+    mesh_tree_node(b, node + 1u32, first, left, right);
+    mesh_tree_node(b, right, first + left, count - left, escape);
+}
+fn mesh_trees_prepare(v: *RenderState) -> unit {
+    if !v -> mesh_dirty {
+        return;
+    }
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
+    var b: MeshTreeBuild = make MeshTreeBuild {
+        words: w,
+        index: w + w[MESH_INDEX as usize] as isize,
+        nodes: w + w[MESH_NODES as usize] as isize,
+        bounds: f + w[MESH_BOUNDS as usize] as isize,
+        vertices: f + w[MESH_FLOAT as usize] as isize
+    };
+    var i: u32 = 0u32;
+    while i < v -> mesh_count {
+        b.index[i as usize] = i;
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < v -> mesh_count {
+        var count: u32 = w[(w[MESH_META as usize] + i * 4u32 + 3u32) as usize];
+        mesh_tree_node(&b, i * 2u32, i, count, 0xffffffffu32);
+        i = i + count;
+    }
+}
+
+fn mesh_tree_sprite_extent(b: *MeshTreeBuild, source: u32) -> f32 {
+    var extent: f32 = 0f32;
+    var vertex: u32 = 0u32;
+    while vertex < 3u32 {
+        var p: usize = (source * 15u32 + vertex * 5u32) as usize;
+        var size: f32 = render_bound_abs(b -> vertices[p + 3usize]) + render_bound_abs(
+            b -> vertices[p + 4usize]
+        );
+        if size > extent {
+            extent = size;
+        }
+        vertex = vertex + 1u32;
+    }
+    return extent;
+}

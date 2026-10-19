@@ -1,20 +1,20 @@
 fn light_blocks(tri: u32, ox: f32, oy: f32, oz: f32, dx: f32, dy: f32, dz: f32) -> bool {
-    var p: u32 = GEOMETRY + tri * 15u32;
-    var ax: f32 = floats_load(p);
-    var ay: f32 = floats_load(p + 1u32);
-    var az: f32 = floats_load(p + 2u32);
-    var bx: f32 = floats_load(p + 5u32) - ax;
-    var by: f32 = floats_load(p + 6u32) - ay;
-    var bz: f32 = floats_load(p + 7u32) - az;
-    var cx: f32 = floats_load(p + 10u32) - ax;
-    var cy: f32 = floats_load(p + 11u32) - ay;
-    var cz: f32 = floats_load(p + 12u32) - az;
+    var p: u32 = tri * 15u32;
+    var ax: f32 = scene_float(p);
+    var ay: f32 = scene_float(p + 1u32);
+    var az: f32 = scene_float(p + 2u32);
+    var bx: f32 = scene_float(p + 5u32) - ax;
+    var by: f32 = scene_float(p + 6u32) - ay;
+    var bz: f32 = scene_float(p + 7u32) - az;
+    var cx: f32 = scene_float(p + 10u32) - ax;
+    var cy: f32 = scene_float(p + 11u32) - ay;
+    var cz: f32 = scene_float(p + 12u32) - az;
     var qx: f32 = dy * cz - dz * cy;
     var qy: f32 = dz * cx - dx * cz;
     var qz: f32 = dx * cy - dy * cx;
     var det: f32 = bx * qx + by * qy + bz * qz;
-    var meta: u32 = words_load(META) + tri * 4u32;
-    if det == 0f32 || ((words_load(meta + 3u32) & 2u32) != 0u32 && det > 0f32) {
+
+    if det == 0f32 || ((scene_meta(tri, 3u32) & 2u32) != 0u32 && det > 0f32) {
         return false;
     }
     var tx: f32 = ox - ax;
@@ -35,16 +35,16 @@ fn light_blocks(tri: u32, ox: f32, oy: f32, oz: f32, dx: f32, dy: f32, dz: f32) 
     if t <= 0.00001f32 || t >= 0.99999f32 {
         return false;
     }
-    if (words_load(meta + 3u32) & 1u32) == 0u32 {
+    if (scene_meta(tri, 3u32) & 1u32) == 0u32 {
         return true;
     }
-    var tu: f32 = floats_load(p + 3u32) + u * (
-        floats_load(p + 8u32) - floats_load(p + 3u32)
-    ) + v * (floats_load(p + 13u32) - floats_load(p + 3u32));
-    var tv: f32 = floats_load(p + 4u32) + u * (
-        floats_load(p + 9u32) - floats_load(p + 4u32)
-    ) + v * (floats_load(p + 14u32) - floats_load(p + 4u32));
-    var mat: u32 = words_load(meta + 1u32);
+    var tu: f32 = scene_float(p + 3u32) + u * (
+        scene_float(p + 8u32) - scene_float(p + 3u32)
+    ) + v * (scene_float(p + 13u32) - scene_float(p + 3u32));
+    var tv: f32 = scene_float(p + 4u32) + u * (
+        scene_float(p + 9u32) - scene_float(p + 4u32)
+    ) + v * (scene_float(p + 14u32) - scene_float(p + 4u32));
+    var mat: u32 = scene_meta(tri, 1u32);
     return material_texel(mat, tu, tv) != material_field(mat, 9u32);
 }
 fn shadow_abs(value: f32) -> f32 {
@@ -173,12 +173,9 @@ fn shadow_instances(
     dz: f32
 ) -> bool {
     var i: u32 = 0u32;
-    var shift: u32 = words_load(DYNAMIC_COUNT);
     while i < count {
         var instance: u32 = words_load(words_load(SHADOW_INDEX) + first + i);
-        var p: u32 = words_load(INSTANCE_META) + instance * 5u32;
-        var root: u32 = (words_load(p + 2u32) - shift) * 2u32;
-        if !shadow_visible(root, receiver, shift, ox, oy, oz, dx, dy, dz) {
+        if !mesh_shadow_visible(instance, receiver, ox, oy, oz, dx, dy, dz) {
             return false;
         }
         i = i + 1u32;
@@ -227,6 +224,142 @@ fn light_visible(
                 dy,
                 dz
             ) {
+                return false;
+            }
+        }
+        node = next;
+    }
+    return true;
+}
+fn mesh_shadow_intersects(
+    node: u32,
+    instance: u32,
+    ox: f32,
+    oy: f32,
+    oz: f32,
+    dx: f32,
+    dy: f32,
+    dz: f32
+) -> bool {
+    var near: f32 = 0f32;
+    var far: f32 = 1f32;
+    var axis: u32 = 0u32;
+    while axis < 3u32 {
+        var low: f32 = mesh_world_bound(node, instance, axis, false);
+        var high: f32 = mesh_world_bound(node, instance, axis, true);
+        var origin: f32 = ox;
+        var direction: f32 = dx;
+        if axis == 1u32 {
+            origin = oy;
+            direction = dy;
+        }
+        if axis == 2u32 {
+            origin = oz;
+            direction = dz;
+        }
+        if direction == 0f32 {
+            if origin < low || origin > high {
+                return false;
+            }
+        } else {
+            var a: f32 = (low - origin) / direction;
+            var b: f32 = (high - origin) / direction;
+            if a > b {
+                var swap: f32 = a;
+                a = b;
+                b = swap;
+            }
+            if a > near {
+                near = a;
+            }
+            if b < far {
+                far = b;
+            }
+            if near > far {
+                return false;
+            }
+        }
+        axis = axis + 1u32;
+    }
+    return true;
+}
+fn mesh_world_bound(node: u32, instance: u32, axis: u32, upper: bool) -> f32 {
+    var matrix: u32 = words_load(INSTANCE_FLOAT) + instance * 18u32 + axis * 4u32;
+    var bounds: u32 = words_load(MESH_BOUNDS) + node * 7u32;
+    var value: f32 = floats_load(matrix + 3u32);
+    var magnitude: f32 = shadow_abs(value);
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var coefficient: f32 = floats_load(matrix + i);
+        var offset: u32 = i;
+        if upper != (coefficient < 0f32) {
+            offset = offset + 3u32;
+        }
+        value = value + coefficient * floats_load(bounds + offset);
+        magnitude = magnitude + shadow_abs(coefficient) * (
+            shadow_abs(floats_load(bounds + i)) + shadow_abs(floats_load(bounds + i + 3u32))
+        );
+        i = i + 1u32;
+    }
+    var padding: f32 = (magnitude + 1f32) * 0.00001f32;
+    if !upper {
+        padding = -padding;
+    }
+    return value + padding;
+}
+fn mesh_shadow_leaf(
+    p: u32,
+    instance: u32,
+    receiver: u32,
+    ox: f32,
+    oy: f32,
+    oz: f32,
+    dx: f32,
+    dy: f32,
+    dz: f32
+) -> bool {
+    var info: u32 = words_load(INSTANCE_META) + instance * 5u32;
+    var i: u32 = 0u32;
+    while i < words_load(p + 1u32) {
+        var source: u32 = words_load(words_load(MESH_INDEX) + words_load(p) + i);
+        var tri: u32 = words_load(info + 2u32) + source - words_load(info);
+        if tri != receiver && (
+            scene_meta(tri, 3u32) & (TRIANGLE_NO_SHADOW | TRIANGLE_INACTIVE)
+        ) == 0u32 && light_blocks(tri, ox, oy, oz, dx, dy, dz) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn mesh_shadow_visible(
+    instance: u32,
+    receiver: u32,
+    ox: f32,
+    oy: f32,
+    oz: f32,
+    dx: f32,
+    dy: f32,
+    dz: f32
+) -> bool {
+    var node: u32 = words_load(words_load(INSTANCE_META) + instance * 5u32) * 2u32;
+    while node != 0xffffffffu32 {
+        var p: u32 = words_load(MESH_NODES) + node * 5u32;
+        var next: u32 = words_load(p + 2u32);
+        if (words_load(p + 4u32) & 1u32) != 0u32 && mesh_shadow_intersects(
+            node,
+            instance,
+            ox,
+            oy,
+            oz,
+            dx,
+            dy,
+            dz
+        ) {
+            var child: u32 = words_load(p + 3u32);
+            if child != 0xffffffffu32 {
+                next = child;
+            } else if !mesh_shadow_leaf(p, instance, receiver, ox, oy, oz, dx, dy, dz) {
                 return false;
             }
         }
