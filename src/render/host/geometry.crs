@@ -1,4 +1,5 @@
 fn geometry_layout(v: *RenderState, capacity: u32) -> bool {
+    projection_fit(v, capacity);
     var projected_count: u64 = v -> projection_capacity as u64;
     if projected_count > v -> storage_limit as u64 / (4u64 * (MAX_FAN as u64 * 20u64 + 144u64)) {
         return error("room projection storage exceeds device storage range");
@@ -150,6 +151,9 @@ fn storage_replace(v: *RenderState, planned: *RenderState) -> bool {
     return command_reset(v) && commands_record(v);
 }
 fn geometry_limit(v: *RenderState) -> u32 {
+    if v -> storage_limit < 256u32 {
+        return 0u32;
+    }
     var elements: u64 = (v -> storage_limit as u64 / 256u64) * 64u64 - 1u64;
     var fixed_words: u64 = 192u64 + v -> task_capacity as u64 * 4u64 + v -> projection_capacity as u64 * 4u64 + tile_bit_words(
         v,
@@ -237,4 +241,23 @@ fn storage_growth(required: u32) -> u32 {
         return required;
     }
     return capacity;
+}
+
+fn projection_fit(v: *RenderState, triangles: u32) -> unit {
+    if geometry_limit(v) >= triangles {
+        return;
+    }
+    var candidate: RenderState = *v;
+    var lower: u32 = 1u32;
+    var upper: u32 = v -> projection_capacity;
+    while lower < upper {
+        var middle: u32 = lower + (upper - lower + 1u32) / 2u32;
+        candidate.projection_capacity = middle;
+        if geometry_limit(&candidate) >= triangles {
+            lower = middle;
+        } else {
+            upper = middle - 1u32;
+        }
+    }
+    v -> projection_capacity = lower;
 }

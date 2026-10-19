@@ -1,6 +1,13 @@
 fn regression_open(session: mut DemoSession, test: u32) -> bool {
     if test != 5u32 && test != 6u32 {
-        return session_open(mut session);
+        var good: bool = session_open(mut session);
+        if good && test == 7u32 {
+            var v: *RenderState = &session.renderer.state;
+            if v -> storage_limit > 67108864u32 {
+                v -> storage_limit = 67108864u32;
+            }
+        }
+        return good;
     }
     var config: RenderConfig = demo_render_config(&session.options);
     // These scenes have no portal crossings: one task per screen tile is sufficient.

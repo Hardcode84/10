@@ -59,7 +59,16 @@ fn tour_verify(v: *RenderState, index: u32) -> bool {
 }
 fn regression_draw(session: mut DemoSession, test: u32) -> bool {
     if test == 7u32 {
-        return visibility_compare(&session.renderer.state, false);
+        var v: *RenderState = &session.renderer.state;
+        if !visibility_compare(v, false) {
+            return false;
+        }
+        if (v -> words as u64 + 1u64) * 4u64 > v -> storage_limit as u64 || (
+            v -> floats as u64 + 1u64
+        ) * 4u64 > v -> storage_limit as u64 {
+            return error("rendered portal scene exceeded its storage budget");
+        }
+        return true;
     }
     return session_draw(mut session);
 }

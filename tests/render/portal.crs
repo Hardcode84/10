@@ -257,8 +257,9 @@ fn light_grid_check(w: *u32) -> bool {
 fn capacity_failure_check(v: *RenderState) -> bool {
     var before: *u8 = v -> mapped;
     var capacity: u32 = v -> triangle_capacity;
-    var limit: u32 = geometry_limit(v);
     var trial: RenderState = *v;
+    trial.projection_capacity = 1u32;
+    var limit: u32 = geometry_limit(&trial);
     if !geometry_layout(&trial, limit) || geometry_layout(&trial, limit + 1u32) || geometry_reserve(
         v,
         0xffffffffu32

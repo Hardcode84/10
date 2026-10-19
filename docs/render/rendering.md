@@ -512,7 +512,7 @@ visibility counts to control subsequent GPU work.
 | Capacity | Meaning and failure rule |
 | --- | --- |
 | Source geometry, meshes, instances, assets, lights | Grow from demand up to device range and allocation limits. Preserve input on rejected growth. |
-| Projection batch | Reusable source-triangle scratch; continuation handles remaining geometry. |
+| Projection batch | Reusable source-triangle scratch. Reduce the batch to fit the device buffer range, including tile bitmaps. Continue until all geometry is processed. |
 | `portal_budget` | Directed portal records; zero is valid. |
 | `view_budget` | Total path views including root; positive. Exhaustion rejects the frame. |
 | `task_budget` | Masked tiles at one depth; positive. Exhaustion rejects the frame. |
@@ -885,9 +885,9 @@ Capture files are binary RGB PPM. All GPU checks use the application renderer.
 | `crust tests.crs render 2` | Independent ray reference for portal crossings, hidden portals, cutouts, clipping and fan seams. |
 | `crust tests.crs render 3` | Automatic playback input, pause, step, quit and Escape. |
 | `crust tests.crs render 4` | Lighting grid, dark cutoff, full-bright texels, camera light and faceted pipes. |
-| `crust tests.crs render 5` | Geometry growth, shrink, empty scenes, 4097 overlapping triangles, ties and allocation rejection. |
+| `crust tests.crs render 5` | Geometry growth, shrink, empty scenes, 8193 overlapping triangles, ties and allocation rejection. |
 | `crust tests.crs render 6` | Arbitrary texture dimensions, atlas stride, shared palettes, UV seams, repeat/clamp and invalid descriptors. |
-| `crust tests.crs render 7` | Retained transformed views, culling control and seven-triangle batches. |
+| `crust tests.crs render 7` | Retained transformed views, culling control, a 64 MiB buffer budget, and seven-triangle batches. |
 | `crust tests.crs render 8` | Many portal paths, 64 portals in one tile, deep cycles, 65,536 tasks, exhaustion and recovery. |
 | `crust tests.crs render 9` | Resize, portrait/landscape/4K/wide images, exact scaling and storage rejection. |
 | `crust tests.crs render 10` | Real window resize and swapchain replacement; requires a display. |

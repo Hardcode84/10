@@ -105,6 +105,13 @@ fn projection_admit(v: *RenderState, extra: u32) -> bool {
     if !geometry_layout(&next, next.triangle_capacity) {
         return false;
     }
+    if required > next.projection_capacity {
+        required = next.projection_capacity;
+    }
+    if next.projection_capacity == v -> projection_capacity {
+        (v -> mapped as *u32)[PROJECTION_CAPACITY as usize] = required;
+        return true;
+    }
     if !storage_replace(v, &next) {
         return false;
     }

@@ -132,7 +132,7 @@ fn lighting_test(base: *Options) -> bool {
     puts(
         "light occlusion, cutouts, space isolation, retained blockers, distant lights and 17 lights passed"
     );
-    return lighting_capacity_reuse(mut renderer) && lighting_large_mesh_test(mut renderer);
+    return lighting_capacity_reuse(mut renderer) && lighting_large_mesh_test(base);
 }
 fn lighting_model_switch(renderer: mut Renderer) -> bool {
     var frame: u32 = 0u32;
@@ -477,8 +477,19 @@ fn lighting_cache_growth(renderer: mut Renderer) -> bool {
     );
 }
 
-fn lighting_large_mesh_test(renderer: mut Renderer) -> bool {
-    if !renderer_resize(&renderer.state, 8u32, 8u32, 8u32, 8u32) {
+fn lighting_large_mesh_test(base: *Options) -> bool {
+    var o: Options = *base;
+    o.width = 8u32;
+    o.height = 8u32;
+    o.window_width = 8u32;
+    o.window_height = 8u32;
+    var renderer: Renderer = renderer_new();
+    var config: RenderConfig = demo_render_config(&o);
+    config.view_budget = 1u32;
+    config.portal_budget = 0u32;
+    config.crossing_limit = 0u32;
+    config.task_budget = 1u32;
+    if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
         return false;
     }
     {
