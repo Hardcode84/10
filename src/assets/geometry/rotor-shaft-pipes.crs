@@ -116,7 +116,7 @@ fn shaft_pipe_mesh(asset: mut RoomAsset, run: ShaftPipeRun) -> bool {
         up,
         make TubeStyle {
             radius: 0.18f32,
-            sides: 12u32,
+            sides: 8u32,
             tile_metres: 2f32,
             region: 6u32
         }

@@ -31,7 +31,7 @@ fn oct_junction_straight_pipe(
     var bands: u32 = (extent / 2f32) as u32 + 1u32;
     if !solid_cylinder(
         mut asset.geometry,
-        12u32,
+        8u32,
         oct_pipe_radius(),
         extent,
         1u32,
@@ -61,7 +61,7 @@ fn oct_junction_bent_pipe(
         incoming: lead,
         outgoing: lead,
         diagonal: diagonal,
-        sides: 12u32,
+        sides: 8u32,
         steps: 8u32,
         tile_metres: extent / bands as f32
     };

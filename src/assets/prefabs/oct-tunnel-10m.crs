@@ -21,7 +21,7 @@ fn prefab_oct_tunnel_10m_oct_tunnel_pipes(asset: mut RoomAsset, extent: f32) -> 
         sections = sections + 1u32;
     }
     var period: f32 = extent / sections as f32;
-    if !solid_cylinder(mut asset.geometry, 12u32, radius, extent, 1u32, period) || !prefab_oct_tunnel_10m_oct_pipe_mounts(
+    if !solid_cylinder(mut asset.geometry, 8u32, radius, extent, 1u32, period) || !prefab_oct_tunnel_10m_oct_pipe_mounts(
         mut asset.geometry,
         extent,
         sections

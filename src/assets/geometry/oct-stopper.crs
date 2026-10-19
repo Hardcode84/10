@@ -1,13 +1,6 @@
 fn oct_stopper_pipes(asset: mut RoomAsset, extent: f32, period: f32) -> bool {
     var first: u32 = mesh_triangle_count(read asset.geometry);
-    if !solid_cylinder(
-        mut asset.geometry,
-        12u32,
-        oct_pipe_radius(),
-        extent,
-        2u32,
-        period
-    ) {
+    if !solid_cylinder(mut asset.geometry, 8u32, oct_pipe_radius(), extent, 2u32, period) {
         return false;
     }
     var count: u32 = mesh_triangle_count(read asset.geometry) - first;

@@ -598,3 +598,31 @@ produce only tile intersections and supply directly enumerable candidates.
 Before replacing the current producer, prove its overflow continuation through
 recursive portal masks and the final image. Measure the whole frame: the
 lighting ablation shows that a lighting-only change cannot meet the target.
+
+### Octagonal pipe comparison
+
+Pipe cross-sections now have eight sides in the rotor rooms and octagonal
+service tunnels, including bends, junctions, and stopper segments. Bend steps,
+pipe routes, radii, and mounting flanges are unchanged. The prefab course has
+81,998 source triangles, compared with 117,110 for twelve-sided pipes: a 30.0%
+reduction.
+
+The [before-and-after results](octagonal-pipes.csv) use the same Intel Arc Pro
+B60, 1920 by 1080 output, eight warm-up frames, and 128 measured frames per run.
+Both renderers are measured before and after the change. Each geometry version
+has byte-identical captures between renderers. Timing excludes presentation
+and pixel readback.
+
+| Room | Normal GPU p99, 12 to 8 sides | Projected tree GPU p99, 12 to 8 sides |
+| --- | ---: | ---: |
+| Passage | 13.62 to 13.69 ms | 13.32 to 13.37 ms |
+| Rotor shaft | 22.17 to 19.94 ms | 21.37 to 19.20 ms |
+| Rotor hub | 25.35 to 22.42 ms | 23.32 to 20.64 ms |
+
+The shaft queues 34,530 triangles in nine nonempty batches, down from 48,178
+in ten. The hub queues 23,859 in five batches, down from 34,273 in six. The
+passage still queues 360 in five batches and shows no material change.
+The reduction removes geometry work and one nonempty batch from each rotor
+view. It does not remove the remaining tile, pixel, lighting, or portal costs.
+The rotor views still exceed 16.67 ms on the GPU alone. Keep the normal renderer
+as the application default; the 10 ms GPU target remains unmet.

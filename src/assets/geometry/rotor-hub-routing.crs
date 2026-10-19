@@ -165,7 +165,7 @@ fn hub_service_pipes(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
             read graph,
             make TubeStyle {
                 radius: oct_pipe_radius(),
-                sides: 12u32,
+                sides: 8u32,
                 tile_metres: 2f32,
                 region: 6u32
             },

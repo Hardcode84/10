@@ -81,7 +81,7 @@ fn prefab_oct_elbow_elbow_pipe(asset: mut RoomAsset, leg: f32, radius: f32, inde
         incoming: lead,
         outgoing: lead,
         diagonal: 0f32,
-        sides: 12u32,
+        sides: 8u32,
         steps: 8u32,
         tile_metres: path_length / bands as f32
     };
