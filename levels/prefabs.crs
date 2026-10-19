@@ -1,7 +1,8 @@
 // Flight inspection course. Run: crust demo.crs levels/prefabs.crs
 // SIDE-0 is the only open start exit. All unused ports have closed stoppers.
 // Main route: open hex door, 10 m hex, elbow, 1 m hex, T, 1 m hex, X,
-// shaft hex adapter, rotor shaft, hub FORWARD, open oct door, 10 m oct, elbow, T, nine oct Xs.
+// open hex door, shaft hex adapter, rotor shaft, hub FORWARD, open oct door,
+// 10 m oct, elbow, T, nine oct Xs.
 // The hex T side branch shows the blind passage; the X branch shows the
 // ending room. Neither branch ends this demo. Return to continue the course.
 // Oct Xs use upper 0/1/2, each with lower 0/1/2, in that order. Straight
@@ -169,6 +170,15 @@ fn course_rotor_route(
     cursor: mut CourseCursor
 ) -> bool {
     return course_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("EXIT"),
+        PREFAB_HEX_STOPPER_OPEN,
+        asset_name("ENTRY"),
+        0u32
+    ) && course_step(
         mut graph,
         mut builder,
         mut mesh,
