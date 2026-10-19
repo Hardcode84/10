@@ -26,7 +26,7 @@ fn test_input() -> bool {
     input_commands(mut input, 0f32, 0f32);
     var c: Command = input_consume(mut input);
     var next: Command = input_consume(mut input);
-    if !game_check(c.burst && !next.burst, "burst edge was repeated") {
+    if !game_check(c.burst && next.burst, "held burst mode was lost between ticks") {
         return false;
     }
     input.bindings[8usize].toggle = true;
@@ -73,12 +73,12 @@ fn test_mouse_accumulation() -> bool {
 }
 fn test_short_press() -> bool {
     var input: InputState = input_new();
-    input.pulses[6usize] = 1u32;
+    input.pulses[7usize] = 1u32;
     input_commands(mut input, 0f32, 0f32);
     var c: Command = input_consume(mut input);
     var again: Command = input_consume(mut input);
     return game_check(
-        c.burst && !again.burst,
+        c.brake && !again.brake,
         "press and release between frames was lost or repeated"
     );
 }

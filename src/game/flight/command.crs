@@ -2,6 +2,7 @@ record Command {
     thrust: Vec3;
     look: Vec3;
     reel: bool;
+    // Enables a burst along thrust when the shared cooldown permits it.
     burst: bool;
     brake: bool;
     tether: bool;

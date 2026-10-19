@@ -15,11 +15,13 @@ fn main(argc: i32, argv: **u8) -> i32 {
         puts("Find the gold beacon in the ending room, then return to the start beacon.");
         puts("Boost and brake share a 3-second cooldown. Both have unlimited uses.");
         puts("WASD Ctrl/Space: move | mouse: look | Q/E: roll with level off");
-        puts("RMB: burst | F: brake | LMB: hold tether | R or Space: start fast reel");
+        puts(
+            "Hold RMB + direction: burst | Hold F: brake | LMB: hold tether | R or Space: start fast reel"
+        );
         puts("Backspace: recover / retry | F4: spin mode | L: level | P: preview");
         puts("Tab: pause | Esc: exit. Focus loss pauses; Tab resumes.");
         puts(
-            "Pad: sticks move/look, shoulders vertical, RB starts reel with tether, RT burst, LT tether"
+            "Pad: sticks move/look, shoulders vertical, RB starts reel with tether, RT + movement: burst mode, LT tether"
         );
         puts("Pad A brake, X retry, Y spin, Back level, B preview, Start pause");
         return 0i32;

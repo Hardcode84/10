@@ -83,8 +83,10 @@ player recognize joins and choose a return route without a global map.
 
 Use the shared [flight controls and physics](movement.md). Boost and brake
 have unlimited uses and share a three-second simulation cooldown. Each pulse
-lasts 0.15 seconds. A press during cooldown is ignored, not queued. If both
-arrive in the same ready tick, brake wins. Holding a button does not repeat it.
+lasts 0.15 seconds. Hold right mouse with a movement key to burst in that
+direction. Hold F to brake. Held inputs repeat when the cooldown ends.
+Movement keys apply normal thrust during cooldown. If both actions arrive
+in the same ready tick, brake wins.
 The tether uses the same projectile, portal, collision, and latched reel rules
 as the room demo. There is no charge resource.
 

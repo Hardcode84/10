@@ -24,7 +24,7 @@ fn trial_step(collision: read CollisionScene, trial: mut Trial, command: Command
     if trial.finished {
         return;
     }
-    if command.burst || command.brake || command.tether || length(command.thrust) > 0f32 {
+    if command.brake || command.tether || length(command.thrust) > 0f32 {
         trial.started = true;
     }
     if !trial.started {

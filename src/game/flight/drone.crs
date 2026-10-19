@@ -55,6 +55,7 @@ record Drone {
     cable: Cable;
     bursts: u32;
     boost_ticks: u32;
+    boost_direction: Vec3;
     pulse_cooldown: u32;
     brake_ticks: u32;
     brake_rate: f32;
@@ -78,6 +79,7 @@ fn new_drone() -> Drone {
         cable: empty_cable(),
         bursts: 0u32,
         boost_ticks: 0u32,
+        boost_direction: vec(0f32, 0f32, 0f32),
         pulse_cooldown: 0u32,
         brake_ticks: 0u32,
         brake_rate: 0f32,
@@ -132,6 +134,7 @@ fn clone_drone(value: read Drone) -> Drone {
         cable: clone_cable(read value.cable),
         bursts: value.bursts,
         boost_ticks: value.boost_ticks,
+        boost_direction: value.boost_direction,
         pulse_cooldown: value.pulse_cooldown,
         brake_ticks: value.brake_ticks,
         brake_rate: value.brake_rate,
@@ -173,6 +176,7 @@ fn assign_drone(target: mut Drone, value: read Drone) -> unit {
     assign_cable(mut target.cable, read value.cable);
     target.bursts = value.bursts;
     target.boost_ticks = value.boost_ticks;
+    target.boost_direction = value.boost_direction;
     target.pulse_cooldown = value.pulse_cooldown;
     target.brake_ticks = value.brake_ticks;
     target.brake_rate = value.brake_rate;

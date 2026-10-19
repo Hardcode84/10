@@ -44,6 +44,7 @@ fn trial_hash(trial: read Trial) -> u32 {
     hash = hash_word(hash, d.cable.phase);
     hash = hash_word(hash, d.bursts);
     hash = hash_word(hash, d.boost_ticks);
+    hash = hash_vec(hash, d.boost_direction);
     hash = hash_word(hash, d.pulse_cooldown);
     hash = hash_word(hash, trial.graph_run as u32);
     hash = hash_word(hash, trial.goal_world);

@@ -1,7 +1,8 @@
 const FLIGHT_PULSE_TICKS: u32 = 18u32;
 const FLIGHT_PULSE_SECONDS: f32 = 0.15f32;
 const FLIGHT_COOLDOWN_TICKS: u32 = 360u32;
-fn flight_pulses(drone: mut Drone, command: Command) -> unit {
+fn flight_pulses(drone: mut Drone, command: Command) -> bool {
+    var boosted: bool = false;
     if drone.pulse_cooldown > 0u32 {
         drone.pulse_cooldown = drone.pulse_cooldown - 1u32;
     }
@@ -9,7 +10,9 @@ fn flight_pulses(drone: mut Drone, command: Command) -> unit {
         drone.brake_ticks = FLIGHT_PULSE_TICKS;
         drone.brake_rate = brake_amount(read drone) / FLIGHT_PULSE_SECONDS;
         drone.pulse_cooldown = FLIGHT_COOLDOWN_TICKS;
-    } else if command.burst && drone.pulse_cooldown == 0u32 {
+    } else if command.burst && drone.pulse_cooldown == 0u32 && length(command.thrust) > 0f32 {
+        boosted = true;
+        drone.boost_direction = unit_vector(command.thrust);
         drone.boost_ticks = FLIGHT_PULSE_TICKS;
         drone.bursts = drone.bursts + 1u32;
         drone.pulse_cooldown = FLIGHT_COOLDOWN_TICKS;
@@ -17,11 +20,15 @@ fn flight_pulses(drone: mut Drone, command: Command) -> unit {
     if drone.boost_ticks > 0u32 {
         drone.velocity = add(
             drone.velocity,
-            scale(drone.basis.forward, 15f32 * STEP / FLIGHT_PULSE_SECONDS)
+            scale(
+                basis_vector(drone.basis, drone.boost_direction),
+                15f32 * STEP / FLIGHT_PULSE_SECONDS
+            )
         );
         drone.boost_ticks = drone.boost_ticks - 1u32;
     }
     flight_brake(mut drone);
+    return boosted;
 }
 fn flight_brake(drone: mut Drone) -> unit {
     if drone.brake_ticks > 0u32 {
@@ -47,9 +54,12 @@ fn simulate(
     drone.contact = flight_contact_empty();
     drone.step_frame = space_identity();
     orient(mut drone, command.look, auto_level);
-    flight_pulses(mut drone, command);
+    var boosted: bool = flight_pulses(mut drone, command);
     tether_input(mut drone, command);
     var thrust: Vec3 = command.thrust;
+    if boosted {
+        thrust = vec(0f32, 0f32, 0f32);
+    }
     if length(thrust) > 1f32 {
         thrust = unit_vector(thrust);
     }

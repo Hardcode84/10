@@ -210,7 +210,6 @@ fn action_edge(input: read InputState, index: usize) -> bool {
     );
 }
 fn input_commands(input: mut InputState, mouse_x: f32, mouse_y: f32) -> unit {
-    input.pending.burst = input.pending.burst || action_edge(read input, 6usize);
     input.pending.brake = input.pending.brake || action_edge(read input, 7usize);
     input.pending.restart = input.pending.restart || action_edge(read input, 16usize);
     input.pending.spin = input.pending.spin || action_edge(read input, 17usize);
@@ -228,6 +227,7 @@ fn input_commands(input: mut InputState, mouse_x: f32, mouse_y: f32) -> unit {
         input.values[4usize] - input.values[5usize],
         input.values[0usize] - input.values[1usize]
     );
+    input.pending.burst = input.values[6usize] > 0.5f32;
     input.pending.tether = input.values[8usize] > 0.5f32;
     input.pending.reel = input.pending.reel || reel_pressed;
     if input.pending.tether {
@@ -243,6 +243,7 @@ fn input_commands(input: mut InputState, mouse_x: f32, mouse_y: f32) -> unit {
 }
 fn input_consume(input: mut InputState) -> Command {
     var command: Command = input.pending;
+    command.brake = command.brake || input.values[7usize] > 0.5f32;
     var mouse: Vec3 = input.mouse;
     var amount: f32 = length(mouse);
     if amount > 3.14159265f32 * STEP {
@@ -251,7 +252,6 @@ fn input_consume(input: mut InputState) -> Command {
     command.look = add(command.look, scale(mouse, 1f32 / STEP));
     input.mouse = sub(input.mouse, mouse);
     input.pending.reel = false;
-    input.pending.burst = false;
     input.pending.brake = false;
     input.pending.restart = false;
     input.pending.spin = false;

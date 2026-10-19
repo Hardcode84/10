@@ -2,6 +2,7 @@ fn test_boost_pulse(collision: read CollisionScene) -> bool {
     var drone: Drone = new_drone();
     var command: Command = idle_command();
     command.burst = true;
+    command.thrust = vec(0f32, 0f32, 1f32);
     flight_pulses(mut drone, command);
     if !game_check(
         near(drone.velocity.z, 0.8333333f32, 0.001f32),
@@ -72,9 +73,9 @@ fn test_flight_pulses() -> bool {
     if !collision_finish(move builder, mut collision) {
         return false;
     }
-    return test_boost_pulse(read collision) && test_brake_pulse(read collision) && test_pulse_cooldown() && test_replay(
+    return test_directional_boost() && test_held_pulses(read collision) && test_boost_pulse(
         read collision
-    );
+    ) && test_brake_pulse(read collision) && test_pulse_cooldown() && test_replay(read collision);
 }
 
 fn test_pulse_cooldown() -> bool {
@@ -82,6 +83,7 @@ fn test_pulse_cooldown() -> bool {
     drone.world = 73u32;
     var boost: Command = idle_command();
     boost.burst = true;
+    boost.thrust = vec(0f32, 0f32, 1f32);
     var brake: Command = idle_command();
     brake.brake = true;
     flight_pulses(mut drone, boost);
@@ -109,5 +111,91 @@ fn test_pulse_cooldown() -> bool {
     return game_check(
         drone.bursts == 2u32 && drone.pulse_cooldown == FLIGHT_COOLDOWN_TICKS,
         "boost must have unlimited uses"
+    );
+}
+
+fn test_directional_boost() -> bool {
+    var directions: [Vec3; 7] = make [Vec3; 7] {
+        vec(1f32, 0f32, 0f32),
+        vec(-1f32, 0f32, 0f32),
+        vec(0f32, 1f32, 0f32),
+        vec(0f32, -1f32, 0f32),
+        vec(0f32, 0f32, 1f32),
+        vec(0f32, 0f32, -1f32),
+        vec(1f32, 1f32, 1f32)
+    };
+    var index: usize = 0usize;
+    while index < 7usize {
+        var drone: Drone = new_drone();
+        drone.basis.right = vec(0f32, 0f32, -1f32);
+        drone.basis.forward = vec(1f32, 0f32, 0f32);
+        var command: Command = idle_command();
+        command.burst = true;
+        flight_pulses(mut drone, command);
+        if drone.pulse_cooldown != 0u32 || drone.bursts != 0u32 {
+            return error("burst mode without movement fired");
+        }
+        command.thrust = directions[index];
+        var expected: Vec3 = scale(
+            basis_vector(drone.basis, unit_vector(command.thrust)),
+            15f32
+        );
+        flight_pulses(mut drone, command);
+        var tick: u32 = 1u32;
+        while tick < FLIGHT_PULSE_TICKS {
+            flight_pulses(mut drone, idle_command());
+            tick = tick + 1u32;
+        }
+        if length(sub(drone.velocity, expected)) > 0.0001f32 {
+            return error("directional boost changed strength or lost its selected direction");
+        }
+        index = index + 1usize;
+    }
+    return true;
+}
+
+fn test_held_pulses(collision: read CollisionScene) -> bool {
+    var input: InputState = input_new();
+    var drone: Drone = new_drone();
+    input.values[6usize] = 1f32;
+    input.values[3usize] = 1f32;
+    input_commands(mut input, 0f32, 0f32);
+    flight_pulses(mut drone, input_consume(mut input));
+    var tick: u32 = 0u32;
+    while tick < FLIGHT_COOLDOWN_TICKS {
+        flight_pulses(mut drone, input_consume(mut input));
+        tick = tick + 1u32;
+    }
+    if drone.bursts != 2u32 {
+        return error("held direction did not burst at cooldown expiry");
+    }
+    input.values[7usize] = 1f32;
+    input_commands(mut input, 0f32, 0f32);
+    var pulse: u32 = 0u32;
+    while pulse < 2u32 {
+        tick = 0u32;
+        while tick < FLIGHT_COOLDOWN_TICKS {
+            flight_pulses(mut drone, input_consume(mut input));
+            tick = tick + 1u32;
+        }
+        if drone.brake_ticks != FLIGHT_PULSE_TICKS - 1u32 || drone.bursts != 2u32 {
+            return error("held brake did not repeat or lost priority");
+        }
+        pulse = pulse + 1u32;
+    }
+    var moving: Drone = new_drone();
+    moving.pulse_cooldown = 10u32;
+    input.values[7usize] = 0f32;
+    input_commands(mut input, 0f32, 0f32);
+    simulate(read collision, mut moving, input_consume(mut input), false, false);
+    if moving.velocity.x <= 0f32 || moving.bursts != 0u32 {
+        return error("burst mode blocked normal thrust during cooldown");
+    }
+    input.values[6usize] = 0f32;
+    input_commands(mut input, 0f32, 0f32);
+    var command: Command = input_consume(mut input);
+    return game_check(
+        !command.burst && !command.brake && command.thrust.x == 1f32,
+        "released burst mode or brake remained active"
     );
 }

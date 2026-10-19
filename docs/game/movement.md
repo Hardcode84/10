@@ -3,11 +3,16 @@
 Run `crust main.crs` for [There and Back](expedition.md), or `crust demo.crs levels/radial.crs`
 for the linked-room flight demo. Both use the same input and physics code.
 
-Boost applies 100 m/s² along the current forward axis for 0.15 seconds.
+Hold right mouse and a movement key to boost in that direction.
+Boost applies 100 m/s² for 0.15 seconds. The accepted movement direction
+stays fixed in drone-local coordinates for the pulse. Diagonal input has
+the same boost strength as single-axis input.
 It adds 15 m/s without other forces. Brake applies acceleration against the
 current velocity for 0.15 seconds, removing at most 30 m/s. It cannot reverse
 the drone. Both have unlimited uses and share a three-second cooldown from
-the accepted press. Presses during cooldown do not queue or extend a pulse.
+the accepted pulse. Hold the inputs to start another pulse as soon as the
+cooldown ends. Movement keys apply normal thrust without burst mode and
+during cooldown. Right mouse alone does not fire.
 Brake wins if both actions arrive in the same ready tick.
 
 ## Controls
@@ -16,8 +21,8 @@ Brake wins if both actions arrive in the same ready tick.
 | --- | --- | --- |
 | Move | WASD, Ctrl down, Space up | Left stick, LB down, RB up |
 | Look | Mouse | Right stick |
-| Burst | Right mouse, on press | RT, on press |
-| Brake | F, on press | A, on press |
+| Burst mode | Hold right mouse and a movement key | Hold RT and a movement input |
+| Brake | Hold F | Hold A |
 | Launch and hold tether; release to detach | Hold left mouse | Hold LT |
 | Start fast reel; stays on until hook release | R; Space while tethering | RB while tethering |
 | Roll with auto-level off | Q / E | D-pad left / right |
@@ -95,7 +100,8 @@ the counter so images remain reproducible.
 Simulation runs at 120 Hz, independent of presentation. Each tick consumes one
 command. Rendering borrows the resulting trial state. It cannot change it.
 Mouse motion is accumulated until a simulation tick consumes it. Button press
-actions remain pending until consumed; holding a button does not repeat them.
+actions remain pending until consumed. Burst mode and brake remain active
+while held; their shared cooldown controls repeat pulses.
 
 The integrator is semi-implicit Euler. Full spin is 0.0495 rad/s. Centrifugal
 and Coriolis acceleration use the game design equation without steering
@@ -207,7 +213,7 @@ hook to the paired opening. The tunnel has solid walls and generated metal
 textures. Inspect its recipe with `crust viewer.crs assets/rooms/hex-tunnel.crs`.
 
 Hold LMB to launch and retain the hook. R or Space starts fast reeling.
-Release LMB to release the hook. RMB applies a burst; F applies the brake.
+Release LMB to release the hook. Hold RMB with a movement key to burst; hold F to brake.
 WASD and Ctrl/Space apply thrust. The mouse turns the drone. Q/E apply roll
 when level assist is off. L toggles level assist. P toggles prediction.
 Tab pauses; Esc closes the window. All bindings use the game binding file.
