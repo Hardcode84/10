@@ -42,6 +42,7 @@ resource CollisionScene {
     node_count: u32;
     spaces: *CollisionSpace;
     space_count: u32;
+    portal_index: *CollisionPortalEntry;
 }
 opaque share drop collision_drop;
 record CollisionNode {
@@ -84,6 +85,7 @@ fn collision_drop(scene: mut CollisionScene) -> unit {
     free(scene.data.instances as *u8);
     free(scene.nodes as *u8);
     free(scene.spaces as *u8);
+    free(scene.portal_index as *u8);
 }
 fn collision_new() -> CollisionScene {
     return make CollisionScene {
@@ -91,6 +93,7 @@ fn collision_new() -> CollisionScene {
         nodes: null(*CollisionNode),
         node_count: 0u32,
         spaces: null(*CollisionSpace),
+        portal_index: null(*CollisionPortalEntry),
         space_count: 0u32
     };
 }
@@ -271,7 +274,9 @@ fn collision_finish(builder: CollisionBuilder, scene: mut CollisionScene) -> boo
     var next: CollisionScene = collision_new();
     next.data = builder.data;
     builder.data = collision_empty_data();
-    if !collision_portals_valid(read next) || !collision_index_build(&next) {
+    if !collision_portals_valid(read next) || !collision_index_build(&next) || !collision_portal_index_build(
+        &next
+    ) {
         return false;
     }
     collision_portal_support(mut next);
@@ -290,7 +295,9 @@ fn collision_bytes(scene: read CollisionScene) -> u64 {
     if scene.spaces != null(*CollisionSpace) {
         bytes = bytes + (scene.data.instance_count as u64 + 1u64) * sizeof(CollisionSpace) as u64;
     }
-    return bytes + scene.data.portal_count as u64 * sizeof(CollisionPortal) as u64;
+    return bytes + scene.data.portal_count as u64 * (
+        sizeof(CollisionPortal) + sizeof(CollisionPortalEntry)
+    ) as u64;
 }
 
 // Appends a solid volume. Finish rejects open or inconsistently wound surfaces.

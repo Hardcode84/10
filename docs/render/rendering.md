@@ -861,6 +861,18 @@ crust viewer.crs assets/rooms/rotor-hub.crs
 crust tests.crs
 ```
 
+Use the full prefab course for corner-to-centre hub measurements:
+
+```sh
+crust tests.crs course-benchmark levels/prefabs.crs 11 118 --samples 64 --width 1920 --height 1080
+```
+
+Poses 100 and above select hull face `pose - 100`. The camera moves two
+metres inward and two metres sideways from its centre, then faces the room
+origin. Hub corner poses are 118 through 125. The report separates prediction,
+scene preparation, and submission plus GPU time. It also reports GPU timestamps.
+This synchronous probe excludes presentation and does not measure task overlap.
+
 The interactive demo uses game flight, tether, and input code. Capture runs one
 simulation tick by default; `--ticks N` changes it. The automatic 1200-frame
 interior/outdoor route lives in renderer tests. Its frame indices and playback

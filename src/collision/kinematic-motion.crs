@@ -6,13 +6,7 @@ fn collision_interval_begin(
     velocity: Vec3,
     time: f32
 ) -> CollisionMotion {
-    var result: CollisionMotion = collision_motion_begin(
-        read scene,
-        space,
-        p,
-        travel,
-        velocity
-    );
+    var result: CollisionMotion = collision_motion_new(space, p, travel, velocity);
     var embedded: u32 = collision_embedded_at(read scene, space, p, time);
     if embedded != 0xffffffffu32 {
         result.status = 4u32;

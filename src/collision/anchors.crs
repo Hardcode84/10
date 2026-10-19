@@ -84,10 +84,11 @@ fn collision_anchor_children(
 ) -> bool {
     var start: Vec3 = space_point(anchor.transform, position);
     var delta: Vec3 = space_vector(anchor.transform, travel);
-    var i: u32 = 0u32;
-    while i < collision_portal_count(read scene) {
+    var cursor: u32 = collision_portal_begin(read scene, anchor.space);
+    while collision_portal_at_space(read scene, cursor, anchor.space) {
+        var i: u32 = collision_portal_id(read scene, cursor);
         var portal: CollisionPortal = collision_portal(read scene, i);
-        if portal.space == anchor.space && i != anchor.incoming && portal_reaches(
+        if i != anchor.incoming && portal_reaches(
             portal,
             start,
             delta,
@@ -107,7 +108,7 @@ fn collision_anchor_children(
                 return false;
             }
         }
-        i = i + 1u32;
+        cursor = cursor + 1u32;
     }
     return true;
 }

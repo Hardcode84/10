@@ -8,14 +8,8 @@ record CollisionMotion {
     elapsed: f32;
     contact_work: f32;
 }
-fn collision_motion_begin(
-    scene: read CollisionScene,
-    space: u32,
-    p: Vec3,
-    travel: Vec3,
-    velocity: Vec3
-) -> CollisionMotion {
-    var result: CollisionMotion = make CollisionMotion {
+fn collision_motion_new(space: u32, p: Vec3, travel: Vec3, velocity: Vec3) -> CollisionMotion {
+    return make CollisionMotion {
         position: p,
         velocity: velocity,
         remaining: travel,
@@ -25,6 +19,15 @@ fn collision_motion_begin(
         elapsed: 0f32,
         contact_work: 0f32
     };
+}
+fn collision_motion_begin(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    travel: Vec3,
+    velocity: Vec3
+) -> CollisionMotion {
+    var result: CollisionMotion = collision_motion_new(space, p, travel, velocity);
     var embedded: u32 = collision_embedded(read scene, space, p);
     if embedded != 0xffffffffu32 {
         result.status = 4u32;

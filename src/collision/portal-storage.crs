@@ -111,3 +111,61 @@ fn collision_portal_support(scene: mut CollisionScene) -> unit {
         i = i + 1u32;
     }
 }
+
+record CollisionPortalEntry {
+    space: u32;
+    id: u32;
+}
+fn collision_portal_compare(a: *u8, b: *u8) -> i32 {
+    var x: *CollisionPortalEntry = a as *CollisionPortalEntry;
+    var y: *CollisionPortalEntry = b as *CollisionPortalEntry;
+    var order: i32 = collision_compare_id(x -> space, y -> space);
+    if order != 0i32 {
+        return order;
+    }
+    return collision_compare_id(x -> id, y -> id);
+}
+fn collision_portal_index_build(scene: *CollisionScene) -> bool {
+    var count: u32 = scene -> data.portal_count;
+    if count == 0u32 {
+        return true;
+    }
+    scene -> portal_index = malloc(count as usize * sizeof(CollisionPortalEntry)) as *CollisionPortalEntry;
+    if scene -> portal_index == null(*CollisionPortalEntry) {
+        return error("collision portal index allocation failed");
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        scene -> portal_index[i as usize] = make CollisionPortalEntry {
+            space: scene -> data.portals[i as usize].space,
+            id: i
+        };
+        i = i + 1u32;
+    }
+    collision_sort(
+        scene -> portal_index as *u8,
+        count as usize,
+        sizeof(CollisionPortalEntry),
+        collision_portal_compare
+    );
+    return true;
+}
+fn collision_portal_begin(scene: read CollisionScene, space: u32) -> u32 {
+    var lo: u32 = 0u32;
+    var hi: u32 = scene.data.portal_count;
+    while lo < hi {
+        var mid: u32 = lo + (hi - lo) / 2u32;
+        if scene.portal_index[mid as usize].space < space {
+            lo = mid + 1u32;
+        } else {
+            hi = mid;
+        }
+    }
+    return lo;
+}
+fn collision_portal_at_space(scene: read CollisionScene, cursor: u32, space: u32) -> bool {
+    return cursor < scene.data.portal_count && scene.portal_index[cursor as usize].space == space;
+}
+fn collision_portal_id(scene: read CollisionScene, cursor: u32) -> u32 {
+    return scene.portal_index[cursor as usize].id;
+}

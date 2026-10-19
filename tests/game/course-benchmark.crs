@@ -5,7 +5,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     if argc < 3i32 || !game_number(argv[1usize], &room) || !game_number(argv[2usize], &pose) {
         return (
             !error(
-                "use course-benchmark LEVEL ROOM POSE followed by game options; pose 0 uses the recipe spawn, other poses face that numbered portal"
+                "use course-benchmark LEVEL ROOM POSE followed by game options; pose 0 uses the recipe spawn, poses 1..99 face a portal; poses 100+ view the centre from hull face (pose - 100)"
             )
         ) as i32;
     }
@@ -63,16 +63,15 @@ fn course_benchmark(
     loop.trial.drone.world = room;
     loop.trial.drone.position = asset.spawn.position;
     loop.trial.drone.basis = asset.spawn.basis;
-    if pose != 0u32 {
-        if pose > node.count {
-            return error("benchmark portal pose is outside the room");
-        }
-        var port: RoomPort = graph_socket(
-            read session.control.graph,
-            node.first + pose - 1u32
-        ).port;
-        loop.trial.drone.position = sub(port.position, scale(port.basis.forward, 1f32));
-        loop.trial.drone.basis = port.basis;
+    if !course_camera(
+        read scene,
+        read session.control.graph,
+        read asset.hull,
+        mut loop.trial,
+        node,
+        pose
+    ) {
+        return false;
     }
     puts("rooms / portals / source triangles");
     print_number(graph_count(read session.control.graph) as i64);
@@ -131,6 +130,11 @@ fn course_benchmark_frames(
     config: GameConfig,
     samples: u32
 ) -> bool {
+    var cpu: [u64; 3] = make [u64; 3] {
+        0u64,
+        0u64,
+        0u64
+    };
     var elapsed: [u64; 128] = uninit;
     var gpu: [u64; 128] = uninit;
     var query: [u64; 64] = uninit;
@@ -142,7 +146,14 @@ fn course_benchmark_frames(
     var frame: u32 = 0u32;
     while frame < samples + 8u32 {
         var start: u64 = now();
-        if !game_render(read scene, mut session, read loop, config) {
+        if !course_benchmark_frame(
+            read scene,
+            mut session,
+            read loop,
+            config,
+            &cpu[0usize],
+            frame >= 8u32
+        ) {
             return false;
         }
         var duration: u64 = now() - start;
@@ -160,6 +171,10 @@ fn course_benchmark_frames(
         }
         frame = frame + 1u32;
     }
+    puts("CPU prediction / scene preparation / submission+GPU mean ns");
+    print_number((cpu[0usize] / samples as u64) as i64);
+    print_number((cpu[1usize] / samples as u64) as i64);
+    print_number((cpu[2usize] / samples as u64) as i64);
     puts("measured samples");
     print_number(samples as i64);
     puts("synchronous frame ns p50 / p95 / p99 (no pixel readback, no presentation)");
@@ -175,5 +190,82 @@ fn course_benchmark_frames(
     print_number(v -> frame_upload_bytes as i64);
     print_number(v -> device_bytes as i64);
     print_number(v -> staging_bytes as i64);
+    return true;
+}
+
+fn course_face_camera(hull: read AssetHull, drone: mut Drone, index: u32) -> bool {
+    if index >= asset_face_count(read hull) {
+        return error("benchmark hull face is outside the room");
+    }
+    var face: HullFace = asset_face(read hull, index);
+    var center: Vec3 = vec(0f32, 0f32, 0f32);
+    var i: u32 = 0u32;
+    while i < face.count {
+        center = add(
+            center,
+            asset_vertex(read hull, asset_index(read hull, face.first + i))
+        );
+        i = i + 1u32;
+    }
+    center = scale(center, 1f32 / face.count as f32);
+    var inward: Basis = hull_radial_basis(scale(center, -1f32));
+    drone.position = add(
+        center,
+        add(scale(inward.forward, 2f32), scale(inward.right, 2f32))
+    );
+    drone.basis = hull_radial_basis(scale(drone.position, -1f32));
+    puts("camera eye xyz");
+    print_number((drone.position.x * 1000f32) as i64);
+    print_number((drone.position.y * 1000f32) as i64);
+    print_number((drone.position.z * 1000f32) as i64);
+    return true;
+}
+
+fn course_benchmark_frame(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    times: *u64,
+    measure: bool
+) -> bool {
+    var a: u64 = now();
+    var prediction: Prediction = predict_paths(read scene, read loop.trial);
+    var b: u64 = now();
+    game_prepare(read scene, mut session, read loop, config, read prediction);
+    var c: u64 = now();
+    var good: bool = game_draw(mut session) && game_present(mut session);
+    var d: u64 = now();
+    if measure {
+        times[0usize] = times[0usize] + b - a;
+        times[1usize] = times[1usize] + c - b;
+        times[2usize] = times[2usize] + d - c;
+    }
+    return good;
+}
+
+fn course_camera(
+    scene: read CollisionScene,
+    graph: read RoomGraph,
+    hull: read AssetHull,
+    trial: mut Trial,
+    node: GraphNode,
+    pose: u32
+) -> bool {
+    if pose >= 100u32 {
+        if !course_face_camera(read hull, mut trial.drone, pose - 100u32) {
+            return false;
+        }
+    } else if pose != 0u32 {
+        if pose > node.count {
+            return error("benchmark portal pose is outside the room");
+        }
+        var port: RoomPort = graph_socket(read graph, node.first + pose - 1u32).port;
+        trial.drone.position = sub(port.position, scale(port.basis.forward, 1f32));
+        trial.drone.basis = port.basis;
+    }
+    if !game_collision_spawn(read scene, read trial) {
+        return false;
+    }
     return true;
 }

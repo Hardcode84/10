@@ -24,6 +24,12 @@ bounding-volume hierarchy over its instances. Each instance has a second
 hierarchy over its local triangles. Different spaces never share a query tree,
 even when they occupy the same coordinates. IDs need not be consecutive.
 
+Portals have a separate sorted index of room IDs and original portal IDs.
+Crossing and overlap queries find the room by binary search, then visit its
+connections in append order. This preserves equal-time crossing selection and
+reverse links. Rooms can have portals without collider instances. Index storage
+is eight bytes per portal; queries require no allocation.
+
 A node stores two bounds, a leaf ID, and the index after its complete subtree.
 Queries use that index to skip rejected subtrees. They need no allocation,
 recursion, fixed-size traversal stack, or mutable scratch storage. Concurrent
@@ -66,7 +72,7 @@ participate in it.
 
 Temporary sort items and edge records are released before the scene is used.
 `collision_bytes` reports persistent allocated bytes, including spare face and
-instance capacity, nodes, and the space directory. It excludes allocator
+instance capacity, nodes, the space directory, portals, and the portal index. It excludes allocator
 metadata, temporary sort data, and the source mesh held by the caller.
 
 ## Evidence and checks

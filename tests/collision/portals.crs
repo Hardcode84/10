@@ -332,3 +332,59 @@ fn test_portal_anchor_cycles() -> bool {
     }
     return positions == 31u32 || error("same-room anchors lost distinct portal transforms");
 }
+
+fn test_portal_room_index() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    var spaces: [u32; 4] = make [u32; 4] {
+        0xffffffffu32,
+        9u32,
+        0xffffffffu32,
+        0u32
+    };
+    var i: u32 = 0u32;
+    while i < 8u32 {
+        var basis: Basis = identity_basis();
+        if i % 2u32 != 0u32 {
+            basis.right.x = -1f32;
+            basis.forward.z = -1f32;
+        }
+        var portal: CollisionPortal = make CollisionPortal {
+            support_bound: 0f32,
+            source_scale: scale_identity(),
+            target_scale: scale_identity(),
+            reverse: i ^ 1u32,
+            space: spaces[(i / 2u32) as usize],
+            destination: spaces[(i / 2u32) as usize],
+            origin: vec(0f32, 0f32, 0f32),
+            basis: basis,
+            radius: 2f32,
+            sides: 6u32,
+            phase: 0f32,
+            transform: space_identity()
+        };
+        if !collision_portal_append(mut builder, portal) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var start: Vec3 = vec(0f32, 0f32, -1f32);
+    var travel: Vec3 = vec(0f32, 0f32, 2f32);
+    // Rooms have no collider instances. Equal-time crossings retain append order.
+    return (
+        portal_crossing(read scene, 0xffffffffu32, start, travel).index == 0u32 && portal_crossing(
+            read scene,
+            9u32,
+            start,
+            travel
+        ).index == 2u32 && portal_crossing(read scene, 0u32, start, travel).index == 6u32 && portal_crossing(
+            read scene,
+            8u32,
+            start,
+            travel
+        ).index == 0xffffffffu32 && portal_crossing(read scene, 10u32, start, travel).index == 0xffffffffu32
+    ) || error("room portal index changed crossing identity or tie order");
+}
