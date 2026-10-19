@@ -20,6 +20,27 @@ fn build_demo_target(
     check: *u8,
     output: *u8
 ) -> bool {
+    return build_demo_target_providers(
+        root,
+        emit,
+        recipe,
+        entry,
+        check,
+        output,
+        null(**u8),
+        0usize
+    );
+}
+fn build_demo_target_providers(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
+    recipe: *u8,
+    entry: *u8,
+    check: *u8,
+    output: *u8,
+    extra: **u8,
+    extra_count: usize
+) -> bool {
     var sources: [*u8; 256] = uninit;
     var providers: [*u8; 96] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
@@ -40,6 +61,12 @@ fn build_demo_target(
         if cache_strcmp(providers[i], host_path(root, "src/game/host/world.crs")) == 0i32 {
             providers[i] = host_path(root, "src/demo/room/world.crs");
         }
+        i = i + 1usize;
+    }
+    i = 0usize;
+    while i < extra_count {
+        providers[provider_count] = host_path(root, extra[i]);
+        provider_count = provider_count + 1usize;
         i = i + 1usize;
     }
     providers[provider_count] = host_path(root, entry);

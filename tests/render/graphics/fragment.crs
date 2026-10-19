@@ -1,0 +1,18 @@
+fn graphics_fragment() -> unit {
+    var tri: u32 = primitive_load(0u32);
+    var mat: u32 = scene_meta(tri, 1u32);
+    var texel: u32 = material_texel(mat, uv_load(0u32), uv_load(1u32));
+    if (scene_meta(tri, 3u32) & 1u32) != 0u32 && texel == material_field(mat, 9u32) {
+        shader_discard();
+    }
+    var color: u32 = words_load(
+        material_palette(mat) + texel * LIGHT_STATES + LIGHT_STATES - 1u32
+    );
+    target_store(0u32, (color & 255u32) as f32 / 255f32);
+    target_store(1u32, ((color >> 8u32) & 255u32) as f32 / 255f32);
+    target_store(2u32, ((color >> 16u32) & 255u32) as f32 / 255f32);
+    target_store(3u32, 1f32);
+}
+fn compute() -> unit {
+    graphics_fragment();
+}

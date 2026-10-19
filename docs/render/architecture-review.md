@@ -654,3 +654,11 @@ in nine. The hub queues 12,369 in four batches, compared with 23,859 in five.
 The projected-tree hub has a 20.05 ms synchronous frame p99, excluding
 presentation and pixel readback. This still fails the full frame target even
 though its GPU interval is below 16.67 ms. Application defaults are unchanged.
+
+## Hardware geometry comparison
+
+The [Vulkan graphics experiment](geometry-benchmark.md) compares the same room
+meshes and full-bright textures through compute and hardware rasterization.
+It isolates the root view and records both geometry and complete GPU intervals.
+The result supports a graphics-pipeline experiment for the remaining renderer
+stages. Application defaults remain unchanged.

@@ -147,6 +147,9 @@ fn build_shader(
         resource_count = 4usize;
     }
     var config: ShaderConfig = make ShaderConfig {
+        interfaces: null(*ShaderInterface),
+        interface_count: 0usize,
+        stage: SHADER_COMPUTE,
         resources: &resources[0usize],
         entry: "compute",
         llvm_directory: llvm,

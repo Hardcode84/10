@@ -1,0 +1,86 @@
+fn graphics_pipeline(v: *RenderState, g: *GraphicsProof) -> bool {
+    var stages: [VkPipelineShaderStageCreateInfo; 2] = uninit;
+    zero(&stages as *u8, sizeof([VkPipelineShaderStageCreateInfo; 2]));
+    stages[0usize].sType = 18u32;
+    stages[0usize].stage = 1u32;
+    stages[0usize].module = g -> modules[0usize];
+    stages[0usize].pName = "main";
+    stages[1usize] = stages[0usize];
+    stages[1usize].stage = 16u32;
+    stages[1usize].module = g -> modules[1usize];
+    var vertex: VkPipelineVertexInputStateCreateInfo = uninit;
+    zero(&vertex as *u8, sizeof(VkPipelineVertexInputStateCreateInfo));
+    vertex.sType = 19u32;
+    var assembly: VkPipelineInputAssemblyStateCreateInfo = uninit;
+    zero(&assembly as *u8, sizeof(VkPipelineInputAssemblyStateCreateInfo));
+    assembly.sType = 20u32;
+    assembly.topology = 3u32;
+    var viewport: VkViewport = make VkViewport {
+        x: 0f32,
+        y: 0f32,
+        width: v -> width as f32,
+        height: v -> height as f32,
+        minDepth: 0f32,
+        maxDepth: 1f32
+    };
+    var rect: VkRect2D = make VkRect2D {
+        x: 0i32,
+        y: 0i32,
+        width: v -> width,
+        height: v -> height
+    };
+    var view: VkPipelineViewportStateCreateInfo = uninit;
+    zero(&view as *u8, sizeof(VkPipelineViewportStateCreateInfo));
+    view.sType = 22u32;
+    view.viewportCount = 1u32;
+    view.pViewports = &viewport;
+    view.scissorCount = 1u32;
+    view.pScissors = &rect;
+    var raster: VkPipelineRasterizationStateCreateInfo = uninit;
+    zero(&raster as *u8, sizeof(VkPipelineRasterizationStateCreateInfo));
+    raster.sType = 23u32;
+    raster.lineWidth = 1f32;
+    var samples: VkPipelineMultisampleStateCreateInfo = uninit;
+    zero(&samples as *u8, sizeof(VkPipelineMultisampleStateCreateInfo));
+    samples.sType = 24u32;
+    samples.rasterizationSamples = 1u32;
+    var depth: VkPipelineDepthStencilStateCreateInfo = uninit;
+    zero(&depth as *u8, sizeof(VkPipelineDepthStencilStateCreateInfo));
+    depth.sType = 25u32;
+    depth.depthTestEnable = 1u32;
+    depth.depthWriteEnable = 1u32;
+    depth.depthCompareOp = 4u32;
+    var attachment: VkPipelineColorBlendAttachmentState = uninit;
+    zero(&attachment as *u8, sizeof(VkPipelineColorBlendAttachmentState));
+    attachment.colorWriteMask = 15u32;
+    var blend: VkPipelineColorBlendStateCreateInfo = uninit;
+    zero(&blend as *u8, sizeof(VkPipelineColorBlendStateCreateInfo));
+    blend.sType = 26u32;
+    blend.attachmentCount = 1u32;
+    blend.pAttachments = &attachment;
+    var info: VkGraphicsPipelineCreateInfo = uninit;
+    zero(&info as *u8, sizeof(VkGraphicsPipelineCreateInfo));
+    info.sType = 28u32;
+    info.stageCount = 2u32;
+    info.pStages = &stages[0usize];
+    info.pVertexInputState = &vertex;
+    info.pInputAssemblyState = &assembly;
+    info.pViewportState = &view;
+    info.pRasterizationState = &raster;
+    info.pMultisampleState = &samples;
+    info.pDepthStencilState = &depth;
+    info.pColorBlendState = &blend;
+    info.layout = g -> pipeline_layout;
+    info.renderPass = g -> pass;
+    return vk_ok(
+        vkCreateGraphicsPipelines(
+            v -> gpu.device,
+            null(*u8),
+            1u32,
+            &info,
+            null(*u8),
+            &g -> pipeline
+        ),
+        "create benchmark graphics pipeline"
+    );
+}

@@ -1,0 +1,36 @@
+fn graphics_vertex() -> unit {
+    var index: u32 = vertex_load(0u32);
+    var tri: u32 = index / 3u32;
+    var source: u32 = tri * 15u32 + index % 3u32 * 5u32;
+    var x: f32 = scene_float(source);
+    var y: f32 = scene_float(source + 1u32);
+    var z: f32 = scene_float(source + 2u32);
+    var cx: f32 = floats_load(0u32) * x + floats_load(1u32) * y + floats_load(2u32) * z + floats_load(
+        3u32
+    );
+    var cy: f32 = floats_load(4u32) * x + floats_load(5u32) * y + floats_load(6u32) * z + floats_load(
+        7u32
+    );
+    var cz: f32 = floats_load(8u32) * x + floats_load(9u32) * y + floats_load(10u32) * z + floats_load(
+        11u32
+    );
+    position_store(
+        0u32,
+        cx / floats_load(PROJECTION) * words_load(1u32) as f32 / words_load(0u32) as f32
+    );
+    position_store(1u32, -cy / floats_load(PROJECTION));
+    position_store(2u32, floats_load(RENDER_STYLE));
+    position_store(3u32, cz);
+    if !triangle_visible(tri, 0u32) || !portal_facing(0u32, scene_meta(tri, 2u32)) {
+        position_store(0u32, 0f32);
+        position_store(1u32, 0f32);
+        position_store(2u32, 2f32);
+        position_store(3u32, 1f32);
+    }
+    uv_store(0u32, scene_float(source + 3u32));
+    uv_store(1u32, scene_float(source + 4u32));
+    primitive_store(0u32, tri);
+}
+fn compute() -> unit {
+    graphics_vertex();
+}

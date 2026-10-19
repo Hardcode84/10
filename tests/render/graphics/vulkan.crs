@@ -1,0 +1,255 @@
+// Vulkan graphics ABI used by the isolated geometry benchmark.
+record VkAttachmentDescription {
+    flags: u32;
+    format: u32;
+    samples: u32;
+    loadOp: u32;
+    storeOp: u32;
+    stencilLoadOp: u32;
+    stencilStoreOp: u32;
+    initialLayout: u32;
+    finalLayout: u32;
+}
+opaque;
+record VkAttachmentReference {
+    attachment: u32;
+    layout: u32;
+}
+opaque;
+record VkSubpassDependency {
+    srcSubpass: u32;
+    dstSubpass: u32;
+    srcStageMask: u32;
+    dstStageMask: u32;
+    srcAccessMask: u32;
+    dstAccessMask: u32;
+    dependencyFlags: u32;
+}
+opaque;
+record VkSubpassDescription {
+    flags: u32;
+    pipelineBindPoint: u32;
+    inputAttachmentCount: u32;
+    pInputAttachments: *VkAttachmentReference;
+    colorAttachmentCount: u32;
+    pColorAttachments: *VkAttachmentReference;
+    pResolveAttachments: *VkAttachmentReference;
+    pDepthStencilAttachment: *VkAttachmentReference;
+    preserveAttachmentCount: u32;
+    pPreserveAttachments: *u32;
+}
+opaque;
+record VkRenderPassCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+    attachmentCount: u32;
+    pAttachments: *VkAttachmentDescription;
+    subpassCount: u32;
+    pSubpasses: *VkSubpassDescription;
+    dependencyCount: u32;
+    pDependencies: *u8;
+}
+opaque;
+record VkFramebufferCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+    renderPass: *u8;
+    attachmentCount: u32;
+    pAttachments: **u8;
+    width: u32;
+    height: u32;
+    layers: u32;
+}
+opaque;
+record VkRect2D {
+    x: i32;
+    y: i32;
+    width: u32;
+    height: u32;
+}
+opaque;
+record VkViewport {
+    x: f32;
+    y: f32;
+    width: f32;
+    height: f32;
+    minDepth: f32;
+    maxDepth: f32;
+}
+opaque;
+record VkRenderPassBeginInfo {
+    sType: u32;
+    pNext: *u8;
+    renderPass: *u8;
+    framebuffer: *u8;
+    renderArea: VkRect2D;
+    clearValueCount: u32;
+    pClearValues: *u8;
+}
+opaque;
+record VkPipelineVertexInputStateCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+    vertexBindingDescriptionCount: u32;
+    pVertexBindingDescriptions: *u8;
+    vertexAttributeDescriptionCount: u32;
+    pVertexAttributeDescriptions: *u8;
+}
+opaque;
+record VkPipelineInputAssemblyStateCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+    topology: u32;
+    primitiveRestartEnable: u32;
+}
+opaque;
+record VkPipelineViewportStateCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+    viewportCount: u32;
+    pViewports: *VkViewport;
+    scissorCount: u32;
+    pScissors: *VkRect2D;
+}
+opaque;
+record VkPipelineRasterizationStateCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+    depthClampEnable: u32;
+    rasterizerDiscardEnable: u32;
+    polygonMode: u32;
+    cullMode: u32;
+    frontFace: u32;
+    depthBiasEnable: u32;
+    depthBiasConstantFactor: f32;
+    depthBiasClamp: f32;
+    depthBiasSlopeFactor: f32;
+    lineWidth: f32;
+}
+opaque;
+record VkPipelineMultisampleStateCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+    rasterizationSamples: u32;
+    sampleShadingEnable: u32;
+    minSampleShading: f32;
+    pSampleMask: *u32;
+    alphaToCoverageEnable: u32;
+    alphaToOneEnable: u32;
+}
+opaque;
+record VkStencilOpState {
+    failOp: u32;
+    passOp: u32;
+    depthFailOp: u32;
+    compareOp: u32;
+    compareMask: u32;
+    writeMask: u32;
+    reference: u32;
+}
+opaque;
+record VkPipelineDepthStencilStateCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+    depthTestEnable: u32;
+    depthWriteEnable: u32;
+    depthCompareOp: u32;
+    depthBoundsTestEnable: u32;
+    stencilTestEnable: u32;
+    front: VkStencilOpState;
+    back: VkStencilOpState;
+    minDepthBounds: f32;
+    maxDepthBounds: f32;
+}
+opaque;
+record VkPipelineColorBlendAttachmentState {
+    blendEnable: u32;
+    srcColorBlendFactor: u32;
+    dstColorBlendFactor: u32;
+    colorBlendOp: u32;
+    srcAlphaBlendFactor: u32;
+    dstAlphaBlendFactor: u32;
+    alphaBlendOp: u32;
+    colorWriteMask: u32;
+}
+opaque;
+record VkPipelineColorBlendStateCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+    logicOpEnable: u32;
+    logicOp: u32;
+    attachmentCount: u32;
+    pAttachments: *VkPipelineColorBlendAttachmentState;
+    blendConstants: [f32; 4];
+}
+opaque;
+record VkGraphicsPipelineCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+    stageCount: u32;
+    pStages: *VkPipelineShaderStageCreateInfo;
+    pVertexInputState: *VkPipelineVertexInputStateCreateInfo;
+    pInputAssemblyState: *VkPipelineInputAssemblyStateCreateInfo;
+    pTessellationState: *u8;
+    pViewportState: *VkPipelineViewportStateCreateInfo;
+    pRasterizationState: *VkPipelineRasterizationStateCreateInfo;
+    pMultisampleState: *VkPipelineMultisampleStateCreateInfo;
+    pDepthStencilState: *VkPipelineDepthStencilStateCreateInfo;
+    pColorBlendState: *VkPipelineColorBlendStateCreateInfo;
+    pDynamicState: *u8;
+    layout: *u8;
+    renderPass: *u8;
+    subpass: u32;
+    basePipelineHandle: *u8;
+    basePipelineIndex: i32;
+}
+opaque;
+extern fn vkCreateRenderPass(
+    device: *u8,
+    info: *VkRenderPassCreateInfo,
+    allocator: *u8,
+    result: **u8
+) -> i32 = "vkCreateRenderPass";
+extern fn vkDestroyRenderPass(device: *u8, pass: *u8, allocator: *u8) -> unit = "vkDestroyRenderPass";
+extern fn vkCreateFramebuffer(
+    device: *u8,
+    info: *VkFramebufferCreateInfo,
+    allocator: *u8,
+    result: **u8
+) -> i32 = "vkCreateFramebuffer";
+extern fn vkDestroyFramebuffer(device: *u8, framebuffer: *u8, allocator: *u8) -> unit = "vkDestroyFramebuffer";
+extern fn vkCreateGraphicsPipelines(
+    device: *u8,
+    cache: *u8,
+    count: u32,
+    info: *VkGraphicsPipelineCreateInfo,
+    allocator: *u8,
+    result: **u8
+) -> i32 = "vkCreateGraphicsPipelines";
+extern fn vkCmdBeginRenderPass(command: *u8, info: *VkRenderPassBeginInfo, contents: u32) -> unit = "vkCmdBeginRenderPass";
+extern fn vkCmdEndRenderPass(command: *u8) -> unit = "vkCmdEndRenderPass";
+extern fn vkCmdDraw(
+    command: *u8,
+    vertices: u32,
+    instances: u32,
+    firstVertex: u32,
+    firstInstance: u32
+) -> unit = "vkCmdDraw";
+extern fn vkCmdCopyImageToBuffer(
+    command: *u8,
+    image: *u8,
+    layout: u32,
+    buffer: *u8,
+    count: u32,
+    regions: *VkBufferImageCopy
+) -> unit = "vkCmdCopyImageToBuffer";

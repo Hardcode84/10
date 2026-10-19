@@ -1,0 +1,123 @@
+fn build_geometry_shaders(root: *CrustRun) -> bool {
+    var interfaces: [ShaderInterface; 4] = make [ShaderInterface; 4] {
+        make ShaderInterface {
+            name: "position",
+            kind: SHADER_BUFFER_F32,
+            components: 4u32,
+            semantic: SHADER_POSITION,
+            slot: 0u32,
+            interpolation: SHADER_SMOOTH,
+            output: true
+        },
+        make ShaderInterface {
+            name: "vertex",
+            kind: SHADER_BUFFER_U32,
+            components: 1u32,
+            semantic: SHADER_VERTEX_INDEX,
+            slot: 0u32,
+            interpolation: SHADER_SMOOTH,
+            output: false
+        },
+        make ShaderInterface {
+            name: "uv",
+            kind: SHADER_BUFFER_F32,
+            components: 2u32,
+            semantic: SHADER_LOCATION,
+            slot: 0u32,
+            interpolation: SHADER_SMOOTH,
+            output: true
+        },
+        make ShaderInterface {
+            name: "primitive",
+            kind: SHADER_BUFFER_U32,
+            components: 1u32,
+            semantic: SHADER_LOCATION,
+            slot: 1u32,
+            interpolation: SHADER_FLAT,
+            output: true
+        }
+    };
+    var resources: [ShaderResource; 2] = make [ShaderResource; 2] {
+        make ShaderResource {
+            name: "words",
+            kind: SHADER_BUFFER_U32,
+            layout: SHADER_COUNTED,
+            set: 0u32,
+            binding: 0u32,
+            length: 0u32,
+            height: 0u32
+        },
+        make ShaderResource {
+            name: "floats",
+            kind: SHADER_BUFFER_F32,
+            layout: SHADER_COUNTED,
+            set: 0u32,
+            binding: 1u32,
+            length: 0u32,
+            height: 0u32
+        }
+    };
+    var config: ShaderConfig = make ShaderConfig {
+        resources: &resources[0usize],
+        resource_count: 2usize,
+        interfaces: &interfaces[0usize],
+        interface_count: 4usize,
+        stage: SHADER_VERTEX,
+        entry: "compute",
+        llvm_directory: build_getenv("LLVM_DIRECTORY"),
+        validator: build_getenv("SPIRV_VAL"),
+        execution: SHADER_RAW,
+        invocations: 0u32,
+        local_size: 0u32,
+        status_set: 0u32,
+        status_binding: 0u32,
+        preserve_denorms: false
+    };
+    if config.llvm_directory == null(*u8) {
+        config.llvm_directory = host_path(root, "build/toolchain/llvm");
+    }
+    if config.validator == null(*u8) {
+        config.validator = host_path(root, "build/toolchain/spirv-val");
+    }
+    if !build_geometry_shader(
+        root,
+        &config,
+        "tests/render/graphics/vertex.crs",
+        "build/geometry.vert.spv"
+    ) {
+        return false;
+    }
+    interfaces[0usize].name = "target";
+    interfaces[0usize].semantic = SHADER_LOCATION;
+    interfaces[1usize] = interfaces[2usize];
+    interfaces[1usize].output = false;
+    interfaces[2usize] = interfaces[3usize];
+    interfaces[2usize].output = false;
+    config.interface_count = 3usize;
+    config.stage = SHADER_FRAGMENT;
+    return build_geometry_shader(
+        root,
+        &config,
+        "tests/render/graphics/fragment.crs",
+        "build/geometry.frag.spv"
+    );
+}
+fn build_geometry_shader(
+    root: *CrustRun,
+    config: *ShaderConfig,
+    name: *u8,
+    output: *u8
+) -> bool {
+    var source: CrustSource = uninit;
+    if !shader_source(root, name, &source, false, false) {
+        return false;
+    }
+    var context: CrustContext = uninit;
+    crust_context_init(&context, null(*CrustAllocator));
+    var good: bool = shader_build(&context, &source, config, host_path(root, output));
+    if !good {
+        crust_run_diagnostic(&context);
+    }
+    crust_context_destroy(&context);
+    return good;
+}
