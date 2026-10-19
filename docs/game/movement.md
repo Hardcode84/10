@@ -15,6 +15,11 @@ cooldown ends. Movement keys apply normal thrust without burst mode and
 during cooldown. Right mouse alone does not fire.
 Brake wins if both actions arrive in the same ready tick.
 
+The lower-right console shows the shared boost/brake cooldown. Its amber
+column and pale slider rise as the charge returns. The green lamp lights
+when a pulse is available. The gauge has no numeric readout. Its marks
+remain visible in dark rooms and cast no shadows.
+
 ## Controls
 
 | Action | Keyboard and mouse | Gamepad |

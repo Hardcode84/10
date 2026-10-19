@@ -1,0 +1,131 @@
+// Shows shared boost/brake readiness on the lower-right console, without digits.
+fn draw_burst_console(v: mut FrameInput, drone: read Drone, config: GameConfig) -> unit {
+    var edge: f32 = 0.15f32 * config.width as f32 / config.height as f32;
+    var left: f32 = edge - 0.037f32;
+    console_rect(
+        mut v,
+        read drone,
+        config,
+        vec(left, -0.15f32, 1f32),
+        0.037f32,
+        0.075f32,
+        7u32
+    );
+    console_rect(
+        mut v,
+        read drone,
+        config,
+        vec(left + 0.003f32, -0.147f32, 0.99f32),
+        0.029f32,
+        0.069f32,
+        CONSOLE_FACE
+    );
+    var charge: f32 = 1f32 - drone.pulse_cooldown as f32 / FLIGHT_COOLDOWN_TICKS as f32;
+    var bottom: f32 = -0.138f32;
+    var travel: f32 = 0.047f32;
+    console_rect(
+        mut v,
+        read drone,
+        config,
+        vec(left + 0.016f32, bottom, 0.98f32),
+        0.008f32,
+        travel,
+        CONSOLE_SCALE
+    );
+    if charge > 0f32 {
+        console_rect(
+            mut v,
+            read drone,
+            config,
+            vec(left + 0.018f32, bottom, 0.97f32),
+            0.004f32,
+            travel * charge,
+            4u32
+        );
+    }
+    var tick: u32 = 0u32;
+    while tick < 5u32 {
+        console_rect(
+            mut v,
+            read drone,
+            config,
+            vec(left + 0.007f32, bottom + travel * tick as f32 / 4f32 - 0.0006f32, 0.98f32),
+            0.005f32,
+            0.0012f32,
+            CONSOLE_INK
+        );
+        tick = tick + 1u32;
+    }
+    console_rect(
+        mut v,
+        read drone,
+        config,
+        vec(left + 0.013f32, bottom + travel * charge - 0.0013f32, 0.96f32),
+        0.014f32,
+        0.0026f32,
+        CONSOLE_INK
+    );
+    var lamp: u32 = CONSOLE_SCALE;
+    if drone.pulse_cooldown == 0u32 {
+        lamp = CONSOLE_READY;
+    }
+    console_rect(
+        mut v,
+        read drone,
+        config,
+        vec(left + 0.013f32, -0.085f32, 0.97f32),
+        0.014f32,
+        0.003f32,
+        lamp
+    );
+}
+fn console_point(drone: read Drone, config: GameConfig, p: Vec3) -> Vec3 {
+    return add(
+        drone.position,
+        scale(
+            sub(frame_point(read drone, config, p.x, p.y), drone.position),
+            p.z
+        )
+    );
+}
+fn console_quad(
+    v: mut FrameInput,
+    drone: read Drone,
+    config: GameConfig,
+    a: Vec3,
+    b: Vec3,
+    c: Vec3,
+    d: Vec3,
+    material: u32
+) -> unit {
+    var first: u32 = input_word(read v, 3usize);
+    game_quad(
+        mut v,
+        material,
+        console_point(read drone, config, a),
+        console_point(read drone, config, d),
+        console_point(read drone, config, c),
+        console_point(read drone, config, b)
+    );
+    game_dynamic_no_shadow(mut v, first);
+}
+fn console_rect(
+    v: mut FrameInput,
+    drone: read Drone,
+    config: GameConfig,
+    origin: Vec3,
+    width: f32,
+    height: f32,
+    material: u32
+) -> unit {
+    console_quad(
+        mut v,
+        read drone,
+        config,
+        origin,
+        add(origin, vec(width, 0f32, 0f32)),
+        add(origin, vec(width, height, 0f32)),
+        add(origin, vec(0f32, height, 0f32)),
+        material
+    );
+}

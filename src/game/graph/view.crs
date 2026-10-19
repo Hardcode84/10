@@ -11,13 +11,8 @@ fn graph_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
     hud_number(mut v, 5u32, 1u32, trial.drone.world);
     hud_text(mut v, 14u32, 1u32, "SPEED M/S");
     hud_number(mut v, 24u32, 1u32, length(trial.drone.velocity) as u32);
-    hud_text(mut v, 34u32, 1u32, "BOOST/BRAKE READY");
-    if trial.drone.pulse_cooldown != 0u32 {
-        hud_text(mut v, 34u32, 1u32, "COOLDOWN MS     ");
-        hud_number(mut v, 48u32, 1u32, trial.drone.pulse_cooldown * 1000u32 / 120u32);
-    }
     hud_text(mut v, 0u32, 2u32, "WASD SPACE CTRL THRUST | MOUSE LOOK | Q/E ROLL");
-    hud_text(mut v, 0u32, 3u32, "RMB BOOST | F BRAKE | LMB HOLD HOOK | R REEL");
+    hud_text(mut v, 0u32, 3u32, "RMB + MOVE BOOST | F BRAKE | LMB HOLD HOOK | R REEL");
     hud_text(mut v, 0u32, 4u32, "PORT NUMBER IS DESTINATION / CYAN VISITED");
     if trial.drone.cable.phase == CABLE_BLOCKED {
         hud_text(mut v, 0u32, 4u32, "HOOK BLOCKED - RELEASE LMB TO LAUNCH AGAIN");

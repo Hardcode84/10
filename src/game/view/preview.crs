@@ -122,16 +122,7 @@ fn draw_frame(v: mut FrameInput, drone: read Drone, config: GameConfig) -> unit 
         0.06f32,
         7u32
     );
-    frame_rect(
-        mut v,
-        read drone,
-        config,
-        0.15f32 * aspect - 0.025f32,
-        -0.15f32,
-        0.025f32,
-        0.06f32,
-        7u32
-    );
+    draw_burst_console(mut v, read drone, config);
     frame_rect(
         mut v,
         read drone,
