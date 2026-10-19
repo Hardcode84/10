@@ -1,0 +1,70 @@
+fn scatter_admit(i: u32) -> unit {
+    var tri: u32 = scatter_source(i);
+    if !triangle_visible(tri, 0u32) || !portal_facing(0u32, scene_meta(tri, 2u32)) {
+        return;
+    }
+    if !scatter_in_view(tri) {
+        return;
+    }
+    var slot: u32 = words_atomic_add(words_load(BATCH_WALKERS), 1u32);
+    if slot >= words_load(PROJECTION_CAPACITY) {
+        words_atomic_max(5u32, 1u32);
+        return;
+    }
+    words_store(words_load(BATCH_PRIMITIVES) + slot, tri);
+}
+fn compute() -> unit {
+    var i: u32 = shader_global_x();
+    if i < words_load(BATCH_COUNT) {
+        scatter_admit(i);
+    }
+}
+fn scatter_in_view(tri: u32) -> bool {
+    var all: u32 = 31u32;
+    var vertex: u32 = 0u32;
+    while vertex < 3u32 {
+        var source: u32 = tri * 15u32 + vertex * 5u32;
+        var x: f32 = scene_float(source);
+        var y: f32 = scene_float(source + 1u32);
+        var z: f32 = scene_float(source + 2u32);
+        var cx: f32 = floats_load(0u32) * x + floats_load(1u32) * y + floats_load(2u32) * z + floats_load(
+            3u32
+        );
+        var cy: f32 = floats_load(4u32) * x + floats_load(5u32) * y + floats_load(6u32) * z + floats_load(
+            7u32
+        );
+        var cz: f32 = floats_load(8u32) * x + floats_load(9u32) * y + floats_load(10u32) * z + floats_load(
+            11u32
+        );
+        all = all & root_vertex_code(cx, cy, cz, triangle_near(tri));
+        vertex = vertex + 1u32;
+    }
+    return all == 0u32;
+}
+fn root_vertex_code(x: f32, y: f32, z: f32, near: f32) -> u32 {
+    var code: u32 = (z < near || z <= 0f32) as u32;
+    var vertical: f32 = z * floats_load(PROJECTION);
+    var horizontal: f32 = vertical * (words_load(0u32) as f32 / words_load(1u32) as f32);
+    code = code | (((horizontal + x) < 0f32) as u32) * 2u32;
+    code = code | (((horizontal - x) < 0f32) as u32) * 4u32;
+    code = code | (((vertical + y) < 0f32) as u32) * 8u32;
+    return code | (((vertical - y) < 0f32) as u32) * 16u32;
+}
+fn scatter_source(index: u32) -> u32 {
+    var begin: u32 = 0u32;
+    var end: u32 = words_load(BATCH_CLUSTERS);
+    var table: u32 = words_load(BATCH_IDS);
+    while begin < end {
+        var middle: u32 = begin + (end - begin) / 2u32;
+        if index >= words_load(table + middle * 2u32) {
+            begin = middle + 1u32;
+        } else {
+            end = middle;
+        }
+    }
+    var previous: u32 = 0u32;
+    if begin != 0u32 {
+        previous = words_load(table + (begin - 1u32) * 2u32);
+    }
+    return words_load(table + begin * 2u32 + 1u32) + index - previous;
+}

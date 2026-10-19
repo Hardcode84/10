@@ -666,3 +666,13 @@ most twice the hardware time at p50 and p99. This gate includes setup and
 composition; a geometry-only speedup is insufficient. The comparison defines
 the workload, image checks, and stop condition. Application defaults remain
 unchanged until a replacement also passes the full-game gates.
+
+The [direct tile-list checkpoint](geometry-benchmark.md#direct-tile-list-checkpoint)
+reduces the isolated 1080p hub from 9.483 ms to 0.394 ms GPU p50 with identical
+pixels. It still takes 2.39 times hardware; the six cases range from 2.39 to
+4.19 times hardware at p50. The two-times gate fails. The retained experiment
+shares projection, divides large-triangle assignment into bounded tasks, and
+rasterizes directly enumerable tile references. Its report records scratch
+bounds, overflow behavior, rejected variants, and remaining stage costs.
+Application integration stays blocked on the performance and continuation
+contracts stated above.

@@ -1,0 +1,66 @@
+fn scatter_chunk(task: u32) -> bool {
+    var queue: u32 = words_load(COMPACT_OFFSET) + words_load(PROJECTION_CAPACITY) * 2u32;
+    var id: u32 = words_load(queue + task * 2u32);
+    var start: u32 = words_load(queue + task * 2u32 + 1u32);
+    var p: u32 = words_load(PROJECTED_OFFSET) + id * 20u32;
+    var bounds: u32 = words_load(CLIP_OFFSET) + (id / MAX_FAN) * 144u32 + (id % MAX_FAN) * 18u32;
+    var left: u32 = floats_load(bounds) as u32;
+    var right: u32 = floats_load(bounds + 1u32) as u32;
+    var top: u32 = floats_load(bounds + 2u32) as u32;
+    var bottom: u32 = floats_load(bounds + 3u32) as u32;
+    var cols: u32 = right - left + 1u32;
+    var i: u32 = start + shader_local_x();
+    while i < cols * (bottom - top + 1u32) && i < start + 256u32 {
+        var x: u32 = left + i % cols;
+        var y: u32 = top + i / cols;
+        if triangle_tile_overlap(p, (x * 8u32) as f32, (y * 8u32) as f32) {
+            var tile: u32 = y * ((words_load(0u32) + 7u32) / 8u32) + x;
+            if !scatter_insert(tile, id) {
+                return false;
+            }
+        }
+        i = i + 64u32;
+    }
+    return true;
+}
+fn scatter_tasks() -> unit {
+    var task: u32 = shader_global_x() / 64u32;
+    while task < words_load(words_load(BATCH_WALKERS) + 1u32) {
+        if !scatter_chunk(task) {
+            return;
+        }
+        task = task + MAX_INVOCATIONS / LOCAL_SIZE;
+    }
+}
+fn scatter_link(tile: u32, id: u32) -> bool {
+    var offset: u32 = words_atomic_add(words_load(BATCH_WALKERS) + 2u32, 1u32);
+    var capacity: u32 = words_load(words_load(BATCH_WALKERS) + 5u32);
+    if offset >= capacity {
+        words_atomic_min(words_load(BATCH_WALKERS) + 2u32, capacity);
+        words_atomic_max(5u32, 3u32);
+        return false;
+    }
+    var previous: u32 = words_atomic_exchange(
+        words_load(TILE_STATS) + tile * 4u32 + 1u32,
+        offset
+    );
+    words_store(words_load(words_load(BATCH_WALKERS) + 4u32) + offset * 2u32, id);
+    words_store(
+        words_load(words_load(BATCH_WALKERS) + 4u32) + offset * 2u32 + 1u32,
+        previous
+    );
+    return true;
+}
+fn scatter_insert(tile: u32, id: u32) -> bool {
+    var offset: u32 = words_atomic_add(words_load(TILE_STATS) + tile * 4u32, 1u32);
+    var capacity: u32 = words_load(words_load(BATCH_WALKERS) + 3u32);
+    if offset < capacity {
+        words_store(words_load(TILE_BITS) + tile * capacity + offset, id);
+    } else {
+        return scatter_link(tile, id);
+    }
+    return true;
+}
+fn compute() -> unit {
+    scatter_tasks();
+}

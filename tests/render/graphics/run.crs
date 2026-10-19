@@ -167,7 +167,9 @@ fn graphics_samples(v: *RenderState, g: *GraphicsProof, samples: u32, mode: u32)
         var start: u64 = now();
         var good: bool = false;
         var end: u32 = 1u32;
-        if mode == 2u32 {
+        if mode == 3u32 {
+            good = scatter_draw(v, false);
+        } else if mode == 2u32 {
             good = command_reset(v) && graphics_record(v, g, false) && dispatch(v);
         } else {
             v -> projected_tree = mode == 1u32;
@@ -209,7 +211,7 @@ fn graphics_samples(v: *RenderState, g: *GraphicsProof, samples: u32, mode: u32)
 fn graphics_span(v: *RenderState, mode: u32, span: *u64) -> bool {
     var first: u32 = 1u32;
     var last: u32 = 2u32;
-    if mode == 2u32 {
+    if mode >= 2u32 {
         first = 0u32;
         last = 1u32;
     }
@@ -263,6 +265,12 @@ fn graphics_compare_run(v: *RenderState, g: *GraphicsProof, samples: u32) -> boo
         return false;
     }
     if !graphics_capture_compute(v, "build/geometry-projected.ppm") {
+        return false;
+    }
+    puts("scatter compute");
+    if !scatter_open(v) || !graphics_samples(v, g, samples, 3u32) || !scatter_draw(v, true) || !scatter_report(
+        v
+    ) || !capture(v, "build/geometry-scatter.ppm", v -> width, v -> height) {
         return false;
     }
     puts("hardware graphics");

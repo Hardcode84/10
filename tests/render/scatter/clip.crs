@@ -1,0 +1,90 @@
+fn prepare_triangle(index: u32) -> unit {
+    var tri: u32 = words_load(words_load(BATCH_PRIMITIVES) + index);
+    var slot: u32 = index;
+    var output: u32 = words_load(PROJECTED_OFFSET) + slot * MAX_FAN * 20u32;
+    floats_store(output + 19u32, 0f32);
+
+    var scratch: u32 = words_load(CLIP_OFFSET) + slot * 144u32;
+    var count: u32 = 3u32;
+    var near: f32 = triangle_near(tri);
+    var plane: u32 = 0u32;
+    while plane < 6u32 && count >= 3u32 {
+        count = clip_polygon(scratch, count, plane, near);
+        plane = plane + 1u32;
+    }
+    if count < 3u32 {
+        return;
+    }
+    var vertex: u32 = 0u32;
+    while vertex < count {
+        // A polygon through the eye has no projected area.
+        if floats_load(scratch + vertex * 6u32 + 2u32) <= 0f32 {
+            return;
+        }
+        vertex = vertex + 1u32;
+    }
+    project_fan(scratch, output, count, tri);
+    words_store(words_load(COMPACT_OFFSET) + index * 2u32, scene_meta(tri, 1u32));
+    words_store(words_load(COMPACT_OFFSET) + index * 2u32 + 1u32, scene_meta(tri, 3u32));
+    scatter_enqueue(index, output, count);
+
+}
+fn compute() -> unit {
+    var i: u32 = shader_global_x();
+    if i < words_load(PROJECTION_CAPACITY) && i < words_load(words_load(BATCH_WALKERS)) {
+        prepare_triangle(i);
+    }
+}
+fn scatter_enqueue(index: u32, output: u32, count: u32) -> unit {
+    var fan: u32 = 0u32;
+    while fan < count - 2u32 {
+        var id: u32 = index * MAX_FAN + fan;
+        var p: u32 = output + fan * 20u32;
+        if project_load(p + 18u32) > 0f32 {
+            scatter_enqueue_fan(id, p);
+        }
+        fan = fan + 1u32;
+    }
+}
+fn scatter_enqueue_fan(id: u32, p: u32) -> unit {
+    var left: u32 = bound(p, 0u32, false, words_load(0u32));
+    var right: u32 = bound(p, 0u32, true, words_load(0u32));
+    var top: u32 = bound(p, 1u32, false, words_load(1u32));
+    var bottom: u32 = bound(p, 1u32, true, words_load(1u32));
+    var bounds: u32 = words_load(CLIP_OFFSET) + (id / MAX_FAN) * 144u32 + (id % MAX_FAN) * 18u32;
+    floats_store(bounds, left as f32);
+    floats_store(bounds + 1u32, right as f32);
+    floats_store(bounds + 2u32, top as f32);
+    floats_store(bounds + 3u32, bottom as f32);
+    var chunks: u32 = ((right - left + 1u32) * (bottom - top + 1u32) + 255u32) / 256u32;
+    var first: u32 = words_atomic_add(words_load(BATCH_WALKERS) + 1u32, chunks);
+    if first + chunks > words_load(PROJECTION_CAPACITY) * 3u32 {
+        words_atomic_max(5u32, 2u32);
+        return;
+    }
+    var queue: u32 = words_load(COMPACT_OFFSET) + words_load(PROJECTION_CAPACITY) * 2u32;
+    var i: u32 = 0u32;
+    while i < chunks {
+        words_store(queue + (first + i) * 2u32, id);
+        words_store(queue + (first + i) * 2u32 + 1u32, i * 256u32);
+        i = i + 1u32;
+    }
+}
+fn bound(p: u32, axis: u32, upper: bool, extent: u32) -> u32 {
+    var value: f32 = project_load(p + axis);
+    var i: u32 = 1u32;
+    while i < 3u32 {
+        var candidate: f32 = project_load(p + i * 6u32 + axis);
+        if (upper && candidate > value) || (!upper && candidate < value) {
+            value = candidate;
+        }
+        i = i + 1u32;
+    }
+    if value < 0f32 {
+        return 0u32;
+    }
+    if value >= extent as f32 {
+        return (extent - 1u32) / 8u32;
+    }
+    return value as u32 / 8u32;
+}

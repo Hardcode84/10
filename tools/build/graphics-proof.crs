@@ -121,3 +121,42 @@ fn build_geometry_shader(
     crust_context_destroy(&context);
     return good;
 }
+fn build_scatter_shaders(root: *CrustRun) -> bool {
+    var sources: [*u8; 7] = make [*u8; 7] {
+        "tests/render/scatter/init.crs",
+        "tests/render/scatter/project.crs",
+        "tests/render/scatter/bin.crs",
+        "tests/render/scatter/raster.crs",
+        "tests/render/scatter/clip.crs",
+        "tests/render/scatter/cull.crs",
+        "tests/render/scatter/launch.crs"
+    };
+    var outputs: [*u8; 7] = make [*u8; 7] {
+        "build/scatter-init.spv",
+        "build/scatter-project.spv",
+        "build/scatter-bin.spv",
+        "build/scatter-raster.spv",
+        "build/scatter-clip.spv",
+        "build/scatter-cull.spv",
+        "build/scatter-launch.spv"
+    };
+    var i: usize = 0usize;
+    while i < 7usize {
+        if !build_shader(
+            root,
+            sources[i],
+            outputs[i],
+            host_path(root, "build/toolchain/llvm"),
+            host_path(root, "build/toolchain/spirv-val"),
+            SHADER_WORKGROUP_U32,
+            0u32,
+            false,
+            false,
+            false
+        ) {
+            return false;
+        }
+        i = i + 1usize;
+    }
+    return true;
+}

@@ -1,0 +1,31 @@
+fn root_vertex(i: u32) -> unit {
+    var tri: u32 = words_load(words_load(BATCH_PRIMITIVES) + i / 3u32);
+    var source: u32 = tri * 15u32 + i % 3u32 * 5u32;
+    var x: f32 = scene_float(source);
+    var y: f32 = scene_float(source + 1u32);
+    var z: f32 = scene_float(source + 2u32);
+    var u: f32 = scene_float(source + 3u32);
+    var v: f32 = scene_float(source + 4u32);
+    var cx: f32 = floats_load(0u32) * x + floats_load(1u32) * y + floats_load(2u32) * z + floats_load(
+        3u32
+    );
+    var cy: f32 = floats_load(4u32) * x + floats_load(5u32) * y + floats_load(6u32) * z + floats_load(
+        7u32
+    );
+    var cz: f32 = floats_load(8u32) * x + floats_load(9u32) * y + floats_load(10u32) * z + floats_load(
+        11u32
+    );
+    var dst: u32 = words_load(CLIP_OFFSET) + (i / 3u32) * 144u32 + i % 3u32 * 6u32;
+    floats_store(dst, cx);
+    floats_store(dst + 1u32, cy);
+    floats_store(dst + 2u32, cz);
+    floats_store(dst + 3u32, u);
+    floats_store(dst + 4u32, v);
+    floats_store(dst + 5u32, 1f32);
+}
+fn compute() -> unit {
+    var i: u32 = shader_global_x();
+    if i / 3u32 < words_load(PROJECTION_CAPACITY) && i < words_load(words_load(BATCH_WALKERS)) * 3u32 {
+        root_vertex(i);
+    }
+}
