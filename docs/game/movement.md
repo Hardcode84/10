@@ -9,10 +9,11 @@ stays fixed in drone-local coordinates for the pulse. Diagonal input has
 the same boost strength as single-axis input.
 It adds 15 m/s without other forces. Brake applies acceleration against the
 current velocity for 0.15 seconds, removing at most 30 m/s. It cannot reverse
-the drone. Both have unlimited uses and share a three-second cooldown from
+the drone. Both have unlimited uses and share a 1.5-second cooldown from
 the accepted pulse. Hold the inputs to start another pulse as soon as the
 cooldown ends. Movement keys apply normal thrust without burst mode and
-during cooldown. Right mouse alone does not fire.
+during cooldown. Full normal input applies 1 m/s² before environmental forces.
+Right mouse alone does not fire.
 Brake wins if both actions arrive in the same ready tick.
 
 The lower-right console shows the shared boost/brake cooldown. Its amber

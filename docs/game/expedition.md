@@ -82,7 +82,7 @@ player recognize joins and choose a return route without a global map.
 ## Flight
 
 Use the shared [flight controls and physics](movement.md). Boost and brake
-have unlimited uses and share a three-second simulation cooldown. Each pulse
+have unlimited uses and share a 1.5-second simulation cooldown. Each pulse
 lasts 0.15 seconds. Hold right mouse with a movement key to burst in that
 direction. Hold F to brake. Held inputs repeat when the cooldown ends.
 Movement keys apply normal thrust during cooldown. If both actions arrive
