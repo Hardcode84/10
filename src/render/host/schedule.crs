@@ -172,6 +172,8 @@ fn commands_geometry_batches(v: *RenderState, depth: u32) -> unit {
         command_barrier(v, BARRIER_COMPUTE);
         task_dispatch(v, 2usize, 0u32);
         command_barrier(v, BARRIER_COMPUTE);
+        task_dispatch(v, 13usize, 0u32);
+        command_barrier(v, BARRIER_COMPUTE);
         round = round + 1u64;
     }
     command_barrier(v, BARRIER_BEFORE_UPDATE);

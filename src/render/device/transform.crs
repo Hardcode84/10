@@ -1,4 +1,5 @@
 fn project_fan(scratch: u32, output: u32, count: u32, tri: u32) -> unit {
+    floats_store(output + 19u32, (count - 2u32) as f32);
     var fan: u32 = 0u32;
     while fan < count - 2u32 {
         var vertex: u32 = 0u32;
@@ -193,6 +194,7 @@ fn prepare_triangle(index: u32) -> unit {
     var tri: u32 = batch_triangle(view, local);
     var slot: u32 = index;
     var output: u32 = words_load(PROJECTED_OFFSET) + slot * MAX_FAN * 20u32;
+    floats_store(output + 19u32, 0f32);
     var fan: u32 = 0u32;
     while fan < MAX_FAN {
         floats_store(output + fan * 20u32 + 18u32, 0f32);

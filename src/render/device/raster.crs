@@ -1,10 +1,3 @@
-fn raster_active(base: u32, lane: u32, x: u32, y: u32, width: u32) -> bool {
-    return!(
-        x >= width || y >= words_load(1u32) || (
-            words_load(base + 2u32 + lane / 32u32) & (1u32 << (lane % 32u32))
-        ) == 0u32
-    );
-}
 fn perspective_sample(p: u32, x: f32, y: f32, offset: u32) -> f32 {
     var ax: f32 = floats_load(p);
     var ay: f32 = floats_load(p + 1u32);
@@ -188,39 +181,7 @@ fn raster_candidates(task: u32, view: u32, x: u32, y: u32) -> unit {
     floats_store(cache, best);
     words_store(identity_word, winner);
 }
-fn raster_finish_pixel(view: u32, lane: u32, x: u32, y: u32) -> unit {
-    var pixel: u32 = y * words_load(0u32) + x;
-    var cache: u32 = words_load(HIT_FLOAT) + pixel * 3u32;
-    var identity: u32 = words_load(words_load(DEBUG_VALUES) + pixel * 4u32);
-    var depth: f32 = floats_load(cache);
-    var u: f32 = floats_load(cache + 1u32);
-    var v: f32 = floats_load(cache + 2u32);
-    var winner: u32 = 0xffffffffu32;
-    var color: u32 = words_load(BACKGROUND);
-    if identity != 0xffffffffu32 {
-        winner = identity / MAX_FAN;
-        var portal: u32 = words_load(words_load(META) + winner * 4u32 + 2u32);
-        if portal != 0u32 && words_load(12u32) < words_load(4u32) {
-            shared_store(320u32 + lane, portal);
-            return;
-        }
-        color = surface_color(winner, view, u, v, 1f32 / depth, x, y);
-    }
-    if words_load(26u32) != 0u32 {
-        var debug: u32 = words_load(DEBUG_VALUES) + pixel * 4u32;
-        var debug_identity: u32 = winner;
-        if winner != 0xffffffffu32 {
-            debug_identity = winner + view * words_load(3u32);
-        }
-        words_store(debug, debug_identity);
-        words_store(debug + 1u32, (u * 10000f32) as i32 as u32);
-        words_store(debug + 2u32, (v * 10000f32) as i32 as u32);
-        words_store(debug + 3u32, (10000f32 / depth) as u32);
-    }
-    words_store(PIXELS + pixel, color);
-}
 fn raster_pixel(task: u32, lane: u32) -> unit {
-    shared_store(320u32 + lane, 0u32);
     var base: u32 = task_base() + task * 4u32;
     var view: u32 = words_load(base + 1u32);
     if !batch_active(view) {
@@ -231,83 +192,14 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
     var cols: u32 = (width + 7u32) / 8u32;
     var x: u32 = tile % cols * 8u32 + lane % 8u32;
     var y: u32 = tile / cols * 8u32 + lane / 8u32;
-    if !raster_active(base, lane, x, y, width) {
+    if !task_pixel_active(base, lane, x, y, width) {
         return;
     }
     raster_candidates(task, view, x, y);
-    if batch_finished(view) {
-        raster_finish_pixel(view, lane, x, y);
-    }
-}
-fn raster_task_finished(task: u32) -> bool {
-    return task < words_load(6u32) && words_load(5u32) == 0u32 && batch_finished(
-        words_load(task_base() + task * 4u32 + 1u32)
-    );
-}
-
-fn child_unique(lane: u32) -> unit {
-    var portal: u32 = shared_load(320u32 + lane);
-    shared_store(lane, 0u32);
-    if portal == 0u32 {
-        return;
-    }
-    var previous: u32 = 0u32;
-    while previous < lane {
-        if shared_load(320u32 + previous) == portal {
-            return;
-        }
-        previous = previous + 1u32;
-    }
-    shared_store(lane, (portal != 0u32) as u32);
-}
-fn child_masks(task: u32, lane: u32) -> unit {
-    if shared_load(lane) == 0u32 && lane != LOCAL_SIZE - 1u32 {
-        return;
-    }
-    var offset: u32 = 0u32;
-    var previous: u32 = 0u32;
-    while previous < lane {
-        offset = offset + shared_load(previous);
-        previous = previous + 1u32;
-    }
-    var base: u32 = words_load(CANDIDATES) + task * (1u32 + LOCAL_SIZE * 3u32);
-    if lane == LOCAL_SIZE - 1u32 {
-        words_store(base, offset + shared_load(lane));
-    }
-    if shared_load(lane) == 0u32 {
-        return;
-    }
-    var portal: u32 = shared_load(320u32 + lane);
-    var lo: u32 = 0u32;
-    var hi: u32 = 0u32;
-    var pixel: u32 = 0u32;
-    while pixel < LOCAL_SIZE {
-        if shared_load(320u32 + pixel) == portal {
-            if pixel < 32u32 {
-                lo = lo | (1u32 << pixel);
-            } else {
-                hi = hi | (1u32 << (pixel - 32u32));
-            }
-        }
-        pixel = pixel + 1u32;
-    }
-    var out: u32 = base + 1u32 + offset * 3u32;
-    words_store(out, portal);
-    words_store(out + 1u32, lo);
-    words_store(out + 2u32, hi);
 }
 fn compute() -> unit {
-    var lane: u32 = shader_local_x();
     var task: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
     if task < words_load(6u32) && words_load(5u32) == 0u32 {
-        raster_pixel(task, lane);
-    }
-    shader_barrier();
-    if raster_task_finished(task) {
-        child_unique(lane);
-    }
-    shader_barrier();
-    if raster_task_finished(task) {
-        child_masks(task, lane);
+        raster_pixel(task, shader_local_x());
     }
 }

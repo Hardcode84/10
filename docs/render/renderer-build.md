@@ -92,9 +92,10 @@ setup failure. A renderer cannot be copied.
 The native setup provider calls `instance_open` with the required
 instance extensions. For a window, the caller creates a Vulkan surface and gives
 ownership of that surface to the renderer. The demo uses SDL for this step.
-`renderer_open` takes a `RenderConfig` and eleven `ShaderCode` byte ranges, in
-init, transform, raster, advance, compose, compact, scan, fill, instance
-expansion, instance visibility, and tile-binning order. Checked rendering also
+`renderer_open` takes a `RenderConfig` and fourteen `ShaderCode` byte ranges,
+in init, transform, raster, advance, compose, compact, scan, fill, instance
+expansion, instance visibility, tile binning, shadow build, shadow top-level
+build, and shading order. Checked rendering also
 requires the status shader as the last range. The
 shader bytes remain owned by the caller and can be released after this call.
 The core does not choose shader file paths.
@@ -578,3 +579,29 @@ their separate storage. Tile candidate bits depend on image task capacity
 and batch size. Batch work storage no longer multiplies the largest room by
 the view budget. The capacity checks compare split batches with the CPU
 reference, including equal depths and cutout texels.
+
+## Dense room geometry
+
+The compact pass visits the emitted fan count for each source triangle. It
+keeps source order and removes degenerate fans. It then builds screen bounds
+for each group of 32 compacted triangles. The bounds use clipping scratch
+storage after projection is complete. No extra scene-sized allocation is needed.
+
+Tile binning first tests these group bounds. For each remaining triangle, it
+tests the tile against the triangle bounds and all three edge half-planes.
+These tests are conservative. Pixel coverage still uses the shared top-left
+rule in the raster pass.
+
+Visibility and shading use separate compute pipelines. Each geometry batch
+updates nearest-hit data. The shade pass reads this data only when the view
+is complete, then writes colour and child portal masks. The pipeline barrier
+between these passes makes the hit data visible to shading.
+
+On Intel Arc Pro B60 at 1024 by 768, the prefab course shaft and hub views
+used 23.88 ms and 24.75 ms of GPU time before these changes. They used
+14.16 ms and 15.17 ms after the changes. Each measurement uses 20 frames
+after four warm-up frames, at the room recipe spawn position and orientation.
+These times include upload, geometry, lighting, and composition. They exclude
+capture readback, CPU work, and window presentation. Captures of both views
+match byte for byte. These measurements do not establish a frame-rate bound
+for other cameras or resolutions.

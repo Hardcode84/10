@@ -30,7 +30,7 @@ fn edge(ax: f32, ay: f32, bx: f32, by: f32, x: f32, y: f32) -> f32 {
 fn top_left(ax: f32, ay: f32, bx: f32, by: f32) -> bool {
     return by < ay || (by == ay && bx > ax);
 }
-fn covered(ax: f32, ay: f32, bx: f32, by: f32, x: f32, y: f32) -> bool {
+fn coverage_edge(ax: f32, ay: f32, bx: f32, by: f32, x: f32, y: f32) -> f32 {
     // Shared edges must use the same arithmetic in both directions.
     var e: f32 = 0f32;
     if ax < bx || (ax == bx && ay < by) {
@@ -38,6 +38,10 @@ fn covered(ax: f32, ay: f32, bx: f32, by: f32, x: f32, y: f32) -> bool {
     } else {
         e = 0f32 - edge(bx, by, ax, ay, x, y);
     }
+    return e;
+}
+fn covered(ax: f32, ay: f32, bx: f32, by: f32, x: f32, y: f32) -> bool {
+    var e: f32 = coverage_edge(ax, ay, bx, by, x, y);
     return e > 0f32 || (e == 0f32 && top_left(ax, ay, bx, by));
 }
 fn light_color(mat: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
@@ -579,4 +583,22 @@ fn batch_slot_view(slot: u32) -> u32 {
         }
     }
     return begin;
+}
+
+fn batch_bounds(view: u32, group: u32) -> u32 {
+    return words_load(CLIP_OFFSET) + batch_offset(view) * 144u32 + group * 4u32;
+}
+fn group_tile_overlap(view: u32, group: u32, x: f32, y: f32) -> bool {
+    var p: u32 = batch_bounds(view, group);
+    return floats_load(p) <= x + 8f32 && floats_load(p + 1u32) <= y + 8f32 && floats_load(
+        p + 2u32
+    ) >= x && floats_load(p + 3u32) >= y;
+}
+
+fn task_pixel_active(base: u32, lane: u32, x: u32, y: u32, width: u32) -> bool {
+    return!(
+        x >= width || y >= words_load(1u32) || (
+            words_load(base + 2u32 + lane / 32u32) & (1u32 << (lane % 32u32))
+        ) == 0u32
+    );
 }

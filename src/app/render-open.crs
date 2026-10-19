@@ -2,11 +2,11 @@ fn app_renderer_open(v: *RenderState, window: *u8, config: *RenderConfig) -> boo
     if !window_instance(v, window) {
         return false;
     }
-    var shaders: [ShaderCode; 14] = uninit;
-    zero(&shaders as *u8, sizeof([ShaderCode; 14]));
+    var shaders: [ShaderCode; 15] = uninit;
+    zero(&shaders as *u8, sizeof([ShaderCode; 15]));
     var good: bool = true;
     var i: usize = 0usize;
-    while good && i < (13usize + (config -> shader_checks) as usize) {
+    while good && i < (14usize + (config -> shader_checks) as usize) {
         good = read_renderer_shader(i, config -> shader_checks, &shaders[i]);
         i = i + 1usize;
     }

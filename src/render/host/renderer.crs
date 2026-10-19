@@ -188,5 +188,5 @@ fn renderer_pipelines(v: *RenderState, shaders: *ShaderCode) -> bool {
     return true;
 }
 fn renderer_pipeline_count(v: *RenderState) -> usize {
-    return 13usize + v -> shader_checks as usize;
+    return 14usize + v -> shader_checks as usize;
 }
