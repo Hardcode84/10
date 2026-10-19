@@ -834,6 +834,55 @@ differ at subpixel edges, equal-depth ties, and nearest-texel boundaries. The
 [original hardware comparison](geometry-raster.csv) records image differences;
 these must be investigated rather than hidden by a wider tolerance.
 
+### All paths on heavy rooms
+
+The [heavy-room comparison](heavy-room-comparison.csv) runs all six paths on
+the same isolated geometry-and-texture snapshot. The shaft has 7,942 source
+triangles. The hub has 17,236. Each room has one retained instance. The complete
+course has 43,342 source triangles, but only the selected root room is drawn.
+Both rooms use recipe spawn pose zero.
+
+The matrix uses Intel Arc Pro B60 and AMD Radeon PRO W7900, Mesa 25.2.8,
+1024 by 768 and 1920 by 1080, eight warm-up frames, and 128 measured frames per
+path. Runs are serial. GPU times exclude capture and presentation. The CSV
+also records geometry intervals, synchronous submission-frame times, and image
+differences. These stationary samples do not measure game frame deadlines.
+
+Complete GPU p50 / p99 in milliseconds at 1920 by 1080:
+
+| Path | Intel shaft | Intel hub | AMD shaft | AMD hub |
+| --- | ---: | ---: | ---: | ---: |
+| Group scan | 7.443 / 7.516 | 9.484 / 9.545 | 2.442 / 2.490 | 3.352 / 3.492 |
+| Projected tree | 6.880 / 6.939 | 8.493 / 8.543 | 2.287 / 2.865 | 3.107 / 3.732 |
+| Bounded tile lists | 4.697 / 4.747 | 5.822 / 5.890 | 1.683 / 2.288 | 2.022 / 2.650 |
+| Tile-owned traversal | 586.021 / 587.550 | 344.691 / 345.385 | 100.203 / 100.411 | 58.273 / 58.360 |
+| Direct tile-list checkpoint | 0.389 / 0.397 | 0.394 / 0.400 | 0.296 / 0.417 | 0.238 / 0.336 |
+| Hardware graphics | 0.149 / 0.151 | 0.165 / 0.167 | 0.086 / 0.086 | 0.098 / 0.099 |
+
+All five compute captures match byte for byte in all eight cases. Hardware
+differs from compute in 0.182 to 0.365 percent of pixels on Intel and 0.192 to
+1.004 percent on AMD. The CSV keeps these counts and maximum channel errors.
+All four Intel hardware captures also match the earlier checkpoint captures.
+The hardware edge, interpolation, and depth-tie rules still differ from compute.
+No image tolerance was changed.
+
+The bounded tile-list path is the fastest full-featured path in this matrix.
+Its median GPU time is still 19.6 to 35.3 times hardware. The direct checkpoint
+is 2.39 to 4.89 times hardware. Both fail the two-times gate. On Intel at 1080p,
+the bounded path's geometry interval alone is 4.263 ms in the shaft and
+5.390 ms in the hub. This interval includes batch planning, projection,
+assignment, rasterization, and shading. The gap remains inside that interval;
+removing composition alone cannot close it. Per-pass timing is required before
+assigning the gap to one of those stages.
+
+The bounded path runs exact count and write passes, supports continuation, and
+keeps the shared visibility and shading schedule. The direct checkpoint uses
+a single limited assignment queue and writes final colour in its raster pass.
+Tile-owned traversal repeats traversal and triangle setup for each tile. These
+are different implementations of the same measured image workload. The result
+does not establish a hardware limit on compute rendering. Keep the application
+default and all references until the acceptance gates pass.
+
 ### Acceptance and next proof
 
 The isolated geometry-and-texture gate requires compute complete GPU p50 and
@@ -976,7 +1025,7 @@ image. The graph benchmark samples fixed room positions rather than a playthroug
 Its first two numbers select output dimensions; explicit `--width` and `--height`
 select internal dimensions.
 
-To compare all four isolated geometry paths:
+To compare all six isolated geometry paths:
 
 ```sh
 crust tests.crs course-benchmark levels/prefabs.crs --build-only
@@ -985,10 +1034,16 @@ SPINWARD_GEOMETRY_PROOF=1 build/course-benchmark 11 0 --samples 128 --width 1920
 
 Use rooms 1, 10, and 11 at both 1920 by 1080 and 1024 by 768. Set
 `VK_DRIVER_FILES` to select a device. Preserve `build/geometry-compute.ppm`,
-`build/geometry-projected.ppm`, `build/geometry-scatter.ppm`, and
+`build/geometry-projected.ppm`, `build/geometry-tile-lists.ppm`,
+`build/geometry-tile-owned.ppm`, `build/geometry-scatter.ppm`, and
 `build/geometry-graphics.ppm` before the next case. Cold upload and pipeline
 creation stay outside the timed interval. Complete GPU timing includes warm
 render work through final colour output, before capture readback.
+The report includes root instance and source-triangle counts. It runs group
+scan, projected tree, bounded tile lists, tile-owned traversal, direct tile
+lists, and hardware graphics in that order. Each path uses the same sample
+count and eight warm-up frames. Tile-owned traversal can take several minutes
+across the matrix. Capture frames are outside the measured interval.
 
 `SPINWARD_SCATTER_INLINE=1` exercises node overflow lists.
 `SPINWARD_SCATTER_NODES=0` with that setting forces explicit pool exhaustion.

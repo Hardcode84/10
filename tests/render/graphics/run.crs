@@ -173,6 +173,8 @@ fn graphics_samples(v: *RenderState, g: *GraphicsProof, samples: u32, mode: u32)
             good = command_reset(v) && graphics_record(v, g, false) && dispatch(v);
         } else {
             v -> projected_tree = mode == 1u32;
+            v -> tile_lists = mode == 4u32;
+            v -> tile_owned = mode == 5u32;
             good = renderer_draw(v);
             end = v -> query_count - 2u32;
         }
@@ -211,7 +213,7 @@ fn graphics_samples(v: *RenderState, g: *GraphicsProof, samples: u32, mode: u32)
 fn graphics_span(v: *RenderState, mode: u32, span: *u64) -> bool {
     var first: u32 = 1u32;
     var last: u32 = 2u32;
-    if mode >= 2u32 {
+    if mode == 2u32 || mode == 3u32 {
         first = 0u32;
         last = 1u32;
     }
@@ -253,18 +255,36 @@ fn graphics_compare_run(v: *RenderState, g: *GraphicsProof, samples: u32) -> boo
     print_number(v -> width as i64);
     print_number(v -> height as i64);
     print_number(samples as i64);
-    puts("normal compute");
-    if !graphics_samples(v, g, samples, 0u32) {
-        return false;
-    }
-    if !graphics_capture_compute(v, "build/geometry-compute.ppm") {
-        return false;
-    }
-    puts("projected compute");
-    if !graphics_samples(v, g, samples, 1u32) {
-        return false;
-    }
-    if !graphics_capture_compute(v, "build/geometry-projected.ppm") {
+    graphics_root_counts(v);
+    if !graphics_compute_case(
+        v,
+        g,
+        samples,
+        0u32,
+        "normal compute",
+        "build/geometry-compute.ppm"
+    ) || !graphics_compute_case(
+        v,
+        g,
+        samples,
+        1u32,
+        "projected compute",
+        "build/geometry-projected.ppm"
+    ) || !graphics_compute_case(
+        v,
+        g,
+        samples,
+        4u32,
+        "bounded tile lists",
+        "build/geometry-tile-lists.ppm"
+    ) || !graphics_compute_case(
+        v,
+        g,
+        samples,
+        5u32,
+        "tile-owned compute",
+        "build/geometry-tile-owned.ppm"
+    ) {
         return false;
     }
     puts("scatter compute");
@@ -283,6 +303,34 @@ fn graphics_compare_run(v: *RenderState, g: *GraphicsProof, samples: u32) -> boo
         v -> width,
         v -> height
     );
+}
+fn graphics_compute_case(
+    v: *RenderState,
+    g: *GraphicsProof,
+    samples: u32,
+    mode: u32,
+    name: *u8,
+    path: *u8
+) -> bool {
+    puts(name);
+    return graphics_samples(v, g, samples, mode) && graphics_capture_compute(v, path);
+}
+fn graphics_root_counts(v: *RenderState) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var instances: u64 = 0u64;
+    var triangles: u64 = 0u64;
+    var i: u32 = 0u32;
+    while i < w[INSTANCE_COUNT as usize] {
+        var p: u32 = w[INSTANCE_META as usize] + i * 5u32;
+        if w[(p + 3u32) as usize] == w[20usize] {
+            instances = instances + 1u64;
+            triangles = triangles + w[(p + 1u32) as usize] as u64;
+        }
+        i = i + 1u32;
+    }
+    puts("root instances / source triangles");
+    print_number(instances as i64);
+    print_number(triangles as i64);
 }
 fn graphics_capture_compute(v: *RenderState, path: *u8) -> bool {
     v -> read_pixels = true;
