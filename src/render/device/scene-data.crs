@@ -30,10 +30,7 @@ fn scene_float(address: u32) -> f32 {
     if axis >= 3u32 {
         return floats_load(p + axis);
     }
-    var matrix: u32 = words_load(INSTANCE_FLOAT) + id * 18u32 + axis * 4u32;
-    return floats_load(matrix) * floats_load(p) + floats_load(matrix + 1u32) * floats_load(
-        p + 1u32
-    ) + floats_load(matrix + 2u32) * floats_load(p + 2u32) + floats_load(matrix + 3u32);
+    return scene_transform_position(p, words_load(INSTANCE_FLOAT) + id * 18u32, axis);
 }
 fn scene_plane(view: u32, plane: u32, axis: u32, absolute: bool) -> f32 {
     var p: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
@@ -162,4 +159,17 @@ fn scene_node_visible(view: u32, instance: u32, node: u32) -> bool {
         plane = plane + 1u32;
     }
     return true;
+}
+
+fn scene_position(source: u32, matrix: u32, axis: u32) -> f32 {
+    if matrix == 0xffffffffu32 {
+        return floats_load(source + axis);
+    }
+    return scene_transform_position(source, matrix, axis);
+}
+fn scene_transform_position(source: u32, matrix: u32, axis: u32) -> f32 {
+    var p: u32 = matrix + axis * 4u32;
+    return floats_load(p) * floats_load(source) + floats_load(p + 1u32) * floats_load(
+        source + 1u32
+    ) + floats_load(p + 2u32) * floats_load(source + 2u32) + floats_load(p + 3u32);
 }

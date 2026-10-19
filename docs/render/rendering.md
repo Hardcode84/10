@@ -381,7 +381,10 @@ a general depth oracle.
 
 ## Lighting and shadows
 
-The renderer derives one normal per triangle from transformed positions.
+Each lighting evaluation resolves the triangle's storage and instance once.
+It fetches each transformed vertex once, then uses the same positions for the
+normal and grid-ray intersection. The renderer derives the normal from these
+transformed positions.
 The visible surface normal faces the camera. One-sided camera rejection and
 light-facing shadow rejection use separate directions. Curved assets retain
 their geometric facets.
@@ -430,6 +433,15 @@ RGB intensity, and mode. `LIGHT_SPACE` addresses a separate word array. Zero
 radius disables a light. Storage grows from an initial reservation of 32;
 there is no fixed light-count limit. Invalid counts, non-finite or negative
 values, and unsupported modes reject submission.
+
+Frame preparation builds a sorted index of view-relative lights and room-local
+lights. Each index entry contains a category, room ID, and original light ID.
+The index requires 12 bytes per reserved light plus one count word. Shading
+finds the receiver's room by binary search and merges its light IDs with the
+view-relative IDs in original submission order. This preserves floating-point
+addition order, shadow-tree IDs, and distinct anchors in the same room. It also
+supports rooms with no lights and all unsigned 32-bit room IDs. Index storage
+grows with the light reservation and is included in device capacity checks.
 
 | Mode | Position and visibility |
 | --- | --- |
@@ -836,6 +848,31 @@ probes locate costs; they do not establish steady presented-frame latency.
 Measure complete GPU and frame time, upload bytes, and peak memory on the same
 inputs before and after a change. Keep exact captures for comparisons. A faster
 isolated stage cannot justify a slower frame or incomplete rendering.
+
+The hub corner probe also separates setup, batched projection/raster/lighting,
+portal expansion, and composition with GPU timestamps. Lighting dispatches are
+inside the batch interval. Do not label that interval as geometry alone.
+
+On the Intel device, disabling only shadow evaluation in the same corner view
+reduced GPU time by less than 0.2 ms. Disabling all lighting evaluation reduced
+it by approximately 2.6 ms. Both ablations kept geometry and portal traversal.
+They are measurements of removed shader paths, including compiler effects.
+They are not separate production modes.
+
+Resolving triangle storage once per lighting evaluation and indexing lights by
+room reduced the eight corner GPU medians from 10.2–10.9 ms to 8.8–9.4 ms.
+Complete synchronous frame p99 ranged from 14.2 to 15.4 ms over 128 measured
+frames per corner. All eight captures matched the baseline byte for byte.
+These stationary probes exclude presentation and task overlap. The selected
+dynamic-light shader compiles to 7192 instructions at SIMD16 on Intel, with
+189 spills and 192 fills. Register spills remain; the measured gain comes with
+fewer repeated geometry operations and fewer irrelevant light visits.
+
+Two distinct-sample shared-memory experiments were rejected. One retained the
+first matching pixel as sample owner. The other packed sample owners into
+consecutive lanes. Both preserved captures but increased complete GPU time.
+Moving shadow rays into mesh-local space also failed to give a useful frame
+improvement in this witness. These experiments are excluded from production.
 
 Research references:
 [Laine and Karras software rasterization](https://research.nvidia.com/sites/default/files/pubs/2011-08_High-Performance-Software-Rasterization/laine2011hpg_paper.pdf),

@@ -150,6 +150,8 @@ const WORK_NODES: u32 = 119u32;
 const WORK_TRIANGLES: u32 = 120u32;
 const WORK_BATCHES: u32 = 121u32;
 
+const LIGHT_INDEX: u32 = 124u32;
+
 const TILE_STATS: u32 = 123u32;
 
 const LIST_COMMAND: u32 = 126u32;

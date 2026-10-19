@@ -20,7 +20,10 @@ fn geometry_layout(v: *RenderState, capacity: u32) -> bool {
             v -> projection_capacity
         ) + capacity as u64 * 13u64 + projected_count * 4u64 + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * (
             5u64 + v -> view_capacity as u64
-        ) + traversal_words(v) + v -> light_capacity as u64 + shadow_elements(v, capacity) * 9u64 + 64u64
+        ) + traversal_words(v) + v -> light_capacity as u64 * 4u64 + 1u64 + shadow_elements(
+            v,
+            capacity
+        ) * 9u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
     if (words + 1u64) * 4u64 > v -> storage_limit as u64 || (floats + 1u64) * 4u64 > v -> storage_limit as u64 {
         return error("geometry storage exceeds device maxStorageBufferRange");
@@ -51,7 +54,8 @@ fn geometry_header(v: *RenderState) -> unit {
     w[TILE_STATS as usize] = w[TILE_BITS as usize] + tile_bit_words(v, v -> projection_capacity) as u32;
     w[ASSET_OFFSET as usize] = w[TILE_STATS as usize] + v -> task_capacity * 4u32;
     w[LIGHT_SPACE as usize] = w[ASSET_OFFSET as usize] + v -> asset_capacity;
-    w[INSTANCE_OWNER as usize] = w[LIGHT_SPACE as usize] + v -> light_capacity;
+    w[LIGHT_INDEX as usize] = w[LIGHT_SPACE as usize] + v -> light_capacity;
+    w[INSTANCE_OWNER as usize] = w[LIGHT_INDEX as usize] + 1u32 + v -> light_capacity * 3u32;
     w[SPACE_TRIANGLES as usize] = w[INSTANCE_OWNER as usize] + capacity;
     w[SPACE_META as usize] = w[SPACE_TRIANGLES as usize] + capacity * 4u32;
     w[MESH_META as usize] = w[SPACE_META as usize] + capacity * 4u32;
@@ -160,7 +164,7 @@ fn geometry_limit(v: *RenderState) -> u32 {
         v -> projection_capacity
     ) + image_words(v) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * (
         5u64 + v -> view_capacity as u64
-    ) + traversal_words(v) + v -> light_capacity as u64 + v -> light_capacity as u64 * v -> instance_capacity as u64 * 9u64;
+    ) + traversal_words(v) + v -> light_capacity as u64 * 4u64 + 1u64 + v -> light_capacity as u64 * v -> instance_capacity as u64 * 9u64;
     var fixed_floats: u64 = v -> projection_capacity as u64 * (MAX_FAN as u64 * 20u64 + 144u64) + v -> width as u64 * v -> height as u64 * 3u64 + GEOMETRY as u64 + v -> mesh_capacity as u64 * 29u64 + v -> instance_capacity as u64 * (
         18u64 + v -> view_capacity as u64 * 48u64
     ) + traversal_floats(v) + v -> light_capacity as u64 * (

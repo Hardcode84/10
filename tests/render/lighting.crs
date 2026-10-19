@@ -121,7 +121,9 @@ fn lighting_test(base: *Options) -> bool {
     if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
         return false;
     }
-    if !lighting_cases(mut renderer) || !lighting_model_switch(mut renderer) {
+    if !lighting_cases(mut renderer) || !lighting_model_switch(mut renderer) || !lighting_mixed_rooms(
+        mut renderer
+    ) {
         return false;
     }
     if !portable_lights_test(base) || !lighting_cache_test(mut renderer) || !lighting_shared_ambient(
@@ -527,6 +529,50 @@ fn lighting_cases(renderer: mut Renderer) -> bool {
             return false;
         }
         index = index + 1u32;
+    }
+    return true;
+}
+
+fn lighting_mixed_rooms(renderer: mut Renderer) -> bool {
+    var frame: u32 = 0u32;
+    while frame < 3u32 {
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            lighting_scene(mut input, 8u32);
+            input_set_word(mut input, LIGHT_MODEL as usize, 1u32);
+            input_set_word(mut input, LIGHT_COUNT as usize, 9u32);
+            var i: u32 = 0u32;
+            while i < 9u32 {
+                var room: u32 = 0xfffffffeu32;
+                if i % 3u32 == 2u32 {
+                    room = 0xffffffffu32;
+                }
+                tour_light(
+                    mut input,
+                    i,
+                    room,
+                    4f32,
+                    0f32,
+                    3f32,
+                    100f32,
+                    (i % 3u32 == 0u32) as u32 as f32,
+                    (i % 3u32 == 1u32) as u32 as f32,
+                    (i % 3u32 == 2u32) as u32 as f32 * 8f32
+                );
+                var p: usize = (input_word(read input, LIGHT_DATA as usize) + i * 8u32 + 7u32) as usize;
+                if i % 3u32 == 1u32 {
+                    input_set_float(mut input, p, LIGHT_VIEW as f32);
+                }
+                i = i + 1u32;
+            }
+            if frame == 1u32 {
+                input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
+            }
+        }
+        if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
+            return false;
+        }
+        frame = frame + 1u32;
     }
     return true;
 }

@@ -182,11 +182,27 @@ fn light_at(
         green = green + floats_load(CAMERA_LIGHT + 2u32) * amount;
         blue = blue + floats_load(CAMERA_LIGHT + 3u32) * amount;
     }
-    var i: u32 = 0u32;
-    while i < words_load(LIGHT_COUNT) {
+    var index: u32 = words_load(LIGHT_INDEX);
+    var global_count: u32 = words_load(index);
+    var global: u32 = 0u32;
+    var local: u32 = light_local_begin(space, index, global_count);
+    while true {
+        var a: u32 = light_index_id(index, global, global_count);
+        var b: u32 = light_local_id(index, local, space);
+        var i: u32 = a;
+        if b < a {
+            i = b;
+        }
+        if i == 0xffffffffu32 {
+            break;
+        }
+        if i == a {
+            global = global + 1u32;
+        } else {
+            local = local + 1u32;
+        }
         var p: u32 = words_load(LIGHT_DATA) + i * 8u32;
-        var transported: bool = floats_load(p + 7u32) == LIGHT_VIEW as f32;
-        if transported || words_load(words_load(LIGHT_SPACE) + i) == space {
+        {
             var amount: f32 = light_amount(
                 light_position(p, view, 0u32) - px,
                 light_position(p, view, 1u32) - py,
@@ -219,7 +235,6 @@ fn light_at(
             green = green + floats_load(p + 5u32) * amount;
             blue = blue + floats_load(p + 6u32) * amount;
         }
-        i = i + 1u32;
     }
     return light_state(red, green, blue, mat);
 }
@@ -247,7 +262,17 @@ fn light_corner(x: u32, y: u32) -> u32 {
     }
     return 3u32;
 }
-fn light_grid_depth(tri: u32, view: u32, sx: u32, sy: u32, nx: f32, ny: f32, nz: f32) -> f32 {
+fn light_grid_depth(
+    ax: f32,
+    ay: f32,
+    az: f32,
+    view: u32,
+    sx: u32,
+    sy: u32,
+    nx: f32,
+    ny: f32,
+    nz: f32
+) -> f32 {
     var ex: f32 = view_position(view, 0f32, sx, sy, 0u32);
     var ey: f32 = view_position(view, 0f32, sx, sy, 1u32);
     var ez: f32 = view_position(view, 0f32, sx, sy, 2u32);
@@ -258,24 +283,36 @@ fn light_grid_depth(tri: u32, view: u32, sx: u32, sy: u32, nx: f32, ny: f32, nz:
     if denominator == 0f32 {
         return 0f32;
     }
-    var p: u32 = tri * 15u32;
-    return (
-        nx * (scene_float(p) - ex) + ny * (scene_float(p + 1u32) - ey) + nz * (
-            scene_float(p + 2u32) - ez
-        )
-    ) / denominator;
+    return (nx * (ax - ex) + ny * (ay - ey) + nz * (az - ez)) / denominator;
 }
 fn lit_state(tri: u32, view: u32, x: u32, y: u32) -> u32 {
     var corner: u32 = light_corner(x, y);
     var sx: u32 = (x / 16u32 + (corner & 1u32)) * 16u32;
     var sy: u32 = (y / 16u32 + (corner >> 1u32)) * 16u32;
-    var nx: f32 = light_normal(tri, 0u32);
-    var ny: f32 = light_normal(tri, 1u32);
-    var nz: f32 = light_normal(tri, 2u32);
+    var p: u32 = GEOMETRY + tri * 15u32;
+    var matrix: u32 = 0xffffffffu32;
+    if tri >= words_load(DYNAMIC_COUNT) {
+        var instance: u32 = scene_instance(tri);
+        var info: u32 = words_load(INSTANCE_META) + instance * 5u32;
+        p = words_load(MESH_FLOAT) + (words_load(info) + tri - words_load(info + 2u32)) * 15u32;
+        matrix = words_load(INSTANCE_FLOAT) + instance * 18u32;
+    }
+    var ax: f32 = scene_position(p, matrix, 0u32);
+    var ay: f32 = scene_position(p, matrix, 1u32);
+    var az: f32 = scene_position(p, matrix, 2u32);
+    var bx: f32 = scene_position(p + 5u32, matrix, 0u32) - ax;
+    var by: f32 = scene_position(p + 5u32, matrix, 1u32) - ay;
+    var bz: f32 = scene_position(p + 5u32, matrix, 2u32) - az;
+    var cx: f32 = scene_position(p + 10u32, matrix, 0u32) - ax;
+    var cy: f32 = scene_position(p + 10u32, matrix, 1u32) - ay;
+    var cz: f32 = scene_position(p + 10u32, matrix, 2u32) - az;
+    var nx: f32 = by * cz - bz * cy;
+    var ny: f32 = bz * cx - bx * cz;
+    var nz: f32 = bx * cy - by * cx;
     return light_at(
         tri,
         view,
-        light_grid_depth(tri, view, sx, sy, nx, ny, nz),
+        light_grid_depth(ax, ay, az, view, sx, sy, nx, ny, nz),
         sx,
         sy,
         nx,
@@ -633,4 +670,32 @@ fn tile_overlap(p: u32, x: f32, y: f32) -> bool {
     return!(ax < x && bx < x && cx < x) &&!(ay < y && by < y && cy < y) &&!(
         ax > x + 8f32 && bx > x + 8f32 && cx > x + 8f32
     ) &&!(ay > y + 8f32 && by > y + 8f32 && cy > y + 8f32);
+}
+
+fn light_local_begin(space: u32, index: u32, lo: u32) -> u32 {
+    var hi: u32 = words_load(LIGHT_COUNT);
+    while lo < hi {
+        var mid: u32 = lo + (hi - lo) / 2u32;
+        if words_load(index + 2u32 + mid * 3u32) < space {
+            lo = mid + 1u32;
+        } else {
+            hi = mid;
+        }
+    }
+    return lo;
+}
+fn light_index_id(index: u32, cursor: u32, end: u32) -> u32 {
+    if cursor >= end {
+        return 0xffffffffu32;
+    }
+    return words_load(index + 3u32 + cursor * 3u32);
+}
+fn light_local_id(index: u32, cursor: u32, space: u32) -> u32 {
+    if cursor >= words_load(LIGHT_COUNT) {
+        return 0xffffffffu32;
+    }
+    if words_load(index + 2u32 + cursor * 3u32) != space {
+        return 0xffffffffu32;
+    }
+    return words_load(index + 3u32 + cursor * 3u32);
 }

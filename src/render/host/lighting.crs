@@ -50,3 +50,45 @@ fn input_light_space(input: mut FrameInput, index: u32, space: u32) -> unit {
     var address: usize = (input_word(read input, LIGHT_SPACE as usize) + index) as usize;
     input_set_word(mut input, address, space);
 }
+
+fn lighting_compare(left: *u8, right: *u8) -> i32 {
+    var a: *u32 = left as *u32;
+    var b: *u32 = right as *u32;
+    var i: usize = 0usize;
+    while i < 3usize {
+        if a[i] < b[i] {
+            return -1i32;
+        }
+        if a[i] > b[i] {
+            return 1i32;
+        }
+        i = i + 1usize;
+    }
+    return 0i32;
+}
+fn lighting_index(v: *RenderState) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
+    var entries: *u32 = w + w[LIGHT_INDEX as usize] as isize + 1isize;
+    var i: u32 = 0u32;
+    var global: u32 = 0u32;
+    while i < w[LIGHT_COUNT as usize] {
+        var transported: bool = f[(w[LIGHT_DATA as usize] + i * 8u32 + 7u32) as usize] == LIGHT_VIEW as f32;
+        entries[(i * 3u32) as usize] = (!transported) as u32;
+        var space: u32 = 0u32;
+        if !transported {
+            space = w[(w[LIGHT_SPACE as usize] + i) as usize];
+        }
+        entries[(i * 3u32 + 1u32) as usize] = space;
+        entries[(i * 3u32 + 2u32) as usize] = i;
+        global = global + transported as u32;
+        i = i + 1u32;
+    }
+    projection_sort(
+        entries as *u8,
+        w[LIGHT_COUNT as usize] as usize,
+        12usize,
+        lighting_compare
+    );
+    w[w[LIGHT_INDEX as usize] as usize] = global;
+}

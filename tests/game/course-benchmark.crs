@@ -135,6 +135,12 @@ fn course_benchmark_frames(
         0u64,
         0u64
     };
+    var stages: [u64; 4] = make [u64; 4] {
+        0u64,
+        0u64,
+        0u64,
+        0u64
+    };
     var elapsed: [u64; 128] = uninit;
     var gpu: [u64; 128] = uninit;
     var query: [u64; 64] = uninit;
@@ -161,6 +167,7 @@ fn course_benchmark_frames(
             return false;
         }
         if frame >= 8u32 {
+            course_stage_times(v, &query[0usize], &stages[0usize]);
             course_sample_insert(&elapsed[0usize], (frame - 8u32) as usize, duration);
             var ticks: u64 = (query[(v -> query_count - 2u32) as usize] - query[0usize]) & v -> timestamp_mask;
             course_sample_insert(
@@ -175,6 +182,12 @@ fn course_benchmark_frames(
     print_number((cpu[0usize] / samples as u64) as i64);
     print_number((cpu[1usize] / samples as u64) as i64);
     print_number((cpu[2usize] / samples as u64) as i64);
+    puts("GPU setup / batch projection+raster+lighting / portal expansion / compose mean ns");
+    var stage: usize = 0usize;
+    while stage < 4usize {
+        print_number((stages[stage] as f32 * v -> timestamp_period / samples as f32) as i64);
+        stage = stage + 1usize;
+    }
     puts("measured samples");
     print_number(samples as i64);
     puts("synchronous frame ns p50 / p95 / p99 (no pixel readback, no presentation)");
@@ -268,4 +281,26 @@ fn course_camera(
         return false;
     }
     return true;
+}
+
+fn course_stage_times(v: *RenderState, query: *u64, times: *u64) -> unit {
+    times[0usize] = times[0usize] + (
+        (query[1usize] - query[0usize]) & v -> timestamp_mask
+    );
+    var depth: u32 = 0u32;
+    while depth <= v -> crossing_limit {
+        var first: usize = (1u32 + depth * 2u32) as usize;
+        times[1usize] = times[1usize] + (
+            (query[first + 1usize] - query[first]) & v -> timestamp_mask
+        );
+        times[2usize] = times[2usize] + (
+            (query[first + 2usize] - query[first + 1usize]) & v -> timestamp_mask
+        );
+        depth = depth + 1u32;
+    }
+    times[3usize] = times[3usize] + (
+        (
+            query[(v -> query_count - 2u32) as usize] - query[(1u32 + depth * 2u32) as usize]
+        ) & v -> timestamp_mask
+    );
 }

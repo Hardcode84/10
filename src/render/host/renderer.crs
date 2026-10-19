@@ -122,6 +122,7 @@ fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
     if !projection_admit(v, extra) {
         return false;
     }
+    lighting_index(v);
     mesh_trees_prepare(v);
     if !render_numeric_bounds(v) {
         return false;
