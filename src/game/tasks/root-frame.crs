@@ -1,15 +1,3 @@
-fn game_deferred_scene(
-    collision: read CollisionScene,
-    session: mut GameSession,
-    loop: read GameLoop,
-    config: GameConfig
-) -> DeferredGeometry {
-    game_prepare_begin(read collision, mut session, read loop, config);
-    var range: DeferredGeometry = game_defer_prediction(mut session);
-    var empty: Prediction = prediction_new();
-    game_prepare_finish(read collision, mut session, read loop, config, read empty);
-    return range;
-}
 fn game_root_frame(
     graph: mut TaskGraph,
     context: mut PredictionContext,
@@ -19,16 +7,6 @@ fn game_root_frame(
     config: GameConfig,
     prediction: mut Prediction
 ) -> bool {
-    if task_next(mut graph) != 4u32 {
-        trap;
-    }
-    var range: DeferredGeometry = game_deferred_scene(
-        read collision,
-        mut session,
-        read loop,
-        config
-    );
-    task_complete(mut graph, 4u32, true);
     var surface: i32 = game_surface(mut session);
     if surface <= 0i32 {
         task_complete(mut graph, 2u32, false);
@@ -37,51 +15,60 @@ fn game_root_frame(
         }
         return surface == 0i32;
     }
-    {
-        if task_next(mut graph) != 5u32 {
-            trap;
-        }
-        var setup: FrameSetup = frame_setup(mut session.renderer, range);
-        task_submission_returned(mut graph, 5u32, frame_setup_accepted(read setup));
-        if !frame_setup_accepted(read setup) {
-            task_complete(mut graph, 2u32, false);
-            return false;
-        }
-        game_frame_prediction(
+    var visible: Prediction = prediction_visible(prediction, read loop.trial);
+    if config.workers > 0u32 {
+        var work: PredictionTask = prediction_start(mut context, read loop.trial);
+        game_prediction_scene(
             mut graph,
-            mut context,
-            mut loop,
+            read collision,
+            mut session,
+            read loop,
+            config,
+            read visible
+        );
+        {
+            var frame: SubmittedFrame = frame_submit(mut session.renderer);
+            task_submission_returned(mut graph, 0u32, frame_accepted(read frame));
+            game_frame_execute(
+                mut graph,
+                mut frame,
+                mut session.control,
+                mut loop.input,
+                config
+            );
+        }
+        game_prediction_join(
+            mut graph,
+            mut work,
             mut session.control,
-            config.workers,
+            mut loop.input,
             mut prediction
         );
-        var status: i32 = frame_setup_poll(mut setup);
-        while status == 0i32 {
-            frame_setup_idle(mut setup);
-            if !game_poll(mut session.control, mut loop.input) {
-                task_cancel(mut graph);
-            }
-            status = frame_setup_poll(mut setup);
-        }
-        task_external_complete(mut graph, 5u32, status > 0i32);
-        if task_has_error(read graph) {
-            return false;
-        }
-        {
-            var edit: DeferredInput = frame_setup_edit(mut setup);
-            draw_prediction(deferred_inputs(mut edit), read prediction, config);
-        }
-        if task_next(mut graph) != 0u32 {
-            trap;
-        }
-        var frame: SubmittedFrame = frame_setup_submit(mut setup);
+    } else {
+        game_prediction_scene(
+            mut graph,
+            read collision,
+            mut session,
+            read loop,
+            config,
+            read visible
+        );
+        var frame: SubmittedFrame = frame_submit(mut session.renderer);
         task_submission_returned(mut graph, 0u32, frame_accepted(read frame));
+        var work: PredictionTask = prediction_start(mut context, read loop.trial);
         game_frame_execute(
             mut graph,
             mut frame,
             mut session.control,
             mut loop.input,
             config
+        );
+        game_prediction_join(
+            mut graph,
+            mut work,
+            mut session.control,
+            mut loop.input,
+            mut prediction
         );
     }
     if !task_succeeded(read graph) {
@@ -91,29 +78,35 @@ fn game_root_frame(
     return true;
 }
 
-fn game_defer_prediction(session: mut GameSession) -> DeferredGeometry {
-    var input: FrameInput = renderer_inputs(mut session.renderer);
-    return input_defer(mut input, PREVIEW_MARKERS * 8u32);
+fn game_prediction_scene(
+    graph: mut TaskGraph,
+    collision: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    visible: read Prediction
+) -> unit {
+    if task_next(mut graph) != 4u32 {
+        trap;
+    }
+    game_prepare(read collision, mut session, read loop, config, read visible);
+    task_complete(mut graph, 4u32, true);
+    if task_next(mut graph) != 0u32 {
+        trap;
+    }
 }
 
-fn game_frame_prediction(
+fn game_prediction_join(
     graph: mut TaskGraph,
-    context: mut PredictionContext,
-    loop: mut GameLoop,
+    work: mut PredictionTask,
     control: mut GameControl,
-    workers: u32,
+    input: mut InputState,
     prediction: mut Prediction
 ) -> unit {
-    if workers == 0u32 {
-        prediction = prediction_inline(mut context, read loop.trial);
-        task_complete(mut graph, 2u32, true);
-        return;
-    }
-    var work: PredictionTask = prediction_start(mut context, read loop.trial);
     var status: i32 = prediction_task_poll(read work);
     while status == 0i32 {
         prediction_task_idle(read work);
-        if !game_poll(mut control, mut loop.input) {
+        if !game_poll(mut control, mut input) {
             task_cancel(mut graph);
         }
         status = prediction_task_poll(read work);

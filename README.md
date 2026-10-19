@@ -39,9 +39,6 @@ crust main.crs --build-only
 crust main.crs
 ```
 
-The game uses same-frame CPU/GPU overlap by default on native and web builds.
-Use `--serial` to select the synchronous loop for comparisons.
-
 Each root builds its host program and required shaders before execution.
 Build policy and asset recipes use Crust. The seed bootstrap and the web target's
 Emscripten toolchain require Python. See [bootstrap details](docs/build/bootstrap.md) and

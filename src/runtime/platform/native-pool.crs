@@ -1,4 +1,4 @@
-const TASK_DEFAULT_WORKERS: u32 = 0u32;
+const TASK_DEFAULT_WORKERS: u32 = 1u32;
 record PoolEntry {
     execute: fn(*u8) -> bool;
     payload: *u8;

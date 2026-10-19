@@ -80,18 +80,14 @@ fn game_run_tasks(
 }
 
 fn game_frame_graph(graph: mut TaskGraph) -> bool {
-    return task_graph_open(mut graph, 6u32, 6u32) && task_graph_external(mut graph, 0u32) && task_graph_external(
+    return task_graph_open(mut graph, 5u32, 4u32) && task_graph_external(mut graph, 0u32) && task_graph_external(
         mut graph,
         3u32
-    ) && task_graph_edge(mut graph, 0u32, 3u32) && task_graph_edge(mut graph, 1u32, 4u32) && task_graph_edge(
+    ) && task_graph_edge(mut graph, 1u32, 4u32) && task_graph_edge(mut graph, 1u32, 2u32) && task_graph_edge(
         mut graph,
-        1u32,
-        2u32
-    ) && task_graph_external(mut graph, 5u32) && task_graph_edge(mut graph, 4u32, 5u32) && task_graph_edge(
-        mut graph,
-        5u32,
+        4u32,
         0u32
-    ) && task_graph_edge(mut graph, 2u32, 0u32) && task_graph_seal(mut graph);
+    ) && task_graph_edge(mut graph, 0u32, 3u32) && task_graph_seal(mut graph);
 }
 fn game_simulation_task(
     graph: mut TaskGraph,
@@ -117,7 +113,7 @@ fn game_frame_execute(
     input: mut InputState,
     config: GameConfig
 ) -> unit {
-    while !task_drained(read graph) {
+    while task_pending(read graph, 0u32) || task_pending(read graph, 3u32) {
         if task_pending(read graph, 0u32) {
             var status: i32 = frame_poll(mut frame);
             if status != 0i32 {
@@ -127,7 +123,8 @@ fn game_frame_execute(
         var ready: u32 = task_next(mut graph);
         if ready == 3u32 {
             game_present_task(mut graph, mut frame, mut control, mut input, config);
-        } else if !task_drained(read graph) {
+            return;
+        } else if task_pending(read graph, 0u32) {
             frame_idle(mut frame);
             if !task_has_error(read graph) && !game_poll(mut control, mut input) {
                 task_cancel(mut graph);

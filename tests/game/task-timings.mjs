@@ -12,14 +12,16 @@ for (const path of process.argv.slice(2)) {
   if (values.some(x => !Number.isSafeInteger(x))) throw Error(`Timestamp exceeds exact integer range: ${path}`);
   const frames = Array.from({length:80}, (_, i) => {
     const [start, cpuBegin, cpuEnd, prepared, submitted, finish] = values.slice(i*6, i*6+6);
-    const order = [start, cpuBegin, cpuEnd, prepared, submitted, finish];
+    const order = mode === 'tasks' ? [start, cpuBegin, prepared, submitted, finish]
+      : [start, cpuBegin, cpuEnd, prepared, submitted, finish];
+    if (cpuEnd < cpuBegin || cpuEnd > finish) throw Error(`Invalid prediction join: ${path}, frame ${i}`);
     if (order.some((x, n) => n > 0 && x < order[n-1])) throw Error(`Unexpected event order: ${path}, frame ${i}`);
     return {start, cpuBegin, cpuEnd, prepared, submitted, finish};
   });
   const metrics = {
     boundaryToSubmission:[], beforeSimulation:[], simulationAndPrediction:[],
-    afterPredictionToSubmission:[], simulationStartToSubmission:[],
-    sceneAssembly:[], recordingAndSubmit:[], afterPredictionToFrameEnd:[], frame:[],
+    simulationStartToSubmission:[],
+    recordingAndSubmit:[], afterPredictionToFrameEnd:[], frame:[],
   };
   const overlapHeader = 'prediction overlap timestamps: worker_start worker_finish scene_start scene_finish\n';
   let overlappingFrames = 0;
@@ -31,6 +33,7 @@ for (const path of process.argv.slice(2)) {
     metrics.scenePrefix = [];
     metrics.predictionSceneOverlap = [];
     metrics.predictionJoinDelay = [];
+    metrics.predictionAfterSubmission = [];
     for (let i=16; i<80; i++) {
       const [a,b,c,d] = spans.slice(i*4,i*4+4);
       if (![a,b,c,d].every(Number.isSafeInteger) || b<a || d<c) throw Error(`Invalid overlap span: ${path}`);
@@ -42,7 +45,8 @@ for (const path of process.argv.slice(2)) {
       // Both independent tasks must finish before the prediction join can finish.
       const joined = frames[i].cpuEnd;
       if (joined < Math.max(b,d)) throw Error(`Join precedes task completion: ${path}, frame ${i}`);
-      metrics.predictionJoinDelay.push(joined-Math.max(b,d));
+      metrics.predictionJoinDelay.push(joined-b);
+      metrics.predictionAfterSubmission.push(Math.max(0,b-Math.max(a,frames[i].submitted)));
     }
   }
   for (let i=16; i<80; i++) {
@@ -50,9 +54,7 @@ for (const path of process.argv.slice(2)) {
     metrics.boundaryToSubmission.push(image.submitted-t.start);
     metrics.beforeSimulation.push(t.cpuBegin-t.start);
     metrics.simulationAndPrediction.push(t.cpuEnd-t.cpuBegin);
-    metrics.afterPredictionToSubmission.push(image.submitted-t.cpuEnd);
     metrics.simulationStartToSubmission.push(image.submitted-t.cpuBegin);
-    metrics.sceneAssembly.push(t.prepared-t.cpuEnd);
     metrics.recordingAndSubmit.push(t.submitted-t.prepared);
     metrics.afterPredictionToFrameEnd.push(t.finish-t.cpuEnd);
     metrics.frame.push(t.finish-t.start);

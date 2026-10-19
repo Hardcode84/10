@@ -41,7 +41,7 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
     if !game_frame_graph(mut graph) || !task_trace_enable(mut graph, now) {
         return 1i32;
     }
-    var prediction: Prediction = predict_paths(read collision, read loop.trial);
+    var prediction: Prediction = prediction_new();
     var pool: TaskPool = task_pool_new();
     if !task_pool_open(mut pool, config.workers, 1u32) {
         return 1i32;
@@ -64,6 +64,7 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
         command.tether = frame >= 20u32 && frame < 64u32;
         command.reel = frame == 28u32;
         loop.input.pending = command;
+        var displayed: Prediction = prediction;
         var start: u64 = now();
         timings[frame as usize].start = start;
         if config.tasks {
@@ -113,12 +114,14 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
         timings[frame as usize].submitted = session.renderer.state.frame_submit_ns;
         timings[frame as usize].finish = now();
         samples[frame as usize] = now() - start;
+        task_check_prediction(read collision, read loop.trial, read prediction);
         if !task_check_split_pixels(
             read collision,
             mut session,
             read loop,
             config,
-            frame + 1u32
+            frame + 1u32,
+            displayed
         ) {
             return 1i32;
         }
@@ -190,7 +193,8 @@ fn task_check_split_pixels(
     session: mut GameSession,
     loop: read GameLoop,
     config: GameConfig,
-    expected_tick: u32
+    expected_tick: u32,
+    displayed: Prediction
 ) -> bool {
     if loop.trial.tick != expected_tick {
         return error("timing fixture requires one simulation tick per command");
@@ -207,10 +211,12 @@ fn task_check_split_pixels(
         return error("frame comparison allocation failed");
     }
     memcpy(expected, v -> mapped + PIXELS as isize * 4isize, size);
-    var good: bool = game_render(read collision, mut session, read loop, config);
+    displayed = prediction_visible(displayed, read loop.trial);
+    game_prepare(read collision, mut session, read loop, config, read displayed);
+    var good: bool = game_draw(mut session) && game_present(mut session);
     v = &session.renderer.state;
     if good && memcmp(expected, v -> mapped + PIXELS as isize * 4isize, size) != 0i32 {
-        good = error("split frame differs from synchronous rendering");
+        good = error("previous-prediction frame differs from synchronous rendering");
         print_number(loop.trial.tick as i64);
     }
     free(expected);
@@ -229,5 +235,25 @@ fn task_check_stale_reservation(renderer: mut Renderer) -> unit {
     var setup: FrameSetup = frame_setup(mut renderer, range);
     if frame_setup_accepted(read setup) {
         trap;
+    }
+}
+
+fn task_check_prediction(
+    scene: read CollisionScene,
+    trial: read Trial,
+    result: read Prediction
+) -> unit {
+    var expected: Prediction = predict_paths(read scene, read trial);
+    if result.source_tick != trial.tick || result.attempt != trial.attempt || result.count != expected.count {
+        trap;
+    }
+    var i: u32 = 0u32;
+    while i < result.count {
+        var a: PredictionMarker = result.markers[i as usize];
+        var b: PredictionMarker = expected.markers[i as usize];
+        if length(sub(a.center, b.center)) != 0f32 || a.material != b.material || a.eye.world != b.eye.world || a.eye.factor != b.eye.factor {
+            trap;
+        }
+        i = i + 1u32;
     }
 }

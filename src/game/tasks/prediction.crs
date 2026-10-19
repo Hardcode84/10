@@ -19,6 +19,9 @@ record PredictionMarker {
     material: u32;
 }
 record Prediction {
+    attempt: u32;
+    source_tick: u32;
+    full_spin: bool;
     markers: [PredictionMarker; 8];
     count: u32;
 }
@@ -30,6 +33,9 @@ fn prediction_new() -> Prediction {
         material: 0u32
     };
     return make Prediction {
+        attempt: 0u32,
+        source_tick: 0u32,
+        full_spin: false,
         markers: make [PredictionMarker; 8] {
             marker,
             marker,
@@ -89,6 +95,9 @@ fn predict_segment(
 }
 fn predict_paths(collision: read CollisionScene, trial: read Trial) -> Prediction {
     var prediction: Prediction = prediction_new();
+    prediction.attempt = trial.attempt;
+    prediction.source_tick = trial.tick;
+    prediction.full_spin = trial.full_spin;
     var hook_ready: bool = trial.drone.cable.phase == CABLE_READY && trial.preview_enabled;
     var limit: u32 = PREVIEW_MARKERS;
     if hook_ready {
@@ -232,4 +241,23 @@ fn preview_eye(eye: PredictionEye, transform: SpaceTransform, space: u32) -> Pre
     eye.basis = space_basis(transform, eye.basis);
     eye.world = space;
     return eye;
+}
+
+fn prediction_visible(prediction: Prediction, trial: read Trial) -> Prediction {
+    if prediction.attempt != trial.attempt || prediction.full_spin != trial.full_spin || !trial.preview_enabled {
+        prediction.count = 0u32;
+        return prediction;
+    }
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < prediction.count {
+        var marker: PredictionMarker = prediction.markers[i as usize];
+        if marker.material == PREVIEW_MATERIAL || trial.drone.cable.phase == CABLE_READY {
+            prediction.markers[count as usize] = marker;
+            count = count + 1u32;
+        }
+        i = i + 1u32;
+    }
+    prediction.count = count;
+    return prediction;
 }

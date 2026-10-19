@@ -44,7 +44,7 @@ selecting another renderer.
 | `src/game/flight/` | Movement state, forces, collisions, and tether |
 | `src/game/view/` | Game geometry submission, HUD, and path markers |
 | `src/game/host/` | Game entry, input, options, replay, and session |
-| `src/game/tasks/` | Prepared predictions and same-frame CPU/GPU overlap |
+| `src/game/tasks/` | Next-frame prediction tasks and asynchronous rendering |
 | `src/viewer/` | Prefab viewer |
 | `src/assets/` | Parametric hull, surface, material, and room bundle operations |
 | `src/assets/prefabs/` | Shared prefab builders and material definitions |

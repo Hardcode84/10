@@ -610,22 +610,21 @@ sequenceDiagram
     participant R as Renderer leases
     participant GPU as GPU queue
     participant P as Presentation service
-    Game->>R: FrameInput and deferred geometry reservation
-    Game->>R: frame_setup
-    R->>GPU: Upload, shadow setup and root geometry raster
-    Game->>CPU: Compute predictions from the same simulation snapshot
-    GPU-->>R: Setup retires
-    CPU-->>Game: Prediction geometry ready
-    Game->>R: frame_setup_edit lends only the reserved range
-    Game->>R: frame_setup_submit
-    R->>GPU: Raster late geometry, shade root, traverse portals and compose
+    Game->>CPU: Predict next-frame markers from a copied trial
+    Game->>R: FrameInput with current scene and previous markers
+    Game->>R: frame_submit
+    R->>GPU: Upload, shadows, geometry, lighting, portals and compose
     GPU-->>R: Render retires with capacity result
     Game->>R: frame_poll, then frame_image after validation
     R-->>Game: ValidatedImage lease
     Game->>P: image_present
     P-->>R: Output source released
-    R-->>Game: Renderer can be borrowed for another frame
+    R-->>Game: Renderer loan released
+    CPU-->>Game: Join and retain markers for next frame
 ```
+
+The optional split-frame API remains available for controlled renderer tests.
+The game uses the full-frame operation above.
 
 `input_defer` reserves inactive, non-shadow-casting dynamic slots before retained
 instances. Setup admits the reservation before submission. `DeferredInput`
@@ -857,7 +856,7 @@ triangles. The same corner's GPU median fell from 8.96 ms to 7.38 ms before the
 submission split. The host retains the conservative completion bound and the
 last-round failure check.
 
-The default task path now overlaps prediction with root geometry rasterization.
+The earlier task path overlapped prediction with root geometry rasterization.
 It adds one late-geometry round for the reserved markers. At 1920 by 1080 on
 the Intel Arc Pro B60, 128 measured frames at each of eight hub corners gave:
 
@@ -874,6 +873,30 @@ of corner 118 before the batch changes measured 14.18 ms frame median and
 byte for byte. The split adds GPU work for late geometry but reduces elapsed
 frame time by overlapping prediction. Warm mesh uploads remain zero. The split
 uploads approximately 58 KiB per frame and retains the same buffer capacities.
+
+### Prediction as an independent task
+
+The current game uses previous-frame markers. Current prediction has no edge
+into rendering or presentation. One native worker starts after simulation;
+the application prepares and submits the complete scene. This removes the late
+marker upload and its extra raster round. The frame joins prediction before
+it reuses the context. Camera and physics state remain current.
+
+A paired sweep on the same Intel GPU used 128 measured frames at each of the
+eight hub corners, at 1920 by 1080. The camera stayed fixed. Both paths used the
+same scene and forecast after eight warm-up frames.
+
+| Measurement | Same-frame split | Independent prediction |
+| --- | ---: | ---: |
+| Frame median across corners | 9.60–10.72 ms | 7.72–8.33 ms |
+| Worst corner frame p99 | 11.59 ms | 8.77 ms |
+| GPU median across corners | 7.86–8.48 ms | 7.35–7.97 ms |
+| Worst corner GPU p99 | 8.49 ms | 7.98 ms |
+
+All eight captures match byte for byte. The timed samples exclude simulation,
+presentation, and pixel readback. They measure the production render task and
+prediction join at each fixed pose. Moving-flight checks below verify the
+one-frame prediction delay separately.
 
 The tests compare 80 moving task frames with synchronous output, including
 hook launch and reeling. Targeted checks compare late markers through scaled
@@ -964,7 +987,9 @@ origin. Hub corner poses are 118 through 125. The report separates prediction,
 scene preparation, and submission plus GPU time. It also reports GPU timestamps.
 The default probe is synchronous and excludes presentation. Set
 `SPINWARD_OVERLAP=1` to use the same root raster and late-geometry submission
-boundary as the default game. Both modes use the current prediction snapshot.
+boundary from the earlier game schedule. Both modes use the current prediction snapshot.
+Use `SPINWARD_TASKS=1` for the current game task graph with previous-frame markers
+and a pool worker. `--workers 0` measures its calling-thread schedule.
 The overlap report measures elapsed frame time; its CPU prediction and remaining
 submission times include simultaneous GPU execution and must not be added to
 GPU time.

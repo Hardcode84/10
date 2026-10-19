@@ -3,7 +3,7 @@
 ## Status and purpose
 
 This document defines the target architecture and the current implementation.
-The default game loop uses same-frame CPU/GPU overlap and asynchronous render
+The default game loop runs next-frame prediction in parallel with rendering and asynchronous render
 and presentation operations. Run it with `crust main.crs`. Use `--serial`
 to select the synchronous loop for comparisons.
 The [rendering storage and ownership contract](../render/rendering.md#storage-and-capacity) describes current resource use.
@@ -19,16 +19,32 @@ reused after drain. Optional spans record ready, start, submission, and finish
 times for the most recent execution. Completion spans record executor observation
 time, not the device timestamp. Read spans before starting the next execution.
 
-The default task graph prepares the scene after simulation, then submits GPU
-shadow setup and root-room geometry rasterization. Prediction runs on the
-application thread, or an optional pool worker, while this GPU work is pending.
-After retirement, the game writes markers into a reserved geometry range.
-The renderer rasterizes those triangles against root hits, then shades the root
-and traverses its portals. Presentation follows. All work uses the same snapshot.
-Inactive reserved triangles preserve the relative order of visible triangles.
-Game input and recording have a separate owner from the renderer.
-Input events remain active during asynchronous GPU and presentation waits.
-Both window loops use the same delay before the next simulation step.
+After simulation, prediction and scene preparation are independent tasks.
+Scene preparation reads the completed prediction from the preceding frame.
+A pool worker reads a copied trial and the shared collision scene to produce
+markers for the next frame. The current camera, body, hook, lights, and input
+use the current simulation state. The first task frame has no prediction markers.
+Restart and spin-mode changes discard old markers. Disabling preview hides all
+markers; launching the hook hides its old forecast at once. Portal-local marker
+coordinates remain valid across player portal crossings.
+
+```mermaid
+flowchart LR
+    S[Current simulation] --> P[Prediction for next frame]
+    S --> A[Scene with previous prediction]
+    A --> R[Full GPU render]
+    R --> O[Presentation]
+    P --> J[Frame join]
+    O --> J
+    J --> N[Next simulation]
+```
+
+Rendering and presentation have no dependency on current prediction. The frame
+joins the prediction task before it can reuse the result context. This bounds
+prediction delay to one rendered frame. With a pool worker, a slow forecast can delay the next simulation. Current
+render submission and presentation can complete before that forecast.
+Input events remain active during asynchronous GPU, presentation, and worker
+waits. Both window loops use the same delay before the next simulation step.
 
 The native pool has bounded job storage, completion generations, and joined
 shutdown. A job retains its pool loan until cleanup. The prediction operation
@@ -38,13 +54,13 @@ boundaries. Shared collision storage has a trusted `share` contract. Ordinary
 computation needs no execution annotation. The typed game adapter contains
 the provider callback; checked frame code contains no raw callback or pointer.
 
-The split GPU schedule is the default on native and browser builds, with zero
-prediction workers. Use `--tasks` to select it explicitly.
-Use `--tasks --workers 1` to compare the earlier CPU worker schedule, where GPU
-submission follows prediction. The browser provider requires zero
-workers and reports an error for a nonzero worker count. Pool admission failure
-fails the frame. Cancellation joins accepted prediction work before its context
-can be reused. GPU and presentation waits use the separate completion service.
+Native builds use one prediction worker by default. `--workers 0` uses the
+calling thread and starts prediction after full GPU submission. Browser builds
+use this zero-worker schedule and reject nonzero worker counts. Prediction then
+overlaps GPU execution, while CPU scene preparation and presentation calls stay
+on the calling thread. No reserved geometry or second render submission is
+needed. Pool admission failure fails the frame. Cancellation drains accepted
+prediction, GPU, and output operations before their storage can be reused.
 
 `SubmittedFrame` holds an exclusive renderer loan through validation or scope
 exit. `ValidatedImage` requires successful validation. `Presentation` holds the
@@ -120,8 +136,10 @@ fixed ticks with thrust, boost, hook launch, reel, and release. The first 16
 frames are warm-up. Both modes must render the command from the current
 iteration. The timing report checks simulation, prediction, assembly, submission,
 and frame-end order for commands 16 through 79. Final simulation hashes and
-capture bytes must match. Graph checks require simulation and prediction to
-complete before render becomes ready, and retain pending output through drain.
+capture bytes must match the synchronous reference supplied with the previous
+prediction. Each new prediction must match a synchronous forecast of the current
+trial. Graph checks complete rendering and presentation while prediction remains
+running. Failure and cancellation checks retain accepted work through drain.
 
 The previous headless flight on an AMD Radeon PRO W7900 Dual Slot measured
 frame p50 of 8.8–9.7 ms in serial mode and 4.9–5.0 ms with cross-frame overlap.
@@ -374,29 +392,24 @@ chain to a worker only hides about 0.27 ms of scene preparation. On a roughly
 and equal CPU speed. The application then waits for prediction. GPU work starts
 after the join, and the next simulation starts after GPU completion.
 
-Keep prediction on the application thread by default. Before extending the
-pool, measure a larger independent work range on the critical path. Scene
-batch preparation is a candidate; its current 0.27 ms total cannot supply a
-large gain. Prediction steps depend on earlier steps and cannot be divided
-into independent time ranges. Measure and reduce their physics and collision
-cost first, or identify independent queries within each step. Any new split
-must reduce submission and frame time with the same snapshot and output.
-Adding workers or a faster queue alone cannot remove this dependency chain.
+That experiment kept a same-frame prediction dependency. The current schedule
+removes that edge and uses the previous result. This supplies independent GPU
+work for the worker interval without dividing the sequential physics forecast.
 
 #### Root geometry overlap
 
-The current split extends the initial shadow-only experiment below. The first
+The earlier split extended the initial shadow-only experiment below. The first
 GPU submission also projects and rasterizes root geometry. Root shading waits
 for the prediction result. A second submission adds the reserved marker range
 to the same hit buffer, shades the root, and traverses portals normally.
-The game supplies no previous-frame prediction. Portal masks include the late
+That experiment used the current prediction. Portal masks include the late
 markers before child views are created.
 
 The renderer retains its exclusive loan across both submissions. The host waits
 for the first submission before writing staging data or resetting commands.
 The late upload changes only its reserved geometry and space membership. It
-preserves device traversal state. Both the application-thread and pool-worker
-prediction modes use this boundary. The serial mode remains the comparison path.
+preserves device traversal state. The benchmark retains this experimental
+boundary for comparison. The game now submits one complete scene.
 See the [rendering measurements](../render/rendering.md#performance-evidence-and-gates)
 for the production witness and timings.
 

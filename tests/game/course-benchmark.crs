@@ -83,7 +83,7 @@ fn course_benchmark(
     if !course_profile_open(read scene, mut session, read loop, config) {
         return false;
     }
-    if !course_benchmark_frames(read scene, mut session, read loop, config, samples) {
+    if !course_benchmark_frames(read scene, mut session, mut loop, config, samples) {
         return false;
     }
     session.renderer.state.read_pixels = true;
@@ -93,7 +93,7 @@ fn course_benchmark(
         0u64,
         0u64
     };
-    if !course_benchmark_frame(
+    if benchmark_environment("SPINWARD_TASKS") == null(*u8) && !course_benchmark_frame(
         read scene,
         mut session,
         read loop,
@@ -141,10 +141,20 @@ fn course_sample_insert(values: *u64, index: usize, value: u64) -> unit {
 fn course_benchmark_frames(
     scene: read CollisionScene,
     session: mut GameSession,
-    loop: read GameLoop,
+    loop: mut GameLoop,
     config: GameConfig,
     samples: u32
 ) -> bool {
+    var graph: TaskGraph = task_graph_new();
+    var pool: TaskPool = task_pool_new();
+    if !game_frame_graph(mut graph) || !task_pool_open(mut pool, config.workers, 1u32) {
+        return false;
+    }
+    var context: PredictionContext = prediction_context(read pool, read scene);
+    if !prediction_context_ready(read context) {
+        return false;
+    }
+    var prediction: Prediction = prediction_new();
     var cpu: [u64; 3] = make [u64; 3] {
         0u64,
         0u64,
@@ -173,15 +183,29 @@ fn course_benchmark_frames(
     var frame: u32 = 0u32;
     while frame < samples + 8u32 {
         var start: u64 = now();
-        if !course_benchmark_frame(
-            read scene,
-            mut session,
-            read loop,
-            config,
-            &cpu[0usize],
-            frame >= 8u32
-        ) {
-            return false;
+        if benchmark_environment("SPINWARD_TASKS") != null(*u8) {
+            if !course_task_frame(
+                mut graph,
+                mut context,
+                read scene,
+                mut session,
+                mut loop,
+                config,
+                mut prediction
+            ) {
+                return false;
+            }
+        } else {
+            if !course_benchmark_frame(
+                read scene,
+                mut session,
+                read loop,
+                config,
+                &cpu[0usize],
+                frame >= 8u32
+            ) {
+                return false;
+            }
         }
         var duration: u64 = now() - start;
         if !queries_read(v, &query[0usize]) {
@@ -204,7 +228,7 @@ fn course_benchmark_frames(
         }
         frame = frame + 1u32;
     }
-    puts("CPU prediction / scene preparation / submission+GPU mean ns");
+    puts("CPU prediction / scene preparation / submission+GPU mean ns (serial/split only)");
     print_number((cpu[0usize] / samples as u64) as i64);
     print_number((cpu[1usize] / samples as u64) as i64);
     print_number((cpu[2usize] / samples as u64) as i64);
@@ -230,6 +254,19 @@ fn course_benchmark_frames(
     print_number(v -> frame_upload_bytes as i64);
     print_number(v -> device_bytes as i64);
     print_number(v -> staging_bytes as i64);
+    if benchmark_environment("SPINWARD_TASKS") != null(*u8) {
+        session.renderer.state.read_pixels = true;
+        (session.renderer.state.mapped as *u32)[26usize] = 1u32;
+        return course_task_frame(
+            mut graph,
+            mut context,
+            read scene,
+            mut session,
+            mut loop,
+            config,
+            mut prediction
+        );
+    }
     return true;
 }
 
@@ -418,4 +455,49 @@ fn course_profile_open(
         }
     }
     return true;
+}
+
+fn game_deferred_scene(
+    collision: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig
+) -> DeferredGeometry {
+    game_prepare_begin(read collision, mut session, read loop, config);
+    var range: DeferredGeometry = game_defer_prediction(mut session);
+    var empty: Prediction = prediction_new();
+    game_prepare_finish(read collision, mut session, read loop, config, read empty);
+    return range;
+}
+fn game_defer_prediction(session: mut GameSession) -> DeferredGeometry {
+    var input: FrameInput = renderer_inputs(mut session.renderer);
+    return input_defer(mut input, PREVIEW_MARKERS * 8u32);
+}
+
+fn course_task_frame(
+    graph: mut TaskGraph,
+    context: mut PredictionContext,
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop,
+    config: GameConfig,
+    prediction: mut Prediction
+) -> bool {
+    task_graph_start(mut graph);
+    if task_next(mut graph) != 1u32 {
+        trap;
+    }
+    task_complete(mut graph, 1u32, true);
+    if task_next(mut graph) != 2u32 {
+        trap;
+    }
+    return game_root_frame(
+        mut graph,
+        mut context,
+        read scene,
+        mut session,
+        mut loop,
+        config,
+        mut prediction
+    );
 }
