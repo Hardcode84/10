@@ -3483,16 +3483,6 @@ s_level = (s_level + 1u);
 return s_words_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
 }
 }
-fn s_light_normal(p_tri: u32, p_axis: u32) -> f32 {
-var s_tri = p_tri;
-var s_axis = p_axis;
-{
-var s_p: u32 = (s_tri * 15u);
-var s_a: u32 = checked_rem_u32((s_axis + 1u), 3u);
-var s_b: u32 = checked_rem_u32((s_axis + 2u), 3u);
-return (((s_scene_float(((s_p + 5u) + s_a)) - s_scene_float((s_p + s_a))) * (s_scene_float(((s_p + 10u) + s_b)) - s_scene_float((s_p + s_b)))) - ((s_scene_float(((s_p + 5u) + s_b)) - s_scene_float((s_p + s_b))) * (s_scene_float(((s_p + 10u) + s_a)) - s_scene_float((s_p + s_a)))));
-}
-}
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
 var s_view = p_view;
 var s_z = p_z;
@@ -3598,11 +3588,28 @@ s_red = (s_red + (s_floats_load((1008u + 1u)) * s_amount));
 s_green = (s_green + (s_floats_load((1008u + 2u)) * s_amount));
 s_blue = (s_blue + (s_floats_load((1008u + 3u)) * s_amount));
 }
-var s_i: u32 = 0u;
-while ((s_i < s_words_load(35u)) && !failed) {
+var s_index: u32 = s_words_load(124u);
+var s_global_count: u32 = s_words_load(s_index);
+var s_global: u32 = 0u;
+var s_local: u32 = s_light_local_begin(s_space, s_index, s_global_count);
+while (true && !failed) {
+var s_a: u32 = s_light_index_id(s_index, s_global, s_global_count);
+var s_b: u32 = s_light_local_id(s_index, s_local, s_space);
+var s_i: u32 = s_a;
+if ((s_b < s_a)) {
+s_i = s_b;
+}
+if ((s_i == 4294967295u)) {
+break;
+}
+if ((s_i == s_a)) {
+s_global = (s_global + 1u);
+}
+else {
+s_local = (s_local + 1u);
+}
 var s_p: u32 = (s_words_load(82u) + (s_i * 8u));
-var s_transported: bool = (s_floats_load((s_p + 7u)) == f32(1u));
-if ((s_transported || (s_words_load((s_words_load(85u) + s_i)) == s_space))) {
+{
 var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_light_radius_squared(s_p, s_view), (s_floats_load((s_p + 7u)) != f32(3u)));
 s_amount = s_light_band(s_amount, s_floats_load((s_p + 4u)), s_floats_load((s_p + 5u)), s_floats_load((s_p + 6u)));
 if ((((s_floats_load((s_p + 7u)) == f32(0u)) && (s_amount > bitcast<f32>(0u))) && (!s_light_visible(s_i, s_tri, s_px, s_py, s_pz, s_floats_load(s_p), s_floats_load((s_p + 1u)), s_floats_load((s_p + 2u)))))) {
@@ -3612,7 +3619,6 @@ s_red = (s_red + (s_floats_load((s_p + 4u)) * s_amount));
 s_green = (s_green + (s_floats_load((s_p + 5u)) * s_amount));
 s_blue = (s_blue + (s_floats_load((s_p + 6u)) * s_amount));
 }
-s_i = (s_i + 1u);
 }
 return s_light_state(s_red, s_green, s_blue, s_mat);
 }
@@ -3649,8 +3655,10 @@ return 2u;
 return 3u;
 }
 }
-fn s_light_grid_depth(p_tri: u32, p_view: u32, p_sx: u32, p_sy: u32, p_nx: f32, p_ny: f32, p_nz: f32) -> f32 {
-var s_tri = p_tri;
+fn s_light_grid_depth(p_ax: f32, p_ay: f32, p_az: f32, p_view: u32, p_sx: u32, p_sy: u32, p_nx: f32, p_ny: f32, p_nz: f32) -> f32 {
+var s_ax = p_ax;
+var s_ay = p_ay;
+var s_az = p_az;
 var s_view = p_view;
 var s_sx = p_sx;
 var s_sy = p_sy;
@@ -3668,8 +3676,7 @@ var s_denominator: f32 = (((s_nx * s_dx) + (s_ny * s_dy)) + (s_nz * s_dz));
 if ((s_denominator == bitcast<f32>(0u))) {
 return bitcast<f32>(0u);
 }
-var s_p: u32 = (s_tri * 15u);
-return ((((s_nx * (s_scene_float(s_p) - s_ex)) + (s_ny * (s_scene_float((s_p + 1u)) - s_ey))) + (s_nz * (s_scene_float((s_p + 2u)) - s_ez))) / s_denominator);
+return ((((s_nx * (s_ax - s_ex)) + (s_ny * (s_ay - s_ey))) + (s_nz * (s_az - s_ez))) / s_denominator);
 }
 }
 fn s_lit_state(p_tri: u32, p_view: u32, p_x: u32, p_y: u32) -> u32 {
@@ -3681,10 +3688,27 @@ var s_y = p_y;
 var s_corner: u32 = s_light_corner(s_x, s_y);
 var s_sx: u32 = ((checked_div_u32(s_x, 16u) + (s_corner & 1u)) * 16u);
 var s_sy: u32 = ((checked_div_u32(s_y, 16u) + checked_shr_u32(s_corner, 1u)) * 16u);
-var s_nx: f32 = s_light_normal(s_tri, 0u);
-var s_ny: f32 = s_light_normal(s_tri, 1u);
-var s_nz: f32 = s_light_normal(s_tri, 2u);
-return s_light_at(s_tri, s_view, s_light_grid_depth(s_tri, s_view, s_sx, s_sy, s_nx, s_ny, s_nz), s_sx, s_sy, s_nx, s_ny, s_nz);
+var s_p: u32 = (1024u + (s_tri * 15u));
+var s_matrix: u32 = 4294967295u;
+if ((s_tri >= s_words_load(57u))) {
+var s_instance: u32 = s_scene_instance(s_tri);
+var s_info: u32 = (s_words_load(53u) + (s_instance * 5u));
+s_p = (s_words_load(50u) + (((s_words_load(s_info) + s_tri) - s_words_load((s_info + 2u))) * 15u));
+s_matrix = (s_words_load(52u) + (s_instance * 18u));
+}
+var s_ax: f32 = s_scene_position(s_p, s_matrix, 0u);
+var s_ay: f32 = s_scene_position(s_p, s_matrix, 1u);
+var s_az: f32 = s_scene_position(s_p, s_matrix, 2u);
+var s_bx: f32 = (s_scene_position((s_p + 5u), s_matrix, 0u) - s_ax);
+var s_by: f32 = (s_scene_position((s_p + 5u), s_matrix, 1u) - s_ay);
+var s_bz: f32 = (s_scene_position((s_p + 5u), s_matrix, 2u) - s_az);
+var s_cx: f32 = (s_scene_position((s_p + 10u), s_matrix, 0u) - s_ax);
+var s_cy: f32 = (s_scene_position((s_p + 10u), s_matrix, 1u) - s_ay);
+var s_cz: f32 = (s_scene_position((s_p + 10u), s_matrix, 2u) - s_az);
+var s_nx: f32 = ((s_by * s_cz) - (s_bz * s_cy));
+var s_ny: f32 = ((s_bz * s_cx) - (s_bx * s_cz));
+var s_nz: f32 = ((s_bx * s_cy) - (s_by * s_cx));
+return s_light_at(s_tri, s_view, s_light_grid_depth(s_ax, s_ay, s_az, s_view, s_sx, s_sy, s_nx, s_ny, s_nz), s_sx, s_sy, s_nx, s_ny, s_nz);
 }
 }
 fn s_light_quantize(p_value: f32) -> u32 {
@@ -3793,6 +3817,49 @@ var s_y = p_y;
 var s_width = p_width;
 {
 return (!(((s_x >= s_width) || (s_y >= s_words_load(1u))) || ((s_words_load(((s_base + 2u) + checked_div_u32(s_lane, 32u))) & checked_shl_u32(1u, checked_rem_u32(s_lane, 32u))) == 0u)));
+}
+}
+fn s_light_local_begin(p_space: u32, p_index: u32, p_lo: u32) -> u32 {
+var s_space = p_space;
+var s_index = p_index;
+var s_lo = p_lo;
+{
+var s_hi: u32 = s_words_load(35u);
+while ((s_lo < s_hi) && !failed) {
+var s_mid: u32 = (s_lo + checked_div_u32((s_hi - s_lo), 2u));
+if ((s_words_load(((s_index + 2u) + (s_mid * 3u))) < s_space)) {
+s_lo = (s_mid + 1u);
+}
+else {
+s_hi = s_mid;
+}
+}
+return s_lo;
+}
+}
+fn s_light_index_id(p_index: u32, p_cursor: u32, p_end: u32) -> u32 {
+var s_index = p_index;
+var s_cursor = p_cursor;
+var s_end = p_end;
+{
+if ((s_cursor >= s_end)) {
+return 4294967295u;
+}
+return s_words_load(((s_index + 3u) + (s_cursor * 3u)));
+}
+}
+fn s_light_local_id(p_index: u32, p_cursor: u32, p_space: u32) -> u32 {
+var s_index = p_index;
+var s_cursor = p_cursor;
+var s_space = p_space;
+{
+if ((s_cursor >= s_words_load(35u))) {
+return 4294967295u;
+}
+if ((s_words_load(((s_index + 2u) + (s_cursor * 3u))) != s_space)) {
+return 4294967295u;
+}
+return s_words_load(((s_index + 3u) + (s_cursor * 3u)));
 }
 }
 fn s_light_blocks(p_tri: u32, p_ox: f32, p_oy: f32, p_oz: f32, p_dx: f32, p_dy: f32, p_dz: f32) -> bool {
@@ -4209,8 +4276,27 @@ var s_p: u32 = ((s_words_load(50u) + (s_source * 15u)) + (s_vertex * 5u));
 if ((s_axis >= 3u)) {
 return s_floats_load((s_p + s_axis));
 }
-var s_matrix: u32 = ((s_words_load(52u) + (s_id * 18u)) + (s_axis * 4u));
-return ((((s_floats_load(s_matrix) * s_floats_load(s_p)) + (s_floats_load((s_matrix + 1u)) * s_floats_load((s_p + 1u)))) + (s_floats_load((s_matrix + 2u)) * s_floats_load((s_p + 2u)))) + s_floats_load((s_matrix + 3u)));
+return s_scene_transform_position(s_p, (s_words_load(52u) + (s_id * 18u)), s_axis);
+}
+}
+fn s_scene_position(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+if ((s_matrix == 4294967295u)) {
+return s_floats_load((s_source + s_axis));
+}
+return s_scene_transform_position(s_source, s_matrix, s_axis);
+}
+}
+fn s_scene_transform_position(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+var s_p: u32 = (s_matrix + (s_axis * 4u));
+return ((((s_floats_load(s_p) * s_floats_load(s_source)) + (s_floats_load((s_p + 1u)) * s_floats_load((s_source + 1u)))) + (s_floats_load((s_p + 2u)) * s_floats_load((s_source + 2u)))) + s_floats_load((s_p + 3u)));
 }
 }
 fn s_shade_pixel(p_view: u32, p_lane: u32, p_x: u32, p_y: u32) {
@@ -4439,16 +4525,6 @@ s_level = (s_level + 1u);
 return s_words_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
 }
 }
-fn s_light_normal(p_tri: u32, p_axis: u32) -> f32 {
-var s_tri = p_tri;
-var s_axis = p_axis;
-{
-var s_p: u32 = (s_tri * 15u);
-var s_a: u32 = ((s_axis + 1u) % 3u);
-var s_b: u32 = ((s_axis + 2u) % 3u);
-return (((s_scene_float(((s_p + 5u) + s_a)) - s_scene_float((s_p + s_a))) * (s_scene_float(((s_p + 10u) + s_b)) - s_scene_float((s_p + s_b)))) - ((s_scene_float(((s_p + 5u) + s_b)) - s_scene_float((s_p + s_b))) * (s_scene_float(((s_p + 10u) + s_a)) - s_scene_float((s_p + s_a)))));
-}
-}
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
 var s_view = p_view;
 var s_z = p_z;
@@ -4554,11 +4630,28 @@ s_red = (s_red + (s_floats_load((1008u + 1u)) * s_amount));
 s_green = (s_green + (s_floats_load((1008u + 2u)) * s_amount));
 s_blue = (s_blue + (s_floats_load((1008u + 3u)) * s_amount));
 }
-var s_i: u32 = 0u;
-while ((s_i < s_words_load(35u))) {
+var s_index: u32 = s_words_load(124u);
+var s_global_count: u32 = s_words_load(s_index);
+var s_global: u32 = 0u;
+var s_local: u32 = s_light_local_begin(s_space, s_index, s_global_count);
+while (true) {
+var s_a: u32 = s_light_index_id(s_index, s_global, s_global_count);
+var s_b: u32 = s_light_local_id(s_index, s_local, s_space);
+var s_i: u32 = s_a;
+if ((s_b < s_a)) {
+s_i = s_b;
+}
+if ((s_i == 4294967295u)) {
+break;
+}
+if ((s_i == s_a)) {
+s_global = (s_global + 1u);
+}
+else {
+s_local = (s_local + 1u);
+}
 var s_p: u32 = (s_words_load(82u) + (s_i * 8u));
-var s_transported: bool = (s_floats_load((s_p + 7u)) == f32(1u));
-if ((s_transported || (s_words_load((s_words_load(85u) + s_i)) == s_space))) {
+{
 var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_light_radius_squared(s_p, s_view), (s_floats_load((s_p + 7u)) != f32(3u)));
 s_amount = s_light_band(s_amount, s_floats_load((s_p + 4u)), s_floats_load((s_p + 5u)), s_floats_load((s_p + 6u)));
 if ((((s_floats_load((s_p + 7u)) == f32(0u)) && (s_amount > bitcast<f32>(0u))) && (!s_light_visible(s_i, s_tri, s_px, s_py, s_pz, s_floats_load(s_p), s_floats_load((s_p + 1u)), s_floats_load((s_p + 2u)))))) {
@@ -4568,7 +4661,6 @@ s_red = (s_red + (s_floats_load((s_p + 4u)) * s_amount));
 s_green = (s_green + (s_floats_load((s_p + 5u)) * s_amount));
 s_blue = (s_blue + (s_floats_load((s_p + 6u)) * s_amount));
 }
-s_i = (s_i + 1u);
 }
 return s_light_state(s_red, s_green, s_blue, s_mat);
 }
@@ -4605,8 +4697,10 @@ return 2u;
 return 3u;
 }
 }
-fn s_light_grid_depth(p_tri: u32, p_view: u32, p_sx: u32, p_sy: u32, p_nx: f32, p_ny: f32, p_nz: f32) -> f32 {
-var s_tri = p_tri;
+fn s_light_grid_depth(p_ax: f32, p_ay: f32, p_az: f32, p_view: u32, p_sx: u32, p_sy: u32, p_nx: f32, p_ny: f32, p_nz: f32) -> f32 {
+var s_ax = p_ax;
+var s_ay = p_ay;
+var s_az = p_az;
 var s_view = p_view;
 var s_sx = p_sx;
 var s_sy = p_sy;
@@ -4624,8 +4718,7 @@ var s_denominator: f32 = (((s_nx * s_dx) + (s_ny * s_dy)) + (s_nz * s_dz));
 if ((s_denominator == bitcast<f32>(0u))) {
 return bitcast<f32>(0u);
 }
-var s_p: u32 = (s_tri * 15u);
-return ((((s_nx * (s_scene_float(s_p) - s_ex)) + (s_ny * (s_scene_float((s_p + 1u)) - s_ey))) + (s_nz * (s_scene_float((s_p + 2u)) - s_ez))) / s_denominator);
+return ((((s_nx * (s_ax - s_ex)) + (s_ny * (s_ay - s_ey))) + (s_nz * (s_az - s_ez))) / s_denominator);
 }
 }
 fn s_lit_state(p_tri: u32, p_view: u32, p_x: u32, p_y: u32) -> u32 {
@@ -4637,10 +4730,27 @@ var s_y = p_y;
 var s_corner: u32 = s_light_corner(s_x, s_y);
 var s_sx: u32 = (((s_x / 16u) + (s_corner & 1u)) * 16u);
 var s_sy: u32 = (((s_y / 16u) + (s_corner >> u32(1u))) * 16u);
-var s_nx: f32 = s_light_normal(s_tri, 0u);
-var s_ny: f32 = s_light_normal(s_tri, 1u);
-var s_nz: f32 = s_light_normal(s_tri, 2u);
-return s_light_at(s_tri, s_view, s_light_grid_depth(s_tri, s_view, s_sx, s_sy, s_nx, s_ny, s_nz), s_sx, s_sy, s_nx, s_ny, s_nz);
+var s_p: u32 = (1024u + (s_tri * 15u));
+var s_matrix: u32 = 4294967295u;
+if ((s_tri >= s_words_load(57u))) {
+var s_instance: u32 = s_scene_instance(s_tri);
+var s_info: u32 = (s_words_load(53u) + (s_instance * 5u));
+s_p = (s_words_load(50u) + (((s_words_load(s_info) + s_tri) - s_words_load((s_info + 2u))) * 15u));
+s_matrix = (s_words_load(52u) + (s_instance * 18u));
+}
+var s_ax: f32 = s_scene_position(s_p, s_matrix, 0u);
+var s_ay: f32 = s_scene_position(s_p, s_matrix, 1u);
+var s_az: f32 = s_scene_position(s_p, s_matrix, 2u);
+var s_bx: f32 = (s_scene_position((s_p + 5u), s_matrix, 0u) - s_ax);
+var s_by: f32 = (s_scene_position((s_p + 5u), s_matrix, 1u) - s_ay);
+var s_bz: f32 = (s_scene_position((s_p + 5u), s_matrix, 2u) - s_az);
+var s_cx: f32 = (s_scene_position((s_p + 10u), s_matrix, 0u) - s_ax);
+var s_cy: f32 = (s_scene_position((s_p + 10u), s_matrix, 1u) - s_ay);
+var s_cz: f32 = (s_scene_position((s_p + 10u), s_matrix, 2u) - s_az);
+var s_nx: f32 = ((s_by * s_cz) - (s_bz * s_cy));
+var s_ny: f32 = ((s_bz * s_cx) - (s_bx * s_cz));
+var s_nz: f32 = ((s_bx * s_cy) - (s_by * s_cx));
+return s_light_at(s_tri, s_view, s_light_grid_depth(s_ax, s_ay, s_az, s_view, s_sx, s_sy, s_nx, s_ny, s_nz), s_sx, s_sy, s_nx, s_ny, s_nz);
 }
 }
 fn s_light_quantize(p_value: f32) -> u32 {
@@ -4749,6 +4859,49 @@ var s_y = p_y;
 var s_width = p_width;
 {
 return (!(((s_x >= s_width) || (s_y >= s_words_load(1u))) || ((s_words_load(((s_base + 2u) + (s_lane / 32u))) & (1u << u32((s_lane % 32u)))) == 0u)));
+}
+}
+fn s_light_local_begin(p_space: u32, p_index: u32, p_lo: u32) -> u32 {
+var s_space = p_space;
+var s_index = p_index;
+var s_lo = p_lo;
+{
+var s_hi: u32 = s_words_load(35u);
+while ((s_lo < s_hi)) {
+var s_mid: u32 = (s_lo + ((s_hi - s_lo) / 2u));
+if ((s_words_load(((s_index + 2u) + (s_mid * 3u))) < s_space)) {
+s_lo = (s_mid + 1u);
+}
+else {
+s_hi = s_mid;
+}
+}
+return s_lo;
+}
+}
+fn s_light_index_id(p_index: u32, p_cursor: u32, p_end: u32) -> u32 {
+var s_index = p_index;
+var s_cursor = p_cursor;
+var s_end = p_end;
+{
+if ((s_cursor >= s_end)) {
+return 4294967295u;
+}
+return s_words_load(((s_index + 3u) + (s_cursor * 3u)));
+}
+}
+fn s_light_local_id(p_index: u32, p_cursor: u32, p_space: u32) -> u32 {
+var s_index = p_index;
+var s_cursor = p_cursor;
+var s_space = p_space;
+{
+if ((s_cursor >= s_words_load(35u))) {
+return 4294967295u;
+}
+if ((s_words_load(((s_index + 2u) + (s_cursor * 3u))) != s_space)) {
+return 4294967295u;
+}
+return s_words_load(((s_index + 3u) + (s_cursor * 3u)));
 }
 }
 fn s_light_blocks(p_tri: u32, p_ox: f32, p_oy: f32, p_oz: f32, p_dx: f32, p_dy: f32, p_dz: f32) -> bool {
@@ -5165,8 +5318,27 @@ var s_p: u32 = ((s_words_load(50u) + (s_source * 15u)) + (s_vertex * 5u));
 if ((s_axis >= 3u)) {
 return s_floats_load((s_p + s_axis));
 }
-var s_matrix: u32 = ((s_words_load(52u) + (s_id * 18u)) + (s_axis * 4u));
-return ((((s_floats_load(s_matrix) * s_floats_load(s_p)) + (s_floats_load((s_matrix + 1u)) * s_floats_load((s_p + 1u)))) + (s_floats_load((s_matrix + 2u)) * s_floats_load((s_p + 2u)))) + s_floats_load((s_matrix + 3u)));
+return s_scene_transform_position(s_p, (s_words_load(52u) + (s_id * 18u)), s_axis);
+}
+}
+fn s_scene_position(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+if ((s_matrix == 4294967295u)) {
+return s_floats_load((s_source + s_axis));
+}
+return s_scene_transform_position(s_source, s_matrix, s_axis);
+}
+}
+fn s_scene_transform_position(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+var s_p: u32 = (s_matrix + (s_axis * 4u));
+return ((((s_floats_load(s_p) * s_floats_load(s_source)) + (s_floats_load((s_p + 1u)) * s_floats_load((s_source + 1u)))) + (s_floats_load((s_p + 2u)) * s_floats_load((s_source + 2u)))) + s_floats_load((s_p + 3u)));
 }
 }
 fn s_shade_pixel(p_view: u32, p_lane: u32, p_x: u32, p_y: u32) {
@@ -5407,16 +5579,6 @@ s_level = (s_level + 1u);
 return s_words_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
 }
 }
-fn s_light_normal(p_tri: u32, p_axis: u32) -> f32 {
-var s_tri = p_tri;
-var s_axis = p_axis;
-{
-var s_p: u32 = (s_tri * 15u);
-var s_a: u32 = checked_rem_u32((s_axis + 1u), 3u);
-var s_b: u32 = checked_rem_u32((s_axis + 2u), 3u);
-return (((s_scene_float(((s_p + 5u) + s_a)) - s_scene_float((s_p + s_a))) * (s_scene_float(((s_p + 10u) + s_b)) - s_scene_float((s_p + s_b)))) - ((s_scene_float(((s_p + 5u) + s_b)) - s_scene_float((s_p + s_b))) * (s_scene_float(((s_p + 10u) + s_a)) - s_scene_float((s_p + s_a)))));
-}
-}
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
 var s_view = p_view;
 var s_z = p_z;
@@ -5522,11 +5684,28 @@ s_red = (s_red + (s_floats_load((1008u + 1u)) * s_amount));
 s_green = (s_green + (s_floats_load((1008u + 2u)) * s_amount));
 s_blue = (s_blue + (s_floats_load((1008u + 3u)) * s_amount));
 }
-var s_i: u32 = 0u;
-while ((s_i < s_words_load(35u)) && !failed) {
+var s_index: u32 = s_words_load(124u);
+var s_global_count: u32 = s_words_load(s_index);
+var s_global: u32 = 0u;
+var s_local: u32 = s_light_local_begin(s_space, s_index, s_global_count);
+while (true && !failed) {
+var s_a: u32 = s_light_index_id(s_index, s_global, s_global_count);
+var s_b: u32 = s_light_local_id(s_index, s_local, s_space);
+var s_i: u32 = s_a;
+if ((s_b < s_a)) {
+s_i = s_b;
+}
+if ((s_i == 4294967295u)) {
+break;
+}
+if ((s_i == s_a)) {
+s_global = (s_global + 1u);
+}
+else {
+s_local = (s_local + 1u);
+}
 var s_p: u32 = (s_words_load(82u) + (s_i * 8u));
-var s_transported: bool = (s_floats_load((s_p + 7u)) == f32(1u));
-if ((s_transported || (s_words_load((s_words_load(85u) + s_i)) == s_space))) {
+{
 var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_light_radius_squared(s_p, s_view), (s_floats_load((s_p + 7u)) != f32(3u)));
 s_amount = s_light_band(s_amount, s_floats_load((s_p + 4u)), s_floats_load((s_p + 5u)), s_floats_load((s_p + 6u)));
 if ((((s_floats_load((s_p + 7u)) == f32(0u)) && (s_amount > bitcast<f32>(0u))) && (!s_light_visible(s_i, s_tri, s_px, s_py, s_pz, s_floats_load(s_p), s_floats_load((s_p + 1u)), s_floats_load((s_p + 2u)))))) {
@@ -5536,7 +5715,6 @@ s_red = (s_red + (s_floats_load((s_p + 4u)) * s_amount));
 s_green = (s_green + (s_floats_load((s_p + 5u)) * s_amount));
 s_blue = (s_blue + (s_floats_load((s_p + 6u)) * s_amount));
 }
-s_i = (s_i + 1u);
 }
 return s_light_state(s_red, s_green, s_blue, s_mat);
 }
@@ -5573,8 +5751,10 @@ return 2u;
 return 3u;
 }
 }
-fn s_light_grid_depth(p_tri: u32, p_view: u32, p_sx: u32, p_sy: u32, p_nx: f32, p_ny: f32, p_nz: f32) -> f32 {
-var s_tri = p_tri;
+fn s_light_grid_depth(p_ax: f32, p_ay: f32, p_az: f32, p_view: u32, p_sx: u32, p_sy: u32, p_nx: f32, p_ny: f32, p_nz: f32) -> f32 {
+var s_ax = p_ax;
+var s_ay = p_ay;
+var s_az = p_az;
 var s_view = p_view;
 var s_sx = p_sx;
 var s_sy = p_sy;
@@ -5592,8 +5772,7 @@ var s_denominator: f32 = (((s_nx * s_dx) + (s_ny * s_dy)) + (s_nz * s_dz));
 if ((s_denominator == bitcast<f32>(0u))) {
 return bitcast<f32>(0u);
 }
-var s_p: u32 = (s_tri * 15u);
-return ((((s_nx * (s_scene_float(s_p) - s_ex)) + (s_ny * (s_scene_float((s_p + 1u)) - s_ey))) + (s_nz * (s_scene_float((s_p + 2u)) - s_ez))) / s_denominator);
+return ((((s_nx * (s_ax - s_ex)) + (s_ny * (s_ay - s_ey))) + (s_nz * (s_az - s_ez))) / s_denominator);
 }
 }
 fn s_lit_state(p_tri: u32, p_view: u32, p_x: u32, p_y: u32) -> u32 {
@@ -5605,10 +5784,27 @@ var s_y = p_y;
 var s_corner: u32 = s_light_corner(s_x, s_y);
 var s_sx: u32 = ((checked_div_u32(s_x, 16u) + (s_corner & 1u)) * 16u);
 var s_sy: u32 = ((checked_div_u32(s_y, 16u) + checked_shr_u32(s_corner, 1u)) * 16u);
-var s_nx: f32 = s_light_normal(s_tri, 0u);
-var s_ny: f32 = s_light_normal(s_tri, 1u);
-var s_nz: f32 = s_light_normal(s_tri, 2u);
-return s_light_at(s_tri, s_view, s_light_grid_depth(s_tri, s_view, s_sx, s_sy, s_nx, s_ny, s_nz), s_sx, s_sy, s_nx, s_ny, s_nz);
+var s_p: u32 = (1024u + (s_tri * 15u));
+var s_matrix: u32 = 4294967295u;
+if ((s_tri >= s_words_load(57u))) {
+var s_instance: u32 = s_scene_instance(s_tri);
+var s_info: u32 = (s_words_load(53u) + (s_instance * 5u));
+s_p = (s_words_load(50u) + (((s_words_load(s_info) + s_tri) - s_words_load((s_info + 2u))) * 15u));
+s_matrix = (s_words_load(52u) + (s_instance * 18u));
+}
+var s_ax: f32 = s_scene_position(s_p, s_matrix, 0u);
+var s_ay: f32 = s_scene_position(s_p, s_matrix, 1u);
+var s_az: f32 = s_scene_position(s_p, s_matrix, 2u);
+var s_bx: f32 = (s_scene_position((s_p + 5u), s_matrix, 0u) - s_ax);
+var s_by: f32 = (s_scene_position((s_p + 5u), s_matrix, 1u) - s_ay);
+var s_bz: f32 = (s_scene_position((s_p + 5u), s_matrix, 2u) - s_az);
+var s_cx: f32 = (s_scene_position((s_p + 10u), s_matrix, 0u) - s_ax);
+var s_cy: f32 = (s_scene_position((s_p + 10u), s_matrix, 1u) - s_ay);
+var s_cz: f32 = (s_scene_position((s_p + 10u), s_matrix, 2u) - s_az);
+var s_nx: f32 = ((s_by * s_cz) - (s_bz * s_cy));
+var s_ny: f32 = ((s_bz * s_cx) - (s_bx * s_cz));
+var s_nz: f32 = ((s_bx * s_cy) - (s_by * s_cx));
+return s_light_at(s_tri, s_view, s_light_grid_depth(s_ax, s_ay, s_az, s_view, s_sx, s_sy, s_nx, s_ny, s_nz), s_sx, s_sy, s_nx, s_ny, s_nz);
 }
 }
 fn s_light_quantize(p_value: f32) -> u32 {
@@ -5717,6 +5913,49 @@ var s_y = p_y;
 var s_width = p_width;
 {
 return (!(((s_x >= s_width) || (s_y >= s_words_load(1u))) || ((s_words_load(((s_base + 2u) + checked_div_u32(s_lane, 32u))) & checked_shl_u32(1u, checked_rem_u32(s_lane, 32u))) == 0u)));
+}
+}
+fn s_light_local_begin(p_space: u32, p_index: u32, p_lo: u32) -> u32 {
+var s_space = p_space;
+var s_index = p_index;
+var s_lo = p_lo;
+{
+var s_hi: u32 = s_words_load(35u);
+while ((s_lo < s_hi) && !failed) {
+var s_mid: u32 = (s_lo + checked_div_u32((s_hi - s_lo), 2u));
+if ((s_words_load(((s_index + 2u) + (s_mid * 3u))) < s_space)) {
+s_lo = (s_mid + 1u);
+}
+else {
+s_hi = s_mid;
+}
+}
+return s_lo;
+}
+}
+fn s_light_index_id(p_index: u32, p_cursor: u32, p_end: u32) -> u32 {
+var s_index = p_index;
+var s_cursor = p_cursor;
+var s_end = p_end;
+{
+if ((s_cursor >= s_end)) {
+return 4294967295u;
+}
+return s_words_load(((s_index + 3u) + (s_cursor * 3u)));
+}
+}
+fn s_light_local_id(p_index: u32, p_cursor: u32, p_space: u32) -> u32 {
+var s_index = p_index;
+var s_cursor = p_cursor;
+var s_space = p_space;
+{
+if ((s_cursor >= s_words_load(35u))) {
+return 4294967295u;
+}
+if ((s_words_load(((s_index + 2u) + (s_cursor * 3u))) != s_space)) {
+return 4294967295u;
+}
+return s_words_load(((s_index + 3u) + (s_cursor * 3u)));
 }
 }
 fn s_light_blocks(p_tri: u32, p_ox: f32, p_oy: f32, p_oz: f32, p_dx: f32, p_dy: f32, p_dz: f32) -> bool {
@@ -6133,8 +6372,27 @@ var s_p: u32 = ((s_words_load(50u) + (s_source * 15u)) + (s_vertex * 5u));
 if ((s_axis >= 3u)) {
 return s_floats_load((s_p + s_axis));
 }
-var s_matrix: u32 = ((s_words_load(52u) + (s_id * 18u)) + (s_axis * 4u));
-return ((((s_floats_load(s_matrix) * s_floats_load(s_p)) + (s_floats_load((s_matrix + 1u)) * s_floats_load((s_p + 1u)))) + (s_floats_load((s_matrix + 2u)) * s_floats_load((s_p + 2u)))) + s_floats_load((s_matrix + 3u)));
+return s_scene_transform_position(s_p, (s_words_load(52u) + (s_id * 18u)), s_axis);
+}
+}
+fn s_scene_position(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+if ((s_matrix == 4294967295u)) {
+return s_floats_load((s_source + s_axis));
+}
+return s_scene_transform_position(s_source, s_matrix, s_axis);
+}
+}
+fn s_scene_transform_position(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+var s_p: u32 = (s_matrix + (s_axis * 4u));
+return ((((s_floats_load(s_p) * s_floats_load(s_source)) + (s_floats_load((s_p + 1u)) * s_floats_load((s_source + 1u)))) + (s_floats_load((s_p + 2u)) * s_floats_load((s_source + 2u)))) + s_floats_load((s_p + 3u)));
 }
 }
 fn s_shade_pixel(p_view: u32, p_lane: u32, p_x: u32, p_y: u32) {
@@ -6363,16 +6621,6 @@ s_level = (s_level + 1u);
 return s_words_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
 }
 }
-fn s_light_normal(p_tri: u32, p_axis: u32) -> f32 {
-var s_tri = p_tri;
-var s_axis = p_axis;
-{
-var s_p: u32 = (s_tri * 15u);
-var s_a: u32 = ((s_axis + 1u) % 3u);
-var s_b: u32 = ((s_axis + 2u) % 3u);
-return (((s_scene_float(((s_p + 5u) + s_a)) - s_scene_float((s_p + s_a))) * (s_scene_float(((s_p + 10u) + s_b)) - s_scene_float((s_p + s_b)))) - ((s_scene_float(((s_p + 5u) + s_b)) - s_scene_float((s_p + s_b))) * (s_scene_float(((s_p + 10u) + s_a)) - s_scene_float((s_p + s_a)))));
-}
-}
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
 var s_view = p_view;
 var s_z = p_z;
@@ -6478,11 +6726,28 @@ s_red = (s_red + (s_floats_load((1008u + 1u)) * s_amount));
 s_green = (s_green + (s_floats_load((1008u + 2u)) * s_amount));
 s_blue = (s_blue + (s_floats_load((1008u + 3u)) * s_amount));
 }
-var s_i: u32 = 0u;
-while ((s_i < s_words_load(35u))) {
+var s_index: u32 = s_words_load(124u);
+var s_global_count: u32 = s_words_load(s_index);
+var s_global: u32 = 0u;
+var s_local: u32 = s_light_local_begin(s_space, s_index, s_global_count);
+while (true) {
+var s_a: u32 = s_light_index_id(s_index, s_global, s_global_count);
+var s_b: u32 = s_light_local_id(s_index, s_local, s_space);
+var s_i: u32 = s_a;
+if ((s_b < s_a)) {
+s_i = s_b;
+}
+if ((s_i == 4294967295u)) {
+break;
+}
+if ((s_i == s_a)) {
+s_global = (s_global + 1u);
+}
+else {
+s_local = (s_local + 1u);
+}
 var s_p: u32 = (s_words_load(82u) + (s_i * 8u));
-var s_transported: bool = (s_floats_load((s_p + 7u)) == f32(1u));
-if ((s_transported || (s_words_load((s_words_load(85u) + s_i)) == s_space))) {
+{
 var s_amount: f32 = s_light_amount((s_light_position(s_p, s_view, 0u) - s_px), (s_light_position(s_p, s_view, 1u) - s_py), (s_light_position(s_p, s_view, 2u) - s_pz), s_nx, s_ny, s_nz, s_light_radius_squared(s_p, s_view), (s_floats_load((s_p + 7u)) != f32(3u)));
 s_amount = s_light_band(s_amount, s_floats_load((s_p + 4u)), s_floats_load((s_p + 5u)), s_floats_load((s_p + 6u)));
 if ((((s_floats_load((s_p + 7u)) == f32(0u)) && (s_amount > bitcast<f32>(0u))) && (!s_light_visible(s_i, s_tri, s_px, s_py, s_pz, s_floats_load(s_p), s_floats_load((s_p + 1u)), s_floats_load((s_p + 2u)))))) {
@@ -6492,7 +6757,6 @@ s_red = (s_red + (s_floats_load((s_p + 4u)) * s_amount));
 s_green = (s_green + (s_floats_load((s_p + 5u)) * s_amount));
 s_blue = (s_blue + (s_floats_load((s_p + 6u)) * s_amount));
 }
-s_i = (s_i + 1u);
 }
 return s_light_state(s_red, s_green, s_blue, s_mat);
 }
@@ -6529,8 +6793,10 @@ return 2u;
 return 3u;
 }
 }
-fn s_light_grid_depth(p_tri: u32, p_view: u32, p_sx: u32, p_sy: u32, p_nx: f32, p_ny: f32, p_nz: f32) -> f32 {
-var s_tri = p_tri;
+fn s_light_grid_depth(p_ax: f32, p_ay: f32, p_az: f32, p_view: u32, p_sx: u32, p_sy: u32, p_nx: f32, p_ny: f32, p_nz: f32) -> f32 {
+var s_ax = p_ax;
+var s_ay = p_ay;
+var s_az = p_az;
 var s_view = p_view;
 var s_sx = p_sx;
 var s_sy = p_sy;
@@ -6548,8 +6814,7 @@ var s_denominator: f32 = (((s_nx * s_dx) + (s_ny * s_dy)) + (s_nz * s_dz));
 if ((s_denominator == bitcast<f32>(0u))) {
 return bitcast<f32>(0u);
 }
-var s_p: u32 = (s_tri * 15u);
-return ((((s_nx * (s_scene_float(s_p) - s_ex)) + (s_ny * (s_scene_float((s_p + 1u)) - s_ey))) + (s_nz * (s_scene_float((s_p + 2u)) - s_ez))) / s_denominator);
+return ((((s_nx * (s_ax - s_ex)) + (s_ny * (s_ay - s_ey))) + (s_nz * (s_az - s_ez))) / s_denominator);
 }
 }
 fn s_lit_state(p_tri: u32, p_view: u32, p_x: u32, p_y: u32) -> u32 {
@@ -6561,10 +6826,27 @@ var s_y = p_y;
 var s_corner: u32 = s_light_corner(s_x, s_y);
 var s_sx: u32 = (((s_x / 16u) + (s_corner & 1u)) * 16u);
 var s_sy: u32 = (((s_y / 16u) + (s_corner >> u32(1u))) * 16u);
-var s_nx: f32 = s_light_normal(s_tri, 0u);
-var s_ny: f32 = s_light_normal(s_tri, 1u);
-var s_nz: f32 = s_light_normal(s_tri, 2u);
-return s_light_at(s_tri, s_view, s_light_grid_depth(s_tri, s_view, s_sx, s_sy, s_nx, s_ny, s_nz), s_sx, s_sy, s_nx, s_ny, s_nz);
+var s_p: u32 = (1024u + (s_tri * 15u));
+var s_matrix: u32 = 4294967295u;
+if ((s_tri >= s_words_load(57u))) {
+var s_instance: u32 = s_scene_instance(s_tri);
+var s_info: u32 = (s_words_load(53u) + (s_instance * 5u));
+s_p = (s_words_load(50u) + (((s_words_load(s_info) + s_tri) - s_words_load((s_info + 2u))) * 15u));
+s_matrix = (s_words_load(52u) + (s_instance * 18u));
+}
+var s_ax: f32 = s_scene_position(s_p, s_matrix, 0u);
+var s_ay: f32 = s_scene_position(s_p, s_matrix, 1u);
+var s_az: f32 = s_scene_position(s_p, s_matrix, 2u);
+var s_bx: f32 = (s_scene_position((s_p + 5u), s_matrix, 0u) - s_ax);
+var s_by: f32 = (s_scene_position((s_p + 5u), s_matrix, 1u) - s_ay);
+var s_bz: f32 = (s_scene_position((s_p + 5u), s_matrix, 2u) - s_az);
+var s_cx: f32 = (s_scene_position((s_p + 10u), s_matrix, 0u) - s_ax);
+var s_cy: f32 = (s_scene_position((s_p + 10u), s_matrix, 1u) - s_ay);
+var s_cz: f32 = (s_scene_position((s_p + 10u), s_matrix, 2u) - s_az);
+var s_nx: f32 = ((s_by * s_cz) - (s_bz * s_cy));
+var s_ny: f32 = ((s_bz * s_cx) - (s_bx * s_cz));
+var s_nz: f32 = ((s_bx * s_cy) - (s_by * s_cx));
+return s_light_at(s_tri, s_view, s_light_grid_depth(s_ax, s_ay, s_az, s_view, s_sx, s_sy, s_nx, s_ny, s_nz), s_sx, s_sy, s_nx, s_ny, s_nz);
 }
 }
 fn s_light_quantize(p_value: f32) -> u32 {
@@ -6673,6 +6955,49 @@ var s_y = p_y;
 var s_width = p_width;
 {
 return (!(((s_x >= s_width) || (s_y >= s_words_load(1u))) || ((s_words_load(((s_base + 2u) + (s_lane / 32u))) & (1u << u32((s_lane % 32u)))) == 0u)));
+}
+}
+fn s_light_local_begin(p_space: u32, p_index: u32, p_lo: u32) -> u32 {
+var s_space = p_space;
+var s_index = p_index;
+var s_lo = p_lo;
+{
+var s_hi: u32 = s_words_load(35u);
+while ((s_lo < s_hi)) {
+var s_mid: u32 = (s_lo + ((s_hi - s_lo) / 2u));
+if ((s_words_load(((s_index + 2u) + (s_mid * 3u))) < s_space)) {
+s_lo = (s_mid + 1u);
+}
+else {
+s_hi = s_mid;
+}
+}
+return s_lo;
+}
+}
+fn s_light_index_id(p_index: u32, p_cursor: u32, p_end: u32) -> u32 {
+var s_index = p_index;
+var s_cursor = p_cursor;
+var s_end = p_end;
+{
+if ((s_cursor >= s_end)) {
+return 4294967295u;
+}
+return s_words_load(((s_index + 3u) + (s_cursor * 3u)));
+}
+}
+fn s_light_local_id(p_index: u32, p_cursor: u32, p_space: u32) -> u32 {
+var s_index = p_index;
+var s_cursor = p_cursor;
+var s_space = p_space;
+{
+if ((s_cursor >= s_words_load(35u))) {
+return 4294967295u;
+}
+if ((s_words_load(((s_index + 2u) + (s_cursor * 3u))) != s_space)) {
+return 4294967295u;
+}
+return s_words_load(((s_index + 3u) + (s_cursor * 3u)));
 }
 }
 fn s_light_blocks(p_tri: u32, p_ox: f32, p_oy: f32, p_oz: f32, p_dx: f32, p_dy: f32, p_dz: f32) -> bool {
@@ -7089,8 +7414,27 @@ var s_p: u32 = ((s_words_load(50u) + (s_source * 15u)) + (s_vertex * 5u));
 if ((s_axis >= 3u)) {
 return s_floats_load((s_p + s_axis));
 }
-var s_matrix: u32 = ((s_words_load(52u) + (s_id * 18u)) + (s_axis * 4u));
-return ((((s_floats_load(s_matrix) * s_floats_load(s_p)) + (s_floats_load((s_matrix + 1u)) * s_floats_load((s_p + 1u)))) + (s_floats_load((s_matrix + 2u)) * s_floats_load((s_p + 2u)))) + s_floats_load((s_matrix + 3u)));
+return s_scene_transform_position(s_p, (s_words_load(52u) + (s_id * 18u)), s_axis);
+}
+}
+fn s_scene_position(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+if ((s_matrix == 4294967295u)) {
+return s_floats_load((s_source + s_axis));
+}
+return s_scene_transform_position(s_source, s_matrix, s_axis);
+}
+}
+fn s_scene_transform_position(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+var s_p: u32 = (s_matrix + (s_axis * 4u));
+return ((((s_floats_load(s_p) * s_floats_load(s_source)) + (s_floats_load((s_p + 1u)) * s_floats_load((s_source + 1u)))) + (s_floats_load((s_p + 2u)) * s_floats_load((s_source + 2u)))) + s_floats_load((s_p + 3u)));
 }
 }
 fn s_shade_pixel(p_view: u32, p_lane: u32, p_x: u32, p_y: u32) {
@@ -12437,8 +12781,16 @@ var s_p: u32 = ((s_words_load(50u) + (s_source * 15u)) + (s_vertex * 5u));
 if ((s_axis >= 3u)) {
 return s_floats_load((s_p + s_axis));
 }
-var s_matrix: u32 = ((s_words_load(52u) + (s_id * 18u)) + (s_axis * 4u));
-return ((((s_floats_load(s_matrix) * s_floats_load(s_p)) + (s_floats_load((s_matrix + 1u)) * s_floats_load((s_p + 1u)))) + (s_floats_load((s_matrix + 2u)) * s_floats_load((s_p + 2u)))) + s_floats_load((s_matrix + 3u)));
+return s_scene_transform_position(s_p, (s_words_load(52u) + (s_id * 18u)), s_axis);
+}
+}
+fn s_scene_transform_position(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+var s_p: u32 = (s_matrix + (s_axis * 4u));
+return ((((s_floats_load(s_p) * s_floats_load(s_source)) + (s_floats_load((s_p + 1u)) * s_floats_load((s_source + 1u)))) + (s_floats_load((s_p + 2u)) * s_floats_load((s_source + 2u)))) + s_floats_load((s_p + 3u)));
 }
 }
 fn s_project_fan(p_scratch: u32, p_output: u32, p_count: u32, p_tri: u32) {
@@ -12931,8 +13283,16 @@ var s_p: u32 = ((s_words_load(50u) + (s_source * 15u)) + (s_vertex * 5u));
 if ((s_axis >= 3u)) {
 return s_floats_load((s_p + s_axis));
 }
-var s_matrix: u32 = ((s_words_load(52u) + (s_id * 18u)) + (s_axis * 4u));
-return ((((s_floats_load(s_matrix) * s_floats_load(s_p)) + (s_floats_load((s_matrix + 1u)) * s_floats_load((s_p + 1u)))) + (s_floats_load((s_matrix + 2u)) * s_floats_load((s_p + 2u)))) + s_floats_load((s_matrix + 3u)));
+return s_scene_transform_position(s_p, (s_words_load(52u) + (s_id * 18u)), s_axis);
+}
+}
+fn s_scene_transform_position(p_source: u32, p_matrix: u32, p_axis: u32) -> f32 {
+var s_source = p_source;
+var s_matrix = p_matrix;
+var s_axis = p_axis;
+{
+var s_p: u32 = (s_matrix + (s_axis * 4u));
+return ((((s_floats_load(s_p) * s_floats_load(s_source)) + (s_floats_load((s_p + 1u)) * s_floats_load((s_source + 1u)))) + (s_floats_load((s_p + 2u)) * s_floats_load((s_source + 2u)))) + s_floats_load((s_p + 3u)));
 }
 }
 fn s_project_fan(p_scratch: u32, p_output: u32, p_count: u32, p_tri: u32) {
