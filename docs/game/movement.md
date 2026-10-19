@@ -174,7 +174,7 @@ axes have a 15 percent dead zone. Mouse motion controls look directly.
 ## Generated-room flight demo
 
 Run `crust demo.crs LEVEL.crs [options]`. For example, use
-`levels/radial.crs` or `levels/cylinder.crs`. The demo uses the game input, fixed-step simulation,
+`levels/radial.crs`, `levels/cylinder.crs`, or `levels/prefabs.crs`. The demo uses the game input, fixed-step simulation,
 collision solver, tether, HUD, and prediction code. The room recipe supplies
 its spawn, surfaces, and generated textures. Room-specific connections are
 specified in the selected level source. Backspace returns to the recipe spawn.
@@ -182,13 +182,20 @@ The demo has no completion condition.
 
 A level is a checked Crust source file. It defines
 `demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene,
-mesh: mut Mesh) -> bool`. The function sets the spawn, room ports, rendered
+mesh: mut Mesh, graph: mut RoomGraph) -> bool`. The function sets the spawn, room ports, rendered
 mesh, and finished collision scene. Portal triangle IDs start at one and
-refer to the collision link order. The room port count must equal the
-collision link count. Level geometry uses local space zero and the shared
-game material palette. Return false on a build error.
+refer to the collision link order. For a single space, leave the graph empty and use local space zero. For
+multiple spaces, fill the graph with one mesh range per room and all portal
+links. The renderer uses these ranges and their room IDs. Return false on a
+build error. The level defines `demo_palette(input: mut FrameInput) -> bool`
+to upload the materials used by its meshes.
 The level also defines `demo_room_ambient() -> Vec3`. This returns the
 constant red, green, and blue light added to player and hook lighting.
+
+`levels/prefabs.crs` connects the hexagonal and octagonal prefab sets through
+the rotor shaft and hub. Its source comments specify the route and variants.
+Unused ports connect to closed stopper prefabs. All rooms use the same
+ambient light, plus the player and hook lights.
 
 `levels/cylinder.crs` connects two ends of one cylindrical room. The small
 opening doubles player size; the large opening halves it. The hook uses

@@ -8,7 +8,7 @@ fn run_asset_checks(
         native_error(root -> context, "asset checks accept only --build-only");
         return 2i32;
     }
-    var sources: [*u8; 96] = uninit;
+    var sources: [*u8; 256] = uninit;
     var providers: [*u8; 20] = uninit;
     var count: usize = asset_sources(root, &sources[0usize]);
     count = count + asset_collision_sources(root, &sources[count]);

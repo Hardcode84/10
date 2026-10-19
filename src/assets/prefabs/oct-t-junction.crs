@@ -1,0 +1,45 @@
+const prefab_oct_t_junction_CONNECTIONS: u32 = 7u32;
+fn prefab_oct_t_junction_parameter_count() -> u32 {
+    return 1u32;
+}
+fn prefab_oct_t_junction_parameter(index: u32) -> AssetParameter {
+    return make AssetParameter {
+        minimum: 5f32,
+        maximum: 12f32,
+        initial: 5f32,
+        step: 0.5f32
+    };
+}
+fn prefab_oct_t_junction_parameter_name(index: u32) -> AssetName {
+    return asset_name("leg");
+}
+fn prefab_oct_t_junction_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !prefab_oct_t_junction_parameters_valid(read parameters) {
+        return false;
+    }
+    return oct_junction_build(
+        prefab_oct_t_junction_CONNECTIONS,
+        asset_value(read parameters, 0u32),
+        mut asset
+    );
+}
+fn prefab_oct_t_junction_material_count() -> u32 {
+    return 2u32;
+}
+fn prefab_oct_t_junction_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return oct_service_material(region);
+}
+
+fn prefab_oct_t_junction_parameters_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_oct_t_junction_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_oct_t_junction_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

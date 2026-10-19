@@ -77,7 +77,7 @@ fn game_scene_begin(
     }
     render_portals(mut v, read collision);
     input_set_word(mut v, 20usize, trial.drone.world);
-    input_set_word(mut v, SHARED_AMBIENT as usize, trial.graph_run as u32);
+    input_set_word(mut v, SHARED_AMBIENT as usize, 1u32);
     input_set_word(mut v, BACKGROUND as usize, 0xff0d0906u32);
     input_set_float(mut v, RENDER_STYLE as usize, 0.04f32 * drone_size(read trial.drone));
     input_set_float(mut v, DETAIL_NEAR as usize, 6f32 * drone_size(read trial.drone));

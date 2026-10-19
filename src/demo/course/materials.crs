@@ -1,0 +1,63 @@
+fn course_material_base(kind: u32) -> u32 {
+    var offset: u32 = GAME_MATERIALS;
+    var i: u32 = 0u32;
+    while i < kind {
+        offset = offset + course_material_count(i);
+        i = i + 1u32;
+    }
+    return offset;
+}
+fn course_material_words() -> u32 {
+    var words: u32 = 0u32;
+    var kind: u32 = 0u32;
+    while kind < PREFAB_COUNT {
+        var values: AssetValues = asset_values_new();
+        if !course_values(kind, 0u32, mut values) {
+            return 0u32;
+        }
+        var region: u32 = 0u32;
+        while region < course_material_count(kind) {
+            var panel: PanelMaterial = course_material(kind, region, read values);
+            words = words + panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
+            region = region + 1u32;
+        }
+        kind = kind + 1u32;
+    }
+    return words;
+}
+fn course_palette(input: mut FrameInput) -> bool {
+    var words: u32 = course_material_words();
+    if words == 0u32 {
+        return false;
+    }
+    var count: u32 = course_material_base(PREFAB_COUNT);
+    app_assets_extra(mut input, GAME_MATERIALS, count - GAME_MATERIALS, words);
+    game_palette_fill(mut input);
+    input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
+    input_set_float(mut input, CAMERA_LIGHT as usize, 36f32);
+    var offset: u32 = count * MATERIAL_WORDS + GAME_MATERIALS * 64u32 + PALETTE_COLORS * LIGHT_STATES;
+    var kind: u32 = 0u32;
+    while kind < PREFAB_COUNT {
+        var values: AssetValues = asset_values_new();
+        if !course_values(kind, 0u32, mut values) {
+            return false;
+        }
+        var region: u32 = 0u32;
+        while region < course_material_count(kind) {
+            var panel: PanelMaterial = course_material(kind, region, read values);
+            if !panel_upload(
+                mut input,
+                course_material_base(kind) + region,
+                offset,
+                panel_texture_width(panel),
+                panel
+            ) {
+                return false;
+            }
+            offset = offset + panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
+            region = region + 1u32;
+        }
+        kind = kind + 1u32;
+    }
+    return true;
+}

@@ -24,3 +24,7 @@ fn game_world_open(session: mut GameSession, collision: mut CollisionScene, tria
 fn game_world_ambient() -> Vec3 {
     return vec(0f32, 0f32, 0f32);
 }
+
+fn game_world_palette(input: mut FrameInput) -> bool {
+    return game_room_palette(mut input);
+}

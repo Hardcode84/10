@@ -5,28 +5,20 @@
 // provide a continuous collision shell. Axial metal plates span at most 1 m;
 // whole plates fit the passage length, with dark seams at both ends.
 fn room_parameter_count() -> u32 {
-    return 1u32;
+    return prefab_hex_tunnel_parameter_count();
 }
 fn room_parameter(index: u32) -> AssetParameter {
-    return make AssetParameter {
-        minimum: 0.75f32,
-        maximum: 20f32,
-        initial: 1f32,
-        step: 0.25f32
-    };
+    return prefab_hex_tunnel_parameter(index);
 }
 fn room_parameter_name(index: u32) -> AssetName {
-    return asset_name("length");
+    return prefab_hex_tunnel_parameter_name(index);
 }
 fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    if !asset_parameters_valid(read parameters) {
-        return false;
-    }
-    return hex_tunnel_build(asset_value(read parameters, 0u32), mut asset);
+    return prefab_hex_tunnel_build(read parameters, mut asset);
 }
 fn room_material_count() -> u32 {
-    return 1u32;
+    return prefab_hex_tunnel_material_count();
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
-    return hex_tunnel_material();
+    return prefab_hex_tunnel_material(region, read parameters);
 }

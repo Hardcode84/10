@@ -27,9 +27,8 @@ positions must be finite. Bounds come from mesh vertices; preserve them when
 copying a range. An empty mesh is permitted. `InstanceList` owns a reusable
 list of placements; `input_instances` submits that list.
 
-The renderer grows mesh, instance, and triangle storage from demand. Triangle
-and room-projection capacity retain spare space after growth, so a small
-addition does not require another scene allocation. If spare capacity would
+The renderer grows mesh, instance, and triangle storage from demand. Triangle capacity retains spare space after growth, so a small addition does
+not require another scene allocation. Projection uses a reusable batch buffer. If spare capacity would
 exceed device storage, the renderer reserves only the required capacity. It checks
 Vulkan storage-range limits before replacement. Allocation failure reports an
 error. Successful replacement preserves retained meshes and current input.
@@ -55,7 +54,10 @@ camera for that view. Portal masks and depth tests determine final coverage.
 Each graph room has its own space ID. All room instances are submitted.
 A portal view selects its destination space before bounds and face tests.
 
-Expansion cost and projection storage still depend on all submitted triangles.
+Expansion storage depends on all submitted triangles. Projection and clipping
+use at most 8192 source triangles per batch, shared across views. Larger rooms
+and multiple visible rooms use more batches. Per-pixel hit state preserves
+depth, texture coordinates, and triangle tie order across those batches.
 The visibility table uses four bytes per instance per reserved view. Each mesh
 triangle uses 76 bytes in the retained pool. The instance table uses 92 bytes
 per reserved instance. See the engine register for the separate frame-transfer

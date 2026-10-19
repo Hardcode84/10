@@ -1,0 +1,58 @@
+fn prefab_oct_stopper_open_parameter_count() -> u32 {
+    return 1u32;
+}
+fn prefab_oct_stopper_open_parameter_name(index: u32) -> AssetName {
+    return asset_name("depth");
+}
+fn prefab_oct_stopper_open_parameter(index: u32) -> AssetParameter {
+    return make AssetParameter {
+        minimum: 0.4f32,
+        maximum: 2f32,
+        initial: 1f32,
+        step: 0.1f32
+    };
+}
+fn prefab_oct_stopper_open_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !prefab_oct_stopper_open_parameters_valid(read parameters) {
+        return false;
+    }
+    var depth: f32 = asset_value(read parameters, 0u32);
+    asset.spawn_enabled = false;
+    return stopper_open_shell(mut asset, depth, service_oct_profile(), 3u32) && oct_stopper_pipes(
+        mut asset,
+        depth,
+        depth
+    ) && oct_stopper_plates(mut asset, depth * 0.5f32) && room_asset_finish(mut asset);
+}
+fn prefab_oct_stopper_open_material_count() -> u32 {
+    return 4u32;
+}
+fn prefab_oct_stopper_open_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 3u32 {
+        return stopper_seat_material();
+    }
+    if region == 2u32 {
+        return service_pipe_material();
+    }
+    if region == 1u32 {
+        return oct_stopper_door_material();
+    }
+    return stopper_wall_material(
+        oct_service_material(0u32),
+        (asset_value(read parameters, 0u32) - DOOR_THICKNESS) * 0.5f32
+    );
+}
+
+fn prefab_oct_stopper_open_parameters_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_oct_stopper_open_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_oct_stopper_open_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

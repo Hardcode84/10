@@ -93,8 +93,12 @@ fn graph_add(graph: mut RoomGraph, kind: u32, depth: u32, branch: u32) -> u32 {
     if kind >= 5u32 {
         count = 1u32;
     }
+    return graph_add_ports(mut graph, kind, depth, branch, count);
+}
+// Capacity must cover the rooms and the total socket count.
+fn graph_add_ports(graph: mut RoomGraph, kind: u32, depth: u32, branch: u32, count: u32) -> u32 {
     var id: u32 = graph.count;
-    if id >= graph.capacity {
+    if id >= graph.capacity || graph.port_count + count > graph.capacity * 8u32 {
         trap;
     }
     graph.nodes[id as usize] = make GraphNode {

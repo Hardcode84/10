@@ -1,0 +1,40 @@
+fn prefab_hex_tunnel_parameter_count() -> u32 {
+    return 1u32;
+}
+fn prefab_hex_tunnel_parameter(index: u32) -> AssetParameter {
+    return make AssetParameter {
+        minimum: 0.75f32,
+        maximum: 20f32,
+        initial: 1f32,
+        step: 0.25f32
+    };
+}
+fn prefab_hex_tunnel_parameter_name(index: u32) -> AssetName {
+    return asset_name("length");
+}
+fn prefab_hex_tunnel_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !prefab_hex_tunnel_parameters_valid(read parameters) {
+        return false;
+    }
+    return hex_tunnel_build(asset_value(read parameters, 0u32), mut asset);
+}
+fn prefab_hex_tunnel_material_count() -> u32 {
+    return 1u32;
+}
+fn prefab_hex_tunnel_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return hex_tunnel_material();
+}
+
+fn prefab_hex_tunnel_parameters_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_hex_tunnel_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_hex_tunnel_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

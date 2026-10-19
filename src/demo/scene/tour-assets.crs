@@ -157,6 +157,7 @@ fn tour_portal(
     input_set_float(mut v, p + 12usize, nx);
     input_set_float(mut v, p + 14usize, nz);
     input_set_float(mut v, p + 15usize, d);
+    input_set_word(mut v, (portal_meta + index * 4u32 + 2u32) as usize, 0u32);
     input_set_word(mut v, (portal_meta + index * 4u32) as usize, source);
     input_set_word(mut v, (portal_meta + index * 4u32 + 1u32) as usize, dest);
 }

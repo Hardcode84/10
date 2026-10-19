@@ -1,0 +1,52 @@
+fn prefab_hex_stopper_open_parameter_count() -> u32 {
+    return 1u32;
+}
+fn prefab_hex_stopper_open_parameter_name(index: u32) -> AssetName {
+    return asset_name("depth");
+}
+fn prefab_hex_stopper_open_parameter(index: u32) -> AssetParameter {
+    return make AssetParameter {
+        minimum: 0.4f32,
+        maximum: 2f32,
+        initial: 1f32,
+        step: 0.1f32
+    };
+}
+fn prefab_hex_stopper_open_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !prefab_hex_stopper_open_parameters_valid(read parameters) {
+        return false;
+    }
+    asset.spawn_enabled = false;
+    return stopper_open_shell(
+        mut asset,
+        asset_value(read parameters, 0u32),
+        service_hex_profile(),
+        1u32
+    ) && room_asset_finish(mut asset);
+}
+fn prefab_hex_stopper_open_material_count() -> u32 {
+    return 2u32;
+}
+fn prefab_hex_stopper_open_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 1u32 {
+        return stopper_seat_material();
+    }
+    return stopper_wall_material(
+        hex_tunnel_material(),
+        (asset_value(read parameters, 0u32) - DOOR_THICKNESS) * 0.5f32
+    );
+}
+
+fn prefab_hex_stopper_open_parameters_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_hex_stopper_open_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_hex_stopper_open_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

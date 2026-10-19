@@ -42,18 +42,8 @@ fn commands_raster_body(v: *RenderState) -> unit {
             (v -> instance_capacity * v -> view_capacity + 63u32) / 64u32
         );
         command_barrier(v, BARRIER_COMPUTE);
-        command_bind(v, 1usize);
-        command_indirect(v, 68u64);
-        command_barrier(v, BARRIER_COMPUTE);
-        command_stamp(v, 2u32 + depth * 4u32);
-        compact_dispatch(v);
-        command_barrier(v, BARRIER_COMPUTE);
-        command_stamp(v, 3u32 + depth * 4u32);
-        task_dispatch(v, 10usize, 0u32);
-        command_barrier(v, BARRIER_COMPUTE);
-        task_dispatch(v, 2usize, 0u32);
-        command_barrier(v, BARRIER_COMPUTE);
-        command_stamp(v, 4u32 + depth * 4u32);
+        commands_geometry_batches(v, depth);
+        command_stamp(v, 2u32 + depth * 2u32);
         task_dispatch(v, 6usize, 3u32);
         command_barrier(v, BARRIER_COMPUTE);
         command_bind(v, 3usize);
@@ -61,7 +51,7 @@ fn commands_raster_body(v: *RenderState) -> unit {
         command_barrier(v, BARRIER_INDIRECT);
         task_dispatch(v, 7usize, 6u32);
         command_barrier(v, BARRIER_COMPUTE);
-        command_stamp(v, 5u32 + depth * 4u32);
+        command_stamp(v, 3u32 + depth * 2u32);
         depth = depth + 1u32;
     }
     retained_dispatch(v, 4usize, (v -> output_width * v -> output_height + 63u32) / 64u32);
@@ -154,4 +144,37 @@ fn commands_shadow_build(v: *RenderState) -> unit {
         }
         level = level + 1u32;
     }
+}
+
+fn commands_geometry_batches(v: *RenderState, depth: u32) -> unit {
+    var rounds: u64 = projection_depth_work(v, depth) / v -> projection_capacity as u64 + 1u64;
+    var round: u64 = 0u64;
+    while round < rounds {
+        var mode: u32 = 1u32;
+        if round == 0u64 {
+            mode = mode | 2u32;
+        }
+        if round + 1u64 == rounds {
+            mode = mode | 4u32;
+        }
+        command_barrier(v, BARRIER_BEFORE_UPDATE);
+        command_word(v, BATCH_MODE + 1u32, mode);
+        command_barrier(v, BARRIER_UPDATED_COMPUTE);
+        command_bind(v, 3usize);
+        command_direct(v, 1u32);
+        command_barrier(v, BARRIER_INDIRECT);
+        command_bind(v, 1usize);
+        command_indirect(v, 68u64);
+        command_barrier(v, BARRIER_COMPUTE);
+        compact_dispatch(v);
+        command_barrier(v, BARRIER_COMPUTE);
+        task_dispatch(v, 10usize, 0u32);
+        command_barrier(v, BARRIER_COMPUTE);
+        task_dispatch(v, 2usize, 0u32);
+        command_barrier(v, BARRIER_COMPUTE);
+        round = round + 1u64;
+    }
+    command_barrier(v, BARRIER_BEFORE_UPDATE);
+    command_word(v, BATCH_MODE + 1u32, 0u32);
+    command_barrier(v, BARRIER_UPDATED_COMPUTE);
 }

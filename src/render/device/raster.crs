@@ -134,51 +134,44 @@ fn candidate_opaque(triangle: u32, p: u32, px: f32, py: f32) -> bool {
 fn nearer(iz: f32, best: f32, id: u32, winner: u32) -> bool {
     return iz > 0f32 && (iz > best || (iz == best && id < winner));
 }
-fn raster_pixel(task: u32, lane: u32) -> unit {
-    var base: u32 = task_base() + task * 4u32;
-    var tile: u32 = words_load(base);
-    var view: u32 = words_load(base + 1u32);
-    var width: u32 = words_load(0u32);
-    var cols: u32 = (width + 7u32) / 8u32;
-    var x: u32 = tile % cols * 8u32 + lane % 8u32;
-    var y: u32 = tile / cols * 8u32 + lane / 8u32;
-    shared_store(320u32 + lane, 0u32);
-    if !raster_active(base, lane, x, y, width) {
-        return;
-    }
+fn raster_candidates(task: u32, view: u32, x: u32, y: u32) -> unit {
+    var pixel: u32 = y * words_load(0u32) + x;
+    var cache: u32 = words_load(HIT_FLOAT) + pixel * 3u32;
+    var identity_word: u32 = words_load(DEBUG_VALUES) + pixel * 4u32;
     var best: f32 = 0f32;
     var winner: u32 = 0xffffffffu32;
-    var winner_id: u32 = 0xffffffffu32;
-    var uu: f32 = 0f32;
-    var vv: f32 = 0f32;
-    var i: u32 = 0u32;
+    if batch_start(view) != 0u32 {
+        best = floats_load(cache);
+        winner = words_load(identity_word);
+    } else {
+        floats_store(cache + 1u32, 0f32);
+        floats_store(cache + 2u32, 0f32);
+    }
+    var selected: u32 = 0xffffffffu32;
     var px: f32 = x as f32 + 0.5f32;
     var py: f32 = y as f32 + 0.5f32;
     var count: u32 = words_load(words_load(COMPACT_COUNT) + view);
     if words_load(25u32) != 0u32 {
-        count = view_triangles(view) * MAX_FAN;
+        count = batch_size(view) * MAX_FAN;
     }
+    var i: u32 = 0u32;
     if words_load(25u32) == 0u32 {
         i = next_tile_candidate(task, 0u32, count);
     }
     while i < count {
         var id: u32 = i;
         if words_load(25u32) == 0u32 {
-            id = words_load(
-                words_load(COMPACT_OFFSET) + view * words_load(PROJECTION_CAPACITY) * MAX_FAN + i
-            );
+            id = words_load(words_load(COMPACT_OFFSET) + batch_offset(view) * MAX_FAN + i);
         }
-        var p: u32 = words_load(PROJECTED_OFFSET) + (
-            view * words_load(PROJECTION_CAPACITY) * MAX_FAN + id
-        ) * 20u32;
+        var p: u32 = words_load(PROJECTED_OFFSET) + (batch_offset(view) * MAX_FAN + id) * 20u32;
+        var triangle: u32 = batch_triangle(view, id / MAX_FAN);
+        var identity: u32 = triangle * MAX_FAN + id % MAX_FAN;
         if tile_overlap(p, (x / 8u32 * 8u32) as f32, (y / 8u32 * 8u32) as f32) {
-            var iz: f32 = candidate_depth(p, px, py);
-            if nearer(iz, best, id, winner_id) {
-                if candidate_opaque(view_triangle(view, id / MAX_FAN), p, px, py) {
-                    best = iz;
-                    winner = view_triangle(view, id / MAX_FAN);
-                    winner_id = id;
-                }
+            var depth: f32 = candidate_depth(p, px, py);
+            if nearer(depth, best, identity, winner) && candidate_opaque(triangle, p, px, py) {
+                best = depth;
+                winner = identity;
+                selected = p;
             }
         }
         i = i + 1u32;
@@ -186,34 +179,70 @@ fn raster_pixel(task: u32, lane: u32) -> unit {
             i = next_tile_candidate(task, i, count);
         }
     }
+    if selected != 0xffffffffu32 {
+        var mat: u32 = words_load(words_load(META) + winner / MAX_FAN * 4u32 + 1u32);
+        var style: u32 = material_field(mat, 5u32) & 3u32;
+        floats_store(cache + 1u32, sample_uv(selected, px, py, 3u32, style));
+        floats_store(cache + 2u32, sample_uv(selected, px, py, 4u32, style));
+    }
+    floats_store(cache, best);
+    words_store(identity_word, winner);
+}
+fn raster_finish_pixel(view: u32, lane: u32, x: u32, y: u32) -> unit {
+    var pixel: u32 = y * words_load(0u32) + x;
+    var cache: u32 = words_load(HIT_FLOAT) + pixel * 3u32;
+    var identity: u32 = words_load(words_load(DEBUG_VALUES) + pixel * 4u32);
+    var depth: f32 = floats_load(cache);
+    var u: f32 = floats_load(cache + 1u32);
+    var v: f32 = floats_load(cache + 2u32);
+    var winner: u32 = 0xffffffffu32;
     var color: u32 = words_load(BACKGROUND);
-    if winner != 0xffffffffu32 {
+    if identity != 0xffffffffu32 {
+        winner = identity / MAX_FAN;
         var portal: u32 = words_load(words_load(META) + winner * 4u32 + 2u32);
         if portal != 0u32 && words_load(12u32) < words_load(4u32) {
             shared_store(320u32 + lane, portal);
             return;
         }
-        var mat: u32 = words_load(words_load(META) + winner * 4u32 + 1u32);
-        var p: u32 = words_load(PROJECTED_OFFSET) + (
-            view * words_load(PROJECTION_CAPACITY) * MAX_FAN + winner_id
-        ) * 20u32;
-        var style: u32 = material_field(mat, 5u32) & 3u32;
-        uu = sample_uv(p, px, py, 3u32, style);
-        vv = sample_uv(p, px, py, 4u32, style);
-        color = surface_color(winner, view, uu, vv, 1f32 / best, x, y);
+        color = surface_color(winner, view, u, v, 1f32 / depth, x, y);
     }
     if words_load(26u32) != 0u32 {
-        var debug: u32 = words_load(DEBUG_VALUES) + (y * width + x) * 4u32;
-        var identity: u32 = winner;
+        var debug: u32 = words_load(DEBUG_VALUES) + pixel * 4u32;
+        var debug_identity: u32 = winner;
         if winner != 0xffffffffu32 {
-            identity = winner + view * words_load(3u32);
+            debug_identity = winner + view * words_load(3u32);
         }
-        words_store(debug, identity);
-        words_store(debug + 1u32, (uu * 10000f32) as i32 as u32);
-        words_store(debug + 2u32, (vv * 10000f32) as i32 as u32);
-        words_store(debug + 3u32, (10000f32 / best) as u32);
+        words_store(debug, debug_identity);
+        words_store(debug + 1u32, (u * 10000f32) as i32 as u32);
+        words_store(debug + 2u32, (v * 10000f32) as i32 as u32);
+        words_store(debug + 3u32, (10000f32 / depth) as u32);
     }
-    words_store(PIXELS + y * width + x, color);
+    words_store(PIXELS + pixel, color);
+}
+fn raster_pixel(task: u32, lane: u32) -> unit {
+    shared_store(320u32 + lane, 0u32);
+    var base: u32 = task_base() + task * 4u32;
+    var view: u32 = words_load(base + 1u32);
+    if !batch_active(view) {
+        return;
+    }
+    var tile: u32 = words_load(base);
+    var width: u32 = words_load(0u32);
+    var cols: u32 = (width + 7u32) / 8u32;
+    var x: u32 = tile % cols * 8u32 + lane % 8u32;
+    var y: u32 = tile / cols * 8u32 + lane / 8u32;
+    if !raster_active(base, lane, x, y, width) {
+        return;
+    }
+    raster_candidates(task, view, x, y);
+    if batch_finished(view) {
+        raster_finish_pixel(view, lane, x, y);
+    }
+}
+fn raster_task_finished(task: u32) -> bool {
+    return task < words_load(6u32) && words_load(5u32) == 0u32 && batch_finished(
+        words_load(task_base() + task * 4u32 + 1u32)
+    );
 }
 
 fn child_unique(lane: u32) -> unit {
@@ -274,11 +303,11 @@ fn compute() -> unit {
         raster_pixel(task, lane);
     }
     shader_barrier();
-    if task < words_load(6u32) && words_load(5u32) == 0u32 {
+    if raster_task_finished(task) {
         child_unique(lane);
     }
     shader_barrier();
-    if task < words_load(6u32) && words_load(5u32) == 0u32 {
+    if raster_task_finished(task) {
         child_masks(task, lane);
     }
 }

@@ -5,8 +5,8 @@ fn capacity_scene(v: mut FrameInput, index: u32) -> unit {
         255u32,
         256u32,
         257u32,
-        1025u32,
-        4097u32,
+        GEOMETRY_BATCH_TRIANGLES,
+        GEOMETRY_BATCH_TRIANGLES + 1u32,
         17u32
     };
     input_set_word(mut v, 3usize, 0u32);
@@ -29,7 +29,7 @@ fn capacity_scene(v: mut FrameInput, index: u32) -> unit {
     }
     i = 0u32;
     while i < counts[index as usize] {
-        var depth: f32 = 8f32 - (i / 2u32) as f32 * 0.001f32;
+        var depth: f32 = 8f32 - (i / 2u32) as f32 * 0.0001f32;
         triangle(
             mut v,
             0u32,

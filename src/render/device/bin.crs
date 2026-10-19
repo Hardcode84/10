@@ -6,6 +6,9 @@ fn bin_tile() -> unit {
     var base: u32 = task_base() + task * 4u32;
     var tile: u32 = words_load(base);
     var view: u32 = words_load(base + 1u32);
+    if !batch_active(view) {
+        return;
+    }
     var cols: u32 = (words_load(0u32) + 7u32) / 8u32;
     var x: f32 = (tile % cols * 8u32) as f32;
     var y: f32 = (tile / cols * 8u32) as f32;
@@ -16,11 +19,9 @@ fn bin_tile() -> unit {
         var i: u32 = word * 32u32;
         while i < (word + 1u32) * 32u32 && i < count {
             var id: u32 = words_load(
-                words_load(COMPACT_OFFSET) + view * words_load(PROJECTION_CAPACITY) * MAX_FAN + i
+                words_load(COMPACT_OFFSET) + batch_offset(view) * MAX_FAN + i
             );
-            var p: u32 = words_load(PROJECTED_OFFSET) + (
-                view * words_load(PROJECTION_CAPACITY) * MAX_FAN + id
-            ) * 20u32;
+            var p: u32 = words_load(PROJECTED_OFFSET) + (batch_offset(view) * MAX_FAN + id) * 20u32;
             if tile_overlap(p, x, y) {
                 bits = bits | (1u32 << (i % 32u32));
             }

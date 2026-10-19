@@ -1,0 +1,424 @@
+fn prefab_rotor_shaft_parameter_count() -> u32 {
+    return 5u32;
+}
+fn prefab_rotor_shaft_parameter_name(index: u32) -> AssetName {
+    if index == 4u32 {
+        return asset_name("pipe-seed");
+    }
+    if index == 0u32 {
+        return asset_name("height");
+    }
+    if index == 1u32 {
+        return asset_name("diameter");
+    }
+    if index == 2u32 {
+        return asset_name("core-diameter");
+    }
+    return asset_name("rotor-count");
+}
+fn prefab_rotor_shaft_parameter(index: u32) -> AssetParameter {
+    if index == 4u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 65535f32,
+            initial: 1f32,
+            step: 1f32
+        };
+    }
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 12f32,
+            maximum: 200f32,
+            initial: 60f32,
+            step: 2f32
+        };
+    }
+    if index == 1u32 {
+        return make AssetParameter {
+            minimum: 16f32,
+            maximum: 40f32,
+            initial: 16f32,
+            step: 1f32
+        };
+    }
+    if index == 2u32 {
+        return make AssetParameter {
+            minimum: 1f32,
+            maximum: 12f32,
+            initial: 3f32,
+            step: 0.5f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 1f32,
+        maximum: 24f32,
+        initial: 6f32,
+        step: 1f32
+    };
+}
+fn prefab_rotor_shaft_shaft_cylinder(
+    hull: mut AssetHull,
+    radius: f32,
+    height: f32,
+    side: u32,
+    cap: u32
+) -> bool {
+    var profile: RegularProfile = rotor_shaft_profile(16f32).shape;
+    if !loft_allocate(mut hull, profile, 2u32) {
+        return false;
+    }
+    loft_ring(mut hull, profile, 0u32, 0f32, radius);
+    loft_ring(mut hull, profile, 1u32, height, radius);
+    loft_span(mut hull, profile, 0u32, side);
+    loft_caps(mut hull, profile, 2u32, cap, cap);
+    return true;
+}
+fn prefab_rotor_shaft_shaft_basis(angle: f32) -> Basis {
+    return make Basis {
+        right: vec(cosf(angle), 0f32, sinf(angle)),
+        up: vec(0f32, 1f32, 0f32),
+        forward: vec(-sinf(angle), 0f32, cosf(angle))
+    };
+}
+fn prefab_rotor_shaft_shaft_core(
+    asset: mut RoomAsset,
+    radius: f32,
+    height: f32,
+    spacing: f32
+) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    if !prefab_rotor_shaft_shaft_cylinder(mut hull, radius, height, 2u32, 2u32) {
+        return false;
+    }
+    prefab_rotor_shaft_shaft_track_surfaces(mut hull, asset.tile_metres, spacing);
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !hull_solid_mesh(
+        read hull,
+        mut asset.geometry,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        asset.tile_metres
+    ) {
+        return false;
+    }
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: asset_name("spindle"),
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: vec(0f32, 0f32, 0f32),
+            basis: identity_basis()
+        }
+    );
+}
+fn prefab_rotor_shaft_shaft_wings(mesh: mut Mesh, radius: f32, core: f32) -> bool {
+    var rim: f32 = radius * cosf(3.14159265359f32 / 48f32);
+    var width: f32 = mask_min(1.2f32, rim * 0.12f32);
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        var basis: Basis = prefab_rotor_shaft_shaft_basis(1.57079632679f32 * i as f32);
+        var centre: Vec3 = scale(basis.right, (rim + core) * 0.5f32);
+        if !solid_box_wrapped(
+            mut mesh,
+            vec(rim - core, 0.6f32, width),
+            3u32,
+            centre,
+            basis,
+            2f32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn prefab_rotor_shaft_shaft_rotors(
+    asset: mut RoomAsset,
+    radius: f32,
+    core: f32,
+    height: f32,
+    count: u32
+) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !prefab_rotor_shaft_shaft_wings(mut asset.geometry, radius, core) {
+        return false;
+    }
+    var triangles: u32 = mesh_triangle_count(read asset.geometry) - first;
+    var i: u32 = 0u32;
+    while i < count {
+        if !asset_part_append(
+            mut asset.parts,
+            make AssetPart {
+                name: asset_name("rotor"),
+                first: first,
+                count: triangles,
+                origin: vec(0f32, height * (i + 1u32) as f32 / (count + 1u32) as f32, 0f32),
+                basis: prefab_rotor_shaft_shaft_basis(
+                    0.78539816339f32 + 0.39269908169f32 * i as f32
+                )
+            }
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn prefab_rotor_shaft_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !prefab_rotor_shaft_parameters_valid(read parameters) {
+        return false;
+    }
+    var pipe_seed: f32 = asset_value(read parameters, 4u32);
+    if pipe_seed != (pipe_seed as u32) as f32 {
+        return error("pipe-seed must be an integer");
+    }
+    var height: f32 = asset_value(read parameters, 0u32);
+    var diameter: f32 = asset_value(read parameters, 1u32);
+    var radius: f32 = diameter * 0.5f32;
+    var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
+    var count: f32 = asset_value(read parameters, 3u32);
+    if count != count as u32 as f32 || height / (count + 1f32) < 3f32 {
+        return error("rotor-count must be integral and leave at least 3 m between stations");
+    }
+    if radius * cosf(3.14159265359f32 / 48f32) - core < 2f32 {
+        return error("shaft needs at least 2 m between the spindle and wall");
+    }
+    if !prefab_rotor_shaft_shaft_cylinder(mut asset.hull, radius, height, 0u32, 1u32) || !prefab_rotor_shaft_shaft_core(
+        mut asset,
+        core,
+        height,
+        height / (count + 1f32)
+    ) || !prefab_rotor_shaft_shaft_rotors(mut asset, radius, core, height, count as u32) || !shaft_service_pipes(
+        mut asset,
+        radius,
+        core,
+        height,
+        count as u32,
+        pipe_seed as u32
+    ) {
+        return false;
+    }
+    prefab_rotor_shaft_shaft_track_surfaces(
+        mut asset.hull,
+        asset.tile_metres,
+        height / (count + 1f32)
+    );
+    asset.spawn = make AssetSpawn {
+        position: vec((radius + core) * 0.5f32, 1.5f32, 0f32),
+        basis: make Basis {
+            right: vec(1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, -1f32),
+            forward: vec(0f32, 1f32, 0f32)
+        }
+    };
+    return prefab_rotor_shaft_shaft_connections(mut asset, core) && asset_port_append(
+        mut asset.ports,
+        make RoomPort {
+            id: asset_name("TOP"),
+            profile: rotor_shaft_profile(diameter),
+            face: 49u32,
+            position: vec(0f32, height, 0f32),
+            basis: cube_face_basis(3u32)
+        }
+    ) && room_asset_finish(mut asset);
+}
+fn prefab_rotor_shaft_material_count() -> u32 {
+    return 9u32;
+}
+fn prefab_rotor_shaft_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 3u32 {
+        var material: PanelMaterial = prefab_rotor_shaft_shaft_material(region);
+        var rim: f32 = asset_value(read parameters, 1u32) * 0.5f32 * cosf(
+            3.14159265359f32 / 48f32
+        );
+        material.tile_height = mask_min(1.2f32, rim * 0.12f32) + 0.6f32;
+        material.panel_height = material.tile_height;
+        return material;
+    }
+    if region == 0u32 || region == 2u32 {
+        return prefab_rotor_shaft_shaft_track_material(region, read parameters);
+    }
+    return prefab_rotor_shaft_shaft_material(region);
+}
+fn prefab_rotor_shaft_shaft_track_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = prefab_rotor_shaft_shaft_material(region);
+    var diameter: f32 = asset_value(read parameters, 1u32);
+    if region == 2u32 {
+        diameter = asset_value(read parameters, 2u32);
+    }
+    material.tile_metres = diameter * sinf(3.14159265359f32 / 48f32);
+    material.tile_height = asset_value(read parameters, 0u32) / (
+        asset_value(read parameters, 3u32) + 1f32
+    );
+    material.band_width = 0.8f32;
+    var span: f32 = material.tile_height - material.band_width;
+    var rows: u32 = panel_pixel_extent(span, 1u32);
+    material.panel_height = span / rows as f32;
+    material.pitch = span / panel_pixel_extent(span, 2u32) as f32;
+    return material;
+}
+fn prefab_rotor_shaft_shaft_track_surfaces(hull: mut AssetHull, tile: f32, spacing: f32) -> unit {
+    var i: u32 = 0u32;
+    while i < 48u32 {
+        var face: HullFace = asset_face(read hull, i);
+        var origin: Vec3 = hull_corner(read hull, face, 0u32);
+        var edge: Vec3 = sub(hull_corner(read hull, face, 3u32), origin);
+        var surface: SurfaceFrame = make SurfaceFrame {
+            origin: origin,
+            right: scale(edge, tile / dot(edge, edge)),
+            up: vec(0f32, tile / spacing, 0f32),
+            normal: hull_frame(read hull, face).normal
+        };
+        asset_surface_set(mut hull, i, surface);
+        i = i + 1u32;
+    }
+}
+fn prefab_rotor_shaft_shaft_material(region: u32) -> PanelMaterial {
+    if region == 7u32 || region == 8u32 {
+        return service_mount_material(region == 8u32);
+    }
+    if region == 6u32 {
+        return service_pipe_material();
+    }
+    var material: PanelMaterial = hex_tunnel_material();
+    material.colour = 0x807769u32;
+    material.panel_height = 2f32;
+    if region >= 4u32 {
+        material.finish = METAL_HEX;
+        material.tile_metres = 9f32;
+        material.tile_height = 9f32 * 0.57735026919f32;
+        if region == 5u32 {
+            material.colour = 0x788dadu32;
+        }
+    }
+    if region == 1u32 {
+        return hex_bulkhead_material();
+    }
+    if region == 2u32 {
+        material.colour = 0x9c9687u32;
+        material.finish = METAL_RIBBED;
+        material.pitch = 0.5f32;
+    }
+    if region == 3u32 {
+        material.colour = 0x438ab0u32;
+        material.accent = 0x3c4248u32;
+        material.emission = 0x6dc6ffu32;
+        material.finish = METAL_TREAD;
+        material.marking = 2u32;
+        material.pitch = 0.5f32;
+    }
+    return material;
+}
+fn prefab_rotor_shaft_shaft_port_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("BOTTOM-0");
+    }
+    if index == 1u32 {
+        return asset_name("BOTTOM-1");
+    }
+    return asset_name("BOTTOM-2");
+}
+fn prefab_rotor_shaft_shaft_port(index: u32, distance: f32) -> RoomPort {
+    var angle: f32 = 3.14159265359f32 / 48f32 + 1.04719755120f32 + index as f32 * 2.09439510239f32;
+    var radial: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
+    return make RoomPort {
+        id: prefab_rotor_shaft_shaft_port_name(index),
+        profile: service_hex_profile(),
+        face: 48u32 + index,
+        position: scale(radial, distance),
+        basis: make Basis {
+            right: vec(radial.z, 0f32, -radial.x),
+            up: radial,
+            forward: vec(0f32, -1f32, 0f32)
+        }
+    };
+}
+fn prefab_rotor_shaft_shaft_port_fits(hull: read AssetHull, port: RoomPort, core: f32) -> bool {
+    var face: HullFace = asset_face(read hull, port.face);
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        var p: Vec3 = connection_point(port, i);
+        var j: u32 = 0u32;
+        while j < face.count {
+            if inset_turn(
+                hull_corner(read hull, face, j),
+                hull_corner(read hull, face, (j + 1u32) % face.count),
+                p,
+                port.basis.forward
+            ) <= 0f32 {
+                return error("shaft diameter is too small for three HEX-6M end ports");
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return length(port.position) - port.profile.radius * 0.86602540378f32 > core || error(
+        "shaft spindle obstructs the end ports"
+    );
+}
+fn prefab_rotor_shaft_shaft_connections(asset: mut RoomAsset, core: f32) -> bool {
+    var next: AssetHull = asset_hull_new();
+    var first: u32 = asset_face_count(read asset.hull);
+    if !hull_face_sectors(
+        read asset.hull,
+        mut next,
+        48u32,
+        3u32,
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    var spacing: f32 = service_hex_profile().radius * 1.73205080757f32;
+    var ring: u32 = ((core + service_hex_profile().radius * 0.86602540378f32) / spacing) as u32 + 1u32;
+    var distance: f32 = ring as f32 * spacing;
+    var reference: RoomPort = prefab_rotor_shaft_shaft_port(0u32, distance);
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var port: RoomPort = prefab_rotor_shaft_shaft_port(i, distance);
+        if i != 0u32 {
+            port.face = first + i - 1u32;
+        }
+        if !prefab_rotor_shaft_shaft_port_fits(read asset.hull, port, core) {
+            return false;
+        }
+        var material: PanelMaterial = prefab_rotor_shaft_shaft_material(4u32);
+        var surface: SurfaceFrame = make SurfaceFrame {
+            origin: reference.position,
+            right: scale(reference.basis.right, asset.tile_metres / material.tile_metres),
+            up: scale(
+                reference.basis.up,
+                asset.tile_metres / panel_tile_height(material)
+            ),
+            normal: port.basis.forward
+        };
+        var face: HullFace = asset_face(read asset.hull, port.face);
+        face.region = 4u32;
+        asset_face_set(mut asset.hull, port.face, face);
+        asset_surface_set(mut asset.hull, port.face, surface);
+        if !hull_convex_partition(read asset.hull, mut next, port, 5u32) || !asset_port_append(
+            mut asset.ports,
+            port
+        ) {
+            return false;
+        }
+        asset_hull_swap(mut asset.hull, mut next);
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn prefab_rotor_shaft_parameters_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_rotor_shaft_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_rotor_shaft_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

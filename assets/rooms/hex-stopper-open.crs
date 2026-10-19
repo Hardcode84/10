@@ -4,40 +4,20 @@
 // This room has no player spawn; its centre pose is for inspection.
 // Regions: 0 sleeve and preview closures, 1 black door seat. Depth is in metres.
 fn room_parameter_count() -> u32 {
-    return 1u32;
-}
-fn room_parameter_name(index: u32) -> AssetName {
-    return asset_name("depth");
+    return prefab_hex_stopper_open_parameter_count();
 }
 fn room_parameter(index: u32) -> AssetParameter {
-    return make AssetParameter {
-        minimum: 0.4f32,
-        maximum: 2f32,
-        initial: 1f32,
-        step: 0.1f32
-    };
+    return prefab_hex_stopper_open_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_hex_stopper_open_parameter_name(index);
 }
 fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    if !asset_parameters_valid(read parameters) {
-        return false;
-    }
-    asset.spawn_enabled = false;
-    return stopper_open_shell(
-        mut asset,
-        asset_value(read parameters, 0u32),
-        service_hex_profile(),
-        1u32
-    ) && room_asset_finish(mut asset);
+    return prefab_hex_stopper_open_build(read parameters, mut asset);
 }
 fn room_material_count() -> u32 {
-    return 2u32;
+    return prefab_hex_stopper_open_material_count();
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
-    if region == 1u32 {
-        return stopper_seat_material();
-    }
-    return stopper_wall_material(
-        hex_tunnel_material(),
-        (asset_value(read parameters, 0u32) - DOOR_THICKNESS) * 0.5f32
-    );
+    return prefab_hex_stopper_open_material(region, read parameters);
 }

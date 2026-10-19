@@ -1,0 +1,58 @@
+fn prefab_hex_ending_parameter_count() -> u32 {
+    return 2u32;
+}
+fn prefab_hex_ending_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 7f32,
+            maximum: 30f32,
+            initial: 10f32,
+            step: 1f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 1f32,
+        maximum: 60f32,
+        initial: 20f32,
+        step: 1f32
+    };
+}
+fn prefab_hex_ending_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("diameter");
+    }
+    return asset_name("length");
+}
+fn prefab_hex_ending_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !prefab_hex_ending_parameters_valid(read parameters) {
+        return false;
+    }
+    return hex_ending_build(
+        asset_value(read parameters, 0u32),
+        asset_value(read parameters, 1u32),
+        mut asset
+    );
+}
+fn prefab_hex_ending_material_count() -> u32 {
+    return 2u32;
+}
+fn prefab_hex_ending_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 1u32 {
+        return hex_bulkhead_material();
+    }
+    return hex_tunnel_material();
+}
+
+fn prefab_hex_ending_parameters_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_hex_ending_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_hex_ending_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

@@ -77,7 +77,12 @@ fn projection_admit(v: *RenderState, extra: u32) -> bool {
     if size > 0xffffffffu64 {
         return error("projection reservation exceeds address range");
     }
-    var required: u32 = size as u32;
+    v -> projection_maximum = size as u32;
+    var queued: u64 = size * v -> view_capacity as u64;
+    var required: u32 = GEOMETRY_BATCH_TRIANGLES;
+    if queued < GEOMETRY_BATCH_TRIANGLES as u64 {
+        required = queued as u32;
+    }
     if required <= v -> projection_capacity {
         return true;
     }
@@ -90,4 +95,53 @@ fn projection_admit(v: *RenderState, extra: u32) -> bool {
         return false;
     }
     return storage_replace(v, &next);
+}
+// Counts possible geometry at one traversal depth. Reciprocal entry portals
+// cannot be crossed immediately back. The queue is bounded by the view budget.
+fn projection_depth_work(v: *RenderState, depth: u32) -> u64 {
+    var w: *u32 = v -> mapped as *u32;
+    var queue: *u32 = w + w[VIEW_META as usize] as isize;
+    queue[0usize] = w[20usize];
+    queue[1usize] = 0u32;
+    queue[2usize] = 0u32;
+    var end: u32 = 1u32;
+    var index: u32 = 0u32;
+    var work: u64 = 0u64;
+    while index < end {
+        var space: u32 = queue[(index * 4u32) as usize];
+        var level: u32 = queue[(index * 4u32 + 1u32) as usize];
+        var reverse: u32 = queue[(index * 4u32 + 2u32) as usize];
+        if level == depth {
+            work = work + projection_space_size(v, space) as u64;
+        } else {
+            var portal: u32 = 0u32;
+            while portal < v -> portal_capacity {
+                var p: u32 = w[PORTAL_META as usize] + portal * 4u32;
+                if w[p as usize] == space && portal + 1u32 != reverse {
+                    if end == v -> view_capacity {
+                        return v -> projection_maximum as u64 * v -> view_capacity as u64;
+                    }
+                    queue[(end * 4u32) as usize] = w[(p + 1u32) as usize];
+                    queue[(end * 4u32 + 1u32) as usize] = level + 1u32;
+                    queue[(end * 4u32 + 2u32) as usize] = w[(p + 2u32) as usize];
+                    end = end + 1u32;
+                }
+                portal = portal + 1u32;
+            }
+        }
+        index = index + 1u32;
+    }
+    return work;
+}
+fn projection_space_size(v: *RenderState, space: u32) -> u32 {
+    var w: *u32 = v -> mapped as *u32;
+    var index: u32 = 0u32;
+    while index < w[SPACE_COUNT as usize] {
+        var p: u32 = w[SPACE_META as usize] + index * 3u32;
+        if w[p as usize] == space {
+            return w[(p + 2u32) as usize];
+        }
+        index = index + 1u32;
+    }
+    return 0u32;
 }

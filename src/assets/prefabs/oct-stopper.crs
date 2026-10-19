@@ -1,0 +1,75 @@
+fn prefab_oct_stopper_parameter_count() -> u32 {
+    return 1u32;
+}
+fn prefab_oct_stopper_parameter_name(index: u32) -> AssetName {
+    return asset_name("depth");
+}
+fn prefab_oct_stopper_parameter(index: u32) -> AssetParameter {
+    return make AssetParameter {
+        minimum: 0.1f32,
+        maximum: 2f32,
+        initial: 0.4f32,
+        step: 0.1f32
+    };
+}
+fn prefab_oct_stopper_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !prefab_oct_stopper_parameters_valid(read parameters) {
+        return false;
+    }
+    var depth: f32 = asset_value(read parameters, 0u32);
+    var profile: ConnectionProfile = service_oct_profile();
+    asset.spawn_enabled = false;
+    if !passage_shape(depth, false, profile, mut asset) {
+        return false;
+    }
+    stopper_wall_surfaces(mut asset, profile.shape.sides);
+    var tile: f32 = prefab_oct_stopper_material(1u32, read parameters).tile_metres;
+    asset_surface_set(
+        mut asset.hull,
+        profile.shape.sides + 1u32,
+        make SurfaceFrame {
+            origin: vec(-tile * 0.5f32, depth, -tile * 0.5f32),
+            right: vec(asset.tile_metres / tile, 0f32, 0f32),
+            up: vec(0f32, 0f32, asset.tile_metres / tile),
+            normal: vec(0f32, 1f32, 0f32)
+        }
+    );
+    return oct_stopper_pipes(mut asset, depth + 0.05f32, depth) && room_asset_finish(mut asset) && stopper_door_back(
+        mut asset,
+        depth,
+        profile,
+        3u32
+    );
+}
+fn prefab_oct_stopper_material_count() -> u32 {
+    return 4u32;
+}
+fn prefab_oct_stopper_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 3u32 {
+        return stopper_seat_material();
+    }
+    if region == 2u32 {
+        return service_pipe_material();
+    }
+    if region == 1u32 {
+        return oct_stopper_door_material();
+    }
+    return stopper_wall_material(
+        oct_service_material(0u32),
+        asset_value(read parameters, 0u32)
+    );
+}
+
+fn prefab_oct_stopper_parameters_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_oct_stopper_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_oct_stopper_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

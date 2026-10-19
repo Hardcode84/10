@@ -34,6 +34,9 @@ fn frame_valid(v: *RenderState) -> bool {
     if failure == 2u32 {
         return error("portal view budget exhausted; output rejected");
     }
+    if failure == 3u32 {
+        return error("geometry batch queue exceeds its admitted work bound");
+    }
     return true;
 }
 record RenderConfig {
@@ -68,7 +71,7 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
     v -> portal_capacity = config -> portal_budget;
     v -> task_capacity = config -> task_budget;
     v -> crossing_limit = config -> crossing_limit;
-    v -> query_count = 4u32 + (config -> crossing_limit + 1u32) * 4u32;
+    v -> query_count = 4u32 + (config -> crossing_limit + 1u32) * 2u32;
     if !device_open(v) || !traversal_valid(v) || !buffer_create(v) || !layout_create(v) {
         return false;
     }

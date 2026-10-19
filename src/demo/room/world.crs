@@ -1,5 +1,10 @@
 fn game_world_open(session: mut GameSession, collision: mut CollisionScene, trial: mut Trial) -> bool {
-    if !demo_room_build(mut session.room, mut collision, mut session.room_mesh) {
+    if !demo_room_build(
+        mut session.room,
+        mut collision,
+        mut session.room_mesh,
+        mut session.control.graph
+    ) {
         return false;
     }
     if !room_asset_player_spawn(read session.room) {
@@ -19,4 +24,8 @@ fn demo_room_start(asset: read RoomAsset, trial: mut Trial) -> unit {
 
 fn game_world_ambient() -> Vec3 {
     return demo_room_ambient();
+}
+
+fn game_world_palette(input: mut FrameInput) -> bool {
+    return demo_palette(mut input);
 }

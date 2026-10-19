@@ -60,6 +60,7 @@ crust main.crs --fullscreen --width 1024 --height 768
 # Fly through the room demo with the game physics and tether.
 crust demo.crs levels/radial.crs
 crust demo.crs levels/cylinder.crs
+crust demo.crs levels/prefabs.crs
 
 # Inspect a generated room recipe.
 crust viewer.crs assets/rooms/radial-start.crs

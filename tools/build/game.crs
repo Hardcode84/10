@@ -1,5 +1,22 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 121] = make [*u8; 121] {
+    var files: [*u8; 138] = make [*u8; 138] {
+        "src/assets/prefabs/oct-stopper.crs",
+        "src/assets/prefabs/hex-t-junction.crs",
+        "src/assets/prefabs/rotor-hub.crs",
+        "src/assets/prefabs/hex-tunnel-10m.crs",
+        "src/assets/prefabs/hex-x-junction.crs",
+        "src/assets/prefabs/hex-elbow.crs",
+        "src/assets/prefabs/hex-dead-end.crs",
+        "src/assets/prefabs/hex-ending.crs",
+        "src/assets/prefabs/oct-x-junction.crs",
+        "src/assets/prefabs/rotor-shaft.crs",
+        "src/assets/prefabs/hex-stopper-open.crs",
+        "src/assets/prefabs/oct-t-junction.crs",
+        "src/assets/prefabs/oct-tunnel-10m.crs",
+        "src/assets/prefabs/hex-tunnel.crs",
+        "src/assets/prefabs/oct-elbow.crs",
+        "src/assets/prefabs/oct-stopper-open.crs",
+        "src/assets/prefabs/hex-stopper.crs",
         "src/assets/geometry/loft.crs",
         "src/assets/geometry/truncated-cube.crs",
         "src/assets/geometry/rhombicuboctahedron.crs",
@@ -123,7 +140,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 121usize {
+    while i < 138usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
@@ -199,7 +216,7 @@ fn build_game_target(
     output: *u8,
     check: *u8
 ) -> bool {
-    var sources: [*u8; 128] = uninit;
+    var sources: [*u8; 256] = uninit;
     var providers: [*u8; 96] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
     if check != null(*u8) {

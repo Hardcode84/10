@@ -26,6 +26,10 @@ fn child_view(parent: u32, portal: u32, view: u32) -> unit {
     }
     floats_store(dst + 16u32, floats_load(src + 16u32) * floats_load(transform + 16u32));
     view_space(view, words_load(words_load(PORTAL_META) + portal * 4u32 + 1u32));
+    words_store(
+        words_load(VIEW_META) + view * 4u32 + 3u32,
+        words_load(words_load(PORTAL_META) + portal * 4u32 + 2u32)
+    );
 }
 fn allocate_key_word(word: u32, mask: u32, views: u32) -> u32 {
     var next: u32 = views;
@@ -120,11 +124,62 @@ fn reduce_view_keys() -> unit {
     }
 }
 fn compute() -> unit {
-    if words_load(5u32) == 0u32 {
+    if words_load(BATCH_MODE) == 0u32 && words_load(5u32) == 0u32 {
         reduce_view_keys();
     }
     shader_barrier();
     if shader_global_x() == 0u32 {
-        advance();
+        if words_load(BATCH_MODE) != 0u32 {
+            plan_geometry_batch();
+        } else {
+            advance();
+        }
+    }
+}
+fn plan_geometry_batch() -> unit {
+    words_store(16u32, 0u32);
+    words_store(BATCH_COUNT, 0u32);
+    if words_load(5u32) != 0u32 {
+        return;
+    }
+    var begin: u32 = words_load(9u32);
+    var end: u32 = begin + words_load(10u32);
+    var i: u32 = begin;
+    while i < end {
+        words_store(words_load(BATCH_META) + i * 4u32 + 3u32, 0u32);
+        i = i + 1u32;
+    }
+    if (words_load(BATCH_MODE) & 2u32) != 0u32 {
+        words_store(BATCH_VIEW, begin);
+        words_store(BATCH_TRIANGLE, 0u32);
+    }
+    var view: u32 = words_load(BATCH_VIEW);
+    var local: u32 = words_load(BATCH_TRIANGLE);
+    words_store(BATCH_FIRST, view);
+    var used: u32 = 0u32;
+    while view < end && used < words_load(PROJECTION_CAPACITY) {
+        var count: u32 = view_triangles(view) - local;
+        if count > words_load(PROJECTION_CAPACITY) - used {
+            count = words_load(PROJECTION_CAPACITY) - used;
+        }
+        var p: u32 = words_load(BATCH_META) + view * 4u32;
+        words_store(p, local);
+        words_store(p + 1u32, count);
+        words_store(p + 2u32, used);
+        words_store(p + 3u32, 1u32);
+        used = used + count;
+        local = local + count;
+        words_store(BATCH_END, view + 1u32);
+        if local == view_triangles(view) {
+            view = view + 1u32;
+            local = 0u32;
+        }
+    }
+    words_store(BATCH_VIEW, view);
+    words_store(BATCH_TRIANGLE, local);
+    words_store(BATCH_COUNT, used);
+    words_store(16u32, geometry_groups(used));
+    if (words_load(BATCH_MODE) & 4u32) != 0u32 && view != end {
+        words_store(5u32, 3u32);
     }
 }

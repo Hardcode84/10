@@ -4,8 +4,8 @@ fn compute() -> unit {
 
     var view: u32 = words_load(9u32) + index;
     var size: u32 = 0u32;
-    if index < words_load(10u32) && words_load(5u32) == 0u32 {
-        size = view_triangles(view) * MAX_FAN;
+    if index < words_load(10u32) && words_load(5u32) == 0u32 && batch_active(view) {
+        size = batch_size(view) * MAX_FAN;
     }
     var chunk: u32 = (size + LOCAL_SIZE - 1u32) / LOCAL_SIZE;
     var begin: u32 = lane * chunk;
@@ -13,7 +13,10 @@ fn compute() -> unit {
     if end > size {
         end = size;
     }
-    var base: u32 = words_load(PROJECTED_OFFSET) + view * words_load(PROJECTION_CAPACITY) * MAX_FAN * 20u32;
+    var base: u32 = 0u32;
+    if size != 0u32 {
+        base = words_load(PROJECTED_OFFSET) + batch_offset(view) * MAX_FAN * 20u32;
+    }
     var count: u32 = 0u32;
     var i: u32 = begin;
     while i < end {
@@ -37,7 +40,7 @@ fn compute() -> unit {
     while i < end {
         if floats_load(base + i * 20u32 + 18u32) > 0f32 {
             words_store(
-                words_load(COMPACT_OFFSET) + view * words_load(PROJECTION_CAPACITY) * MAX_FAN + offset,
+                words_load(COMPACT_OFFSET) + batch_offset(view) * MAX_FAN + offset,
                 i
             );
             offset = offset + 1u32;

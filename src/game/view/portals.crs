@@ -8,6 +8,7 @@ fn render_portals(input: mut FrameInput, collision: read CollisionScene) -> unit
         var meta: usize = (input_word(read input, PORTAL_META as usize) + i * 4u32) as usize;
         input_set_word(mut input, meta, p.space);
         input_set_word(mut input, meta + 1usize, p.destination);
+        input_set_word(mut input, meta + 2usize, p.reverse + 1u32);
         var base: usize = (
             input_word(read input, PORTAL_FLOAT as usize) + i * PORTAL_TRANSFORM_WORDS
         ) as usize;

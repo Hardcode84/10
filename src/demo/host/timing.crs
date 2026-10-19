@@ -25,7 +25,7 @@ fn queries_report(v: *RenderState) -> bool {
         return false;
     }
     puts(
-        "last frame GPU intervals in microseconds: upload/init; transform/compact/raster/advance per depth; compose; readback"
+        "last frame GPU intervals in microseconds: upload/init; geometry batches/advance per depth; compose; readback"
     );
     var i: usize = 1usize;
     while i < v -> query_count as usize {

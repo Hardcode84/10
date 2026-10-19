@@ -37,7 +37,12 @@ fn cylinder_port(shape: RegularProfile, far: bool) -> RoomPort {
     }
     return port;
 }
-fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mut Mesh) -> bool {
+fn demo_room_build(
+    asset: mut RoomAsset,
+    collision: mut CollisionScene,
+    mesh: mut Mesh,
+    graph: mut RoomGraph
+) -> bool {
     var shape: RegularProfile = make RegularProfile {
         sides: 32u32,
         phase: 0f32
@@ -96,4 +101,8 @@ fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mu
 // Constant room light, added to player and hook lighting.
 fn demo_room_ambient() -> Vec3 {
     return vec(0.18f32, 0.20f32, 0.24f32);
+}
+
+fn demo_palette(input: mut FrameInput) -> bool {
+    return game_room_palette(mut input);
 }

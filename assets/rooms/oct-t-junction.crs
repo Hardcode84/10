@@ -2,30 +2,21 @@
 // Local +Z is up. The west wall is continuous, without a closed hatch.
 // Leg is the distance from the centre to each 8 m mouth.
 // Four service pipes match the straight tunnel; the central flight path is clear.
-const CONNECTIONS: u32 = 7u32;
 fn room_parameter_count() -> u32 {
-    return 1u32;
+    return prefab_oct_t_junction_parameter_count();
 }
 fn room_parameter(index: u32) -> AssetParameter {
-    return make AssetParameter {
-        minimum: 5f32,
-        maximum: 12f32,
-        initial: 5f32,
-        step: 0.5f32
-    };
+    return prefab_oct_t_junction_parameter(index);
 }
 fn room_parameter_name(index: u32) -> AssetName {
-    return asset_name("leg");
+    return prefab_oct_t_junction_parameter_name(index);
 }
 fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    if !asset_parameters_valid(read parameters) {
-        return false;
-    }
-    return oct_junction_build(CONNECTIONS, asset_value(read parameters, 0u32), mut asset);
+    return prefab_oct_t_junction_build(read parameters, mut asset);
 }
 fn room_material_count() -> u32 {
-    return 2u32;
+    return prefab_oct_t_junction_material_count();
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
-    return oct_service_material(region);
+    return prefab_oct_t_junction_material(region, read parameters);
 }

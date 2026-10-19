@@ -41,7 +41,7 @@ fn upload_scene(v: *RenderState) -> unit {
         true
     );
     persistent_upload(v);
-    copy_region(v, v -> staging, v -> buffer, 0u64, (SPACE_COUNT as u64 + 2u64) * 4u64);
+    copy_region(v, v -> staging, v -> buffer, 0u64, (HIT_FLOAT as u64 + 2u64) * 4u64);
     if (v -> mapped as *u32)[OVERLAY_ENABLED as usize] != 0u32 {
         copy_region(
             v,

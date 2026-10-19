@@ -206,7 +206,7 @@ fn game_run_active(
 fn game_materials_open(session: mut GameSession, config: GameConfig) -> bool {
     var renderer: mut Renderer = game_renderer(mut session);
     var inputs: FrameInput = renderer_inputs(mut renderer);
-    if !game_room_palette(mut inputs) {
+    if !game_world_palette(mut inputs) {
         return false;
     }
     var ambient: Vec3 = game_world_ambient();

@@ -1,12 +1,12 @@
 fn geometry_layout(v: *RenderState, capacity: u32) -> bool {
-    var projected_count: u64 = v -> projection_capacity as u64 * v -> view_capacity as u64;
+    var projected_count: u64 = v -> projection_capacity as u64;
     if projected_count > v -> storage_limit as u64 / (4u64 * (MAX_FAN as u64 * 20u64 + 144u64)) {
         return error("room projection storage exceeds device storage range");
     }
     var projected: u64 = GEOMETRY as u64 + capacity as u64 * 15u64;
     var clip: u64 = projected + projected_count * MAX_FAN as u64 * 20u64;
     var floats: u64 = (
-        clip + projected_count * 144u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
+        clip + projected_count * 144u64 + v -> width as u64 * v -> height as u64 * 3u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
             v
         ) + v -> light_capacity as u64 * 8u64 + shadow_elements(v, capacity) * 12u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
@@ -36,9 +36,9 @@ fn geometry_header(v: *RenderState) -> unit {
     image_viewport(v);
     w[SCENE_CAPACITY as usize] = capacity;
     w[PROJECTED_OFFSET as usize] = GEOMETRY + capacity * 15u32;
-    w[CLIP_OFFSET as usize] = w[PROJECTED_OFFSET as usize] + v -> projection_capacity * v -> view_capacity * MAX_FAN * 20u32;
+    w[CLIP_OFFSET as usize] = w[PROJECTED_OFFSET as usize] + v -> projection_capacity * MAX_FAN * 20u32;
     w[COMPACT_OFFSET as usize] = w[META as usize] + capacity * 4u32;
-    w[TILE_BITS as usize] = w[COMPACT_OFFSET as usize] + v -> projection_capacity * v -> view_capacity * MAX_FAN;
+    w[TILE_BITS as usize] = w[COMPACT_OFFSET as usize] + v -> projection_capacity * MAX_FAN;
     w[ASSET_OFFSET as usize] = w[TILE_BITS as usize] + tile_bit_words(
         v,
         v -> projection_capacity
@@ -51,7 +51,8 @@ fn geometry_header(v: *RenderState) -> unit {
     w[PROJECTION_CAPACITY as usize] = v -> projection_capacity;
     w[INSTANCE_META as usize] = w[MESH_META as usize] + v -> mesh_capacity * 4u32;
     w[INSTANCE_VISIBLE as usize] = w[INSTANCE_META as usize] + v -> instance_capacity * 5u32;
-    w[MESH_FLOAT as usize] = w[CLIP_OFFSET as usize] + v -> projection_capacity * v -> view_capacity * 144u32;
+    w[HIT_FLOAT as usize] = w[CLIP_OFFSET as usize] + v -> projection_capacity * 144u32;
+    w[MESH_FLOAT as usize] = w[HIT_FLOAT as usize] + v -> width * v -> height * 3u32;
     w[INSTANCE_FLOAT as usize] = w[MESH_FLOAT as usize] + v -> mesh_capacity * 15u32;
     traversal_header(v);
     w[LIGHT_DATA as usize] = w[PORTAL_FLOAT as usize] + v -> portal_capacity * PORTAL_TRANSFORM_WORDS;
@@ -140,15 +141,13 @@ fn storage_replace(v: *RenderState, planned: *RenderState) -> bool {
 }
 fn geometry_limit(v: *RenderState) -> u32 {
     var elements: u64 = (v -> storage_limit as u64 / 256u64) * 64u64 - 1u64;
-    var fixed_words: u64 = v -> projection_capacity as u64 * v -> view_capacity as u64 * MAX_FAN as u64 + tile_bit_words(
+    var fixed_words: u64 = v -> projection_capacity as u64 * MAX_FAN as u64 + tile_bit_words(
         v,
         v -> projection_capacity
     ) + image_words(v) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 4u64 + v -> instance_capacity as u64 * (
         5u64 + v -> view_capacity as u64
     ) + traversal_words(v) + v -> light_capacity as u64 + v -> light_capacity as u64 * v -> instance_capacity as u64 * 9u64;
-    var fixed_floats: u64 = v -> projection_capacity as u64 * v -> view_capacity as u64 * (
-        MAX_FAN as u64 * 20u64 + 144u64
-    ) + GEOMETRY as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
+    var fixed_floats: u64 = v -> projection_capacity as u64 * (MAX_FAN as u64 * 20u64 + 144u64) + v -> width as u64 * v -> height as u64 * 3u64 + GEOMETRY as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * 18u64 + traversal_floats(
         v
     ) + v -> light_capacity as u64 * (8u64 + v -> instance_capacity as u64 * 12u64);
     if elements <= fixed_words || elements <= fixed_floats {
@@ -178,7 +177,7 @@ fn traversal_floats(v: *RenderState) -> u64 {
 fn traversal_words(v: *RenderState) -> u64 {
     return v -> task_capacity as u64 * (10u64 + LOCAL_SIZE as u64 * 3u64) + (
         (v -> task_capacity as u64 + 63u64) / 64u64
-    ) * 2u64 + v -> view_capacity as u64 * (5u64 + v -> portal_capacity as u64) + v -> portal_capacity as u64 * 4u64 + (
+    ) * 2u64 + v -> view_capacity as u64 * (9u64 + v -> portal_capacity as u64) + v -> portal_capacity as u64 * 4u64 + (
         (v -> task_capacity as u64 + 32767u64) / 32768u64
     ) * 9u64 + ((v -> task_capacity as u64 + 63u64) / 64u64) * (
         (v -> view_capacity as u64 * v -> portal_capacity as u64 + 31u64) / 32u64
@@ -193,7 +192,8 @@ fn traversal_header(v: *RenderState) -> unit {
         1u32 + LOCAL_SIZE * 3u32
     );
     w[VIEW_META as usize] = w[VIEW_MAP as usize] + v -> view_capacity * v -> portal_capacity;
-    w[PORTAL_META as usize] = w[VIEW_META as usize] + v -> view_capacity * 4u32;
+    w[BATCH_META as usize] = w[VIEW_META as usize] + v -> view_capacity * 4u32;
+    w[PORTAL_META as usize] = w[BATCH_META as usize] + v -> view_capacity * 4u32;
     w[COMPACT_COUNT as usize] = w[PORTAL_META as usize] + v -> portal_capacity * 4u32;
     w[TASK_PREFIX as usize] = w[COMPACT_COUNT as usize] + v -> view_capacity;
     w[GROUP_COUNTS as usize] = w[TASK_PREFIX as usize] + v -> task_capacity;

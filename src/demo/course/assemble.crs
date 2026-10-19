@@ -1,0 +1,169 @@
+record CourseCursor {
+    room: u32;
+}
+fn course_room_mesh(
+    asset: read RoomAsset,
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    kind: u32,
+    variant: u32
+) -> bool {
+    var id: u32 = graph_add_ports(
+        mut graph,
+        kind,
+        0u32,
+        0u32,
+        asset_port_count(read asset.ports)
+    );
+    var node: GraphNode = graph_node(read graph, id);
+    node.style = variant;
+    var render: Mesh = mesh_new();
+    var walls: Mesh = mesh_new();
+    if !room_linked_mesh(read asset, mut render, mut walls, course_material_base(kind)) || !collision_append(
+        mut builder,
+        read walls,
+        id,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) || !room_parts_collision(read asset, mut builder, id) {
+        return false;
+    }
+    node.mesh.first = mesh_triangle_count(read mesh);
+    node.mesh.count = mesh_triangle_count(read render);
+    node.mesh.bounds = graph_mesh_bounds(read render);
+    var i: u32 = 0u32;
+    while i < node.count {
+        var socket: GraphSocket = graph_socket(read graph, node.first + i);
+        socket.port = asset_port(read asset.ports, i);
+        graph_socket_set(mut graph, node.first + i, socket);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < node.mesh.count {
+        var t: MeshTriangle = mesh_triangle(read render, i);
+        if t.portal != 0u32 {
+            t.portal = t.portal + node.first;
+        }
+        if !mesh_append(mut mesh, t) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    graph_node_set(mut graph, id, node);
+    return true;
+}
+fn course_append(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    kind: u32,
+    variant: u32,
+    cursor: mut CourseCursor
+) -> bool {
+    var values: AssetValues = asset_values_new();
+    var asset: RoomAsset = room_asset_new();
+    cursor.room = graph_count(read graph);
+    return course_values(kind, variant, mut values) && course_build(
+        kind,
+        read values,
+        mut asset
+    ) && course_room_mesh(read asset, mut graph, mut builder, mut mesh, kind, variant);
+}
+fn course_socket(graph: read RoomGraph, room: u32, name: AssetName) -> u32 {
+    var node: GraphNode = graph_node(read graph, room);
+    var i: u32 = 0u32;
+    while i < node.count {
+        if asset_names_equal(graph_socket(read graph, node.first + i).port.id, name) {
+            return node.first + i;
+        }
+        i = i + 1u32;
+    }
+    asset_name_print(name);
+    error("course names a port which is absent from its prefab");
+    trap;
+}
+fn course_pair(graph: mut RoomGraph, first: u32, second: u32) -> unit {
+    var a: GraphSocket = graph_socket(read graph, first);
+    var b: GraphSocket = graph_socket(read graph, second);
+    if a.peer != 0xffffffffu32 || b.peer != 0xffffffffu32 {
+        error("course connects a port twice");
+        trap;
+    }
+    var roll: u32 = connection_rotations(a.port, b.port) / 2u32;
+    a.peer = second;
+    b.peer = first;
+    a.roll = roll;
+    b.roll = roll;
+    graph_socket_set(mut graph, first, a);
+    graph_socket_set(mut graph, second, b);
+}
+fn course_step(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut CourseCursor,
+    exit_name: AssetName,
+    kind: u32,
+    entry_name: AssetName,
+    variant: u32
+) -> bool {
+    var first: u32 = course_socket(read graph, cursor.room, exit_name);
+    if !course_append(mut graph, mut builder, mut mesh, kind, variant, mut cursor) {
+        return false;
+    }
+    var second: u32 = course_socket(read graph, cursor.room, entry_name);
+    course_pair(mut graph, first, second);
+    return true;
+}
+fn course_close_ports(graph: mut RoomGraph, builder: mut CollisionBuilder, mesh: mut Mesh) -> bool {
+    var count: u32 = graph_ports(read graph);
+    var i: u32 = 0u32;
+    while i < count {
+        var socket: GraphSocket = graph_socket(read graph, i);
+        if socket.peer == 0xffffffffu32 {
+            var kind: u32 = PREFAB_HEX_STOPPER;
+            if asset_names_equal(socket.port.profile.name, service_oct_profile().name) {
+                kind = PREFAB_OCT_STOPPER;
+            } else if !asset_names_equal(
+                socket.port.profile.name,
+                service_hex_profile().name
+            ) {
+                return error("course has no stopper for an unconnected profile");
+            }
+            var cursor: CourseCursor = make CourseCursor {
+                room: 0u32
+            };
+            if !course_append(mut graph, mut builder, mut mesh, kind, 0u32, mut cursor) {
+                return false;
+            }
+            var second: u32 = course_socket(read graph, cursor.room, asset_name("ENTRY"));
+            course_pair(mut graph, i, second);
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn course_links(graph: read RoomGraph, builder: mut CollisionBuilder) -> bool {
+    var i: u32 = 0u32;
+    while i < graph_ports(read graph) {
+        var a: GraphSocket = graph_socket(read graph, i);
+        if a.peer == 0xffffffffu32 {
+            return error("course leaves an unconnected port");
+        }
+        var b: GraphSocket = graph_socket(read graph, a.peer);
+        if !connection_link(
+            mut builder,
+            a.port,
+            b.port,
+            a.room,
+            b.room,
+            a.roll,
+            a.peer
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

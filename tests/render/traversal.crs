@@ -132,10 +132,14 @@ fn traversal_scene(v: mut FrameInput, index: u32) -> unit {
         }
         i = i + 1u32;
     }
-    traversal_destination(mut v);
+    var layers: u32 = 0u32;
+    if index == 0u32 {
+        layers = 65u32;
+    }
+    traversal_destination(mut v, layers);
 }
 
-fn traversal_destination(v: mut FrameInput) -> unit {
+fn traversal_destination(v: mut FrameInput, layers: u32) -> unit {
     var first: u32 = input_word(read v, 3usize);
     quad(
         mut v,
@@ -163,6 +167,31 @@ fn traversal_destination(v: mut FrameInput) -> unit {
         input_set_float(mut v, p + 3usize, u);
         i = i + 1u32;
     }
+    // Occluded panels make recursive destinations cross geometry batch boundaries.
+    i = 0u32;
+    while i < layers {
+        var z: f32 = 4f32 + i as f32;
+        quad(
+            mut v,
+            1u32,
+            0u32,
+            0u32,
+            0u32,
+            -90f32,
+            -90f32,
+            z,
+            90f32,
+            -90f32,
+            z,
+            90f32,
+            90f32,
+            z,
+            -90f32,
+            90f32,
+            z
+        );
+        i = i + 1u32;
+    }
 }
 
 fn traversal_pixel_portals(v: mut FrameInput) -> unit {
@@ -180,5 +209,5 @@ fn traversal_pixel_portals(v: mut FrameInput) -> unit {
         );
         i = i + 1u32;
     }
-    traversal_destination(mut v);
+    traversal_destination(mut v, 65u32);
 }

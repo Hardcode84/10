@@ -325,6 +325,9 @@ fn portal_facing(view: u32, portal: u32) -> bool {
     if portal == 0u32 {
         return true;
     }
+    if portal == words_load(words_load(VIEW_META) + view * 4u32 + 3u32) {
+        return false;
+    }
     render_debug_assert(portal <= words_load(PORTAL_CAPACITY));
     if portal > words_load(PORTAL_CAPACITY) {
         return false;
@@ -545,4 +548,35 @@ fn light_radius_squared(light: u32, view: u32) -> f32 {
         radius = radius / view_scale_squared(p);
     }
     return radius;
+}
+fn batch_start(view: u32) -> u32 {
+    return words_load(words_load(BATCH_META) + view * 4u32);
+}
+fn batch_size(view: u32) -> u32 {
+    return words_load(words_load(BATCH_META) + view * 4u32 + 1u32);
+}
+fn batch_offset(view: u32) -> u32 {
+    return words_load(words_load(BATCH_META) + view * 4u32 + 2u32);
+}
+fn batch_active(view: u32) -> bool {
+    return words_load(words_load(BATCH_META) + view * 4u32 + 3u32) != 0u32;
+}
+fn batch_finished(view: u32) -> bool {
+    return batch_active(view) && batch_start(view) + batch_size(view) == view_triangles(view);
+}
+fn batch_triangle(view: u32, local: u32) -> u32 {
+    return view_triangle(view, batch_start(view) + local);
+}
+fn batch_slot_view(slot: u32) -> u32 {
+    var begin: u32 = words_load(BATCH_FIRST);
+    var end: u32 = words_load(BATCH_END);
+    while begin < end {
+        var middle: u32 = begin + (end - begin) / 2u32;
+        if slot >= batch_offset(middle) + batch_size(middle) {
+            begin = middle + 1u32;
+        } else {
+            end = middle;
+        }
+    }
+    return begin;
 }

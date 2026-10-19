@@ -8,6 +8,7 @@ program with the Crust ownership stage. Device programs use the shader stage.
 | `crust main.crs` | Play the portal graph. Use `--seed N --complexity N`. |
 | `crust main.crs --web` | Build the same game for WebAssembly and WebGPU. |
 | `crust demo.crs levels/radial.crs` | Fly through the generated room with game controls and linked portals. |
+| `crust demo.crs levels/prefabs.crs` | Inspect all room presets in one connected flight course. |
 | `crust viewer.crs ROOM.crs` | Build and inspect a Crust room recipe. |
 | `crust tests.crs` | Run all automated checks. |
 
@@ -33,6 +34,7 @@ application functions as the applications.
 | `src/collision/` | Mesh storage, kinematic poses, spatial indices, sphere queries, and contact solving |
 | `src/app/` | Shared window, clock, capture, shader, and asset helpers |
 | `src/app/web/` | Browser launcher, window provider, and toolchain configuration |
+| `src/demo/course/` | Prefab selection, material upload, and course assembly |
 | `src/demo/room/` | Flight demo entry and room links |
 | `src/demo/host/` | Automatic playback fixture used by renderer checks |
 | `src/demo/scene/` | Automatic scene fixture used by renderer checks |
@@ -43,6 +45,7 @@ application functions as the applications.
 | `src/game/tasks/` | Prepared predictions and same-frame CPU/GPU overlap |
 | `src/viewer/` | Prefab viewer |
 | `src/assets/` | Parametric hull, surface, material, and room bundle operations |
+| `src/assets/prefabs/` | Shared prefab builders and material definitions |
 | `assets/rooms/` | Room recipes in normal Crust source files |
 | `tools/build/` | Shared application setup, component source lists, and native providers |
 | `tests/render/` | Renderer fixtures, CPU reference, and image checks |

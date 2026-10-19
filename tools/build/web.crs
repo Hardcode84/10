@@ -29,7 +29,7 @@ fn build_web_game(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    var sources: [*u8; 128] = uninit;
+    var sources: [*u8; 256] = uninit;
     var providers: [*u8; 96] = uninit;
     var source_count: usize = game_sources(root, &sources[0usize]);
     var count: usize = render_providers(root, &providers[0usize]);

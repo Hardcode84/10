@@ -89,7 +89,7 @@ fn check_collision_ownership(root: *CrustRun) -> bool {
     var providers: [*u8; 96] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
     count = count + game_providers(root, &providers[count]);
-    var args: [*u8; 128] = uninit;
+    var args: [*u8; 256] = uninit;
     args[0usize] = "--check";
     args[1usize] = "--library";
     args[2usize] = host_path(root, "src/render/interface.crs");

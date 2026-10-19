@@ -116,7 +116,7 @@ fn frame_setup_submit(setup: mut FrameSetup) -> SubmittedFrame from setup {
     var v: *RenderState = &setup.storage;
     retirement_wait(v);
     projection_members(v);
-    if projection_spaces(v) > v -> projection_capacity {
+    if projection_spaces(v) > v -> projection_maximum {
         trap;
     }
     var accepted: bool = setup.outcome == 1i32 && render_numeric_bounds(v) && retirement_observer_open(

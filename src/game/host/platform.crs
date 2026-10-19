@@ -84,7 +84,7 @@ fn game_open(session: mut GameSession, input: mut InputState) -> bool {
         }
     }
     var portals: u32 = asset_port_count(read session.room.ports);
-    if !o -> config.room_demo {
+    if graph_count(read session.control.graph) != 0u32 {
         portals = graph_ports(read session.control.graph);
     }
     return game_renderer_open(
@@ -126,7 +126,7 @@ fn game_static_open(session: mut GameSession, world: u32) -> bool {
         return false;
     }
     var input: FrameInput = renderer_inputs(mut session.renderer);
-    if session.control.launch.config.room_demo {
+    if graph_count(read session.control.graph) == 0u32 {
         return static_upload(mut input, mut session.world, read session.room_mesh);
     }
     return graph_upload(

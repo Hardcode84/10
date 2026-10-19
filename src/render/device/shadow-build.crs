@@ -39,6 +39,9 @@ fn shadow_dynamic_seed(light: u32) -> unit {
     shadow_node_set(first * 2u32, first, count, 0xffffffffu32);
 }
 fn shadow_top_seed(light: u32) -> unit {
+    if words_load(INSTANCE_COUNT) == 0u32 {
+        return;
+    }
     var space: u32 = words_load(words_load(LIGHT_SPACE) + light);
     var first: u32 = words_load(SHADOW_TOP) + light * words_load(INSTANCE_CAPACITY);
     var count: u32 = 0u32;

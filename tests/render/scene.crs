@@ -69,6 +69,7 @@ fn portal_setup(v: mut FrameInput) -> unit {
         input_set_float(mut v, p + 5usize, 1f32);
         input_set_float(mut v, p + 10usize, 1f32);
         input_set_float(mut v, p + 14usize, 1f32);
+        input_set_word(mut v, (portal_meta + i * 4u32 + 2u32) as usize, 0u32);
         input_set_word(mut v, (portal_meta + i * 4u32 + 1u32) as usize, 1u32);
         i = i + 1u32;
     }

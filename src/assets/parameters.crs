@@ -17,10 +17,16 @@ fn asset_parameters_valid(values: read AssetValues) -> bool {
     while i < room_parameter_count() {
         var p: AssetParameter = room_parameter(i);
         var value: f32 = asset_value(read values, i);
-        if value - value != 0f32 || value < p.minimum || value > p.maximum {
-            return error("room parameter is outside its declared range");
+        if !asset_parameter_valid(p, value) {
+            return false;
         }
         i = i + 1u32;
+    }
+    return true;
+}
+fn asset_parameter_valid(parameter: AssetParameter, value: f32) -> bool {
+    if value - value != 0f32 || value < parameter.minimum || value > parameter.maximum {
+        return error("room parameter is outside its declared range");
     }
     return true;
 }

@@ -1,6 +1,11 @@
 // Adjacent sides connect through one-metre tunnels: 0/1, 2/3, 4/5, and 6/7.
 // The half-roll keeps local +Y upright at each crossing.
-fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mut Mesh) -> bool {
+fn demo_room_build(
+    asset: mut RoomAsset,
+    collision: mut CollisionScene,
+    mesh: mut Mesh,
+    graph: mut RoomGraph
+) -> bool {
     var values: AssetValues = asset_values_new();
     if !asset_values_allocate(mut values, room_parameter_count()) {
         return false;
@@ -47,4 +52,8 @@ fn demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene, mesh: mu
 // Constant room light, added to player and hook lighting.
 fn demo_room_ambient() -> Vec3 {
     return vec(0f32, 0f32, 0f32);
+}
+
+fn demo_palette(input: mut FrameInput) -> bool {
+    return game_room_palette(mut input);
 }

@@ -70,7 +70,7 @@ signals and the selected readback is available. The `--tasks` experiment uses
 through completion and validation. Its destructor drains accepted work.
 CPU simulation and prediction can run while that loan remains active.
 The experiment keeps one GPU frame in flight.
-Draw can replace storage to increase room projection capacity. Callers must
+Draw can replace storage to increase the reusable projection batch capacity. Callers must
 release input borrows before draw and acquire mapped addresses again after draw.
 
 Each submitted render command buffer owns the device and staging ranges until

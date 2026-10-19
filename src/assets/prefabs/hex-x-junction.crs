@@ -1,0 +1,45 @@
+const prefab_hex_x_junction_CONNECTIONS: u32 = 15u32;
+fn prefab_hex_x_junction_parameter_count() -> u32 {
+    return 1u32;
+}
+fn prefab_hex_x_junction_parameter(index: u32) -> AssetParameter {
+    return make AssetParameter {
+        minimum: 0.25f32,
+        maximum: 3f32,
+        initial: 0.5f32,
+        step: 0.25f32
+    };
+}
+fn prefab_hex_x_junction_parameter_name(index: u32) -> AssetName {
+    return asset_name("collar");
+}
+fn prefab_hex_x_junction_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !prefab_hex_x_junction_parameters_valid(read parameters) {
+        return false;
+    }
+    return hex_junction_build(
+        prefab_hex_x_junction_CONNECTIONS,
+        asset_value(read parameters, 0u32),
+        mut asset
+    );
+}
+fn prefab_hex_x_junction_material_count() -> u32 {
+    return 1u32;
+}
+fn prefab_hex_x_junction_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return hex_tunnel_material();
+}
+
+fn prefab_hex_x_junction_parameters_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_hex_x_junction_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_hex_x_junction_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

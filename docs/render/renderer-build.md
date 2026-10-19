@@ -255,8 +255,7 @@ follow the checked layout in `src/render/host/geometry.crs`.
 Projection capacity is separate from scene capacity. The host groups submitted
 triangles by space, in submission order within each space. Space identifiers can
 be any `u32` value. Each view selects the group for its space. Projection,
-clipping, compact indices, and tile bits reserve the largest submitted space
-per view, not the complete level per view. Source geometry and shadow data keep
+clipping, compact indices, and tile bits use a bounded batch shared by views. Source geometry and shadow data keep
 global triangle indices. This preserves material lookup and depth tie order.
 An empty space has no projected triangles.
 
@@ -268,7 +267,8 @@ inputs across growth, updates descriptors, and records commands again. The
 submission fence guarantees that no rendering work uses the old buffer during
 replacement. Reserve calls can fail due to device limits, allocation, or Vulkan
 command errors. Replacement waits for pending rendering work to retire.
-Draw can also replace storage when a space needs more projection capacity.
+Draw can also replace storage when the reusable projection batch grows.
+The batch holds at most 8192 source triangles across all views.
 No input borrow or mapped address can remain in use across these calls.
 
 Staging memory must be host-visible, coherent, and cached. Device creation reports an error if the profile cannot
@@ -547,3 +547,34 @@ This storage is also present in the host staging allocation; it is not copied
 between host and device. The benchmark reports both allocations and the
 tile-bit range. The default graph used 31.9 MiB for tile bits in each allocation.
 The native-1080p, complexity-8 graph used 126.6 MiB in each allocation.
+
+## Geometry batches
+
+Projection, clipping, and compacted triangle lists share a buffer for at most
+8192 source triangles. This is a batch size, not a scene or room limit. The
+GPU queues the triangles of each active portal view into consecutive batches.
+Each batch can contain part of a room or several small rooms.
+
+Each pixel keeps its nearest depth, source triangle and fan index, and texture
+coordinates until that view is complete. Cutout samples participate in each
+batch. The final batch shades the winning surface and emits its portal mask.
+The renderer advances to the next portal depth after all batches for the
+current depth are complete. Batches stay in the same command submission;
+they require no CPU readback or wait between batches.
+
+The host bounds the queued work from the submitted space counts and portal
+connections. A bounded walk uses the configured view budget. If this walk
+exceeds that budget, the work bound is the largest space multiplied by the
+view budget. This increases the number of queued dispatches, not scratch
+storage. A queue that exceeds its bound rejects the frame.
+
+Portal metadata word 2 contains a reciprocal portal index plus one, or zero
+when no reciprocal link is declared. A declared reciprocal must lead back
+through the same aperture. The GPU excludes that immediate return from a
+child view. Other recursive views remain valid.
+
+Source meshes, expanded instances, shadow trees, and output pixels retain
+their separate storage. Tile candidate bits depend on image task capacity
+and batch size. Batch work storage no longer multiplies the largest room by
+the view budget. The capacity checks compare split batches with the CPU
+reference, including equal depths and cutout texels.
