@@ -959,6 +959,84 @@ hook lights, scaled portals, and particles. Vulkan synchronization validation
 reports no hazards. Checked and unchecked WebGPU captures match native AMD
 and the prior capture byte for byte.
 
+### Tile raster and shade fusion experiment
+
+The [fusion results](fused-tiles.csv) compare the current bounded tile-list
+path with four temporary shader variants. The test uses the shaft and hub at
+1920 by 1080, pose zero, on Intel Arc Pro B60 and AMD Radeon PRO W7900. Each
+case has eight warm-up frames and 64 measured frames. The full scene includes
+lighting and recursive portal views. The geometry case uses the isolated root
+room and full-bright textures. A fresh baseline uses the same test settings.
+
+The hot path under test is rasterization and shading within one geometry
+batch. The fused shader keeps hit depth, identity, and UV values in registers.
+It writes those values to the continuation buffer only for unfinished views.
+For a finished view, it shades the hit directly and produces the same child
+portal masks. The host omits the separate raster dispatch. Planning, clipping,
+tile assignment, capacity, and portal-depth limits stay unchanged.
+
+The other variants load projected triangle records into workgroup memory in
+chunks of 16 or 64. All lanes participate in chunk loads and barriers, including
+lanes outside the tile's active pixel mask. Candidate count and write passes
+remain separate dispatches. A fourth variant removes two uniform shared loads
+per chunk; ordinary shared loads after a workgroup barrier supply those values.
+The remaining uniform loop-condition load still contains storage-memory fences
+in the current SPIR-V compiler. The driver output confirms those fences.
+
+GPU medians in milliseconds:
+
+| GPU and workload | Baseline | Fused | LDS 16 | LDS 64 | LDS 64, fewer fences |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Intel, shaft geometry | 2.615 | 3.137 | 3.333 | 3.333 | 3.301 |
+| Intel, hub geometry | 3.475 | 3.991 | 4.226 | 4.228 | 4.206 |
+| Intel, shaft full scene | 8.777 | 8.593 | 8.867 | 8.957 | 9.113 |
+| Intel, hub full scene | 9.486 | 9.356 | 9.691 | 9.715 | 9.904 |
+| AMD, shaft geometry | 1.587 | 1.417 | 1.453 | 1.590 | 1.592 |
+| AMD, hub geometry | 1.735 | 1.792 | 1.890 | 2.056 | 1.932 |
+| AMD, shaft full scene | 6.762 | 6.380 | 6.467 | 7.176 | 7.159 |
+| AMD, hub full scene | 6.690 | 6.507 | 6.634 | 7.443 | 7.427 |
+
+All 32 variant captures match the fresh baseline byte for byte. Fusion has
+small gains in some full-scene cases and in the AMD shaft geometry case. It
+increases isolated Intel geometry time by 15 to 20 percent. Neither LDS chunk
+size improves on fusion alone across these cases. The experiment fails the
+cross-device performance gate. Keep the production shaders and schedule.
+
+The current schedule already shades only finished views. Fusion therefore
+cannot remove repeated shading of provisional hits. It removes one dispatch
+and the final hit-buffer round trip, but retains earlier batch continuation,
+projection, list construction, and portal traversal. LDS introduces cooperative
+loads, shared-memory reads, and barriers in each tile's candidate loop.
+
+Intel driver output, with the shader cache disabled, gives this additional
+evidence. Match shaders by pipeline creation order. Instruction and spill
+counts are compiler statistics, not measured execution counts.
+
+| Shader | SIMD width | Instructions | Spills / fills |
+| --- | ---: | ---: | ---: |
+| Baseline list raster | 16 | 1917 | 0 / 0 |
+| Baseline distance shade | 32 | 941 | 0 / 0 |
+| Fused distance shade | 16 | 2743 | 0 / 0 |
+| LDS 64 distance shade | 16 | 2987 | 0 / 0 |
+| Baseline dynamic-light shade | 16 | 8505 | 175 / 154 |
+| Fused dynamic-light shade | 16 | 10319 | 175 / 154 |
+| LDS 64 dynamic-light shade | 16 | 10807 | 189 / 192 |
+
+The fused distance path loses the separate shade pass's SIMD32 compilation.
+The LDS path adds loop and synchronization instructions. The dynamic-light
+shader already spills in the baseline; fusion alone leaves those counts
+unchanged, while LDS increases them. These facts identify costs introduced by
+the variants. They do not assign a measured time to each cost. The baseline
+lighting spills also identify a separate optimization target: reduce the live
+state in light and shadow queries, then inspect allocation and measure complete
+frames again.
+
+A subsequent experiment must reduce these costs before a larger ownership
+change. It must measure shader register allocation and shared-memory traffic,
+use the same complete images, and preserve continuation when geometry exceeds
+the batch capacity. These measurements do not reject tile ownership or shared
+memory in general. They reject this fusion of the current batch pipeline.
+
 ### Acceptance and next proof
 
 The isolated geometry-and-texture gate requires compute complete GPU p50 and
