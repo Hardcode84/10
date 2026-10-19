@@ -263,9 +263,14 @@ fn batch_finish() -> unit {
 fn compute() -> unit {
     var lane: u32 = shader_local_x();
     if lane == 0u32 {
-        batch_initialize();
-        batch_step_begin();
-        shared_store(255u32, batch_has_tree() as u32);
+        if (words_load(BATCH_MODE) & 8u32) != 0u32 {
+            batch_deferred();
+            shared_store(255u32, 0u32);
+        } else {
+            batch_initialize();
+            batch_step_begin();
+            shared_store(255u32, batch_has_tree() as u32);
+        }
     }
     shader_barrier();
     var round: u32 = 0u32;
@@ -277,14 +282,53 @@ fn compute() -> unit {
         if lane == 0u32 {
             batch_workers_finish();
             batch_step_begin();
-            shared_store(255u32, (batch_has_tree() && round + 1u32 < 8u32) as u32);
+            shared_store(
+                255u32,
+                (batch_has_tree() && round + 1u32 < GEOMETRY_WALK_STEPS) as u32
+            );
         }
         shader_barrier();
         round = round + 1u32;
     }
-    if lane == 0u32 {
+    if lane == 0u32 && (words_load(BATCH_MODE) & 8u32) == 0u32 {
         batch_finish();
     }
+}
+
+fn batch_deferred() -> unit {
+    var first: u32 = words_load(BATCH_FIRST);
+    var count: u32 = words_load(BATCH_COUNT);
+    work_count_add(WORK_TRIANGLES, count);
+    if count != 0u32 {
+        work_count_add(WORK_BATCHES, 1u32);
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        var p: u32 = words_load(BATCH_IDS) + i * 3u32;
+        words_store(p, i + 1u32);
+        words_store(p + 1u32, 0xffffffffu32);
+        words_store(p + 2u32, first + i);
+        i = i + 1u32;
+    }
+    var finished: u32 = ((words_load(BATCH_MODE) & 4u32) != 0u32) as u32;
+    var p: u32 = words_load(BATCH_META);
+    words_store(p, 1u32);
+    words_store(p + 1u32, count);
+    words_store(p + 2u32, 0u32);
+    words_store(p + 3u32, 1u32 | (finished * 2u32));
+    words_store(BATCH_FIRST, 0u32);
+    words_store(BATCH_END, 1u32);
+    words_store(BATCH_CLUSTERS, count);
+    words_store(BATCH_SHADE, finished);
+    batch_task_commands(true);
+    words_store(16u32, geometry_groups(count));
+    var fans: u32 = count * MAX_FAN;
+    if fans > MAX_INVOCATIONS / LOCAL_SIZE {
+        fans = MAX_INVOCATIONS / LOCAL_SIZE;
+    }
+    words_store(LIST_COMMAND, fans);
+    words_store(LIST_COMMAND + 1u32, 1u32);
+    words_store(LIST_COMMAND + 2u32, 1u32);
 }
 
 fn work_count_add(field: u32, count: u32) -> unit {

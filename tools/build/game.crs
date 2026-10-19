@@ -130,7 +130,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/burst-console.crs",
         "src/game/tasks/prediction.crs",
         "src/game/tasks/frame.crs",
-        "src/game/tasks/shadow-frame.crs",
+        "src/game/tasks/root-frame.crs",
         "src/game/flight/preview-phase.crs",
         "src/game/view/hook-preview.crs",
         "src/game/host/replay.crs",

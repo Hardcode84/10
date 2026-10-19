@@ -1,4 +1,5 @@
 record RenderState {
+    command_dispatch_base: u32;
     bounds_portals: *u8;
     bounds_bytes: usize;
     bounds_scale: f32;

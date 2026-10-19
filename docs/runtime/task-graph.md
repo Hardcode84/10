@@ -20,9 +20,11 @@ times for the most recent execution. Completion spans record executor observatio
 time, not the device timestamp. Read spans before starting the next execution.
 
 The default task graph prepares the scene after simulation, then submits GPU
-shadow setup. Prediction runs on the application thread while setup is pending.
-After setup retires, the game writes markers into a reserved geometry range.
-Portal rasterization and presentation follow. All work uses the same snapshot.
+shadow setup and root-room geometry rasterization. Prediction runs on the
+application thread, or an optional pool worker, while this GPU work is pending.
+After retirement, the game writes markers into a reserved geometry range.
+The renderer rasterizes those triangles against root hits, then shades the root
+and traverses its portals. Presentation follows. All work uses the same snapshot.
 Inactive reserved triangles preserve the relative order of visible triangles.
 Game input and recording have a separate owner from the renderer.
 Input events remain active during asynchronous GPU and presentation waits.
@@ -381,9 +383,26 @@ cost first, or identify independent queries within each step. Any new split
 must reduce submission and frame time with the same snapshot and output.
 Adding workers or a faster queue alone cannot remove this dependency chain.
 
-#### Same-frame shadow setup experiment
+#### Root geometry overlap
 
-The largest measured candidate is GPU shadow preparation for the current
+The current split extends the initial shadow-only experiment below. The first
+GPU submission also projects and rasterizes root geometry. Root shading waits
+for the prediction result. A second submission adds the reserved marker range
+to the same hit buffer, shades the root, and traverses portals normally.
+The game supplies no previous-frame prediction. Portal masks include the late
+markers before child views are created.
+
+The renderer retains its exclusive loan across both submissions. The host waits
+for the first submission before writing staging data or resetting commands.
+The late upload changes only its reserved geometry and space membership. It
+preserves device traversal state. Both the application-thread and pool-worker
+prediction modes use this boundary. The serial mode remains the comparison path.
+See the [rendering measurements](../render/rendering.md#performance-evidence-and-gates)
+for the production witness and timings.
+
+#### Initial same-frame shadow setup experiment
+
+The initial experiment used GPU shadow preparation for the current
 snapshot. It can run while the CPU calculates prediction. This keeps simulation,
 camera input, and markers in the same frame.
 
@@ -410,11 +429,10 @@ intervals. The probes were removed after measurement.
 `shadow_seed` excludes these triangles. The marker result therefore has no
 semantic effect on the shadow trees. Room lights, drone geometry, tether
 geometry, and retained room instances are available from the simulation
-snapshot before prediction finishes. The current `game_scene_finish` function
-places several of these operations after the prediction join. Move their
-preparation before that join for the experiment.
+snapshot before prediction finishes. The initial split moved their preparation
+before the prediction join.
 
-The intended dependency order is:
+The initial experiment used this dependency order:
 
 ```text
 simulation snapshot
@@ -430,30 +448,18 @@ The renderer owns one command buffer and one submission fence. Mutating these
 inputs or resetting that command buffer while setup runs would violate the
 GPU ownership contract.
 
-Use stable geometry ranges for independently produced batches. Admit their
-storage before the first submission. Separate shadow-casting geometry from
-late non-shadow-casting geometry, with explicit active ranges. Keep source
-uploads immutable until the GPU has consumed them. The two submissions need a provider-owned dependency. Command storage can
-be reused after retirement, or kept separate while both submissions are pending. Run projection-list
-assembly and portal rasterization after the late batch arrives. Preserve
-triangle tie order even if physical storage order changes. The game API must
-expose frame operations and completion, with native and browser details in
-their providers.
+The initial slice reserved inactive, non-shadow-casting triangles at stable
+addresses and admitted their storage before the first submission. A scoped
+`FrameSetup` held the renderer through both submissions. `DeferredInput` waited
+for setup retirement, bounded writes to that reservation, and restored the full
+scene count on scope exit. Unused slots stayed inactive. Late triangles had no
+portal and cast no shadows.
 
-The implemented slice keeps one frame in flight and prediction on the application
-thread. A scoped `FrameSetup` holds the renderer through both submissions.
-`input_defer` reserves inactive, non-shadow-casting triangles at stable addresses.
-Projection storage admits the maximum late batch before setup starts.
-`DeferredInput` waits for setup retirement, bounds triangle writes to that
-reservation, and restores the full scene count on scope exit. Unused slots remain
-inactive. Late triangles must have no portal and must not cast shadows.
-
-The single command buffer and staging allocation are reused only after setup
-retirement. The second submission uploads the completed inputs and runs the
-existing portal rasterization path. Query reset occurs once per complete frame.
-No renderer storage can be borrowed through the owner while setup is live.
-The task graph records setup as an external operation. This bounded schedule
-needs no second frame slot, independent GPU queue, or native type in game code.
+The command buffer and staging allocation were reused after setup retirement.
+The second submission uploaded the completed inputs and ran portal
+rasterization. Query reset occurred once per complete frame. The task graph
+recorded setup as an external operation. The current root raster split retains
+these ownership rules and extends the work in the first submission.
 
 Three paired native runs used the same 80-tick flight, 640 by 480 pixels,
 seed 1, complexity 3, and the Radeon PRO W7900. Each excluded 16 warm-up frames.

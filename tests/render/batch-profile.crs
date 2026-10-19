@@ -1,0 +1,79 @@
+fn batch_profile_open(v: *RenderState, deferred: u32) -> bool {
+    var capacity: u64 = (v -> mapped as *u32)[PROJECTION_CAPACITY as usize] as u64;
+    var count: u64 = 0u64;
+    if benchmark_environment("SPINWARD_OVERLAP") != null(*u8) {
+        count = 5u64 * ((deferred as u64 + capacity - 1u64) / capacity);
+        if deferred == 0u32 {
+            count = 5u64;
+        }
+    }
+    var depth: u32 = 0u32;
+    while depth <= v -> crossing_limit {
+        count = count + 5u64 * (
+            projection_depth_work(v, depth) / (v -> mapped as *u32)[PROJECTION_CAPACITY as usize] as u64 + projection_depth_steps(
+                v,
+                depth
+            ) / GEOMETRY_WALK_STEPS as u64 + 2u64
+        );
+        depth = depth + 1u32;
+    }
+    if count > 0xffffffffu64 {
+        return error("batch profile query count exceeds Vulkan range");
+    }
+    var info: VkQueryPoolCreateInfo = uninit;
+    zero(&info as *u8, sizeof(VkQueryPoolCreateInfo));
+    info.sType = 11u32;
+    info.queryType = 2u32;
+    info.queryCount = count as u32;
+    v -> gpu.batch_query_capacity = count as u32;
+    return vk_ok(
+        vkCreateQueryPool(v -> gpu.device, &info, null(*u8), &v -> gpu.batch_queries),
+        "create batch profile queries"
+    );
+}
+fn batch_profile_read(v: *RenderState, sums: *u64) -> bool {
+    if v -> gpu.batch_queries == null(*u8) {
+        return true;
+    }
+    var i: u32 = 0u32;
+    while i < v -> gpu.batch_query_cursor {
+        var times: [u64; 5] = uninit;
+        if !vk_ok(
+            vkGetQueryPoolResults(
+                v -> gpu.device,
+                v -> gpu.batch_queries,
+                i,
+                5u32,
+                40usize,
+                &times[0usize] as *u8,
+                8u64,
+                3u32
+            ),
+            "read batch profile queries"
+        ) {
+            return false;
+        }
+        var stage: usize = 0usize;
+        while stage < 4usize {
+            sums[stage] = sums[stage] + (
+                (times[stage + 1usize] - times[stage]) & v -> timestamp_mask
+            );
+            stage = stage + 1usize;
+        }
+        i = i + 5u32;
+    }
+    return true;
+}
+fn batch_profile_report(v: *RenderState, sums: *u64, samples: u32) -> unit {
+    if v -> gpu.batch_queries == null(*u8) {
+        return;
+    }
+    puts("profiled GPU planning+projection / tile lists / raster / shade mean ns");
+    var stage: usize = 0usize;
+    while stage < 4usize {
+        print_number((sums[stage] as f32 * v -> timestamp_period / samples as f32) as i64);
+        stage = stage + 1usize;
+    }
+    puts("recorded geometry rounds");
+    print_number((v -> gpu.batch_query_cursor / 5u32) as i64);
+}

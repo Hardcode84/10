@@ -95,3 +95,12 @@ fn retirement_poll(v: *RenderState) -> i32 {
     v -> submitted = false;
     return 1i32;
 }
+
+fn queries_close(v: *RenderState) -> unit {
+    if v -> gpu.query_pool != null(*u8) {
+        vkDestroyQueryPool(v -> gpu.device, v -> gpu.query_pool, null(*u8));
+    }
+    if v -> gpu.batch_queries != null(*u8) {
+        vkDestroyQueryPool(v -> gpu.device, v -> gpu.batch_queries, null(*u8));
+    }
+}

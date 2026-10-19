@@ -196,7 +196,7 @@ fn task_check_split_pixels(
         return error("timing fixture requires one simulation tick per command");
     }
     var v: *RenderState = &session.renderer.state;
-    if !config.tasks || config.workers != 0u32 || !v -> read_pixels {
+    if !config.tasks || !v -> read_pixels {
         return true;
     }
     var size: usize = (

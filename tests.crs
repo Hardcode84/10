@@ -52,8 +52,9 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "course-benchmark") =
         return 2i32;
     }
     var recipe: *u8 = host_path(run, run -> argv[1usize]);
-    var extra: [*u8; 1] = make [*u8; 1] {
-        "tests/render/geometry-benchmark.crs"
+    var extra: [*u8; 2] = make [*u8; 2] {
+        "tests/render/geometry-benchmark.crs",
+        "tests/render/batch-profile.crs"
     };
     if !build_demo_target_providers(
         run,
@@ -63,7 +64,7 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "course-benchmark") =
         null(*u8),
         "build/course-benchmark",
         &extra[0usize],
-        1usize
+        2usize
     ) || !build_render_shaders(run) {
         return 1i32;
     }

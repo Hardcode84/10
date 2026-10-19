@@ -79,14 +79,7 @@ fn scaling_render_input(scene: read CollisionScene, input: mut FrameInput) -> un
         2f32,
         0f32
     );
-    var first: u32 = input_word(read input, 3usize);
-    draw_solid(
-        mut input,
-        solid(vec(-3f32, -3f32, 4f32), vec(3f32, 3f32, 5f32), 4u32)
-    );
-    var anchor: RoomAnchor = primary_anchor(1u32, 1u32);
-    anchor.transform = collision_portal(read scene, 0u32).transform;
-    game_dynamic_anchor(mut input, first, anchor);
+    scaling_render_wall(read scene, mut input);
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
     var light: LightObject = make LightObject {
         id: 0u32,
@@ -137,35 +130,8 @@ fn main(argc: i32, argv: **u8) -> i32 {
             return 1i32;
         }
     }
-    var baseline: u64 = 0u64;
-    var i: u32 = 0u32;
-    while i < 3u32 {
-        var factor: ScaleRatio = scale_identity();
-        if i == 1u32 {
-            factor = scale_ratio(2u64, 1u64);
-        }
-        if i == 2u32 {
-            factor = scale_ratio(1u64, 2u64);
-        }
-        var scene: CollisionScene = collision_new();
-        if !scaling_render_scene(mut scene, factor) {
-            return 1i32;
-        }
-        {
-            var input: FrameInput = renderer_inputs(mut renderer);
-            scaling_render_input(read scene, mut input);
-        }
-        if !renderer_draw(&renderer.state) {
-            return 1i32;
-        }
-        var hash: u64 = scaling_image_hash(read renderer);
-        if i == 0u32 {
-            baseline = hash;
-        }
-        if hash != baseline {
-            return error("scaled room geometry and lights changed their portal image") as i32 + 1i32;
-        }
-        i = i + 1u32;
+    if !scaling_render_checks(mut renderer) {
+        return 1i32;
     }
     if !prediction_view_checks(mut renderer, launch.config) || !scaling_bounds_reject(
         mut renderer
@@ -293,6 +259,9 @@ fn prediction_view_checks(renderer: mut Renderer, config: GameConfig) -> bool {
             if (cyan == 0u32) != (mode == 1u32) || (pink == 0u32) != (mode == 1u32) {
                 return error("near markers must hide while distant recursive copies stay visible");
             }
+            if !prediction_deferred_check(mut renderer, read scene, config, size, mode) {
+                return false;
+            }
             mode = mode + 1u32;
         }
         var hash: u64 = scaling_image_hash(read renderer);
@@ -305,5 +274,150 @@ fn prediction_view_checks(renderer: mut Renderer, config: GameConfig) -> bool {
         i = i + 1u32;
     }
     puts("Prediction copies: near hidden, recursive visible, 0.5x/1x/2x images equal.");
+    return true;
+}
+
+fn prediction_deferred_check(
+    renderer: mut Renderer,
+    scene: read CollisionScene,
+    config: GameConfig,
+    size: f32,
+    mode: u32
+) -> bool {
+    var pixels: [u32; 76800] = uninit;
+    memcpy(
+        &pixels[0usize] as *u8,
+        renderer.state.mapped + PIXELS as isize * 4isize,
+        sizeof([u32; 76800])
+    );
+    var range: DeferredGeometry = uninit;
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        prediction_view_base(mut input, read scene, config, size, mode);
+        input_batch_limit(mut input, 3u32);
+        range = input_defer(mut input, PREVIEW_MARKERS * 8u32);
+    }
+    {
+        var setup: FrameSetup = frame_setup(mut renderer, range);
+        if !frame_setup_accepted(read setup) {
+            return false;
+        }
+        {
+            var edit: DeferredInput = frame_setup_edit(mut setup);
+            prediction_view_markers(deferred_inputs(mut edit), config, size);
+        }
+        var frame: SubmittedFrame = frame_setup_submit(mut setup);
+        var status: i32 = frame_poll(mut frame);
+        while status == 0i32 {
+            frame_idle(mut frame);
+            status = frame_poll(mut frame);
+        }
+        if status < 0i32 {
+            return false;
+        }
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        input_batch_limit(mut input, 0u32);
+    }
+    return memcmp(
+        &pixels[0usize] as *u8,
+        renderer.state.mapped + PIXELS as isize * 4isize,
+        sizeof([u32; 76800])
+    ) == 0i32 || error("late marker batches changed a scaled or recursive image");
+}
+
+fn scaling_render_wall(scene: read CollisionScene, input: mut FrameInput) -> unit {
+    var first: u32 = input_word(read input, 3usize);
+    draw_solid(
+        mut input,
+        solid(vec(-3f32, -3f32, 4f32), vec(3f32, 3f32, 5f32), 4u32)
+    );
+    var anchor: RoomAnchor = primary_anchor(1u32, 1u32);
+    anchor.transform = collision_portal(read scene, 0u32).transform;
+    game_dynamic_anchor(mut input, first, anchor);
+    game_dynamic_no_shadow(mut input, first);
+}
+
+fn scaling_deferred_wall(renderer: mut Renderer, scene: read CollisionScene, expected: u64) -> bool {
+    var pass: u32 = 0u32;
+    while pass < 2u32 {
+        var range: DeferredGeometry = uninit;
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            var count: u32 = 0u32;
+            if pass == 0u32 {
+                scaling_render_input(read scene, mut input);
+                input_set_word(mut input, 3usize, 2u32);
+                count = 12u32;
+            }
+            input_batch_limit(mut input, 3u32);
+            range = input_defer(mut input, count);
+        }
+        {
+            var setup: FrameSetup = frame_setup(mut renderer, range);
+            if !frame_setup_accepted(read setup) {
+                return false;
+            }
+            {
+                var edit: DeferredInput = frame_setup_edit(mut setup);
+                if pass == 0u32 {
+                    scaling_render_wall(read scene, deferred_inputs(mut edit));
+                }
+            }
+            var frame: SubmittedFrame = frame_setup_submit(mut setup);
+            var status: i32 = frame_poll(mut frame);
+            while status == 0i32 {
+                frame_idle(mut frame);
+                status = frame_poll(mut frame);
+            }
+            if status < 0i32 {
+                return false;
+            }
+        }
+        if scaling_image_hash(read renderer) != expected {
+            return error("late geometry or an empty reservation changed the scaled portal image");
+        }
+        pass = pass + 1u32;
+    }
+    var input: FrameInput = renderer_inputs(mut renderer);
+    input_batch_limit(mut input, 0u32);
+    return true;
+}
+
+fn scaling_render_checks(renderer: mut Renderer) -> bool {
+    var baseline: u64 = 0u64;
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var factor: ScaleRatio = scale_identity();
+        if i == 1u32 {
+            factor = scale_ratio(2u64, 1u64);
+        }
+        if i == 2u32 {
+            factor = scale_ratio(1u64, 2u64);
+        }
+        var scene: CollisionScene = collision_new();
+        if !scaling_render_scene(mut scene, factor) {
+            return false;
+        }
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            scaling_render_input(read scene, mut input);
+        }
+        if !renderer_draw(&renderer.state) {
+            return false;
+        }
+        var hash: u64 = scaling_image_hash(read renderer);
+        if i == 0u32 {
+            baseline = hash;
+        }
+        if hash != baseline {
+            return error("scaled room geometry and lights changed their portal image");
+        }
+        if !scaling_deferred_wall(mut renderer, read scene, hash) {
+            return false;
+        }
+        i = i + 1u32;
+    }
     return true;
 }

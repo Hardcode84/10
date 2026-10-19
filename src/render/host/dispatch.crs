@@ -84,9 +84,7 @@ fn device_close(v: *RenderState) -> unit {
         ) {
             exit(1i32);
         }
-        if v -> gpu.query_pool != null(*u8) {
-            vkDestroyQueryPool(v -> gpu.device, v -> gpu.query_pool, null(*u8));
-        }
+        queries_close(v);
         if v -> gpu.acquired != null(*u8) {
             vkDestroyFence(v -> gpu.device, v -> gpu.acquired, null(*u8));
         }
@@ -163,6 +161,15 @@ fn command_begin(v: *RenderState) -> bool {
         return false;
     }
     vkCmdResetQueryPool(v -> gpu.commands, v -> gpu.query_pool, 0u32, v -> query_count);
+    if v -> gpu.batch_queries != null(*u8) {
+        vkCmdResetQueryPool(
+            v -> gpu.commands,
+            v -> gpu.batch_queries,
+            0u32,
+            v -> gpu.batch_query_capacity
+        );
+        v -> gpu.batch_query_cursor = 0u32;
+    }
     return true;
 }
 fn command_continue(v: *RenderState) -> bool {
@@ -196,6 +203,21 @@ fn command_stamp(v: *RenderState, index: u32) -> unit {
         stage = 1u32;
     }
     vkCmdWriteTimestamp(v -> gpu.commands, stage, v -> gpu.query_pool, index);
+}
+fn command_batch_stamp(v: *RenderState) -> unit {
+    if v -> gpu.batch_queries == null(*u8) {
+        return;
+    }
+    if v -> gpu.batch_query_cursor >= v -> gpu.batch_query_capacity {
+        trap;
+    }
+    vkCmdWriteTimestamp(
+        v -> gpu.commands,
+        8192u32,
+        v -> gpu.batch_queries,
+        v -> gpu.batch_query_cursor
+    );
+    v -> gpu.batch_query_cursor = v -> gpu.batch_query_cursor + 1u32;
 }
 fn command_clear(v: *RenderState, offset: u64, size: u64) -> unit {
     vkCmdFillBuffer(v -> gpu.commands, v -> buffer, offset, size, 0u32);

@@ -38,7 +38,8 @@ resource FrameSetup {
     outcome: i32;
 }
 opaque drop frame_setup_drop;
-// Starts shadow preparation. Holds all frame storage until scope exit.
+// Starts a frame with an inactive reservation. Fill it after setup retirement.
+// Holds all frame storage until scope exit. Final output requires frame_setup_submit.
 fn frame_setup(renderer: mut Renderer, range: DeferredGeometry) -> FrameSetup from renderer {
     var v: *RenderState = &renderer.state;
     var accepted: bool = deferred_geometry_valid(v, range) && retirement_observer_open(v) && renderer_prepare(
@@ -47,6 +48,10 @@ fn frame_setup(renderer: mut Renderer, range: DeferredGeometry) -> FrameSetup fr
     ) && command_reset(v) && command_begin(v);
     if accepted {
         commands_setup_body(v);
+        commands_root_begin(v);
+        commands_view_begin(v);
+        commands_geometry_batches(v, 0u32, false);
+        command_stamp(v, v -> query_count - 4u32);
         accepted = command_end(v) && dispatch_submit(v);
     }
     if accepted {
@@ -123,9 +128,12 @@ fn frame_setup_submit(setup: mut FrameSetup) -> SubmittedFrame from setup {
         v
     ) && command_reset(v) && command_continue(v);
     if accepted {
-        upload_scene(v);
+        command_stamp(v, v -> query_count - 3u32);
+        upload_deferred(v, setup.range.first, setup.range.capacity);
         command_barrier(v, BARRIER_UPLOAD);
-        commands_raster_body(v);
+        commands_deferred(v, setup.range.first, setup.range.capacity);
+        commands_portal_advance(v, 0u32);
+        commands_raster_depths(v, 1u32);
         accepted = command_end(v) && dispatch_submit(v);
     }
     if accepted {

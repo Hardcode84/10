@@ -34,7 +34,7 @@ fn prediction_view_scene(scene: mut CollisionScene, size: f32) -> bool {
     }
     return collision_finish(move builder, mut scene);
 }
-fn prediction_view_input(
+fn prediction_view_base(
     input: mut FrameInput,
     scene: read CollisionScene,
     config: GameConfig,
@@ -78,6 +78,8 @@ fn prediction_view_input(
             0f32
         );
     }
+}
+fn prediction_view_markers(input: mut FrameInput, config: GameConfig, size: f32) -> unit {
     var prediction: Prediction = prediction_new();
     prediction.count = 2u32;
     var i: u32 = 0u32;
@@ -196,4 +198,15 @@ fn prediction_max(a: f32, b: f32) -> f32 {
         return a;
     }
     return b;
+}
+
+fn prediction_view_input(
+    input: mut FrameInput,
+    scene: read CollisionScene,
+    config: GameConfig,
+    size: f32,
+    mode: u32
+) -> unit {
+    prediction_view_base(mut input, read scene, config, size, mode);
+    prediction_view_markers(mut input, config, size);
 }

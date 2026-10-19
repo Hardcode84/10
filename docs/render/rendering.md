@@ -204,11 +204,13 @@ state. The default projection batch holds 8192 source triangles across views.
 A smaller batch increases resumptions without changing the image.
 
 The planner stops its workgroup loop when the batch is full, the view range is
-complete, or its eight-step quantum ends. The loop condition uses a workgroup
+complete, or its 64-step quantum ends. The loop condition uses a workgroup
 uniform load. The host keeps a conservative round bound because visible work
 is resolved on the device. Empty later rounds publish zero work counts. Their
 command and barrier costs remain; no CPU readback is used to terminate them.
-The host updates batch control only for the first and last rounds. The planner
+The host updates batch control only for the first and last rounds. It also
+tracks the last recorded dispatch base. It omits repeated writes of that value
+and their transfer barriers. A scene upload invalidates this command state. The planner
 clears the initialization flag after it starts the view range. The last round
 retains the completion check that rejects an unfinished frame.
 
@@ -610,13 +612,13 @@ sequenceDiagram
     participant P as Presentation service
     Game->>R: FrameInput and deferred geometry reservation
     Game->>R: frame_setup
-    R->>GPU: Upload and shadow setup
+    R->>GPU: Upload, shadow setup and root geometry raster
     Game->>CPU: Compute predictions from the same simulation snapshot
     GPU-->>R: Setup retires
     CPU-->>Game: Prediction geometry ready
     Game->>R: frame_setup_edit lends only the reserved range
     Game->>R: frame_setup_submit
-    R->>GPU: Upload late geometry and render
+    R->>GPU: Raster late geometry, shade root, traverse portals and compose
     GPU-->>R: Render retires with capacity result
     Game->>R: frame_poll, then frame_image after validation
     R-->>Game: ValidatedImage lease
@@ -629,8 +631,20 @@ sequenceDiagram
 instances. Setup admits the reservation before submission. `DeferredInput`
 permits one bounded write after setup retirement, for non-portal,
 non-shadow-casting triangles. It cannot grow storage. Scope exit restores the
-complete scene count. The second submission reuses staging and commands only
-after setup retires and preserves the first submission's timestamps.
+complete scene count. The first submission writes root depth and hit data but
+leaves root shading pending. The second submission uploads the reserved range
+and the updated space index. It preserves traversal headers and root hits.
+Late triangles use the same projection, tile-list and raster passes as other
+geometry. Their stable source IDs resolve equal-depth ties. The last late batch
+shades the root and emits its portal masks. Child views then consume the complete
+scene, including late geometry in other rooms and recursive copies.
+
+The second submission reuses staging and commands only after setup retires.
+Both submissions retain the same resource loan. A zero-sized reservation still
+completes root shading. A reservation larger than the projection batch uses
+multiple late batches. The renderer admits all storage before the first submit.
+GPU timestamps preserve both submissions and mark the gap between them. Timing
+reports exclude that gap from GPU execution time.
 
 `SubmittedFrame` holds the exclusive renderer loan until retirement and
 validation. `frame_poll` returns pending, success, or failure. `frame_image`
@@ -829,6 +843,46 @@ use the same complete images, and preserve continuation when geometry exceeds
 the batch capacity. These measurements do not reject tile ownership or shared
 memory in general. They reject this fusion of the current batch pipeline.
 
+### Batch scheduling and root raster overlap
+
+A further hub-corner probe found 35 recorded geometry rounds and six rounds
+with triangles. Detailed GPU timestamps measured planning plus projection at
+2.00 ms, tile lists at 1.71 ms, raster at 1.45 ms, and shading at 2.45 ms.
+These extra timestamps added approximately 0.8 ms to the frame. They identify
+costs but are excluded from the performance comparison below.
+
+Skipping unchanged dispatch-base writes and increasing the traversal quantum
+from eight to 64 steps reduced the recorded rounds to 18. Five contained
+triangles. The same corner's GPU median fell from 8.96 ms to 7.38 ms before the
+submission split. The host retains the conservative completion bound and the
+last-round failure check.
+
+The default task path now overlaps prediction with root geometry rasterization.
+It adds one late-geometry round for the reserved markers. At 1920 by 1080 on
+the Intel Arc Pro B60, 128 measured frames at each of eight hub corners gave:
+
+| Measurement | Before this change | Root raster overlap |
+| --- | ---: | ---: |
+| Frame median across corners | 13.61–14.59 ms | 9.80–10.80 ms |
+| Worst corner frame p99 | 15.42 ms | 11.64 ms |
+| GPU median across corners | 8.76–9.41 ms | 7.98–8.63 ms |
+| Worst corner GPU p99 | 9.57 ms | 8.85 ms |
+
+The before column uses the preceding lighting-optimization sweep. A fresh run
+of corner 118 before the batch changes measured 14.18 ms frame median and
+8.96 ms GPU median. All eight final captures match their preceding captures
+byte for byte. The split adds GPU work for late geometry but reduces elapsed
+frame time by overlapping prediction. Warm mesh uploads remain zero. The split
+uploads approximately 58 KiB per frame and retains the same buffer capacities.
+
+The tests compare 80 moving task frames with synchronous output, including
+hook launch and reeling. Targeted checks compare late markers through scaled
+recursive views, a late wall in a newly populated destination space, three-
+triangle batches, and an empty reservation. Native AMD and web production
+captures match exactly for the ordinary and scaled game fixtures. These checks
+establish image behaviour. The stationary timing sweep excludes presentation;
+it does not establish the long-route display-latency gate below.
+
 ### Acceptance gates
 
 Changes must prove the complete application
@@ -908,7 +962,19 @@ Poses 100 and above select hull face `pose - 100`. The camera moves two
 metres inward and two metres sideways from its centre, then faces the room
 origin. Hub corner poses are 118 through 125. The report separates prediction,
 scene preparation, and submission plus GPU time. It also reports GPU timestamps.
-This synchronous probe excludes presentation and does not measure task overlap.
+The default probe is synchronous and excludes presentation. Set
+`SPINWARD_OVERLAP=1` to use the same root raster and late-geometry submission
+boundary as the default game. Both modes use the current prediction snapshot.
+The overlap report measures elapsed frame time; its CPU prediction and remaining
+submission times include simultaneous GPU execution and must not be added to
+GPU time.
+
+Set `SPINWARD_BATCH_PROFILE=1` for per-round timestamps. The report separates
+planning plus projection, tile lists, raster, and shading. It also reports the
+recorded round count. Compare that count with diagnostic nonempty batches.
+A round without triangles can still complete a view and schedule shading.
+Extra timestamps change execution cost. Use runs without this option to assess
+performance.
 
 The interactive demo uses game flight, tether, and input code. Capture runs one
 simulation tick by default; `--ticks N` changes it. The automatic 1200-frame
@@ -944,7 +1010,7 @@ Capture files are binary RGB PPM. All GPU checks use the application renderer.
 | `crust tests.crs render 12` | Dirty uploads, four-byte readback, debug reduction and retirement. |
 | `crust tests.crs hook-light` | Recursive light anchors, attached-hook lighting and solid inside/outside faces. |
 | `crust tests.crs body-view` | Player-body images through portals. |
-| `crust tests.crs scaling` | Scaled portal geometry, prediction and propagated lights. |
+| `crust tests.crs scaling` | Scaled portal geometry, prediction, propagated lights and late marker batches through recursive views. |
 | `crust tests.crs particles` | Impact particles, billboard orientation, scale and cutout. |
 | `crust tests.crs viewer` | Retained instances and unchanged-mesh upload checks. |
 

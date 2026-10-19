@@ -120,6 +120,7 @@ const SHADOW_LEVEL: u32 = 96u32;
 
 // Projection scratch is shared by successive queued geometry batches.
 const GEOMETRY_BATCH_TRIANGLES: u32 = 8192u32;
+const GEOMETRY_WALK_STEPS: u32 = 64u32;
 const BATCH_META: u32 = 97u32;
 const BATCH_MODE: u32 = 98u32;
 const BATCH_VIEW: u32 = 99u32;

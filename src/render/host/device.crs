@@ -24,6 +24,9 @@ record RenderBackend {
     acquired: *u8;
     present_commands: *u8;
     query_pool: *u8;
+    batch_queries: *u8;
+    batch_query_capacity: u32;
+    batch_query_cursor: u32;
     family: u32;
 }
 opaque;

@@ -116,6 +116,7 @@ fn command_end(v: *RenderState) -> bool {
 fn command_stamp(v: *RenderState, index: u32) -> unit {
     web_stamp(v -> gpu.id, index);
 }
+fn command_batch_stamp(v: *RenderState) -> unit {}
 // Commands and dispatches have ordered visibility at each WebGPU pass boundary.
 fn command_barrier(v: *RenderState, kind: u32) -> unit {}
 fn command_clear(v: *RenderState, offset: u64, size: u64) -> unit {

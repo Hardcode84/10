@@ -80,12 +80,27 @@ fn course_benchmark(
     if benchmark_environment("SPINWARD_GEOMETRY_ONLY") != null(*u8) {
         return course_geometry_benchmark(read scene, mut session, read loop, config, samples);
     }
+    if !course_profile_open(read scene, mut session, read loop, config) {
+        return false;
+    }
     if !course_benchmark_frames(read scene, mut session, read loop, config, samples) {
         return false;
     }
     session.renderer.state.read_pixels = true;
     (session.renderer.state.mapped as *u32)[26usize] = 1u32;
-    if !game_render(read scene, mut session, read loop, config) {
+    var ignored: [u64; 3] = make [u64; 3] {
+        0u64,
+        0u64,
+        0u64
+    };
+    if !course_benchmark_frame(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        &ignored[0usize],
+        false
+    ) {
         return false;
     }
     var words: *u32 = session.renderer.state.mapped as *u32;
@@ -141,6 +156,12 @@ fn course_benchmark_frames(
         0u64,
         0u64
     };
+    var batch: [u64; 4] = make [u64; 4] {
+        0u64,
+        0u64,
+        0u64,
+        0u64
+    };
     var elapsed: [u64; 128] = uninit;
     var gpu: [u64; 128] = uninit;
     var query: [u64; 64] = uninit;
@@ -167,9 +188,14 @@ fn course_benchmark_frames(
             return false;
         }
         if frame >= 8u32 {
+            if !batch_profile_read(v, &batch[0usize]) {
+                return false;
+            }
             course_stage_times(v, &query[0usize], &stages[0usize]);
             course_sample_insert(&elapsed[0usize], (frame - 8u32) as usize, duration);
-            var ticks: u64 = (query[(v -> query_count - 2u32) as usize] - query[0usize]) & v -> timestamp_mask;
+            var ticks: u64 = (
+                (query[(v -> query_count - 2u32) as usize] - query[0usize]) & v -> timestamp_mask
+            ) - course_query_gap(v, &query[0usize]);
             course_sample_insert(
                 &gpu[0usize],
                 (frame - 8u32) as usize,
@@ -188,9 +214,10 @@ fn course_benchmark_frames(
         print_number((stages[stage] as f32 * v -> timestamp_period / samples as f32) as i64);
         stage = stage + 1usize;
     }
+    batch_profile_report(v, &batch[0usize], samples);
     puts("measured samples");
     print_number(samples as i64);
-    puts("synchronous frame ns p50 / p95 / p99 (no pixel readback, no presentation)");
+    puts("frame ns p50 / p95 / p99 (no pixel readback, no presentation)");
     print_number(elapsed[((samples - 1u32) / 2u32) as usize] as i64);
     print_number(elapsed[((samples * 95u32 + 99u32) / 100u32 - 1u32) as usize] as i64);
     print_number(elapsed[((samples * 99u32 + 99u32) / 100u32 - 1u32) as usize] as i64);
@@ -242,6 +269,16 @@ fn course_benchmark_frame(
     times: *u64,
     measure: bool
 ) -> bool {
+    if benchmark_environment("SPINWARD_OVERLAP") != null(*u8) {
+        return course_overlap_frame(
+            read scene,
+            mut session,
+            read loop,
+            config,
+            times,
+            measure
+        );
+    }
     var a: u64 = now();
     var prediction: Prediction = predict_paths(read scene, read loop.trial);
     var b: u64 = now();
@@ -298,9 +335,87 @@ fn course_stage_times(v: *RenderState, query: *u64, times: *u64) -> unit {
         );
         depth = depth + 1u32;
     }
+    times[1usize] = times[1usize] - course_query_gap(v, query);
     times[3usize] = times[3usize] + (
         (
             query[(v -> query_count - 2u32) as usize] - query[(1u32 + depth * 2u32) as usize]
         ) & v -> timestamp_mask
     );
+}
+
+fn course_query_gap(v: *RenderState, query: *u64) -> u64 {
+    return (
+        query[(v -> query_count - 3u32) as usize] - query[(v -> query_count - 4u32) as usize]
+    ) & v -> timestamp_mask;
+}
+
+fn course_overlap_frame(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    times: *u64,
+    measure: bool
+) -> bool {
+    var a: u64 = now();
+    var range: DeferredGeometry = game_deferred_scene(
+        read scene,
+        mut session,
+        read loop,
+        config
+    );
+    var b: u64 = now();
+    var setup: FrameSetup = frame_setup(mut session.renderer, range);
+    if !frame_setup_accepted(read setup) {
+        return false;
+    }
+    var c: u64 = now();
+    var prediction: Prediction = predict_paths(read scene, read loop.trial);
+    var d: u64 = now();
+    {
+        var edit: DeferredInput = frame_setup_edit(mut setup);
+        draw_prediction(deferred_inputs(mut edit), read prediction, config);
+    }
+    var frame: SubmittedFrame = frame_setup_submit(mut setup);
+    var status: i32 = frame_poll(mut frame);
+    while status == 0i32 {
+        frame_idle(mut frame);
+        status = frame_poll(mut frame);
+    }
+    if measure {
+        times[0usize] = times[0usize] + d - c;
+        times[1usize] = times[1usize] + b - a;
+        times[2usize] = times[2usize] + c - b + now() - d;
+    }
+    return status > 0i32;
+}
+
+fn course_profile_open(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig
+) -> bool {
+    if benchmark_environment("SPINWARD_BATCH_PROFILE") != null(*u8) {
+        if !game_render(read scene, mut session, read loop, config) {
+            return false;
+        }
+        var deferred: u32 = 0u32;
+        if benchmark_environment("SPINWARD_OVERLAP") != null(*u8) {
+            var range: DeferredGeometry = game_deferred_scene(
+                read scene,
+                mut session,
+                read loop,
+                config
+            );
+            deferred = range.capacity;
+            if !renderer_prepare(&session.renderer.state, deferred) {
+                return false;
+            }
+        }
+        if !batch_profile_open(&session.renderer.state, deferred) {
+            return false;
+        }
+    }
+    return true;
 }
