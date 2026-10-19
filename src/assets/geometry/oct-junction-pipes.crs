@@ -62,7 +62,7 @@ fn oct_junction_bent_pipe(
         outgoing: lead,
         diagonal: diagonal,
         sides: 8u32,
-        steps: 8u32,
+        steps: tube_sweep_steps(1.57079632679f32),
         tile_metres: extent / bands as f32
     };
     if !solid_tube_bend(mut asset.geometry, bend, 1u32) {

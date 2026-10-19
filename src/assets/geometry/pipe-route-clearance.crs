@@ -80,7 +80,7 @@ fn route_trace_corner(
     var inward: Vec3 = cross(axis, trace.tangent);
     var centre: Vec3 = add(start, scale(inward, bend));
     var angle: f32 = atan2f(sine, cosine);
-    var steps: u32 = (angle / 0.1308996939f32) as u32 + 1u32;
+    var steps: u32 = tube_sweep_steps(angle);
     if !route_trace_point(mut router, mut trace, start) {
         return false;
     }
@@ -266,7 +266,7 @@ fn route_conflict_link(router: mut PipeRouter, source: u32, target: u32) -> bool
     return true;
 }
 fn route_conflicts(router: mut PipeRouter, radius: f32, bend: f32) -> bool {
-    var clearance: f32 = 2f32 * radius + 2f32 * bend * (1f32 - cosf(0.06544984695f32)) + 0.01f32;
+    var clearance: f32 = 2f32 * radius + 2f32 * bend * (1f32 - cosf(TUBE_SWEEP_STEP * 0.5f32)) + 0.01f32;
     var i: u32 = 0u32;
     while i < route_paths_count(read router) {
         var j: u32 = i + 1u32;

@@ -626,3 +626,31 @@ The reduction removes geometry work and one nonempty batch from each rotor
 view. It does not remove the remaining tile, pixel, lighting, or portal costs.
 The rotor views still exceed 16.67 ms on the GPU alone. Keep the normal renderer
 as the application default; the 10 ms GPU target remains unmet.
+
+### Pipe bend and straight-run cleanup
+
+Pipe bends now use angular steps of at most 30 degrees: three segments for a
+quarter-turn. The swept pipes, shaft wall turns, and octagonal tunnel elbows
+use the same segment rule. Collinear sweep waypoints emit no intermediate ring.
+The next bend or end cap completes the full straight span and its UV distance.
+Routing uses the same bend sampling and updates its conservative clearance for
+the larger angular step. The existing generic tube tests check closed solids,
+player/hook contacts, and the absence of extra geometry at straight waypoints.
+
+The [paired cleanup results](pipe-cleanup.csv) compare against eight-sided pipes
+with the old bend subdivision. Both runs use the same course, Intel Arc Pro B60,
+1920 by 1080 output, eight warm-up frames, and 128 measured frames. Source
+triangles fall from 81,998 to 43,342, a further 47.1% reduction. Captures match
+byte for byte between renderers for each geometry version.
+
+| Room | Normal GPU p99, before to after | Projected tree GPU p99, before to after |
+| --- | ---: | ---: |
+| Passage | 13.61 to 13.58 ms | 13.30 to 13.31 ms |
+| Rotor shaft | 19.95 to 15.22 ms | 19.20 to 14.71 ms |
+| Rotor hub | 22.40 to 17.42 ms | 20.63 to 16.38 ms |
+
+The shaft queues 18,554 triangles in six nonempty batches, compared with 34,530
+in nine. The hub queues 12,369 in four batches, compared with 23,859 in five.
+The projected-tree hub has a 20.05 ms synchronous frame p99, excluding
+presentation and pixel readback. This still fails the full frame target even
+though its GPU interval is below 16.67 ms. Application defaults are unchanged.

@@ -58,11 +58,12 @@ fn shaft_pipe_turn(mesh: mut Mesh, sweep: mut TubeSweep, run: ShaftPipeRun, ente
     var middle: f32 = (run.low + run.high) * 0.5f32;
     var distance: f32 = sweep.distance;
     var i: u32 = 1u32;
-    while i <= 12u32 {
-        var turn: f32 = 1.57079632679f32 * i as f32 / 12f32;
+    var steps: u32 = tube_sweep_steps(1.57079632679f32);
+    while i <= steps {
+        var turn: f32 = 1.57079632679f32 * i as f32 / steps as f32;
         var s: f32 = sinf(turn);
         var c: f32 = cosf(turn);
-        if i == 12u32 {
+        if i == steps {
             s = 1f32;
             c = 0f32;
         }
@@ -70,7 +71,7 @@ fn shaft_pipe_turn(mesh: mut Mesh, sweep: mut TubeSweep, run: ShaftPipeRun, ente
         var height: f32 = middle + vertical * 0.36f32 * (1f32 - c);
         var axial: f32 = s * vertical;
         var around: f32 = c;
-        if i == 12u32 {
+        if i == steps {
             angle = run.end_angle;
         }
         if entering {

@@ -6,8 +6,8 @@ fn asset_test_tube_case(diagonal: f32) -> bool {
         incoming: 2f32,
         outgoing: 2f32,
         diagonal: diagonal,
-        sides: 12u32,
-        steps: 8u32,
+        sides: 8u32,
+        steps: tube_sweep_steps(1.57079632679f32),
         tile_metres: 2f32
     };
     if !solid_tube_bend(mut mesh, bend, 0u32) {
@@ -115,13 +115,23 @@ fn asset_test_tube_sweep(angle: f32) -> bool {
     var corner: Vec3 = vec(2f32, 2f32, 3f32);
     var direction: Vec3 = vec(sinf(angle), cosf(angle), 0f32);
     var end: Vec3 = add(corner, scale(direction, 6f32));
-    if !tube_sweep_corner(mut mesh, mut sweep, corner, direction, 0.8f32) || !tube_sweep_corner(
+    if !tube_sweep_corner(mut mesh, mut sweep, corner, direction, 0.8f32) {
+        return false;
+    }
+    var bend_count: u32 = mesh_triangle_count(read mesh);
+    if !tube_sweep_corner(
         mut mesh,
         mut sweep,
         add(corner, scale(direction, 3f32)),
         direction,
         0.8f32
-    ) || !tube_sweep_finish(mut mesh, mut sweep, end) {
+    ) {
+        return false;
+    }
+    if mesh_triangle_count(read mesh) != bend_count {
+        return error("straight waypoint adds redundant pipe geometry");
+    }
+    if !tube_sweep_finish(mut mesh, mut sweep, end) {
         return false;
     }
     var first: MeshVertex = mesh_triangle(read mesh, 0u32).vertices[0usize];

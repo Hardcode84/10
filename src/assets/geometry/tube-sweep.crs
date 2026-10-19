@@ -88,6 +88,16 @@ fn tube_sweep_rotate(v: Vec3, axis: Vec3, angle: f32) -> Vec3 {
         scale(axis, dot(axis, v) * (1f32 - cosf(angle)))
     );
 }
+const TUBE_SWEEP_STEP: f32 = 0.52359877559f32;
+// Returns the segment count for a positive bend angle, with steps at most 30 degrees.
+fn tube_sweep_steps(angle: f32) -> u32 {
+    var count: f32 = angle / TUBE_SWEEP_STEP;
+    var steps: u32 = count as u32;
+    if steps as f32 < count {
+        steps = steps + 1u32;
+    }
+    return steps;
+}
 fn tube_sweep_arc(
     mesh: mut Mesh,
     sweep: mut TubeSweep,
@@ -101,7 +111,7 @@ fn tube_sweep_arc(
     var inward: Vec3 = cross(axis, start.tangent);
     var centre: Vec3 = add(start.centre, scale(inward, radius));
     var distance: f32 = sweep.distance;
-    var steps: u32 = (angle / 0.1308996939f32) as u32 + 1u32;
+    var steps: u32 = tube_sweep_steps(angle);
     var i: u32 = 1u32;
     while i <= steps {
         var turn: f32 = angle * i as f32 / steps as f32;
@@ -138,7 +148,7 @@ fn tube_sweep_corner(
         return error("pipe path cannot reverse direction");
     }
     if sine == 0f32 {
-        return tube_sweep_straight(mut mesh, mut sweep, corner);
+        return true;
     }
     var trim: f32 = radius * sine / (1f32 + cosine);
     if dot(sub(corner, sweep.last.centre), sweep.last.tangent) <= trim {
