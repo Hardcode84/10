@@ -855,9 +855,15 @@ fn s_compute() {
 {
 var s_lane: u32 = s_shader_local_x();
 if ((s_lane == 0u)) {
+if (((s_words_load(98u) & 8u) != 0u)) {
+s_batch_deferred();
+s_shared_store(255u, 0u);
+}
+else {
 s_batch_initialize();
 s_batch_step_begin();
 s_shared_store(255u, select(u32(0), u32(1), s_batch_has_tree()));
+}
 }
 s_shader_barrier();
 var s_round: u32 = 0u;
@@ -869,14 +875,51 @@ s_shader_barrier();
 if ((s_lane == 0u)) {
 s_batch_workers_finish();
 s_batch_step_begin();
-s_shared_store(255u, select(u32(0), u32(1), (s_batch_has_tree() && ((s_round + 1u) < 8u))));
+s_shared_store(255u, select(u32(0), u32(1), (s_batch_has_tree() && ((s_round + 1u) < 64u))));
 }
 s_shader_barrier();
 s_round = (s_round + 1u);
 }
-if ((s_lane == 0u)) {
+if (((s_lane == 0u) && ((s_words_load(98u) & 8u) == 0u))) {
 s_batch_finish();
 }
+}
+}
+fn s_batch_deferred() {
+{
+var s_first: u32 = s_words_load(101u);
+var s_count: u32 = s_words_load(103u);
+s_work_count_add(120u, s_count);
+if ((s_count != 0u)) {
+s_work_count_add(121u, 1u);
+}
+var s_i: u32 = 0u;
+while ((s_i < s_count) && !failed) {
+var s_p: u32 = (s_words_load(108u) + (s_i * 3u));
+s_words_store(s_p, (s_i + 1u));
+s_words_store((s_p + 1u), 4294967295u);
+s_words_store((s_p + 2u), (s_first + s_i));
+s_i = (s_i + 1u);
+}
+var s_finished: u32 = select(u32(0), u32(1), ((s_words_load(98u) & 4u) != 0u));
+var s_p: u32 = s_words_load(97u);
+s_words_store(s_p, 1u);
+s_words_store((s_p + 1u), s_count);
+s_words_store((s_p + 2u), 0u);
+s_words_store((s_p + 3u), (1u | (s_finished * 2u)));
+s_words_store(101u, 0u);
+s_words_store(102u, 1u);
+s_words_store(114u, s_count);
+s_words_store(118u, s_finished);
+s_batch_task_commands(true);
+s_words_store(16u, s_geometry_groups(s_count));
+var s_fans: u32 = (s_count * 8u);
+if ((s_fans > checked_div_u32(2097152u, 64u))) {
+s_fans = checked_div_u32(2097152u, 64u);
+}
+s_words_store(126u, s_fans);
+s_words_store((126u + 1u), 1u);
+s_words_store((126u + 2u), 1u);
 }
 }
 fn s_work_count_add(p_field: u32, p_count: u32) {
@@ -1303,9 +1346,15 @@ fn s_compute() {
 {
 var s_lane: u32 = s_shader_local_x();
 if ((s_lane == 0u)) {
+if (((s_words_load(98u) & 8u) != 0u)) {
+s_batch_deferred();
+s_shared_store(255u, 0u);
+}
+else {
 s_batch_initialize();
 s_batch_step_begin();
 s_shared_store(255u, select(u32(0), u32(1), s_batch_has_tree()));
+}
 }
 s_shader_barrier();
 var s_round: u32 = 0u;
@@ -1317,14 +1366,51 @@ s_shader_barrier();
 if ((s_lane == 0u)) {
 s_batch_workers_finish();
 s_batch_step_begin();
-s_shared_store(255u, select(u32(0), u32(1), (s_batch_has_tree() && ((s_round + 1u) < 8u))));
+s_shared_store(255u, select(u32(0), u32(1), (s_batch_has_tree() && ((s_round + 1u) < 64u))));
 }
 s_shader_barrier();
 s_round = (s_round + 1u);
 }
-if ((s_lane == 0u)) {
+if (((s_lane == 0u) && ((s_words_load(98u) & 8u) == 0u))) {
 s_batch_finish();
 }
+}
+}
+fn s_batch_deferred() {
+{
+var s_first: u32 = s_words_load(101u);
+var s_count: u32 = s_words_load(103u);
+s_work_count_add(120u, s_count);
+if ((s_count != 0u)) {
+s_work_count_add(121u, 1u);
+}
+var s_i: u32 = 0u;
+while ((s_i < s_count)) {
+var s_p: u32 = (s_words_load(108u) + (s_i * 3u));
+s_words_store(s_p, (s_i + 1u));
+s_words_store((s_p + 1u), 4294967295u);
+s_words_store((s_p + 2u), (s_first + s_i));
+s_i = (s_i + 1u);
+}
+var s_finished: u32 = select(u32(0), u32(1), ((s_words_load(98u) & 4u) != 0u));
+var s_p: u32 = s_words_load(97u);
+s_words_store(s_p, 1u);
+s_words_store((s_p + 1u), s_count);
+s_words_store((s_p + 2u), 0u);
+s_words_store((s_p + 3u), (1u | (s_finished * 2u)));
+s_words_store(101u, 0u);
+s_words_store(102u, 1u);
+s_words_store(114u, s_count);
+s_words_store(118u, s_finished);
+s_batch_task_commands(true);
+s_words_store(16u, s_geometry_groups(s_count));
+var s_fans: u32 = (s_count * 8u);
+if ((s_fans > (2097152u / 64u))) {
+s_fans = (2097152u / 64u);
+}
+s_words_store(126u, s_fans);
+s_words_store((126u + 1u), 1u);
+s_words_store((126u + 2u), 1u);
 }
 }
 fn s_work_count_add(p_field: u32, p_count: u32) {
