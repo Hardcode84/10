@@ -1,4 +1,8 @@
+extern fn regression_environment(name: *u8) -> *u8 = "getenv";
 fn regression_open(session: mut DemoSession, test: u32) -> bool {
+    session.renderer.state.tile_owned = regression_environment("SPINWARD_TILE_PROOF") != null(
+        *u8
+    );
     if test != 5u32 && test != 6u32 {
         return session_open(mut session);
     }

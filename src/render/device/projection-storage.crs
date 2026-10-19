@@ -1,0 +1,6 @@
+fn project_load(index: u32) -> f32 {
+    return floats_load(index);
+}
+fn project_store(index: u32, value: f32) -> unit {
+    floats_store(index, value);
+}

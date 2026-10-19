@@ -1,3 +1,4 @@
+extern fn benchmark_environment(name: *u8) -> *u8 = "getenv";
 fn main(argc: i32, argv: **u8) -> i32 {
     var room: u32 = 0u32;
     var pose: u32 = 0u32;
@@ -8,15 +9,32 @@ fn main(argc: i32, argv: **u8) -> i32 {
             )
         ) as i32;
     }
-    argv[2usize] = argv[0usize];
+    var samples: u32 = 128u32;
+    var first: i32 = 2i32;
+    if argc > 3i32 && strcmp(argv[3usize], "--samples") == 0i32 {
+        if argc < 5i32 || !game_number(argv[4usize], &samples) || samples == 0u32 || samples > 128u32 {
+            error("benchmark samples must be between 1 and 128");
+            return 2i32;
+        }
+        first = 4i32;
+    }
+    argv[first as usize] = argv[0usize];
     var options: Launch = uninit;
-    if !game_options_scene(argc - 2i32, argv + 2isize, &options, true) {
+    if !game_options_scene(argc - first, argv + first as isize, &options, true) {
         return 2i32;
     }
     options.config.headless = true;
-    return (!course_benchmark(game_session(&options), room, pose, options.config)) as i32;
+    return (
+        !course_benchmark(game_session(&options), room, pose, options.config, samples)
+    ) as i32;
 }
-fn course_benchmark(session: GameSession, room: u32, pose: u32, config: GameConfig) -> bool {
+fn course_benchmark(
+    session: GameSession,
+    room: u32,
+    pose: u32,
+    config: GameConfig,
+    samples: u32
+) -> bool {
     var scene: CollisionScene = collision_new();
     var loop: GameLoop = make GameLoop {
         sparks: sparks_new(),
@@ -60,7 +78,8 @@ fn course_benchmark(session: GameSession, room: u32, pose: u32, config: GameConf
     print_number(graph_count(read session.control.graph) as i64);
     print_number(graph_ports(read session.control.graph) as i64);
     print_number(mesh_triangle_count(read session.room_mesh) as i64);
-    if !course_benchmark_frames(read scene, mut session, read loop, config) {
+    session.renderer.state.tile_owned = benchmark_environment("SPINWARD_TILE_PROOF") != null(*u8);
+    if !course_benchmark_frames(read scene, mut session, read loop, config, samples) {
         return false;
     }
     session.renderer.state.read_pixels = true;
@@ -78,6 +97,11 @@ fn course_benchmark(session: GameSession, room: u32, pose: u32, config: GameConf
     print_number(words[WORK_NODES as usize] as i64);
     print_number(words[WORK_TRIANGLES as usize] as i64);
     print_number(words[WORK_BATCHES as usize] as i64);
+    if session.renderer.state.tile_owned {
+        course_tile_stats(&session.renderer.state);
+    }
+    puts("dynamic triangles");
+    print_number(words[DYNAMIC_COUNT as usize] as i64);
     return game_finish(mut session);
 }
 fn course_sample_insert(values: *u64, index: usize, value: u64) -> unit {
@@ -92,7 +116,8 @@ fn course_benchmark_frames(
     scene: read CollisionScene,
     session: mut GameSession,
     loop: read GameLoop,
-    config: GameConfig
+    config: GameConfig,
+    samples: u32
 ) -> bool {
     var elapsed: [u64; 128] = uninit;
     var gpu: [u64; 128] = uninit;
@@ -103,7 +128,7 @@ fn course_benchmark_frames(
     }
     v -> read_pixels = false;
     var frame: u32 = 0u32;
-    while frame < 136u32 {
+    while frame < samples + 8u32 {
         var start: u64 = now();
         if !game_render(read scene, mut session, read loop, config) {
             return false;
@@ -123,18 +148,44 @@ fn course_benchmark_frames(
         }
         frame = frame + 1u32;
     }
+    puts("measured samples");
+    print_number(samples as i64);
     puts("synchronous frame ns p50 / p95 / p99 (no pixel readback, no presentation)");
-    print_number(elapsed[63usize] as i64);
-    print_number(elapsed[121usize] as i64);
-    print_number(elapsed[126usize] as i64);
+    print_number(elapsed[((samples - 1u32) / 2u32) as usize] as i64);
+    print_number(elapsed[((samples * 95u32 + 99u32) / 100u32 - 1u32) as usize] as i64);
+    print_number(elapsed[((samples * 99u32 + 99u32) / 100u32 - 1u32) as usize] as i64);
     puts("GPU ns p50 / p95 / p99");
-    print_number(gpu[63usize] as i64);
-    print_number(gpu[121usize] as i64);
-    print_number(gpu[126usize] as i64);
+    print_number(gpu[((samples - 1u32) / 2u32) as usize] as i64);
+    print_number(gpu[((samples * 95u32 + 99u32) / 100u32 - 1u32) as usize] as i64);
+    print_number(gpu[((samples * 99u32 + 99u32) / 100u32 - 1u32) as usize] as i64);
     puts("warm mesh upload bytes / total upload bytes / device bytes / staging bytes");
     print_number(v -> mesh_upload_bytes as i64);
     print_number(v -> frame_upload_bytes as i64);
     print_number(v -> device_bytes as i64);
     print_number(v -> staging_bytes as i64);
     return true;
+}
+
+fn course_tile_stats(v: *RenderState) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var nodes: u64 = 0u64;
+    var triangles: u64 = 0u64;
+    var chunks: u64 = 0u64;
+    var i: u32 = 0u32;
+    var max_chunks: u32 = 0u32;
+    while i < v -> task_capacity {
+        var p: u32 = w[TILE_STATS as usize] + i * 4u32;
+        nodes = nodes + w[p as usize] as u64;
+        triangles = triangles + w[(p + 1u32) as usize] as u64;
+        chunks = chunks + w[(p + 2u32) as usize] as u64;
+        if w[(p + 2u32) as usize] > max_chunks {
+            max_chunks = w[(p + 2u32) as usize];
+        }
+        i = i + 1u32;
+    }
+    puts("tile nodes / triangle setups / chunks / max accumulated chunks per task slot");
+    print_number(nodes as i64);
+    print_number(triangles as i64);
+    print_number(chunks as i64);
+    print_number(max_chunks as i64);
 }

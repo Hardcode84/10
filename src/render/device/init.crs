@@ -19,6 +19,15 @@ fn compute() -> unit {
         words_store(words_load(TASK_A) + pixel * 4u32 + 3u32, 0xffffffffu32);
         pixel = pixel + MAX_INVOCATIONS;
     }
+    pixel = i;
+    while words_load(26u32) != 0u32 && pixel < words_load(TASK_CAPACITY) {
+        var field: u32 = 0u32;
+        while field < 4u32 {
+            words_store(words_load(TILE_STATS) + pixel * 4u32 + field, 0u32);
+            field = field + 1u32;
+        }
+        pixel = pixel + MAX_INVOCATIONS;
+    }
     if i == 0u32 {
         var bad: u32 = 0u32;
         if tiles > words_load(TASK_CAPACITY) {

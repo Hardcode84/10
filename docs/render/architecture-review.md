@@ -11,8 +11,8 @@ workgroup traverses spatial bounds, projects a bounded triangle chunk, and
 rasterizes its owned pixels. It repeats this work locally until the tile is
 complete. A global geometry queue shall not control that loop.
 
-This is an experiment decision. No replacement timing has been measured.
-Compare small tiles and larger screen blocks before selecting their size.
+The first 8 by 8 experiment failed its timing gate; see the result below.
+Larger screen blocks have not been measured.
 Keep lighting separate so that its work and register use can be measured.
 
 Use these engineering targets at 1920 by 1080 on the measured Intel Arc Pro
@@ -199,11 +199,11 @@ workgroup tails. Do not add it before the geometry-local proof passes.
 ### Compiler and backend contract
 
 The shared-chunk loop requires a workgroup-uniform continuation condition and
-barriers executed by all lanes. The current Crust shader stage has counted
-uniform-loop support. It does not expose `workgroupUniformLoad` in its builtin
-setup. Prove a general uniform collective/load operation through SPIR-V and
-WGSL, and fix Crust if required. Do not substitute a fixed number of geometry
-rounds for a missing language capability.
+barriers executed by all lanes. Crust now supplies generated
+`<workgroup-resource>_uniform_load(index)` accessors for u32 and f32 arrays.
+The checker requires uniform participation and a uniform index. Shared-value
+continuation loops preserve collective participation after a checked failure.
+Native and translated WGSL execution tests cover this contract.
 
 Require no optional 64-bit atomics or subgroup width. Pixel ownership avoids
 atomic updates of a combined depth and primitive ID. Backend-specific resource
@@ -309,3 +309,58 @@ A BVH alone does not prove that primary rays will be faster.
 [WGSL uniform workgroup loads](https://www.w3.org/TR/WGSL/#workgroupUniformLoad-builtin)
 provide a relevant collective contract for local refill loops. Ordinary shared
 memory access does not by itself establish uniform control flow.
+
+## Tile-owned experiment result
+
+The first tile-owned implementation fails the performance gate. Keep it disabled
+in applications. The course benchmark and renderer regression runner can select
+it with the `SPINWARD_TILE_PROOF=1` environment variable.
+
+```sh
+SPINWARD_TILE_PROOF=1 crust tests.crs course-benchmark levels/prefabs.crs 11 0 --samples 2 --width 1920 --height 1080 --capture build/tile-proof.ppm
+SPINWARD_TILE_PROOF=1 crust tests.crs render 7
+```
+
+Omit the variable for the normal-renderer control. A short sample count is only
+for rejection probes. The benchmark default remains 128 measured frames.
+
+The implementation uses the existing room membership, retained mesh trees,
+instance transforms, portal frontier, and material resolve. Eight setup lanes
+traverse disjoint subtrees. A workgroup holds eight clipped triangle slots and
+owns an 8 by 8 tile. Consecutive transient triangles share a chunk. The group
+continues locally through a checked uniform shared-memory load. Its scratch
+size does not depend on the number of mesh triangles.
+
+The hub probe at 1920 by 1080 produced a byte-identical capture. The packed
+variant measured approximately 918 ms GPU time, compared with 25.364 ms for
+the normal renderer in the paired check. This short rejection probe used eight warm-up frames
+and two measured frames. It is sufficient to reject this variant; it cannot
+establish tail latency.
+
+The diagnostic frame recorded:
+
+| Work | Count |
+| --- | ---: |
+| Mesh node visits | 12,157,660 |
+| Triangle setup candidates | 9,764,086 |
+| Shared chunk rounds | 2,709,872 |
+| Largest accumulated round count in a reused task slot | 344 |
+| Submitted transient triangles | 220 |
+
+An earlier variant put one transient triangle in each round. Packing up to
+eight reduced approximately 1.9 seconds to 0.92 seconds, but retained the
+per-tile repetition. The tree bounds prune retained geometry; transient
+triangles still reach setup in each relevant tile. The counts include portal
+views. They are not counts of unique visible primitives.
+
+This result rejects this implementation as a production replacement. It does
+not establish that every tile-owned rasterizer has the same cost. Exact
+per-tile clipping, uneven traversal lanes, repeated setup, and synchronization
+remain combined in this measurement. No register-pressure or spill attribution
+has been established.
+
+Do not add lighting caches or tile-local portal recursion to this variant.
+The next architecture comparison must move triangle setup out of these small
+tile loops, with an explicit bounded storage and completion contract, or test
+the declared primary-ray challenger. Either must first produce the same
+production image. The 60 FPS requirement remains unmet.

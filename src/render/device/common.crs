@@ -374,14 +374,6 @@ fn triangle_visible(tri: u32, view: u32) -> bool {
     if (scene_meta(tri, 3u32) & TRIANGLE_INACTIVE) != 0u32 {
         return false;
     }
-    if tri >= words_load(DYNAMIC_COUNT) {
-        var instance: u32 = scene_instance(tri);
-        if words_load(
-            words_load(INSTANCE_VISIBLE) + view * words_load(INSTANCE_COUNT) + instance
-        ) == 0u32 {
-            return false;
-        }
-    }
     if (scene_meta(tri, 3u32) & 2u32) == 0u32 {
         return true;
     }

@@ -40,9 +40,16 @@ fn commands_raster_body(v: *RenderState) -> unit {
     command_stamp(v, 1u32);
     var depth: u32 = 0u32;
     while depth <= v -> crossing_limit {
-        view_dispatch(v, 9usize);
-        command_barrier(v, BARRIER_COMPUTE);
-        commands_geometry_batches(v, depth);
+        if v -> tile_owned {
+            task_dispatch(v, 15usize, 0u32);
+            command_barrier(v, BARRIER_COMPUTE);
+            task_dispatch(v, 13usize, 0u32);
+            command_barrier(v, BARRIER_COMPUTE);
+        } else {
+            view_dispatch(v, 9usize);
+            command_barrier(v, BARRIER_COMPUTE);
+            commands_geometry_batches(v, depth);
+        }
         command_stamp(v, 2u32 + depth * 2u32);
         task_dispatch(v, 6usize, 3u32);
         command_barrier(v, BARRIER_COMPUTE);

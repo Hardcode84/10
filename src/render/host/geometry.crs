@@ -14,9 +14,10 @@ fn geometry_layout(v: *RenderState, capacity: u32) -> bool {
         ) * 12u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
     var words: u64 = (
-        192u64 + image_words(v) + tile_bit_words(v, v -> projection_capacity) + capacity as u64 * 13u64 + projected_count * (
-            MAX_FAN as u64 + 4u64
-        ) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * (
+        192u64 + v -> task_capacity as u64 * 4u64 + image_words(v) + tile_bit_words(
+            v,
+            v -> projection_capacity
+        ) + capacity as u64 * 13u64 + projected_count * (MAX_FAN as u64 + 4u64) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * (
             5u64 + v -> view_capacity as u64
         ) + traversal_words(v) + v -> light_capacity as u64 + shadow_elements(v, capacity) * 9u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
@@ -47,10 +48,8 @@ fn geometry_header(v: *RenderState) -> unit {
     w[BATCH_PRIMITIVES as usize] = w[BATCH_IDS as usize] + v -> projection_capacity * 3u32;
     w[BATCH_WALKERS as usize] = w[BATCH_PRIMITIVES as usize] + v -> projection_capacity;
     w[TILE_BITS as usize] = w[BATCH_WALKERS as usize] + 192u32;
-    w[ASSET_OFFSET as usize] = w[TILE_BITS as usize] + tile_bit_words(
-        v,
-        v -> projection_capacity
-    ) as u32;
+    w[TILE_STATS as usize] = w[TILE_BITS as usize] + tile_bit_words(v, v -> projection_capacity) as u32;
+    w[ASSET_OFFSET as usize] = w[TILE_STATS as usize] + v -> task_capacity * 4u32;
     w[LIGHT_SPACE as usize] = w[ASSET_OFFSET as usize] + v -> asset_capacity;
     w[INSTANCE_OWNER as usize] = w[LIGHT_SPACE as usize] + v -> light_capacity;
     w[SPACE_TRIANGLES as usize] = w[INSTANCE_OWNER as usize] + capacity;
