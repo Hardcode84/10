@@ -28,7 +28,7 @@ fn raster_candidates(task: u32, view: u32, x: u32, y: u32) -> unit {
             words_load(BATCH_PRIMITIVES) + batch_offset(view) + id / MAX_FAN
         );
         var identity: u32 = triangle * MAX_FAN + id % MAX_FAN;
-        if tile_overlap(p, (x / 8u32 * 8u32) as f32, (y / 8u32 * 8u32) as f32) {
+        if lists || tile_overlap(p, (x / 8u32 * 8u32) as f32, (y / 8u32 * 8u32) as f32) {
             var depth: f32 = candidate_depth(p, px, py);
             if nearer(depth, best, identity, winner) && candidate_opaque(triangle, p, px, py) {
                 best = depth;

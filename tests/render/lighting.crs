@@ -122,7 +122,7 @@ fn lighting_test(base: *Options) -> bool {
     if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
         return false;
     }
-    if !lighting_cases(mut renderer) {
+    if !lighting_cases(mut renderer) || !lighting_model_switch(mut renderer) {
         return false;
     }
     if !portable_lights_test(base) || !lighting_cache_test(mut renderer) || !lighting_shared_ambient(
@@ -134,6 +134,22 @@ fn lighting_test(base: *Options) -> bool {
         "light occlusion, cutouts, space isolation, retained blockers, distant lights and 17 lights passed"
     );
     return lighting_capacity_reuse(mut renderer) && lighting_large_mesh_test(mut renderer);
+}
+fn lighting_model_switch(renderer: mut Renderer) -> bool {
+    var frame: u32 = 0u32;
+    while frame < 4u32 {
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            lighting_scene(mut input, (frame / 2u32) * 6u32);
+            input_set_word(mut input, LIGHT_MODEL as usize, frame % 2u32);
+        }
+        if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
+            return false;
+        }
+        frame = frame + 1u32;
+    }
+    puts("distance and dynamic lighting switch on one renderer passed");
+    return true;
 }
 fn lighting_rejections(renderer: mut Renderer) -> bool {
     var capacity: u32 = renderer.state.light_capacity;

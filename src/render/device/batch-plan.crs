@@ -32,6 +32,7 @@ fn batch_initialize() -> unit {
         if begin < end {
             batch_view_begin(begin);
         }
+        words_store(BATCH_MODE, words_load(BATCH_MODE) & ~2u32);
     }
     words_store(BATCH_FIRST, words_load(BATCH_VIEW));
     words_store(BATCH_END, words_load(BATCH_VIEW));
@@ -246,6 +247,13 @@ fn batch_finish() -> unit {
     }
     batch_task_commands(words_load(BATCH_FIRST) < words_load(BATCH_END));
     words_store(16u32, geometry_groups(words_load(BATCH_COUNT)));
+    var fans: u32 = words_load(BATCH_COUNT) * MAX_FAN;
+    if fans > MAX_INVOCATIONS / LOCAL_SIZE {
+        fans = MAX_INVOCATIONS / LOCAL_SIZE;
+    }
+    words_store(LIST_COMMAND, fans);
+    words_store(LIST_COMMAND + 1u32, 1u32);
+    words_store(LIST_COMMAND + 2u32, 1u32);
     if words_load(5u32) == 0u32 && (words_load(BATCH_MODE) & 4u32) != 0u32 && words_load(
         BATCH_VIEW
     ) != words_load(9u32) + words_load(10u32) {
@@ -256,20 +264,20 @@ fn compute() -> unit {
     var lane: u32 = shader_local_x();
     if lane == 0u32 {
         batch_initialize();
+        batch_step_begin();
+        shared_store(255u32, batch_has_tree() as u32);
     }
     shader_barrier();
     var round: u32 = 0u32;
-    while round < 8u32 {
-        if lane == 0u32 {
-            batch_step_begin();
-        }
-        shader_barrier();
+    while shared_uniform_load(255u32) != 0u32 {
         batch_worker_count(lane);
         shader_barrier();
         batch_worker_emit(lane);
         shader_barrier();
         if lane == 0u32 {
             batch_workers_finish();
+            batch_step_begin();
+            shared_store(255u32, (batch_has_tree() && round + 1u32 < 8u32) as u32);
         }
         shader_barrier();
         round = round + 1u32;

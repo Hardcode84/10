@@ -205,6 +205,15 @@ state. The default projection batch holds 8192 source triangles across views.
 `input_batch_limit` changes the active maximum; zero restores the default.
 A smaller batch increases resumptions without changing the image.
 
+The planner stops its workgroup loop when the batch is full, the view range is
+complete, or its eight-step quantum ends. The loop condition uses a workgroup
+uniform load. The host keeps a conservative round bound because visible work
+is resolved on the device. Empty later rounds publish zero work counts. Their
+command and barrier costs remain; no CPU readback is used to terminate them.
+The host updates batch control only for the first and last rounds. The planner
+clears the initialization flag after it starts the view range. The last round
+retains the completion check that rejects an unfinished frame.
+
 Clipping reserves up to eight fan triangles per source. Shared intersections
 use the inside endpoint first. Coverage evaluates shared edges in one canonical
 endpoint order, then uses direction for the sign and top-left rule. Opposite
@@ -219,6 +228,12 @@ winner selection; an empty texel cannot hide a surface or portal. Opaque texture
 sampling and lighting run after the view's geometry is complete. Continuing
 portal winners emit masks without first shading the portal surface. At the
 crossing limit, the portal material is shaded as a terminal result.
+
+Distance lighting and dynamic lighting use separate shading entry points with
+shared source. The host selects the entry point from the frame's lighting
+model. Both support sprites, full-bright texels, portal masks, and debug output.
+The barriers inside shading publish workgroup memory only. The command schedule
+orders storage-buffer writes between dispatches.
 
 ## Portal views and visibility
 
@@ -726,6 +741,11 @@ pixel in that tile. Distinct task masks do not overlap. Thus, a physical tile
 has at most 64 task links, including recursive views of the same room.
 A compute barrier publishes links before triangle assignment starts.
 
+Each list-assignment phase has a separate shader entry point. The schedule
+does not update a phase word between dispatches. The batch planner writes the
+indirect fan count together with the projection and task counts, so assignment
+needs no separate launch pass.
+
 Each projected fan visits tiles in its screen bounding rectangle, intersected
 with the active view rectangle. It applies the shared triangle-tile coverage test and finds the task with its view ID.
 The count pass and the write pass use the same predicate. A tile with at most
@@ -735,6 +755,8 @@ representation; neither representation can overflow its allocation. A compute
 barrier separates counts, dense clears, writes, and rasterization. Atomic OR
 combines bitmap bits. Atomic add reserves list entries. Equal-depth fragments
 use the shared source-identity tie rule, independent of insertion order.
+Assignment proves tile overlap for every stored candidate. The tile-list raster
+therefore runs per-pixel coverage and depth tests without repeating tile overlap.
 
 The four existing tile-stat words hold the tile head, task link, reference
 count, and list cursor. The candidate region keeps its existing allocation.
@@ -743,13 +765,13 @@ static checkpoint's inline-list pool and assignment queue limits do not apply.
 One workgroup visits a fan's tiles in parallel. Large dispatches use a fixed
 workgroup stride; they do not truncate fan counts.
 
-The [full-frame comparison](tile-list-full.csv) uses the prefab course on Intel
+The [initial full-frame comparison](tile-list-full.csv) uses the prefab course on Intel
 Arc Pro B60, eight warm-up frames, and 64 measured frames per case. It includes
 lighting, shadows, dynamic geometry, and recursive portals. All six tile-list
 captures match the group-scan reference byte for byte. Device and staging
 allocations are equal. The rotor scenes improve, but the passage regresses.
-The measured 1080p GPU p99 values exceed the 10 ms gate. The application default
-therefore remains the group-scan renderer.
+This baseline predates the shading and scheduling corrections below. Its
+measured 1080p GPU p99 values exceed the 10 ms gate.
 
 The regression suite checks tiny geometry batches, recursive masks, cutouts,
 lighting, retained storage, and image resize through the tile-list path.
@@ -834,9 +856,9 @@ differ at subpixel edges, equal-depth ties, and nearest-texel boundaries. The
 [original hardware comparison](geometry-raster.csv) records image differences;
 these must be investigated rather than hidden by a wider tolerance.
 
-### All paths on heavy rooms
+### Heavy-room baseline
 
-The [heavy-room comparison](heavy-room-comparison.csv) runs all six paths on
+The [heavy-room baseline](heavy-room-comparison.csv) runs all six paths on
 the same isolated geometry-and-texture snapshot. The shaft has 7,942 source
 triangles. The hub has 17,236. Each room has one retained instance. The complete
 course has 43,342 source triangles, but only the selected root room is drawn.
@@ -882,6 +904,60 @@ Tile-owned traversal repeats traversal and triangle setup for each tile. These
 are different implementations of the same measured image workload. The result
 does not establish a hardware limit on compute rendering. Keep the application
 default and all references until the acceptance gates pass.
+
+### Shading and scheduling corrections
+
+The [corrected full-frame results](tile-list-overhead-full.csv) repeat all 18
+initial cases with 64 measured frames after eight warm-up frames. Every capture
+matches its baseline byte for byte. Device and staging buffer sizes are equal.
+The shared shading changes also improve group scan and projected-tree rendering.
+The list-assignment and raster changes apply to the bounded tile-list path.
+
+Bounded tile-list GPU times in milliseconds on Intel Arc Pro B60:
+
+| Room | Resolution | Baseline p50 | Corrected p50 | Corrected p99 | Synchronous frame p99 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Passage | 1024 by 768 | 7.814 | 5.496 | 5.688 | 9.213 |
+| Shaft | 1024 by 768 | 8.637 | 6.180 | 6.348 | 10.288 |
+| Hub | 1024 by 768 | 8.814 | 6.103 | 6.268 | 9.969 |
+| Passage | 1920 by 1080 | 14.438 | 9.763 | 9.929 | 13.083 |
+| Shaft | 1920 by 1080 | 12.870 | 8.777 | 8.934 | 12.776 |
+| Hub | 1920 by 1080 | 14.444 | 9.487 | 9.635 | 13.087 |
+
+The corrections replace storage-memory barriers inside shading with workgroup
+barriers, select a distance or dynamic-light shader before dispatch, and remove
+redundant tile-overlap tests from the list raster. Each assignment phase has a
+constant shader entry point. The planner produces the fan dispatch count and
+stops completed internal walks. Intermediate rounds need no batch-control
+update from the host.
+
+The GPU p99 samples meet the 10 ms gate, but synchronous frame p99 at 1080p
+still exceeds 12 ms. The passage also remains faster with projected-tree or
+group-scan rendering. Keep the application default unchanged. These fixed-pose
+runs do not establish long-route presentation or input latency.
+
+The [corrected geometry comparison](tile-list-overhead-geometry.csv) repeats the
+six-path heavy-room matrix, with 128 measured frames per path on Intel and AMD.
+Its geometry and texture workload remains separate from the full-frame table.
+All 48 captures match their baseline captures, including hardware. The bounded
+tile-list path improves from 4.697 to 2.616 ms for the Intel 1080p shaft and from
+5.822 to 3.474 ms for the hub. AMD median improvements range from 5 to 14 percent.
+The corrected path still takes 17.6 to 22.8 times hardware across this matrix.
+The two-times hardware gate therefore remains unmet.
+
+The count and write passes remain necessary for the current storage contract:
+the direct list and dense bitmap share one allocation. Assignment must know
+which representation fits before it writes that region. A single-pass
+replacement must provide separate bounded overflow storage or per-tile
+continuation, and prove complete images when that storage fills. The host's
+remaining empty-round cost requires a command-execution contract that can stop
+on GPU completion; the current shared schedule records all rounds in advance.
+
+Validation includes the full native suite on both GPUs, lighting-model changes
+on one renderer, tiny geometry batches, recursive portal masks, body views,
+hook lights, scaled portals, and particles. Vulkan synchronization validation
+reports no hazards. Checked and unchecked WebGPU captures match native AMD
+and the prior capture byte for byte.
 
 ### Acceptance and next proof
 
@@ -990,7 +1066,7 @@ scan control while preserving portal masks.
 | `crust tests.crs render 8` | Many portal paths, 64 portals in one tile, deep cycles, 65,536 tasks, exhaustion and recovery. |
 | `crust tests.crs render 9` | Resize, portrait/landscape/4K/wide images, exact scaling and storage rejection. |
 | `crust tests.crs render 10` | Real window resize and swapchain replacement; requires a display. |
-| `crust tests.crs render 11` | Growable lights, cutout blockers, light-facing rejection, retained shadows and portable-light propagation. |
+| `crust tests.crs render 11` | Lighting-model switches, growable lights, cutout blockers, light-facing rejection, retained shadows and portable-light propagation. |
 | `crust tests.crs render 12` | Dirty uploads, four-byte readback, debug reduction and retirement. |
 | `crust tests.crs hook-light` | Recursive light anchors, attached-hook lighting and solid inside/outside faces. |
 | `crust tests.crs body-view` | Player-body images through portals. |
@@ -1068,7 +1144,8 @@ dumps to pipeline creation order. Driver cycle estimates are not GPU timings.
 | [Retained storage](../../src/render/host/retained.crs), [mesh trees](../../src/render/host/mesh-tree.crs) | Mesh and instance lifetime, local spatial data. |
 | [Projection scheduling](../../src/render/host/projection.crs), [command schedule](../../src/render/host/schedule.crs) | Space membership, conservative work bounds and ordered passes. |
 | [Transfers](../../src/render/host/transfers.crs), [completion](../../src/render/host/completion.crs) | Dirty ranges, selected readback and retirement. |
-| [Tile assignment](../../src/render/device/tile-list.crs) | View-task links, exact reference counts, bounded list and bitmap writes. |
+| [Tile assignment](../../src/render/device/tile-list-data.crs) | View-task links, exact reference counts, bounded list and bitmap writes. |
+| [Shading](../../src/render/device/shade-data.crs) | Distance and dynamic lighting, final colour, and child portal masks. |
 | [Device shaders](../../src/render/device/) | Visibility, clipping, rasterization, light queries and composition. |
 | [Native presentation](../../src/render/host/present.crs), [WebGPU provider](../../src/render/web/) | Platform resources, commands and presentation. |
 | [Shader build](../../tools/build/shaders.crs) | Shared source assembly and backend compilation. |

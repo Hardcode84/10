@@ -1,0 +1,1 @@
+const SHADE_DISTANCE: bool = true;

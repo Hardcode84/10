@@ -43,7 +43,7 @@ fn commands_raster_body(v: *RenderState) -> unit {
         if v -> tile_owned {
             task_dispatch(v, 15usize, 0u32);
             command_barrier(v, BARRIER_COMPUTE);
-            task_dispatch(v, 13usize, 0u32);
+            task_dispatch(v, shade_pipeline(v), 0u32);
             command_barrier(v, BARRIER_COMPUTE);
         } else {
             if v -> tile_lists {
@@ -156,9 +156,11 @@ fn commands_geometry_batches(v: *RenderState, depth: u32) -> unit {
         if round + 1u64 == rounds {
             mode = mode | 4u32;
         }
-        command_barrier(v, BARRIER_BEFORE_UPDATE);
-        command_word(v, BATCH_MODE + 1u32, mode);
-        command_barrier(v, BARRIER_UPDATED_COMPUTE);
+        if round == 0u64 || round + 1u64 == rounds {
+            command_barrier(v, BARRIER_BEFORE_UPDATE);
+            command_word(v, BATCH_MODE + 1u32, mode);
+            command_barrier(v, BARRIER_UPDATED_COMPUTE);
+        }
         command_bind(v, 14usize);
         command_direct(v, 1u32);
         command_barrier(v, BARRIER_INDIRECT);
@@ -167,7 +169,6 @@ fn commands_geometry_batches(v: *RenderState, depth: u32) -> unit {
         command_barrier(v, BARRIER_COMPUTE);
         if v -> tile_lists {
             commands_list_phase(v, LIST_RESET_COUNTS);
-            commands_list_phase(v, LIST_LAUNCH);
             commands_list_phase(v, LIST_COUNT_REFERENCES);
             commands_list_phase(v, LIST_CLEAR_BITMAPS);
             commands_list_phase(v, LIST_WRITE_REFERENCES);
@@ -188,29 +189,32 @@ fn commands_geometry_batches(v: *RenderState, depth: u32) -> unit {
             task_dispatch(v, 2usize, 0u32);
             command_barrier(v, BARRIER_COMPUTE);
         }
-        task_dispatch(v, 13usize, 9u32);
+        task_dispatch(v, shade_pipeline(v), 9u32);
         command_barrier(v, BARRIER_COMPUTE);
         round = round + 1u64;
     }
-    command_barrier(v, BARRIER_BEFORE_UPDATE);
-    command_word(v, BATCH_MODE + 1u32, 0u32);
-    command_barrier(v, BARRIER_UPDATED_COMPUTE);
 }
 
 fn commands_list_phase(v: *RenderState, phase: u32) -> unit {
-    command_barrier(v, BARRIER_BEFORE_UPDATE);
-    command_word(v, LIST_PHASE + 1u32, phase);
-    command_barrier(v, BARRIER_UPDATED_COMPUTE);
+    var pipeline: usize = 18usize;
+    if phase != LIST_CLEAR_HEADS {
+        pipeline = (20u32 + phase) as usize;
+    }
     if phase == LIST_CLEAR_HEADS {
         var tiles: u32 = ((v -> width + 7u32) / 8u32) * ((v -> height + 7u32) / 8u32);
-        retained_dispatch(v, 18usize, (tiles + 63u32) / 64u32);
-    } else if phase == LIST_LAUNCH {
-        retained_dispatch(v, 18usize, 1u32);
+        retained_dispatch(v, pipeline, (tiles + 63u32) / 64u32);
     } else if phase == LIST_COUNT_REFERENCES || phase == LIST_WRITE_REFERENCES {
-        command_bind(v, 18usize);
+        command_bind(v, pipeline);
         command_indirect(v, (LIST_COMMAND as u64 + 1u64) * 4u64);
     } else {
-        task_dispatch(v, 18usize, 0u32);
+        task_dispatch(v, pipeline, 0u32);
     }
-    command_barrier(v, BARRIER_INDIRECT);
+    command_barrier(v, BARRIER_COMPUTE);
+}
+
+fn shade_pipeline(v: *RenderState) -> usize {
+    if (v -> mapped as *u32)[LIGHT_MODEL as usize] == 0u32 {
+        return 20usize;
+    }
+    return 13usize;
 }

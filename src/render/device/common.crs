@@ -327,22 +327,6 @@ fn material_texel(mat: u32, u: f32, v: f32) -> u32 {
         words_load(ASSET_OFFSET) + material_field(mat, 0u32) + x + y * material_field(mat, 3u32)
     );
 }
-fn surface_color(tri: u32, view: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
-    var mat: u32 = scene_meta(tri, 1u32);
-    if (scene_meta(tri, 3u32) & TRIANGLE_SPRITE) != 0u32 {
-        return words_load(
-            material_palette(mat) + material_texel(mat, u, v) * LIGHT_STATES + LIGHT_STATES - 1u32
-        );
-    }
-    if words_load(LIGHT_MODEL) == 0u32 {
-        return light_color(mat, u, v, z, x, y);
-    }
-    var state: u32 = lit_state(tri, view, x, y);
-    return words_load(
-        material_palette(mat) + material_texel(mat, u, v) * LIGHT_STATES + state
-    );
-}
-
 fn portal_facing(view: u32, portal: u32) -> bool {
     if portal == 0u32 {
         return true;

@@ -2,8 +2,8 @@ fn app_renderer_open(v: *RenderState, window: *u8, config: *RenderConfig) -> boo
     if !window_instance(v, window) {
         return false;
     }
-    var shaders: [ShaderCode; 21] = uninit;
-    zero(&shaders as *u8, sizeof([ShaderCode; 21]));
+    var shaders: [ShaderCode; 27] = uninit;
+    zero(&shaders as *u8, sizeof([ShaderCode; 27]));
     var good: bool = true;
     var i: usize = 0usize;
     while good && i < (PIPELINE_COUNT as usize - 1usize + (config -> shader_checks) as usize) {

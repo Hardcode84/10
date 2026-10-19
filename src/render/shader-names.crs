@@ -1,5 +1,5 @@
 fn render_shader_name(slot: usize, checked: bool) -> *u8 {
-    var paths: [*u8; 41] = make [*u8; 41] {
+    var paths: [*u8; 53] = make [*u8; 53] {
         "init",
         "transform",
         "raster",
@@ -20,6 +20,12 @@ fn render_shader_name(slot: usize, checked: bool) -> *u8 {
         "projected-bin",
         "tile-list",
         "tile-list-raster",
+        "shade-distance",
+        "tile-list-link",
+        "tile-list-reset",
+        "tile-list-count",
+        "tile-list-clear",
+        "tile-list-write",
         "init.debug",
         "transform.debug",
         "raster.debug",
@@ -40,7 +46,13 @@ fn render_shader_name(slot: usize, checked: bool) -> *u8 {
         "projected-bin.debug",
         "tile-list.debug",
         "tile-list-raster.debug",
+        "shade-distance.debug",
+        "tile-list-link.debug",
+        "tile-list-reset.debug",
+        "tile-list-count.debug",
+        "tile-list-clear.debug",
+        "tile-list-write.debug",
         "status.debug"
     };
-    return paths[slot + checked as usize * 20usize];
+    return paths[slot + checked as usize * 26usize];
 }

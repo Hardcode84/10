@@ -24,24 +24,13 @@ fn shader_source(
         paths[9usize] = "src/render/device/tile-storage.crs";
         count = 11usize;
     }
-    if cache_strcmp(name, "src/render/device/compact.crs") == 0i32 {
-        paths[10usize] = "src/render/device/compact-data.crs";
+    var extra: *u8 = shader_extra_source(name);
+    if extra != null(*u8) {
+        paths[10usize] = extra;
         count = 11usize;
     }
     if cache_strcmp(name, "src/render/device/projected-build.crs") == 0i32 {
-        paths[10usize] = "src/render/device/compact-data.crs";
         count = 12usize;
-    }
-    if cache_strcmp(name, "src/render/device/projected-bin.crs") == 0i32 {
-        paths[10usize] = paths[11usize];
-        count = 11usize;
-    }
-    if cache_strcmp(name, "src/render/device/raster.crs") == 0i32 || cache_strcmp(
-        name,
-        "src/render/device/tile-list-raster.crs"
-    ) == 0i32 {
-        paths[10usize] = "src/render/device/raster-data.crs";
-        count = 11usize;
     }
     if checked {
         paths[4usize] = "src/render/device/checked.crs";
@@ -214,7 +203,7 @@ fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
             "set LLVM_DIRECTORY and SPIRV_VAL, or provide build/toolchain/llvm and build/toolchain/spirv-val"
         );
     }
-    var sources: [*u8; 21] = make [*u8; 21] {
+    var sources: [*u8; 27] = make [*u8; 27] {
         "src/render/device/init.crs",
         "src/render/device/transform.crs",
         "src/render/device/raster.crs",
@@ -235,10 +224,16 @@ fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
         "src/render/device/projected-bin.crs",
         "src/render/device/tile-list.crs",
         "src/render/device/tile-list-raster.crs",
+        "src/render/device/shade-distance.crs",
+        "src/render/device/tile-list-link.crs",
+        "src/render/device/tile-list-reset.crs",
+        "src/render/device/tile-list-count.crs",
+        "src/render/device/tile-list-clear.crs",
+        "src/render/device/tile-list-write.crs",
         "src/render/device/status.crs"
     };
     var i: usize = 0usize;
-    while i < 21usize {
+    while i < 27usize {
         var shared_length: u32 = render_shader_shared(i);
         if !build_shader(
             root,
@@ -248,13 +243,13 @@ fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
             validator,
             SHADER_WORKGROUP_U32,
             shared_length,
-            i == 20usize,
+            i == 26usize,
             true,
             web
         ) {
             return false;
         }
-        if i < 20usize && !build_shader(
+        if i < 26usize && !build_shader(
             root,
             sources[i],
             render_build_shader_path(root, i, false, web),
@@ -296,7 +291,7 @@ fn render_shader_shared(index: usize) -> u32 {
     if index == 15usize {
         return 128u32;
     }
-    if index == 13usize || index == 6usize {
+    if index == 13usize || index == 20usize || index == 6usize {
         return 512u32;
     }
     if index == 9usize || index == 14usize {
@@ -305,8 +300,59 @@ fn render_shader_shared(index: usize) -> u32 {
     if index == 5usize {
         return 64u32;
     }
-    if index == 20usize {
+    if index == 26usize {
         return 192u32;
     }
     return 0u32;
+}
+
+fn shader_is_shade(name: *u8) -> bool {
+    return cache_strcmp(name, "src/render/device/shade.crs") == 0i32 || cache_strcmp(
+        name,
+        "src/render/device/shade-distance.crs"
+    ) == 0i32;
+}
+
+fn shader_is_tile_list(name: *u8) -> bool {
+    var paths: [*u8; 6] = make [*u8; 6] {
+        "src/render/device/tile-list.crs",
+        "src/render/device/tile-list-link.crs",
+        "src/render/device/tile-list-reset.crs",
+        "src/render/device/tile-list-count.crs",
+        "src/render/device/tile-list-clear.crs",
+        "src/render/device/tile-list-write.crs"
+    };
+    var i: usize = 0usize;
+    while i < 6usize {
+        if cache_strcmp(name, paths[i]) == 0i32 {
+            return true;
+        }
+        i = i + 1usize;
+    }
+    return false;
+}
+
+fn shader_extra_source(name: *u8) -> *u8 {
+    if shader_is_shade(name) {
+        return "src/render/device/shade-data.crs";
+    }
+    if shader_is_tile_list(name) {
+        return "src/render/device/tile-list-data.crs";
+    }
+    if cache_strcmp(name, "src/render/device/compact.crs") == 0i32 || cache_strcmp(
+        name,
+        "src/render/device/projected-build.crs"
+    ) == 0i32 {
+        return "src/render/device/compact-data.crs";
+    }
+    if cache_strcmp(name, "src/render/device/projected-bin.crs") == 0i32 {
+        return "src/render/device/projected-tree.crs";
+    }
+    if cache_strcmp(name, "src/render/device/raster.crs") == 0i32 || cache_strcmp(
+        name,
+        "src/render/device/tile-list-raster.crs"
+    ) == 0i32 {
+        return "src/render/device/raster-data.crs";
+    }
+    return null(*u8);
 }
