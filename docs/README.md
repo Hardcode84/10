@@ -63,11 +63,7 @@ application functions as the applications.
 - Runtime: [task graph architecture](runtime/task-graph.md). This is the target
   design and measured experiment for scheduling and asynchronous services.
 - Build: [bootstrap](build/bootstrap.md), [web game](build/web.md), [shader compiler](build/crust-spirv.md).
-- Render: [design](render/rendering.md), [build and checks](render/renderer-build.md),
-  [textures](render/textures.md), [retained meshes](render/retained-meshes.md),
-  [persistent visibility design](render/retained-visibility.md),
-  [renderer architecture review](render/architecture-review.md),
-  [portal capacity](render/portal-capacity.md), [image resize](render/images.md).
+- Render: [architecture, data flow, contracts, and checks](render/rendering.md).
 - Collision: [static meshes](collision/static-meshes.md),
   [spatial index](collision/spatial-index.md), [sphere motion](collision/motion.md),
   [moving meshes and anchors](collision/kinematic-meshes.md).

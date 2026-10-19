@@ -44,7 +44,7 @@ Use `--serial` to select the synchronous loop for comparisons.
 Each root builds its host program and required shaders before execution.
 Build policy and asset recipes use Crust. The seed bootstrap and the web target's
 Emscripten toolchain require Python. See [bootstrap details](docs/build/bootstrap.md) and
-[renderer requirements](docs/render/renderer-build.md).
+[renderer requirements](docs/render/rendering.md#build-checks-and-measurement).
 
 ## Run
 

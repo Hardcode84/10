@@ -33,7 +33,7 @@ crust demo.crs levels/radial.crs
 The demo root builds host and device code, then starts the interactive flight demo.
 Run `crust tests.crs` to build and run the tests. It generates palettes in Crust.
 The web build also uses Python to run Emscripten. See
-[renderer build](../render/renderer-build.md) for LLVM, SPIRV-Tools, SDL2, and
+[renderer build](../render/rendering.md#build-checks-and-measurement) for LLVM, SPIRV-Tools, SDL2, and
 Vulkan requirements, capture commands, and checks.
 
 ## Shared application setup

@@ -42,7 +42,7 @@ The Crust dispatch harness passed 1,025 ABI checks across 42 records against
 the Vulkan C headers. Four injected enumeration and setup cases and three
 malformed-input checks also passed. Its bindings use the Linux x86-64 ABI.
 The game now compiles host and shader inputs from shared Crust buffer constants.
-Its [renderer tests](../render/renderer-build.md) complete the visible-image and
+Its [renderer tests](../render/rendering.md#build-checks-and-measurement) complete the visible-image and
 multiple-workgroup gates. The game bindings passed 1,177 checks across 53 Vulkan
 records. The compiler's twelve dispatch cases each use one four-invocation
 workgroup. Windows and NVIDIA were not tested.

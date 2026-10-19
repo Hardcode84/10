@@ -6,7 +6,7 @@ This document defines the target architecture and the current implementation.
 The default game loop uses same-frame CPU/GPU overlap and asynchronous render
 and presentation operations. Run it with `crust main.crs`. Use `--serial`
 to select the synchronous loop for comparisons.
-The [transfer contract](../render/transfers.md) describes current resource use.
+The [rendering storage and ownership contract](../render/rendering.md#storage-and-capacity) describes current resource use.
 Keep that contract until each replacement passes the delivery gates below.
 
 ### Current implementation
