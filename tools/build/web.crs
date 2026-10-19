@@ -156,7 +156,7 @@ fn web_toolchain_fetch(root: *CrustRun) -> bool {
     return true;
 }
 fn web_link(root: *CrustRun) -> bool {
-    var args: [*u8; 25] = make [*u8; 25] {
+    var args: [*u8; 23] = make [*u8; 23] {
         "env",
         native_join(
             root -> context,
@@ -179,15 +179,46 @@ fn web_link(root: *CrustRun) -> bool {
         "-sEXPORTED_FUNCTIONS=[\"_main\",\"_malloc\",\"_free\"]",
         "--js-library",
         host_path(root, "src/render/web/backend.js"),
-        "--preload-file",
-        native_join(root -> context, host_path(root, "build/web/shaders"), "@/build"),
         "-sMODULARIZE",
         "-sEXPORT_NAME=Spinward",
         "-o",
         host_path(root, "build/web/game.js"),
         null(*u8)
     };
-    return native_tool(root -> context, &args[0usize]);
+    var command: [*u8; 105] = uninit;
+    var i: usize = 0usize;
+    while i < 22usize {
+        command[i] = args[i];
+        i = i + 1usize;
+    }
+    i = web_shader_files(root, &command[0usize], i);
+    command[i] = null(*u8);
+    return native_tool(root -> context, &command[0usize]);
+}
+fn web_shader_files(root: *CrustRun, args: **u8, first: usize) -> usize {
+    var i: usize = 0usize;
+    var out: usize = first;
+    while i < 41usize {
+        var checked: bool = i >= 20usize;
+        var slot: usize = i;
+        if checked {
+            slot = slot - 20usize;
+        }
+        var name: *u8 = native_join(
+            root -> context,
+            render_shader_name(slot, checked),
+            ".wgsl"
+        );
+        args[out] = "--preload-file";
+        args[out + 1usize] = native_join(
+            root -> context,
+            render_build_shader_path(root, slot, checked, true),
+            native_join(root -> context, "@/build/", name)
+        );
+        out = out + 2usize;
+        i = i + 1usize;
+    }
+    return out;
 }
 fn build_web(
     root: *CrustRun,

@@ -442,17 +442,6 @@ fn image_coordinate(coordinate: u32, source: u32, extent: u32) -> u32 {
     return quotient;
 }
 
-fn tile_overlap(p: u32, x: f32, y: f32) -> bool {
-    var ax: f32 = floats_load(p);
-    var ay: f32 = floats_load(p + 1u32);
-    var bx: f32 = floats_load(p + 6u32);
-    var by: f32 = floats_load(p + 7u32);
-    var cx: f32 = floats_load(p + 12u32);
-    var cy: f32 = floats_load(p + 13u32);
-    return!(ax < x && bx < x && cx < x) &&!(ay < y && by < y && cy < y) &&!(
-        ax > x + 8f32 && bx > x + 8f32 && cx > x + 8f32
-    ) &&!(ay > y + 8f32 && by > y + 8f32 && cy > y + 8f32);
-}
 fn tile_bit_stride() -> u32 {
     return (words_load(PROJECTION_CAPACITY) * MAX_FAN + 31u32) / 32u32;
 }
@@ -596,16 +585,6 @@ fn batch_slot_view(slot: u32) -> u32 {
     return begin;
 }
 
-fn batch_bounds(view: u32, group: u32) -> u32 {
-    return words_load(CLIP_OFFSET) + batch_offset(view) * 144u32 + group * 4u32;
-}
-fn group_tile_overlap(view: u32, group: u32, x: f32, y: f32) -> bool {
-    var p: u32 = batch_bounds(view, group);
-    return floats_load(p) <= x + 8f32 && floats_load(p + 1u32) <= y + 8f32 && floats_load(
-        p + 2u32
-    ) >= x && floats_load(p + 3u32) >= y;
-}
-
 fn task_pixel_active(base: u32, lane: u32, x: u32, y: u32, width: u32) -> bool {
     return!(
         x >= width || y >= words_load(1u32) || (
@@ -643,4 +622,15 @@ fn triangle_tile_overlap(p: u32, x: f32, y: f32) -> bool {
         x,
         y
     );
+}
+fn tile_overlap(p: u32, x: f32, y: f32) -> bool {
+    var ax: f32 = floats_load(p);
+    var ay: f32 = floats_load(p + 1u32);
+    var bx: f32 = floats_load(p + 6u32);
+    var by: f32 = floats_load(p + 7u32);
+    var cx: f32 = floats_load(p + 12u32);
+    var cy: f32 = floats_load(p + 13u32);
+    return!(ax < x && bx < x && cx < x) &&!(ay < y && by < y && cy < y) &&!(
+        ax > x + 8f32 && bx > x + 8f32 && cx > x + 8f32
+    ) &&!(ay > y + 8f32 && by > y + 8f32 && cy > y + 8f32);
 }

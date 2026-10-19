@@ -30,7 +30,6 @@ fn game_window_drop(window: mut GameWindow) -> unit {
 }
 fn game_session(o: *Launch) -> GameSession {
     var renderer: Renderer = renderer_new();
-    renderer.state.tile_lists = o -> tile_lists;
     return make GameSession {
         control: make GameControl {
             graph: graph_new(),

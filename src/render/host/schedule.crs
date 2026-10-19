@@ -29,7 +29,7 @@ fn commands_setup_body(v: *RenderState) -> unit {
     if (v -> mapped as *u32)[26usize] != 0u32 || (v -> mapped as *u32)[
         INSTANCE_MAP_RESET as usize
     ] != 0u32 {
-        retained_dispatch(v, 8usize, v -> instance_capacity);
+        retained_dispatch(v, 6usize, v -> instance_capacity);
     }
     command_barrier(v, BARRIER_COMPUTE);
     commands_shadow_build(v);
@@ -40,32 +40,27 @@ fn commands_raster_body(v: *RenderState) -> unit {
     command_stamp(v, 1u32);
     var depth: u32 = 0u32;
     while depth <= v -> crossing_limit {
-        if v -> tile_owned {
-            task_dispatch(v, 15usize, 0u32);
-            command_barrier(v, BARRIER_COMPUTE);
-            task_dispatch(v, shade_pipeline(v), 0u32);
-            command_barrier(v, BARRIER_COMPUTE);
-        } else {
-            if v -> tile_lists {
-                commands_list_phase(v, LIST_CLEAR_HEADS);
-                commands_list_phase(v, LIST_LINK_TASKS);
-            }
-            view_dispatch(v, 9usize);
-            command_barrier(v, BARRIER_COMPUTE);
-            commands_geometry_batches(v, depth);
-        }
-        command_stamp(v, 2u32 + depth * 2u32);
-        task_dispatch(v, 6usize, 3u32);
+        commands_list_phase(v, LIST_CLEAR_HEADS);
+        commands_list_phase(v, LIST_LINK_TASKS);
+        view_dispatch(v, 7usize);
         command_barrier(v, BARRIER_COMPUTE);
-        command_bind(v, 3usize);
+        commands_geometry_batches(v, depth);
+        command_stamp(v, 2u32 + depth * 2u32);
+        task_dispatch(v, 4usize, 3u32);
+        command_barrier(v, BARRIER_COMPUTE);
+        command_bind(v, 2usize);
         command_direct(v, 1u32);
         command_barrier(v, BARRIER_INDIRECT);
-        task_dispatch(v, 7usize, 6u32);
+        task_dispatch(v, 5usize, 6u32);
         command_barrier(v, BARRIER_COMPUTE);
         command_stamp(v, 3u32 + depth * 2u32);
         depth = depth + 1u32;
     }
-    retained_dispatch(v, 4usize, (v -> output_width * v -> output_height + 63u32) / 64u32);
+    retained_dispatch(
+        v,
+        PIPELINE_COMPOSE as usize,
+        (v -> output_width * v -> output_height + 63u32) / 64u32
+    );
     command_barrier(v, BARRIER_COMPUTE);
     if v -> shader_checks {
         retained_dispatch(v, (PIPELINE_COUNT - 1u32) as usize, STATUS_GROUPS);
@@ -123,7 +118,7 @@ fn shadow_build_size(v: *RenderState) -> u32 {
 fn commands_shadow_build(v: *RenderState) -> unit {
     var w: *u32 = v -> mapped as *u32;
     var lights: u32 = w[LIGHT_COUNT as usize];
-    retained_dispatch(v, 11usize, (lights * 2u32 + 63u32) / 64u32);
+    retained_dispatch(v, 8usize, (lights * 2u32 + 63u32) / 64u32);
     command_barrier(v, BARRIER_COMPUTE);
     var size: u32 = shadow_build_size(v);
     var count: u32 = lights * (w[DYNAMIC_COUNT as usize] + w[INSTANCE_COUNT as usize]);
@@ -132,7 +127,7 @@ fn commands_shadow_build(v: *RenderState) -> unit {
         command_barrier(v, BARRIER_BEFORE_UPDATE);
         command_word(v, SHADOW_LEVEL + 1u32, level);
         command_barrier(v, BARRIER_UPDATED_COMPUTE);
-        retained_dispatch(v, 12usize, (count + 63u32) / 64u32);
+        retained_dispatch(v, 9usize, (count + 63u32) / 64u32);
         command_barrier(v, BARRIER_COMPUTE);
         if size <= 4u32 {
             size = 0u32;
@@ -161,34 +156,18 @@ fn commands_geometry_batches(v: *RenderState, depth: u32) -> unit {
             command_word(v, BATCH_MODE + 1u32, mode);
             command_barrier(v, BARRIER_UPDATED_COMPUTE);
         }
-        command_bind(v, 14usize);
+        command_bind(v, 11usize);
         command_direct(v, 1u32);
         command_barrier(v, BARRIER_INDIRECT);
         command_bind(v, 1usize);
         command_indirect(v, 68u64);
         command_barrier(v, BARRIER_COMPUTE);
-        if v -> tile_lists {
-            commands_list_phase(v, LIST_RESET_COUNTS);
-            commands_list_phase(v, LIST_COUNT_REFERENCES);
-            commands_list_phase(v, LIST_CLEAR_BITMAPS);
-            commands_list_phase(v, LIST_WRITE_REFERENCES);
-            task_dispatch(v, 19usize, 0u32);
-            command_barrier(v, BARRIER_COMPUTE);
-        } else if v -> projected_tree {
-            view_dispatch(v, 16usize);
-            command_barrier(v, BARRIER_COMPUTE);
-            task_dispatch(v, 17usize, 0u32);
-            command_barrier(v, BARRIER_COMPUTE);
-            task_dispatch(v, 2usize, 0u32);
-            command_barrier(v, BARRIER_COMPUTE);
-        } else {
-            view_dispatch(v, 5usize);
-            command_barrier(v, BARRIER_COMPUTE);
-            task_dispatch(v, 10usize, 0u32);
-            command_barrier(v, BARRIER_COMPUTE);
-            task_dispatch(v, 2usize, 0u32);
-            command_barrier(v, BARRIER_COMPUTE);
-        }
+        commands_list_phase(v, LIST_RESET_COUNTS);
+        commands_list_phase(v, LIST_COUNT_REFERENCES);
+        commands_list_phase(v, LIST_CLEAR_BITMAPS);
+        commands_list_phase(v, LIST_WRITE_REFERENCES);
+        task_dispatch(v, 13usize, 0u32);
+        command_barrier(v, BARRIER_COMPUTE);
         task_dispatch(v, shade_pipeline(v), 9u32);
         command_barrier(v, BARRIER_COMPUTE);
         round = round + 1u64;
@@ -196,9 +175,9 @@ fn commands_geometry_batches(v: *RenderState, depth: u32) -> unit {
 }
 
 fn commands_list_phase(v: *RenderState, phase: u32) -> unit {
-    var pipeline: usize = 18usize;
+    var pipeline: usize = 12usize;
     if phase != LIST_CLEAR_HEADS {
-        pipeline = (20u32 + phase) as usize;
+        pipeline = (14u32 + phase) as usize;
     }
     if phase == LIST_CLEAR_HEADS {
         var tiles: u32 = ((v -> width + 7u32) / 8u32) * ((v -> height + 7u32) / 8u32);
@@ -214,7 +193,7 @@ fn commands_list_phase(v: *RenderState, phase: u32) -> unit {
 
 fn shade_pipeline(v: *RenderState) -> usize {
     if (v -> mapped as *u32)[LIGHT_MODEL as usize] == 0u32 {
-        return 20usize;
+        return 14usize;
     }
-    return 13usize;
+    return 10usize;
 }

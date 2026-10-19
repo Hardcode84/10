@@ -43,7 +43,6 @@ fn asset_session_open(session: mut AssetSession) -> bool {
         shader_checks: false,
         read_pixels: session.launch.capture != null(*u8),
         debug_pixels: 0u32,
-        baseline: 0u32,
         view_budget: 1u32,
         portal_budget: 0u32,
         task_budget: ((session.launch.width + 7u32) / 8u32) * (

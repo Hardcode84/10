@@ -2,8 +2,8 @@ fn demo_renderer_configured(v: *RenderState, config: *RenderConfig, window: *u8)
     if !window_instance(v, window) {
         return false;
     }
-    var shaders: [ShaderCode; 27] = uninit;
-    zero(&shaders as *u8, sizeof([ShaderCode; 27]));
+    var shaders: [ShaderCode; 21] = uninit;
+    zero(&shaders as *u8, sizeof([ShaderCode; 21]));
     var good: bool = true;
     var i: usize = 0usize;
     while good && i < (PIPELINE_COUNT as usize - 1usize + (config -> shader_checks) as usize) {
@@ -29,7 +29,6 @@ fn demo_render_config(o: *Options) -> RenderConfig {
         shader_checks: o -> debug_shaders != 0u32 || o -> debug_pixels != 0u32 || o -> fault != 0u32,
         read_pixels: o -> capture != null(*u8) || o -> debug_pixels != 0u32,
         debug_pixels: o -> debug_pixels,
-        baseline: o -> baseline,
         view_budget: o -> view_budget,
         portal_budget: 4u32,
         task_budget: demo_task_budget(o -> width, o -> height),

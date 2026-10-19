@@ -3,14 +3,13 @@ fn option_value(key: *u8, value: *u8, o: *Options) -> bool {
         o -> capture = value;
         return true;
     }
-    var keys: [*u8; 14] = make [*u8; 14] {
+    var keys: [*u8; 13] = make [*u8; 13] {
         "--window-width",
         "--window-height",
         "--mapping",
         "--snap",
         "--view-budget",
         "--fault",
-        "--baseline",
         "--debug-pixels",
         "--debug-shaders",
         "--width",
@@ -19,14 +18,13 @@ fn option_value(key: *u8, value: *u8, o: *Options) -> bool {
         "--frames",
         "--dither"
     };
-    var targets: [*u32; 14] = make [*u32; 14] {
+    var targets: [*u32; 13] = make [*u32; 13] {
         &o -> window_width,
         &o -> window_height,
         &o -> mapping,
         &o -> snap,
         &o -> view_budget,
         &o -> fault,
-        &o -> baseline,
         &o -> debug_pixels,
         &o -> debug_shaders,
         &o -> width,
@@ -36,7 +34,7 @@ fn option_value(key: *u8, value: *u8, o: *Options) -> bool {
         &o -> dither
     };
     var index: usize = 0usize;
-    while index < 14usize {
+    while index < 13usize {
         if strcmp(key, keys[index]) == 0i32 {
             return parse_number(value, targets[index]);
         }
@@ -64,7 +62,6 @@ record Options {
     dither: u32;
     debug_pixels: u32;
     debug_shaders: u32;
-    baseline: u32;
     view_budget: u32;
     fault: u32;
     mapping: u32;
@@ -100,7 +97,6 @@ fn options(argc: i32, argv: **u8, o: *Options) -> bool {
         dither: 0u32,
         debug_pixels: 0u32,
         debug_shaders: 0u32,
-        baseline: 0u32,
         view_budget: 32u32,
         fault: 0u32,
         mapping: 0u32,

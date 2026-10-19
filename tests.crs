@@ -46,19 +46,14 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "asset-viewer") == 0i
 host_source(run, "tools/build/demo.crs");
 host_source(run, "tools/build/game.crs");
 host_source(run, "tools/build/demo-level.crs");
-host_source(run, "tools/build/graphics-proof.crs");
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "course-benchmark") == 0i32 {
     if run -> argc < 2i32 {
         native_error(run -> context, "course-benchmark needs a level recipe");
         return 2i32;
     }
     var recipe: *u8 = host_path(run, run -> argv[1usize]);
-    var extra: [*u8; 5] = make [*u8; 5] {
-        "tests/render/graphics/vulkan.crs",
-        "tests/render/graphics/resources.crs",
-        "tests/render/graphics/pipeline.crs",
-        "tests/render/graphics/run.crs",
-        "tests/render/scatter/run.crs"
+    var extra: [*u8; 1] = make [*u8; 1] {
+        "tests/render/geometry-benchmark.crs"
     };
     if !build_demo_target_providers(
         run,
@@ -68,8 +63,8 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "course-benchmark") =
         null(*u8),
         "build/course-benchmark",
         &extra[0usize],
-        5usize
-    ) || !build_render_shaders(run) || !build_geometry_shaders(run) || !build_scatter_shaders(run) {
+        1usize
+    ) || !build_render_shaders(run) {
         return 1i32;
     }
     run -> argc = run -> argc - 2i32;

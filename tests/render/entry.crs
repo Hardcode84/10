@@ -1,16 +1,4 @@
-extern fn regression_environment(name: *u8) -> *u8 = "getenv";
 fn regression_open(session: mut DemoSession, test: u32) -> bool {
-    session.renderer.state.projected_tree = regression_environment("SPINWARD_PROJECTED_PROOF") != null(
-        *u8
-    );
-    session.renderer.state.tile_owned = regression_environment("SPINWARD_TILE_PROOF") != null(
-        *u8
-    );
-    var reference: bool = regression_environment("SPINWARD_REFERENCE") != null(*u8);
-    if session.renderer.state.tile_owned as u32 + session.renderer.state.projected_tree as u32 + reference as u32 > 1u32 {
-        return error("select only one renderer experiment");
-    }
-    session.renderer.state.tile_lists = !session.renderer.state.tile_owned && !session.renderer.state.projected_tree && !reference;
     if test != 5u32 && test != 6u32 {
         return session_open(mut session);
     }

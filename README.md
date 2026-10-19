@@ -6,6 +6,7 @@ reach the ending room, and return to the start. Portal connections can rotate
 and translate space; rooms do not need to fit into one global coordinate system.
 
 Host code, GPU code, room geometry, and textures use [Crust](crust/).
+The game, demo, and viewer use one bounded tile-list renderer.
 The native renderer uses Vulkan compute and SPIR-V. The browser uses WebGPU
 compute and WGSL from the same shader sources. Indexed textures, full-bright
 texels, and dithered lighting give the game a 1990s appearance.

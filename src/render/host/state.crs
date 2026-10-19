@@ -1,7 +1,4 @@
 record RenderState {
-    tile_owned: bool;
-    projected_tree: bool;
-    tile_lists: bool;
     bounds_portals: *u8;
     bounds_bytes: usize;
     bounds_scale: f32;

@@ -15,7 +15,9 @@ program with the Crust ownership stage. Device programs use the shader stage.
 Use `--build-only` to build without execution. The application roots do not
 compile or link test fixtures, the CPU reference, or the palette test shader.
 The test root builds separate test programs. Tests use the same renderer and
-application functions as the applications.
+application functions as the applications. All roots use the bounded tile-list
+renderer. The course benchmark can isolate geometry and textures without
+selecting another renderer.
 
 ## Source directories
 

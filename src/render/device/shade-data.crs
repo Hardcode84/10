@@ -33,7 +33,7 @@ fn shade_task(task: u32, lane: u32) -> unit {
     shared_store(320u32 + lane, 0u32);
     var base: u32 = task_base() + task * 4u32;
     var view: u32 = words_load(base + 1u32);
-    if words_load(TILE_OWNED) == 0u32 && !batch_finished(view) {
+    if !batch_finished(view) {
         return;
     }
     var tile: u32 = words_load(base);
@@ -47,10 +47,8 @@ fn shade_task(task: u32, lane: u32) -> unit {
     shade_pixel(view, lane, x, y);
 }
 fn shade_task_finished(task: u32) -> bool {
-    return task < words_load(6u32) && words_load(5u32) == 0u32 && (
-        words_load(TILE_OWNED) != 0u32 || batch_finished(
-            words_load(task_base() + task * 4u32 + 1u32)
-        )
+    return task < words_load(6u32) && words_load(5u32) == 0u32 && batch_finished(
+        words_load(task_base() + task * 4u32 + 1u32)
     );
 }
 

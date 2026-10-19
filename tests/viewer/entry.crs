@@ -47,7 +47,6 @@ fn viewer_check_renderer(session: mut GameSession) -> bool {
         shader_checks: true,
         read_pixels: true,
         debug_pixels: 0u32,
-        baseline: 0u32,
         view_budget: 1u32,
         portal_budget: graph_ports(read session.control.graph),
         task_budget: ((width + 7u32) / 8u32) * ((height + 7u32) / 8u32),

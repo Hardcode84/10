@@ -166,21 +166,19 @@ capacity or physical-behaviour gap.
 
 ## Rendering storage
 
-### R8. Projection storage follows the full room-view product
+### R9. Shadow storage follows total triangle capacity
 
-`geometry_layout` reserves projected and clipped data for every submitted
-triangle and every reserved view. A portal view can use only its destination
-space, but other room triangles still consume reserved projection storage.
-The graph game reserves 129 views. At seed 42, complexity 2, and 640 by 480,
-llvmpipe rejects the geometry buffer at its `maxStorageBufferRange` limit.
-The same graph renders on W7900 and Arc Pro B60. Changing image resolution
-alone does not remove this triangle-view product.
+Projection and clipping now use a bounded batch shared across views. They no
+longer reserve the full triangle count for every view. The remaining shadow
+allocation uses `84 * ((L + 1) * G + L * I)` bytes, where `G` is total reserved
+triangle capacity, `L` is light capacity, and `I` is instance capacity.
+Retained room geometry can increase this allocation even when only a small
+number of dynamic triangles need a rebuilt shadow tree.
 
-**Change:** count visible room-view work and assign compact projection ranges
-with a prefix sum. Size clipped output from that work. Preserve portal masks,
-triangle ordering, and explicit allocation failures. Do not hide the failure
-by dropping rooms or reducing the selected portal depth.
+**Change:** separate dynamic shadow-tree capacity from total scene capacity.
+Keep retained mesh trees shared. Size per-light instance and dynamic work from
+their own capacities. Preserve allocation errors and all shadow exclusions.
 
-**Check:** compare images and portal masks before and after the change. Render
-the stated graph within llvmpipe's storage-buffer limit. Measure allocation
-against visible room-view work as total graph size increases.
+**Check:** compare complete images with retained and dynamic blockers. Grow the
+retained scene with a fixed dynamic workload and measure shadow allocation.
+Exercise small device storage limits and explicit allocation rejection.

@@ -44,12 +44,7 @@ fn course_benchmark(
         credit: 0u64,
         running: true
     };
-    if !course_benchmark_mode(&session.renderer.state) || !game_run_setup(
-        mut session,
-        mut scene,
-        mut loop,
-        config
-    ) {
+    if !game_run_setup(mut session, mut scene, mut loop, config) {
         return false;
     }
     if room >= graph_count(read session.control.graph) {
@@ -83,8 +78,8 @@ fn course_benchmark(
     print_number(graph_count(read session.control.graph) as i64);
     print_number(graph_ports(read session.control.graph) as i64);
     print_number(mesh_triangle_count(read session.room_mesh) as i64);
-    if benchmark_environment("SPINWARD_GEOMETRY_PROOF") != null(*u8) {
-        return course_geometry_compare(read scene, mut session, read loop, config, samples);
+    if benchmark_environment("SPINWARD_GEOMETRY_ONLY") != null(*u8) {
+        return course_geometry_benchmark(read scene, mut session, read loop, config, samples);
     }
     if !course_benchmark_frames(read scene, mut session, read loop, config, samples) {
         return false;
@@ -104,49 +99,22 @@ fn course_benchmark(
     print_number(words[WORK_NODES as usize] as i64);
     print_number(words[WORK_TRIANGLES as usize] as i64);
     print_number(words[WORK_BATCHES as usize] as i64);
-    if session.renderer.state.tile_owned {
-        course_tile_stats(&session.renderer.state);
-    }
     puts("dynamic triangles");
     print_number(words[DYNAMIC_COUNT as usize] as i64);
     return game_finish(mut session);
 }
-fn course_geometry_compare(
+fn course_geometry_benchmark(
     scene: read CollisionScene,
     session: mut GameSession,
     loop: read GameLoop,
     config: GameConfig,
     samples: u32
 ) -> bool {
-    return game_render(read scene, mut session, read loop, config) && graphics_compare(
+    return game_render(read scene, mut session, read loop, config) && geometry_benchmark(
         &session.renderer.state,
-        samples
+        samples,
+        session.control.launch.capture
     );
-}
-fn course_benchmark_mode(v: *RenderState) -> bool {
-    v -> tile_owned = benchmark_environment("SPINWARD_TILE_PROOF") != null(*u8);
-    v -> tile_lists = v -> tile_lists || benchmark_environment("SPINWARD_TILE_LIST") != null(*u8);
-    v -> projected_tree = benchmark_environment("SPINWARD_PROJECTED_PROOF") != null(*u8);
-    if v -> tile_owned as u32 + v -> projected_tree as u32 + v -> tile_lists as u32 > 1u32 {
-        return error("select only one renderer experiment");
-    }
-    if benchmark_environment("SPINWARD_GEOMETRY_PROOF") != null(*u8) && (
-        v -> tile_owned || v -> projected_tree || v -> tile_lists
-    ) {
-        return error("geometry comparison selects its own renderer variants");
-    }
-    var name: *u8 = "Renderer: group-scan reference";
-    if v -> tile_lists {
-        name = "Renderer: bounded tile lists";
-    }
-    if v -> tile_owned {
-        name = "Renderer: tile-owned traversal";
-    }
-    if v -> projected_tree {
-        name = "Renderer: projected tree";
-    }
-    puts(name);
-    return true;
 }
 fn course_sample_insert(values: *u64, index: usize, value: u64) -> unit {
     var i: usize = index;
@@ -208,28 +176,4 @@ fn course_benchmark_frames(
     print_number(v -> device_bytes as i64);
     print_number(v -> staging_bytes as i64);
     return true;
-}
-
-fn course_tile_stats(v: *RenderState) -> unit {
-    var w: *u32 = v -> mapped as *u32;
-    var nodes: u64 = 0u64;
-    var triangles: u64 = 0u64;
-    var chunks: u64 = 0u64;
-    var i: u32 = 0u32;
-    var max_chunks: u32 = 0u32;
-    while i < v -> task_capacity {
-        var p: u32 = w[TILE_STATS as usize] + i * 4u32;
-        nodes = nodes + w[p as usize] as u64;
-        triangles = triangles + w[(p + 1u32) as usize] as u64;
-        chunks = chunks + w[(p + 2u32) as usize] as u64;
-        if w[(p + 2u32) as usize] > max_chunks {
-            max_chunks = w[(p + 2u32) as usize];
-        }
-        i = i + 1u32;
-    }
-    puts("tile nodes / triangle setups / chunks / max accumulated chunks per task slot");
-    print_number(nodes as i64);
-    print_number(triangles as i64);
-    print_number(chunks as i64);
-    print_number(max_chunks as i64);
 }

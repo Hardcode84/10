@@ -17,7 +17,7 @@ fn geometry_layout(v: *RenderState, capacity: u32) -> bool {
         192u64 + v -> task_capacity as u64 * 4u64 + image_words(v) + tile_bit_words(
             v,
             v -> projection_capacity
-        ) + capacity as u64 * 13u64 + projected_count * (MAX_FAN as u64 + 4u64) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * (
+        ) + capacity as u64 * 13u64 + projected_count * 4u64 + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * (
             5u64 + v -> view_capacity as u64
         ) + traversal_words(v) + v -> light_capacity as u64 + shadow_elements(v, capacity) * 9u64 + 64u64
     ) / 64u64 * 64u64 - 1u64;
@@ -43,8 +43,7 @@ fn geometry_header(v: *RenderState) -> unit {
     w[SCENE_CAPACITY as usize] = capacity;
     w[PROJECTED_OFFSET as usize] = GEOMETRY + capacity * 15u32;
     w[CLIP_OFFSET as usize] = w[PROJECTED_OFFSET as usize] + v -> projection_capacity * MAX_FAN * 20u32;
-    w[COMPACT_OFFSET as usize] = w[META as usize] + capacity * 4u32;
-    w[BATCH_IDS as usize] = w[COMPACT_OFFSET as usize] + v -> projection_capacity * MAX_FAN;
+    w[BATCH_IDS as usize] = w[META as usize] + capacity * 4u32;
     w[BATCH_PRIMITIVES as usize] = w[BATCH_IDS as usize] + v -> projection_capacity * 3u32;
     w[BATCH_WALKERS as usize] = w[BATCH_PRIMITIVES as usize] + v -> projection_capacity;
     w[TILE_BITS as usize] = w[BATCH_WALKERS as usize] + 192u32;
@@ -152,7 +151,7 @@ fn storage_replace(v: *RenderState, planned: *RenderState) -> bool {
 }
 fn geometry_limit(v: *RenderState) -> u32 {
     var elements: u64 = (v -> storage_limit as u64 / 256u64) * 64u64 - 1u64;
-    var fixed_words: u64 = 192u64 + v -> projection_capacity as u64 * (MAX_FAN as u64 + 4u64) + tile_bit_words(
+    var fixed_words: u64 = 192u64 + v -> task_capacity as u64 * 4u64 + v -> projection_capacity as u64 * 4u64 + tile_bit_words(
         v,
         v -> projection_capacity
     ) + image_words(v) + v -> asset_capacity as u64 + v -> mesh_capacity as u64 * 15u64 + v -> instance_capacity as u64 * (
@@ -190,7 +189,7 @@ fn traversal_floats(v: *RenderState) -> u64 {
 fn traversal_words(v: *RenderState) -> u64 {
     return v -> task_capacity as u64 * (10u64 + LOCAL_SIZE as u64 * 3u64) + (
         (v -> task_capacity as u64 + 63u64) / 64u64
-    ) * 2u64 + v -> view_capacity as u64 * (13u64 + v -> portal_capacity as u64) + v -> portal_capacity as u64 * 4u64 + (
+    ) * 2u64 + v -> view_capacity as u64 * (12u64 + v -> portal_capacity as u64) + v -> portal_capacity as u64 * 4u64 + (
         (v -> task_capacity as u64 + 32767u64) / 32768u64
     ) * 12u64 + ((v -> task_capacity as u64 + 63u64) / 64u64) * (
         (v -> view_capacity as u64 * v -> portal_capacity as u64 + 31u64) / 32u64
@@ -208,8 +207,7 @@ fn traversal_header(v: *RenderState) -> unit {
     w[BATCH_META as usize] = w[VIEW_META as usize] + v -> view_capacity * 4u32;
     w[VIEW_RECT as usize] = w[BATCH_META as usize] + v -> view_capacity * 4u32;
     w[PORTAL_META as usize] = w[VIEW_RECT as usize] + v -> view_capacity * 4u32;
-    w[COMPACT_COUNT as usize] = w[PORTAL_META as usize] + v -> portal_capacity * 4u32;
-    w[TASK_PREFIX as usize] = w[COMPACT_COUNT as usize] + v -> view_capacity;
+    w[TASK_PREFIX as usize] = w[PORTAL_META as usize] + v -> portal_capacity * 4u32;
     w[GROUP_COUNTS as usize] = w[TASK_PREFIX as usize] + v -> task_capacity;
     w[GROUP_PREFIX as usize] = w[GROUP_COUNTS as usize] + (v -> task_capacity + 63u32) / 64u32;
     w[TASK_COMMANDS as usize] = w[GROUP_PREFIX as usize] + (v -> task_capacity + 63u32) / 64u32;

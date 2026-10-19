@@ -23,7 +23,8 @@ and [web build](../build/web.md).
 - [Storage and capacity](#storage-and-capacity)
 - [Ownership and completion](#ownership-and-completion)
 - [Backends and presentation](#backends-and-presentation)
-- [Experiments and performance gates](#experiments-and-performance-gates)
+- [Tile assignment](#tile-assignment)
+- [Performance evidence and gates](#performance-evidence-and-gates)
 - [Build, checks, and measurement](#build-checks-and-measurement)
 - [Source map](#source-map)
 
@@ -55,18 +56,14 @@ flowchart TD
     output --> display["Presentation or capture"]
 ```
 
-| Path | Status | Geometry and completion model |
-| --- | --- | --- |
-| Application renderer | Default | Persistent mesh trees; resumable geometry batches; tile candidate bitmaps; separate visibility and shading. |
-| Tile-owned traversal | Rejected experiment | One workgroup traverses, clips, and rasterizes all geometry for its tile. Repeated setup makes it much slower. |
-| Bounded tile lists | Full-featured opt-in path | Assign candidates from triangles; use lists for sparse tiles and bitmaps for dense tiles. |
-| Projected-tree binning | Test-selectable experiment | Share projection, then search projected bounds per tile. Retains batch and screen-search costs. |
-| Direct tile lists | Checkpoint in tests | Triangle-driven assignment produces enumerable tile references. Matches isolated images but fails the two-times hardware gate. |
-| Vulkan graphics | Test reference | Hardware clipping, rasterization, interpolation, and depth for the geometry-and-texture comparison. |
+Bounded tile lists are the sole renderer for the game, demo, viewer, and tests.
+Triangles assign candidates to active view tiles. Sparse tiles use direct lists;
+dense tiles use bitmaps in the same bounded allocation. Rasterization preserves
+hits across geometry batches. Shading runs when a view is complete.
 
-The same application shader sources target Vulkan Shader SPIR-V and WGSL.
-The direct tile-list and hardware graphics benchmarks currently run through
-Vulkan test entry points. Their timing is not a WebGPU result.
+The same shader sources target Vulkan Shader SPIR-V and WebGPU WGSL.
+There is no renderer selector in the native command line or browser setup.
+The test suite keeps an independent CPU ray reference for image checks.
 
 Linux runs on Intel Arc Pro B60 and AMD Radeon PRO W7900 provide the recorded
 native evidence. Windows and NVIDIA remain platform targets. Windows requires
@@ -180,8 +177,9 @@ flowchart TD
     init --> visibility["View bounds and instance planes"]
     visibility --> plan["Resume walkers and queue a bounded batch"]
     plan --> project["Transform, clip and project"]
-    project --> compact["Compact fans and build group bounds"]
-    compact --> bin["Assign tile candidate bitmaps"]
+    project --> count["Count triangle references per view tile"]
+    count --> clear["Choose direct list or bitmap; clear dense tiles"]
+    clear --> bin["Write exact tile candidates"]
     bin --> raster["Coverage, cutouts and nearest-hit state"]
     raster --> shade["Shade completed views and emit portal masks"]
     shade --> batch{"More batches?"}
@@ -552,7 +550,7 @@ instance, and light capacities. Significant storage terms are:
 | Timestamp queries | `4 + 2 * (crossing_limit + 1)` entries. |
 
 These are selected terms, not a complete allocation formula. Header, overlay,
-image, hit, compact, cursor, and prefix ranges add storage. Use the layout
+image, hit, cursor, and prefix ranges add storage. Use the layout
 planner and reported allocation sizes for totals. Large products such as
 `V * P`, `I * V`, and tile bitmaps can dominate memory even with bounded batches.
 
@@ -674,51 +672,7 @@ a retired swapchain can be restored. Colour alpha stays opaque and nearest
 scaling preserves palette values. Display compositor and scanout behaviour are
 outside the image contract.
 
-## Experiments and performance gates
-
-### Measured failure mechanisms
-
-The group-scan reference visits projected groups for every active tile. Each
-pixel then searches a dense candidate bitmap. Spatial culling alone leaves
-these screen-area multipliers. Tile-list assignment removes full group scans
-and uses direct lists for sparse tiles. Conservative global batch
-rounds also retain dispatch and barrier costs when indirect work is empty.
-An indirect dispatch cannot create another producer/consumer dispatch sequence.
-Cross-workgroup spinning has no portable forward-progress guarantee.
-
-Current lighting selects a coarse grid sample per pixel but still repeats the
-normal, plane, light-list, and shadow work. A possible exact reuse key is
-`(view, receiver triangle, grid corner)`. Sharing by an authored plane ID would
-first require canonical plane arithmetic and receiver-exclusion semantics.
-A matching plane label alone does not establish equal results.
-
-The tile-owned experiment duplicated transforms and clipping across small tiles,
-with sparse eight-slot chunks and repeated synchronization. Generic fixes for
-workgroup-only barriers and inside-plane clipping reduced its cost, but did not
-make it competitive. The projected-tree experiment shared setup but retained
-tile searches and pixel bitmap scans. Neither passed the production gate.
-
-The course geometry was also reduced from 117,110 to 81,998 source triangles by
-using octagonal pipes, then to 43,342 through bend and straight-run cleanup.
-These are different content versions. Compare renderer variants within each
-version. Triangle reduction does not establish that the scheduling design meets
-its frame budget.
-
-### Bounded tile lists for complete frames
-
-Use `crust main.crs --tile-lists` or
-`crust demo.crs levels/prefabs.crs --tile-lists` to select triangle-driven
-candidate assignment. The web setup has a **Tile-list renderer** option.
-The render regression runner tests this path by default.
-`SPINWARD_TILE_LIST=1` selects it in the course benchmark.
-`SPINWARD_REFERENCE=1` selects the previous binning path for the scene regression
-cases, including `render 7`.
-The tile-list path shares the retained scene, batch planner, projection, hit
-cache, shading, portal traversal, and presentation with the group-scan reference. It supports dynamic triangles, sprites, scaled portal
-views, material mapping modes, lighting, shadows, and output scaling.
-The shader build selects the candidate format for each raster entry point.
-Both entry points use shared raster source. No per-pixel renderer selector is
-needed.
+## Tile assignment
 
 ```mermaid
 flowchart TD
@@ -765,199 +719,25 @@ static checkpoint's inline-list pool and assignment queue limits do not apply.
 One workgroup visits a fan's tiles in parallel. Large dispatches use a fixed
 workgroup stride; they do not truncate fan counts.
 
-The [initial full-frame comparison](tile-list-full.csv) uses the prefab course on Intel
-Arc Pro B60, eight warm-up frames, and 64 measured frames per case. It includes
-lighting, shadows, dynamic geometry, and recursive portals. All six tile-list
-captures match the group-scan reference byte for byte. Device and staging
-allocations are equal. The rotor scenes improve, but the passage regresses.
-This baseline predates the shading and scheduling corrections below. Its
-measured 1080p GPU p99 values exceed the 10 ms gate.
+## Performance evidence and gates
 
-The regression suite checks tiny geometry batches, recursive masks, cutouts,
-lighting, retained storage, and image resize through the tile-list path.
-Hook-light, body-view, scaling, and particle fixtures also select it explicitly.
-Crust tests execute atomic OR for SPIR-V and WGSL, including repeated bits,
-returned values, invalid indices, and failed invocations.
+The renderer uses persistent geometry, bounded projection batches, exact tile
+assignment, and separate raster and shade passes. The [full-scene measurements](tile-list-full.csv)
+and [isolated geometry measurements](tile-list-geometry.csv) retain only this
+renderer. They use fixed poses on Intel Arc Pro B60 and AMD Radeon PRO W7900.
+The full-scene table is Intel-only. Capture and presentation are outside timing.
+These measurements precede removal of unused pipeline and scratch allocations.
 
-### Direct tile-list checkpoint
+At 1920 by 1080, the full-scene Intel GPU medians are 9.763 ms for the passage,
+8.777 ms for the shaft, and 9.487 ms for the hub. GPU p99 is below 10 ms in those
+stationary tests. Synchronous frame p99 is 12.776 to 13.087 ms in the rotor rooms.
+These results do not establish steady 60 Hz presentation or input latency.
 
-This test uses real retained room meshes, transforms, materials, and textures.
-It isolates a static root room with full-bright perspective mapping. Portal
-surfaces are terminal at zero crossings. It excludes dynamic geometry, lights,
-shadows, UI, presentation, and simulation. These exclusions match the hardware
-reference workload.
-
-```mermaid
-flowchart TD
-    cold["Cold source-range table from retained instances"] --> cull["Cull and append admitted source IDs"]
-    clear["Clear tile headers and counters"] --> cull
-    cull --> vertices["Transform admitted vertices"]
-    vertices --> clip["Clip once; emit fans and assignment tasks"]
-    clip --> launch["Write indirect assignment count"]
-    launch --> assign["One workgroup per chunk of at most 256 bounding-box tiles"]
-    assign --> lists["Per-tile inline references and overflow nodes"]
-    lists --> raster["One invocation per pixel: exact coverage, depth and texture"]
-    raster --> output["Final colour, depth and identity"]
-```
-
-Each tile has 32 inline references by default. Further references use a shared
-two-word node pool. Atomic exchange links unique node allocations to tile heads.
-A dispatch barrier makes heads and node contents visible before rasterization.
-The shader skips no candidate because a list is full.
-
-The experiment allocates no extra device or staging buffers. It reuses batch
-IDs for two-word source ranges, primitive scratch for admitted IDs, compact
-scratch for material data and assignment tasks, clipping scratch for tile
-bounds, and bitmap scratch for inline lists and overflow nodes. Hit and debug
-ranges hold contiguous depth and identity. The final pixel is written directly,
-so this isolated path needs no separate pixel clear or composition pass.
-
-Projection, assignment queue, and node pool exhaustion reject the image.
-The pool allocation counter is clamped at capacity on failure. Its capacity
-plus concurrently active allocations cannot wrap the unsigned word counter.
-This experiment also requires at most 32,768 eight-by-eight tiles and source
-ranges that fit its dispatch and scratch bounds. The full-featured path above
-uses the shared batch planner and bounded list/bitmap storage to handle
-arbitrary input sizes and portal views. That storage replaces the finite node pool.
-
-The [checkpoint CSV](scatter-raster.csv) contains paired runs on Intel Arc Pro
-B60, with eight warm-up frames and 128 measured frames. All six direct-list
-captures match normal compute byte for byte. Complete GPU times in milliseconds:
-
-| Room | Resolution | Normal p50 | Tile lists p50 / p99 | Hardware p50 / p99 |
-| --- | --- | ---: | ---: | ---: |
-| Passage | 1920 by 1080 | 4.284 | 0.268 / 0.291 | 0.096 / 0.097 |
-| Shaft | 1920 by 1080 | 7.436 | 0.390 / 0.397 | 0.150 / 0.166 |
-| Hub | 1920 by 1080 | 9.483 | 0.394 / 0.399 | 0.165 / 0.167 |
-| Passage | 1024 by 768 | 2.109 | 0.149 / 0.150 | 0.045 / 0.045 |
-| Shaft | 1024 by 768 | 3.563 | 0.310 / 0.317 | 0.074 / 0.074 |
-| Hub | 1024 by 768 | 4.660 | 0.243 / 0.248 | 0.093 / 0.094 |
-
-P50 is 2.39 to 4.19 times hardware. The two-times gate fails. This checkpoint
-has no application consumer and makes no full-game frame-rate claim.
-
-A representative hub capture spends about 0.013 ms clearing tiles, 0.089 ms in
-culling/projection/clipping, 0.039 ms assigning references, and 0.258 ms in
-rasterization/texturing. These are single-frame stage intervals, not percentile
-components. The inspected raster shader has no register spills.
-
-Chunking large-triangle assignment reduced passage assignment from about
-0.49 ms to 0.03 ms. Removing a shared error-word atomic from every assignment
-lane reduced hub assignment from about 0.26 ms to 0.04 ms. Explicit exhaustion
-handling remains. The checkpoint rejects shared candidate staging, multiple
-pixels per lane, extra edge precomputation, full-tile flags, split shading,
-smaller tiles, fused setup, and an extra clipping fast path because their paired
-results did not improve the complete workload. Full linked lists increased
-allocation contention. Do not restore these variants without a new witness.
-
-Hardware graphics uses the same storage-buffer textures and palettes, with
-hardware clipping, rasterization, interpolation, and depth. Its images can
-differ at subpixel edges, equal-depth ties, and nearest-texel boundaries. The
-[original hardware comparison](geometry-raster.csv) records image differences;
-these must be investigated rather than hidden by a wider tolerance.
-
-### Heavy-room baseline
-
-The [heavy-room baseline](heavy-room-comparison.csv) runs all six paths on
-the same isolated geometry-and-texture snapshot. The shaft has 7,942 source
-triangles. The hub has 17,236. Each room has one retained instance. The complete
-course has 43,342 source triangles, but only the selected root room is drawn.
-Both rooms use recipe spawn pose zero.
-
-The matrix uses Intel Arc Pro B60 and AMD Radeon PRO W7900, Mesa 25.2.8,
-1024 by 768 and 1920 by 1080, eight warm-up frames, and 128 measured frames per
-path. Runs are serial. GPU times exclude capture and presentation. The CSV
-also records geometry intervals, synchronous submission-frame times, and image
-differences. These stationary samples do not measure game frame deadlines.
-
-Complete GPU p50 / p99 in milliseconds at 1920 by 1080:
-
-| Path | Intel shaft | Intel hub | AMD shaft | AMD hub |
-| --- | ---: | ---: | ---: | ---: |
-| Group scan | 7.443 / 7.516 | 9.484 / 9.545 | 2.442 / 2.490 | 3.352 / 3.492 |
-| Projected tree | 6.880 / 6.939 | 8.493 / 8.543 | 2.287 / 2.865 | 3.107 / 3.732 |
-| Bounded tile lists | 4.697 / 4.747 | 5.822 / 5.890 | 1.683 / 2.288 | 2.022 / 2.650 |
-| Tile-owned traversal | 586.021 / 587.550 | 344.691 / 345.385 | 100.203 / 100.411 | 58.273 / 58.360 |
-| Direct tile-list checkpoint | 0.389 / 0.397 | 0.394 / 0.400 | 0.296 / 0.417 | 0.238 / 0.336 |
-| Hardware graphics | 0.149 / 0.151 | 0.165 / 0.167 | 0.086 / 0.086 | 0.098 / 0.099 |
-
-All five compute captures match byte for byte in all eight cases. Hardware
-differs from compute in 0.182 to 0.365 percent of pixels on Intel and 0.192 to
-1.004 percent on AMD. The CSV keeps these counts and maximum channel errors.
-All four Intel hardware captures also match the earlier checkpoint captures.
-The hardware edge, interpolation, and depth-tie rules still differ from compute.
-No image tolerance was changed.
-
-The bounded tile-list path is the fastest full-featured path in this matrix.
-Its median GPU time is still 19.6 to 35.3 times hardware. The direct checkpoint
-is 2.39 to 4.89 times hardware. Both fail the two-times gate. On Intel at 1080p,
-the bounded path's geometry interval alone is 4.263 ms in the shaft and
-5.390 ms in the hub. This interval includes batch planning, projection,
-assignment, rasterization, and shading. The gap remains inside that interval;
-removing composition alone cannot close it. Per-pass timing is required before
-assigning the gap to one of those stages.
-
-The bounded path runs exact count and write passes, supports continuation, and
-keeps the shared visibility and shading schedule. The direct checkpoint uses
-a single limited assignment queue and writes final colour in its raster pass.
-Tile-owned traversal repeats traversal and triangle setup for each tile. These
-are different implementations of the same measured image workload. The result
-does not establish a hardware limit on compute rendering. Keep the application
-default and all references until the acceptance gates pass.
-
-### Shading and scheduling corrections
-
-The [corrected full-frame results](tile-list-overhead-full.csv) repeat all 18
-initial cases with 64 measured frames after eight warm-up frames. Every capture
-matches its baseline byte for byte. Device and staging buffer sizes are equal.
-The shared shading changes also improve group scan and projected-tree rendering.
-The list-assignment and raster changes apply to the bounded tile-list path.
-
-Bounded tile-list GPU times in milliseconds on Intel Arc Pro B60:
-
-| Room | Resolution | Baseline p50 | Corrected p50 | Corrected p99 | Synchronous frame p99 |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Passage | 1024 by 768 | 7.814 | 5.496 | 5.688 | 9.213 |
-| Shaft | 1024 by 768 | 8.637 | 6.180 | 6.348 | 10.288 |
-| Hub | 1024 by 768 | 8.814 | 6.103 | 6.268 | 9.969 |
-| Passage | 1920 by 1080 | 14.438 | 9.763 | 9.929 | 13.083 |
-| Shaft | 1920 by 1080 | 12.870 | 8.777 | 8.934 | 12.776 |
-| Hub | 1920 by 1080 | 14.444 | 9.487 | 9.635 | 13.087 |
-
-The corrections replace storage-memory barriers inside shading with workgroup
-barriers, select a distance or dynamic-light shader before dispatch, and remove
-redundant tile-overlap tests from the list raster. Each assignment phase has a
-constant shader entry point. The planner produces the fan dispatch count and
-stops completed internal walks. Intermediate rounds need no batch-control
-update from the host.
-
-The GPU p99 samples meet the 10 ms gate, but synchronous frame p99 at 1080p
-still exceeds 12 ms. The passage also remains faster with projected-tree or
-group-scan rendering. Keep the application default unchanged. These fixed-pose
-runs do not establish long-route presentation or input latency.
-
-The [corrected geometry comparison](tile-list-overhead-geometry.csv) repeats the
-six-path heavy-room matrix, with 128 measured frames per path on Intel and AMD.
-Its geometry and texture workload remains separate from the full-frame table.
-All 48 captures match their baseline captures, including hardware. The bounded
-tile-list path improves from 4.697 to 2.616 ms for the Intel 1080p shaft and from
-5.822 to 3.474 ms for the hub. AMD median improvements range from 5 to 14 percent.
-The corrected path still takes 17.6 to 22.8 times hardware across this matrix.
-The two-times hardware gate therefore remains unmet.
-
-The count and write passes remain necessary for the current storage contract:
-the direct list and dense bitmap share one allocation. Assignment must know
-which representation fits before it writes that region. A single-pass
-replacement must provide separate bounded overflow storage or per-tile
-continuation, and prove complete images when that storage fills. The host's
-remaining empty-round cost requires a command-execution contract that can stop
-on GPU completion; the current shared schedule records all rounds in advance.
-
-Validation includes the full native suite on both GPUs, lighting-model changes
-on one renderer, tiny geometry batches, recursive portal masks, body views,
-hook lights, scaled portals, and particles. Vulkan synchronization validation
-reports no hazards. Checked and unchecked WebGPU captures match native AMD
-and the prior capture byte for byte.
+Count and write remain separate because lists and dense bitmaps share storage.
+A one-pass replacement must preserve bounded storage and complete images under
+high overlap. Empty recorded geometry rounds still cost commands and barriers.
+The host records a conservative round count; zero indirect counts suppress
+shader work but cannot remove those commands.
 
 ### Tile raster and shade fusion experiment
 
@@ -1037,15 +817,9 @@ use the same complete images, and preserve continuation when geometry exceeds
 the batch capacity. These measurements do not reject tile ownership or shared
 memory in general. They reject this fusion of the current batch pipeline.
 
-### Acceptance and next proof
+### Acceptance gates
 
-The isolated geometry-and-texture gate requires compute complete GPU p50 and
-p99 no greater than twice hardware in every recorded room and resolution.
-Include all warm setup, scratch clears, assignment, rasterization, texturing,
-and composition. Exclude cold preparation, capture, and presentation equally.
-Report submission time and peak memory separately.
-
-A replacement must also prove the complete application
+Changes must prove the complete application
 ownership path and final moving image: recursive and scaled portal masks,
 cutouts, equal-depth ties, near-eye crossings, sprites, room shadows, portable
 lights, anchors, resize, and storage retirement. Small work capacities must
@@ -1059,37 +833,11 @@ interval is the display deadline. Measure frame maxima, presentation misses,
 and input timing on long moving routes after warm-up. Stationary 128-frame
 probes locate costs; they do not establish steady presented-frame latency.
 
-Keep the application default unchanged until these gates pass. Build a bounded
-experiment around a named cost and stop condition before adding another layer.
-Remaining contracts include persistent room membership, exact indexed vertex
-reuse across UV seams, separation of dynamic/shadow capacity from total scene
-capacity. Their implementation
-requires final-image and whole-frame evidence, not only synthetic tests.
+Measure complete GPU and frame time, upload bytes, and peak memory on the same
+inputs before and after a change. Keep exact captures for comparisons. A faster
+isolated stage cannot justify a slower frame or incomplete rendering.
 
-### Evidence index
-
-The CSV files preserve separate experiments. They are not interchangeable
-baselines. Old content and shader versions explain different triangle counts
-and timings. Git preserves the full superseded narrative.
-
-| Evidence | Scope and interpretation |
-| --- | --- |
-| [Full-frame tile lists](tile-list-full.csv) | Exact captures with complete rendering features; rotor gains and a passage regression; equal allocation. |
-| [Retained visibility](retained-visibility-results.csv) | Twelve paired stationary poses; persistent trees remove warm expansion and mesh upload, but fail full-frame timing. |
-| [Architecture cost probes](architecture-cost-probes.csv) | Lighting and zero-workgroup controls; invalid-output diagnostics are cost probes only. The course has unshadowed portable lamps, so its room-shadow bypass is a negative control. |
-| [Tile cost probes](tile-cost-probes.csv) | Workgroup fence scope, repeated setup, sparse chunks, and clipping-copy costs in the rejected tile-owned kernel. |
-| [Projected tree](projected-proof.csv) | Exact paired images, unchanged allocation, insufficient full-renderer speedup. |
-| [Octagonal pipes](octagonal-pipes.csv) | Twelve-sided versus eight-sided content, paired normal and projected renderers. |
-| [Pipe cleanup](pipe-cleanup.csv) | Bend subdivision and collinear-span cleanup; same renderer pair. |
-| [Hardware geometry](geometry-raster.csv) | Isolated root geometry and textures, with image-difference measurements. |
-| [Direct tile lists](scatter-raster.csv) | Latest isolated checkpoint; complete GPU and submission percentiles for four paths. |
-
-Earlier transfer checks reduced an unchanged 320 by 180 fixture upload from
-589,992 to 1,496 bytes and readback from 8,388,940 to four bytes. Shared shadow
-trees also removed per-light retained-triangle rebuilding. These are bounded
-historical cost witnesses; they do not establish rotor-course frame time.
-
-Research references retained from the architecture review:
+Research references:
 [Laine and Karras software rasterization](https://research.nvidia.com/sites/default/files/pubs/2011-08_High-Performance-Software-Rasterization/laine2011hpg_paper.pdf),
 [the Visibility Buffer](https://www.jcgt.org/published/0002/02/04/), and
 [Aila and Laine traversal efficiency](https://research.nvidia.com/publication/2009-08_understanding-efficiency-ray-traversal-gpus).
@@ -1128,8 +876,7 @@ crust tests.crs render 0 --frames 1200 --width 640 --height 360 --capture build/
 The fixture accepts mapping modes 0/1/2, vertex snapping 0/1, independent internal
 and output dimensions, debug pixel capture, view budgets, and fault injection.
 CPU reference image checks use perspective mapping with snapping disabled.
-Capture files are binary RGB PPM. `--baseline 1` selects the full projected-slot
-scan control while preserving portal masks.
+Capture files are binary RGB PPM. All GPU checks use the application renderer.
 
 | Check | Coverage |
 | --- | --- |
@@ -1179,35 +926,20 @@ image. The graph benchmark samples fixed room positions rather than a playthroug
 Its first two numbers select output dimensions; explicit `--width` and `--height`
 select internal dimensions.
 
-To compare all six isolated geometry paths:
+To measure only root-room geometry and full-bright textures:
 
 ```sh
 crust tests.crs course-benchmark levels/prefabs.crs --build-only
-SPINWARD_GEOMETRY_PROOF=1 build/course-benchmark 11 0 --samples 128 --width 1920 --height 1080
+SPINWARD_GEOMETRY_ONLY=1 build/course-benchmark 11 0 --samples 128 --width 1920 --height 1080 --capture build/hub-geometry.ppm
 ```
 
 Use rooms 1, 10, and 11 at both 1920 by 1080 and 1024 by 768. Set
-`VK_DRIVER_FILES` to select a device. Preserve `build/geometry-compute.ppm`,
-`build/geometry-projected.ppm`, `build/geometry-tile-lists.ppm`,
-`build/geometry-tile-owned.ppm`, `build/geometry-scatter.ppm`, and
-`build/geometry-graphics.ppm` before the next case. Cold upload and pipeline
-creation stay outside the timed interval. Complete GPU timing includes warm
-render work through final colour output, before capture readback.
-The report includes root instance and source-triangle counts. It runs group
-scan, projected tree, bounded tile lists, tile-owned traversal, direct tile
-lists, and hardware graphics in that order. Each path uses the same sample
-count and eight warm-up frames. Tile-owned traversal can take several minutes
-across the matrix. Capture frames are outside the measured interval.
+`VK_DRIVER_FILES` to select a device. Cold upload and pipeline creation stay
+outside the timed interval. Complete GPU timing includes warm render work
+through final colour output, before capture readback. The report includes root
+instance and source-triangle counts. The geometry-only mode disables dynamic
+geometry, lights, overlays, and portal recursion; it uses the same renderer.
 
-`SPINWARD_SCATTER_INLINE=1` exercises node overflow lists.
-`SPINWARD_SCATTER_NODES=0` with that setting forces explicit pool exhaustion.
-The checkpoint passed those cases, AMD hub image comparison, and Vulkan
-synchronization validation. Generic Crust atomic tests cover SPIR-V and WGSL
-storage/workgroup operations, invalid indices, and failed invocations.
-
-For the older whole-renderer experiments, use `SPINWARD_PROJECTED_PROOF=1` or
-`SPINWARD_TILE_PROOF=1` with the course benchmark or `crust tests.crs render 7`.
-Do not select both. Short rejection probes do not establish tail latency.
 For native instruction inspection, disable the shader cache and match driver
 dumps to pipeline creation order. Driver cycle estimates are not GPU timings.
 
@@ -1227,7 +959,7 @@ dumps to pipeline creation order. Driver cycle estimates are not GPU timings.
 | [Device shaders](../../src/render/device/) | Visibility, clipping, rasterization, light queries and composition. |
 | [Native presentation](../../src/render/host/present.crs), [WebGPU provider](../../src/render/web/) | Platform resources, commands and presentation. |
 | [Shader build](../../tools/build/shaders.crs) | Shared source assembly and backend compilation. |
-| [Direct-list experiment](../../tests/render/scatter/), [graphics reference](../../tests/render/graphics/) | Isolated performance comparison. |
+| [Geometry benchmark](../../tests/render/geometry-benchmark.crs) | Isolated geometry and texture measurements with the application renderer. |
 | [Room anchors](../../src/spatial/), [game view](../../src/game/view/) | Application placements, lights, body and effects submission. |
 
 Shader compiler details remain in [the compiler contract](../build/crust-spirv.md).

@@ -25,7 +25,8 @@ emits C and WGSL, and invokes Emscripten. On the first web build it downloads a
 matched Emscripten toolchain, verifies its checksum, and stores it under
 `build/toolchain/wasm/`. Emscripten uses Python and Bun. Game build policy and asset
 recipes remain Crust code. The web shader build does not require SPIRV-Tools or
-an LLVM SPIR-V toolchain.
+an LLVM SPIR-V toolchain. The bundle includes only shaders named by the
+current renderer. Old shader files in the build directory are not packaged.
 
 Serve the generated files in `build/web/` together: `index.html`, `launcher.js`,
 `game.js`, `game.wasm`, and `game.data`. The data file contains the generated

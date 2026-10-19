@@ -47,7 +47,6 @@ record RenderConfig {
     read_pixels: bool;
     shader_checks: bool;
     debug_pixels: u32;
-    baseline: u32;
     view_budget: u32;
     portal_budget: u32;
     task_budget: u32;
@@ -84,7 +83,6 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
     w[1usize] = config -> height;
     w[22usize] = config -> output_width;
     w[23usize] = config -> output_height;
-    w[25usize] = config -> baseline;
     w[26usize] = config -> debug_pixels;
     w[31usize] = config -> view_budget;
     w[33usize] = config -> fault;

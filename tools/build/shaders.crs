@@ -5,7 +5,7 @@ fn shader_source(
     report: bool,
     checked: bool
 ) -> bool {
-    var paths: [*u8; 12] = make [*u8; 12] {
+    var paths: [*u8; 11] = make [*u8; 11] {
         "src/render/interface.crs",
         "src/render/device/common.crs",
         "src/render/device/shadows.crs",
@@ -16,21 +16,13 @@ fn shader_source(
         "src/render/device/projection-math.crs",
         "src/render/device/raster-math.crs",
         "src/render/device/projection-storage.crs",
-        "src/render/device/tile-tree.crs",
-        "src/render/device/projected-tree.crs"
+        name
     };
     var count: usize = 10usize;
-    if cache_strcmp(name, "src/render/device/tile-raster.crs") == 0i32 {
-        paths[9usize] = "src/render/device/tile-storage.crs";
-        count = 11usize;
-    }
     var extra: *u8 = shader_extra_source(name);
     if extra != null(*u8) {
         paths[10usize] = extra;
         count = 11usize;
-    }
-    if cache_strcmp(name, "src/render/device/projected-build.crs") == 0i32 {
-        count = 12usize;
     }
     if checked {
         paths[4usize] = "src/render/device/checked.crs";
@@ -39,7 +31,7 @@ fn shader_source(
         paths[1usize] = name;
         count = 2usize;
     }
-    var parts: [CrustSource; 12] = uninit;
+    var parts: [CrustSource; 11] = uninit;
     var size: usize = count;
     var part: usize = 0usize;
     while part < count {
@@ -87,7 +79,7 @@ fn build_shader(
     checked: bool,
     web: bool
 ) -> bool {
-    var resources: [ShaderResource; 5] = make [ShaderResource; 5] {
+    var resources: [ShaderResource; 4] = make [ShaderResource; 4] {
         make ShaderResource {
             name: "words",
             kind: SHADER_BUFFER_U32,
@@ -123,24 +115,12 @@ fn build_shader(
             binding: 2u32,
             length: MAX_INVOCATIONS,
             height: 0u32
-        },
-        make ShaderResource {
-            name: "local",
-            kind: SHADER_WORKGROUP_F32,
-            layout: SHADER_FIXED,
-            set: 0u32,
-            binding: 0u32,
-            length: 2480u32,
-            height: 0u32
         }
+
     };
     var resource_count: usize = 2usize;
     if shared_length != 0u32 {
         resource_count = 3usize;
-    }
-    if cache_strcmp(name, "src/render/device/tile-raster.crs") == 0i32 {
-        resources[3usize] = resources[4usize];
-        resource_count = 4usize;
     }
     var config: ShaderConfig = make ShaderConfig {
         interfaces: null(*ShaderInterface),
@@ -203,27 +183,21 @@ fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
             "set LLVM_DIRECTORY and SPIRV_VAL, or provide build/toolchain/llvm and build/toolchain/spirv-val"
         );
     }
-    var sources: [*u8; 27] = make [*u8; 27] {
+    var sources: [*u8; 21] = make [*u8; 21] {
         "src/render/device/init.crs",
         "src/render/device/transform.crs",
-        "src/render/device/raster.crs",
         "src/render/device/advance.crs",
         "src/render/device/compose.crs",
-        "src/render/device/compact.crs",
         "src/render/device/scan.crs",
         "src/render/device/fill.crs",
         "src/render/device/instances.crs",
         "src/render/device/visibility.crs",
-        "src/render/device/bin.crs",
         "src/render/device/shadow-build.crs",
         "src/render/device/shadow-level.crs",
         "src/render/device/shade.crs",
         "src/render/device/batch-plan.crs",
-        "src/render/device/tile-raster.crs",
-        "src/render/device/projected-build.crs",
-        "src/render/device/projected-bin.crs",
         "src/render/device/tile-list.crs",
-        "src/render/device/tile-list-raster.crs",
+        "src/render/device/raster.crs",
         "src/render/device/shade-distance.crs",
         "src/render/device/tile-list-link.crs",
         "src/render/device/tile-list-reset.crs",
@@ -233,7 +207,7 @@ fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
         "src/render/device/status.crs"
     };
     var i: usize = 0usize;
-    while i < 27usize {
+    while i < 21usize {
         var shared_length: u32 = render_shader_shared(i);
         if !build_shader(
             root,
@@ -243,13 +217,13 @@ fn build_render_shaders_target(root: *CrustRun, web: bool) -> bool {
             validator,
             SHADER_WORKGROUP_U32,
             shared_length,
-            i == 26usize,
+            i == 20usize,
             true,
             web
         ) {
             return false;
         }
-        if i < 26usize && !build_shader(
+        if i < 20usize && !build_shader(
             root,
             sources[i],
             render_build_shader_path(root, i, false, web),
@@ -285,22 +259,13 @@ fn build_render_shaders(root: *CrustRun) -> bool {
 }
 
 fn render_shader_shared(index: usize) -> u32 {
-    if index == 16usize {
-        return 64u32;
-    }
-    if index == 15usize {
-        return 128u32;
-    }
-    if index == 13usize || index == 20usize || index == 6usize {
+    if index == 10usize || index == 14usize || index == 4usize {
         return 512u32;
     }
-    if index == 9usize || index == 14usize {
+    if index == 7usize || index == 11usize {
         return 256u32;
     }
-    if index == 5usize {
-        return 64u32;
-    }
-    if index == 26usize {
+    if index == 20usize {
         return 192u32;
     }
     return 0u32;
@@ -338,21 +303,6 @@ fn shader_extra_source(name: *u8) -> *u8 {
     }
     if shader_is_tile_list(name) {
         return "src/render/device/tile-list-data.crs";
-    }
-    if cache_strcmp(name, "src/render/device/compact.crs") == 0i32 || cache_strcmp(
-        name,
-        "src/render/device/projected-build.crs"
-    ) == 0i32 {
-        return "src/render/device/compact-data.crs";
-    }
-    if cache_strcmp(name, "src/render/device/projected-bin.crs") == 0i32 {
-        return "src/render/device/projected-tree.crs";
-    }
-    if cache_strcmp(name, "src/render/device/raster.crs") == 0i32 || cache_strcmp(
-        name,
-        "src/render/device/tile-list-raster.crs"
-    ) == 0i32 {
-        return "src/render/device/raster-data.crs";
     }
     return null(*u8);
 }

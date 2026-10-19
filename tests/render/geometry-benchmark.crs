@@ -1,0 +1,140 @@
+fn geometry_snapshot(v: *RenderState) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped as *f32) + (v -> words + 1u32) as isize;
+    v -> crossing_limit = 0u32;
+    v -> read_pixels = false;
+    w[4usize] = 0u32;
+    w[26usize] = 0u32;
+    w[LIGHT_COUNT as usize] = 0u32;
+    w[LIGHT_MODEL as usize] = 0u32;
+    w[OVERLAY_ENABLED as usize] = 0u32;
+    f[(RENDER_STYLE + 1u32) as usize] = 63f32;
+    f[(RENDER_STYLE + 2u32) as usize] = 63f32;
+    f[(RENDER_STYLE + 3u32) as usize] = 0f32;
+    var i: u32 = 0u32;
+    while i < w[MATERIAL_COUNT as usize] {
+        var material: u32 = w[ASSET_OFFSET as usize] + i * MATERIAL_WORDS;
+        w[(material + 5u32) as usize] = 0u32;
+        var palette: u32 = w[ASSET_OFFSET as usize] + w[(material + 4u32) as usize];
+        var color: u32 = 0u32;
+        // The distance-light slot and the RGB full-bright slot have equal colours.
+        while color < PALETTE_COLORS {
+            var p: u32 = palette + color * LIGHT_STATES;
+            w[(p + 63u32) as usize] = w[(p + LIGHT_STATES - 1u32) as usize];
+            color = color + 1u32;
+        }
+        i = i + 1u32;
+    }
+    v -> asset_dirty_begin = 0u32;
+    v -> asset_dirty_end = w[ASSET_WORDS as usize];
+    i = 0u32;
+    while i < w[DYNAMIC_COUNT as usize] {
+        var p: u32 = w[META as usize] + i * 4u32 + 3u32;
+        w[p as usize] = w[p as usize] | TRIANGLE_INACTIVE;
+        i = i + 1u32;
+    }
+}
+fn geometry_time(v: *RenderState, index: u32, value: *u64) -> bool {
+    return vk_ok(
+        vkGetQueryPoolResults(
+            v -> gpu.device,
+            v -> gpu.query_pool,
+            index,
+            1u32,
+            8usize,
+            value as *u8,
+            8u64,
+            3u32
+        ),
+        "read benchmark timestamp"
+    );
+}
+fn geometry_samples(v: *RenderState, samples: u32) -> bool {
+    var times: [u64; 128] = uninit;
+    var frames: [u64; 128] = uninit;
+    var geometry: [u64; 128] = uninit;
+    var i: u32 = 0u32;
+    while i < samples + 8u32 {
+        var start: u64 = now();
+        if !renderer_draw(v) {
+            return false;
+        }
+        var end: u32 = v -> query_count - 2u32;
+        var elapsed: u64 = now() - start;
+        var a: u64 = 0u64;
+        var b: u64 = 0u64;
+        if !geometry_time(v, 0u32, &a) || !geometry_time(v, end, &b) {
+            return false;
+        }
+        var span: u64 = 0u64;
+        if !geometry_span(v, &span) {
+            return false;
+        }
+        if i >= 8u32 {
+            course_sample_insert(
+                &times[0usize],
+                (i - 8u32) as usize,
+                (((b - a) & v -> timestamp_mask) as f32 * v -> timestamp_period) as u64
+            );
+            course_sample_insert(&frames[0usize], (i - 8u32) as usize, elapsed);
+            course_sample_insert(&geometry[0usize], (i - 8u32) as usize, span);
+        }
+        i = i + 1u32;
+    }
+    puts("GPU ns p50 / p95 / p99");
+    geometry_percentiles(&times[0usize], samples);
+    puts("geometry GPU ns p50 / p95 / p99");
+    geometry_percentiles(&geometry[0usize], samples);
+    puts("submission frame ns p50 / p95 / p99");
+    geometry_percentiles(&frames[0usize], samples);
+    return true;
+}
+fn geometry_span(v: *RenderState, span: *u64) -> bool {
+    var first: u32 = 1u32;
+    var last: u32 = 2u32;
+    var a: u64 = 0u64;
+    var b: u64 = 0u64;
+    if !geometry_time(v, first, &a) || !geometry_time(v, last, &b) {
+        return false;
+    }
+    * span = (((b - a) & v -> timestamp_mask) as f32 * v -> timestamp_period) as u64;
+    return true;
+}
+fn geometry_percentiles(values: *u64, samples: u32) -> unit {
+    print_number(values[((samples - 1u32) / 2u32) as usize] as i64);
+    print_number(values[((samples * 95u32 + 99u32) / 100u32 - 1u32) as usize] as i64);
+    print_number(values[((samples * 99u32 + 99u32) / 100u32 - 1u32) as usize] as i64);
+}
+fn geometry_root_counts(v: *RenderState) -> unit {
+    var w: *u32 = v -> mapped as *u32;
+    var instances: u64 = 0u64;
+    var triangles: u64 = 0u64;
+    var i: u32 = 0u32;
+    while i < w[INSTANCE_COUNT as usize] {
+        var p: u32 = w[INSTANCE_META as usize] + i * 5u32;
+        if w[(p + 3u32) as usize] == w[20usize] {
+            instances = instances + 1u64;
+            triangles = triangles + w[(p + 1u32) as usize] as u64;
+        }
+        i = i + 1u32;
+    }
+    puts("root instances / source triangles");
+    print_number(instances as i64);
+    print_number(triangles as i64);
+}
+fn geometry_benchmark(v: *RenderState, samples: u32, path: *u8) -> bool {
+    geometry_snapshot(v);
+    puts("isolated root room; static geometry; full-bright textures; perspective UVs");
+    geometry_root_counts(v);
+    if !geometry_samples(v, samples) {
+        return false;
+    }
+    v -> read_pixels = true;
+    if !renderer_draw(v) {
+        return false;
+    }
+    if path != null(*u8) {
+        return capture(v, path, v -> output_width, v -> output_height);
+    }
+    return true;
+}

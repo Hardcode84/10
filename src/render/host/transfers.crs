@@ -41,7 +41,6 @@ fn upload_scene(v: *RenderState) -> unit {
         true
     );
     persistent_upload(v);
-    (v -> mapped as *u32)[TILE_OWNED as usize] = v -> tile_owned as u32;
     copy_region(v, v -> staging, v -> buffer, 0u64, (TILE_STATS as u64 + 2u64) * 4u64);
     if (v -> mapped as *u32)[OVERLAY_ENABLED as usize] != 0u32 {
         copy_region(
@@ -89,15 +88,7 @@ fn readback(v: *RenderState) -> unit {
     retained_readback(v);
     if (v -> mapped as *u32)[26usize] != 0u32 {
         copy_region(v, v -> buffer, v -> staging, 0u64, (TILE_STATS as u64 + 2u64) * 4u64);
-        if v -> tile_owned {
-            copy_region(
-                v,
-                v -> buffer,
-                v -> staging,
-                ((v -> mapped as *u32)[TILE_STATS as usize] as u64 + 1u64) * 4u64,
-                v -> task_capacity as u64 * 16u64
-            );
-        }
+
     } else {
         copy_region(v, v -> buffer, v -> staging, 24u64, 4u64);
     }
