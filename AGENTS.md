@@ -33,6 +33,12 @@ A 6DOF exploration game in a megastructure.
   out of application builds. See the [component map](docs/README.md).
 - Build playable slices. Follow the game design's prototype gates.
 - Keep ownership, memory costs, synchronization, and failure paths explicit.
+- Define each gameplay constant once, in its owning component. All consumers,
+  including UI, help text, demos, and tests, must use that shared definition.
+  Derive unit conversions and related values from it. Do not copy numeric
+  tuning values into other code, strings, comments, or documentation. In docs,
+  link to the defining source instead. Change the definition when tuning gameplay;
+  do not maintain matching literals in several files.
 - Keep `src/render/` independent of demo and test sources. Put scene generation,
   animation frame indices, palette generation, and user input in `src/demo/` or
   `src/game/`. Keep shared application helpers in `src/app/`.

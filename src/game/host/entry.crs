@@ -13,7 +13,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
         );
         puts("--headless --ticks N --capture FILE --full-spin");
         puts("Find the gold beacon in the ending room, then return to the start beacon.");
-        puts("Boost and brake share a 1.5-second cooldown. Both have unlimited uses.");
+        puts("Boost and brake share a cooldown. Both have unlimited uses.");
         puts("WASD Ctrl/Space: move | mouse: look | Q/E: roll with level off");
         puts(
             "Hold RMB + direction: burst | Hold F: brake | LMB: hold tether | R or Space: start fast reel"

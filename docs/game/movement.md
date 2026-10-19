@@ -4,15 +4,15 @@ Run `crust main.crs` for [There and Back](expedition.md), or `crust demo.crs lev
 for the linked-room flight demo. Both use the same input and physics code.
 
 Hold right mouse and a movement key to boost in that direction.
-Boost applies 100 m/s² for 0.15 seconds. The accepted movement direction
+Boost applies acceleration for a fixed pulse. The accepted movement direction
 stays fixed in drone-local coordinates for the pulse. Diagonal input has
 the same boost strength as single-axis input.
-It adds 15 m/s without other forces. Brake applies acceleration against the
-current velocity for 0.15 seconds, removing at most 30 m/s. It cannot reverse
-the drone. Both have unlimited uses and share a 1.5-second cooldown from
+Brake applies acceleration against the current velocity for a fixed pulse.
+It limits the removed speed and cannot reverse the drone. Both have unlimited uses and share a cooldown from
 the accepted pulse. Hold the inputs to start another pulse as soon as the
 cooldown ends. Movement keys apply normal thrust without burst mode and
-during cooldown. Full normal input applies 1 m/s² before environmental forces.
+during cooldown. Normal thrust and pulse timing use the
+[flight tuning definitions](../../src/game/flight/physics.crs).
 Right mouse alone does not fire.
 Brake wins if both actions arrive in the same ready tick.
 

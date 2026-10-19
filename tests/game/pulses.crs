@@ -97,7 +97,7 @@ fn test_pulse_cooldown() -> bool {
     }
     flight_pulses(mut drone, brake);
     if drone.brake_ticks != FLIGHT_PULSE_TICKS - 1u32 {
-        return error("brake not ready after 1.5 seconds");
+        return error("brake not ready at cooldown expiry");
     }
     i = 1u32;
     while i < FLIGHT_COOLDOWN_TICKS {

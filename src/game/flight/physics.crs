@@ -1,6 +1,6 @@
 const FLIGHT_PULSE_TICKS: u32 = 18u32;
-const FLIGHT_PULSE_SECONDS: f32 = 0.15f32;
 const FLIGHT_COOLDOWN_TICKS: u32 = 180u32;
+const FLIGHT_THRUST_ACCELERATION: f32 = 1f32;
 fn flight_pulses(drone: mut Drone, command: Command) -> bool {
     var boosted: bool = false;
     if drone.pulse_cooldown > 0u32 {
@@ -8,7 +8,7 @@ fn flight_pulses(drone: mut Drone, command: Command) -> bool {
     }
     if command.brake && drone.pulse_cooldown == 0u32 {
         drone.brake_ticks = FLIGHT_PULSE_TICKS;
-        drone.brake_rate = brake_amount(read drone) / FLIGHT_PULSE_SECONDS;
+        drone.brake_rate = brake_amount(read drone) / (FLIGHT_PULSE_TICKS as f32 * STEP);
         drone.pulse_cooldown = FLIGHT_COOLDOWN_TICKS;
     } else if command.burst && drone.pulse_cooldown == 0u32 && length(command.thrust) > 0f32 {
         boosted = true;
@@ -22,7 +22,7 @@ fn flight_pulses(drone: mut Drone, command: Command) -> bool {
             drone.velocity,
             scale(
                 basis_vector(drone.basis, drone.boost_direction),
-                15f32 * STEP / FLIGHT_PULSE_SECONDS
+                15f32 / FLIGHT_PULSE_TICKS as f32
             )
         );
         drone.boost_ticks = drone.boost_ticks - 1u32;
@@ -72,7 +72,7 @@ fn simulate(
             ),
             1f32 / drone_size(read drone)
         ),
-        basis_vector(drone.basis, thrust)
+        scale(basis_vector(drone.basis, thrust), FLIGHT_THRUST_ACCELERATION)
     );
     drone.velocity = add(drone.velocity, scale(acceleration, STEP));
     var travel: Vec3 = scale(drone.velocity, STEP * drone_size(read drone));
