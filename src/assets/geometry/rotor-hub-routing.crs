@@ -174,8 +174,41 @@ fn hub_service_pipes(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
     ) {
         return false;
     }
+    if !hub_spindle_mounts(mut asset, read graph, layout) {
+        return false;
+    }
     pipe_route_guides(mut router);
     pipe_router_swap(mut asset.routes, mut router);
+    return true;
+}
+fn hub_spindle_mounts(asset: mut RoomAsset, graph: read PipeGraph, layout: HubPipeLayout) -> bool {
+    var i: u32 = 0u32;
+    while i < pipe_node_count(read graph) {
+        var node: PipeNode = pipe_node(read graph, i);
+        if node.degree == 1u32 && node.exit_id == PIPE_NO_EXIT {
+            var normal: Vec3 = unit_vector(
+                vec(node.position.x, 0f32, node.position.z)
+            );
+            var mount: CylinderMount = make CylinderMount {
+                centre: add(
+                    scale(normal, layout.core * cosf(0.06544984695f32)),
+                    vec(0f32, node.position.y, 0f32)
+                ),
+                outward: normal,
+                radius: layout.core,
+                inner: false,
+                scale: oct_pipe_radius() / 0.18f32,
+                lower: -layout.extent,
+                upper: 0f32,
+                flange_region: 9u32,
+                leak_region: 10u32
+            };
+            if !cylinder_pipe_mount(mut asset, mount) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
     return true;
 }
 fn hub_lane_sink(router: mut PipeRouter, point: Vec3) -> u32 {

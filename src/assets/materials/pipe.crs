@@ -22,6 +22,18 @@ fn service_pipe_material() -> PanelMaterial {
     material.panel_height = 2f32;
     return material;
 }
+fn service_mount_material(leak: bool) -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.finish = METAL_PLAIN;
+    material.colour = 0x35373bu32;
+    if leak {
+        material.finish = METAL_LEAK;
+        material.colour = 0x807568u32;
+        material.tile_metres = 1.1f32;
+        material.tile_height = 1.8f32;
+    }
+    return material;
+}
 
 fn oct_service_material(region: u32) -> PanelMaterial {
     if region == 1u32 {

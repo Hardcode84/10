@@ -266,16 +266,7 @@ fn shaft_track_surfaces(hull: mut AssetHull, tile: f32, spacing: f32) -> unit {
 }
 fn shaft_material(region: u32) -> PanelMaterial {
     if region == 7u32 || region == 8u32 {
-        var finish: PanelMaterial = hex_tunnel_material();
-        finish.finish = METAL_PLAIN;
-        finish.colour = 0x35373bu32;
-        if region == 8u32 {
-            finish.finish = METAL_LEAK;
-            finish.colour = 0x807568u32;
-            finish.tile_metres = 1.1f32;
-            finish.tile_height = 1.8f32;
-        }
-        return finish;
+        return service_mount_material(region == 8u32);
     }
     if region == 6u32 {
         return service_pipe_material();

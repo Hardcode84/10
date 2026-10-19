@@ -15,10 +15,12 @@
 // to reach it if their exit routes are blocked.
 // The spindle ends in a smaller copy of the hub at the room centre.
 // Dark seams follow each polygon edge on the spindle end.
+// Pipe feeds have dark spindle flanges and leak marks toward the centre (+Y).
 // Eight hexagonal beams connect it to the corner panels. Dark collars mark
 // both ends. Pipe routes stay on the corner perimeters, clear of the beams.
 // Regions: 0 socket walls, 1 corner panels, 2 tunnel closures, 3 shaft closure,
-// 4 dark structural joints, 5 polygon and portal seams, 6 pipes, 7 spindle, 8 structural beams.
+// 4 dark structural joints, 5 polygon and portal seams, 6 pipes, 7 spindle,
+// 8 structural beams, 9 pipe flanges, 10 leak stains.
 // Corner panels have one closed hexagonal service cover.
 // Wall edges have 0.06 m seams; portal edges have 0.10 m seams.
 fn room_parameter_count() -> u32 {
@@ -242,9 +244,12 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     return room_asset_finish(mut asset);
 }
 fn room_material_count() -> u32 {
-    return 9u32;
+    return 11u32;
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 9u32 || region == 10u32 {
+        return service_mount_material(region == 10u32);
+    }
     var material: PanelMaterial = hex_tunnel_material();
     material.colour = 0x807769u32;
     material.panel_height = 2f32;

@@ -10,7 +10,7 @@ fn asset_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/rotor-hub-pipes.crs",
         "src/assets/geometry/rotor-hub-structure.crs",
         "src/assets/geometry/rotor-shaft-pipes.crs",
-        "src/assets/geometry/rotor-shaft-mounts.crs",
+        "src/assets/geometry/cylinder-pipe-mounts.crs",
         "src/assets/geometry/rotor-hub-routing.crs",
         "src/assets/geometry/rotor-hub-lanes.crs",
         "src/assets/geometry/pipe-router.crs",
