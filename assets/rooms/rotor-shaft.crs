@@ -4,10 +4,10 @@
 // Each rotor has a local pivot on the shaft axis and shares one solid mesh.
 // Successive stations turn 22.5 degrees. Rotation is not enabled.
 // Wing metal wraps around the long axis; side and cap rows share one phase.
-// Dimensions are metres; rotor-count is an integer. BOTTOM-0 through BOTTOM-2
-// are HEX-6M ports at Y=0, facing -Y, with six mating rotations each.
-// TOP is the full round cap at +Y, with a ROTOR-SHAFT connection.
-// The spindle reaches TOP; passage remains around it.
+// Dimensions are metres; rotor-count is an integer. BOTTOM and TOP are full
+// ROTOR-SHAFT connections at Y=0 and Y=height, with four mating rotations.
+// The spindle reaches both ends; passage remains around it.
+// Use rotor-hex-adapter.crs to connect a shaft end to three HEX-6M tunnels.
 // Matching diameters connect at unit relative scale.
 // Three separate service pipes occupy each gap between rotor stations.
 // Runs have axial legs and circumferential arcs with rounded 90-degree elbows.
@@ -19,8 +19,8 @@
 // Metal rows fill each gap between tracks; the end rims have half-width tracks.
 // Dark mounting flanges meet the wall and spindle. Leak stains trail toward
 // TOP (+Y), where the shaft connects to the hub.
-// Materials: 0 shell, 1 far cap, 2 spindle, 3 rotor wings, 4 bottom,
-// 5 port closures, 6 pipes, 7 flanges, 8 leak stains.
+// Materials: 0 shell, 1 end closures, 2 spindle, 3 rotor wings,
+// 4 pipes, 5 flanges, 6 leak stains.
 fn room_parameter_count() -> u32 {
     return prefab_rotor_shaft_parameter_count();
 }

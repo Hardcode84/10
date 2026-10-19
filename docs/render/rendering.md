@@ -978,7 +978,7 @@ crust tests.crs
 Use the full prefab course for corner-to-centre hub measurements:
 
 ```sh
-crust tests.crs course-benchmark levels/prefabs.crs 11 118 --samples 64 --width 1920 --height 1080
+crust tests.crs course-benchmark levels/prefabs.crs 12 118 --samples 64 --width 1920 --height 1080
 ```
 
 Poses 100 and above select hull face `pose - 100`. The camera moves two
