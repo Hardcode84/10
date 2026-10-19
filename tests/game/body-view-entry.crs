@@ -8,6 +8,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     launch.capture = "build/test-body-portal.ppm";
     launch.shader_checks = true;
     var renderer: Renderer = renderer_new();
+    renderer.state.tile_lists = true;
     var mesh: Mesh = mesh_new();
     var scene: CollisionScene = collision_new();
     if !player_drone_mesh(mut mesh, DRONE_RADIUS) || !body_portals(mut scene) || !game_renderer_open(

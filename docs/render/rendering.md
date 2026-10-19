@@ -59,7 +59,8 @@ flowchart TD
 | --- | --- | --- |
 | Application renderer | Default | Persistent mesh trees; resumable geometry batches; tile candidate bitmaps; separate visibility and shading. |
 | Tile-owned traversal | Rejected experiment | One workgroup traverses, clips, and rasterizes all geometry for its tile. Repeated setup makes it much slower. |
-| Projected-tree binning | Test-selectable experiment | Share projection, then search projected bounds per tile. Retains the application batch and bitmap costs. |
+| Bounded tile lists | Full-featured opt-in path | Assign candidates from triangles; use lists for sparse tiles and bitmaps for dense tiles. |
+| Projected-tree binning | Test-selectable experiment | Share projection, then search projected bounds per tile. Retains batch and screen-search costs. |
 | Direct tile lists | Checkpoint in tests | Triangle-driven assignment produces enumerable tile references. Matches isolated images but fails the two-times hardware gate. |
 | Vulkan graphics | Test reference | Hardware clipping, rasterization, interpolation, and depth for the geometry-and-texture comparison. |
 
@@ -527,7 +528,8 @@ instance, and light capacities. Significant storage terms are:
 | Child view lookup | `V * P` words. |
 | Group key bitsets | `ceil(T / 64) * ceil(V * P / 32)` words. |
 | Task indirect commands | `12 * ceil(T / 32768)` words. |
-| Tile candidate bits | `T * ceil(B * 8 / 32)` words. |
+| Tile candidate lists or bits | `T * ceil(B * 8 / 32)` words. |
+| Tile heads, task links, reference counts and cursors | `4 * T` words. |
 | Instance visibility and culling planes | `I * V` words and `48 * I * V` floats. |
 | Retained source pool | 176 bytes per triangle for vertices, metadata, spatial index, and tree. |
 | Instance records | 92 bytes each. |
@@ -661,9 +663,10 @@ outside the image contract.
 
 ### Measured failure mechanisms
 
-The application bin pass visits projected groups for every active tile. Each
-pixel then searches a dense candidate bitmap. Spatial culling reduces candidate
-geometry but leaves these screen-area multipliers. Conservative global batch
+The group-scan reference visits projected groups for every active tile. Each
+pixel then searches a dense candidate bitmap. Spatial culling alone leaves
+these screen-area multipliers. Tile-list assignment removes full group scans
+and uses direct lists for sparse tiles. Conservative global batch
 rounds also retain dispatch and barrier costs when indirect work is empty.
 An indirect dispatch cannot create another producer/consumer dispatch sequence.
 Cross-workgroup spinning has no portable forward-progress guarantee.
@@ -685,6 +688,74 @@ using octagonal pipes, then to 43,342 through bend and straight-run cleanup.
 These are different content versions. Compare renderer variants within each
 version. Triangle reduction does not establish that the scheduling design meets
 its frame budget.
+
+### Bounded tile lists for complete frames
+
+Use `crust main.crs --tile-lists` or
+`crust demo.crs levels/prefabs.crs --tile-lists` to select triangle-driven
+candidate assignment. The web setup has a **Tile-list renderer** option.
+The render regression runner tests this path by default.
+`SPINWARD_TILE_LIST=1` selects it in the course benchmark.
+`SPINWARD_REFERENCE=1` selects the previous binning path for the scene regression
+cases, including `render 7`.
+The tile-list path shares the retained scene, batch planner, projection, hit
+cache, shading, portal traversal, and presentation with the group-scan reference. It supports dynamic triangles, sprites, scaled portal
+views, material mapping modes, lighting, shadows, and output scaling.
+The shader build selects the candidate format for each raster entry point.
+Both entry points use shared raster source. No per-pixel renderer selector is
+needed.
+
+```mermaid
+flowchart TD
+    tasks["Active portal-view tiles"] --> map["Build physical tile to view-task links"]
+    batch["Bounded source batch"] --> project["Project and clip once"]
+    project --> count["Count triangle references for each active view tile"]
+    map --> count
+    count --> clear["Select list or bitmap; clear dense tile words"]
+    clear --> assign["Write exact candidate references"]
+    assign --> hit["Rasterize candidates into the persistent hit cache"]
+    hit --> more{"View complete?"}
+    more -->|No| batch
+    more -->|Yes| shade["Shade; emit child portal masks"]
+    shade --> tasks
+```
+
+The tile map has one head per physical tile and one link per active task.
+Each task has a unique `(view, tile)` pair. Each nonempty task owns at least one
+pixel in that tile. Distinct task masks do not overlap. Thus, a physical tile
+has at most 64 task links, including recursive views of the same room.
+A compute barrier publishes links before triangle assignment starts.
+
+Each projected fan visits tiles in its screen bounding rectangle, intersected
+with the active view rectangle. It applies the shared triangle-tile coverage test and finds the task with its view ID.
+The count pass and the write pass use the same predicate. A tile with at most
+`tile_bit_stride()` references stores a direct list of fan IDs. A tile with more
+references stores a bitmap of the batch fan slots. The count selects the
+representation; neither representation can overflow its allocation. A compute
+barrier separates counts, dense clears, writes, and rasterization. Atomic OR
+combines bitmap bits. Atomic add reserves list entries. Equal-depth fragments
+use the shared source-identity tie rule, independent of insertion order.
+
+The four existing tile-stat words hold the tile head, task link, reference
+count, and list cursor. The candidate region keeps its existing allocation.
+The source batch and portal work continue through the existing planner. The
+static checkpoint's inline-list pool and assignment queue limits do not apply.
+One workgroup visits a fan's tiles in parallel. Large dispatches use a fixed
+workgroup stride; they do not truncate fan counts.
+
+The [full-frame comparison](tile-list-full.csv) uses the prefab course on Intel
+Arc Pro B60, eight warm-up frames, and 64 measured frames per case. It includes
+lighting, shadows, dynamic geometry, and recursive portals. All six tile-list
+captures match the group-scan reference byte for byte. Device and staging
+allocations are equal. The rotor scenes improve, but the passage regresses.
+The measured 1080p GPU p99 values exceed the 10 ms gate. The application default
+therefore remains the group-scan renderer.
+
+The regression suite checks tiny geometry batches, recursive masks, cutouts,
+lighting, retained storage, and image resize through the tile-list path.
+Hook-light, body-view, scaling, and particle fixtures also select it explicitly.
+Crust tests execute atomic OR for SPIR-V and WGSL, including repeated bits,
+returned values, invalid indices, and failed invocations.
 
 ### Direct tile-list checkpoint
 
@@ -723,9 +794,9 @@ Projection, assignment queue, and node pool exhaustion reject the image.
 The pool allocation counter is clamped at capacity on failure. Its capacity
 plus concurrently active allocations cannot wrap the unsigned word counter.
 This experiment also requires at most 32,768 eight-by-eight tiles and source
-ranges that fit its dispatch and scratch bounds. Production use requires a
-bounded continuation contract through arbitrary input sizes and portal views.
-Increasing fixed capacities is insufficient.
+ranges that fit its dispatch and scratch bounds. The full-featured path above
+uses the shared batch planner and bounded list/bitmap storage to handle
+arbitrary input sizes and portal views. That storage replaces the finite node pool.
 
 The [checkpoint CSV](scatter-raster.csv) contains paired runs on Intel Arc Pro
 B60, with eight warm-up frames and 128 measured frames. All six direct-list
@@ -771,7 +842,7 @@ Include all warm setup, scratch clears, assignment, rasterization, texturing,
 and composition. Exclude cold preparation, capture, and presentation equally.
 Report submission time and peak memory separately.
 
-After that gate passes, a replacement must prove the complete application
+A replacement must also prove the complete application
 ownership path and final moving image: recursive and scaled portal masks,
 cutouts, equal-depth ties, near-eye crossings, sprites, room shadows, portable
 lights, anchors, resize, and storage retirement. Small work capacities must
@@ -789,7 +860,7 @@ Keep the application default unchanged until these gates pass. Build a bounded
 experiment around a named cost and stop condition before adding another layer.
 Remaining contracts include persistent room membership, exact indexed vertex
 reuse across UV seams, separation of dynamic/shadow capacity from total scene
-capacity, and portable bounded candidate continuation. Their implementation
+capacity. Their implementation
 requires final-image and whole-frame evidence, not only synthetic tests.
 
 ### Evidence index
@@ -800,6 +871,7 @@ and timings. Git preserves the full superseded narrative.
 
 | Evidence | Scope and interpretation |
 | --- | --- |
+| [Full-frame tile lists](tile-list-full.csv) | Exact captures with complete rendering features; rotor gains and a passage regression; equal allocation. |
 | [Retained visibility](retained-visibility-results.csv) | Twelve paired stationary poses; persistent trees remove warm expansion and mesh upload, but fail full-frame timing. |
 | [Architecture cost probes](architecture-cost-probes.csv) | Lighting and zero-workgroup controls; invalid-output diagnostics are cost probes only. The course has unshadowed portable lamps, so its room-shadow bypass is a negative control. |
 | [Tile cost probes](tile-cost-probes.csv) | Workgroup fence scope, repeated setup, sparse chunks, and clipping-copy costs in the rejected tile-owned kernel. |
@@ -941,6 +1013,7 @@ dumps to pipeline creation order. Driver cycle estimates are not GPU timings.
 | [Retained storage](../../src/render/host/retained.crs), [mesh trees](../../src/render/host/mesh-tree.crs) | Mesh and instance lifetime, local spatial data. |
 | [Projection scheduling](../../src/render/host/projection.crs), [command schedule](../../src/render/host/schedule.crs) | Space membership, conservative work bounds and ordered passes. |
 | [Transfers](../../src/render/host/transfers.crs), [completion](../../src/render/host/completion.crs) | Dirty ranges, selected readback and retirement. |
+| [Tile assignment](../../src/render/device/tile-list.crs) | View-task links, exact reference counts, bounded list and bitmap writes. |
 | [Device shaders](../../src/render/device/) | Visibility, clipping, rasterization, light queries and composition. |
 | [Native presentation](../../src/render/host/present.crs), [WebGPU provider](../../src/render/web/) | Platform resources, commands and presentation. |
 | [Shader build](../../tools/build/shaders.crs) | Shared source assembly and backend compilation. |

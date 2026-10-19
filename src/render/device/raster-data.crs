@@ -1,0 +1,95 @@
+fn raster_candidates(task: u32, view: u32, x: u32, y: u32) -> unit {
+    var pixel: u32 = y * words_load(0u32) + x;
+    var cache: u32 = words_load(HIT_FLOAT) + pixel * 3u32;
+    var identity_word: u32 = words_load(DEBUG_VALUES) + pixel * 4u32;
+    var best: f32 = 0f32;
+    var winner: u32 = 0xffffffffu32;
+    if batch_start(view) != 0u32 {
+        best = floats_load(cache);
+        winner = words_load(identity_word);
+    } else {
+        floats_store(cache + 1u32, 0f32);
+        floats_store(cache + 2u32, 0f32);
+    }
+    var selected: u32 = 0xffffffffu32;
+    var px: f32 = x as f32 + 0.5f32;
+    var py: f32 = y as f32 + 0.5f32;
+    var lists: bool = RASTER_TILE_LIST && words_load(25u32) == 0u32;
+    var sparse: bool = lists && words_load(words_load(TILE_STATS) + task * 4u32 + 2u32) <= tile_bit_stride();
+    var count: u32 = raster_candidate_count(task, view, lists, sparse);
+    var i: u32 = 0u32;
+    if words_load(25u32) == 0u32 && !sparse {
+        i = next_tile_candidate(task, 0u32, count);
+    }
+    while i < count {
+        var id: u32 = raster_candidate_id(task, view, i, lists, sparse);
+        var p: u32 = words_load(PROJECTED_OFFSET) + (batch_offset(view) * MAX_FAN + id) * 20u32;
+        var triangle: u32 = words_load(
+            words_load(BATCH_PRIMITIVES) + batch_offset(view) + id / MAX_FAN
+        );
+        var identity: u32 = triangle * MAX_FAN + id % MAX_FAN;
+        if tile_overlap(p, (x / 8u32 * 8u32) as f32, (y / 8u32 * 8u32) as f32) {
+            var depth: f32 = candidate_depth(p, px, py);
+            if nearer(depth, best, identity, winner) && candidate_opaque(triangle, p, px, py) {
+                best = depth;
+                winner = identity;
+                selected = p;
+            }
+        }
+        i = i + 1u32;
+        if words_load(25u32) == 0u32 && !sparse {
+            i = next_tile_candidate(task, i, count);
+        }
+    }
+    if selected != 0xffffffffu32 {
+        var mat: u32 = scene_meta(winner / MAX_FAN, 1u32);
+        var style: u32 = material_field(mat, 5u32) & 3u32;
+        floats_store(cache + 1u32, sample_uv(selected, px, py, 3u32, style));
+        floats_store(cache + 2u32, sample_uv(selected, px, py, 4u32, style));
+    }
+    floats_store(cache, best);
+    words_store(identity_word, winner);
+}
+fn raster_pixel(task: u32, lane: u32) -> unit {
+    var base: u32 = task_base() + task * 4u32;
+    var view: u32 = words_load(base + 1u32);
+    if !batch_active(view) {
+        return;
+    }
+    var tile: u32 = words_load(base);
+    var width: u32 = words_load(0u32);
+    var cols: u32 = (width + 7u32) / 8u32;
+    var x: u32 = tile % cols * 8u32 + lane % 8u32;
+    var y: u32 = tile / cols * 8u32 + lane / 8u32;
+    if !task_pixel_active(base, lane, x, y, width) {
+        return;
+    }
+    raster_candidates(task, view, x, y);
+}
+
+fn raster_candidate_count(task: u32, view: u32, lists: bool, sparse: bool) -> u32 {
+    if sparse {
+        return words_load(words_load(TILE_STATS) + task * 4u32 + 2u32);
+    }
+    if lists || words_load(25u32) != 0u32 {
+        return batch_size(view) * MAX_FAN;
+    }
+    return words_load(words_load(COMPACT_COUNT) + view);
+}
+
+fn raster_candidate_id(task: u32, view: u32, i: u32, lists: bool, sparse: bool) -> u32 {
+    if sparse {
+        return words_load(words_load(TILE_BITS) + task * tile_bit_stride() + i);
+    }
+    if words_load(25u32) == 0u32 && !lists {
+        return words_load(words_load(COMPACT_OFFSET) + batch_offset(view) * MAX_FAN + i);
+    }
+    return i;
+}
+
+fn compute() -> unit {
+    var task: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
+    if task < words_load(6u32) && words_load(5u32) == 0u32 {
+        raster_pixel(task, shader_local_x());
+    }
+}

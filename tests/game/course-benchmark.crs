@@ -125,15 +125,27 @@ fn course_geometry_compare(
 }
 fn course_benchmark_mode(v: *RenderState) -> bool {
     v -> tile_owned = benchmark_environment("SPINWARD_TILE_PROOF") != null(*u8);
+    v -> tile_lists = v -> tile_lists || benchmark_environment("SPINWARD_TILE_LIST") != null(*u8);
     v -> projected_tree = benchmark_environment("SPINWARD_PROJECTED_PROOF") != null(*u8);
-    if v -> tile_owned && v -> projected_tree {
+    if v -> tile_owned as u32 + v -> projected_tree as u32 + v -> tile_lists as u32 > 1u32 {
         return error("select only one renderer experiment");
     }
     if benchmark_environment("SPINWARD_GEOMETRY_PROOF") != null(*u8) && (
-        v -> tile_owned || v -> projected_tree
+        v -> tile_owned || v -> projected_tree || v -> tile_lists
     ) {
         return error("geometry comparison selects its own renderer variants");
     }
+    var name: *u8 = "Renderer: group-scan reference";
+    if v -> tile_lists {
+        name = "Renderer: bounded tile lists";
+    }
+    if v -> tile_owned {
+        name = "Renderer: tile-owned traversal";
+    }
+    if v -> projected_tree {
+        name = "Renderer: projected tree";
+    }
+    puts(name);
     return true;
 }
 fn course_sample_insert(values: *u64, index: usize, value: u64) -> unit {

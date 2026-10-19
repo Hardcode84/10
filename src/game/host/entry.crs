@@ -5,6 +5,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
         puts("--tasks: same-frame CPU/GPU overlap (default); --serial: synchronous loop");
         puts("--workers N: prediction workers (default 0; browser requires 0)");
         puts("--width N --height N --fov 70..110 --slow --bindings FILE");
+        puts("--tile-lists: test triangle-driven tile candidate assignment");
         puts("--scaling: reciprocal size-change rooms with moving contacts");
         puts("--seed N --complexity N (defaults: seed 1, complexity 3)");
         puts("--record FILE | --replay FILE (use the same seed and complexity)");

@@ -18,6 +18,7 @@ record Launch {
     config: GameConfig;
     capture: *u8;
     shader_checks: bool;
+    tile_lists: bool;
     record_path: *u8;
     replay_path: *u8;
     bindings_path: *u8;
@@ -111,6 +112,10 @@ fn game_numeric(o: *Launch, key: *u8, value: *u8) -> bool {
     return error("unknown option; use --help");
 }
 fn game_flag(o: *Launch, key: *u8) -> bool {
+    if strcmp(key, "--tile-lists") == 0i32 {
+        o -> tile_lists = true;
+        return true;
+    }
     if strcmp(key, "--scaling") == 0i32 {
         o -> config.scaling = true;
         return true;
@@ -164,6 +169,7 @@ fn game_options_scene(argc: i32, argv: **u8, o: *Launch, room_demo: bool) -> boo
         },
         capture: null(*u8),
         shader_checks: false,
+        tile_lists: false,
         record_path: null(*u8),
         replay_path: null(*u8),
         bindings_path: null(*u8),

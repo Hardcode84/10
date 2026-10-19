@@ -8,6 +8,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     options.capture = "build/test-hook-light.ppm";
     options.shader_checks = true;
     var renderer: Renderer = renderer_new();
+    renderer.state.tile_lists = true;
     if !game_renderer_open(&renderer.state, &options, null(*u8), 0u32) {
         return 1i32;
     }
@@ -354,6 +355,7 @@ fn dynamic_shadow_checks(renderer: mut Renderer, config: GameConfig) -> bool {
 
 fn recursive_light_capture(options: *Launch) -> bool {
     var renderer: Renderer = renderer_new();
+    renderer.state.tile_lists = true;
     var scene: CollisionScene = collision_new();
     if !light_direction_check() || !anchor_light_scene(mut scene) || !game_renderer_open(
         &renderer.state,

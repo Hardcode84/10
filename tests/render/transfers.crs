@@ -5,6 +5,7 @@ fn transfer_test(base: *Options) -> bool {
     o.window_width = 320u32;
     o.window_height = 180u32;
     var renderer: Renderer = renderer_new();
+    renderer.state.tile_lists = true;
     var config: RenderConfig = demo_render_config(&o);
     config.read_pixels = false;
     config.shader_checks = false;
@@ -146,6 +147,7 @@ fn transfer_shutdown(v: *RenderState) -> bool {
 }
 fn transfer_debug(base: *Options) -> bool {
     var renderer: Renderer = renderer_new();
+    renderer.state.tile_lists = true;
     var config: RenderConfig = demo_render_config(base);
     config.width = 64u32;
     config.height = 48u32;

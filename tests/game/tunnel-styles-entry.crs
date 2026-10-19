@@ -8,6 +8,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     options.capture = "build/test-tunnel-style.ppm";
     options.shader_checks = true;
     var renderer: Renderer = renderer_new();
+    renderer.state.tile_lists = true;
     var asset: RoomAsset = room_asset_new();
     if !game_renderer_open(&renderer.state, &options, null(*u8), 0u32) || !hex_tunnel_build(
         10f32,

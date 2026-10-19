@@ -21,6 +21,7 @@ fn image_test(base: *Options, windowed: bool) -> bool {
 }
 fn image_run(o: *Options, window: *u8) -> bool {
     var renderer: Renderer = renderer_new();
+    renderer.state.tile_lists = true;
     var config: RenderConfig = demo_render_config(o);
     config.view_budget = 1u32;
     config.portal_budget = 0u32;

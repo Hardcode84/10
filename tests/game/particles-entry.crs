@@ -23,6 +23,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     launch.capture = "build/test-sprites.ppm";
     launch.shader_checks = true;
     var renderer: Renderer = renderer_new();
+    renderer.state.tile_lists = true;
     if !game_renderer_open(&renderer.state, &launch, null(*u8), 2u32) {
         return 1i32;
     }

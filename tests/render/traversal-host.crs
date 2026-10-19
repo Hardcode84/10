@@ -87,6 +87,7 @@ fn traversal_case(base_options: *Options, index: u32) -> bool {
     o.debug_pixels = 1u32;
     o.capture = "build/test-traversal.ppm";
     var renderer: Renderer = renderer_new();
+    renderer.state.tile_lists = true;
     var config: RenderConfig = demo_render_config(&o);
     config.shader_checks = index == 7u32 || index == 9u32;
     traversal_config(&config, index);
