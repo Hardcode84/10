@@ -66,6 +66,7 @@ application functions as the applications.
 - Render: [design](render/rendering.md), [build and checks](render/renderer-build.md),
   [textures](render/textures.md), [retained meshes](render/retained-meshes.md),
   [persistent visibility design](render/retained-visibility.md),
+  [renderer architecture review](render/architecture-review.md),
   [portal capacity](render/portal-capacity.md), [image resize](render/images.md).
 - Collision: [static meshes](collision/static-meshes.md),
   [spatial index](collision/spatial-index.md), [sphere motion](collision/motion.md),

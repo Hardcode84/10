@@ -2,6 +2,12 @@
 
 ## Status and decision
 
+Further expansion of this batch pipeline is stopped. The
+[architecture review](architecture-review.md) records the measured costs and
+defines the next replacement experiment. Its headroom targets supersede the
+16.67 ms completion target below. This document preserves the implemented
+mesh contract and the first experiment's evidence.
+
 The first implementation is on the renderer branch. It has mesh-local trees,
 parallel subtree traversal, resumable cluster batches, persistent instance
 lookup, and shared mesh shadow data. Warm camera-only frames upload no mesh
