@@ -88,9 +88,46 @@ arithmetic bit for bit. RGB root-mean-square errors are 0.714 and 0.369 on a
 Vulkan validation, including synchronization validation, reports no errors
 for the graphics path.
 
-This result establishes the cost of geometry and texturing for these room
-views. It does not establish full-game frame time. A production graphics path
-must also execute recursive portal masks, transformed views, the existing
-lighting model, particles, and interface composition. That path must preserve
-the shared renderer input contract and prove its output on the moving course
-before it can replace the application renderer.
+## Compute acceptance gate
+
+Keep compute rendering as the application architecture. Use hardware graphics
+as the performance reference. The next compute experiment must take at most
+twice the complete GPU time of hardware graphics for the same workload. Check
+both p50 and p99 in each room at both recorded resolutions. Compare paired
+runs on the same device with the same input and output dimensions. Include all
+per-frame compute setup, scratch clears, geometry passes, texture reads, and
+composition. Keep capture, presentation, and cold preparation outside both
+intervals. Report submission time and memory use separately.
+
+The current 1080p measurements give these approximate budgets in milliseconds:
+
+| Room | Compute p50 budget | Compute p99 budget |
+| --- | ---: | ---: |
+| Passage | 0.191 | 0.194 |
+| Rotor shaft | 0.299 | 0.302 |
+| Rotor hub | 0.329 | 0.364 |
+
+These are acceptance targets. The current compute paths fail them. The measured
+hub setup and composition alone take approximately 0.43 ms. A raster-only
+replacement with the same surrounding work cannot meet the complete GPU gate.
+
+The next bounded experiment must share triangle setup across screen tiles and
+produce directly enumerable spatial candidates. It must remove tile-by-group
+searches, pixel-by-empty-word searches, and the current global batch overhead.
+Use bounded storage with an explicit completion rule. Do not repeat the failed
+per-tile projection and clipping experiment described in the
+[architecture review](architecture-review.md).
+
+Check final images before accepting timings. Preserve depth ordering, cutouts,
+UVs, and palette values. Investigate image differences; do not increase an error
+tolerance to accept a faster path. Use GPU timestamps to separate setup, spatial
+assignment, coverage and depth, and shading. Stop expansion if the complete GPU
+gate fails. Record the remaining costs and revise the algorithm before adding
+more renderer features.
+
+The measured gap applies to the current implementations. It does not establish
+an inherent compute performance limit. This isolated gate also does not establish
+full-game frame time. After it passes, prove recursive portal masks, transformed
+views, lighting, particles, and interface composition through the shared renderer
+input contract and final moving-course output. The full-game frame budgets in
+the architecture review remain separate acceptance requirements.

@@ -660,5 +660,9 @@ though its GPU interval is below 16.67 ms. Application defaults are unchanged.
 The [Vulkan graphics experiment](geometry-benchmark.md) compares the same room
 meshes and full-bright textures through compute and hardware rasterization.
 It isolates the root view and records both geometry and complete GPU intervals.
-The result supports a graphics-pipeline experiment for the remaining renderer
-stages. Application defaults remain unchanged.
+Use graphics as a performance reference. Keep the compute architecture. The next
+bounded compute experiment must meet the comparison's complete GPU budget of at
+most twice the hardware time at p50 and p99. This gate includes setup and
+composition; a geometry-only speedup is insufficient. The comparison defines
+the workload, image checks, and stop condition. Application defaults remain
+unchanged until a replacement also passes the full-game gates.
