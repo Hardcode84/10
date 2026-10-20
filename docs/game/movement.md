@@ -205,7 +205,8 @@ The level also defines `demo_room_ambient() -> Vec3`. This returns the
 constant red, green, and blue light added to player and hook lighting.
 
 `levels/prefabs.crs` connects the hexagonal and octagonal prefab sets through
-the rotor shaft and hub. Its source comments specify the route and variants.
+the rotor, pipe, and girder shafts, then the hub. Its source comments specify
+the route and variants.
 Unused ports connect to closed stopper prefabs. All rooms use the same
 ambient light, plus the player and hook lights.
 
