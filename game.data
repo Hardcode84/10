@@ -837,6 +837,14 @@ s_work_count_add(120u, s_words_load(103u));
 if ((s_words_load(103u) != 0u)) {
 s_work_count_add(121u, 1u);
 }
+else {
+if ((s_words_load(101u) < s_words_load(102u))) {
+s_work_count_add(44u, 1u);
+}
+else {
+s_work_count_add(122u, 1u);
+}
+}
 s_batch_task_commands((s_words_load(101u) < s_words_load(102u)));
 s_words_store(16u, s_geometry_groups(s_words_load(103u)));
 var s_fans: u32 = (s_words_load(103u) * 8u);
@@ -1327,6 +1335,14 @@ s_batch_step_begin();
 s_work_count_add(120u, s_words_load(103u));
 if ((s_words_load(103u) != 0u)) {
 s_work_count_add(121u, 1u);
+}
+else {
+if ((s_words_load(101u) < s_words_load(102u))) {
+s_work_count_add(44u, 1u);
+}
+else {
+s_work_count_add(122u, 1u);
+}
 }
 s_batch_task_commands((s_words_load(101u) < s_words_load(102u)));
 s_words_store(16u, s_geometry_groups(s_words_load(103u)));
@@ -1978,6 +1994,8 @@ s_words_store(75u, s_tiles);
 s_words_store(119u, 0u);
 s_words_store(120u, 0u);
 s_words_store(121u, 0u);
+s_words_store(44u, 0u);
+s_words_store(122u, 0u);
 s_task_commands(s_tiles, 0u);
 s_words_store(5u, s_bad);
 s_words_store(6u, s_tiles);
@@ -2150,6 +2168,8 @@ s_words_store(75u, s_tiles);
 s_words_store(119u, 0u);
 s_words_store(120u, 0u);
 s_words_store(121u, 0u);
+s_words_store(44u, 0u);
+s_words_store(122u, 0u);
 s_task_commands(s_tiles, 0u);
 s_words_store(5u, s_bad);
 s_words_store(6u, s_tiles);
@@ -4156,7 +4176,7 @@ var s_lz = p_lz;
 var s_dx: f32 = (s_lx - s_ox);
 var s_dy: f32 = (s_ly - s_oy);
 var s_dz: f32 = (s_lz - s_oz);
-var s_dynamic_root: u32 = (((s_light + 1u) * s_words_load(41u)) * 2u);
+var s_dynamic_root: u32 = ((s_light * s_words_load(41u)) * 2u);
 if ((!s_shadow_visible(s_dynamic_root, s_receiver, 0u, s_ox, s_oy, s_oz, s_dx, s_dy, s_dz))) {
 return false;
 }
@@ -5198,7 +5218,7 @@ var s_lz = p_lz;
 var s_dx: f32 = (s_lx - s_ox);
 var s_dy: f32 = (s_ly - s_oy);
 var s_dz: f32 = (s_lz - s_oz);
-var s_dynamic_root: u32 = (((s_light + 1u) * s_words_load(41u)) * 2u);
+var s_dynamic_root: u32 = ((s_light * s_words_load(41u)) * 2u);
 if ((!s_shadow_visible(s_dynamic_root, s_receiver, 0u, s_ox, s_oy, s_oz, s_dx, s_dy, s_dz))) {
 return false;
 }
@@ -6252,7 +6272,7 @@ var s_lz = p_lz;
 var s_dx: f32 = (s_lx - s_ox);
 var s_dy: f32 = (s_ly - s_oy);
 var s_dz: f32 = (s_lz - s_oz);
-var s_dynamic_root: u32 = (((s_light + 1u) * s_words_load(41u)) * 2u);
+var s_dynamic_root: u32 = ((s_light * s_words_load(41u)) * 2u);
 if ((!s_shadow_visible(s_dynamic_root, s_receiver, 0u, s_ox, s_oy, s_oz, s_dx, s_dy, s_dz))) {
 return false;
 }
@@ -7294,7 +7314,7 @@ var s_lz = p_lz;
 var s_dx: f32 = (s_lx - s_ox);
 var s_dy: f32 = (s_ly - s_oy);
 var s_dz: f32 = (s_lz - s_oz);
-var s_dynamic_root: u32 = (((s_light + 1u) * s_words_load(41u)) * 2u);
+var s_dynamic_root: u32 = ((s_light * s_words_load(41u)) * 2u);
 if ((!s_shadow_visible(s_dynamic_root, s_receiver, 0u, s_ox, s_oy, s_oz, s_dx, s_dy, s_dz))) {
 return false;
 }
@@ -7740,7 +7760,7 @@ return s_count;
 fn s_shadow_dynamic_seed(p_light: u32) {
 var s_light = p_light;
 {
-var s_first: u32 = ((s_light + 1u) * s_words_load(41u));
+var s_first: u32 = (s_light * s_words_load(41u));
 var s_space: u32 = s_words_load((s_words_load(85u) + s_light));
 var s_count: u32 = s_shadow_seed(s_first, 0u, s_words_load(57u), 0u, s_space, true);
 s_shadow_node_set((s_first * 2u), s_first, s_count, 4294967295u);
@@ -7844,7 +7864,7 @@ return s_count;
 fn s_shadow_dynamic_seed(p_light: u32) {
 var s_light = p_light;
 {
-var s_first: u32 = ((s_light + 1u) * s_words_load(41u));
+var s_first: u32 = (s_light * s_words_load(41u));
 var s_space: u32 = s_words_load((s_words_load(85u) + s_light));
 var s_count: u32 = s_shadow_seed(s_first, 0u, s_words_load(57u), 0u, s_space, true);
 s_shadow_node_set((s_first * 2u), s_first, s_count, 4294967295u);
@@ -7955,7 +7975,7 @@ var s_local: u32 = checked_rem_u32(s_index, s_count);
 if ((s_floats_load(((s_words_load(82u) + (s_light * 8u)) + 7u)) != f32(0u))) {
 return;
 }
-var s_first: u32 = ((s_light + 1u) * s_words_load(41u));
+var s_first: u32 = (s_light * s_words_load(41u));
 var s_top: bool = (s_local >= s_dynamic);
 if (s_top) {
 s_local = (s_local - s_dynamic);
@@ -8180,7 +8200,7 @@ var s_local: u32 = (s_index % s_count);
 if ((s_floats_load(((s_words_load(82u) + (s_light * 8u)) + 7u)) != f32(0u))) {
 return;
 }
-var s_first: u32 = ((s_light + 1u) * s_words_load(41u));
+var s_first: u32 = (s_light * s_words_load(41u));
 var s_top: bool = (s_local >= s_dynamic);
 if (s_top) {
 s_local = (s_local - s_dynamic);
