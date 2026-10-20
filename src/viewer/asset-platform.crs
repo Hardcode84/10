@@ -1,6 +1,6 @@
 fn asset_view_window(session: mut AssetSession) -> unit {
     if session.window.handle != null(*u8) {
-        SDL_SetWindowTitle(
+        app_title(
             session.window.handle,
             "SPINWARD room viewer | drag look/orbit | wheel zoom | F fly: WASD Q/E Shift | Tab view | [ ] parameter | - + adjust | Esc close"
         );
@@ -16,61 +16,56 @@ fn asset_build_report(asset: read RoomAsset, elapsed: u64) -> unit {
 }
 fn asset_view_rejected(session: mut AssetSession) -> unit {
     if session.window.handle != null(*u8) {
-        SDL_SetWindowTitle(
+        app_title(
             session.window.handle,
             "Room rebuild rejected; previous successful asset remains visible"
         );
     }
 }
 fn asset_view_event(output: mut AssetViewEvent) -> bool {
-    var event: [u64; 8] = uninit;
+    var event: AppEvent = uninit;
     output = make AssetViewEvent {
         key: 0u32,
         dx: 0f32,
         dy: 0f32,
         wheel: 0f32
     };
-    while SDL_PollEvent(&event as *u8) != 0i32 {
-        var kind: u32 = (&event as *u32)[0usize];
-        if kind == 256u32 {
+    while app_event(&event, false) > 0i32 {
+        var kind: u32 = event.kind;
+        if kind == APP_QUIT {
             output.key = 27u32;
             return true;
         }
-        if kind == 768u32 {
-            output.key = (&event as *u32)[5usize];
-            if (&event as *u8)[13usize] != 0u8 && (output.key == 9u32 || output.key == 102u32) {
+        if kind == APP_KEY_DOWN {
+            output.key = event.key;
+            if event.repeat && (output.key == 9u32 || output.key == 102u32) {
                 output.key = 0u32;
                 continue;
             }
             return true;
         }
-        if kind == 1024u32 && ((&event as *u32)[4usize] & 5u32) != 0u32 {
-            output.dx = (&event as *i32)[7usize] as f32;
-            output.dy = (&event as *i32)[8usize] as f32;
+        if kind == APP_MOUSE_MOVE && (event.buttons & 5u32) != 0u32 {
+            output.dx = event.dx;
+            output.dy = event.dy;
             return true;
         }
-        if kind == 1027u32 {
-            output.wheel = (&event as *i32)[5usize] as f32;
-            if (&event as *u32)[6usize] == 1u32 {
-                output.wheel = -output.wheel;
-            }
+        if kind == APP_MOUSE_WHEEL {
+            output.wheel = event.wheel;
             return true;
         }
     }
     return false;
 }
-extern fn SDL_GetKeyboardState(count: *i32) -> *u8 = "SDL_GetKeyboardState";
-extern fn SDL_GetKeyboardFocus() -> *u8 = "SDL_GetKeyboardFocus";
 fn asset_flight_input() -> AssetFlightInput {
     var input: AssetFlightInput = make AssetFlightInput {
         movement: vec(0f32, 0f32, 0f32),
         boost: false
     };
-    if SDL_GetKeyboardFocus() == null(*u8) {
+    if !app_keyboard_active() {
         return input;
     }
     var count: i32 = 0i32;
-    var keys: *u8 = SDL_GetKeyboardState(&count);
+    var keys: *u8 = app_keys(&count);
     input.movement = vec(
         keys[7usize] as f32 - keys[4usize] as f32,
         keys[8usize] as f32 - keys[20usize] as f32,

@@ -31,7 +31,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            build-essential libffi-dev python3-venv libsdl2-2.0-0 \
+            build-essential libffi-dev python3-venv cmake \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev \
+            libxi-dev libxss-dev libxtst-dev libxkbcommon-dev libwayland-dev \
+            wayland-protocols libdecor-0-dev libegl-dev libdrm-dev libgbm-dev \
+            libasound2-dev libpulse-dev libudev-dev \
             libvulkan1 mesa-vulkan-drivers spirv-tools curl jq xz-utils
       - name: Bootstrap Crust with the host C compiler
         run: |
@@ -44,6 +48,8 @@ jobs:
           python3 -m venv build/pre-commit
           build/pre-commit/bin/pip install pre-commit==4.5.1
           build/pre-commit/bin/pre-commit run --all-files
+      - name: Check task synchronization
+        run: crust tests.crs runtime
       - name: Check collision with sanitizers
         run: crust tests.crs collision --sanitize
       - name: Check generated assets

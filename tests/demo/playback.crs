@@ -35,10 +35,10 @@ fn playback_quit_checks(p: mut Playback) -> bool {
     ) || p.frame != 1u32 || !p.paused {
         return error("backward step at zero changed the frame");
     }
-    var quit: [u64; 8] = uninit;
-    zero(&quit as *u8, sizeof([u64; 8]));
+    var quit: [u64; 16] = uninit;
+    zero(&quit as *u8, sizeof([u64; 16]));
     (&quit as *u32)[0usize] = 256u32;
-    if SDL_PushEvent(&quit as *u8) != 1i32 {
+    if !SDL_PushEvent(&quit as *u8) {
         return error(SDL_GetError());
     }
     if !playback_next(mut p) || p.running || p.frame != 1u32 {
@@ -46,15 +46,15 @@ fn playback_quit_checks(p: mut Playback) -> bool {
     }
     return true;
 }
-extern fn SDL_PushEvent(event: *u8) -> i32 = "SDL_PushEvent";
+extern fn SDL_PushEvent(event: *u8) -> bool = "SDL_PushEvent";
 fn playback_key(key: u32, repeat: u8) -> bool {
-    var event: [u64; 8] = uninit;
-    zero(&event as *u8, sizeof([u64; 8]));
+    var event: [u64; 16] = uninit;
+    zero(&event as *u8, sizeof([u64; 16]));
     (&event as *u32)[0usize] = 768u32;
-    (&event as *u8)[12usize] = 1u8;
-    (&event as *u8)[13usize] = repeat;
-    (&event as *u32)[5usize] = key;
-    if SDL_PushEvent(&event as *u8) != 1i32 {
+    (&event as *u8)[36usize] = 1u8;
+    (&event as *u8)[37usize] = repeat;
+    (&event as *u32)[7usize] = key;
+    if !SDL_PushEvent(&event as *u8) {
         return error(SDL_GetError());
     }
     return true;
@@ -83,10 +83,10 @@ fn playback_escape_checks(paused: bool) -> bool {
     return true;
 }
 fn playback_test() -> bool {
-    if SDL_Init(16384u32) != 0i32 {
+    if !SDL_Init(16384u32) {
         return error(SDL_GetError());
     }
-    var good: bool = playback_checks();
+    var good: bool = input_platform_checks() && playback_checks();
     SDL_Quit();
     if good {
         puts("playback event checks passed");

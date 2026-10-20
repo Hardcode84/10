@@ -31,7 +31,7 @@ fn retirement_idle(v: *RenderState) -> unit {
 fn retirement_observer_drain(v: *RenderState) -> unit {
     var result: i32 = retirement_observer_poll(v);
     while result == 0i32 {
-        service_require(service_wait(v -> gpu.observer -> complete));
+        service_wait(v -> gpu.observer -> complete);
         result = retirement_observer_poll(v);
     }
     if result < 0i32 {

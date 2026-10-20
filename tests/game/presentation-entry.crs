@@ -26,9 +26,9 @@ fn presentation_measure(session: GameSession, config: GameConfig) -> i32 {
     }
     var iteration: u32 = 0u32;
     while iteration < 128u32 {
-        var event: [u64; 8] = uninit;
-        while SDL_PollEvent(&event as *u8) != 0i32 {
-            if (&event as *u32)[0usize] == 256u32 {
+        var event: AppEvent = uninit;
+        while app_event(&event, false) > 0i32 {
+            if event.kind == APP_QUIT {
                 return 1i32;
             }
         }

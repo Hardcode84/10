@@ -80,10 +80,8 @@ fn latency_flush(log: *LatencyLog, config: GameConfig) -> bool {
     log -> file = null(*u8);
     return fclose(file) == 0i32 || error("cannot finish input latency log");
 }
-fn game_trace_input(control: mut GameControl, event: *u8) -> unit {
-    if control.latency.events == null(*LatencyEvent) || (event as *u32)[0usize] != 768u32 || event[
-        13usize
-    ] != 0u8 {
+fn game_trace_input(control: mut GameControl, event: AppEvent) -> unit {
+    if control.latency.events == null(*LatencyEvent) || event.kind != APP_KEY_DOWN || event.repeat {
         return;
     }
     control.latency.observed = control.latency.observed + 1u32;
@@ -93,7 +91,7 @@ fn game_trace_input(control: mut GameControl, event: *u8) -> unit {
             kind: 1u32,
             sequence: control.latency.observed,
             tick: 0u32,
-            value: (event as *u32)[4usize],
+            value: event.position as u32,
             time: render_now()
         }
     );

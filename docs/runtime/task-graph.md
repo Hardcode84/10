@@ -181,7 +181,7 @@ Both native loop modes draw the initial image before their first input tick.
 The fixture waits up to five seconds for keyboard focus after that image.
 It measures the stationary control path; it cannot establish flight-load costs.
 SDL event injection is thread-safe and copies the event. See the
-[SDL event contract](https://wiki.libsdl.org/SDL2/SDL_PushEvent).
+[SDL event contract](https://wiki.libsdl.org/SDL3/SDL_PushEvent).
 
 For the browser, build `crust main.crs --web`, run
 `bun tools/web/serve.mjs`, and open a browser with remote debugging on port 9227.

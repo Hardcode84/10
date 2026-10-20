@@ -17,9 +17,10 @@ fn demo_sources(root: *CrustRun, args: **u8) -> usize {
     return i;
 }
 fn demo_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 10] = make [*u8; 10] {
+    var files: [*u8; 11] = make [*u8; 11] {
         "src/app/shaders.crs",
         "src/app/window.crs",
+        "src/app/input.crs",
         "src/app/window-vulkan.crs",
         "src/app/clock.crs",
         "src/app/capture.crs",
@@ -30,7 +31,7 @@ fn demo_providers(root: *CrustRun, args: **u8) -> usize {
         "src/demo/host/options.crs"
     };
     var i: usize = 0usize;
-    while i < 10usize {
+    while i < 11usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
@@ -41,7 +42,7 @@ fn build_demo(
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
     var sources: [*u8; 64] = uninit;
-    var providers: [*u8; 40] = uninit;
+    var providers: [*u8; 48] = uninit;
     var source_count: usize = demo_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + demo_providers(root, &providers[provider_count]);

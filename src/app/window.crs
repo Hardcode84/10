@@ -1,27 +1,18 @@
-extern fn SDL_Init(flags: u32) -> i32 = "SDL_Init";
+extern fn SDL_Init(flags: u32) -> bool = "SDL_Init";
 extern fn SDL_Quit() -> unit = "SDL_Quit";
 extern fn SDL_GetError() -> *u8 = "SDL_GetError";
-extern fn SDL_CreateWindow(
-    title: *u8,
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
-    flags: u32
-) -> *u8 = "SDL_CreateWindow";
+extern fn SDL_CreateWindow(title: *u8, width: i32, height: i32, flags: u64) -> *u8 = "SDL_CreateWindow";
 extern fn SDL_DestroyWindow(window: *u8) -> unit = "SDL_DestroyWindow";
-extern fn SDL_PollEvent(event: *u8) -> i32 = "SDL_PollEvent";
-extern fn SDL_WaitEvent(event: *u8) -> i32 = "SDL_WaitEvent";
+extern fn SDL_PollEvent(event: *u8) -> bool = "SDL_PollEvent";
+extern fn SDL_WaitEvent(event: *u8) -> bool = "SDL_WaitEvent";
 fn window_open(window: **u8, width: u32, height: u32) -> bool {
-    if SDL_Init(32u32) != 0i32 {
+    if !SDL_Init(32u32) {
         error(SDL_GetError());
         SDL_Quit();
         return false;
     }
     * window = SDL_CreateWindow(
         "SPINWARD | compute portal renderer",
-        805240832i32,
-        805240832i32,
         width as i32,
         height as i32,
         WINDOW_RENDER_FLAGS
@@ -40,7 +31,7 @@ fn window_close(window: *u8) -> unit {
     }
 }
 
-extern fn SDL_GetWindowFlags(window: *u8) -> u32 = "SDL_GetWindowFlags";
+extern fn SDL_GetWindowFlags(window: *u8) -> u64 = "SDL_GetWindowFlags";
 // A minimized window suspends rendering. Internal resolution remains unchanged.
 fn window_draw(v: *RenderState, window: *u8) -> bool {
     var ready: i32 = window_prepare(v, window);
@@ -53,8 +44,11 @@ fn window_prepare(v: *RenderState, window: *u8) -> i32 {
     if window != null(*u8) {
         var width: i32 = 0i32;
         var height: i32 = 0i32;
-        window_extent(window, &width, &height);
-        if width <= 0i32 || height <= 0i32 || (SDL_GetWindowFlags(window) & 64u32) != 0u32 {
+        if !window_extent(window, &width, &height) {
+            error(SDL_GetError());
+            return -1i32;
+        }
+        if width <= 0i32 || height <= 0i32 || (SDL_GetWindowFlags(window) & 64u64) != 0u64 {
             v -> present_ready = false;
             return 0i32;
         }
@@ -69,8 +63,8 @@ fn window_prepare(v: *RenderState, window: *u8) -> i32 {
     return 1i32;
 }
 
-extern fn SDL_SetWindowFullscreen(window: *u8, flags: u32) -> i32 = "SDL_SetWindowFullscreen";
+extern fn SDL_SetWindowFullscreen(window: *u8, enabled: bool) -> bool = "SDL_SetWindowFullscreen";
 // Uses the desktop size without changing the display mode.
 fn window_fullscreen(window: *u8) -> bool {
-    return SDL_SetWindowFullscreen(window, 4097u32) == 0i32 || error(SDL_GetError());
+    return SDL_SetWindowFullscreen(window, true) || error(SDL_GetError());
 }

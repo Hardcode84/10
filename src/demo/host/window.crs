@@ -16,25 +16,17 @@ record WindowEvent {
     repeat: bool;
 }
 fn window_event(wait: bool) -> WindowEvent {
-    var event: [u64; 8] = uninit;
-    zero(&event as *u8, sizeof([u64; 8]));
-    var status: i32 = 0i32;
-    if wait {
-        status = SDL_WaitEvent(&event as *u8);
-        if status == 0i32 {
-            error(SDL_GetError());
-            status = -1i32;
-        }
-    } else {
-        status = SDL_PollEvent(&event as *u8);
-    }
+    var event: AppEvent = uninit;
+    zero(&event as *u8, sizeof(AppEvent));
+    var status: i32 = app_event(&event, wait);
     return make WindowEvent {
         status: status,
-        kind: (&event as *u32)[0usize],
-        key: (&event as *u32)[5usize],
-        repeat: (&event as *u8)[13usize] != 0u8
+        kind: event.kind,
+        key: event.key,
+        repeat: event.repeat
     };
 }
+
 fn playback_overflow() -> bool {
     return error("frame index overflow");
 }

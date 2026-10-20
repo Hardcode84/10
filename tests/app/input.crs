@@ -1,0 +1,55 @@
+extern fn input_push_event(event: *u8) -> bool = "SDL_PushEvent";
+fn input_event_roundtrip(raw: *u8, kind: u32, event: *AppEvent) -> bool {
+    if !input_push_event(raw) || app_event(event, true) != 1i32 || event -> kind != kind {
+        return error("platform input event was lost or misclassified");
+    }
+    return true;
+}
+fn input_pointer_checks() -> bool {
+    var raw: [u64; 16] = uninit;
+    zero(&raw as *u8, sizeof([u64; 16]));
+    var motion: *SDLMouseMotion = &raw as *SDLMouseMotion;
+    motion -> kind = 1024u32;
+    motion -> buttons = 5u32;
+    motion -> dx = 1.25f32;
+    motion -> dy = -2.5f32;
+    var event: AppEvent = uninit;
+    if !input_event_roundtrip(&raw as *u8, APP_MOUSE_MOVE, &event) || event.buttons != 5u32 || event.dx != 1.25f32 || event.dy != -2.5f32 {
+        return error("relative mouse motion lost fractional precision");
+    }
+    var wheel: *SDLMouseWheel = &raw as *SDLMouseWheel;
+    wheel -> kind = 1027u32;
+    wheel -> y = 0.25f32;
+    wheel -> direction = 1u32;
+    if !input_event_roundtrip(&raw as *u8, APP_MOUSE_WHEEL, &event) || event.wheel != -0.25f32 {
+        return error("mouse wheel direction or fractional motion changed");
+    }
+    var button: *SDLMouseButton = &raw as *SDLMouseButton;
+    button -> kind = 1025u32;
+    button -> button = 3u8;
+    return input_event_roundtrip(&raw as *u8, APP_MOUSE_DOWN, &event) && event.button == 3u32;
+}
+fn input_pad_checks() -> bool {
+    var raw: [u64; 16] = uninit;
+    zero(&raw as *u8, sizeof([u64; 16]));
+    var pad: *SDLPadEvent = &raw as *SDLPadEvent;
+    pad -> kind = 1616u32;
+    pad -> control = 5u8;
+    pad -> value = -12345i16;
+    var event: AppEvent = uninit;
+    if !input_event_roundtrip(&raw as *u8, APP_PAD_AXIS, &event) || event.axis != 5i32 || event.value != -12345i16 {
+        return error("gamepad axis or signed value changed");
+    }
+    pad -> kind = 1617u32;
+    pad -> control = 11u8;
+    if !input_event_roundtrip(&raw as *u8, APP_PAD_DOWN, &event) || event.button != 11u32 {
+        return error("gamepad button changed");
+    }
+    pad -> kind = 1620u32;
+    return input_event_roundtrip(&raw as *u8, APP_PAD_CHANGED, &event);
+}
+fn input_platform_checks() -> bool {
+    var event: AppEvent = uninit;
+    while app_event(&event, false) == 1i32 {}
+    return input_pointer_checks() && input_pad_checks();
+}

@@ -84,7 +84,7 @@ fn web_copy(root: *CrustRun, source: *u8, output: *u8) -> bool {
     }
     return true;
 }
-const WEB_TOOLCHAIN_HASH: *u8 = "a987bb4cded4f29437e8589accac204ce3c134feaaaf251bb97d0fdf450dce65";
+const WEB_TOOLCHAIN_HASH: *u8 = "cda6801012ff3319a539111826ed02a9abd7eff135c2ef261c8941caf5a3763e";
 fn web_toolchain_stamp(root: *CrustRun) -> *u8 {
     return native_join(
         root -> context,
@@ -120,7 +120,7 @@ fn web_toolchain_fetch(root: *CrustRun) -> bool {
         "2",
         "--output",
         archive,
-        "https://storage.googleapis.com/webassembly/emscripten-releases-builds/linux/c2655005234810c7c42e02a18e4696554abe0352/wasm-binaries.tar.xz",
+        "https://storage.googleapis.com/webassembly/emscripten-releases-builds/linux/eb132757325583b787fe9414b09afea9442b72ad/wasm-binaries.tar.xz",
         null(*u8)
     };
     if !native_tool(root -> context, &download[0usize]) {
@@ -163,7 +163,7 @@ fn web_toolchain_fetch(root: *CrustRun) -> bool {
     return true;
 }
 fn web_link(root: *CrustRun) -> bool {
-    var args: [*u8; 23] = make [*u8; 23] {
+    var args: [*u8; 22] = make [*u8; 22] {
         "env",
         native_join(
             root -> context,
@@ -176,13 +176,12 @@ fn web_link(root: *CrustRun) -> bool {
         "-sMALLOC=emmalloc",
         "-sASYNCIFY",
         "-sASYNCIFY_IMPORTS=[\"web_open\",\"web_buffer\",\"web_pipeline\",\"web_wait\",\"web_idle\",\"web_present_idle\",\"web_times\",\"web_present\"]",
-        "-sWASM_BIGINT",
         "-sALLOW_MEMORY_GROWTH",
         "-sMAXIMUM_MEMORY=2147483648",
         "-sSTACK_SIZE=4194304",
-        "-sUSE_SDL=2",
+        "--use-port=sdl3",
         "-sEXIT_RUNTIME=1",
-        "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"ccall\",\"stringToNewUTF8\"]",
+        "-sEXPORTED_RUNTIME_METHODS=[\"FS\",\"HEAPU32\",\"ccall\",\"stringToNewUTF8\"]",
         "-sEXPORTED_FUNCTIONS=[\"_main\",\"_malloc\",\"_free\"]",
         "--js-library",
         host_path(root, "src/render/web/backend.js"),
@@ -194,7 +193,7 @@ fn web_link(root: *CrustRun) -> bool {
     };
     var command: [*u8; 105] = uninit;
     var i: usize = 0usize;
-    while i < 22usize {
+    while i < 21usize {
         command[i] = args[i];
         i = i + 1usize;
     }

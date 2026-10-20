@@ -13,9 +13,9 @@ fn playback_next(p: mut Playback) -> bool {
             return playback_advance(mut p);
         }
         var kind: u32 = event.kind;
-        if kind == 256u32 {
+        if kind == APP_QUIT {
             p.running = false;
-        } else if kind == 768u32 && !event.repeat {
+        } else if kind == APP_KEY_DOWN && !event.repeat {
             var key: u32 = event.key;
             if key == 27u32 {
                 p.running = false;

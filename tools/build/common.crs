@@ -1,4 +1,3 @@
-extern fn build_access(path: *u8, mode: i32) -> i32 = "access";
 extern fn build_getenv(name: *u8) -> *u8 = "getenv";
 extern fn build_chdir(path: *u8) -> i32 = "chdir";
 extern fn build_execv(path: *u8, args: **u8) -> i32 = "execv";
@@ -12,6 +11,9 @@ fn build_application(
     provider_count: usize,
     reference: bool
 ) -> bool {
+    if !sdl_build(root) {
+        return false;
+    }
     var args: **u8 = crust_try_alloc(
         root -> context,
         (source_count + 13usize) * sizeof(*u8),
@@ -36,7 +38,7 @@ fn build_application(
         "--ldflag",
         "-Wl,-l:libvulkan.so.1",
         "--ldflag",
-        "-Wl,-l:libSDL2-2.0.so.0",
+        sdl_link(root),
         "--ldflag",
         "-lm"
     };

@@ -16,7 +16,8 @@ texels, and dithered lighting give the game a 1990s appearance.
 The current build host is **Linux x86-64**. Install these prerequisites:
 
 - A C99 compiler, GCC, GNU Make, GNU binutils, Python 3, and libffi development files.
-- SDL2, the Vulkan loader, and a Vulkan driver for your GPU.
+- CMake, curl, and the [SDL3 build dependencies](docs/build/bootstrap.md#native-platform-dependencies).
+- The Vulkan loader and a Vulkan driver for your GPU.
 - LLVM with the SPIR-V target, including `bin/llc` and `bin/opt`.
 - SPIRV-Tools, including `spirv-val`.
 

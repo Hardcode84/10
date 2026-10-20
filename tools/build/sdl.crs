@@ -1,0 +1,98 @@
+extern fn build_access(path: *u8, mode: i32) -> i32 = "access";
+const SDL_ARCHIVE_HASH: *u8 = "ef39a2e3f9a8a78296c40da701967dd1b0d0d6e267e483863ce70f8a03b4050c";
+fn sdl_library(root: *CrustRun) -> *u8 {
+    return host_path(root, "build/toolchain/sdl3-3.4.2/libSDL3.a");
+}
+fn sdl_fetch(root: *CrustRun) -> bool {
+    var archive: *u8 = host_path(root, "build/toolchain/sdl3.tar.gz");
+    var download: [*u8; 9] = make [*u8; 9] {
+        "curl",
+        "--fail",
+        "--location",
+        "--retry",
+        "2",
+        "--output",
+        archive,
+        "https://github.com/libsdl-org/SDL/releases/download/release-3.4.2/SDL3-3.4.2.tar.gz",
+        null(*u8)
+    };
+    if !native_tool(root -> context, &download[0usize]) {
+        return false;
+    }
+    var digest: *u8 = native_join(
+        root -> context,
+        SDL_ARCHIVE_HASH,
+        native_join(root -> context, "  ", native_join(root -> context, archive, "\n"))
+    );
+    var manifest: *u8 = host_path(root, "build/toolchain/sdl3.sha256");
+    if crust0_host_write_file(manifest, digest, native_strlen(digest)) != 0i32 {
+        return native_error(root -> context, "cannot write SDL checksum");
+    }
+    var verify: [*u8; 4] = make [*u8; 4] {
+        "sha256sum",
+        "--check",
+        manifest,
+        null(*u8)
+    };
+    var unpack: [*u8; 8] = make [*u8; 8] {
+        "tar",
+        "-xf",
+        archive,
+        "-C",
+        host_path(root, "build/toolchain/sdl3-source"),
+        "--strip-components",
+        "1",
+        null(*u8)
+    };
+    return native_tool(root -> context, &verify[0usize]) && native_tool(
+        root -> context,
+        &unpack[0usize]
+    );
+}
+fn sdl_build(root: *CrustRun) -> bool {
+    if build_access(sdl_library(root), 0i32) == 0i32 {
+        return true;
+    }
+    if !cache_directory(root -> context, host_path(root, "build/toolchain")) || !cache_directory(
+        root -> context,
+        host_path(root, "build/toolchain/sdl3-source")
+    ) || !sdl_fetch(root) {
+        return false;
+    }
+    var configure: [*u8; 13] = make [*u8; 13] {
+        "cmake",
+        "-S",
+        host_path(root, "build/toolchain/sdl3-source"),
+        "-B",
+        host_path(root, "build/toolchain/sdl3-3.4.2"),
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DSDL_SHARED=OFF",
+        "-DSDL_STATIC=ON",
+        "-DSDL_TEST_LIBRARY=OFF",
+        "-DSDL_TESTS=OFF",
+        "-DSDL_X11=ON",
+        "-DSDL_WAYLAND=ON",
+        null(*u8)
+    };
+    var compile: [*u8; 8] = make [*u8; 8] {
+        "cmake",
+        "--build",
+        host_path(root, "build/toolchain/sdl3-3.4.2"),
+        "--parallel",
+        "4",
+        "--target",
+        "SDL3-static",
+        null(*u8)
+    };
+    return native_tool(root -> context, &configure[0usize]) && native_tool(
+        root -> context,
+        &compile[0usize]
+    );
+}
+fn sdl_link(root: *CrustRun) -> *u8 {
+    return native_join(
+        root -> context,
+        "-Wl,",
+        native_join(root -> context, sdl_library(root), ",-lpthread,-ldl,-lm")
+    );
+}

@@ -7,8 +7,8 @@ record ServiceWitness {
 opaque;
 fn witness_execute(data: *u8) -> bool {
     var witness: *ServiceWitness = data as *ServiceWitness;
-    service_require(service_post(witness -> ready));
-    service_require(service_wait(witness -> release));
+    service_post(witness -> ready);
+    service_wait(witness -> release);
     witness -> completed = witness -> completed + 1u32;
     return witness -> success;
 }
@@ -16,11 +16,11 @@ fn service_witness_run(service: *ExternalService, witness: *ServiceWitness) -> b
     var i: u32 = 0u32;
     while i < 64u32 {
         service_submit(service, witness_execute, witness as *u8);
-        service_require(service_wait(witness -> ready));
+        service_wait(witness -> ready);
         if service_poll(service) != 0i32 {
             trap;
         }
-        service_require(service_post(witness -> release));
+        service_post(witness -> release);
         var status: i32 = service_poll(service);
         while status == 0i32 {
             service_idle(service);
@@ -49,7 +49,7 @@ fn check_native_service() -> bool {
     }
     var good: bool = service_witness_run(service, &witness);
     witness.success = false;
-    service_require(service_post(witness.release));
+    service_post(witness.release);
     service_submit(service, witness_execute, &witness as *u8);
     var result: i32 = service_poll(service);
     while result == 0i32 {
@@ -58,7 +58,7 @@ fn check_native_service() -> bool {
     }
     good = good && result == -1i32 && witness.completed == 65u32;
     witness.success = true;
-    service_require(service_post(witness.release));
+    service_post(witness.release);
     service_submit(service, witness_execute, &witness as *u8);
     service_destroy(service);
     good = good && witness.completed == 66u32;

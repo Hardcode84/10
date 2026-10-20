@@ -1,5 +1,5 @@
-const WINDOW_RENDER_FLAGS: u32 = 36u32;
-extern fn window_extent(window: *u8, width: *i32, height: *i32) -> unit = "SDL_GetWindowSize";
+const WINDOW_RENDER_FLAGS: u64 = 32u64;
+extern fn window_extent(window: *u8, width: *i32, height: *i32) -> bool = "SDL_GetWindowSizeInPixels";
 fn window_instance(v: *RenderState, window: *u8) -> bool {
     v -> surface = window;
     return true;

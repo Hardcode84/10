@@ -24,7 +24,7 @@ record GameSession {
 }
 fn game_window_drop(window: mut GameWindow) -> unit {
     if window.controller != null(*u8) {
-        SDL_GameControllerClose(window.controller);
+        app_pad_close(window.controller);
     }
     window_close(window.handle);
 }
@@ -76,12 +76,12 @@ fn game_open(session: mut GameSession, input: mut InputState) -> bool {
         if o -> config.fullscreen && !window_fullscreen(session.control.window.handle) {
             return false;
         }
-        if SDL_Init(8192u32) != 0i32 {
-            return error(SDL_GetError());
+        if !app_input_open() || !app_pad_update(&session.control.window.controller) {
+            return false;
         }
-        SDL_SetWindowTitle(session.control.window.handle, "SPINWARD | There and Back");
-        if SDL_SetRelativeMouseMode(1i32) != 0i32 {
-            return error(SDL_GetError());
+        app_title(session.control.window.handle, "SPINWARD | There and Back");
+        if !app_relative_mouse(session.control.window.handle, true) {
+            return false;
         }
     }
     var portals: u32 = asset_port_count(read session.room.ports);
@@ -109,7 +109,7 @@ fn game_finish(session: mut GameSession) -> bool {
     return good;
 }
 fn game_wait() -> unit {
-    SDL_Delay(1u32);
+    app_sleep(1u32);
 }
 fn scene_overflow() -> unit {
     error("game scene exceeds triangle capacity");

@@ -1,24 +1,25 @@
-const WINDOW_RENDER_FLAGS: u32 = 268435492u32;
-extern fn SDL_Vulkan_GetInstanceExtensions(window: *u8, count: *u32, names: **u8) -> i32 = "SDL_Vulkan_GetInstanceExtensions";
-extern fn SDL_Vulkan_CreateSurface(window: *u8, instance: *u8, surface: **u8) -> i32 = "SDL_Vulkan_CreateSurface";
-extern fn window_extent(window: *u8, width: *i32, height: *i32) -> unit = "SDL_Vulkan_GetDrawableSize";
+const WINDOW_RENDER_FLAGS: u64 = 268435488u64;
+extern fn SDL_Vulkan_GetInstanceExtensions(count: *u32) -> **u8 = "SDL_Vulkan_GetInstanceExtensions";
+extern fn SDL_Vulkan_CreateSurface(
+    window: *u8,
+    instance: *u8,
+    allocator: *u8,
+    surface: **u8
+) -> bool = "SDL_Vulkan_CreateSurface";
+extern fn window_extent(window: *u8, width: *i32, height: *i32) -> bool = "SDL_GetWindowSizeInPixels";
 fn window_instance(v: *RenderState, window: *u8) -> bool {
     if window == null(*u8) {
         return instance_open(v, 0u32, null(**u8));
     }
-    var extensions: [*u8; 16] = uninit;
     var count: u32 = 0u32;
-    if SDL_Vulkan_GetInstanceExtensions(window, &count, null(**u8)) == 0i32 || count > 16u32 {
-        return error("cannot obtain Vulkan window extensions");
-    }
-    if SDL_Vulkan_GetInstanceExtensions(window, &count, &extensions[0usize]) == 0i32 {
+    var extensions: **u8 = SDL_Vulkan_GetInstanceExtensions(&count);
+    if extensions == null(**u8) {
         return error(SDL_GetError());
     }
-    if !instance_open(v, count, &extensions[0usize]) {
+    if !instance_open(v, count, extensions) {
         return false;
     }
-    if SDL_Vulkan_CreateSurface(window, v -> gpu.instance, &v -> surface) == 0i32 {
-        return error(SDL_GetError());
-    }
-    return true;
+    return SDL_Vulkan_CreateSurface(window, v -> gpu.instance, null(*u8), &v -> surface) || error(
+        SDL_GetError()
+    );
 }

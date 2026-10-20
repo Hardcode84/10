@@ -10,12 +10,12 @@ fn viewer_open(session: mut GameSession, selected: u32) -> bool {
         return false;
     }
     if session.control.window.handle != null(*u8) {
-        SDL_SetWindowTitle(
+        app_title(
             session.control.window.handle,
             "SPINWARD prefab viewer | Left/Right asset | Space pause | Esc close"
         );
-        if SDL_SetRelativeMouseMode(0i32) != 0i32 {
-            return error(SDL_GetError());
+        if !app_relative_mouse(session.control.window.handle, false) {
+            return false;
         }
     }
     return true;
@@ -49,14 +49,14 @@ fn viewer_render(
     return good && game_present(mut session);
 }
 fn viewer_events(session: mut GameSession, state: mut ViewerState) -> bool {
-    var event: [u64; 8] = uninit;
-    while SDL_PollEvent(&event as *u8) != 0i32 {
-        var kind: u32 = (&event as *u32)[0usize];
-        if kind == 256u32 {
+    var event: AppEvent = uninit;
+    while app_event(&event, false) > 0i32 {
+        var kind: u32 = event.kind;
+        if kind == APP_QUIT {
             state.running = false;
         }
-        if kind == 768u32 && (&event as *u8)[13usize] == 0u8 {
-            var key: u32 = (&event as *u32)[5usize];
+        if kind == APP_KEY_DOWN && !event.repeat {
+            var key: u32 = event.key;
             if key == 27u32 {
                 state.running = false;
             }

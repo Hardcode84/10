@@ -33,8 +33,27 @@ crust demo.crs levels/radial.crs
 The demo root builds host and device code, then starts the interactive flight demo.
 Run `crust tests.crs` to build and run the tests. It generates palettes in Crust.
 The web build also uses Python to run Emscripten. See
-[renderer build](../render/rendering.md#build-checks-and-measurement) for LLVM, SPIRV-Tools, SDL2, and
+[renderer build](../render/rendering.md#build-checks-and-measurement) for LLVM, SPIRV-Tools, SDL3, and
 Vulkan requirements, capture commands, and checks.
+
+## Native platform dependencies
+
+The application roots download SDL3 source, check its checksum, and build a static
+library under `build/toolchain/`. No system SDL library is required. Install CMake,
+curl, tar, sha256sum, and the platform development packages. On Ubuntu 24.04:
+
+```sh
+sudo apt-get install cmake curl xz-utils libx11-dev libxext-dev libxrandr-dev \
+  libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev libxkbcommon-dev \
+  libwayland-dev wayland-protocols libdecor-0-dev libegl-dev libdrm-dev libgbm-dev \
+  libasound2-dev libpulse-dev libudev-dev
+```
+
+The native build enables X11 and Wayland. The web build uses the SDL3 Emscripten
+port from the checked toolchain. Both targets use the same input adapter.
+SDL event layouts and calls stay in `src/app/`. Gameplay, demo, and viewer code
+use application events and window operations. Task synchronization stays in
+`src/runtime/platform/`; game tasks do not use SDL synchronization objects.
 
 ## Shared application setup
 
@@ -120,9 +139,9 @@ Implement required language features and fixes in the submodule. Commit and test
 the Crust change, then update the submodule commit in the game repository.
 Do not add game code to work around missing language features.
 
-Windows host support requires a Crust platform profile, Windows implementations
-of its host operations and native ABI bridge, and support in its build stages.
-Implement these changes in Crust before using Windows as a build host.
+Crust supports Windows hosts. The game build still requires Linux library names
+and tool commands. A Windows build needs native library selection, toolchain
+fetch rules, and Windows builds of the application platform providers.
 
 ## Play the game
 

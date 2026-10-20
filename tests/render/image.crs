@@ -1,4 +1,4 @@
-extern fn SDL_SetWindowSize(window: *u8, width: i32, height: i32) -> unit = "SDL_SetWindowSize";
+extern fn SDL_SetWindowSize(window: *u8, width: i32, height: i32) -> bool = "SDL_SetWindowSize";
 extern fn SDL_PumpEvents() -> unit = "SDL_PumpEvents";
 extern fn image_delay(ms: u32) -> unit = "SDL_Delay";
 fn image_test(base: *Options, windowed: bool) -> bool {
@@ -133,7 +133,9 @@ fn image_rejections(v: *RenderState) -> bool {
     return image_check(v);
 }
 fn image_window_size(window: *u8, width: u32, height: u32) -> bool {
-    SDL_SetWindowSize(window, width as i32, height as i32);
+    if !SDL_SetWindowSize(window, width as i32, height as i32) {
+        return error(SDL_GetError());
+    }
     var attempt: u32 = 0u32;
     while attempt < 100u32 {
         SDL_PumpEvents();

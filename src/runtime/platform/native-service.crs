@@ -13,44 +13,47 @@ extern fn service_allocate(count: usize, bytes: usize) -> *u8 = "calloc";
 extern fn service_free(pointer: *u8) -> unit = "free";
 extern fn service_mutex_create() -> *u8 = "SDL_CreateMutex";
 extern fn service_mutex_destroy(mutex: *u8) -> unit = "SDL_DestroyMutex";
-extern fn service_lock(mutex: *u8) -> i32 = "SDL_LockMutex";
-extern fn service_unlock(mutex: *u8) -> i32 = "SDL_UnlockMutex";
+extern fn service_lock(mutex: *u8) -> unit = "SDL_LockMutex";
+extern fn service_unlock(mutex: *u8) -> unit = "SDL_UnlockMutex";
 extern fn service_sem_create(count: u32) -> *u8 = "SDL_CreateSemaphore";
 extern fn service_sem_destroy(sem: *u8) -> unit = "SDL_DestroySemaphore";
-extern fn service_post(sem: *u8) -> i32 = "SDL_SemPost";
-extern fn service_wait(sem: *u8) -> i32 = "SDL_SemWait";
-extern fn service_try_wait(sem: *u8) -> i32 = "SDL_SemTryWait";
-extern fn service_timed_wait(sem: *u8, timeout: u32) -> i32 = "SDL_SemWaitTimeout";
-extern fn service_thread_create(entry: fn(*u8) -> i32, name: *u8, data: *u8) -> *u8 = "SDL_CreateThread";
+extern fn service_post(sem: *u8) -> unit = "SDL_SignalSemaphore";
+extern fn service_wait(sem: *u8) -> unit = "SDL_WaitSemaphore";
+extern fn service_try_wait(sem: *u8) -> bool = "SDL_TryWaitSemaphore";
+extern fn service_timed_wait(sem: *u8, timeout: i32) -> bool = "SDL_WaitSemaphoreTimeout";
+extern fn service_thread_native(
+    entry: fn(*u8) -> i32,
+    name: *u8,
+    data: *u8,
+    begin: *u8,
+    end: *u8
+) -> *u8 = "SDL_CreateThreadRuntime";
+fn service_thread_create(entry: fn(*u8) -> i32, name: *u8, data: *u8) -> *u8 {
+    return service_thread_native(entry, name, data, null(*u8), null(*u8));
+}
 extern fn service_thread_join(thread: *u8, result: *i32) -> unit = "SDL_WaitThread";
 extern fn service_sdl_error() -> *u8 = "SDL_GetError";
 extern fn service_print(message: *u8) -> i32 = "puts";
-fn service_require(status: i32) -> unit {
-    if status < 0i32 {
-        service_print(service_sdl_error());
-        trap;
-    }
-}
 fn service_worker(data: *u8) -> i32 {
     var service: *ExternalService = data as *ExternalService;
     while true {
-        service_require(service_wait(service -> wake));
-        service_require(service_lock(service -> mutex));
+        service_wait(service -> wake);
+        service_lock(service -> mutex);
         if service -> stop && service -> state != 1i32 {
-            service_require(service_unlock(service -> mutex));
+            service_unlock(service -> mutex);
             return 0i32;
         }
         var execute: fn(*u8) -> bool = service -> execute;
         var payload: *u8 = service -> payload;
-        service_require(service_unlock(service -> mutex));
+        service_unlock(service -> mutex);
         var success: bool = execute(payload);
-        service_require(service_lock(service -> mutex));
+        service_lock(service -> mutex);
         service -> state = -1i32;
         if success {
             service -> state = 2i32;
         }
-        service_require(service_post(service -> complete));
-        service_require(service_unlock(service -> mutex));
+        service_post(service -> complete);
+        service_unlock(service -> mutex);
     }
 }
 fn service_destroy(service: *ExternalService) -> unit {
@@ -58,10 +61,10 @@ fn service_destroy(service: *ExternalService) -> unit {
         return;
     }
     if service -> thread != null(*u8) {
-        service_require(service_lock(service -> mutex));
+        service_lock(service -> mutex);
         service -> stop = true;
-        service_require(service_unlock(service -> mutex));
-        service_require(service_post(service -> wake));
+        service_unlock(service -> mutex);
+        service_post(service -> wake);
         service_thread_join(service -> thread, null(*i32));
     }
     if service -> mutex != null(*u8) {
@@ -102,28 +105,28 @@ fn service_new() -> *ExternalService {
 }
 // Requires an idle service and payload storage that survives completion or destruction.
 fn service_submit(service: *ExternalService, execute: fn(*u8) -> bool, payload: *u8) -> unit {
-    service_require(service_lock(service -> mutex));
+    service_lock(service -> mutex);
     if service -> state != 0i32 {
         trap;
     }
     service -> execute = execute;
     service -> payload = payload;
     service -> state = 1i32;
-    service_require(service_post(service -> wake));
-    service_require(service_unlock(service -> mutex));
+    service_post(service -> wake);
+    service_unlock(service -> mutex);
 }
 // Consumes a terminal result. Returns zero while the operation remains pending.
 fn service_poll(service: *ExternalService) -> i32 {
-    service_require(service_lock(service -> mutex));
+    service_lock(service -> mutex);
     var status: i32 = service -> state;
     if status == 0i32 {
         trap;
     }
     if status != 1i32 {
-        service_require(service_try_wait(service -> complete));
+        service_try_wait(service -> complete);
         service -> state = 0i32;
     }
-    service_require(service_unlock(service -> mutex));
+    service_unlock(service -> mutex);
     if status == 1i32 {
         return 0i32;
     }
@@ -134,5 +137,5 @@ fn service_poll(service: *ExternalService) -> i32 {
 }
 // Wakes on completion or after the event-pump interval. Call from the idle executor.
 fn service_idle(service: *ExternalService) -> unit {
-    service_require(service_timed_wait(service -> complete, 1u32));
+    service_timed_wait(service -> complete, 1i32);
 }

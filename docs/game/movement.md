@@ -166,14 +166,15 @@ Use `--bindings FILE` to replace selected default bindings. Each non-comment
 line has seven integers:
 
 ```text
-# action  SDL-scancode  mouse-mask  pad-button  pad-axis  direction  toggle
+# action  key-position  mouse-mask  pad-button  pad-axis  direction  toggle
 8         -1            1           -1          4         1          1
 9         21            0           -1         -1         1          0
 ```
 
 This example toggles the tether and binds R to start the latched reel. Use `-1` to disable a key,
 pad button, or pad axis; use zero to disable mouse buttons. Direction is -1 or
-1. Toggle is zero or one. Mouse masks use SDL button bits. Stick and trigger
+1. Toggle is zero or one. Key positions use USB HID keyboard usage codes. Mouse mask bits select buttons,
+starting at bit zero for the left button. Stick and trigger
 axes have a 15 percent dead zone. Mouse motion controls look directly.
 
 | Action number | Action |

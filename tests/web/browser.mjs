@@ -56,7 +56,7 @@ export async function flight(options) {
   const inputFrame = async () => {
     const target = frames + 2;
     await until(() => frames >= target || !document.querySelector("#restart").hidden);
-    if (!document.querySelector("#restart").hidden) throw Error("Game ended before input was consumed");
+    if (!document.querySelector("#restart").hidden) throw Error("Game ended before input was consumed: " + document.querySelector("#log").textContent);
   };
   let fullscreen = false, paused = false;
   if (options.deviceLoss) {
@@ -79,13 +79,13 @@ export async function flight(options) {
     fullscreen = !!document.fullscreenElement;
     key('keydown', 'KeyW', 'w', 87);
     key('keydown', 'KeyQ', 'q', 81);
-    canvas.dispatchEvent(new MouseEvent('mousedown', {button:0, buttons:1, bubbles:true, clientX:320, clientY:180}));
+    canvas.dispatchEvent(new PointerEvent('pointerdown', {pointerType:'mouse', pointerId:1, isPrimary:true, button:0, buttons:1, bubbles:true, clientX:320, clientY:180}));
     await inputFrame(); key('keyup', 'KeyQ', 'q', 81); key('keydown', 'KeyR', 'r', 82);
     await inputFrame(); key('keyup', 'KeyR', 'r', 82);
-    canvas.dispatchEvent(new MouseEvent('mousedown', {button:2, buttons:3, bubbles:true}));
+    canvas.dispatchEvent(new PointerEvent('pointerdown', {pointerType:'mouse', pointerId:1, isPrimary:true, button:2, buttons:3, bubbles:true}));
     await inputFrame();
-    canvas.dispatchEvent(new MouseEvent('mouseup', {button:0, buttons:2, bubbles:true}));
-    canvas.dispatchEvent(new MouseEvent('mouseup', {button:2, buttons:0, bubbles:true}));
+    canvas.dispatchEvent(new PointerEvent('pointerup', {pointerType:'mouse', pointerId:1, isPrimary:true, button:0, buttons:2, bubbles:true}));
+    canvas.dispatchEvent(new PointerEvent('pointerup', {pointerType:'mouse', pointerId:1, isPrimary:true, button:2, buttons:0, bubbles:true}));
     if (options.scaling) await wait(900);
     key('keyup', 'KeyW', 'w', 87);
     key('keydown', 'KeyF', 'f', 70); await inputFrame(); key('keyup', 'KeyF', 'f', 70);

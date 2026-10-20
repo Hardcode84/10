@@ -29,23 +29,23 @@ fn pool_execute(pool: *PoolState, id: u32) -> unit {
     entry -> times.start = pool -> clock();
     var success: bool = entry -> execute(entry -> payload);
     entry -> times.finish = pool -> clock();
-    service_require(service_lock(pool -> mutex));
+    service_lock(pool -> mutex);
     entry -> status = -1i32;
     if success {
         entry -> status = 1i32;
     }
-    service_require(service_post(pool -> complete));
-    service_require(service_unlock(pool -> mutex));
+    service_post(pool -> complete);
+    service_unlock(pool -> mutex);
 }
 fn pool_worker(data: *u8) -> i32 {
     var pool: *PoolState = data as *PoolState;
     while true {
-        service_require(service_wait(pool -> wake));
-        service_require(service_lock(pool -> mutex));
+        service_wait(pool -> wake);
+        service_lock(pool -> mutex);
         var id: u32 = pool -> first;
         if id == TASK_NONE {
             var stop: bool = pool -> stop;
-            service_require(service_unlock(pool -> mutex));
+            service_unlock(pool -> mutex);
             if stop {
                 return 0i32;
             }
@@ -55,7 +55,7 @@ fn pool_worker(data: *u8) -> i32 {
         if pool -> first == TASK_NONE {
             pool -> last = TASK_NONE;
         }
-        service_require(service_unlock(pool -> mutex));
+        service_unlock(pool -> mutex);
         pool_execute(pool, id);
     }
 }
@@ -121,12 +121,12 @@ fn pool_close(pool: *PoolState) -> unit {
         trap;
     }
     if pool -> workers != 0u32 {
-        service_require(service_lock(pool -> mutex));
+        service_lock(pool -> mutex);
         pool -> stop = true;
-        service_require(service_unlock(pool -> mutex));
+        service_unlock(pool -> mutex);
         var i: u32 = 0u32;
         while i < pool -> workers {
-            service_require(service_post(pool -> wake));
+            service_post(pool -> wake);
             i = i + 1u32;
         }
         i = 0u32;
@@ -149,10 +149,10 @@ fn pool_close(pool: *PoolState) -> unit {
     service_free(pool as *u8);
 }
 fn pool_admit(pool: *PoolState, execute: fn(*u8) -> bool, payload: *u8) -> u32 {
-    service_require(service_lock(pool -> mutex));
+    service_lock(pool -> mutex);
     var id: u32 = pool -> free;
     if id == TASK_NONE {
-        service_require(service_unlock(pool -> mutex));
+        service_unlock(pool -> mutex);
         task_error("worker pool admission capacity exhausted");
         return TASK_NONE;
     }
@@ -174,9 +174,9 @@ fn pool_admit(pool: *PoolState, execute: fn(*u8) -> bool, payload: *u8) -> u32 {
             pool -> entries[pool -> last as usize].next = id;
         }
         pool -> last = id;
-        service_require(service_post(pool -> wake));
+        service_post(pool -> wake);
     }
-    service_require(service_unlock(pool -> mutex));
+    service_unlock(pool -> mutex);
     if pool -> workers == 0u32 {
         pool_execute(pool, id);
     }
@@ -195,26 +195,26 @@ fn pool_times(pool: *PoolState, id: u32) -> TaskRunTimes {
     return pool -> entries[id as usize].times;
 }
 fn pool_status(pool: *PoolState, id: u32, generation: u64) -> i32 {
-    service_require(service_lock(pool -> mutex));
+    service_lock(pool -> mutex);
     if pool -> entries[id as usize].generation != generation {
         trap;
     }
     var result: i32 = pool -> entries[id as usize].status;
-    service_require(service_unlock(pool -> mutex));
+    service_unlock(pool -> mutex);
     return result;
 }
 fn pool_pause(pool: *PoolState) -> unit {
-    service_require(service_timed_wait(pool -> complete, 1u32));
+    service_timed_wait(pool -> complete, 1i32);
 }
 fn pool_release(pool: *PoolState, id: u32, generation: u64) -> unit {
-    service_require(service_lock(pool -> mutex));
+    service_lock(pool -> mutex);
     var entry: *PoolEntry = &pool -> entries[id as usize];
     if entry -> generation != generation || entry -> status == 0i32 {
         trap;
     }
-    service_require(service_try_wait(pool -> complete));
+    service_try_wait(pool -> complete);
     entry -> next = pool -> free;
     pool -> free = id;
     pool -> live = pool -> live - 1u32;
-    service_require(service_unlock(pool -> mutex));
+    service_unlock(pool -> mutex);
 }

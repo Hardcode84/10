@@ -22,7 +22,7 @@ renderer.
 
 The root builds the Crust stages, checks host ownership for the wasm32 target,
 emits C and WGSL, and invokes Emscripten. On the first web build it downloads a
-matched Emscripten toolchain, verifies its checksum, and stores it under
+matched Emscripten toolchain with the SDL3 port, verifies its checksum, and stores it under
 `build/toolchain/wasm/`. Emscripten uses Python and Bun. Game build policy and asset
 recipes remain Crust code. The web shader build does not require SPIRV-Tools or
 an LLVM SPIR-V toolchain. The bundle includes only shaders named by the

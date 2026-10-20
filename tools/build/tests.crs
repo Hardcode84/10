@@ -65,6 +65,8 @@ fn build_render_tests(
     provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/render/palette.crs");
     provider_count = provider_count + 1usize;
+    providers[provider_count] = host_path(root, "tests/app/input.crs");
+    provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/demo/playback.crs");
     provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/render/portal.crs");

@@ -969,7 +969,7 @@ do not prove performance for this renderer.
 ## Build, checks, and measurement
 
 Bootstrap Crust from the host C compiler as described in the build contract.
-Native roots require the host toolchain, SDL2, Vulkan loader, LLVM with SPIR-V,
+Native roots require the host toolchain, SDL3, Vulkan loader, LLVM with SPIR-V,
 and SPIRV-Tools. Use `LLVM_DIRECTORY` and `SPIRV_VAL`, or the documented links
 under `build/toolchain/`. The root builds host and shader code. Missing tools
 report errors. Game, demo, and viewer builds exclude test fixtures and the CPU

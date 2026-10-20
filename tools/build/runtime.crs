@@ -2,6 +2,9 @@ fn run_runtime_checks(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> i32 {
+    if !sdl_build(root) {
+        return 1i32;
+    }
     var args: [*u8; 7] = make [*u8; 7] {
         "-o",
         host_path(root, "build/tests-runtime"),
@@ -9,7 +12,7 @@ fn run_runtime_checks(
         "--cflag",
         "-O2",
         "--ldflag",
-        "-Wl,-l:libSDL2-2.0.so.0"
+        sdl_link(root)
     };
     var providers: [*u8; 8] = make [*u8; 8] {
         host_path(root, "src/runtime/task/pool.crs"),

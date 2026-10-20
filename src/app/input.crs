@@ -1,0 +1,196 @@
+const APP_QUIT: u32 = 1u32;
+const APP_KEY_DOWN: u32 = 2u32;
+const APP_KEY_UP: u32 = 3u32;
+const APP_MOUSE_DOWN: u32 = 4u32;
+const APP_MOUSE_MOVE: u32 = 5u32;
+const APP_MOUSE_WHEEL: u32 = 6u32;
+const APP_PAD_DOWN: u32 = 7u32;
+const APP_PAD_AXIS: u32 = 8u32;
+const APP_PAD_CHANGED: u32 = 9u32;
+// Key positions use USB HID keyboard usage codes. Key symbols use Unicode or bit 30 plus the position.
+record AppEvent {
+    kind: u32;
+    key: u32;
+    position: i32;
+    repeat: bool;
+    button: u32;
+    axis: i32;
+    value: i16;
+    buttons: u32;
+    dx: f32;
+    dy: f32;
+    wheel: f32;
+}
+record SDLKeyEvent {
+    kind: u32;
+    reserved: u32;
+    timestamp: u64;
+    window: u32;
+    device: u32;
+    position: i32;
+    key: u32;
+    modifiers: u16;
+    raw: u16;
+    down: bool;
+    repeat: bool;
+}
+record SDLMouseMotion {
+    kind: u32;
+    reserved: u32;
+    timestamp: u64;
+    window: u32;
+    device: u32;
+    buttons: u32;
+    x: f32;
+    y: f32;
+    dx: f32;
+    dy: f32;
+}
+record SDLMouseButton {
+    kind: u32;
+    reserved: u32;
+    timestamp: u64;
+    window: u32;
+    device: u32;
+    button: u8;
+    down: bool;
+    clicks: u8;
+    padding: u8;
+    x: f32;
+    y: f32;
+}
+record SDLMouseWheel {
+    kind: u32;
+    reserved: u32;
+    timestamp: u64;
+    window: u32;
+    device: u32;
+    x: f32;
+    y: f32;
+    direction: u32;
+    mouse_x: f32;
+    mouse_y: f32;
+    integer_x: i32;
+    integer_y: i32;
+}
+record SDLPadEvent {
+    kind: u32;
+    reserved: u32;
+    timestamp: u64;
+    device: u32;
+    control: u8;
+    padding1: u8;
+    padding2: u8;
+    padding3: u8;
+    value: i16;
+    padding4: u16;
+}
+fn app_decode_event(raw: *u8) -> AppEvent {
+    var out: AppEvent = uninit;
+    zero(&out as *u8, sizeof(AppEvent));
+    var kind: u32 = (raw as *u32)[0usize];
+    if kind == 256u32 {
+        out.kind = APP_QUIT;
+    } else if kind == 768u32 || kind == 769u32 {
+        var key: *SDLKeyEvent = raw as *SDLKeyEvent;
+        out.kind = APP_KEY_DOWN;
+        if kind == 769u32 {
+            out.kind = APP_KEY_UP;
+        }
+        out.key = key -> key;
+        out.position = key -> position;
+        out.repeat = key -> repeat;
+    } else if kind == 1024u32 {
+        var motion: *SDLMouseMotion = raw as *SDLMouseMotion;
+        out.kind = APP_MOUSE_MOVE;
+        out.buttons = motion -> buttons;
+        out.dx = motion -> dx;
+        out.dy = motion -> dy;
+    } else if kind == 1025u32 {
+        out.kind = APP_MOUSE_DOWN;
+        out.button = (raw as *SDLMouseButton) -> button as u32;
+    } else if kind == 1027u32 {
+        var wheel: *SDLMouseWheel = raw as *SDLMouseWheel;
+        out.kind = APP_MOUSE_WHEEL;
+        out.wheel = wheel -> y;
+        if wheel -> direction == 1u32 {
+            out.wheel = -out.wheel;
+        }
+    } else if kind >= 1619u32 && kind <= 1621u32 {
+        out.kind = APP_PAD_CHANGED;
+    } else if kind == 1616u32 || kind == 1617u32 {
+        var pad: *SDLPadEvent = raw as *SDLPadEvent;
+        out.kind = APP_PAD_DOWN;
+        out.button = pad -> control as u32;
+        if kind == 1616u32 {
+            out.kind = APP_PAD_AXIS;
+            out.axis = pad -> control as i32;
+            out.value = pad -> value;
+        }
+    }
+    return out;
+}
+// Returns one for an event, zero for an empty queue, and minus one for a failed wait.
+fn app_event(out: *AppEvent, wait: bool) -> i32 {
+    var raw: [u64; 16] = uninit;
+    if wait {
+        if !SDL_WaitEvent(&raw as *u8) {
+            error(SDL_GetError());
+            return -1i32;
+        }
+    } else if !SDL_PollEvent(&raw as *u8) {
+        return 0i32;
+    }
+    * out = app_decode_event(&raw as *u8);
+    return 1i32;
+}
+extern fn SDL_SetWindowRelativeMouseMode(window: *u8, enabled: bool) -> bool = "SDL_SetWindowRelativeMouseMode";
+extern fn app_mouse(x: *f32, y: *f32) -> u32 = "SDL_GetRelativeMouseState";
+extern fn app_keys(count: *i32) -> *u8 = "SDL_GetKeyboardState";
+extern fn SDL_SetWindowTitle(window: *u8, title: *u8) -> bool = "SDL_SetWindowTitle";
+extern fn SDL_GetGamepads(count: *i32) -> *u32 = "SDL_GetGamepads";
+extern fn SDL_free(data: *u8) -> unit = "SDL_free";
+extern fn SDL_OpenGamepad(id: u32) -> *u8 = "SDL_OpenGamepad";
+extern fn app_pad_close(controller: *u8) -> unit = "SDL_CloseGamepad";
+extern fn SDL_GamepadConnected(controller: *u8) -> bool = "SDL_GamepadConnected";
+extern fn app_pad_axis(controller: *u8, axis: i32) -> i16 = "SDL_GetGamepadAxis";
+extern fn app_pad_button(controller: *u8, button: i32) -> bool = "SDL_GetGamepadButton";
+extern fn app_sleep(ms: u32) -> unit = "SDL_Delay";
+extern fn SDL_GetKeyboardFocus() -> *u8 = "SDL_GetKeyboardFocus";
+fn app_focused(window: *u8) -> bool {
+    return SDL_GetKeyboardFocus() == window;
+}
+fn app_keyboard_active() -> bool {
+    return SDL_GetKeyboardFocus() != null(*u8);
+}
+fn app_input_open() -> bool {
+    return SDL_Init(8192u32) || error(SDL_GetError());
+}
+fn app_relative_mouse(window: *u8, enabled: bool) -> bool {
+    return SDL_SetWindowRelativeMouseMode(window, enabled) || error(SDL_GetError());
+}
+fn app_title(window: *u8, title: *u8) -> unit {
+    if !SDL_SetWindowTitle(window, title) {
+        error(SDL_GetError());
+        exit(1i32);
+    }
+}
+fn app_pad_update(controller: **u8) -> bool {
+    if *controller != null(*u8) && !SDL_GamepadConnected(*controller) {
+        app_pad_close(*controller);
+        *controller = null(*u8);
+    }
+    if *controller != null(*u8) {
+        return true;
+    }
+    var count: i32 = 0i32;
+    var ids: *u32 = SDL_GetGamepads(&count);
+    if ids == null(*u32) {
+        return error(SDL_GetError());
+    }
+    if count > 0i32 {
+        *controller = SDL_OpenGamepad(ids[0usize]);
+    }
+    SDL_free(ids as *u8);
+    return count == 0i32 || *controller != null(*u8) || error(SDL_GetError());
+}

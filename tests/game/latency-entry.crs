@@ -1,13 +1,13 @@
-extern fn latency_push(event: *u8) -> i32 = "SDL_PushEvent";
+extern fn latency_push(event: *u8) -> bool = "SDL_PushEvent";
 extern fn latency_pump() -> unit = "SDL_PumpEvents";
 fn latency_window_ready(window: *u8) -> bool {
     var deadline: u64 = now() + 5000000000u64;
     while now() < deadline {
         latency_pump();
-        if (SDL_GetWindowFlags(window) & 512u32) != 0u32 {
+        if app_focused(window) {
             return true;
         }
-        SDL_Delay(1u32);
+        app_sleep(1u32);
     }
     return error("latency measurement requires keyboard focus");
 }
@@ -17,17 +17,17 @@ record InputProducer {
 }
 fn latency_wait_until(deadline: u64) -> unit {
     while now() < deadline {
-        SDL_Delay(1u32);
+        app_sleep(1u32);
     }
 }
 fn latency_push_key(kind: u32) -> unit {
-    var event: [u32; 14] = uninit;
-    zero(&event as *u8, sizeof([u32; 14]));
-    event[0usize] = kind;
-    event[3usize] = (kind == 768u32) as u32;
-    event[4usize] = 15u32;
-    event[5usize] = 108u32;
-    if latency_push(&event as *u8) != 1i32 {
+    var event: [u64; 16] = uninit;
+    zero(&event as *u8, sizeof([u64; 16]));
+    (&event as *u32)[0usize] = kind;
+    (&event as *u8)[36usize] = (kind == 768u32) as u8;
+    (&event as *u32)[6usize] = 15u32;
+    (&event as *u32)[7usize] = 108u32;
+    if !latency_push(&event as *u8) {
         error(SDL_GetError());
         exit(1i32);
     }
@@ -45,10 +45,10 @@ fn latency_produce(data: *u8) -> bool {
         i = i + 1usize;
     }
     latency_wait_until(now() + 500000000u64);
-    var event: [u32; 14] = uninit;
-    zero(&event as *u8, sizeof([u32; 14]));
-    event[0usize] = 256u32;
-    if latency_push(&event as *u8) != 1i32 {
+    var event: [u64; 16] = uninit;
+    zero(&event as *u8, sizeof([u64; 16]));
+    (&event as *u32)[0usize] = 256u32;
+    if !latency_push(&event as *u8) {
         error(SDL_GetError());
         exit(1i32);
     }

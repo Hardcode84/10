@@ -71,10 +71,8 @@ fn asset_session_finish(session: mut AssetSession) -> bool {
     return true;
 }
 fn asset_session_wait() -> unit {
-    SDL_Delay(1u32);
+    app_sleep(1u32);
 }
-extern fn SDL_Delay(milliseconds: u32) -> unit = "SDL_Delay";
-extern fn SDL_SetWindowTitle(window: *u8, title: *u8) -> unit = "SDL_SetWindowTitle";
 
 fn asset_label_range(session: read AssetSession) -> MeshRange {
     return session.labels;
