@@ -175,8 +175,7 @@ fn shaft_girder_service_pipes(asset: mut RoomAsset, layout: ShaftGirderLayout) -
             low: spacing * station as f32 + clearance,
             high: spacing * (station + 1u32) as f32 - clearance,
             station: station,
-            seed: metal_hash(station, 0u32, layout.seed),
-            spindle_feeds: false
+            seed: metal_hash(station, 0u32, layout.seed)
         };
         if !shaft_service_bay(mut asset, bay) {
             return false;

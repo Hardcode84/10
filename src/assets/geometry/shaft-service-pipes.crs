@@ -6,7 +6,6 @@ record ShaftPipeBay {
     high: f32;
     station: u32;
     seed: u32;
-    spindle_feeds: bool;
 }
 record ShaftPipeRun {
     start_angle: f32;
@@ -36,7 +35,7 @@ fn shaft_pipe_layout(bay: ShaftPipeBay, lane: u32) -> ShaftPipeRun {
     }
     var target: f32 = bay.radius;
     var inner: bool = true;
-    if bay.spindle_feeds && lane == (bay.seed >> 8u32) % 3u32 {
+    if lane == (bay.seed >> 8u32) % 3u32 {
         target = bay.core;
         inner = false;
     }
@@ -178,7 +177,7 @@ fn shaft_pipe_run(asset: mut RoomAsset, bay: ShaftPipeBay, lane: u32) -> bool {
         run.inner
     ) && shaft_pipe_mesh(mut asset, run);
 }
-// Adds separate wall runs inside the gaps between rotor stations.
+// Adds wall runs between stations, with one seeded spindle feed in each gap.
 // Spacing is at least 3 m. The pipe surfaces stay clear of each station plane.
 fn shaft_service_pipes(
     asset: mut RoomAsset,
@@ -186,8 +185,7 @@ fn shaft_service_pipes(
     core: f32,
     height: f32,
     count: u32,
-    seed: u32,
-    spindle_feeds: bool
+    seed: u32
 ) -> bool {
     var station: u32 = 1u32;
     while station < count {
@@ -199,8 +197,7 @@ fn shaft_service_pipes(
             low: spacing * station as f32 + clearance,
             high: spacing * (station + 1u32) as f32 - clearance,
             station: station,
-            seed: metal_hash(station, 0u32, seed),
-            spindle_feeds: spindle_feeds
+            seed: metal_hash(station, 0u32, seed)
         };
         if !shaft_service_bay(mut asset, bay) {
             return false;

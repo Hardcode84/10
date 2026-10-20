@@ -162,8 +162,7 @@ fn shaft_spoke_service_pipes(asset: mut RoomAsset, layout: ShaftSpokeLayout) -> 
             low: bottom + clearance,
             high: top - clearance,
             station: station,
-            seed: metal_hash(station, 0u32, layout.seed),
-            spindle_feeds: false
+            seed: metal_hash(station, 0u32, layout.seed)
         };
         if !shaft_service_bay(mut asset, bay) {
             return false;

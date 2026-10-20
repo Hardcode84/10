@@ -94,15 +94,9 @@ fn prefab_shaft_rotor_build(parameters: read AssetValues, asset: mut RoomAsset) 
         core,
         height,
         count as u32
-    ) && shaft_service_pipes(
-        mut asset,
-        radius,
-        core,
-        height,
-        count as u32,
-        pipe_seed as u32,
-        true
-    ) && room_asset_finish(mut asset);
+    ) && shaft_service_pipes(mut asset, radius, core, height, count as u32, pipe_seed as u32) && room_asset_finish(
+        mut asset
+    );
 }
 fn prefab_shaft_rotor_material_count() -> u32 {
     return shaft_material_count();

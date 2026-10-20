@@ -4,7 +4,7 @@
 // it has no collision surface. Opposite pairs alternate by a right angle.
 // Shared shaft parameters set dimensions, station-count, and pipe-seed.
 // girder-depth is the full height; rail-width is each square rail's side, in metres.
-// Wall service pipes remain clear of the girder stations.
+// Service pipes remain clear of girder stations; one per gap joins the spindle.
 // Materials: 0 wall, 1 closures, 2 spindle, 3 rails, 4 service pipes,
 // 5 flanges, 6 leak stains, 7 cutout web, 8 rail mounting pads.
 // Rails and braces have dark ochre paint. Bolted pads follow the wall and spindle.
