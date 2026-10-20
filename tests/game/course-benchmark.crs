@@ -103,9 +103,14 @@ fn course_benchmark(
     ) {
         return false;
     }
-    var words: *u32 = session.renderer.state.mapped as *u32;
+    return course_work_report(&session.renderer.state) && game_finish(mut session);
+}
+fn course_work_report(v: *RenderState) -> bool {
+    var words: *u32 = v -> mapped as *u32;
     if words[WORK_NODES as usize] == 0xffffffffu32 || words[WORK_TRIANGLES as usize] == 0xffffffffu32 || words[
         WORK_BATCHES as usize
+    ] == 0xffffffffu32 || words[WORK_EMPTY_ACTIVE as usize] == 0xffffffffu32 || words[
+        WORK_EMPTY_IDLE as usize
     ] == 0xffffffffu32 {
         return error("diagnostic work counts exceed the 32-bit reporting range");
     }
@@ -113,9 +118,12 @@ fn course_benchmark(
     print_number(words[WORK_NODES as usize] as i64);
     print_number(words[WORK_TRIANGLES as usize] as i64);
     print_number(words[WORK_BATCHES as usize] as i64);
+    puts("empty active / empty idle planner rounds");
+    print_number(words[WORK_EMPTY_ACTIVE as usize] as i64);
+    print_number(words[WORK_EMPTY_IDLE as usize] as i64);
     puts("dynamic triangles");
     print_number(words[DYNAMIC_COUNT as usize] as i64);
-    return game_finish(mut session);
+    return true;
 }
 fn course_geometry_benchmark(
     scene: read CollisionScene,

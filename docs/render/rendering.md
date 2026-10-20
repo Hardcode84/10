@@ -1008,6 +1008,24 @@ recorded round count. Compare that count with diagnostic nonempty batches.
 A round without triangles can still complete a view and schedule shading.
 Extra timestamps change execution cost. Use runs without this option to assess
 performance.
+The diagnostic capture also reports empty planner rounds. An active empty round
+touches an unfinished view without emitting triangles. An idle empty round
+has no view work. These counts separate useful completion or traversal from
+unused scheduled rounds.
+
+A planner-gating experiment used the hub corner 119 with the current game task
+graph on Intel Arc Pro B60 at 1920 by 1080. Each run had eight warm-up frames
+and 128 measured frames. The GPU wrote indirect planner arguments; one cleanup
+round cleared downstream arguments after view completion. Idle planner calls
+fell from 14 to 7. All captures matched byte for byte.
+
+Three gated runs and three subsequent control runs gave these medians of run
+medians: frame time 9.667 ms gated versus 9.664 ms control; GPU time 9.270 ms
+versus 9.276 ms. The change did not improve frame time and was removed. The
+command stream still contained the downstream indirect dispatches and barriers.
+Further experiments must measure savings from the complete idle command
+sequence.
+
 
 The interactive demo uses game flight, tether, and input code. Capture runs one
 simulation tick by default; `--ticks N` changes it. The automatic 1200-frame

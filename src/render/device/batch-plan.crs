@@ -244,6 +244,12 @@ fn batch_finish() -> unit {
     work_count_add(WORK_TRIANGLES, words_load(BATCH_COUNT));
     if words_load(BATCH_COUNT) != 0u32 {
         work_count_add(WORK_BATCHES, 1u32);
+    } else {
+        if words_load(BATCH_FIRST) < words_load(BATCH_END) {
+            work_count_add(WORK_EMPTY_ACTIVE, 1u32);
+        } else {
+            work_count_add(WORK_EMPTY_IDLE, 1u32);
+        }
     }
     batch_task_commands(words_load(BATCH_FIRST) < words_load(BATCH_END));
     words_store(16u32, geometry_groups(words_load(BATCH_COUNT)));
