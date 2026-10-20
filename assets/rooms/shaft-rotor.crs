@@ -5,9 +5,9 @@
 // Successive stations turn 22.5 degrees. Rotation is not enabled.
 // Wing metal wraps around the long axis; side and cap rows share one phase.
 // Dimensions are metres; rotor-count is an integer. BOTTOM and TOP are full
-// ROTOR-SHAFT connections at Y=0 and Y=height, with four mating rotations.
+// SHAFT connections at Y=0 and Y=height, with four mating rotations.
 // The spindle reaches both ends; passage remains around it.
-// Use rotor-hex-adapter.crs to connect a shaft end to three HEX-6M tunnels.
+// Use shaft-hex-adapter.crs to connect a shaft end to three HEX-6M tunnels.
 // Matching diameters connect at unit relative scale.
 // Three separate service pipes occupy each gap between rotor stations.
 // Runs have axial legs and circumferential arcs with rounded 90-degree elbows.
@@ -22,20 +22,20 @@
 // Materials: 0 shell, 1 end closures, 2 spindle, 3 rotor wings,
 // 4 pipes, 5 flanges, 6 leak stains.
 fn room_parameter_count() -> u32 {
-    return prefab_rotor_shaft_parameter_count();
+    return prefab_shaft_rotor_parameter_count();
 }
 fn room_parameter(index: u32) -> AssetParameter {
-    return prefab_rotor_shaft_parameter(index);
+    return prefab_shaft_rotor_parameter(index);
 }
 fn room_parameter_name(index: u32) -> AssetName {
-    return prefab_rotor_shaft_parameter_name(index);
+    return prefab_shaft_rotor_parameter_name(index);
 }
 fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    return prefab_rotor_shaft_build(read parameters, mut asset);
+    return prefab_shaft_rotor_build(read parameters, mut asset);
 }
 fn room_material_count() -> u32 {
-    return prefab_rotor_shaft_material_count();
+    return prefab_shaft_rotor_material_count();
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
-    return prefab_rotor_shaft_material(region, read parameters);
+    return prefab_shaft_rotor_material(region, read parameters);
 }

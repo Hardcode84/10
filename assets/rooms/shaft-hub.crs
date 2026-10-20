@@ -24,20 +24,20 @@
 // Corner panels have one closed hexagonal service cover.
 // Wall edges have 0.06 m seams; portal edges have 0.10 m seams.
 fn room_parameter_count() -> u32 {
-    return prefab_rotor_hub_parameter_count();
+    return prefab_shaft_hub_parameter_count();
 }
 fn room_parameter(index: u32) -> AssetParameter {
-    return prefab_rotor_hub_parameter(index);
+    return prefab_shaft_hub_parameter(index);
 }
 fn room_parameter_name(index: u32) -> AssetName {
-    return prefab_rotor_hub_parameter_name(index);
+    return prefab_shaft_hub_parameter_name(index);
 }
 fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    return prefab_rotor_hub_build(read parameters, mut asset);
+    return prefab_shaft_hub_build(read parameters, mut asset);
 }
 fn room_material_count() -> u32 {
-    return prefab_rotor_hub_material_count();
+    return prefab_shaft_hub_material_count();
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
-    return prefab_rotor_hub_material(region, read parameters);
+    return prefab_shaft_hub_material(region, read parameters);
 }

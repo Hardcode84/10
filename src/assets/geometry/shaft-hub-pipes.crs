@@ -114,7 +114,7 @@ fn hub_pipe_corner_centre(signs: Vec3, layout: HubPipeLayout) -> Vec3 {
 fn hub_pipe_spindle(asset: mut RoomAsset, layout: HubPipeLayout) -> bool {
     var first: u32 = mesh_triangle_count(read asset.geometry);
     var hull: AssetHull = asset_hull_new();
-    var profile: RegularProfile = rotor_shaft_profile(16f32).shape;
+    var profile: RegularProfile = shaft_profile(16f32).shape;
     if !loft_allocate(mut hull, profile, 2u32) {
         return false;
     }

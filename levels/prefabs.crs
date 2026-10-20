@@ -184,7 +184,7 @@ fn course_rotor_route(
         mut mesh,
         mut cursor,
         asset_name("EXIT"),
-        PREFAB_ROTOR_HEX_ADAPTER,
+        PREFAB_SHAFT_HEX_ADAPTER,
         asset_name("BOTTOM-0"),
         0u32
     ) && course_step(
@@ -193,7 +193,7 @@ fn course_rotor_route(
         mut mesh,
         mut cursor,
         asset_name("SHAFT"),
-        PREFAB_ROTOR_SHAFT,
+        PREFAB_SHAFT_ROTOR,
         asset_name("BOTTOM"),
         0u32
     ) && course_step(
@@ -202,7 +202,7 @@ fn course_rotor_route(
         mut mesh,
         mut cursor,
         asset_name("TOP"),
-        PREFAB_ROTOR_HUB,
+        PREFAB_SHAFT_HUB,
         asset_name("SHAFT"),
         0u32
     ) && course_step(

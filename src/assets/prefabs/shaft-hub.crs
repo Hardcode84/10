@@ -1,7 +1,7 @@
-fn prefab_rotor_hub_parameter_count() -> u32 {
+fn prefab_shaft_hub_parameter_count() -> u32 {
     return 5u32;
 }
-fn prefab_rotor_hub_parameter_name(index: u32) -> AssetName {
+fn prefab_shaft_hub_parameter_name(index: u32) -> AssetName {
     if index == 4u32 {
         return asset_name("pipe-seed");
     }
@@ -16,7 +16,7 @@ fn prefab_rotor_hub_parameter_name(index: u32) -> AssetName {
     }
     return asset_name("corner-inset");
 }
-fn prefab_rotor_hub_parameter(index: u32) -> AssetParameter {
+fn prefab_shaft_hub_parameter(index: u32) -> AssetParameter {
     if index == 4u32 {
         return make AssetParameter {
             minimum: 0f32,
@@ -56,7 +56,7 @@ fn prefab_rotor_hub_parameter(index: u32) -> AssetParameter {
         step: 0.25f32
     };
 }
-fn prefab_rotor_hub_hub_port_name(face: u32) -> AssetName {
+fn prefab_shaft_hub_hub_port_name(face: u32) -> AssetName {
     if face == 0u32 {
         return asset_name("LEFT");
     }
@@ -75,9 +75,9 @@ fn prefab_rotor_hub_hub_port_name(face: u32) -> AssetName {
     if face == 5u32 {
         return asset_name("UP");
     }
-    return prefab_rotor_hub_hub_diagonal_name(face - 6u32);
+    return prefab_shaft_hub_hub_diagonal_name(face - 6u32);
 }
-fn prefab_rotor_hub_hub_diagonal_name(index: u32) -> AssetName {
+fn prefab_shaft_hub_hub_diagonal_name(index: u32) -> AssetName {
     if index == 0u32 {
         return asset_name("LEFT-BACK");
     }
@@ -114,7 +114,7 @@ fn prefab_rotor_hub_hub_diagonal_name(index: u32) -> AssetName {
     return asset_name("FRONT-UP");
 }
 
-fn prefab_rotor_hub_hub_connections(asset: mut RoomAsset, diameter: f32) -> bool {
+fn prefab_shaft_hub_hub_connections(asset: mut RoomAsset, diameter: f32) -> bool {
     var next: AssetHull = asset_hull_new();
     var face: u32 = 0u32;
     while face < 18u32 {
@@ -127,11 +127,11 @@ fn prefab_rotor_hub_hub_connections(asset: mut RoomAsset, diameter: f32) -> bool
         var profile: ConnectionProfile = service_oct_profile();
         var closure: u32 = 2u32;
         if face == 2u32 {
-            profile = rotor_shaft_profile(diameter);
+            profile = shaft_profile(diameter);
             closure = 3u32;
         }
         var port: RoomPort = make RoomPort {
-            id: prefab_rotor_hub_hub_port_name(face),
+            id: prefab_shaft_hub_hub_port_name(face),
             profile: profile,
             face: face,
             position: centre,
@@ -147,7 +147,7 @@ fn prefab_rotor_hub_hub_connections(asset: mut RoomAsset, diameter: f32) -> bool
                 normal: basis.forward
             }
         );
-        if !prefab_rotor_hub_hub_wall_partition(mut asset.hull, mut next, port, closure) || !asset_port_append(
+        if !prefab_shaft_hub_hub_wall_partition(mut asset.hull, mut next, port, closure) || !asset_port_append(
             mut asset.ports,
             port
         ) {
@@ -157,8 +157,8 @@ fn prefab_rotor_hub_hub_connections(asset: mut RoomAsset, diameter: f32) -> bool
     }
     return true;
 }
-fn prefab_rotor_hub_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    if !prefab_rotor_hub_parameters_valid(read parameters) {
+fn prefab_shaft_hub_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !prefab_shaft_hub_parameters_valid(read parameters) {
         return false;
     }
     var pipe_seed: f32 = asset_value(read parameters, 4u32);
@@ -186,9 +186,9 @@ fn prefab_rotor_hub_build(parameters: read AssetValues, asset: mut RoomAsset) ->
         return false;
     }
     rhombi_inset_corners(mut asset.hull, asset_value(read parameters, 2u32));
-    prefab_rotor_hub_hub_joint_surfaces(mut asset, read parameters);
-    prefab_rotor_hub_hub_corner_surfaces(mut asset, read parameters);
-    if !prefab_rotor_hub_hub_connections(mut asset, diameter) {
+    prefab_shaft_hub_hub_joint_surfaces(mut asset, read parameters);
+    prefab_shaft_hub_hub_corner_surfaces(mut asset, read parameters);
+    if !prefab_shaft_hub_hub_connections(mut asset, diameter) {
         return false;
     }
     var fold_trim: f32 = sinf(0.39269908169f32) / cosf(0.39269908169f32);
@@ -218,10 +218,10 @@ fn prefab_rotor_hub_build(parameters: read AssetValues, asset: mut RoomAsset) ->
     };
     return room_asset_finish(mut asset);
 }
-fn prefab_rotor_hub_material_count() -> u32 {
+fn prefab_shaft_hub_material_count() -> u32 {
     return 11u32;
 }
-fn prefab_rotor_hub_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+fn prefab_shaft_hub_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     if region == 9u32 || region == 10u32 {
         return service_mount_material(region == 10u32);
     }
@@ -248,13 +248,13 @@ fn prefab_rotor_hub_material(region: u32, parameters: read AssetValues) -> Panel
         return material;
     }
     if region == 1u32 {
-        return prefab_rotor_hub_hub_corner_material(read parameters);
+        return prefab_shaft_hub_hub_corner_material(read parameters);
     }
     if region == 2u32 {
         material.colour = 0x788dadu32;
     }
     if region == 4u32 {
-        return prefab_rotor_hub_hub_joint_material(read parameters);
+        return prefab_shaft_hub_hub_joint_material(read parameters);
     }
     if region == 3u32 {
         material.colour = 0x9c9687u32;
@@ -262,7 +262,7 @@ fn prefab_rotor_hub_material(region: u32, parameters: read AssetValues) -> Panel
     return material;
 }
 
-fn prefab_rotor_hub_hub_joint_material(parameters: read AssetValues) -> PanelMaterial {
+fn prefab_shaft_hub_hub_joint_material(parameters: read AssetValues) -> PanelMaterial {
     var rim: f32 = asset_value(read parameters, 1u32);
     var b: f32 = asset_value(read parameters, 0u32) * 0.5f32 + rim;
     var diagonal: f32 = service_oct_profile().radius + rim;
@@ -278,8 +278,8 @@ fn prefab_rotor_hub_hub_joint_material(parameters: read AssetValues) -> PanelMat
     material.tile_height = q * sqrtf(1f32 + a * a / (2f32 * b * b));
     return material;
 }
-fn prefab_rotor_hub_hub_joint_surfaces(asset: mut RoomAsset, parameters: read AssetValues) -> unit {
-    var material: PanelMaterial = prefab_rotor_hub_hub_joint_material(read parameters);
+fn prefab_shaft_hub_hub_joint_surfaces(asset: mut RoomAsset, parameters: read AssetValues) -> unit {
+    var material: PanelMaterial = prefab_shaft_hub_hub_joint_material(read parameters);
     var i: u32 = 26u32;
     while i < 50u32 {
         var face: HullFace = asset_face(read asset.hull, i);
@@ -298,7 +298,7 @@ fn prefab_rotor_hub_hub_joint_surfaces(asset: mut RoomAsset, parameters: read As
     }
 }
 
-fn prefab_rotor_hub_hub_corner_material(parameters: read AssetValues) -> PanelMaterial {
+fn prefab_shaft_hub_hub_corner_material(parameters: read AssetValues) -> PanelMaterial {
     var diagonal: f32 = service_oct_profile().radius + asset_value(read parameters, 1u32);
     var inset: f32 = asset_value(read parameters, 2u32);
     var material: PanelMaterial = hex_tunnel_material();
@@ -314,8 +314,8 @@ fn prefab_rotor_hub_hub_corner_material(parameters: read AssetValues) -> PanelMa
     material.hex_clip_apothem = (2f32 * span + shift - 3f32 * cut) / 2.44948974278f32;
     return material;
 }
-fn prefab_rotor_hub_hub_corner_surfaces(asset: mut RoomAsset, parameters: read AssetValues) -> unit {
-    var material: PanelMaterial = prefab_rotor_hub_hub_corner_material(read parameters);
+fn prefab_shaft_hub_hub_corner_surfaces(asset: mut RoomAsset, parameters: read AssetValues) -> unit {
+    var material: PanelMaterial = prefab_shaft_hub_hub_corner_material(read parameters);
     var i: u32 = 18u32;
     while i < 26u32 {
         var face: HullFace = asset_face(read asset.hull, i);
@@ -331,7 +331,7 @@ fn prefab_rotor_hub_hub_corner_surfaces(asset: mut RoomAsset, parameters: read A
     }
 }
 
-fn prefab_rotor_hub_hub_wall_partition(
+fn prefab_shaft_hub_hub_wall_partition(
     hull: mut AssetHull,
     next: mut AssetHull,
     port: RoomPort,
@@ -356,11 +356,11 @@ fn prefab_rotor_hub_hub_wall_partition(
     return true;
 }
 
-fn prefab_rotor_hub_parameters_valid(values: read AssetValues) -> bool {
+fn prefab_shaft_hub_parameters_valid(values: read AssetValues) -> bool {
     var i: u32 = 0u32;
-    while i < prefab_rotor_hub_parameter_count() {
+    while i < prefab_shaft_hub_parameter_count() {
         if !asset_parameter_valid(
-            prefab_rotor_hub_parameter(i),
+            prefab_shaft_hub_parameter(i),
             asset_value(read values, i)
         ) {
             return false;

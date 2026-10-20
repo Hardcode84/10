@@ -971,7 +971,7 @@ reference.
 crust main.crs --build-only
 crust main.crs --web
 crust demo.crs levels/prefabs.crs --width 1280 --height 960
-crust viewer.crs assets/rooms/rotor-hub.crs
+crust viewer.crs assets/rooms/shaft-hub.crs
 crust tests.crs
 ```
 

@@ -1,25 +1,25 @@
 // Short shaft end adapter: 1 m deep, 16 m across, with a 3 m spindle stub.
 // Local +Y runs from the three hex openings to the full shaft connection.
 // BOTTOM-0 through BOTTOM-2 are HEX-6M ports at Y=0, facing -Y.
-// SHAFT is a full ROTOR-SHAFT port at Y=depth, facing +Y.
+// SHAFT is a full SHAFT port at Y=depth, facing +Y.
 // Match diameter and core-diameter to the shaft. The spindle joins its end.
 // Hex plate edges align with the three hex openings. Dimensions are metres.
 // Materials: 0 sleeve, 1 shaft closure, 2 spindle, 3 end plate, 4 hex closures.
 fn room_parameter_count() -> u32 {
-    return prefab_rotor_hex_adapter_parameter_count();
+    return prefab_shaft_hex_adapter_parameter_count();
 }
 fn room_parameter(index: u32) -> AssetParameter {
-    return prefab_rotor_hex_adapter_parameter(index);
+    return prefab_shaft_hex_adapter_parameter(index);
 }
 fn room_parameter_name(index: u32) -> AssetName {
-    return prefab_rotor_hex_adapter_parameter_name(index);
+    return prefab_shaft_hex_adapter_parameter_name(index);
 }
 fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    return prefab_rotor_hex_adapter_build(read parameters, mut asset);
+    return prefab_shaft_hex_adapter_build(read parameters, mut asset);
 }
 fn room_material_count() -> u32 {
-    return prefab_rotor_hex_adapter_material_count();
+    return prefab_shaft_hex_adapter_material_count();
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
-    return prefab_rotor_hex_adapter_material(region, read parameters);
+    return prefab_shaft_hex_adapter_material(region, read parameters);
 }
