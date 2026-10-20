@@ -1,7 +1,8 @@
 record ShaftPipeBay {
     radius: f32;
     core: f32;
-    spacing: f32;
+    low: f32;
+    high: f32;
     station: u32;
     seed: u32;
     spindle_feeds: bool;
@@ -25,9 +26,8 @@ fn shaft_pipe_position(angle: f32, radius: f32, height: f32) -> Vec3 {
 fn shaft_pipe_layout(bay: ShaftPipeBay, lane: u32) -> ShaftPipeRun {
     var choice: u32 = metal_hash(lane, bay.station, bay.seed);
     var angle: f32 = 1.57079632679f32 * lane as f32 + 0.1308996939f32 * (bay.seed % 48u32) as f32;
-    var clearance: f32 = shaft_service_clearance(bay.spacing);
-    var low: f32 = bay.spacing * bay.station as f32 + clearance;
-    var high: f32 = bay.spacing * (bay.station + 1u32) as f32 - clearance;
+    var low: f32 = bay.low;
+    var high: f32 = bay.high;
     if (choice & 16u32) != 0u32 {
         var swap: f32 = low;
         low = high;
@@ -190,20 +190,19 @@ fn shaft_service_pipes(
 ) -> bool {
     var station: u32 = 1u32;
     while station < count {
+        var spacing: f32 = height / (count + 1u32) as f32;
+        var clearance: f32 = shaft_service_clearance(spacing);
         var bay: ShaftPipeBay = make ShaftPipeBay {
             radius: radius,
             core: core,
-            spacing: height / (count + 1u32) as f32,
+            low: spacing * station as f32 + clearance,
+            high: spacing * (station + 1u32) as f32 - clearance,
             station: station,
             seed: metal_hash(station, 0u32, seed),
             spindle_feeds: spindle_feeds
         };
-        var lane: u32 = 0u32;
-        while lane < 3u32 {
-            if !shaft_pipe_run(mut asset, bay, lane) {
-                return false;
-            }
-            lane = lane + 1u32;
+        if !shaft_service_bay(mut asset, bay) {
+            return false;
         }
         station = station + 1u32;
     }
@@ -237,4 +236,15 @@ fn shaft_pipe_mount(
 
 fn shaft_service_clearance(spacing: f32) -> f32 {
     return -mask_min(-0.75f32, -spacing * 0.22f32);
+}
+
+fn shaft_service_bay(asset: mut RoomAsset, bay: ShaftPipeBay) -> bool {
+    var lane: u32 = 0u32;
+    while lane < 3u32 {
+        if !shaft_pipe_run(mut asset, bay, lane) {
+            return false;
+        }
+        lane = lane + 1u32;
+    }
+    return true;
 }

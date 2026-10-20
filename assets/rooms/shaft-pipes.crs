@@ -1,10 +1,13 @@
 // Fixed pipe shaft with the shared hull, spindle, BOTTOM and TOP SHAFT ports.
-// Thick octagonal pipes connect the spindle to opposite walls at each station.
-// Successive pairs alternate by a right angle, leaving four axial flight lanes.
+// Thick octagonal pipes connect the spindle to the wall.
+// Regular pairs alternate by a right angle, leaving four axial flight lanes.
 // Dark collars mark the spindle and wall joints. Pipe bodies are solid metal.
 // Smaller service pipes stay against the walls between the thick pipe stations.
 // Height, diameter and core-diameter use the shared shaft dimensions, in metres.
-// station-count sets the number of pairs. pipe-seed sets roll and service routes.
+// pipe-pattern: 0 gives regular opposite pairs; 1 gives random one-sided pipes.
+// station-count sets the number of pairs or single pipes for the selected pattern.
+// pipe-seed sets the pipe angles, random heights, and wall service routes.
+// Wall panels and smooth spindle metal have no rotor track bands.
 // Parameters must leave room between the stations for collars and service pipes.
 // Materials: 0 wall, 1 port closures, 2 spindle, 3 thick pipes, 4 service pipes,
 // 5 collars and flanges, 6 leak stains.

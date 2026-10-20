@@ -1,15 +1,30 @@
 fn prefab_shaft_pipes_parameter_count() -> u32 {
-    return shaft_parameter_count();
+    return shaft_parameter_count() + 1u32;
 }
 fn prefab_shaft_pipes_parameter_name(index: u32) -> AssetName {
+    if index == 5u32 {
+        return asset_name("pipe-pattern");
+    }
     return shaft_parameter_name(index);
 }
 fn prefab_shaft_pipes_parameter(index: u32) -> AssetParameter {
+    if index == 5u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 1f32,
+            initial: 0f32,
+            step: 1f32
+        };
+    }
     return shaft_parameter(index);
 }
 fn prefab_shaft_pipes_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !shaft_parameters_valid(read parameters) {
         return false;
+    }
+    var pattern: f32 = asset_value(read parameters, 5u32);
+    if !asset_parameter_valid(prefab_shaft_pipes_parameter(5u32), pattern) || pattern != pattern as u32 as f32 {
+        return error("pipe-pattern must be 0 (regular pairs) or 1 (random single pipes)");
     }
     var height: f32 = asset_value(read parameters, 0u32);
     var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
@@ -23,38 +38,39 @@ fn prefab_shaft_pipes_build(parameters: read AssetValues, asset: mut RoomAsset) 
         return error("shaft needs at least 2 m between the spindle and wall");
     }
     var spacing: f32 = height / (count + 1f32);
-    if shaft_service_clearance(spacing) < core * SHAFT_SPOKE_RADIUS_RATIO * SHAFT_SPOKE_COLLAR_RATIO + 0.4f32 {
+    if spacing < shaft_spoke_minimum_gap(core) {
         return error("shaft stations need more axial space for thick pipes and service runs");
     }
+    var layout: ShaftSpokeLayout = make ShaftSpokeLayout {
+        radius: radius,
+        core: core,
+        height: height,
+        stations: count as u32,
+        seed: seed as u32,
+        random: pattern == 1f32
+    };
     return shaft_room_shell(mut asset, radius, core, height, count as u32) && shaft_spokes(
         mut asset,
-        radius,
-        core,
-        height,
-        count as u32,
-        seed as u32
-    ) && shaft_service_pipes(
-        mut asset,
-        radius,
-        core,
-        height,
-        count as u32,
-        seed as u32,
-        false
-    ) && room_asset_finish(mut asset);
+        layout
+    ) && shaft_spoke_service_pipes(mut asset, layout) && room_asset_finish(mut asset);
 }
 fn prefab_shaft_pipes_material_count() -> u32 {
     return shaft_material_count();
 }
 fn prefab_shaft_pipes_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     if region == 0u32 || region == 2u32 {
-        return shaft_track_material(region, read parameters);
+        var surface: PanelMaterial = shaft_track_material(region, read parameters);
+        surface.band_width = 0f32;
+        surface.panel_height = surface.tile_height;
+        if region == 2u32 {
+            surface.finish = METAL_PLAIN;
+        }
+        return surface;
     }
     var material: PanelMaterial = shaft_surface_material(region);
     if region == 3u32 {
         material.colour = 0xa69b82u32;
-        material.finish = METAL_RIBBED;
-        material.pitch = 0.5f32;
+        material.finish = METAL_PLAIN;
     }
     return material;
 }
