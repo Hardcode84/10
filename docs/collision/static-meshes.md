@@ -81,13 +81,12 @@ Openings can have non-rectangular and concave boundaries. The collider preserves
 the opening triangles and their rim. Ordinary connected rooms in one space use
 matching open boundaries. The expedition tests sweep each seam in both directions.
 
-A collision query does not transfer a body between spaces. W2 must split movement
-at a portal crossing, transfer state, and continue in the destination. It must
-also query destination surfaces while a sphere overlaps the opening. This
-includes the interval before its centre crosses the portal plane. W2 must apply
-the same path to the hook, cable, prediction, and rendering. The collision core
-supplies the space-local surface query for that work; it does not flatten the
-portal graph.
+Gameplay splits movement at a portal crossing, transfers state, and continues
+in the destination. Interval queries test destination surfaces while a sphere
+overlaps an opening, including before its centre crosses the portal plane.
+Hook, cable, prediction, and rendering use the same portal links. See
+[room overlap anchors](kinematic-meshes.md#room-overlap-anchors) and
+[scaled portals](../game/scaling-portals.md) for the shared spatial contract.
 
 ## Checks and measured cost
 

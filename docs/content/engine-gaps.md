@@ -3,177 +3,132 @@
 ## Scope and evidence
 
 This register supports the [parametric asset design](parametric-assets.md).
-It lists open work only. Implemented behaviour and its checks are documented
-in the [component contracts](../README.md#documents). Existing checks cover
-the current scenes, not arbitrary generated assets.
+It lists open work and checks that new features require. Implemented behaviour
+and its checks are documented in the [component contracts](../README.md#documents).
+Each entry states the current contract, the required change, and an acceptance
+check. A passing build alone cannot prove capacity or physical behaviour.
 
-Each entry names the present contract, its effect, the required change, and
-an acceptance check. These are implementation tasks. This document does not
-change engine code.
-
-Use three delivery gates:
-
-- **Asset proof:** required for the first generated assembly and viewer.
-- **Room scale:** required before many detailed instances or room variants.
-- **World feature:** required before a level uses moving structures, transformed
-  gameplay portals, or multiple drum frames.
-
-A gate states when a feature is needed. It is not permission to hide an error
-or silently discard content until that gate.
+Rooms already use local coordinates and explicit identities. Gameplay supports
+translated, rotated, cyclic, and [scaled portals](../game/scaling-portals.md).
+Player and hook motion, overlap contacts, prediction, and rendering use these
+spaces. [Moving mesh contacts and anchors](../collision/kinematic-meshes.md)
+are implemented. These features are no longer open tasks.
 
 ## Physics and spatial state
 
-### P1. Drum frames and forces — world feature
+### P1. Drum frames and forces
 
-[Force evaluation](../../src/game/flight/environment.crs) already includes centrifugal force,
-Coriolis force, and speed-dependent drag. The hook uses the same force function.
-[Drum parameters](../../src/game/flight/environment.crs) are fixed: a Z spin axis, an origin
-750 m along local Y, a 4,000 m density scale, and spin either zero or
-0.0495 rad/s. The expedition uses the stopped state. There is no per-region
+[Force evaluation](../../src/game/flight/environment.crs) includes centrifugal
+force, Coriolis force, and speed-dependent drag. The hook uses the same force
+function. Drum origin, spin axis, atmosphere profile, and the running spin rate
+are fixed in that source. Spin selection is a boolean. There is no per-region
 frame, partial-spin parameter, or time-dependent angular velocity.
 
-**Change:** represent drum origin, axis, angular velocity, and atmosphere as
-region data. Implement frame transfer for linear and angular state. Include
-the Euler acceleration term if angular velocity changes with time. Keep
-constant-spin regions simple; do not add terms they do not require.
+**Change:** before a level uses distinct drum frames, represent origin, axis,
+angular velocity, and atmosphere as region data. Define state transfer between
+frames for player and hook motion. Include Euler acceleration when angular
+velocity changes with time. Keep constant-spin regions simple.
 
-**Check:** stopped, partial, and full spin; a different axis and origin;
-transfers between frames; and equivalent inertial trajectories. Compare
-force and energy behaviour with controlled reference cases.
+**Check:** stopped, partial, and full spin; different axes and origins; frame
+transfers; and equivalent inertial trajectories. Compare force and energy
+behaviour with controlled reference cases.
 
-### P2. Integration and body model — asset proof checks; world feature expansion
+### P2. Integration checks for new force and body requirements
 
-[Simulation](../../src/game/flight/physics.crs) uses velocity-first Euler integration
-with `STEP = 1/120` s. Collision sweeps a straight segment for that step.
-[Orientation](../../src/game/flight/orientation.crs) directly changes the basis from
-commands. There is no angular velocity, inertia, torque, or dynamic rigid-body
-solver. The current drone is a controlled sphere, not a rigid ship hull.
+[Simulation](../../src/game/flight/physics.crs) uses velocity-first Euler
+integration at the fixed timestep defined in
+[flight state](../../src/game/flight/drone.crs). Collision sweeps a straight
+segment for each step. [Orientation](../../src/game/flight/orientation.crs)
+changes the basis from commands. The drone is a controlled sphere. It has no
+angular velocity, inertia, torque, or dynamic rigid-body solver.
 
-**Change:** retain the controlled sphere for the asset proof. Measure error
-with tighter curves, stronger forces, and moving geometry. Add substeps or a
-different integrator when a reference case requires it. Add angular dynamics
-only for a specified game feature; do not change flight controls merely to
-support static asset meshes.
+Moving-mesh queries already account for relative motion over the collision
+interval. Their tests cover translating and rotating surfaces, retained hook
+attachments, and contact and cable energy.
+
+**Change:** when a feature adds stronger forces or tighter trajectories, measure
+integration error against a reference. Add substeps or change the integrator
+only when that measurement requires it. Add angular dynamics only for a specified
+gameplay requirement. No integration defect is established by this entry.
 
 **Check:** timestep convergence, high-speed narrow openings, tether/contact
-interaction, and strong Coriolis curvature. Moving-machine work must include
-relative motion during each collision interval.
-
-### P3. Tether rules and spatial ownership — world feature
-
-[Tether code](../../src/game/flight/tether.crs) constrains a direct segment to one anchor.
-It has no wrapping or obstacle contact. The flying hook has a 120 m range;
-attached reeling is latched and uses a 40 m/s target with collision
-constraints. These are deliberate game rules. The cable now stores its hook
-space and the rigid transform from that space to the player cable frame.
-Crossings preserve unfolded length, velocity, and local mesh attachment.
-[Moving mesh anchors](../collision/kinematic-meshes.md) retain local attachment
-points in their owning collision space.
-
-**Change:** preserve the direct cable rule when different room instances enter
-the expedition. Add persistent room identity to cable save state and residency.
-Do not add rope wrapping as an incidental collision fix.
-
-**Check:** player and hook on opposite sides of a transformed portal, crossing
-in both orders, range calculation, release, and winch energy. Tests must use
-the selected spatial path contract, not a global-coordinate shortcut.
+interaction, and strong Coriolis curvature. Retain the moving-contact checks.
 
 ## World structure and tools
 
-### W2. Gameplay portals — world feature
+### W3. Asset residency and spatial precision
 
-[Game submission](../../src/game/view/scene.crs) now uses the collision link
-table for rendered portal transforms. Drone and hook motion resolve crossings
-before later contacts, transform the remaining motion, and retain cable state.
-The game assembles a seeded graph of distinct local room spaces. It uses
-named connections with random mating rolls and reciprocal links.
+Player and hook state use room-local `f32` coordinates and explicit room
+identities. The cable retains its portal path, scale, frame, and mesh-local
+attachment in [flight state](../../src/game/flight/drone.crs). The game builds
+the complete graph and its assets before play. There is no asset residency
+manager.
 
-Swept-sphere queries include destination geometry before the centre crosses
-when the body overlaps a connection. Contacts and attachments retain their
-room transforms.
+**Change:** define which assets must remain resident for visible portals,
+collision, asynchronous prediction, and active hooks. Keep their identities
+valid until all consumers release them. Measure local-coordinate and composed
+portal-transform error at the required room sizes and traversal depths before
+changing numeric precision. Persistent identities are part of T2.
 
-**Change:** store room identity in saves. Resolve frame velocities under P1.
+**Check:** compare local motion, seams, and hook contacts across long portal
+chains, cycles, and large individual rooms. Test loading and unloading while
+an active cable, prediction task, or portal view refers to an asset. A release
+must wait for CPU and GPU consumers.
 
-**Check:** translated, rotated, and cyclic spaces that cannot share one global
-embedding. Test crossings near edges, multiple crossings within a step, and
-camera/player/hook agreement without a one-frame discontinuity.
+### T1. Viewer inspection, asset caching, and source reload
 
-### W3. World precision and residency — room scale and world feature
+The [recipe viewer](parametric-assets.md#implemented-recipe-workflow) compiles
+a selected Crust file, edits dimensions, replaces generated bundles, and
+captures interior, exterior, and spawn views. It has free flight, portal names,
+and waypoint overlays. Source edits require the root command again. There is
+no generated-asset cache or source reload within the running process.
 
-Positions are `f32` vectors in a single course-scale frame. The game has no
-asset residency manager or large-world coordinate representation. The full
-megastructure in the game design cannot be validated by tests on five rooms.
-
-**Change:** use local space coordinates and explicit space/instance identity.
-Define which connected regions and assets must remain resident for visible
-portals, collision, prediction, and active hooks. Choose world-coordinate
-precision from measured error at the required scale.
-
-**Check:** place equivalent geometry at distant design locations and compare
-local motion, seams, and hook contacts. Test region loading while an active
-cable or portal view still refers to its assets.
-
-### T1. Viewer and build lifecycle — asset proof
-
-The [recipe viewer](parametric-assets.md#implemented-recipe-workflow) compiles a selected Crust file, edits its
-dimensions, replaces generated room bundles, and captures interior, exterior,
-and spawn views. It does not yet provide asset caching, source reload within
-the running process or the diagnostic overlays in the
-asset design. Source edits require the root command again.
-
-**Change:** complete the inspection and source-reload controls in the asset design. Keep asset
-ownership, parameter metadata, compilation, GPU upload, and inspection modes
-separate. Validate public inputs and report failed rebuilds explicitly.
+**Change:** add explicit source rebuild and reload, with asset cache identity
+as specified in the asset design. Complete wireframe, surface-role, UV,
+full-bright mask, collision, and clearance inspection modes. Keep asset
+ownership, parameter metadata, compilation, GPU upload, and inspection separate.
+Validate public inputs and report failed rebuilds explicitly.
 
 **Check:** parameter edits, source errors, successful replacement, camera
-preservation, repeated reload, headless captures, and clean shutdown. Use the
-same bundle in the game, including its collision data.
+preservation, repeated reload, cache invalidation, headless captures, and clean
+shutdown. Use the same generated bundle and collision data in the game.
 
-### T2. Platform and reproducibility — asset proof baseline, then platform delivery
+### T2. Platform delivery, persistence, and content identity
 
-[Bootstrap support](../build/bootstrap.md) is Linux x86-64. The root uses Linux linker
-flags and native host operations. Vulkan portability alone does not provide a
-Windows build. [Recordings](../../src/game/host/recording.crs) use host binary words and
-version 12; saves use level version 3. Neither format identifies a generated
-recipe, parameter set, style revision, or content hash.
+The game builds for Linux and the browser.
+[Crust supports native Windows](../../crust/docs/windows.md), but the game's
+[build root](../../tools/build/common.crs) still uses Linux library names and
+host operations. A native Windows game build requires platform-specific
+providers behind the shared interfaces.
 
-**Change:** keep the current source bootstrap. Implement required Windows
-host/platform operations in Crust and explicit native providers. Extend asset,
-save, and replay identity before editable content can alter a recorded world.
-Define byte order and numeric reproducibility for cross-platform replay.
+[Recordings](../../src/game/host/recording.crs) store host binary words. Their
+header checks the format, scene mode, seed, and complexity. It has no generated
+recipe identity, parameter set, style revision, or content fingerprint. The
+game has no save/load implementation.
+
+**Change:** port the game build and native providers to Windows. Define content
+identity for assets and recordings. For save/load, preserve room and instance
+identity, body scale, cable portal path, and local attachment state. Restore
+references only after their assets are available. Define byte order and numeric
+reproducibility for cross-platform replay. Frame transfer remains under P1;
+asset lifetime remains under W3.
 
 **Check:** rebuild assets from source, reject mismatched content explicitly,
-and replay the same supported build. Test Windows and NVIDIA on actual target
+and replay the supported build. Save and restore an attached hook across
+transformed and scaled portals. Test Windows and NVIDIA on actual target
 systems before declaring support. Keep simulation equality separate from
 cross-driver image equality.
-
-## Preserved contracts
-
-The following are not defects to remove during this work:
-
-- Vulkan compute rendering and SPIR-V supplied by Crust.
-- Crust ownership checks and source bootstrap through a root file.
-- Full-bright texels that do not emit light.
-- Palette-derived colour and the screen-space dither style.
-- A spherical controlled drone unless a new body model is explicitly designed.
-- Direct cable passage through obstacles, range-limited launch, and latched reel.
-- Closed room boundaries and explicit failure on render work overflow.
-
-The production proof still requires W1's assembly contract and T1. Other entries
-name the feature or scale test that must trigger their implementation. Each
-closure needs its listed evidence; a green build alone does not close a
-capacity or physical-behaviour gap.
 
 ## Rendering storage
 
 ### R9. Shadow storage follows total triangle capacity
 
-Projection and clipping now use a bounded batch shared across views. They no
-longer reserve the full triangle count for every view. The remaining shadow
-allocation uses `84 * ((L + 1) * G + L * I)` bytes, where `G` is total reserved
-triangle capacity, `L` is light capacity, and `I` is instance capacity.
-Retained room geometry can increase this allocation even when only a small
-number of dynamic triangles need a rebuilt shadow tree.
+Projection and clipping use a bounded batch shared across views. The
+[shadow allocation](../../src/render/host/geometry.crs) uses
+`84 * ((L + 1) * G + L * I)` bytes, where `G` is total reserved triangle
+capacity, `L` is light capacity, and `I` is instance capacity. Retained room
+geometry can increase this allocation even when only a small number of dynamic
+triangles need a rebuilt shadow tree.
 
 **Change:** separate dynamic shadow-tree capacity from total scene capacity.
 Keep retained mesh trees shared. Size per-light instance and dynamic work from
@@ -182,3 +137,16 @@ their own capacities. Preserve allocation errors and all shadow exclusions.
 **Check:** compare complete images with retained and dynamic blockers. Grow the
 retained scene with a fixed dynamic workload and measure shadow allocation.
 Exercise small device storage limits and explicit allocation rejection.
+
+## Preserved contracts
+
+The following are intentional contracts:
+
+- Vulkan compute with SPIR-V on desktop; WebGPU compute with WGSL in the browser.
+- Shared Crust host and device sources, ownership checks, and source bootstrap.
+- Full-bright texels that do not emit light.
+- Palette-derived colour and the screen-space dither style.
+- A spherical controlled drone unless a new body model is explicitly designed.
+- Direct cable passage through obstacles, range-limited launch, and latched reel.
+- Room-local coordinates, explicit portal paths, and rational body scale.
+- Closed room boundaries and explicit failure on render work overflow.

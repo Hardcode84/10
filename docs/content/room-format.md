@@ -143,8 +143,8 @@ Positions and displacements use the full similarity map. Unit directions use
 its rotational part. The exact profile ratio defines the scale.
 Body velocity transfer must also account for the selected drum frames. Renderer,
 player, hook, tether, prediction, and saved references must use the same link.
-The [gameplay portal task](engine-gaps.md#w2-gameplay-portals--world-feature)
-defines the remaining runtime work.
+The remaining work is [drum-frame transfer](engine-gaps.md#p1-drum-frames-and-forces)
+and [persistent content identity](engine-gaps.md#t2-platform-delivery-persistence-and-content-identity).
 
 A global embedding is optional. An ordinary assembly can place both openings
 at the same world plane, with opposite normals and non-overlapping interiors.
