@@ -210,6 +210,10 @@ the route and variants.
 Unused ports connect to closed stopper prefabs. All rooms use the same
 ambient light, plus the player and hook lights.
 
+`levels/shaft-1km.crs` connects the radial starting room through a short hex
+tunnel and adapter to a continuous girder shaft. Its source defines the section
+count and total shaft length. An adapter with closed stoppers caps the far end.
+
 `levels/cylinder.crs` connects two ends of one cylindrical room. The small
 opening doubles player size; the large opening halves it. The hook uses
 the same portal transforms. All runtime options follow the level filename.

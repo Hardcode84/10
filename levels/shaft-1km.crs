@@ -1,0 +1,139 @@
+// Run: crust demo.crs levels/shaft-1km.crs
+// SIDE-0 of the radial starting room leads through a 1 m hex tunnel and shaft
+// adapter to twenty 50 m girder sections. The shaft itself is exactly 1 km long.
+// An adapter with closed hex stoppers caps the far end. All unused exits close.
+// Each section has its own local space; connections preserve the shaft axis.
+const LONG_SHAFT_METRES: f32 = 1000f32;
+const LONG_SHAFT_SECTIONS: u32 = 20u32;
+fn long_shaft_section_height() -> f32 {
+    return LONG_SHAFT_METRES / LONG_SHAFT_SECTIONS as f32;
+}
+fn demo_room_build(
+    asset: mut RoomAsset,
+    collision: mut CollisionScene,
+    mesh: mut Mesh,
+    graph: mut RoomGraph
+) -> bool {
+    var values: AssetValues = asset_values_new();
+    if !course_values(PREFAB_RADIAL_START, 0u32, mut values) || !room_build(
+        read values,
+        mut asset
+    ) {
+        return false;
+    }
+    // Hub, tunnel, two adapters, shaft sections, and one stopper per unused hex exit.
+    var capacity: u32 = LONG_SHAFT_SECTIONS + 4u32 + asset_port_count(read asset.ports) - 1u32 + 2u32 + 3u32;
+    if !graph_allocate(mut graph, capacity, 0u32) {
+        return false;
+    }
+    var exit_port: RoomPort = asset_port(read asset.ports, 0u32);
+    var forward: Vec3 = unit_vector(sub(exit_port.position, asset.spawn.position));
+    var right: Vec3 = unit_vector(cross(vec(0f32, 1f32, 0f32), forward));
+    asset.spawn.basis = make Basis {
+        right: right,
+        up: cross(forward, right),
+        forward: forward
+    };
+    var builder: CollisionBuilder = collision_builder_new();
+    if !course_room_mesh(
+        read asset,
+        mut graph,
+        mut builder,
+        mut mesh,
+        PREFAB_RADIAL_START,
+        0u32
+    ) {
+        return false;
+    }
+    var cursor: CourseCursor = make CourseCursor {
+        room: 0u32
+    };
+    if !course_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("SIDE-0"),
+        PREFAB_HEX_TUNNEL,
+        asset_name("ENTRY"),
+        0u32
+    ) || !course_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("EXIT"),
+        PREFAB_SHAFT_HEX_ADAPTER,
+        asset_name("BOTTOM-0"),
+        0u32
+    ) || !long_shaft_sections(mut graph, mut builder, mut mesh, mut cursor) || !course_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("TOP"),
+        PREFAB_SHAFT_HEX_ADAPTER,
+        asset_name("SHAFT"),
+        0u32
+    ) || !course_close_ports(mut graph, mut builder, mut mesh) || !course_links(
+        read graph,
+        mut builder
+    ) {
+        return false;
+    }
+    return collision_finish(move builder, mut collision);
+}
+fn long_shaft_sections(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut CourseCursor
+) -> bool {
+    var values: AssetValues = asset_values_new();
+    if !course_values(PREFAB_SHAFT_GIRDERS, 0u32, mut values) {
+        return false;
+    }
+    asset_value_set(mut values, 0u32, long_shaft_section_height());
+    var section: RoomAsset = room_asset_new();
+    if !course_build(PREFAB_SHAFT_GIRDERS, read values, mut section) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < LONG_SHAFT_SECTIONS {
+        var exit_name: AssetName = asset_name("TOP");
+        if i == 0u32 {
+            exit_name = asset_name("SHAFT");
+        }
+        var first: u32 = course_socket(read graph, cursor.room, exit_name);
+        cursor.room = graph_count(read graph);
+        if !course_room_mesh(
+            read section,
+            mut graph,
+            mut builder,
+            mut mesh,
+            PREFAB_SHAFT_GIRDERS,
+            0u32
+        ) {
+            return false;
+        }
+        var second: u32 = course_socket(read graph, cursor.room, asset_name("BOTTOM"));
+        course_pair(mut graph, first, second);
+        i = i + 1u32;
+    }
+    return true;
+}
+fn demo_room_ambient() -> Vec3 {
+    return vec(0.08f32, 0.09f32, 0.11f32);
+}
+fn demo_palette(input: mut FrameInput) -> bool {
+    var configuration: AssetValues = asset_values_new();
+    if !course_material_defaults(mut configuration) {
+        return false;
+    }
+    asset_value_set(
+        mut configuration,
+        course_material_parameter_offset(PREFAB_SHAFT_GIRDERS),
+        long_shaft_section_height()
+    );
+    return course_palette_configured(mut input, read configuration);
+}

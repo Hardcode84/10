@@ -7,12 +7,12 @@ fn course_material_base(kind: u32) -> u32 {
     }
     return offset;
 }
-fn course_material_words() -> u32 {
+fn course_material_words(configuration: read AssetValues) -> u32 {
     var words: u32 = 0u32;
     var kind: u32 = 0u32;
     while kind < PREFAB_COUNT {
         var values: AssetValues = asset_values_new();
-        if !course_values(kind, 0u32, mut values) {
+        if !course_material_values(kind, read configuration, mut values) {
             return 0u32;
         }
         var region: u32 = 0u32;
@@ -26,7 +26,15 @@ fn course_material_words() -> u32 {
     return words;
 }
 fn course_palette(input: mut FrameInput) -> bool {
-    var words: u32 = course_material_words();
+    var configuration: AssetValues = asset_values_new();
+    return course_material_defaults(mut configuration) && course_palette_configured(
+        mut input,
+        read configuration
+    );
+}
+// Configure each prefab's material dimensions to match its generated geometry.
+fn course_palette_configured(input: mut FrameInput, configuration: read AssetValues) -> bool {
+    var words: u32 = course_material_words(read configuration);
     if words == 0u32 {
         return false;
     }
@@ -39,7 +47,7 @@ fn course_palette(input: mut FrameInput) -> bool {
     var kind: u32 = 0u32;
     while kind < PREFAB_COUNT {
         var values: AssetValues = asset_values_new();
-        if !course_values(kind, 0u32, mut values) {
+        if !course_material_values(kind, read configuration, mut values) {
             return false;
         }
         var region: u32 = 0u32;
@@ -58,6 +66,57 @@ fn course_palette(input: mut FrameInput) -> bool {
             region = region + 1u32;
         }
         kind = kind + 1u32;
+    }
+    return true;
+}
+
+fn course_material_parameter_offset(kind: u32) -> u32 {
+    var offset: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < kind {
+        offset = offset + course_parameter_count(i);
+        i = i + 1u32;
+    }
+    return offset;
+}
+// One contiguous parameter block per prefab, in catalogue order.
+fn course_material_defaults(configuration: mut AssetValues) -> bool {
+    if !asset_values_allocate(
+        mut configuration,
+        course_material_parameter_offset(PREFAB_COUNT)
+    ) {
+        return false;
+    }
+    var kind: u32 = 0u32;
+    var offset: u32 = 0u32;
+    while kind < PREFAB_COUNT {
+        var i: u32 = 0u32;
+        while i < course_parameter_count(kind) {
+            asset_value_set(
+                mut configuration,
+                offset + i,
+                course_parameter(kind, i).initial
+            );
+            i = i + 1u32;
+        }
+        offset = offset + i;
+        kind = kind + 1u32;
+    }
+    return true;
+}
+fn course_material_values(
+    kind: u32,
+    configuration: read AssetValues,
+    values: mut AssetValues
+) -> bool {
+    if !asset_values_allocate(mut values, course_parameter_count(kind)) {
+        return false;
+    }
+    var offset: u32 = course_material_parameter_offset(kind);
+    var i: u32 = 0u32;
+    while i < course_parameter_count(kind) {
+        asset_value_set(mut values, i, asset_value(read configuration, offset + i));
+        i = i + 1u32;
     }
     return true;
 }
