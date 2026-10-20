@@ -1,0 +1,27 @@
+// Shaft with vertical wall-to-spindle trusses and full BOTTOM/TOP SHAFT ports.
+// Each girder has two square rails and a two-sided cutout zigzag web.
+// Rails have solid collision. The web has visual holes and cutout shadows;
+// it has no collision surface. Opposite pairs alternate by a right angle.
+// Shared shaft parameters set dimensions, station-count, and pipe-seed.
+// girder-depth is the full height; rail-width is each square rail's side, in metres.
+// Wall service pipes remain clear of the girder stations.
+// Materials: 0 wall, 1 closures, 2 spindle, 3 rails, 4 service pipes,
+// 5 flanges, 6 leak stains, 7 cutout web. Rails and braces have ochre paint.
+fn room_parameter_count() -> u32 {
+    return prefab_shaft_girders_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_shaft_girders_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_shaft_girders_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_shaft_girders_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return prefab_shaft_girders_material_count();
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_shaft_girders_material(region, read parameters);
+}

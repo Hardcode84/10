@@ -1,0 +1,15 @@
+// One rising and one falling brace per tile. Zero texels leave the web open.
+// Border is the brace width in metres; tile dimensions are positive.
+fn metal_girder_web_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var half: f32 = material.tile_metres * 0.5f32;
+    var across: f32 = mask_min(x, material.tile_metres - x);
+    var slope: f32 = material.tile_height / half;
+    var distance: f32 = absf(y - across * slope) / sqrtf(1f32 + slope * slope);
+    if distance > material.border * 0.5f32 {
+        return 0u32;
+    }
+    if distance > material.border * 0.5f32 - 0.02f32 {
+        return 100u32;
+    }
+    return (180f32 + metal_grain(material, x, y)) as u32;
+}

@@ -10,6 +10,7 @@ const METAL_HEX_COVER: u32 = 8u32;
 const METAL_PLAIN: u32 = 9u32;
 const METAL_LEAK: u32 = 10u32;
 const METAL_PIPE_COATED: u32 = 11u32;
+const METAL_GIRDER_WEB: u32 = 12u32;
 // Dimensions are in metres. Repeated plate height must divide the tile height
 // remaining after band_width is removed.
 // Sizes and texel density must be positive.
@@ -22,7 +23,7 @@ const METAL_PIPE_COATED: u32 = 11u32;
 // Marking is 0 (none), 1 (paired strips), 2 (split bars), or 3 (inset studs).
 // Finish is METAL_PLATE, METAL_TREAD, METAL_RIBBED, METAL_HEX, METAL_DOOR,
 // METAL_PIPE, METAL_TRAPEZOID, METAL_HEX_COVER, METAL_PLAIN, METAL_LEAK,
-// METAL_PIPE_COATED, or METAL_OCT_DOOR. METAL_LEAK uses a 1.1 by 1.8 m cutout tile.
+// METAL_GIRDER_WEB, METAL_PIPE_COATED, or METAL_OCT_DOOR. METAL_LEAK uses a 1.1 by 1.8 m cutout tile.
 // METAL_PIPE_COATED uses exposed length, circumference, and face width as
 // tile_metres, tile_height, and panel_height. Exposed length is at least 0.5 m.
 // Colours use packed RGB.
@@ -117,6 +118,9 @@ fn metal_fastener(material: PanelMaterial, x: f32, y: f32) -> u32 {
 }
 // Returns a palette index for a point within one repeated panel tile.
 fn panel_base_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
+    if material.finish == METAL_GIRDER_WEB {
+        return metal_girder_web_sample(material, x, tile_y);
+    }
     if material.finish == METAL_PIPE_COATED {
         return metal_pipe_coated_sample(material, x, tile_y);
     }

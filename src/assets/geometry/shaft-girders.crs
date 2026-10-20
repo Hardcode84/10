@@ -1,0 +1,182 @@
+record ShaftGirderLayout {
+    wall: f32;
+    core: f32;
+    height: f32;
+    stations: u32;
+    seed: u32;
+    depth: f32;
+    rail: f32;
+}
+fn shaft_girder_web_period(layout: ShaftGirderLayout) -> f32 {
+    var span: f32 = (layout.wall - layout.core) * cosf(3.14159265359f32 / 48f32);
+    var pairs: u32 = panel_pixel_extent(
+        span / (2f32 * (layout.depth - layout.rail)),
+        1u32
+    );
+    return span / pairs as f32;
+}
+fn shaft_girder_rail(
+    asset: mut RoomAsset,
+    first: u32,
+    count: u32,
+    origin: Vec3,
+    basis: Basis
+) -> bool {
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: asset_name("girder-rail"),
+            first: first,
+            count: count,
+            origin: origin,
+            basis: basis
+        }
+    );
+}
+// The web is a two-sided cutout surface. Only the square rails have collision.
+fn shaft_girder_web(
+    asset: mut RoomAsset,
+    layout: ShaftGirderLayout,
+    origin: Vec3,
+    basis: Basis
+) -> bool {
+    var inner: f32 = layout.core * cosf(3.14159265359f32 / 48f32);
+    var outer: f32 = layout.wall * cosf(3.14159265359f32 / 48f32);
+    var half: f32 = (layout.depth - layout.rail) * 0.5f32;
+    var start: f32 = inner - layout.rail;
+    var end: f32 = outer + layout.rail;
+    var period: f32 = shaft_girder_web_period(layout);
+    var vertices: [MeshVertex; 4] = make [MeshVertex; 4] {
+        make MeshVertex {
+            x: start,
+            y: -half,
+            z: 0f32,
+            u: (start - inner) / period,
+            v: 0f32
+        },
+        make MeshVertex {
+            x: end,
+            y: -half,
+            z: 0f32,
+            u: (end - inner) / period,
+            v: 0f32
+        },
+        make MeshVertex {
+            x: end,
+            y: half,
+            z: 0f32,
+            u: (end - inner) / period,
+            v: 1f32
+        },
+        make MeshVertex {
+            x: start,
+            y: half,
+            z: 0f32,
+            u: (start - inner) / period,
+            v: 1f32
+        }
+    };
+    var corner: u32 = 1u32;
+    while corner < 3u32 {
+        var primitive: MeshTriangle = make MeshTriangle {
+            vertices: make [MeshVertex; 3] {
+                vertices[0usize],
+                vertices[corner as usize],
+                vertices[(corner + 1u32) as usize]
+            },
+            material: SHAFT_GIRDER_WEB_REGION,
+            portal: 0u32,
+            flags: 1u32
+        };
+        if !mesh_append(mut asset.decals, placed_triangle(primitive, origin, basis)) {
+            return false;
+        }
+        corner = corner + 1u32;
+    }
+    return true;
+}
+fn shaft_girder_station(
+    asset: mut RoomAsset,
+    layout: ShaftGirderLayout,
+    first: u32,
+    count: u32,
+    station: u32
+) -> bool {
+    var height: f32 = layout.height * (station + 1u32) as f32 / (layout.stations + 1u32) as f32;
+    var angle: f32 = (layout.seed % 12u32) as f32 * 0.1308996939f32 + (station % 2u32) as f32 * 1.57079632679f32;
+    var side: u32 = 0u32;
+    while side < 2u32 {
+        var radial: Vec3 = shaft_pipe_normal(angle + side as f32 * 3.14159265359f32);
+        var basis: Basis = make Basis {
+            right: radial,
+            up: vec(0f32, 1f32, 0f32),
+            forward: cross(radial, vec(0f32, 1f32, 0f32))
+        };
+        var half: f32 = (layout.depth - layout.rail) * 0.5f32;
+        if !shaft_girder_rail(
+            mut asset,
+            first,
+            count,
+            vec(0f32, height - half, 0f32),
+            basis
+        ) || !shaft_girder_rail(
+            mut asset,
+            first,
+            count,
+            vec(0f32, height + half, 0f32),
+            basis
+        ) || !shaft_girder_web(mut asset, layout, vec(0f32, height, 0f32), basis) {
+            return false;
+        }
+        side = side + 1u32;
+    }
+    return true;
+}
+fn shaft_girders(asset: mut RoomAsset, layout: ShaftGirderLayout) -> bool {
+    var inner: f32 = layout.core * cosf(3.14159265359f32 / 48f32) - layout.rail;
+    var outer: f32 = layout.wall * cosf(3.14159265359f32 / 48f32) + layout.rail;
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !solid_box(
+        mut asset.geometry,
+        vec(outer - inner, layout.rail, layout.rail),
+        SHAFT_GIRDER_RAIL_REGION,
+        vec((inner + outer) * 0.5f32, 0f32, 0f32),
+        identity_basis(),
+        2f32
+    ) {
+        return false;
+    }
+    var count: u32 = mesh_triangle_count(read asset.geometry) - first;
+    var station: u32 = 0u32;
+    while station < layout.stations {
+        if !shaft_girder_station(mut asset, layout, first, count, station) {
+            return false;
+        }
+        station = station + 1u32;
+    }
+    return true;
+}
+fn shaft_girder_service_pipes(asset: mut RoomAsset, layout: ShaftGirderLayout) -> bool {
+    var spacing: f32 = layout.height / (layout.stations + 1u32) as f32;
+    var clearance: f32 = -mask_min(
+        -shaft_service_clearance(spacing),
+        -(layout.depth * 0.5f32 + 0.4f32)
+    );
+    var station: u32 = 1u32;
+    while station < layout.stations {
+        var bay: ShaftPipeBay = make ShaftPipeBay {
+            radius: layout.wall,
+            core: layout.core,
+            low: spacing * station as f32 + clearance,
+            high: spacing * (station + 1u32) as f32 - clearance,
+            station: station,
+            seed: metal_hash(station, 0u32, layout.seed),
+            spindle_feeds: false
+        };
+        if !shaft_service_bay(mut asset, bay) {
+            return false;
+        }
+        station = station + 1u32;
+    }
+    return true;
+}
