@@ -545,7 +545,8 @@ must fit the task reservation. Every dispatched group reaches required barriers,
 including inactive edge lanes.
 
 Let `P`, `V`, `T`, `B`, `I`, and `L` denote portal, view, task, projection-source,
-instance, and light capacities. Significant storage terms are:
+instance, and light capacities. Let `D` be the dynamic shadow triangle capacity,
+with a minimum of one for an empty root. Significant storage terms are:
 
 | Range | Size |
 | --- | --- |
@@ -560,8 +561,15 @@ instance, and light capacities. Significant storage terms are:
 | Instance visibility and culling planes | `I * V` words and `48 * I * V` floats. |
 | Retained source pool | 176 bytes per triangle for vertices, metadata, spatial index, and tree. |
 | Instance records | 92 bytes each. |
-| Shadow storage | `84 * ((L + 1) * G + L * I)` bytes for reserved triangle capacity `G`. |
+| Shadow storage | `84 * L * (D + I)` bytes. Retained triangle capacity does not enter this term. |
 | Timestamp queries | `4 + 2 * (crossing_limit + 1)` entries. |
+
+Dynamic shadow capacity grows from the submitted dynamic triangle count during
+frame preparation. Retained instances use shared mesh trees and a separate
+per-light instance tree. Growth preserves frame inputs and marks retained data
+for upload. Rejected growth preserves the live allocation and rejects the frame.
+Steady frames reuse storage. `crust tests.crs render 11` checks full images,
+retained-scene growth at fixed dynamic capacity, and allocation rejection.
 
 These are selected terms, not a complete allocation formula. Header, overlay,
 image, hit, cursor, and prefix ranges add storage. Use the layout

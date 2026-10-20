@@ -44,6 +44,7 @@ record RenderState {
     words: u32;
     floats: u32;
     triangle_capacity: u32;
+    shadow_capacity: u32;
     projection_capacity: u32;
     batch_triangle_limit: u32;
     projection_maximum: u32;
@@ -74,6 +75,9 @@ record RenderState {
 opaque;
 
 fn buffer_create(v: *RenderState) -> bool {
+    if v -> shadow_capacity == 0u32 {
+        v -> shadow_capacity = 1u32;
+    }
     if v -> projection_capacity == 0u32 {
         v -> projection_capacity = 1u32;
     }

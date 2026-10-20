@@ -195,7 +195,7 @@ fn light_visible(
     var dx: f32 = lx - ox;
     var dy: f32 = ly - oy;
     var dz: f32 = lz - oz;
-    var dynamic_root: u32 = (light + 1u32) * words_load(SCENE_CAPACITY) * 2u32;
+    var dynamic_root: u32 = light * words_load(SHADOW_CAPACITY) * 2u32;
     if !shadow_visible(dynamic_root, receiver, 0u32, ox, oy, oz, dx, dy, dz) {
         return false;
     }

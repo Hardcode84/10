@@ -134,7 +134,9 @@ fn lighting_test(base: *Options) -> bool {
     puts(
         "light occlusion, cutouts, space isolation, retained blockers, distant lights and 17 lights passed"
     );
-    return lighting_capacity_reuse(mut renderer) && lighting_large_mesh_test(base);
+    return lighting_dynamic_growth(mut renderer) && lighting_capacity_reuse(mut renderer) && lighting_large_mesh_test(
+        base
+    );
 }
 fn lighting_model_switch(renderer: mut Renderer) -> bool {
     var frame: u32 = 0u32;
@@ -496,12 +498,15 @@ fn lighting_large_mesh_test(base: *Options) -> bool {
     }
     {
         var input: FrameInput = renderer_inputs(mut renderer);
-        if !lighting_large_mesh_input(mut input) {
+        if !lighting_large_mesh_input(mut input, 0u32) {
             return false;
         }
     }
     // The second frame exercises reuse of the large retained tree.
     if !lighting_cache_check(mut renderer, true) || !lighting_cache_check(mut renderer, false) {
+        return false;
+    }
+    if !shadow_storage_growth(mut renderer) {
         return false;
     }
     puts("large retained shadow mesh passed (8 x 8 image)");
@@ -575,4 +580,73 @@ fn lighting_mixed_rooms(renderer: mut Renderer) -> bool {
         frame = frame + 1u32;
     }
     return true;
+}
+
+fn shadow_storage_growth(renderer: mut Renderer) -> bool {
+    var elements: u64 = shadow_elements(&renderer.state);
+    var dynamic: u32 = renderer.state.shadow_capacity;
+    var previous: u32 = renderer.state.triangle_capacity;
+    var pixels: [u32; 64] = uninit;
+    memcpy(
+        &pixels as *u8,
+        renderer.state.mapped + PIXELS as isize * 4isize,
+        sizeof([u32; 64])
+    );
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !lighting_large_mesh_input(mut input, 49152u32) {
+            return false;
+        }
+    }
+    if !lighting_cache_check(mut renderer, true) || !lighting_cache_check(mut renderer, false) {
+        return false;
+    }
+    if shadow_elements(&renderer.state) != elements || renderer.state.shadow_capacity != dynamic || renderer.state.triangle_capacity <= previous {
+        return error("retained scene growth changed dynamic shadow storage");
+    }
+    var i: usize = 0usize;
+    while i < 64usize {
+        if pixels[i] != (renderer.state.mapped as *u32)[PIXELS as usize + i] {
+            return error("retained shadow growth changed the complete image");
+        }
+        i = i + 1usize;
+    }
+    puts("shadow bytes / total triangle capacity:");
+    print_number((elements * 84u64) as i64);
+    print_number(renderer.state.triangle_capacity as i64);
+    return shadow_storage_rejection(mut renderer);
+}
+fn shadow_storage_rejection(renderer: mut Renderer) -> bool {
+    var v: *RenderState = &renderer.state;
+    var before: *u8 = v -> mapped;
+    var capacity: u32 = v -> shadow_capacity;
+    var limit: u32 = v -> storage_limit;
+    var words: u32 = v -> words;
+    if v -> floats > words {
+        words = v -> floats;
+    }
+    v -> storage_limit = (words + 1u32) * 4u32;
+    var required: u32 = v -> storage_limit / 48u32 + capacity + 1u32;
+    var accepted: bool = shadow_reserve(v, required);
+    v -> storage_limit = limit;
+    if accepted || v -> mapped != before || v -> shadow_capacity != capacity {
+        return error("rejected shadow growth changed active storage");
+    }
+    return lighting_cache_check(mut renderer, false);
+}
+
+fn lighting_dynamic_growth(renderer: mut Renderer) -> bool {
+    var previous: u32 = renderer.state.shadow_capacity;
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_scene(mut input, 1u32);
+        while input_word(read input, 3usize) <= previous {
+            lighting_shadow_tree(mut input);
+        }
+    }
+    if !lighting_cache_check(mut renderer, true) || renderer.state.shadow_capacity <= previous {
+        return error("dynamic shadow capacity did not grow with submitted geometry");
+    }
+    var allocation: *u8 = renderer.state.mapped;
+    return lighting_cache_check(mut renderer, false) && renderer.state.mapped == allocation;
 }

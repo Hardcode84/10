@@ -7,7 +7,7 @@ fn shadow_test_vertex(input: read FrameInput, p: usize) -> MeshVertex {
         v: input_float(read input, p + 4usize)
     };
 }
-fn shadow_test_mesh(input: read FrameInput, mesh: mut Mesh) -> bool {
+fn shadow_test_mesh(input: read FrameInput, mesh: mut Mesh, extra: u32) -> bool {
     var i: u32 = 0u32;
     while i < input_word(read input, 3usize) {
         var p: usize = (GEOMETRY + i * 15u32) as usize;
@@ -30,7 +30,7 @@ fn shadow_test_mesh(input: read FrameInput, mesh: mut Mesh) -> bool {
         i = i + 1u32;
     }
     i = 0u32;
-    while i < 49152u32 {
+    while i < extra {
         var x: f32 = 40f32 + (i % 256u32) as f32 * 0.125f32;
         var y: f32 = (i / 256u32) as f32 * 0.125f32;
         if !mesh_append(
@@ -70,7 +70,7 @@ fn shadow_test_mesh(input: read FrameInput, mesh: mut Mesh) -> bool {
     }
     return true;
 }
-fn lighting_large_mesh_input(input: mut FrameInput) -> bool {
+fn lighting_large_mesh_input(input: mut FrameInput, extra: u32) -> bool {
     input_clear_meshes(mut input);
     lighting_scene(mut input, 1u32);
     if !input_lights(mut input, 1u32) {
@@ -78,7 +78,7 @@ fn lighting_large_mesh_input(input: mut FrameInput) -> bool {
     }
     tour_light(mut input, 0u32, 0u32, 4f32, 0f32, 3f32, 100f32, 2f32, 2f32, 2f32);
     var mesh: Mesh = mesh_new();
-    if !shadow_test_mesh(read input, mut mesh) {
+    if !shadow_test_mesh(read input, mut mesh, extra) {
         return false;
     }
     input_frame(mut input);

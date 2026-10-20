@@ -119,7 +119,7 @@ fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
     if w[INSTANCE_COUNT as usize] == 0u32 {
         w[DYNAMIC_COUNT as usize] = w[3usize];
     }
-    if !projection_admit(v, extra) {
+    if !shadow_reserve(v, w[DYNAMIC_COUNT as usize]) || !projection_admit(v, extra) {
         return false;
     }
     lighting_index(v);

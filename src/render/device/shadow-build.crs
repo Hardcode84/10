@@ -14,7 +14,7 @@ fn shadow_seed(first: u32, begin: u32, end: u32, shift: u32, space: u32, filter:
     return count;
 }
 fn shadow_dynamic_seed(light: u32) -> unit {
-    var first: u32 = (light + 1u32) * words_load(SCENE_CAPACITY);
+    var first: u32 = light * words_load(SHADOW_CAPACITY);
     var space: u32 = words_load(words_load(LIGHT_SPACE) + light);
     var count: u32 = shadow_seed(
         first,

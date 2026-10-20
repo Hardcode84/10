@@ -119,25 +119,6 @@ transformed and scaled portals. Test Windows and NVIDIA on actual target
 systems before declaring support. Keep simulation equality separate from
 cross-driver image equality.
 
-## Rendering storage
-
-### R9. Shadow storage follows total triangle capacity
-
-Projection and clipping use a bounded batch shared across views. The
-[shadow allocation](../../src/render/host/geometry.crs) uses
-`84 * ((L + 1) * G + L * I)` bytes, where `G` is total reserved triangle
-capacity, `L` is light capacity, and `I` is instance capacity. Retained room
-geometry can increase this allocation even when only a small number of dynamic
-triangles need a rebuilt shadow tree.
-
-**Change:** separate dynamic shadow-tree capacity from total scene capacity.
-Keep retained mesh trees shared. Size per-light instance and dynamic work from
-their own capacities. Preserve allocation errors and all shadow exclusions.
-
-**Check:** compare complete images with retained and dynamic blockers. Grow the
-retained scene with a fixed dynamic workload and measure shadow allocation.
-Exercise small device storage limits and explicit allocation rejection.
-
 ## Preserved contracts
 
 The following are intentional contracts:

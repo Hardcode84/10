@@ -5,7 +5,7 @@ fn shadow_light_level(index: u32, dynamic: u32) -> unit {
     if floats_load(words_load(LIGHT_DATA) + light * 8u32 + 7u32) != LIGHT_ROOM as f32 {
         return;
     }
-    var first: u32 = (light + 1u32) * words_load(SCENE_CAPACITY);
+    var first: u32 = light * words_load(SHADOW_CAPACITY);
     var top: bool = local >= dynamic;
     if top {
         local = local - dynamic;
