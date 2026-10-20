@@ -164,7 +164,7 @@ fn shaft_girders(asset: mut RoomAsset, layout: ShaftGirderLayout) -> bool {
 fn shaft_girder_service_pipes(asset: mut RoomAsset, layout: ShaftGirderLayout) -> bool {
     var spacing: f32 = layout.height / (layout.stations + 1u32) as f32;
     var clearance: f32 = -mask_min(
-        -shaft_service_clearance(spacing),
+        -SHAFT_SERVICE_CLEARANCE,
         -(layout.depth * 0.5f32 + 0.4f32)
     );
     var station: u32 = 1u32;

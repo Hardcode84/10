@@ -1,3 +1,4 @@
+const SHAFT_SERVICE_CLEARANCE: f32 = 0.75f32;
 record ShaftPipeBay {
     radius: f32;
     core: f32;
@@ -41,7 +42,7 @@ fn shaft_pipe_layout(bay: ShaftPipeBay, lane: u32) -> ShaftPipeRun {
     }
     return make ShaftPipeRun {
         start_angle: angle,
-        end_angle: angle + (2u32 + choice % 3u32) as f32 * 0.1308996939f32,
+        end_angle: angle + (6u32 + choice % 4u32) as f32 * 0.1308996939f32,
         low: low,
         high: high,
         radius: bay.radius * cosf(0.06544984695f32) - 0.6f32,
@@ -191,7 +192,7 @@ fn shaft_service_pipes(
     var station: u32 = 1u32;
     while station < count {
         var spacing: f32 = height / (count + 1u32) as f32;
-        var clearance: f32 = shaft_service_clearance(spacing);
+        var clearance: f32 = SHAFT_SERVICE_CLEARANCE;
         var bay: ShaftPipeBay = make ShaftPipeBay {
             radius: radius,
             core: core,
@@ -232,10 +233,6 @@ fn shaft_pipe_mount(
         leak_region: 6u32
     };
     return cylinder_pipe_mount(mut asset, mount);
-}
-
-fn shaft_service_clearance(spacing: f32) -> f32 {
-    return -mask_min(-0.75f32, -spacing * 0.22f32);
 }
 
 fn shaft_service_bay(asset: mut RoomAsset, bay: ShaftPipeBay) -> bool {
