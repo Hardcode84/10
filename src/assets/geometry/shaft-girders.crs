@@ -125,7 +125,12 @@ fn shaft_girder_station(
             count,
             vec(0f32, height + half, 0f32),
             basis
-        ) || !shaft_girder_web(mut asset, layout, vec(0f32, height, 0f32), basis) {
+        ) || !shaft_girder_web(mut asset, layout, vec(0f32, height, 0f32), basis) || !shaft_girder_mounts(
+            mut asset,
+            layout,
+            height,
+            radial
+        ) {
             return false;
         }
         side = side + 1u32;
@@ -177,6 +182,48 @@ fn shaft_girder_service_pipes(asset: mut RoomAsset, layout: ShaftGirderLayout) -
             return false;
         }
         station = station + 1u32;
+    }
+    return true;
+}
+
+fn shaft_girder_pad_size(layout: ShaftGirderLayout) -> f32 {
+    return mask_min(layout.rail + 0.4f32, layout.core * 1.5f32);
+}
+fn shaft_girder_mounts(
+    asset: mut RoomAsset,
+    layout: ShaftGirderLayout,
+    height: f32,
+    radial: Vec3
+) -> bool {
+    var pad: f32 = shaft_girder_pad_size(layout);
+    var joint: u32 = 0u32;
+    while joint < 4u32 {
+        var radius: f32 = layout.core;
+        if joint >= 2u32 {
+            radius = layout.wall;
+        }
+        var y: f32 = height + ((joint % 2u32) as f32 - 0.5f32) * (layout.depth - layout.rail);
+        var centre: Vec3 = add(
+            scale(radial, radius * cosf(3.14159265359f32 / 48f32)),
+            vec(0f32, y, 0f32)
+        );
+        if !cylinder_surface_patch(
+            mut asset.decals,
+            make CylinderPatch {
+                centre: centre,
+                outward: radial,
+                radius: radius,
+                inner: joint >= 2u32,
+                width: pad,
+                height: pad,
+                lower: 0f32,
+                upper: layout.height,
+                region: SHAFT_GIRDER_MOUNT_REGION
+            }
+        ) {
+            return false;
+        }
+        joint = joint + 1u32;
     }
     return true;
 }

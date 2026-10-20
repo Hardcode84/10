@@ -1,0 +1,107 @@
+// Rectangle projected onto a 48-sided Y-axis cylinder. Outward is a facet normal.
+// Width and height are in metres. Lower and upper clip the vertical extent.
+// Horizontal coverage clips at 0.8 times the cylinder radius on either side.
+// Texture coordinates retain the full rectangle when clipping occurs.
+record CylinderPatch {
+    centre: Vec3;
+    outward: Vec3;
+    radius: f32;
+    inner: bool;
+    width: f32;
+    height: f32;
+    lower: f32;
+    upper: f32;
+    region: u32;
+}
+fn cylinder_patch_vertex(p: Vec3, patch: CylinderPatch, height: f32) -> MeshVertex {
+    var tangent: Vec3 = cross(patch.outward, vec(0f32, 1f32, 0f32));
+    var horizontal: f32 = dot(sub(p, patch.centre), tangent);
+    var offset: f32 = 0.003f32;
+    if patch.inner {
+        offset = -offset;
+    }
+    var placed: Vec3 = scale(p, 1f32 + offset / (patch.radius * cosf(0.06544984695f32)));
+    return make MeshVertex {
+        x: placed.x,
+        y: height,
+        z: placed.z,
+        u: horizontal / patch.width + 0.5f32,
+        v: (height - patch.centre.y) / patch.height + 0.5f32
+    };
+}
+fn cylinder_patch_triangle(
+    mesh: mut Mesh,
+    a: MeshVertex,
+    b: MeshVertex,
+    c: MeshVertex,
+    region: u32
+) -> bool {
+    return mesh_append(
+        mut mesh,
+        make MeshTriangle {
+            vertices: make [MeshVertex; 3] {
+                a,
+                b,
+                c
+            },
+            material: region,
+            portal: 0u32,
+            flags: 5u32
+        }
+    );
+}
+fn cylinder_patch_face(mesh: mut Mesh, patch: CylinderPatch, i: u32) -> bool {
+    var angle: f32 = (i as f32 + 0.5f32) * 0.1308996939f32;
+    var a: Vec3 = vec(patch.radius * cosf(angle), 0f32, patch.radius * sinf(angle));
+    var b: Vec3 = vec(
+        patch.radius * cosf(angle + 0.1308996939f32),
+        0f32,
+        patch.radius * sinf(angle + 0.1308996939f32)
+    );
+    if dot(add(a, b), patch.outward) <= 0f32 {
+        return true;
+    }
+    var tangent: Vec3 = cross(patch.outward, vec(0f32, 1f32, 0f32));
+    var x: f32 = dot(sub(a, patch.centre), tangent);
+    var dx: f32 = dot(sub(b, a), tangent);
+    if dx == 0f32 {
+        return true;
+    }
+    var width: f32 = mask_min(patch.width * 0.5f32, patch.radius * 0.8f32);
+    var low: f32 = (-width - x) / dx;
+    var high: f32 = (width - x) / dx;
+    var start: f32 = clamp(mask_min(low, high), 0f32, 1f32);
+    var end: f32 = clamp(-mask_min(-low, -high), 0f32, 1f32);
+    if end <= start {
+        return true;
+    }
+    var p: Vec3 = add(a, scale(sub(b, a), start));
+    var q: Vec3 = add(a, scale(sub(b, a), end));
+    var bottom: f32 = -mask_min(
+        -patch.lower,
+        -(patch.centre.y - patch.height * 0.5f32)
+    );
+    var top: f32 = mask_min(patch.upper, patch.centre.y + patch.height * 0.5f32);
+    var pa: MeshVertex = cylinder_patch_vertex(p, patch, bottom);
+    var pb: MeshVertex = cylinder_patch_vertex(q, patch, bottom);
+    var pc: MeshVertex = cylinder_patch_vertex(q, patch, top);
+    var pd: MeshVertex = cylinder_patch_vertex(p, patch, top);
+    return cylinder_patch_triangle(mut mesh, pa, pb, pc, patch.region) && cylinder_patch_triangle(
+        mut mesh,
+        pa,
+        pc,
+        pd,
+        patch.region
+    );
+}
+
+fn cylinder_surface_patch(mesh: mut Mesh, patch: CylinderPatch) -> bool {
+    var face: u32 = 0u32;
+    while face < 48u32 {
+        if !cylinder_patch_face(mut mesh, patch, face) {
+            return false;
+        }
+        face = face + 1u32;
+    }
+    return true;
+}

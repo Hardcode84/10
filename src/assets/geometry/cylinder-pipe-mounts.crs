@@ -33,99 +33,24 @@ fn cylinder_mount_flange(asset: mut RoomAsset, mount: CylinderMount, axis: Vec3)
     }
     return pipe_graph_part(mut asset, first);
 }
-fn cylinder_leak_vertex(p: Vec3, mount: CylinderMount, height: f32) -> MeshVertex {
-    var tangent: Vec3 = cross(mount.outward, vec(0f32, 1f32, 0f32));
-    var horizontal: f32 = dot(sub(p, mount.centre), tangent);
-    var offset: f32 = 0.003f32;
-    if mount.inner {
-        offset = -offset;
-    }
-    var placed: Vec3 = scale(p, 1f32 + offset / (mount.radius * cosf(0.06544984695f32)));
-    return make MeshVertex {
-        x: placed.x,
-        y: height,
-        z: placed.z,
-        u: (horizontal / mount.scale + 0.55f32) / 1.1f32,
-        v: ((height - mount.centre.y) / mount.scale + 0.4f32) / 1.8f32
-    };
-}
-fn cylinder_leak_triangle(
-    mesh: mut Mesh,
-    a: MeshVertex,
-    b: MeshVertex,
-    c: MeshVertex,
-    region: u32
-) -> bool {
-    return mesh_append(
-        mut mesh,
-        make MeshTriangle {
-            vertices: make [MeshVertex; 3] {
-                a,
-                b,
-                c
-            },
-            material: region,
-            portal: 0u32,
-            flags: 5u32
-        }
-    );
-}
-fn cylinder_leak_face(mesh: mut Mesh, mount: CylinderMount, i: u32) -> bool {
-    var angle: f32 = (i as f32 + 0.5f32) * 0.1308996939f32;
-    var a: Vec3 = vec(mount.radius * cosf(angle), 0f32, mount.radius * sinf(angle));
-    var b: Vec3 = vec(
-        mount.radius * cosf(angle + 0.1308996939f32),
-        0f32,
-        mount.radius * sinf(angle + 0.1308996939f32)
-    );
-    if dot(add(a, b), mount.outward) <= 0f32 {
-        return true;
-    }
-    var tangent: Vec3 = cross(mount.outward, vec(0f32, 1f32, 0f32));
-    var x: f32 = dot(sub(a, mount.centre), tangent);
-    var dx: f32 = dot(sub(b, a), tangent);
-    if dx == 0f32 {
-        return true;
-    }
-    var width: f32 = mask_min(0.55f32 * mount.scale, mount.radius * 0.8f32);
-    var low: f32 = (-width - x) / dx;
-    var high: f32 = (width - x) / dx;
-    var start: f32 = clamp(mask_min(low, high), 0f32, 1f32);
-    var end: f32 = clamp(-mask_min(-low, -high), 0f32, 1f32);
-    if end <= start {
-        return true;
-    }
-    var p: Vec3 = add(a, scale(sub(b, a), start));
-    var q: Vec3 = add(a, scale(sub(b, a), end));
-    var bottom: f32 = -mask_min(
-        -mount.lower,
-        -(mount.centre.y - 0.4f32 * mount.scale)
-    );
-    var top: f32 = mask_min(mount.upper, mount.centre.y + 1.4f32 * mount.scale);
-    var pa: MeshVertex = cylinder_leak_vertex(p, mount, bottom);
-    var pb: MeshVertex = cylinder_leak_vertex(q, mount, bottom);
-    var pc: MeshVertex = cylinder_leak_vertex(q, mount, top);
-    var pd: MeshVertex = cylinder_leak_vertex(p, mount, top);
-    return cylinder_leak_triangle(mut mesh, pa, pb, pc, mount.leak_region) && cylinder_leak_triangle(
-        mut mesh,
-        pa,
-        pc,
-        pd,
-        mount.leak_region
-    );
-}
 // Adds a pipe flange and +Y leak marks on a 48-sided Y-axis cylinder.
 // Outward is a facet normal. Lower and upper bound the cylindrical surface.
 fn cylinder_pipe_mount(asset: mut RoomAsset, mount: CylinderMount) -> bool {
     if !cylinder_mount_flange(mut asset, mount, mount.outward) {
         return false;
     }
-    var i: u32 = 0u32;
-    while i < 48u32 {
-        if !cylinder_leak_face(mut asset.decals, mount, i) {
-            return false;
+    return cylinder_surface_patch(
+        mut asset.decals,
+        make CylinderPatch {
+            centre: add(mount.centre, vec(0f32, 0.5f32 * mount.scale, 0f32)),
+            outward: mount.outward,
+            radius: mount.radius,
+            inner: mount.inner,
+            width: 1.1f32 * mount.scale,
+            height: 1.8f32 * mount.scale,
+            lower: mount.lower,
+            upper: mount.upper,
+            region: mount.leak_region
         }
-        i = i + 1u32;
-    }
-    return true;
+    );
 }

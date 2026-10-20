@@ -6,7 +6,8 @@
 // girder-depth is the full height; rail-width is each square rail's side, in metres.
 // Wall service pipes remain clear of the girder stations.
 // Materials: 0 wall, 1 closures, 2 spindle, 3 rails, 4 service pipes,
-// 5 flanges, 6 leak stains, 7 cutout web. Rails and braces have ochre paint.
+// 5 flanges, 6 leak stains, 7 cutout web, 8 rail mounting pads.
+// Rails and braces have dark ochre paint. Bolted pads follow the wall and spindle.
 fn room_parameter_count() -> u32 {
     return prefab_shaft_girders_parameter_count();
 }

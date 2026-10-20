@@ -13,3 +13,44 @@ fn metal_girder_web_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     }
     return (180f32 + metal_grain(material, x, y)) as u32;
 }
+
+// Square mounting plate with clipped corners, perimeter seam, bolts and a rail socket.
+// Top_width is the square rail width; the tile is square and larger than the rail.
+fn metal_girder_mount_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var edge_x: f32 = mask_min(x, material.tile_metres - x);
+    var edge_y: f32 = mask_min(y, material.tile_height - y);
+    var edge: f32 = mask_min(edge_x, edge_y);
+    if edge_x + edge_y < material.tile_metres * 0.12f32 {
+        return 0u32;
+    }
+    if edge < 0.018f32 {
+        return 28u32;
+    }
+    if edge < 0.035f32 {
+        return 188u32;
+    }
+    var bolt_x: f32 = edge_x - (material.tile_metres - material.top_width) * 0.25f32;
+    var bolt_y: f32 = edge_y - (material.tile_height - material.top_width) * 0.25f32;
+    var bolt: f32 = sqrtf(bolt_x * bolt_x + bolt_y * bolt_y);
+    var bolt_radius: f32 = mask_min(
+        0.034f32,
+        (material.tile_metres - material.top_width) * 0.1f32
+    );
+    if bolt < bolt_radius * 0.5f32 {
+        return 45u32;
+    }
+    if bolt < bolt_radius {
+        return 233u32;
+    }
+    var socket: f32 = -mask_min(
+        -absf(x - material.tile_metres * 0.5f32),
+        -absf(y - material.tile_height * 0.5f32)
+    );
+    if socket < material.top_width * 0.5f32 + 0.025f32 {
+        return 22u32;
+    }
+    if socket < material.top_width * 0.5f32 + 0.05f32 {
+        return 98u32;
+    }
+    return (145f32 + metal_grain(material, x, y)) as u32;
+}

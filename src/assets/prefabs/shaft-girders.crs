@@ -1,5 +1,6 @@
 const SHAFT_GIRDER_RAIL_REGION: u32 = 3u32;
 const SHAFT_GIRDER_WEB_REGION: u32 = 7u32;
+const SHAFT_GIRDER_MOUNT_REGION: u32 = 8u32;
 fn prefab_shaft_girders_parameter_count() -> u32 {
     return 7u32;
 }
@@ -79,7 +80,7 @@ fn prefab_shaft_girders_build(parameters: read AssetValues, asset: mut RoomAsset
     );
 }
 fn prefab_shaft_girders_material_count() -> u32 {
-    return 8u32;
+    return 9u32;
 }
 fn prefab_shaft_girders_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     var material: PanelMaterial = shaft_surface_material(region);
@@ -92,7 +93,7 @@ fn prefab_shaft_girders_material(region: u32, parameters: read AssetValues) -> P
         }
     }
     if region == SHAFT_GIRDER_RAIL_REGION || region == SHAFT_GIRDER_WEB_REGION {
-        material.colour = 0x3693c8u32;
+        material.colour = 0x295779u32;
         material.finish = METAL_PLAIN;
     }
     if region == SHAFT_GIRDER_WEB_REGION {
@@ -101,6 +102,15 @@ fn prefab_shaft_girders_material(region: u32, parameters: read AssetValues) -> P
         material.tile_metres = shaft_girder_web_period(layout);
         material.tile_height = layout.depth - layout.rail;
         material.border = layout.rail * 0.6f32;
+    }
+    if region == SHAFT_GIRDER_MOUNT_REGION {
+        var size: f32 = shaft_girder_pad_size(shaft_girder_layout(read parameters));
+        material.finish = METAL_GIRDER_MOUNT;
+        material.colour = 0x454b50u32;
+        material.accent = 0x929ba4u32;
+        material.tile_metres = size;
+        material.tile_height = size;
+        material.top_width = asset_value(read parameters, 6u32);
     }
     return material;
 }
