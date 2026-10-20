@@ -1,0 +1,60 @@
+fn prefab_shaft_pipes_parameter_count() -> u32 {
+    return shaft_parameter_count();
+}
+fn prefab_shaft_pipes_parameter_name(index: u32) -> AssetName {
+    return shaft_parameter_name(index);
+}
+fn prefab_shaft_pipes_parameter(index: u32) -> AssetParameter {
+    return shaft_parameter(index);
+}
+fn prefab_shaft_pipes_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !shaft_parameters_valid(read parameters) {
+        return false;
+    }
+    var height: f32 = asset_value(read parameters, 0u32);
+    var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
+    var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
+    var count: f32 = asset_value(read parameters, 3u32);
+    var seed: f32 = asset_value(read parameters, 4u32);
+    if count != count as u32 as f32 || seed != seed as u32 as f32 {
+        return error("station-count and pipe-seed must be integers");
+    }
+    if radius * cosf(3.14159265359f32 / 48f32) - core < 2f32 {
+        return error("shaft needs at least 2 m between the spindle and wall");
+    }
+    var spacing: f32 = height / (count + 1f32);
+    if shaft_service_clearance(spacing) < core * SHAFT_SPOKE_RADIUS_RATIO * SHAFT_SPOKE_COLLAR_RATIO + 0.4f32 {
+        return error("shaft stations need more axial space for thick pipes and service runs");
+    }
+    return shaft_room_shell(mut asset, radius, core, height, count as u32) && shaft_spokes(
+        mut asset,
+        radius,
+        core,
+        height,
+        count as u32,
+        seed as u32
+    ) && shaft_service_pipes(
+        mut asset,
+        radius,
+        core,
+        height,
+        count as u32,
+        seed as u32,
+        false
+    ) && room_asset_finish(mut asset);
+}
+fn prefab_shaft_pipes_material_count() -> u32 {
+    return shaft_material_count();
+}
+fn prefab_shaft_pipes_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 0u32 || region == 2u32 {
+        return shaft_track_material(region, read parameters);
+    }
+    var material: PanelMaterial = shaft_surface_material(region);
+    if region == 3u32 {
+        material.colour = 0xa69b82u32;
+        material.finish = METAL_RIBBED;
+        material.pitch = 0.5f32;
+    }
+    return material;
+}

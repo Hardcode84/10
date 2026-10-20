@@ -1,5 +1,5 @@
 fn asset_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 61] = make [*u8; 61] {
+    var files: [*u8; 64] = make [*u8; 64] {
         "src/assets/prefabs/oct-stopper.crs",
         "src/assets/prefabs/hex-t-junction.crs",
         "src/assets/prefabs/shaft-hub.crs",
@@ -10,6 +10,9 @@ fn asset_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/prefabs/hex-ending.crs",
         "src/assets/prefabs/oct-x-junction.crs",
         "src/assets/prefabs/shaft-rotor.crs",
+        "src/assets/prefabs/shaft-common.crs",
+        "src/assets/prefabs/shaft-pipes.crs",
+        "src/assets/geometry/shaft-spokes.crs",
         "src/assets/prefabs/shaft-hex-adapter.crs",
         "src/assets/prefabs/hex-stopper-open.crs",
         "src/assets/prefabs/oct-t-junction.crs",
@@ -27,7 +30,7 @@ fn asset_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/tube-sweep.crs",
         "src/assets/geometry/shaft-hub-pipes.crs",
         "src/assets/geometry/shaft-hub-structure.crs",
-        "src/assets/geometry/shaft-rotor-pipes.crs",
+        "src/assets/geometry/shaft-service-pipes.crs",
         "src/assets/geometry/cylinder-pipe-mounts.crs",
         "src/assets/geometry/shaft-hub-routing.crs",
         "src/assets/geometry/shaft-hub-lanes.crs",
@@ -63,7 +66,7 @@ fn asset_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/materials/metal.crs"
     };
     var i: usize = 0usize;
-    while i < 61usize {
+    while i < 64usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

@@ -4,6 +4,7 @@ record ShaftPipeBay {
     spacing: f32;
     station: u32;
     seed: u32;
+    spindle_feeds: bool;
 }
 record ShaftPipeRun {
     start_angle: f32;
@@ -24,7 +25,7 @@ fn shaft_pipe_position(angle: f32, radius: f32, height: f32) -> Vec3 {
 fn shaft_pipe_layout(bay: ShaftPipeBay, lane: u32) -> ShaftPipeRun {
     var choice: u32 = metal_hash(lane, bay.station, bay.seed);
     var angle: f32 = 1.57079632679f32 * lane as f32 + 0.1308996939f32 * (bay.seed % 48u32) as f32;
-    var clearance: f32 = -mask_min(-0.75f32, -bay.spacing * 0.22f32);
+    var clearance: f32 = shaft_service_clearance(bay.spacing);
     var low: f32 = bay.spacing * bay.station as f32 + clearance;
     var high: f32 = bay.spacing * (bay.station + 1u32) as f32 - clearance;
     if (choice & 16u32) != 0u32 {
@@ -34,7 +35,7 @@ fn shaft_pipe_layout(bay: ShaftPipeBay, lane: u32) -> ShaftPipeRun {
     }
     var target: f32 = bay.radius;
     var inner: bool = true;
-    if lane == (bay.seed >> 8u32) % 3u32 {
+    if bay.spindle_feeds && lane == (bay.seed >> 8u32) % 3u32 {
         target = bay.core;
         inner = false;
     }
@@ -177,14 +178,15 @@ fn shaft_pipe_run(asset: mut RoomAsset, bay: ShaftPipeBay, lane: u32) -> bool {
     ) && shaft_pipe_mesh(mut asset, run);
 }
 // Adds separate wall runs inside the gaps between rotor stations.
-// Spacing is at least 3 m. The pipe surfaces stay clear of each rotor plane.
+// Spacing is at least 3 m. The pipe surfaces stay clear of each station plane.
 fn shaft_service_pipes(
     asset: mut RoomAsset,
     radius: f32,
     core: f32,
     height: f32,
     count: u32,
-    seed: u32
+    seed: u32,
+    spindle_feeds: bool
 ) -> bool {
     var station: u32 = 1u32;
     while station < count {
@@ -193,7 +195,8 @@ fn shaft_service_pipes(
             core: core,
             spacing: height / (count + 1u32) as f32,
             station: station,
-            seed: metal_hash(station, 0u32, seed)
+            seed: metal_hash(station, 0u32, seed),
+            spindle_feeds: spindle_feeds
         };
         var lane: u32 = 0u32;
         while lane < 3u32 {
@@ -230,4 +233,8 @@ fn shaft_pipe_mount(
         leak_region: 6u32
     };
     return cylinder_pipe_mount(mut asset, mount);
+}
+
+fn shaft_service_clearance(spacing: f32) -> f32 {
+    return -mask_min(-0.75f32, -spacing * 0.22f32);
 }

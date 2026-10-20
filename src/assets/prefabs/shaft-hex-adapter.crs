@@ -5,7 +5,7 @@ fn prefab_shaft_hex_adapter_parameter_name(index: u32) -> AssetName {
     if index == 0u32 {
         return asset_name("depth");
     }
-    return prefab_shaft_rotor_parameter_name(index);
+    return shaft_parameter_name(index);
 }
 fn prefab_shaft_hex_adapter_parameter(index: u32) -> AssetParameter {
     if index == 0u32 {
@@ -16,7 +16,7 @@ fn prefab_shaft_hex_adapter_parameter(index: u32) -> AssetParameter {
             step: 0.5f32
         };
     }
-    return prefab_shaft_rotor_parameter(index);
+    return shaft_parameter(index);
 }
 fn prefab_shaft_hex_adapter_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     var i: u32 = 0u32;
@@ -32,7 +32,7 @@ fn prefab_shaft_hex_adapter_build(parameters: read AssetValues, asset: mut RoomA
     var depth: f32 = asset_value(read parameters, 0u32);
     var diameter: f32 = asset_value(read parameters, 1u32);
     var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
-    if !prefab_shaft_rotor_cylinder(mut asset.hull, diameter * 0.5f32, depth, 0u32, 1u32) || !prefab_shaft_rotor_core(
+    if !shaft_cylinder(mut asset.hull, diameter * 0.5f32, depth, 0u32, 1u32) || !shaft_core(
         mut asset,
         core,
         depth,
@@ -59,7 +59,7 @@ fn prefab_shaft_hex_adapter_material_count() -> u32 {
     return 5u32;
 }
 fn prefab_shaft_hex_adapter_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
-    var material: PanelMaterial = prefab_shaft_rotor_surface_material(region);
+    var material: PanelMaterial = shaft_surface_material(region);
     if region == 2u32 {
         material.tile_metres = asset_value(read parameters, 2u32) * sinf(3.14159265359f32 / 48f32);
         material.tile_height = 2f32;

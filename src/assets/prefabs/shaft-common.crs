@@ -1,0 +1,213 @@
+fn shaft_parameter_count() -> u32 {
+    return 5u32;
+}
+fn shaft_parameter_name(index: u32) -> AssetName {
+    if index == 4u32 {
+        return asset_name("pipe-seed");
+    }
+    if index == 0u32 {
+        return asset_name("height");
+    }
+    if index == 1u32 {
+        return asset_name("diameter");
+    }
+    if index == 2u32 {
+        return asset_name("core-diameter");
+    }
+    return asset_name("station-count");
+}
+fn shaft_parameter(index: u32) -> AssetParameter {
+    if index == 4u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 65535f32,
+            initial: 1f32,
+            step: 1f32
+        };
+    }
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 12f32,
+            maximum: 200f32,
+            initial: 60f32,
+            step: 2f32
+        };
+    }
+    if index == 1u32 {
+        return make AssetParameter {
+            minimum: 16f32,
+            maximum: 40f32,
+            initial: 16f32,
+            step: 1f32
+        };
+    }
+    if index == 2u32 {
+        return make AssetParameter {
+            minimum: 1f32,
+            maximum: 12f32,
+            initial: 3f32,
+            step: 0.5f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 1f32,
+        maximum: 24f32,
+        initial: 6f32,
+        step: 1f32
+    };
+}
+fn shaft_cylinder(hull: mut AssetHull, radius: f32, height: f32, side: u32, cap: u32) -> bool {
+    var profile: RegularProfile = shaft_profile(16f32).shape;
+    if !loft_allocate(mut hull, profile, 2u32) {
+        return false;
+    }
+    loft_ring(mut hull, profile, 0u32, 0f32, radius);
+    loft_ring(mut hull, profile, 1u32, height, radius);
+    loft_span(mut hull, profile, 0u32, side);
+    loft_caps(mut hull, profile, 2u32, cap, cap);
+    return true;
+}
+fn shaft_core(asset: mut RoomAsset, radius: f32, height: f32, spacing: f32) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    if !shaft_cylinder(mut hull, radius, height, 2u32, 2u32) {
+        return false;
+    }
+    shaft_track_surfaces(mut hull, asset.tile_metres, spacing);
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !hull_solid_mesh(
+        read hull,
+        mut asset.geometry,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        asset.tile_metres
+    ) {
+        return false;
+    }
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: asset_name("spindle"),
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: vec(0f32, 0f32, 0f32),
+            basis: identity_basis()
+        }
+    );
+}
+fn shaft_track_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = shaft_surface_material(region);
+    var diameter: f32 = asset_value(read parameters, 1u32);
+    if region == 2u32 {
+        diameter = asset_value(read parameters, 2u32);
+    }
+    material.tile_metres = diameter * sinf(3.14159265359f32 / 48f32);
+    material.tile_height = asset_value(read parameters, 0u32) / (
+        asset_value(read parameters, 3u32) + 1f32
+    );
+    material.band_width = 0.8f32;
+    var span: f32 = material.tile_height - material.band_width;
+    var rows: u32 = panel_pixel_extent(span, 1u32);
+    material.panel_height = span / rows as f32;
+    material.pitch = span / panel_pixel_extent(span, 2u32) as f32;
+    return material;
+}
+fn shaft_track_surfaces(hull: mut AssetHull, tile: f32, spacing: f32) -> unit {
+    var i: u32 = 0u32;
+    while i < 48u32 {
+        var face: HullFace = asset_face(read hull, i);
+        var origin: Vec3 = hull_corner(read hull, face, 0u32);
+        var edge: Vec3 = sub(hull_corner(read hull, face, 3u32), origin);
+        var surface: SurfaceFrame = make SurfaceFrame {
+            origin: origin,
+            right: scale(edge, tile / dot(edge, edge)),
+            up: vec(0f32, tile / spacing, 0f32),
+            normal: hull_frame(read hull, face).normal
+        };
+        asset_surface_set(mut hull, i, surface);
+        i = i + 1u32;
+    }
+}
+fn shaft_surface_material(region: u32) -> PanelMaterial {
+    if region == 5u32 || region == 6u32 {
+        return service_mount_material(region == 6u32);
+    }
+    if region == 4u32 {
+        return service_pipe_material();
+    }
+    var material: PanelMaterial = hex_tunnel_material();
+    material.colour = 0x807769u32;
+    material.panel_height = 2f32;
+    if region == 1u32 {
+        return hex_bulkhead_material();
+    }
+    if region == 2u32 {
+        material.colour = 0x9c9687u32;
+        material.finish = METAL_RIBBED;
+        material.pitch = 0.5f32;
+    }
+    return material;
+}
+fn shaft_parameters_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < shaft_parameter_count() {
+        if !asset_parameter_valid(shaft_parameter(i), asset_value(read values, i)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn shaft_room_shell(
+    asset: mut RoomAsset,
+    radius: f32,
+    core: f32,
+    height: f32,
+    count: u32
+) -> bool {
+    var diameter: f32 = radius * 2f32;
+    if !shaft_cylinder(mut asset.hull, radius, height, 0u32, 1u32) || !shaft_core(
+        mut asset,
+        core,
+        height,
+        height / (count + 1u32) as f32
+    ) {
+        return false;
+    }
+    shaft_track_surfaces(
+        mut asset.hull,
+        asset.tile_metres,
+        height / (count + 1u32) as f32
+    );
+    asset.spawn = make AssetSpawn {
+        position: vec((radius + core) * 0.5f32, 1.5f32, 0f32),
+        basis: make Basis {
+            right: vec(1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, -1f32),
+            forward: vec(0f32, 1f32, 0f32)
+        }
+    };
+    return asset_port_append(
+        mut asset.ports,
+        make RoomPort {
+            id: asset_name("BOTTOM"),
+            profile: shaft_profile(diameter),
+            face: 48u32,
+            position: vec(0f32, 0f32, 0f32),
+            basis: cube_face_basis(2u32)
+        }
+    ) && asset_port_append(
+        mut asset.ports,
+        make RoomPort {
+            id: asset_name("TOP"),
+            profile: shaft_profile(diameter),
+            face: 49u32,
+            position: vec(0f32, height, 0f32),
+            basis: cube_face_basis(3u32)
+        }
+    );
+}
+
+fn shaft_material_count() -> u32 {
+    return 7u32;
+}
