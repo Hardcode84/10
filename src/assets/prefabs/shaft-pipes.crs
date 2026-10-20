@@ -70,7 +70,11 @@ fn prefab_shaft_pipes_material(region: u32, parameters: read AssetValues) -> Pan
     var material: PanelMaterial = shaft_surface_material(region);
     if region == 3u32 {
         material.colour = 0xa69b82u32;
-        material.finish = METAL_PLAIN;
+        material.finish = METAL_PIPE_PANEL;
+        material.tile_metres = SHAFT_SPOKE_PANEL_LENGTH;
+        material.tile_height = shaft_spoke_face_width(
+            asset_value(read parameters, 2u32) * 0.5f32 * SHAFT_SPOKE_RADIUS_RATIO
+        );
     }
     return material;
 }

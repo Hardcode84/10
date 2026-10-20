@@ -1,3 +1,4 @@
+const SHAFT_SPOKE_PANEL_LENGTH: f32 = 3f32;
 const SHAFT_SPOKE_RADIUS_RATIO: f32 = 0.8f32;
 const SHAFT_SPOKE_COLLAR_RATIO: f32 = 1.15f32;
 record ShaftSpokeLayout {
@@ -60,6 +61,7 @@ fn shaft_spoke_collars(
     asset: mut RoomAsset,
     first: u32,
     count: u32,
+    core_first: u32,
     radius: f32,
     core: f32,
     height: f32,
@@ -77,11 +79,18 @@ fn shaft_spoke_collars(
         if side >= 2u32 {
             distance = radius * cosf(3.14159265359f32 / 48f32);
         }
+        var collar_first: u32 = core_first;
+        if side >= 2u32 {
+            collar_first = first;
+        }
+        var placement: Basis = basis;
         if side % 2u32 == 0u32 {
             distance = -distance;
+            placement.up = scale(placement.up, -1f32);
+            placement.forward = scale(placement.forward, -1f32);
         }
         var origin: Vec3 = add(vec(0f32, height, 0f32), scale(basis.up, distance));
-        if !shaft_spoke_instance(mut asset, first, count, origin, basis) {
+        if !shaft_spoke_instance(mut asset, collar_first, count, origin, placement) {
             return false;
         }
         side = side + step;
@@ -96,28 +105,22 @@ fn shaft_spokes(asset: mut RoomAsset, layout: ShaftSpokeLayout) -> bool {
         pipe_length = extent;
     }
     var first: u32 = mesh_triangle_count(read asset.geometry);
-    if !solid_cylinder(mut asset.geometry, 8u32, pipe_radius, pipe_length, 3u32, 2f32) {
+    if !shaft_spoke_pipe_mesh(mut asset.geometry, pipe_radius, pipe_length) {
         return false;
     }
     var count: u32 = mesh_triangle_count(read asset.geometry) - first;
     var collar: u32 = mesh_triangle_count(read asset.geometry);
-    if !bevelled_body(
-        mut asset.geometry,
-        make BevelledBody {
-            sides: 8u32,
-            radius: pipe_radius * SHAFT_SPOKE_COLLAR_RATIO,
-            length: pipe_radius * 0.4f32,
-            bevel: pipe_radius * 0.05f32,
-            shell: 5u32,
-            rear: 5u32,
-            front: 5u32
-        },
-        vec(0f32, 0f32, 0f32),
-        identity_basis()
-    ) {
+    if !shaft_spoke_collar_mesh(mut asset.geometry, pipe_radius, 0f32) {
         return false;
     }
     var collar_count: u32 = mesh_triangle_count(read asset.geometry) - collar;
+    var core_collar: u32 = mesh_triangle_count(read asset.geometry);
+    var collar_radius: f32 = pipe_radius * SHAFT_SPOKE_COLLAR_RATIO;
+    var apothem: f32 = layout.core * cosf(3.14159265359f32 / 48f32);
+    var inset: f32 = apothem - sqrtf(apothem * apothem - collar_radius * collar_radius);
+    if !shaft_spoke_collar_mesh(mut asset.geometry, pipe_radius, inset) {
+        return false;
+    }
     var station: u32 = 0u32;
     while station < layout.stations {
         var basis: Basis = shaft_spoke_basis(shaft_spoke_angle(layout, station));
@@ -130,6 +133,7 @@ fn shaft_spokes(asset: mut RoomAsset, layout: ShaftSpokeLayout) -> bool {
             mut asset,
             collar,
             collar_count,
+            core_collar,
             layout.radius,
             layout.core,
             y,
@@ -167,4 +171,60 @@ fn shaft_spoke_service_pipes(asset: mut RoomAsset, layout: ShaftSpokeLayout) -> 
         station = station + 1u32;
     }
     return true;
+}
+
+// The rear extends inward by inset. The exposed front stays at the same position.
+fn shaft_spoke_collar_mesh(mesh: mut Mesh, pipe_radius: f32, inset: f32) -> bool {
+    return bevelled_body(
+        mut mesh,
+        make BevelledBody {
+            sides: 8u32,
+            radius: pipe_radius * SHAFT_SPOKE_COLLAR_RATIO,
+            length: pipe_radius * 0.4f32 + inset,
+            bevel: pipe_radius * 0.05f32,
+            shell: 5u32,
+            rear: 5u32,
+            front: 5u32
+        },
+        vec(0f32, -inset * 0.5f32, 0f32),
+        identity_basis()
+    );
+}
+// Each octagonal face has one panel across its width. Adjacent rows are staggered.
+fn shaft_spoke_pipe_mesh(mesh: mut Mesh, radius: f32, extent: f32) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    var profile: RegularProfile = make RegularProfile {
+        sides: 8u32,
+        phase: 3.14159265359f32 / 8f32
+    };
+    if !loft_allocate(mut hull, profile, 2u32) {
+        return false;
+    }
+    loft_ring(mut hull, profile, 0u32, 0f32, radius);
+    loft_ring(mut hull, profile, 1u32, extent, radius);
+    loft_span(mut hull, profile, 0u32, 3u32);
+    loft_caps(mut hull, profile, 2u32, 3u32, 3u32);
+    var width: f32 = shaft_spoke_face_width(radius);
+    var face: u32 = 0u32;
+    while face < 8u32 {
+        var polygon: HullFace = asset_face(read hull, face);
+        var frame: SurfaceFrame = asset_surface(read hull, face);
+        frame.origin = sub(
+            hull_corner(read hull, polygon, 0u32),
+            scale(frame.right, (face % 2u32) as f32 * SHAFT_SPOKE_PANEL_LENGTH * 0.5f32)
+        );
+        frame.up = scale(frame.up, SHAFT_SPOKE_PANEL_LENGTH / width);
+        asset_surface_set(mut hull, face, frame);
+        face = face + 1u32;
+    }
+    return hull_solid_mesh(
+        read hull,
+        mut mesh,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        SHAFT_SPOKE_PANEL_LENGTH
+    );
+}
+fn shaft_spoke_face_width(radius: f32) -> f32 {
+    return 2f32 * radius * sinf(3.14159265359f32 / 8f32);
 }
