@@ -66,6 +66,7 @@ selecting another renderer.
   design and measured experiment for scheduling and asynchronous services.
 - Build: [bootstrap](build/bootstrap.md), [web game](build/web.md), [shader compiler](build/crust-spirv.md).
 - Render: [architecture, data flow, contracts, and checks](render/rendering.md).
+- Sound: [mixer, device output, portal acoustics, and delivery gates](audio/sound.md).
 - Collision: [static meshes](collision/static-meshes.md),
   [spatial index](collision/spatial-index.md), [sphere motion](collision/motion.md),
   [moving meshes and anchors](collision/kinematic-meshes.md).
