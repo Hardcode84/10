@@ -1,6 +1,6 @@
-const SHAFT_SPOKE_PANEL_LENGTH: f32 = 3f32;
 const SHAFT_SPOKE_RADIUS_RATIO: f32 = 0.8f32;
 const SHAFT_SPOKE_COLLAR_RATIO: f32 = 1.15f32;
+const SHAFT_SPOKE_COLLAR_HALF_DEPTH: f32 = 0.2f32;
 record ShaftSpokeLayout {
     radius: f32;
     core: f32;
@@ -100,12 +100,8 @@ fn shaft_spoke_collars(
 fn shaft_spokes(asset: mut RoomAsset, layout: ShaftSpokeLayout) -> bool {
     var pipe_radius: f32 = layout.core * SHAFT_SPOKE_RADIUS_RATIO;
     var extent: f32 = layout.radius + pipe_radius * 0.25f32;
-    var pipe_length: f32 = extent * 2f32;
-    if layout.random {
-        pipe_length = extent;
-    }
     var first: u32 = mesh_triangle_count(read asset.geometry);
-    if !shaft_spoke_pipe_mesh(mut asset.geometry, pipe_radius, pipe_length) {
+    if !shaft_spoke_pipe_mesh(mut asset.geometry, layout.radius, layout.core, extent) {
         return false;
     }
     var count: u32 = mesh_triangle_count(read asset.geometry) - first;
@@ -126,10 +122,14 @@ fn shaft_spokes(asset: mut RoomAsset, layout: ShaftSpokeLayout) -> bool {
         var basis: Basis = shaft_spoke_basis(shaft_spoke_angle(layout, station));
         var y: f32 = shaft_spoke_height(layout, station);
         var origin: Vec3 = vec(0f32, y, 0f32);
-        if !layout.random {
-            origin = sub(origin, scale(basis.up, extent));
-        }
-        if !shaft_spoke_instance(mut asset, first, count, origin, basis) || !shaft_spoke_collars(
+        if !shaft_spoke_pipe_instances(
+            mut asset,
+            first,
+            count,
+            origin,
+            basis,
+            layout.random
+        ) || !shaft_spoke_collars(
             mut asset,
             collar,
             collar_count,
@@ -180,7 +180,7 @@ fn shaft_spoke_collar_mesh(mesh: mut Mesh, pipe_radius: f32, inset: f32) -> bool
         make BevelledBody {
             sides: 8u32,
             radius: pipe_radius * SHAFT_SPOKE_COLLAR_RATIO,
-            length: pipe_radius * 0.4f32 + inset,
+            length: pipe_radius * SHAFT_SPOKE_COLLAR_HALF_DEPTH * 2f32 + inset,
             bevel: pipe_radius * 0.05f32,
             shell: 5u32,
             rear: 5u32,
@@ -190,8 +190,11 @@ fn shaft_spoke_collar_mesh(mesh: mut Mesh, pipe_radius: f32, inset: f32) -> bool
         identity_basis()
     );
 }
-// Each octagonal face has one panel across its width. Adjacent rows are staggered.
-fn shaft_spoke_pipe_mesh(mesh: mut Mesh, radius: f32, extent: f32) -> bool {
+// The coating spans both exposed collar edges and wraps once around the pipe.
+fn shaft_spoke_pipe_mesh(mesh: mut Mesh, wall: f32, core: f32, extent: f32) -> bool {
+    var radius: f32 = core * SHAFT_SPOKE_RADIUS_RATIO;
+    var span: f32 = shaft_spoke_coating_span(wall, core);
+    var start: f32 = core * cosf(3.14159265359f32 / 48f32) + radius * SHAFT_SPOKE_COLLAR_HALF_DEPTH;
     var hull: AssetHull = asset_hull_new();
     var profile: RegularProfile = make RegularProfile {
         sides: 8u32,
@@ -210,10 +213,10 @@ fn shaft_spoke_pipe_mesh(mesh: mut Mesh, radius: f32, extent: f32) -> bool {
         var polygon: HullFace = asset_face(read hull, face);
         var frame: SurfaceFrame = asset_surface(read hull, face);
         frame.origin = sub(
-            hull_corner(read hull, polygon, 0u32),
-            scale(frame.right, (face % 2u32) as f32 * SHAFT_SPOKE_PANEL_LENGTH * 0.5f32)
+            add(hull_corner(read hull, polygon, 0u32), scale(frame.right, start)),
+            scale(frame.up, width * face as f32)
         );
-        frame.up = scale(frame.up, SHAFT_SPOKE_PANEL_LENGTH / width);
+        frame.up = scale(frame.up, span / (width * 8f32));
         asset_surface_set(mut hull, face, frame);
         face = face + 1u32;
     }
@@ -222,9 +225,32 @@ fn shaft_spoke_pipe_mesh(mesh: mut Mesh, radius: f32, extent: f32) -> bool {
         mut mesh,
         vec(0f32, 0f32, 0f32),
         identity_basis(),
-        SHAFT_SPOKE_PANEL_LENGTH
+        span
     );
 }
 fn shaft_spoke_face_width(radius: f32) -> f32 {
     return 2f32 * radius * sinf(3.14159265359f32 / 8f32);
+}
+
+fn shaft_spoke_coating_span(wall: f32, core: f32) -> f32 {
+    return (wall - core) * cosf(3.14159265359f32 / 48f32) - 2f32 * core * SHAFT_SPOKE_RADIUS_RATIO * SHAFT_SPOKE_COLLAR_HALF_DEPTH;
+}
+fn shaft_spoke_pipe_instances(
+    asset: mut RoomAsset,
+    first: u32,
+    count: u32,
+    origin: Vec3,
+    basis: Basis,
+    one_sided: bool
+) -> bool {
+    if !shaft_spoke_instance(mut asset, first, count, origin, basis) {
+        return false;
+    }
+    if one_sided {
+        return true;
+    }
+    var opposite: Basis = basis;
+    opposite.up = scale(opposite.up, -1f32);
+    opposite.forward = scale(opposite.forward, -1f32);
+    return shaft_spoke_instance(mut asset, first, count, origin, opposite);
 }

@@ -37,6 +37,9 @@ fn prefab_shaft_pipes_build(parameters: read AssetValues, asset: mut RoomAsset) 
     if radius * cosf(3.14159265359f32 / 48f32) - core < 2f32 {
         return error("shaft needs at least 2 m between the spindle and wall");
     }
+    if shaft_spoke_coating_span(radius, core) < 0.5f32 {
+        return error("shaft collars need at least 0.5 m of exposed pipe between them");
+    }
     var spacing: f32 = height / (count + 1f32);
     if spacing < shaft_spoke_minimum_gap(core) {
         return error("shaft stations need more axial space for thick pipes and service runs");
@@ -69,12 +72,17 @@ fn prefab_shaft_pipes_material(region: u32, parameters: read AssetValues) -> Pan
     }
     var material: PanelMaterial = shaft_surface_material(region);
     if region == 3u32 {
-        material.colour = 0xa69b82u32;
-        material.finish = METAL_PIPE_PANEL;
-        material.tile_metres = SHAFT_SPOKE_PANEL_LENGTH;
-        material.tile_height = shaft_spoke_face_width(
+        material.colour = 0x3850c2u32;
+        material.accent = 0x6b747cu32;
+        material.finish = METAL_PIPE_COATED;
+        material.tile_metres = shaft_spoke_coating_span(
+            asset_value(read parameters, 1u32) * 0.5f32,
+            asset_value(read parameters, 2u32) * 0.5f32
+        );
+        material.panel_height = shaft_spoke_face_width(
             asset_value(read parameters, 2u32) * 0.5f32 * SHAFT_SPOKE_RADIUS_RATIO
         );
+        material.tile_height = material.panel_height * 8f32;
     }
     return material;
 }

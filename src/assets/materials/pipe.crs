@@ -70,35 +70,38 @@ fn metal_leak_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     return 70u32 + noise % 30u32;
 }
 
-// One inset access panel per tile, with corner bolts and an axial recessed channel.
-fn metal_pipe_panel_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+// Coated pipe between two collars. X spans the exposed length; Y spans the circumference.
+// End bands and worn metal edges keep their physical width as the pipe changes size.
+fn metal_pipe_coated_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     var end: f32 = mask_min(x, material.tile_metres - x);
     var edge: f32 = mask_min(y, material.tile_height - y);
-    var border: f32 = mask_min(end - 0.12f32, edge - material.tile_height * 0.12f32);
-    if border < 0f32 {
-        return (112f32 + metal_grain(material, x, y)) as u32;
+    var grain: f32 = metal_grain(material, x, y);
+    if end < 0.035f32 {
+        return 35u32;
     }
-    if border < 0.025f32 {
-        return 38u32;
+    if end < 0.065f32 {
+        return 231u32;
     }
-    if border < 0.05f32 {
-        return 190u32;
+    if end < 0.16f32 {
+        return (82f32 + grain) as u32;
     }
-    var bolt_x: f32 = end - 0.23f32;
-    var bolt_y: f32 = edge - material.tile_height * 0.25f32;
-    var bolt: f32 = sqrtf(bolt_x * bolt_x + bolt_y * bolt_y);
-    if bolt < 0.025f32 {
-        return 42u32;
+    if end < 0.19f32 {
+        return 228u32;
     }
-    if bolt < 0.045f32 {
-        return 195u32;
+    if edge < 0.012f32 {
+        return 90u32;
     }
-    var groove: f32 = absf(y - material.tile_height * 0.62f32);
-    if end > 0.4f32 && groove < 0.035f32 {
-        return 72u32;
-    }
-    if end > 0.4f32 && groove < 0.055f32 {
+    if edge < 0.03f32 {
         return 184u32;
     }
-    return (154f32 + metal_grain(material, x, y)) as u32;
+    var wear: u32 = metal_hash((x * 40f32) as u32, (y * 40f32) as u32, material.seed);
+    if end < 0.3f32 && wear % 5u32 == 0u32 {
+        return 226u32;
+    }
+    var sheen: f32 = 12f32 * (
+        1f32 - absf(
+            mask_repeat(y, material.panel_height) / material.panel_height * 2f32 - 1f32
+        )
+    );
+    return (170f32 + sheen + grain) as u32;
 }
