@@ -1,0 +1,62 @@
+resource AudioPcm {
+    samples: *f32;
+    frames: u32;
+}
+opaque drop audio_pcm_drop;
+fn audio_pcm_new() -> AudioPcm {
+    return make AudioPcm {
+        samples: null(*f32),
+        frames: 0u32
+    };
+}
+fn audio_pcm_drop(pcm: mut AudioPcm) -> unit {
+    channel_free(pcm.samples as *u8);
+}
+fn audio_pcm_resize(pcm: mut AudioPcm, frames: u32) -> bool {
+    if frames == 0u32 {
+        channel_free(pcm.samples as *u8);
+        pcm.samples = null(*f32);
+        pcm.frames = 0u32;
+        return true;
+    }
+    if frames as usize > (~0usize) / sizeof(f32) / AUDIO_CHANNELS as usize {
+        return false;
+    }
+    var samples: *f32 = audio_realloc(
+        pcm.samples as *u8,
+        frames as usize * sizeof(f32) * AUDIO_CHANNELS as usize
+    ) as *f32;
+    if samples == null(*f32) {
+        return false;
+    }
+    pcm.samples = samples;
+    pcm.frames = frames;
+    return true;
+}
+// Requires an offline session. Output replaces the complete PCM buffer.
+fn audio_render(session: mut AudioSession, pcm: mut AudioPcm) -> bool {
+    if session.state == null(*AudioState) || session.state -> live {
+        return false;
+    }
+    audio_fill(session.state, pcm.samples, pcm.frames);
+    return audio_ready(read session);
+}
+fn audio_pcm_sample(pcm: read AudioPcm, frame: u32, channel: u32) -> f32 {
+    if frame >= pcm.frames || channel >= AUDIO_CHANNELS {
+        trap;
+    }
+    return pcm.samples[(frame as usize * AUDIO_CHANNELS as usize) + channel as usize];
+}
+extern fn audio_file_open(path: *u8, mode: *u8) -> *u8 = "fopen";
+extern fn audio_file_write(data: *u8, size: usize, count: usize, file: *u8) -> usize = "fwrite";
+extern fn audio_file_close(file: *u8) -> i32 = "fclose";
+// Writes interleaved little-endian stereo float PCM without a file header.
+fn audio_pcm_write(pcm: read AudioPcm, path: *u8) -> bool {
+    var file: *u8 = audio_file_open(path, "wb");
+    if file == null(*u8) {
+        return false;
+    }
+    var count: usize = pcm.frames as usize * AUDIO_CHANNELS as usize;
+    var good: bool = audio_file_write(pcm.samples as *u8, sizeof(f32), count, file) == count;
+    return audio_file_close(file) == 0i32 && good;
+}

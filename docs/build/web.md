@@ -151,3 +151,16 @@ deployment run for the published URL and deployment status.
 
 Select **Scaling portal course** to run the two-room scaling scene. Check its
 native/browser replay with `bun tests/web/check.mjs --scaling`.
+
+### Exact replay and host mathematics
+
+A scaling-course replay can fail its exact state hash when the drone contacts a
+rotating prop. The native and web system `sinf` functions can return different
+float bits for the same input. For input bits `1056739330`, the observed native
+result is `1056076182`; the web result is `1056076183`. This changes the prop pose
+and contact normal. One captured run first differed in velocity at tick 118.
+
+An exact cross-target replay contract needs one deterministic trigonometric
+implementation for host physics and generated geometry. Check its bit results
+and rotating contacts on both targets. Keep the exact recording hash check;
+changing collision tolerances does not correct this math contract.

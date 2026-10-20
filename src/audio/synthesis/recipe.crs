@@ -1,0 +1,16 @@
+fn sound_random(state: mut u32) -> f32 {
+    state = state ^ (state << 13u32);
+    state = state ^ (state >> 17u32);
+    state = state ^ (state << 5u32);
+    return (state >> 8u32) as f32 / 8388608f32 - 1f32;
+}
+fn sound_wave(phase: f32) -> f32 {
+    var wave: f32 = phase * 4f32 - 2f32;
+    if wave < 0f32 {
+        wave = -wave;
+    }
+    return wave - 1f32;
+}
+fn sound_recipe_valid(recipe: SoundRecipe) -> bool {
+    return recipe.frequency >= 1f32 && recipe.frequency < AUDIO_RATE as f32 * 0.25f32 && recipe.noise >= 0f32 && recipe.noise <= 1f32 && recipe.gain >= 0f32 && recipe.gain <= 1f32 && recipe.seconds > 0f32 && recipe.seconds < 4294967040f32 / AUDIO_RATE as f32 && recipe.seed != 0u32;
+}

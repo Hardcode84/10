@@ -1,0 +1,88 @@
+// Searches directed portal paths. Recursive visits have distinct identities.
+fn acoustic_path(scene: read CollisionScene, listener: SoundListener, source: SoundPosition) -> SoundPath {
+    var nodes: [AcousticNode; 256] = uninit;
+    nodes[0usize] = acoustic_root(listener);
+    var count: u32 = 1u32;
+    var result: SoundPath = sound_path_empty();
+    while true {
+        var best: u32 = acoustic_best(&nodes[0usize], count, result.gain);
+        if best == count {
+            break;
+        }
+        var node: AcousticNode = nodes[best as usize];
+        nodes[best as usize].visited = true;
+        if node.space == source.space {
+            var candidate: SoundPath = acoustic_candidate(read scene, node, listener, source);
+            if candidate.gain > result.gain {
+                candidate.truncated = result.truncated;
+                result = candidate;
+            }
+        }
+        var cursor: u32 = collision_portal_begin(read scene, node.space);
+        while collision_portal_at_space(read scene, cursor, node.space) {
+            var portal_id: u32 = collision_portal_id(read scene, cursor);
+            if count == ACOUSTIC_WORK {
+                result.truncated = true;
+                break;
+            }
+            var units: f32 = acoustic_units(
+                read scene,
+                &nodes[0usize],
+                best,
+                portal_id,
+                listener.size
+            );
+            var child: AcousticNode = acoustic_child(
+                read scene,
+                node,
+                best,
+                portal_id,
+                listener,
+                units
+            );
+            if child.transmission * acoustic_gain(child.distance) > clamp(
+                result.gain,
+                ACOUSTIC_THRESHOLD,
+                1f32
+            ) {
+                nodes[count as usize] = child;
+                count = count + 1u32;
+            }
+            cursor = cursor + 1u32;
+        }
+    }
+    return result;
+}
+fn acoustic_best(nodes: *AcousticNode, count: u32, gain: f32) -> u32 {
+    var best: u32 = count;
+    var threshold: f32 = clamp(gain, ACOUSTIC_THRESHOLD, 1f32);
+    var i: u32 = 0u32;
+    while i < count {
+        var bound: f32 = nodes[i as usize].transmission * acoustic_gain(
+            nodes[i as usize].distance
+        );
+        if !nodes[i as usize].visited && bound > threshold {
+            threshold = bound;
+            best = i;
+        }
+        i = i + 1u32;
+    }
+    return best;
+}
+fn acoustic_units(
+    scene: read CollisionScene,
+    nodes: *AcousticNode,
+    index: u32,
+    portal_id: u32,
+    size: f32
+) -> f32 {
+    var ratio: Rational = portal_ratio(collision_portal(read scene, portal_id));
+    while nodes[index as usize].parent != 0xffffffffu32 {
+        var previous: Rational = portal_ratio(
+            collision_portal(read scene, nodes[index as usize].portal)
+        );
+        ratio = rational_product(read ratio, read previous);
+        index = nodes[index as usize].parent;
+    }
+    return size * rational_float(read ratio);
+}

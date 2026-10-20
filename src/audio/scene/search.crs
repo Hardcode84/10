@@ -1,0 +1,76 @@
+fn acoustic_root(listener: SoundListener) -> AcousticNode {
+    return make AcousticNode {
+        space: listener.space,
+        point: listener.position,
+        direction: vec(0f32, 0f32, 0f32),
+        distance: 0f32,
+        units: listener.size,
+        transmission: 1f32,
+        lowpass: 1f32,
+        parent: 0xffffffffu32,
+        portal: 0xffffffffu32,
+        id: 1469598103934665603u64,
+        visited: false
+    };
+}
+fn acoustic_candidate(
+    scene: read CollisionScene,
+    node: AcousticNode,
+    listener: SoundListener,
+    source: SoundPosition
+) -> SoundPath {
+    var segment: Vec3 = sub(source.position, node.point);
+    var gain: f32 = node.transmission * acoustic_gain(
+        node.distance + length(segment) / node.units
+    );
+    var filter: f32 = node.lowpass;
+    if acoustic_obstructed(read scene, node.point, source, listener.time) {
+        gain = gain * 0.2f32;
+        filter = filter * 0.2f32;
+    }
+    var direction: Vec3 = node.direction;
+    if node.parent == 0xffffffffu32 {
+        direction = segment;
+    }
+    var result: SoundPath = acoustic_stereo(gain, direction, listener.right);
+    result.lowpass = clamp(filter, 0.001f32, 1f32);
+    result.id = node.id;
+    return result;
+}
+fn acoustic_child(
+    scene: read CollisionScene,
+    parent: AcousticNode,
+    index: u32,
+    portal_id: u32,
+    listener: SoundListener,
+    units: f32
+) -> AcousticNode {
+    var portal: CollisionPortal = collision_portal(read scene, portal_id);
+    var direction: Vec3 = parent.direction;
+    if parent.parent == 0xffffffffu32 {
+        direction = sub(portal.origin, listener.position);
+    }
+    var child: AcousticNode = make AcousticNode {
+        space: portal.destination,
+        point: space_point(portal.transform, portal.origin),
+        direction: direction,
+        distance: parent.distance + length(sub(portal.origin, parent.point)) / parent.units,
+        units: units,
+        transmission: parent.transmission * ACOUSTIC_TRANSMISSION,
+        lowpass: parent.lowpass * 0.85f32,
+        parent: index,
+        portal: portal_id,
+        id: (parent.id ^ portal_id as u64) * 1099511628211u64,
+        visited: false
+    };
+    if acoustic_obstructed(
+        read scene,
+        parent.point,
+        sound_position(parent.space, portal.origin),
+        listener.time
+    ) {
+        child.transmission = child.transmission * 0.2f32;
+        child.lowpass = child.lowpass * 0.2f32;
+    }
+    return child;
+}

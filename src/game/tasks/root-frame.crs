@@ -1,14 +1,23 @@
 fn game_root_frame(
     graph: mut TaskGraph,
     context: mut PredictionContext,
+    sound: mut SoundContext,
     collision: read CollisionScene,
     session: mut GameSession,
     loop: mut GameLoop,
     config: GameConfig,
     prediction: mut Prediction
 ) -> bool {
+    if task_next(mut graph) != 5u32 {
+        trap;
+    }
+    var sound_work: SoundTask = sound_start(
+        mut sound,
+        game_sound_snapshot(mut session.control, read loop, config)
+    );
     var surface: i32 = game_surface(mut session);
     if surface <= 0i32 {
+        game_sound_join(mut graph, mut sound_work, mut session.control, mut loop.input);
         task_complete(mut graph, 2u32, false);
         if surface == 0i32 {
             game_wait();
@@ -71,6 +80,7 @@ fn game_root_frame(
             mut prediction
         );
     }
+    game_sound_join(mut graph, mut sound_work, mut session.control, mut loop.input);
     if !task_succeeded(read graph) {
         return false;
     }

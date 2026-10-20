@@ -12,6 +12,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
             "--latency-log FILE: record input, simulation, submission and presentation timestamps"
         );
         puts("--headless --ticks N --capture FILE --full-spin");
+        puts("--mute --volume 0..100 --audio-stats");
         puts("Find the gold beacon in the ending room, then return to the start beacon.");
         puts("Boost and brake share a cooldown. Both have unlimited uses.");
         puts("WASD Ctrl/Space: move | mouse: look | Q/E: roll with level off");

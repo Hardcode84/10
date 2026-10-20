@@ -1,0 +1,54 @@
+// Contact uses a short, noisy knock. Reel motion uses a lower continuous tone.
+fn hook_sound_recipe() -> SoundRecipe {
+    return make SoundRecipe {
+        frequency: 720f32,
+        noise: 0.6f32,
+        gain: 0.65f32,
+        seconds: 0.16f32,
+        loop: false,
+        seed: 7183u32
+    };
+}
+fn reel_sound_recipe() -> SoundRecipe {
+    return make SoundRecipe {
+        frequency: 145f32,
+        noise: 0.08f32,
+        gain: 0.18f32,
+        seconds: 1f32,
+        loop: true,
+        seed: 417u32
+    };
+}
+fn hook_launch_recipe() -> SoundRecipe {
+    return make SoundRecipe {
+        frequency: 240f32,
+        noise: 0.4f32,
+        gain: 0.3f32,
+        seconds: 0.12f32,
+        loop: false,
+        seed: 312u32
+    };
+}
+fn hook_release_recipe() -> SoundRecipe {
+    return make SoundRecipe {
+        frequency: 105f32,
+        noise: 0.3f32,
+        gain: 0.2f32,
+        seconds: 0.08f32,
+        loop: false,
+        seed: 821u32
+    };
+}
+fn game_sound_bank() -> SoundBank {
+    var bank: SoundBank = sound_bank_new();
+    if !sound_bank_add(mut bank, hook_sound_recipe()) || !sound_bank_add(
+        mut bank,
+        reel_sound_recipe()
+    ) || !sound_bank_add(mut bank, hook_launch_recipe()) || !sound_bank_add(
+        mut bank,
+        hook_release_recipe()
+    ) {
+        game_sound_asset_error();
+    }
+    return move bank;
+}

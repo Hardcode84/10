@@ -17,6 +17,8 @@
 <label class="check"><input name="fullscreen" type="checkbox">Fullscreen</label>
 <button id="start" disabled>Loading…</button>
 <details><summary>Options and recordings</summary><div>
+<label class="check"><input name="mute" type="checkbox">Mute</label>
+<label>Volume<input name="volume" type="number" min="0" max="100" value="100"></label>
 <label>Field of view<input name="fov" type="number" min="70" max="110" value="90"></label>
 <label>Tick limit (0: unlimited)<input name="ticks" type="number" min="0" value="0"></label>
 <label class="check"><input name="slow" type="checkbox">Slow mode</label>
@@ -31,7 +33,7 @@
 </div><p>Use the recording's scene, seed, and complexity for replay. Recordings and captures are available below when the run ends.</p></details>
 </form>
 <p id="status" role="status">Loading the game…</p>
-<div id="toolbar" hidden><button id="mouse">Capture mouse</button> <button id="fullscreen">Fullscreen</button> <button id="quit">End run</button> <button id="restart" hidden>New expedition</button></div>
+<div id="toolbar" hidden><button id="mouse">Capture mouse</button> <button id="fullscreen">Fullscreen</button> <button id="quit">End run</button> <button id="restart" hidden>New expedition</button> <button id="resume-audio" hidden>Resume sound</button> <span id="audio-status" role="status"></span></div>
 <canvas id="canvas" width="960" height="540" tabindex="0" aria-label="SPINWARD game"></canvas>
 <p>WASD · Ctrl/Space move | Mouse look | Q/E roll | RMB boost | F brake | LMB tether | R reel<br>Tab pause | L level | P preview | F4 spin | Backspace retry | Esc release mouse / exit<br>Gamepads use the same controls as the desktop game.</p>
 <div id="downloads"></div>

@@ -1,0 +1,40 @@
+const GAME_SOUND_CONTACT: u32 = 0u32;
+const GAME_SOUND_REEL: u32 = 1u32;
+const GAME_SOUND_LAUNCH: u32 = 2u32;
+const GAME_SOUND_RELEASE: u32 = 3u32;
+const GAME_SOUND_VOICES: u32 = 64u32;
+record GameSoundFrame {
+    batch: SoundBatch;
+    spatial: [bool; 256];
+    positions: [SoundPosition; 256];
+    listener: SoundListener;
+    truncated: u32;
+}
+fn game_sound_prepare(scene: read CollisionScene, frame: mut GameSoundFrame) -> unit {
+    var i: u32 = 0u32;
+    while i < frame.batch.count {
+        if frame.spatial[i as usize] {
+            var path: SoundPath = acoustic_path(
+                read scene,
+                frame.listener,
+                frame.positions[i as usize]
+            );
+            frame.batch.commands[i as usize].left = frame.batch.commands[i as usize].left * path.left;
+            frame.batch.commands[i as usize].right = frame.batch.commands[i as usize].right * path.right;
+            frame.batch.commands[i as usize].lowpass = path.lowpass;
+            if path.truncated {
+                frame.truncated = frame.truncated + 1u32;
+            }
+        }
+        i = i + 1u32;
+    }
+}
+fn game_sound_listener(drone: read Drone) -> SoundListener {
+    return make SoundListener {
+        space: drone.world,
+        position: drone.position,
+        right: drone.basis.right,
+        size: drone_size(read drone),
+        time: drone.clock as f32 * STEP
+    };
+}

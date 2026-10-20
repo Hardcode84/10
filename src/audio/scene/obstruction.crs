@@ -1,0 +1,96 @@
+// Tests the open segment. A named source feature is excluded at its endpoint.
+fn acoustic_triangle(face: CollisionFace, start: Vec3, delta: Vec3) -> bool {
+    var edge: Vec3 = sub(face.b, face.a);
+    var other: Vec3 = sub(face.c, face.a);
+    var h: Vec3 = cross(delta, other);
+    var determinant: f32 = dot(edge, h);
+    if determinant == 0f32 {
+        return false;
+    }
+    var s: Vec3 = sub(start, face.a);
+    var u: f32 = dot(s, h) / determinant;
+    if u < 0f32 || u > 1f32 {
+        return false;
+    }
+    var q: Vec3 = cross(s, edge);
+    var v: f32 = dot(delta, q) / determinant;
+    if v < 0f32 || u + v > 1f32 {
+        return false;
+    }
+    var t: f32 = dot(other, q) / determinant;
+    return t > 0f32 && t < 1f32;
+}
+fn acoustic_instance(
+    scene: read CollisionScene,
+    index: u32,
+    start: Vec3,
+    end: SoundPosition,
+    time: f32
+) -> bool {
+    var item: CollisionInstance = collision_pose(collision_instance(read scene, index), time);
+    var p: Vec3 = collision_local(item.basis, sub(start, item.origin));
+    var d: Vec3 = collision_local(item.basis, sub(end.position, start));
+    var i: u32 = item.root;
+    while i < item.end {
+        var node: CollisionNode = collision_node(read scene, i);
+        if !collision_aabb(p, d, 0f32, node.low, node.high) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 &&!(
+                index == end.instance && node.leaf == end.surface
+            ) {
+                if acoustic_triangle(
+                    collision_face(read scene, item.first + node.leaf),
+                    p,
+                    d
+                ) {
+                    return true;
+                }
+            }
+            i = i + 1u32;
+        }
+    }
+    return false;
+}
+fn acoustic_obstructed(
+    scene: read CollisionScene,
+    start: Vec3,
+    end: SoundPosition,
+    time: f32
+) -> bool {
+    var range: CollisionSpace = collision_space(read scene, end.space);
+    var i: u32 = range.root;
+    var d: Vec3 = sub(end.position, start);
+    while i < range.end {
+        var node: CollisionNode = collision_node(read scene, i);
+        if !collision_aabb(start, d, 0f32, node.low, node.high) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 && !collision_moving(
+                collision_instance(read scene, node.leaf)
+            ) {
+                if acoustic_instance(read scene, node.leaf, start, end, time) {
+                    return true;
+                }
+            }
+            i = i + 1u32;
+        }
+    }
+    return acoustic_moving_obstructed(read scene, start, end, time);
+}
+fn acoustic_moving_obstructed(
+    scene: read CollisionScene,
+    start: Vec3,
+    end: SoundPosition,
+    time: f32
+) -> bool {
+    var i: u32 = collision_moving_head(read scene);
+    while i != 0xffffffffu32 {
+        var item: CollisionInstance = collision_instance(read scene, i);
+        if item.space == end.space && acoustic_instance(read scene, i, start, end, time) {
+            return true;
+        }
+        i = item.next_moving;
+    }
+    return false;
+}

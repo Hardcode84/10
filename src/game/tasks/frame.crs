@@ -1,6 +1,7 @@
 fn game_task_frame(
     graph: mut TaskGraph,
     context: mut PredictionContext,
+    sound: mut SoundContext,
     collision: read CollisionScene,
     session: mut GameSession,
     loop: mut GameLoop,
@@ -29,6 +30,7 @@ fn game_task_frame(
     return game_root_frame(
         mut graph,
         mut context,
+        mut sound,
         read collision,
         mut session,
         mut loop,
@@ -50,11 +52,15 @@ fn game_run_tasks(
     }
     var prediction: Prediction = prediction_new();
     var pool: TaskPool = task_pool_new();
-    if !task_pool_open(mut pool, config.workers, 1u32) {
+    if !task_pool_open(mut pool, config.workers, 2u32) {
         return 1i32;
     }
     var context: PredictionContext = prediction_context(read pool, read collision);
     if !prediction_context_ready(read context) {
+        return 1i32;
+    }
+    var sound: SoundContext = sound_context(read pool, read collision);
+    if !sound_context_ready(read sound) {
         return 1i32;
     }
     var previous: u64 = now();
@@ -62,6 +68,7 @@ fn game_run_tasks(
         if !game_task_frame(
             mut graph,
             mut context,
+            mut sound,
             read collision,
             mut session,
             mut loop,
@@ -80,14 +87,16 @@ fn game_run_tasks(
 }
 
 fn game_frame_graph(graph: mut TaskGraph) -> bool {
-    return task_graph_open(mut graph, 5u32, 4u32) && task_graph_external(mut graph, 0u32) && task_graph_external(
+    return task_graph_open(mut graph, 6u32, 5u32) && task_graph_external(mut graph, 0u32) && task_graph_external(
         mut graph,
         3u32
-    ) && task_graph_edge(mut graph, 1u32, 4u32) && task_graph_edge(mut graph, 1u32, 2u32) && task_graph_edge(
+    ) && task_graph_edge(mut graph, 1u32, 4u32) && task_graph_edge(mut graph, 1u32, 5u32) && task_graph_edge(
         mut graph,
-        4u32,
-        0u32
-    ) && task_graph_edge(mut graph, 0u32, 3u32) && task_graph_seal(mut graph);
+        1u32,
+        2u32
+    ) && task_graph_edge(mut graph, 4u32, 0u32) && task_graph_edge(mut graph, 0u32, 3u32) && task_graph_seal(
+        mut graph
+    );
 }
 fn game_simulation_task(
     graph: mut TaskGraph,

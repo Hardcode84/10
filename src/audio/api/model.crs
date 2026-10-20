@@ -1,0 +1,76 @@
+const AUDIO_RATE: u32 = 48000u32;
+const AUDIO_BLOCK: u32 = 128u32;
+const AUDIO_CHANNELS: u32 = 2u32;
+const AUDIO_FADE: u32 = 240u32;
+const AUDIO_QUEUE: u32 = 8u32;
+const AUDIO_LOOP: u32 = 1u32;
+const AUDIO_PLAY: u32 = 2u32;
+const AUDIO_PAUSE: u32 = 3u32;
+const AUDIO_RESET: u32 = 4u32;
+const AUDIO_RESERVED: u32 = 4u32;
+const AUDIO_CRITICAL: u32 = 2u32;
+const AUDIO_STOP: u32 = 5u32;
+record SoundRecipe {
+    frequency: f32;
+    noise: f32;
+    gain: f32;
+    seconds: f32;
+    loop: bool;
+    seed: u32;
+}
+record AudioCommand {
+    kind: u32;
+    epoch: u32;
+    sequence: u64;
+    sample: u64;
+    source: u32;
+    generation: u32;
+    sound: u32;
+    priority: u32;
+    left: f32;
+    right: f32;
+    pitch: f32;
+    lowpass: f32;
+}
+fn audio_command(kind: u32, epoch: u32, sample: u64) -> AudioCommand {
+    return make AudioCommand {
+        kind: kind,
+        epoch: epoch,
+        sequence: 0u64,
+        sample: sample,
+        source: 0u32,
+        generation: 0u32,
+        sound: 0u32,
+        priority: 0u32,
+        left: 0f32,
+        right: 0f32,
+        pitch: 1f32,
+        lowpass: 1f32
+    };
+}
+// Requires a positive tick rate and a result that fits in u64.
+fn audio_tick_sample(tick: u64, rate: u32) -> u64 {
+    return tick / rate as u64 * AUDIO_RATE as u64 + tick % rate as u64 * AUDIO_RATE as u64 / rate as u64;
+}
+const AUDIO_BATCH_COMMANDS: u32 = 256u32;
+record SoundBatch {
+    count: u32;
+    commands: [AudioCommand; 256];
+}
+fn sound_batch_append(batch: mut SoundBatch, command: AudioCommand) -> bool {
+    if batch.count == AUDIO_BATCH_COMMANDS {
+        return false;
+    }
+    batch.commands[batch.count as usize] = command;
+    batch.count = batch.count + 1u32;
+    return true;
+}
+record AudioStats {
+    callbacks: u32;
+    maximum_us: u32;
+    deadline_misses: u32;
+    late_commands: u32;
+    voice_replacements: u32;
+    queue_peak: u32;
+    failed: bool;
+}

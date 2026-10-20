@@ -1,0 +1,77 @@
+extern fn course_audio_hint(name: *u8, value: *u8, priority: i32) -> bool = "SDL_SetHintWithPriority";
+fn course_audio_open(control: mut GameControl) -> bool {
+    if benchmark_environment("SPINWARD_AUDIO") == null(*u8) {
+        return true;
+    }
+    if benchmark_environment("SPINWARD_TASKS") == null(*u8) {
+        return error("sound benchmark requires SPINWARD_TASKS");
+    }
+    if !course_audio_hint("SDL_AUDIO_DRIVER", "dummy", 2i32) {
+        return error("cannot select silent benchmark output");
+    }
+    control.sound.enabled = true;
+    control.launch.audio_stats = true;
+    return audio_open(
+        mut control.window.audio,
+        game_sound_bank(),
+        GAME_SOUND_VOICES,
+        true
+    );
+}
+fn course_audio_tick(
+    scene: read CollisionScene,
+    control: mut GameControl,
+    loop: mut GameLoop,
+    config: GameConfig,
+    frame: u32
+) -> bool {
+    if !control.sound.enabled {
+        return true;
+    }
+    if frame == 0u32 {
+        loop.credit = now();
+    }
+    loop.ticks = ((now() - loop.credit) * game_tick_rate(config) as u64 / 1000000000u64) as u32;
+    var reel: AudioCommand = game_sound_command(
+        &control.sound,
+        AUDIO_LOOP,
+        loop.ticks,
+        config
+    );
+    reel.source = 2u32;
+    reel.sound = GAME_SOUND_REEL;
+    reel.left = 0.5f32;
+    reel.right = 0.5f32;
+    if !game_sound_push(
+        &control.sound,
+        reel,
+        false,
+        sound_position(loop.trial.drone.world, loop.trial.drone.position)
+    ) {
+        return false;
+    }
+    if frame % 8u32 != 0u32 {
+        return true;
+    }
+    var hit: CollisionContact = collision_sweep(
+        read scene,
+        loop.trial.drone.world,
+        loop.trial.drone.position,
+        scale(loop.trial.drone.basis.forward, 10000f32),
+        0f32
+    );
+    if hit.instance == 0xffffffffu32 {
+        return error("sound benchmark camera ray missed its room");
+    }
+    var source: SoundPosition = sound_position(loop.trial.drone.world, hit.point);
+    source.instance = hit.instance;
+    source.surface = hit.surface;
+    return game_sound_event(
+        &control.sound,
+        GAME_SOUND_CONTACT,
+        loop.ticks,
+        config,
+        source,
+        true
+    );
+}

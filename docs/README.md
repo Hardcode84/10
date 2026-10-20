@@ -117,3 +117,6 @@ to select a Vulkan driver. A failed child process makes the test root fail.
 The focused collision target includes flight and hook fixtures without game levels.
 The hook-light target checks room anchors, recursive light images, and hook
 lighting with the GPU renderer. CI runs both targets.
+
+Use `crust tests.crs audio` for silent mixer checks and `crust tests.crs audio-scene`
+for portal sound and physics checks. See [sound support](audio/sound.md).

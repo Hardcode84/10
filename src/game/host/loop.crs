@@ -44,6 +44,11 @@ fn game_tick(
             flight_scrape(read collision, read loop.trial.drone)
         );
     }
+    if loop.trial.drone.clock != clock || loop.trial.attempt != attempt {
+        if !game_sound_tick(mut session, read loop.trial, loop.ticks + 1u32, config) {
+            return false;
+        }
+    }
     game_trace_tick(mut session, loop.ticks + 1u32, command);
     game_graph_visit(mut session, read loop.trial, command.restart || command.spin);
     if loop.trial.finished && !finished {
@@ -132,10 +137,7 @@ fn game_advance(
         loop.credit = 0u64;
         return true;
     }
-    var rate: u64 = 120u64;
-    if config.slow {
-        rate = 84u64;
-    }
+    var rate: u64 = game_tick_rate(config) as u64;
     loop.credit = loop.credit + elapsed * rate;
     while loop.credit >= 1000000000u64 && loop.running {
         if !game_tick(read collision, mut session, mut loop, config) {
@@ -187,6 +189,9 @@ fn game_run_active(
         var elapsed: u64 = current - previous;
         previous = current;
         if !game_advance(read collision, mut session.control, mut loop, config, elapsed) {
+            return 1i32;
+        }
+        if !game_sound_serial(read collision, mut session.control, read loop, config) {
             return 1i32;
         }
         if !config.headless && !game_render(read collision, mut session, read loop, config) {

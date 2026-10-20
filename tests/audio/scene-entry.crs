@@ -1,0 +1,216 @@
+fn audio_scene_fixture(scene: mut CollisionScene, factor: ScaleRatio, base: f32) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var transform: SpaceTransform = make SpaceTransform {
+        factor: scale_float(factor),
+        origin: vec(7f32 * base, 2f32 * base, -5f32 * base),
+        basis: make Basis {
+            right: vec(0f32, 0f32, 1f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(-1f32, 0f32, 0f32)
+        }
+    };
+    var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
+        source_scale: scale_identity(),
+        target_scale: factor,
+        reverse: 1u32,
+        space: 0u32,
+        destination: 1u32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        radius: 3f32 * base,
+        sides: 6u32,
+        phase: 0f32,
+        transform: transform
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.reverse = 0u32;
+    portal.space = 1u32;
+    portal.destination = 0u32;
+    portal.origin = transform.origin;
+    portal.radius = portal.radius * scale_float(factor);
+    portal.basis = space_basis(
+        transform,
+        make Basis {
+            right: vec(-1f32, 0f32, 0f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(0f32, 0f32, -1f32)
+        }
+    );
+    portal.transform = space_inverse(transform);
+    portal.target_scale = scale_inverse(factor);
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    var mesh: Mesh = mesh_new();
+    var size: f32 = base * scale_float(factor);
+    if !static_solid(
+        mut mesh,
+        solid(
+            vec(-4f32 * size, -4f32 * size, 3f32 * size),
+            vec(4f32 * size, 4f32 * size, 4f32 * size),
+            0u32
+        ),
+        63u32
+    ) || !collision_append_solid(
+        mut builder,
+        read mesh,
+        1u32,
+        transform.origin,
+        transform.basis
+    ) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn audio_scene_path(base: f32, factor: ScaleRatio) -> SoundPath {
+    var scene: CollisionScene = collision_new();
+    if !audio_scene_fixture(mut scene, factor, base) {
+        trap;
+    }
+    var transform: SpaceTransform = collision_portal(read scene, 0u32).transform;
+    var listener: SoundListener = make SoundListener {
+        space: 0u32,
+        position: vec(0f32, 0f32, -base),
+        right: vec(1f32, 0f32, 0f32),
+        size: base,
+        time: 0f32
+    };
+    var source: SoundPosition = sound_position(
+        1u32,
+        space_point(transform, vec(0f32, 0f32, 2f32 * base))
+    );
+    var path: SoundPath = acoustic_path(read scene, listener, source);
+    listener.right = vec(0f32, 0f32, 1f32);
+    var turned: SoundPath = acoustic_path(read scene, listener, source);
+    if path.id != turned.id || path.gain != turned.gain || path.truncated || turned.truncated || turned.right <= turned.left {
+        trap;
+    }
+    source.position = space_point(transform, vec(0f32, 0f32, 5f32 * base));
+    var blocked: SoundPath = acoustic_path(read scene, listener, source);
+    if blocked.gain >= path.gain * 0.5f32 || blocked.lowpass >= path.lowpass {
+        trap;
+    }
+    return path;
+}
+fn audio_scene_hook() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !audio_scene_fixture(mut scene, scale_identity(), 1f32) {
+        return false;
+    }
+    var options: Launch = uninit;
+    if !game_options(1i32, null(**u8), &options) {
+        return false;
+    }
+    options.config.headless = true;
+    var session: GameSession = game_session(&options);
+    session.control.sound.enabled = true;
+    if !audio_open(
+        mut session.control.window.audio,
+        game_sound_bank(),
+        GAME_SOUND_VOICES,
+        false
+    ) {
+        return false;
+    }
+    var loop: GameLoop = make GameLoop {
+        sparks: sparks_new(),
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    loop.trial.drone.position = vec(0f32, 0f32, -1f32);
+    hook_launch(mut loop.trial.drone);
+    while loop.trial.drone.cable.phase == CABLE_FLYING && loop.ticks < 120u32 {
+        hook_step(read scene, mut loop.trial.drone, false);
+        loop.trial.drone.clock = loop.trial.drone.clock + 1u32;
+        loop.ticks = loop.ticks + 1u32;
+        if !game_sound_tick(
+            mut session.control,
+            read loop.trial,
+            loop.ticks,
+            options.config
+        ) {
+            return false;
+        }
+    }
+    if loop.trial.drone.cable.phase != CABLE_ATTACHED {
+        return error("audio fixture hook failed to attach");
+    }
+    loop.trial.drone.cable.reeling = true;
+    loop.trial.drone.cable.reel_speed = -1f32;
+    return audio_scene_worker(read scene, mut session, read loop, options.config);
+}
+fn audio_scene_worker(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig
+) -> bool {
+    var pool: TaskPool = task_pool_new();
+    if !task_pool_open(mut pool, 1u32, 1u32) {
+        return false;
+    }
+    var context: SoundContext = sound_context(read pool, read scene);
+    if !sound_context_ready(read context) {
+        return false;
+    }
+    var task: SoundTask = sound_start(
+        mut context,
+        game_sound_snapshot(mut session.control, read loop, config)
+    );
+    while pool_job_poll(read task.job) == 0i32 {
+        pool_job_idle(read task.job);
+    }
+    if pool_job_poll(read task.job) != 1i32 {
+        return false;
+    }
+    var frame: read GameSoundFrame = read task.context.payload -> frame;
+    if !audio_scene_impact(read frame) || !game_sound_submit(mut session.control, read frame) {
+        return error("portal attachment sound was lost or obstructed by its own wall");
+    }
+    return audio_scene_capture(mut session.control.window.audio);
+}
+fn audio_scene_impact(frame: read GameSoundFrame) -> bool {
+    var impact: bool = false;
+    var i: u32 = 0u32;
+    while i < frame.batch.count {
+        var command: AudioCommand = frame.batch.commands[i as usize];
+        if command.kind == AUDIO_PLAY && command.sound == GAME_SOUND_CONTACT {
+            impact = command.left > 0f32 && command.right > 0f32 && command.lowpass > 0.2f32;
+        }
+        i = i + 1u32;
+    }
+    return impact;
+}
+fn audio_scene_capture(session: mut AudioSession) -> bool {
+    var pcm: AudioPcm = audio_pcm_new();
+    if !audio_pcm_resize(mut pcm, AUDIO_RATE) || !audio_render(mut session, mut pcm) {
+        return false;
+    }
+    var energy: f32 = 0f32;
+    var i: u32 = 0u32;
+    while i < AUDIO_RATE {
+        energy = energy + absf(audio_pcm_sample(read pcm, i, 0u32));
+        i = i + 1u32;
+    }
+    return energy > 1f32 && audio_pcm_write(read pcm, "build/audio-hook-portal.f32");
+}
+fn main(argc: i32, argv: **u8) -> i32 {
+    var a: SoundPath = audio_scene_path(1f32, scale_identity());
+    var b: SoundPath = audio_scene_path(4f32, scale_ratio(3u64, 2u64));
+    if absf(a.gain - b.gain) > 0.000001f32 {
+        return (!error("uniform and portal scaling changed acoustic attenuation")) as i32;
+    }
+    if !audio_scene_hook() {
+        return 1i32;
+    }
+    puts(
+        "audio: transformed/scaled portal, camera independence, obstruction and worker hook/reel PCM passed"
+    );
+    return 0i32;
+}

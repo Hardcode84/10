@@ -86,6 +86,8 @@ jobs:
         run: crust tests.crs
       - name: Check portal overlap and recursive object lights
         run: |
+          crust tests.crs audio
+          crust tests.crs audio-scene
           crust tests.crs collision
           crust tests.crs hook-light
           crust tests.crs body-view

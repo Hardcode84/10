@@ -43,11 +43,12 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
     }
     var prediction: Prediction = prediction_new();
     var pool: TaskPool = task_pool_new();
-    if !task_pool_open(mut pool, config.workers, 1u32) {
+    if !task_pool_open(mut pool, config.workers, 2u32) {
         return 1i32;
     }
     task_pool_trace(mut pool, now);
     var context: PredictionContext = prediction_context(read pool, read collision);
+    var sound: SoundContext = sound_context(read pool, read collision);
     if !prediction_context_ready(read context) {
         return 1i32;
     }
@@ -71,6 +72,7 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
             if !game_task_frame(
                 mut graph,
                 mut context,
+                mut sound,
                 read collision,
                 mut session,
                 mut loop,

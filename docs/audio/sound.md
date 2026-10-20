@@ -2,8 +2,26 @@
 
 ## Status and purpose
 
-This is the implementation design. The game has SDL3 window, input, and task
-providers. It has no sound mixer, sound assets, or audio output provider.
+The shared mixer, generated sound bank, SDL3 output, offline capture, and acoustic
+preparation task are implemented. The main game and room demos use them for hook
+launch, wall contact, release, and reeling. The viewer stays silent.
+
+Run a game or room demo normally to enable sound. Use `--mute` to disable device
+output, or `--volume N` to set a percentage from zero through one hundred.
+Use `--audio-stats` to print callback and queue counters at exit.
+Headless game runs do not open an audio device. The browser launcher has the same
+controls and shows a resume button when its audio context is suspended.
+
+The first spatial cue selects one strongest portal path. It uses captured contact
+coordinates and excludes the named contact face from the obstruction query.
+Reeling uses actual cable state. A blocked pull has a lower pitch and stronger
+filter than cable movement. Its loop cursor continues while its gain is zero.
+
+The delivery gates below still govern additional sound content. Spatial machine
+loops require several independently filtered path taps and physical anchor
+inputs. The current mixer accepts one prepared stereo/filter control per source.
+Do not add machine or atmosphere cues before those inputs and the listening
+checks are available.
 
 Use one Crust sound engine for native and web builds. SDL3 supplies device output.
 Gameplay must not call SDL or pass device handles. Sound must work without the
@@ -16,7 +34,7 @@ signals for world systems that do not yet exist.
 
 ## Components and data flow
 
-These are proposed source locations, not directories already implemented.
+The components have these source locations.
 
 | Component | Location | Responsibility |
 | --- | --- | --- |
@@ -50,13 +68,13 @@ policy selects cues. It does not implement mixing or portal search.
 
 ## API and ownership
 
-The checked interface provides these operations. Exact Crust declarations must
-follow the ownership model when the first slice is implemented.
+The checked interface provides these operations.
 
 - Create an immutable `SoundBank` from recipes. Each sound has a stable content ID.
-- Open an `AudioSession` with a bank loan and explicit capacity settings.
-- Submit a `SoundBatch` with an epoch, simulation tick, ordered events, listener,
-  source updates, and prepared paths.
+- Open an `AudioSession` by transferring its bank and specifying voice capacity.
+- Submit a `SoundBatch` of ordered numeric commands. Each command carries an
+  epoch, sequence, sample time, source identity, gain, pitch, and filter control.
+  The game preparation task owns the listener and contact snapshots.
 - Read device status and diagnostic counters outside the callback.
 - Pause, resume, reset an epoch, and close the session.
 - Run the same mixer into an owned PCM buffer for an offline capture.
@@ -84,7 +102,9 @@ ownership contract is missing.
 
 An accepted batch retains every event in order. The initial design does not
 replace queued batches or coalesce events. Validate capacities at admission.
-A full queue reports an error outside the callback; it must not discard a hook
+Before the first device callback, game policy retains tick facts in its pending
+batch and delays continuous updates. A device that fails to start its callback
+within the startup deadline reports an error. A full queue reports an error outside the callback; it must not discard a hook
 attachment, block the callback, or allocate a larger queue in that callback.
 A reset changes the epoch. Old events cannot start voices in the new expedition.
 
@@ -102,9 +122,11 @@ tick in the batch. The callback applies batches only at block boundaries.
 
 Use an integer sample counter. Convert tick offsets to samples with integer
 quotient and remainder arithmetic. In an offline capture, this gives exact event
-positions independent of the block size. Live playback maps simulation time onto
-the mixer clock when an epoch starts or resumes. Apply an overdue event at the
-next block boundary and count its lateness; do not replay a backlog of elapsed
+positions independent of the block size. Live batches contain completed simulation ticks. Apply them at the next block
+boundary, even if device progress fell behind wall time. Waiting for a stalled
+device clock would turn completed events into an increasing queue of future
+work. The epoch mapping records lateness; it does not defer live commands.
+Offline commands retain their exact sample positions. Count overdue events; do not replay a backlog of elapsed
 ambient sound. Repeated lateness is a failed latency gate, not a reason to add
 more output buffering.
 
@@ -139,8 +161,8 @@ SDL call is allocation-free or lock-free.
 
 On callback failure, set a preallocated error record and stop producing new
 sound. The application reports the error and stops the audio session. Do not
-format an error message in the callback. On close, stop device consumption,
-detach the callback with synchronization, then destroy the stream. Release the
+format an error message in the callback. On close, destroy the SDL stream. SDL synchronizes stream destruction with its
+callback and closes the associated logical device. Release the
 bank and callback context only after callback quiescence is confirmed by the
 SDL API contract and tested under concurrent shutdown.
 
@@ -152,8 +174,8 @@ and path changes. Retain headroom on each bus and use a final peak limiter.
 Output must remain finite and bounded even when all admitted voices are active.
 
 Voice admission uses explicit priorities. Reserve capacity for player actions
-and objective cues. Ambient voices may be virtualized; their elapsed time still
-advances. If a lower-priority voice is replaced, fade it and count the replacement.
+and objective cues. Admitted loops with zero gain still advance their cursors. If a lower-priority voice is replaced, fade it before starting its replacement
+and count the replacement.
 Failure to admit a reserved cue is an error. Never steal an arbitrary voice due
 to container iteration order. Resource limits and sound tuning have one owning
 definition each; docs and HUD code must not copy those values.
@@ -331,3 +353,58 @@ Use focused fixtures for these checks:
 After this slice passes, add movement and scrape cues, then machine loops and
 recursive acoustic paths, then the atmosphere channels as their simulation
 inputs become available. Each step must preserve the timing and ownership gates.
+
+## Implemented checks
+
+Run `crust tests.crs audio` for the standalone mixer and transport checks. They
+need no renderer. The device checks select SDL's silent dummy driver and close
+each stream before return. Use `crust tests.crs audio --sanitize` to enable address
+and undefined-behaviour checks.
+
+Run `crust tests.crs audio-scene` for the shared hook physics, acoustic worker,
+and offline mixer path. It checks translated and rotated portals, rational
+portal scale, uniform listener scale, camera-independent admission, prop
+obstruction, and wall contact. It writes `build/audio-hook-portal.f32` as
+interleaved stereo float PCM at the engine sample rate. It opens no audio device.
+
+The mixer checks compare exact PCM across different block sizes. They also check
+pause cursor freezing, epochs, stale active generations, reserved voice slots,
+faded priority replacement, queue saturation, and ordered publication across two
+threads. The queue test wraps its storage repeatedly. Device tests close output
+while its callback thread is active.
+
+The native device callback has preallocated duration and failure counters. Read
+these outside the callback. A completed short check establishes callback and
+shutdown behaviour; it does not establish the ten-minute load or loopback latency
+gates. Keep long device runs explicit and stop playback when each check ends.
+
+Run `bun tests/web/audio.mjs` against the built site and a dedicated browser test
+tab. Start the browser with `--mute-audio`. The test also routes captured PCM
+through a zero-gain node. It checks hook and reel output, pause, browser
+suspension, resume, and context closure. Its injected main-thread stall measures
+callback scheduling. It does not measure speaker latency.
+
+SDL's browser provider initializes a capture-side placeholder even in a
+playback-only session. Stream destruction disconnects playback but can retain
+its context. The application launcher closes that context on exit and abort.
+The browser test checks this final owner boundary.
+
+### Bounded load witness
+
+The shaft-hub corner view in `levels/prefabs.crs`, room 15, pose 119, was checked
+at 1024 by 768 on Intel Arc Pro B60. Each run measured 128 frames. The sound run
+used a continuous reel voice and repeated spatial contacts through the same
+worker and stream paths as the game. SDL's dummy device kept the check silent.
+Run it with `SPINWARD_TASKS=1 SPINWARD_AUDIO=1` and the course benchmark; omit
+`SPINWARD_AUDIO` for its baseline.
+
+Across three pairs, sound-enabled frame p99 was 6.69 to 6.91 ms. The largest
+increase over its paired baseline was 0.11 ms. Maximum callback duration was
+140 to 149 microseconds. No callback deadline miss was recorded. Peak queue use
+was four batches. These short runs pass the bounded frame-overhead check. They
+do not replace the longer device or loopback tests above.
+
+The browser PCM witness used 2048-frame callbacks at 48 kHz. The largest normal
+callback interval was 59.4 ms. An injected 100 ms main-thread stall increased the
+interval to 111.8 ms. This confirms the SDL callback scheduling constraint. The
+check observes PCM delivery and does not establish uninterrupted speaker output.

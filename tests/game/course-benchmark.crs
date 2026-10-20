@@ -155,10 +155,11 @@ fn course_benchmark_frames(
 ) -> bool {
     var graph: TaskGraph = task_graph_new();
     var pool: TaskPool = task_pool_new();
-    if !game_frame_graph(mut graph) || !task_pool_open(mut pool, config.workers, 1u32) {
+    if !course_frame_open(mut graph, mut pool, mut session.control, config.workers) {
         return false;
     }
     var context: PredictionContext = prediction_context(read pool, read scene);
+    var sound: SoundContext = sound_context(read pool, read scene);
     if !prediction_context_ready(read context) {
         return false;
     }
@@ -191,10 +192,14 @@ fn course_benchmark_frames(
     var frame: u32 = 0u32;
     while frame < samples + 8u32 {
         var start: u64 = now();
+        if !course_audio_tick(read scene, mut session.control, mut loop, config, frame) {
+            return false;
+        }
         if benchmark_environment("SPINWARD_TASKS") != null(*u8) {
             if !course_task_frame(
                 mut graph,
                 mut context,
+                mut sound,
                 read scene,
                 mut session,
                 mut loop,
@@ -268,6 +273,7 @@ fn course_benchmark_frames(
         return course_task_frame(
             mut graph,
             mut context,
+            mut sound,
             read scene,
             mut session,
             mut loop,
@@ -485,6 +491,7 @@ fn game_defer_prediction(session: mut GameSession) -> DeferredGeometry {
 fn course_task_frame(
     graph: mut TaskGraph,
     context: mut PredictionContext,
+    sound: mut SoundContext,
     scene: read CollisionScene,
     session: mut GameSession,
     loop: mut GameLoop,
@@ -502,10 +509,24 @@ fn course_task_frame(
     return game_root_frame(
         mut graph,
         mut context,
+        mut sound,
         read scene,
         mut session,
         mut loop,
         config,
         mut prediction
+    );
+}
+
+fn course_frame_open(
+    graph: mut TaskGraph,
+    pool: mut TaskPool,
+    control: mut GameControl,
+    workers: u32
+) -> bool {
+    return course_audio_open(mut control) && game_frame_graph(mut graph) && task_pool_open(
+        mut pool,
+        workers,
+        2u32
     );
 }

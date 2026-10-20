@@ -10,6 +10,7 @@ fn invalid_control_forge(
         window: move window,
         launch: launch,
         stream: move stream,
-        latency: move latency
+        latency: move latency,
+        sound: game_sound_new()
     };
 }

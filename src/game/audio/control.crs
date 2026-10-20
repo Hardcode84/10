@@ -1,0 +1,246 @@
+record GameSound {
+    enabled: bool;
+    gain: f32;
+    epoch: u32;
+    sequence: u64;
+    phase: u32;
+    paused: bool;
+    pending: GameSoundFrame;
+}
+fn game_sound_new() -> GameSound {
+    var frame: GameSoundFrame = uninit;
+    frame.batch = sound_batch_new();
+    frame.truncated = 0u32;
+    frame.listener = make SoundListener {
+        space: 0u32,
+        position: vec(0f32, 0f32, 0f32),
+        right: vec(1f32, 0f32, 0f32),
+        size: 1f32,
+        time: 0f32
+    };
+    var i: usize = 0usize;
+    while i < AUDIO_BATCH_COMMANDS as usize {
+        frame.spatial[i] = false;
+        frame.positions[i] = sound_position(0u32, vec(0f32, 0f32, 0f32));
+        i = i + 1usize;
+    }
+    return make GameSound {
+        enabled: false,
+        gain: 1f32,
+        epoch: 0u32,
+        sequence: 0u64,
+        phase: CABLE_READY,
+        paused: false,
+        pending: frame
+    };
+}
+fn game_sound_asset_error() -> unit {
+    error("cannot generate sound bank");
+    exit(1i32);
+}
+fn game_sound_open(control: mut GameControl) -> bool {
+    control.sound.enabled = !control.launch.mute && !control.launch.config.headless;
+    control.sound.gain = control.launch.sound_gain;
+    if !control.sound.enabled {
+        return true;
+    }
+    if !audio_open(mut control.window.audio, game_sound_bank(), GAME_SOUND_VOICES, true) {
+        return error("cannot open audio output; select --mute to run without sound");
+    }
+    return true;
+}
+fn game_sound_push(
+    sound: *GameSound,
+    command: AudioCommand,
+    spatial: bool,
+    position: SoundPosition
+) -> bool {
+    var index: usize = sound -> pending.batch.count as usize;
+    if !sound_batch_append(mut sound -> pending.batch, command) {
+        return error("sound tick batch is full");
+    }
+    sound -> pending.spatial[index] = spatial;
+    sound -> pending.positions[index] = position;
+    return true;
+}
+fn game_sound_command(sound: *GameSound, kind: u32, tick: u32, config: GameConfig) -> AudioCommand {
+    var rate: u32 = game_tick_rate(config);
+    var command: AudioCommand = audio_command(
+        kind,
+        sound -> epoch,
+        audio_tick_sample(tick as u64, rate)
+    );
+    sound -> sequence = sound -> sequence + 1u64;
+    command.sequence = sound -> sequence;
+    command.generation = sound -> epoch;
+    command.priority = 2u32;
+    return command;
+}
+fn game_sound_event(
+    sound: *GameSound,
+    cue: u32,
+    tick: u32,
+    config: GameConfig,
+    position: SoundPosition,
+    spatial: bool
+) -> bool {
+    var command: AudioCommand = game_sound_command(sound, AUDIO_PLAY, tick, config);
+    if command.sequence > 0xffffff00u64 {
+        return error("sound event identity range exhausted");
+    }
+    command.source = command.sequence as u32 + 16u32;
+    command.sound = cue;
+    command.left = sound -> gain;
+    command.right = sound -> gain;
+    if !spatial {
+        command.left = command.left * 0.70710678f32;
+        command.right = command.right * 0.70710678f32;
+    }
+    return game_sound_push(sound, command, spatial, position);
+}
+fn game_sound_reset(sound: *GameSound, epoch: u32, tick: u32, config: GameConfig) -> bool {
+    sound -> epoch = epoch;
+    sound -> phase = CABLE_READY;
+    var reset: AudioCommand = game_sound_command(sound, AUDIO_RESET, tick, config);
+    return game_sound_push(
+        sound,
+        reset,
+        false,
+        sound_position(0u32, vec(0f32, 0f32, 0f32))
+    );
+}
+fn game_sound_tick(
+    control: mut GameControl,
+    trial: read Trial,
+    tick: u32,
+    config: GameConfig
+) -> bool {
+    var sound: *GameSound = &control.sound;
+    if !sound -> enabled {
+        return true;
+    }
+    if sound -> epoch != trial.attempt + 1u32 && !game_sound_reset(
+        sound,
+        trial.attempt + 1u32,
+        tick,
+        config
+    ) {
+        return false;
+    }
+    var phase: u32 = trial.drone.cable.phase;
+    var local: SoundPosition = sound_position(trial.drone.world, trial.drone.position);
+    if phase == CABLE_FLYING && sound -> phase != CABLE_FLYING {
+        if !game_sound_event(sound, GAME_SOUND_LAUNCH, tick, config, local, false) {
+            return false;
+        }
+    }
+    if trial.drone.hook_contact.active {
+        var contact: SoundPosition = sound_position(
+            trial.drone.hook_contact.space,
+            trial.drone.hook_contact.point
+        );
+        contact.instance = trial.drone.cable.instance;
+        contact.surface = trial.drone.cable.surface;
+        if !game_sound_event(sound, GAME_SOUND_CONTACT, tick, config, contact, true) {
+            return false;
+        }
+    }
+    if phase == CABLE_READY && sound -> phase != CABLE_READY {
+        if !game_sound_event(sound, GAME_SOUND_RELEASE, tick, config, local, false) {
+            return false;
+        }
+    }
+    sound -> phase = phase;
+    return true;
+}
+fn game_sound_snapshot(control: mut GameControl, loop: read GameLoop, config: GameConfig) -> GameSoundFrame {
+    var sound: *GameSound = &control.sound;
+    if sound -> enabled && !audio_started(read control.window.audio) {
+        var waiting: GameSoundFrame = sound -> pending;
+        waiting.batch.count = 0u32;
+        return waiting;
+    }
+    if sound -> enabled {
+        game_sound_continuous(sound, read loop, config);
+    }
+    sound -> pending.listener = game_sound_listener(read loop.trial.drone);
+    var result: GameSoundFrame = sound -> pending;
+    sound -> pending.batch.count = 0u32;
+    sound -> pending.truncated = 0u32;
+    return result;
+}
+fn game_sound_continuous(sound: *GameSound, loop: read GameLoop, config: GameConfig) -> unit {
+    var local: SoundPosition = sound_position(
+        loop.trial.drone.world,
+        loop.trial.drone.position
+    );
+    if sound -> paused != loop.input.paused {
+        sound -> paused = loop.input.paused;
+        var pause: AudioCommand = game_sound_command(sound, AUDIO_PAUSE, loop.ticks, config);
+        pause.left = sound -> paused as u32 as f32;
+        if !game_sound_push(sound, pause, false, local) {
+            exit(1i32);
+        }
+    }
+    if sound -> paused {
+        return;
+    }
+    var command: AudioCommand = game_sound_command(sound, AUDIO_LOOP, loop.ticks, config);
+    command.source = 1u32;
+    command.sound = GAME_SOUND_REEL;
+    if loop.trial.drone.cable.reeling && loop.trial.drone.cable.phase == CABLE_ATTACHED {
+        var moving: bool = absf(loop.trial.drone.cable.reel_speed) > 0f32;
+        command.left = sound -> gain * 0.70710678f32;
+        command.right = command.left;
+        command.pitch = 0.65f32;
+        command.lowpass = 0.15f32;
+        if moving {
+            command.pitch = 1.2f32;
+            command.lowpass = 0.8f32;
+        }
+    }
+    if !game_sound_push(sound, command, false, local) {
+        exit(1i32);
+    }
+}
+fn game_sound_submit(control: mut GameControl, frame: read GameSoundFrame) -> bool {
+    if !control.sound.enabled {
+        return true;
+    }
+    if frame.truncated != 0u32 {
+        return error("sound portal search capacity exhausted");
+    }
+    if !audio_ready(read control.window.audio) {
+        return error("audio callback failed");
+    }
+    if !audio_submit(mut control.window.audio, read frame.batch) {
+        return error("audio control queue is full or invalid");
+    }
+    return true;
+}
+fn game_sound_serial(
+    collision: read CollisionScene,
+    control: mut GameControl,
+    loop: read GameLoop,
+    config: GameConfig
+) -> bool {
+    var frame: GameSoundFrame = game_sound_snapshot(mut control, read loop, config);
+    game_sound_prepare(read collision, mut frame);
+    return game_sound_submit(mut control, read frame);
+}
+
+fn game_sound_finish(control: mut GameControl) -> unit {
+    if control.launch.audio_stats && control.sound.enabled {
+        var stats: AudioStats = audio_stats(read control.window.audio);
+        puts(
+            "audio callbacks / maximum callback us / deadline misses / late commands / replacements / peak queued batches:"
+        );
+        print_number(stats.callbacks as i64);
+        print_number(stats.maximum_us as i64);
+        print_number(stats.deadline_misses as i64);
+        print_number(stats.late_commands as i64);
+        print_number(stats.voice_replacements as i64);
+        print_number(stats.queue_peak as i64);
+    }
+    audio_close(mut control.window.audio);
+}

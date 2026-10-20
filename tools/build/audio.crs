@@ -1,0 +1,63 @@
+fn run_audio_checks(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> i32 {
+    if !sdl_build(root) {
+        return 1i32;
+    }
+    var fixed: [*u8; 11] = make [*u8; 11] {
+        "-o",
+        host_path(root, "build/tests-audio"),
+        host_path(root, "tests/audio/entry.crs"),
+        host_path(root, "src/app/math.crs"),
+        host_path(root, "src/audio/api/model.crs"),
+        host_path(root, "src/audio/mix/voice.crs"),
+        host_path(root, "src/audio/synthesis/recipe.crs"),
+        "--cflag",
+        "-O2",
+        "--ldflag",
+        sdl_link(root)
+    };
+    var args: [*u8; 19] = uninit;
+    var i: usize = 0usize;
+    while i < 11usize {
+        args[i] = fixed[i];
+        i = i + 1usize;
+    }
+    var count: i32 = 11i32;
+    if root -> argc > 1i32 && cache_strcmp(root -> argv[1usize], "--sanitize") == 0i32 {
+        args[8usize] = "-O1";
+        args[11usize] = "--cflag";
+        args[12usize] = "-fsanitize=address,undefined";
+        args[13usize] = "--ldflag";
+        args[14usize] = "-fsanitize=address,undefined";
+        args[15usize] = "--cflag";
+        args[16usize] = "-fno-sanitize-recover=all";
+        args[17usize] = "--cflag";
+        args[18usize] = "-g";
+        count = 19i32;
+    }
+    var providers: [*u8; 7] = make [*u8; 7] {
+        host_path(root, "src/runtime/channel/spsc.crs"),
+        host_path(root, "src/audio/platform/bank.crs"),
+        host_path(root, "src/audio/platform/mixer.crs"),
+        host_path(root, "src/audio/platform/session.crs"),
+        host_path(root, "tests/audio/checks.crs"),
+        host_path(root, "tests/audio/channel.crs"),
+        host_path(root, "src/audio/platform/capture.crs")
+    };
+    if ownership_sources(
+        root,
+        emit,
+        count,
+        &args[0usize],
+        &providers[0usize],
+        7usize,
+        null(*u8)
+    ) != 0i32 {
+        return 1i32;
+    }
+    root -> argc = root -> argc - 1i32;
+    root -> argv = root -> argv + 1isize;
+    return launch_application(root, "build/tests-audio");
+}

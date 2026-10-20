@@ -1,0 +1,101 @@
+record BankSound {
+    samples: *f32;
+    count: u32;
+    loop: bool;
+}
+opaque;
+resource SoundBank {
+    sounds: *BankSound;
+    count: u32;
+}
+opaque drop sound_bank_drop;
+fn sound_bank_new() -> SoundBank {
+    return make SoundBank {
+        sounds: null(*BankSound),
+        count: 0u32
+    };
+}
+fn sound_bank_drop(bank: mut SoundBank) -> unit {
+    var i: u32 = 0u32;
+    while i < bank.count {
+        channel_free(bank.sounds[i as usize].samples as *u8);
+        i = i + 1u32;
+    }
+    channel_free(bank.sounds as *u8);
+}
+extern fn audio_realloc(data: *u8, bytes: usize) -> *u8 = "realloc";
+fn sound_bank_add(bank: mut SoundBank, recipe: SoundRecipe) -> bool {
+    if !sound_recipe_valid(recipe) || bank.count == 0xffffffffu32 || bank.count as usize >= (
+        ~0usize
+    ) / sizeof(BankSound) {
+        return false;
+    }
+    var sounds: *BankSound = audio_realloc(
+        bank.sounds as *u8,
+        (bank.count as usize + 1usize) * sizeof(BankSound)
+    ) as *BankSound;
+    if sounds == null(*BankSound) {
+        return false;
+    }
+    bank.sounds = sounds;
+    var count: u32 = (recipe.seconds * AUDIO_RATE as f32) as u32;
+    if count == 0u32 {
+        return false;
+    }
+    var samples: *f32 = channel_allocate(count as usize, sizeof(f32)) as *f32;
+    if samples == null(*f32) {
+        return false;
+    }
+    sound_generate(samples, count, recipe);
+    sounds[bank.count as usize] = make BankSound {
+        samples: samples,
+        count: count,
+        loop: recipe.loop
+    };
+    bank.count = bank.count + 1u32;
+    return true;
+}
+fn sound_generate(samples: *f32, count: u32, recipe: SoundRecipe) -> unit {
+    var random: u32 = recipe.seed;
+    var phase: f32 = 0f32;
+    var increment: f32 = recipe.frequency / AUDIO_RATE as f32;
+    if recipe.loop {
+        increment = ((recipe.frequency * recipe.seconds) as u32) as f32 / count as f32;
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        var envelope: f32 = 1f32;
+        if !recipe.loop {
+            envelope = 1f32 - i as f32 / count as f32;
+            envelope = envelope * envelope;
+            if i < AUDIO_FADE {
+                envelope = envelope * i as f32 / AUDIO_FADE as f32;
+            }
+        }
+        samples[i as usize] = recipe.gain * envelope * (
+            (1f32 - recipe.noise) * sound_wave(phase) + recipe.noise * sound_random(mut random)
+        );
+        phase = phase + increment;
+        if phase >= 1f32 {
+            phase = phase - 1f32;
+        }
+        i = i + 1u32;
+    }
+    if recipe.loop {
+        sound_loop_seam(samples, count);
+    }
+}
+fn sound_loop_seam(samples: *f32, count: u32) -> unit {
+    var fade: u32 = AUDIO_FADE;
+    if fade > count / 2u32 {
+        fade = count / 2u32;
+    }
+    var i: u32 = 0u32;
+    while i < fade {
+        var weight: f32 = i as f32 / fade as f32;
+        samples[i as usize] = samples[i as usize] * weight + samples[(count - 1u32) as usize] * (
+            1f32 - weight
+        );
+        i = i + 1u32;
+    }
+}

@@ -2,6 +2,7 @@ resource GameWindow {
     handle: *u8;
     controller: *u8;
     focused: bool;
+    audio: AudioSession;
 }
 opaque drop game_window_drop;
 record GameControl {
@@ -10,6 +11,7 @@ record GameControl {
     launch: Launch;
     stream: Recording;
     latency: LatencyLog;
+    sound: GameSound;
 }
 opaque;
 record GameSession {
@@ -23,6 +25,7 @@ record GameSession {
     world: InstanceList;
 }
 fn game_window_drop(window: mut GameWindow) -> unit {
+    audio_close(mut window.audio);
     if window.controller != null(*u8) {
         app_pad_close(window.controller);
     }
@@ -36,11 +39,13 @@ fn game_session(o: *Launch) -> GameSession {
             window: make GameWindow {
                 handle: null(*u8),
                 controller: null(*u8),
-                focused: false
+                focused: false,
+                audio: audio_new()
             },
             launch: *o,
             stream: recording_new(),
-            latency: latency_new()
+            latency: latency_new(),
+            sound: game_sound_new()
         },
         frame_rate: frame_rate_new(),
         room: room_asset_new(),
@@ -84,6 +89,9 @@ fn game_open(session: mut GameSession, input: mut InputState) -> bool {
             return false;
         }
     }
+    if !game_sound_open(mut session.control) {
+        return false;
+    }
     var portals: u32 = asset_port_count(read session.room.ports);
     if graph_count(read session.control.graph) != 0u32 {
         portals = graph_ports(read session.control.graph);
@@ -96,6 +104,7 @@ fn game_open(session: mut GameSession, input: mut InputState) -> bool {
     );
 }
 fn game_finish(session: mut GameSession) -> bool {
+    game_sound_finish(mut session.control);
     var good: bool = recording_finish(&session.control.stream);
     good = latency_flush(&session.control.latency, session.control.launch.config) && good;
     if session.control.launch.capture != null(*u8) {

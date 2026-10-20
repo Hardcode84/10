@@ -1,0 +1,301 @@
+record AudioSpec {
+    format: i32;
+    channels: i32;
+    frequency: i32;
+}
+record AudioState {
+    mixer: *AudioMixer;
+    queue: SpscQueue;
+    failed: i32;
+    live: bool;
+    opened: u64;
+    command_index: u32;
+    mapped: bool;
+    source_origin: u64;
+    output_origin: u64;
+    callbacks: i32;
+    max_us: i32;
+    misses: i32;
+    late_commands: i32;
+    voice_replacements: i32;
+    queue_peak: i32;
+    scratch: [f32; 256];
+}
+opaque;
+resource AudioSession {
+    state: *AudioState;
+    stream: *u8;
+}
+opaque drop audio_close;
+extern fn audio_init(flags: u32) -> bool = "SDL_InitSubSystem";
+extern fn audio_quit(flags: u32) -> unit = "SDL_QuitSubSystem";
+extern fn audio_device_open(
+    device: u32,
+    spec: *AudioSpec,
+    callback: fn(*u8, *u8, i32, i32) -> unit,
+    data: *u8
+) -> *u8 = "SDL_OpenAudioDeviceStream";
+extern fn audio_device_resume(stream: *u8) -> bool = "SDL_ResumeAudioStreamDevice";
+extern fn audio_device_destroy(stream: *u8) -> unit = "SDL_DestroyAudioStream";
+extern fn audio_device_put(stream: *u8, samples: *u8, bytes: i32) -> bool = "SDL_PutAudioStreamData";
+extern fn audio_time() -> u64 = "SDL_GetTicksNS";
+extern fn audio_error_text() -> *u8 = "SDL_GetError";
+fn audio_new() -> AudioSession {
+    return make AudioSession {
+        state: null(*AudioState),
+        stream: null(*u8)
+    };
+}
+fn audio_close(session: mut AudioSession) -> unit {
+    if session.stream != null(*u8) {
+        audio_device_destroy(session.stream);
+        session.stream = null(*u8);
+        audio_quit(16u32);
+    }
+    if session.state != null(*AudioState) {
+        audio_mixer_destroy(session.state -> mixer);
+        channel_close(&session.state -> queue);
+        channel_free(session.state as *u8);
+        session.state = null(*AudioState);
+    }
+}
+fn audio_open(session: mut AudioSession, bank: SoundBank, voices: u32, live: bool) -> bool {
+    audio_close(mut session);
+    if voices == 0u32 || bank.count == 0u32 {
+        return false;
+    }
+    session.state = channel_allocate(1usize, sizeof(AudioState)) as *AudioState;
+    if session.state == null(*AudioState) {
+        return false;
+    }
+    session.state -> live = live;
+    session.state -> mixer = audio_mixer_create(move bank, voices);
+    if session.state -> mixer == null(*AudioMixer) || !channel_open(
+        &session.state -> queue,
+        AUDIO_QUEUE,
+        sizeof(SoundBatch)
+    ) {
+        audio_close(mut session);
+        return false;
+    }
+    if !live {
+        return true;
+    }
+    if !audio_open_device(mut session) {
+        audio_close(mut session);
+        return false;
+    }
+    return true;
+}
+fn audio_open_device(session: mut AudioSession) -> bool {
+    if !audio_init(16u32) {
+        return false;
+    }
+    var spec: AudioSpec = make AudioSpec {
+        format: 0x8120i32,
+        channels: AUDIO_CHANNELS as i32,
+        frequency: AUDIO_RATE as i32
+    };
+    session.stream = audio_device_open(
+        0xffffffffu32,
+        &spec,
+        audio_callback,
+        session.state as *u8
+    );
+    if session.stream == null(*u8) {
+        audio_quit(16u32);
+        return false;
+    }
+    session.state -> opened = audio_time();
+    return audio_device_resume(session.stream);
+}
+fn audio_valid(command: AudioCommand, count: u32) -> bool {
+    if command.kind < AUDIO_LOOP || command.kind > AUDIO_STOP {
+        return false;
+    }
+    if command.kind != AUDIO_LOOP && command.kind != AUDIO_PLAY {
+        return true;
+    }
+    return command.sound < count && command.left >= 0f32 && command.left <= 1f32 && command.right >= 0f32 && command.right <= 1f32 && command.pitch >= 0.125f32 && command.pitch <= 8f32 && command.lowpass >= 0.001f32 && command.lowpass <= 1f32;
+}
+// A single producer submits complete batches in sample order. Live commands describe completed ticks.
+// Success transfers a copy. Offline commands can name later sample positions.
+fn audio_submit(session: mut AudioSession, batch: read SoundBatch) -> bool {
+    if session.state == null(*AudioState) || batch.count > AUDIO_BATCH_COMMANDS {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < batch.count {
+        if !audio_valid(
+            batch.commands[i as usize],
+            session.state -> mixer -> bank.count
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if batch.count == 0u32 {
+        return true;
+    }
+    if !channel_push(&session.state -> queue, &batch as *u8) {
+        return false;
+    }
+    var count: i32 = channel_count(&session.state -> queue) as i32;
+    if count > channel_load(&session.state -> queue_peak) {
+        channel_store(&session.state -> queue_peak, count);
+    }
+    return true;
+}
+fn audio_send(session: mut AudioSession, command: AudioCommand) -> bool {
+    var batch: SoundBatch = sound_batch_new();
+    sound_batch_append(mut batch, command);
+    return audio_submit(mut session, read batch);
+}
+fn audio_ready(session: read AudioSession) -> bool {
+    if session.state == null(*AudioState) || channel_load(&session.state -> failed) != 0i32 {
+        return false;
+    }
+    return audio_started(read session) || audio_time() - session.state -> opened < 2000000000u64;
+}
+fn audio_due(state: *AudioState, command: AudioCommand) -> bool {
+    var sample: u64 = command.sample;
+    if state -> live {
+        if command.kind == AUDIO_RESET || command.kind == AUDIO_PAUSE {
+            state -> mapped = false;
+            return true;
+        }
+        if !state -> mapped {
+            state -> source_origin = sample;
+            state -> output_origin = state -> mixer -> clock;
+            state -> mapped = true;
+        }
+        if sample < state -> source_origin {
+            return true;
+        }
+        sample = state -> output_origin + sample - state -> source_origin;
+    }
+    if sample > state -> mixer -> clock {
+        return state -> live;
+    }
+    if sample < state -> mixer -> clock {
+        state -> mixer -> late = state -> mixer -> late + 1u64;
+    }
+    return true;
+}
+fn audio_commands(state: *AudioState) -> unit {
+    var data: *u8 = channel_peek(&state -> queue);
+    while data != null(*u8) {
+        var batch: *SoundBatch = data as *SoundBatch;
+        while state -> command_index < batch -> count {
+            var command: AudioCommand = batch -> commands[state -> command_index as usize];
+            if !audio_due(state, command) {
+                return;
+            }
+            audio_mixer_command(state -> mixer, command);
+            state -> command_index = state -> command_index + 1u32;
+        }
+        state -> command_index = 0u32;
+        channel_consume(&state -> queue);
+        data = channel_peek(&state -> queue);
+    }
+}
+fn audio_fill(state: *AudioState, samples: *f32, frames: u32) -> unit {
+    var i: u32 = 0u32;
+    while i < frames {
+        if !state -> live || state -> mixer -> clock % AUDIO_BLOCK as u64 == 0u64 {
+            audio_commands(state);
+        }
+        audio_mix_sample(
+            state -> mixer,
+            &samples[(i * AUDIO_CHANNELS) as usize],
+            &samples[(i * AUDIO_CHANNELS + 1u32) as usize]
+        );
+        i = i + 1u32;
+    }
+    if state -> mixer -> failed {
+        channel_store(&state -> failed, 1i32);
+    }
+}
+fn audio_callback(data: *u8, stream: *u8, additional: i32, total: i32) -> unit {
+    if additional <= 0i32 {
+        return;
+    }
+    var begin: u64 = audio_time();
+    var state: *AudioState = data as *AudioState;
+    if channel_load(&state -> failed) != 0i32 {
+        return;
+    }
+    var frame_bytes: i32 = (AUDIO_CHANNELS as usize * sizeof(f32)) as i32;
+    var frames: i32 = additional / frame_bytes + (additional % frame_bytes != 0i32) as i32;
+    while frames > 0i32 {
+        var count: u32 = AUDIO_BLOCK;
+        if frames < count as i32 {
+            count = frames as u32;
+        }
+        audio_fill(state, &state -> scratch[0usize], count);
+        if !audio_device_put(
+            stream,
+            &state -> scratch[0usize] as *u8,
+            (count * AUDIO_CHANNELS * sizeof(f32) as u32) as i32
+        ) {
+            channel_store(&state -> failed, 1i32);
+            return;
+        }
+        frames = frames - count as i32;
+    }
+    channel_store(&state -> late_commands, state -> mixer -> late as i32);
+    channel_store(&state -> voice_replacements, state -> mixer -> replacements as i32);
+    var duration: u64 = audio_time() - begin;
+    var micros: i32 = (duration / 1000u64) as i32;
+    if micros > channel_load(&state -> max_us) {
+        channel_store(&state -> max_us, micros);
+    }
+    channel_store(&state -> callbacks, channel_load(&state -> callbacks) + 1i32);
+    if duration > additional as u64 * 1000000000u64 / (
+        AUDIO_RATE as u64 * AUDIO_CHANNELS as u64 * sizeof(f32) as u64
+    ) {
+        channel_store(&state -> misses, channel_load(&state -> misses) + 1i32);
+    }
+}
+
+fn sound_batch_new() -> SoundBatch {
+    var result: SoundBatch = uninit;
+    result.count = 0u32;
+    var i: usize = 0usize;
+    while i < AUDIO_BATCH_COMMANDS as usize {
+        result.commands[i] = audio_command(0u32, 0u32, 0u64);
+        i = i + 1usize;
+    }
+    return result;
+}
+
+// Counters are independent observations. They do not form a simulation snapshot.
+fn audio_stats(session: read AudioSession) -> AudioStats {
+    if session.state == null(*AudioState) {
+        return make AudioStats {
+            callbacks: 0u32,
+            maximum_us: 0u32,
+            deadline_misses: 0u32,
+            late_commands: 0u32,
+            voice_replacements: 0u32,
+            queue_peak: 0u32,
+            failed: false
+        };
+    }
+    var state: *AudioState = session.state;
+    return make AudioStats {
+        callbacks: channel_load(&state -> callbacks) as u32,
+        maximum_us: channel_load(&state -> max_us) as u32,
+        deadline_misses: channel_load(&state -> misses) as u32,
+        late_commands: channel_load(&state -> late_commands) as u32,
+        voice_replacements: channel_load(&state -> voice_replacements) as u32,
+        queue_peak: channel_load(&state -> queue_peak) as u32,
+        failed: channel_load(&state -> failed) != 0i32
+    };
+}
+
+fn audio_started(session: read AudioSession) -> bool {
+    return session.state != null(*AudioState) && (
+        !session.state -> live || channel_load(&session.state -> callbacks) != 0i32
+    );
+}

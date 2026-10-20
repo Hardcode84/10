@@ -1,0 +1,353 @@
+extern fn audio_test_print(text: *u8) -> i32 = "puts";
+fn audio_test_bank() -> SoundBank {
+    var bank: SoundBank = sound_bank_new();
+    if !sound_bank_add(
+        mut bank,
+        make SoundRecipe {
+            frequency: 180f32,
+            noise: 0.2f32,
+            gain: 0.2f32,
+            seconds: 0.1f32,
+            loop: true,
+            seed: 1u32
+        }
+    ) {
+        trap;
+    }
+    return move bank;
+}
+fn audio_checks() -> bool {
+    var session: AudioSession = audio_new();
+    if !audio_open(mut session, audio_test_bank(), 8u32, false) {
+        return false;
+    }
+    var command: AudioCommand = audio_command(AUDIO_LOOP, 0u32, 100u64);
+    command.priority = AUDIO_CRITICAL;
+    command.sequence = 1u64;
+    command.left = 1f32;
+    if !audio_send(mut session, command) {
+        return false;
+    }
+    var samples: [f32; 2048] = uninit;
+    audio_fill(session.state, &samples[0usize], 1024u32);
+    var sum: f32 = 0f32;
+    var i: usize = 0usize;
+    while i < 1024usize {
+        if i < 100usize && samples[i * 2usize] != 0f32 {
+            return false;
+        }
+        if samples[i * 2usize + 1usize] != 0f32 {
+            return false;
+        }
+        sum = sum + absf(samples[i * 2usize]);
+        i = i + 1usize;
+    }
+    if sum < 1f32 || !audio_ready(read session) {
+        return false;
+    }
+    audio_test_print("audio: timestamp, stereo and offline mixer passed");
+    return true;
+}
+fn audio_test_sequence(session: mut AudioSession) -> bool {
+    var batch: SoundBatch = sound_batch_new();
+    var command: AudioCommand = audio_command(AUDIO_LOOP, 0u32, 13u64);
+    command.priority = AUDIO_CRITICAL;
+    command.sequence = 1u64;
+    command.left = 0.6f32;
+    command.right = 0.4f32;
+    command.pitch = 0.731f32;
+    sound_batch_append(mut batch, command);
+    command = audio_command(AUDIO_PAUSE, 0u32, 800u64);
+    command.left = 1f32;
+    command.sequence = 2u64;
+    sound_batch_append(mut batch, command);
+    command.sequence = 3u64;
+    command.left = 0f32;
+    command.sample = 1500u64;
+    sound_batch_append(mut batch, command);
+    command = audio_command(AUDIO_RESET, 1u32, 2000u64);
+    sound_batch_append(mut batch, command);
+    command = audio_command(AUDIO_LOOP, 0u32, 2300u64);
+    command.sequence = 2u64;
+    command.left = 1f32;
+    sound_batch_append(mut batch, command);
+    command.epoch = 1u32;
+    command.sample = 2700u64;
+    command.sequence = 4u64;
+    command.priority = AUDIO_CRITICAL;
+    sound_batch_append(mut batch, command);
+    return audio_submit(mut session, read batch);
+}
+fn audio_check_blocks() -> bool {
+    var a: AudioSession = audio_new();
+    var b: AudioSession = audio_new();
+    if !audio_open(mut a, audio_test_bank(), 8u32, false) || !audio_open(
+        mut b,
+        audio_test_bank(),
+        8u32,
+        false
+    ) {
+        return false;
+    }
+    if !audio_test_sequence(mut a) || !audio_test_sequence(mut b) {
+        return false;
+    }
+    var left: AudioPcm = audio_pcm_new();
+    var right: AudioPcm = audio_pcm_new();
+    if !audio_pcm_resize(mut left, 4096u32) || !audio_pcm_resize(mut right, 4096u32) {
+        return false;
+    }
+    if !audio_render(mut a, mut left) {
+        return false;
+    }
+    var offset: u32 = 0u32;
+    while offset < 4096u32 {
+        var count: u32 = 17u32;
+        if count > 4096u32 - offset {
+            count = 4096u32 - offset;
+        }
+        audio_fill(b.state, right.samples + (offset * AUDIO_CHANNELS) as isize, count);
+        offset = offset + count;
+    }
+    var i: usize = 0usize;
+    while i < 8192usize {
+        if left.samples[i] != right.samples[i] {
+            return false;
+        }
+        i = i + 1usize;
+    }
+    return audio_ready(read a) && audio_ready(read b);
+}
+fn audio_check_pause() -> bool {
+    var session: AudioSession = audio_new();
+    if !audio_open(mut session, audio_test_bank(), 8u32, false) {
+        return false;
+    }
+    var command: AudioCommand = audio_command(AUDIO_LOOP, 0u32, 0u64);
+    command.priority = AUDIO_CRITICAL;
+    command.sequence = 1u64;
+    command.left = 1f32;
+    if !audio_send(mut session, command) {
+        return false;
+    }
+    var pcm: AudioPcm = audio_pcm_new();
+    if !audio_pcm_resize(mut pcm, 1024u32) {
+        return false;
+    }
+    audio_render(mut session, mut pcm);
+    command = audio_command(AUDIO_PAUSE, 0u32, session.state -> mixer -> clock);
+    command.left = 1f32;
+    command.sequence = 2u64;
+    if !audio_send(mut session, command) {
+        return false;
+    }
+    audio_render(mut session, mut pcm);
+    var cursor: u64 = session.state -> mixer -> voices[0usize].cursor;
+    audio_render(mut session, mut pcm);
+    if cursor != session.state -> mixer -> voices[0usize].cursor {
+        return false;
+    }
+    var i: usize = 0usize;
+    while i < 2048usize {
+        if pcm.samples[i] != 0f32 {
+            return false;
+        }
+        i = i + 1usize;
+    }
+    return true;
+}
+fn audio_check_queue() -> bool {
+    var session: AudioSession = audio_new();
+    if !audio_open(mut session, audio_test_bank(), 8u32, false) {
+        return false;
+    }
+    var command: AudioCommand = audio_command(AUDIO_PAUSE, 0u32, 0u64);
+    var i: u32 = 0u32;
+    while i < AUDIO_QUEUE {
+        if !audio_send(mut session, command) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if audio_send(mut session, command) {
+        return false;
+    }
+    audio_commands(session.state);
+    return audio_send(mut session, command);
+}
+extern fn audio_test_delay(ms: u32) -> unit = "SDL_Delay";
+extern fn audio_test_hint(name: *u8, value: *u8, priority: i32) -> bool = "SDL_SetHintWithPriority";
+extern fn audio_test_number(text: *u8) -> i32 = "atoi";
+extern fn audio_test_compare(a: *u8, b: *u8) -> i32 = "strcmp";
+extern fn audio_test_format(format: *u8, a: i32, b: i32, c: i32) -> i32 = "printf";
+fn audio_check_device(ms: u32, voices: u32) -> bool {
+    var session: AudioSession = audio_new();
+    if !audio_open(mut session, audio_test_bank(), voices, true) {
+        audio_test_print(audio_error_text());
+        return false;
+    }
+    var batch: SoundBatch = sound_batch_new();
+    var i: u32 = 0u32;
+    while i < voices {
+        var command: AudioCommand = audio_command(AUDIO_LOOP, 0u32, 0u64);
+        command.priority = AUDIO_CRITICAL;
+        command.source = i;
+        command.sequence = i as u64 + 1u64;
+        command.left = 0.01f32;
+        command.right = 0.01f32;
+        sound_batch_append(mut batch, command);
+        i = i + 1u32;
+    }
+    if !audio_submit(mut session, read batch) {
+        return false;
+    }
+    audio_test_delay(ms);
+    var deadline: u64 = audio_time() + 1000000000u64;
+    while channel_load(&session.state -> callbacks) == 0i32 && audio_time() < deadline {
+        audio_test_delay(1u32);
+    }
+    var callbacks: i32 = channel_load(&session.state -> callbacks);
+    var misses: i32 = channel_load(&session.state -> misses);
+    audio_test_format(
+        "audio callbacks=%d max_us=%d misses=%d\n",
+        callbacks,
+        channel_load(&session.state -> max_us),
+        misses
+    );
+    return audio_ready(read session) && callbacks > 0i32 && misses == 0i32;
+}
+
+extern fn audio_test_env(name: *u8) -> *u8 = "getenv";
+fn audio_test_main() -> i32 {
+    var stress: *u8 = audio_test_env("SPINWARD_AUDIO_DEVICE_MS");
+    if stress != null(*u8) {
+        var duration: u32 = audio_test_number(stress) as u32;
+        return (!audio_check_device(duration, 64u32)) as i32;
+    }
+    if !audio_checks() {
+        audio_test_print("audio_checks failed");
+        return 1i32;
+    }
+    if !audio_check_blocks() {
+        audio_test_print("audio_check_blocks failed");
+        return 1i32;
+    }
+    if !audio_check_pause() {
+        audio_test_print("audio_check_pause failed");
+        return 1i32;
+    }
+    if !audio_check_queue() {
+        audio_test_print("audio_check_queue failed");
+        return 1i32;
+    }
+
+    if !audio_check_live_clock() {
+        audio_test_print("live callback clock stall retained completed events");
+        return 1i32;
+    }
+    if !audio_check_admission() {
+        audio_test_print("priority reservation and stale generation check failed");
+        return 1i32;
+    }
+    if !audio_check_channel() {
+        audio_test_print("SPSC ordered publication failed");
+        return 1i32;
+    }
+    if !audio_test_hint("SDL_AUDIO_DRIVER", "dummy", 2i32) {
+        audio_test_print("cannot select silent test output");
+        return 1i32;
+    }
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        if !audio_check_device(60u32, 4u32) {
+            return 1i32;
+        }
+        i = i + 1u32;
+    }
+    audio_test_print(
+        "audio: block invariance, epoch, pause, queue saturation and concurrent shutdown passed"
+    );
+    return 0i32;
+}
+
+fn audio_check_admission() -> bool {
+    var session: AudioSession = audio_new();
+    if !audio_open(mut session, audio_test_bank(), 8u32, false) {
+        return false;
+    }
+    var mixer: *AudioMixer = session.state -> mixer;
+    var command: AudioCommand = audio_command(AUDIO_LOOP, 0u32, 0u64);
+    command.left = 1f32;
+    var i: u32 = 0u32;
+    while i < 8u32 {
+        command.source = i;
+        command.sequence = i as u64 + 1u64;
+        command.priority = 0u32;
+        if i >= 4u32 {
+            command.priority = AUDIO_CRITICAL;
+        }
+        audio_mixer_command(mixer, command);
+        i = i + 1u32;
+    }
+    if mixer -> failed {
+        return false;
+    }
+    command.source = 99u32;
+    command.sequence = 9u64;
+    command.priority = AUDIO_CRITICAL;
+    audio_mixer_command(mixer, command);
+    if mixer -> failed || mixer -> replacements != 1u64 {
+        return false;
+    }
+    var pcm: AudioPcm = audio_pcm_new();
+    if !audio_pcm_resize(mut pcm, 1024u32) || !audio_render(mut session, mut pcm) {
+        return false;
+    }
+    if !audio_test_voice(mixer, 99u32, 0u32) {
+        return false;
+    }
+    command.generation = 2u32;
+    command.sequence = 10u64;
+    audio_mixer_command(mixer, command);
+    audio_render(mut session, mut pcm);
+    command.generation = 1u32;
+    command.sequence = 11u64;
+    audio_mixer_command(mixer, command);
+    return audio_test_voice(mixer, 99u32, 2u32);
+}
+fn audio_test_voice(mixer: *AudioMixer, source: u32, generation: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < mixer -> capacity {
+        var voice: AudioVoice = mixer -> voices[i as usize];
+        if voice.active && voice.source == source {
+            return voice.generation == generation;
+        }
+        i = i + 1u32;
+    }
+    return false;
+}
+
+fn audio_check_live_clock() -> bool {
+    var session: AudioSession = audio_new();
+    if !audio_open(mut session, audio_test_bank(), 8u32, false) {
+        return false;
+    }
+    session.state -> live = true;
+    var command: AudioCommand = audio_command(AUDIO_LOOP, 0u32, 0u64);
+    command.sequence = 1u64;
+    command.priority = AUDIO_CRITICAL;
+    if !audio_send(mut session, command) {
+        return false;
+    }
+    audio_commands(session.state);
+    command.sample = 48000u64;
+    command.sequence = 2u64;
+    command.left = 1f32;
+    if !audio_send(mut session, command) {
+        return false;
+    }
+    audio_commands(session.state);
+    return channel_count(&session.state -> queue) == 0u32 && session.state -> mixer -> voices[
+        0usize
+    ].target_left == 1f32;
+}

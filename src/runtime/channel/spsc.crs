@@ -1,0 +1,69 @@
+record SpscQueue {
+    data: *u8;
+    capacity: i32;
+    stride: usize;
+    producer: i32;
+    consumer: i32;
+}
+opaque;
+extern fn channel_allocate(count: usize, stride: usize) -> *u8 = "calloc";
+extern fn channel_free(data: *u8) -> unit = "free";
+extern fn channel_copy(dst: *u8, src: *u8, size: usize) -> *u8 = "memcpy";
+extern fn channel_load(value: *i32) -> i32 = "SDL_GetAtomicInt";
+extern fn channel_store(value: *i32, next: i32) -> i32 = "SDL_SetAtomicInt";
+// One producer and one consumer may use an opened queue. Destruction requires both to stop.
+fn channel_open(queue: *SpscQueue, capacity: u32, stride: usize) -> bool {
+    if capacity == 0u32 || capacity >= 0x7ffffffeu32 || stride == 0usize || stride > (~0usize) / (
+        capacity as usize + 1usize
+    ) {
+        return false;
+    }
+    queue -> capacity = capacity as i32 + 1i32;
+    queue -> stride = stride;
+    queue -> producer = 0i32;
+    queue -> consumer = 0i32;
+    queue -> data = channel_allocate(capacity as usize + 1usize, stride);
+    return queue -> data != null(*u8);
+}
+fn channel_close(queue: *SpscQueue) -> unit {
+    channel_free(queue -> data);
+    queue -> data = null(*u8);
+}
+fn channel_next(queue: *SpscQueue, cursor: i32) -> i32 {
+    return (cursor + 1i32) % queue -> capacity;
+}
+fn channel_push(queue: *SpscQueue, data: *u8) -> bool {
+    var cursor: i32 = channel_load(&queue -> producer);
+    var next: i32 = channel_next(queue, cursor);
+    if next == channel_load(&queue -> consumer) {
+        return false;
+    }
+    channel_copy(
+        queue -> data + (cursor as usize * queue -> stride) as isize,
+        data,
+        queue -> stride
+    );
+    channel_store(&queue -> producer, next);
+    return true;
+}
+fn channel_peek(queue: *SpscQueue) -> *u8 {
+    var cursor: i32 = channel_load(&queue -> consumer);
+    if cursor == channel_load(&queue -> producer) {
+        return null(*u8);
+    }
+    return queue -> data + (cursor as usize * queue -> stride) as isize;
+}
+fn channel_consume(queue: *SpscQueue) -> unit {
+    channel_store(
+        &queue -> consumer,
+        channel_next(queue, channel_load(&queue -> consumer))
+    );
+}
+fn channel_count(queue: *SpscQueue) -> u32 {
+    var producer: i32 = channel_load(&queue -> producer);
+    var consumer: i32 = channel_load(&queue -> consumer);
+    if producer >= consumer {
+        return (producer - consumer) as u32;
+    }
+    return (queue -> capacity - consumer + producer) as u32;
+}

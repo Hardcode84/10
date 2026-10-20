@@ -1,0 +1,62 @@
+record ChannelWitness {
+    queue: SpscQueue;
+    count: u32;
+    failed: i32;
+}
+opaque;
+extern fn audio_test_thread(
+    fnptr: fn(*u8) -> i32,
+    name: *u8,
+    data: *u8,
+    begin: *u8,
+    end: *u8
+) -> *u8 = "SDL_CreateThreadRuntime";
+extern fn audio_test_join(thread: *u8, result: *i32) -> unit = "SDL_WaitThread";
+fn audio_channel_consumer(data: *u8) -> i32 {
+    var witness: *ChannelWitness = data as *ChannelWitness;
+    var i: u64 = 0u64;
+    while i < witness -> count as u64 {
+        var slot: *u8 = channel_peek(&witness -> queue);
+        if slot == null(*u8) {
+            audio_test_delay(0u32);
+        } else {
+            if *(slot as *u64) != i {
+                channel_store(&witness -> failed, 1i32);
+            }
+            channel_consume(&witness -> queue);
+            i = i + 1u64;
+        }
+    }
+    return 0i32;
+}
+fn audio_check_channel() -> bool {
+    var witness: ChannelWitness = uninit;
+    witness.count = 100000u32;
+    witness.failed = 0i32;
+    if !channel_open(&witness.queue, 7u32, sizeof(u64)) {
+        return false;
+    }
+    var thread: *u8 = audio_test_thread(
+        audio_channel_consumer,
+        "audio-queue-test",
+        &witness as *u8,
+        null(*u8),
+        null(*u8)
+    );
+    if thread == null(*u8) {
+        channel_close(&witness.queue);
+        return false;
+    }
+    var i: u64 = 0u64;
+    while i < witness.count as u64 {
+        if channel_push(&witness.queue, &i as *u8) {
+            i = i + 1u64;
+        } else {
+            audio_test_delay(0u32);
+        }
+    }
+    var status: i32 = 0i32;
+    audio_test_join(thread, &status);
+    channel_close(&witness.queue);
+    return status == 0i32 && witness.failed == 0i32;
+}

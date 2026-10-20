@@ -1,0 +1,68 @@
+const ACOUSTIC_WORK: u32 = 256u32;
+const ACOUSTIC_TRANSMISSION: f32 = 0.55f32;
+const ACOUSTIC_THRESHOLD: f32 = 0.002f32;
+const ACOUSTIC_NEAR: f32 = 3f32;
+record SoundListener {
+    space: u32;
+    position: Vec3;
+    right: Vec3;
+    size: f32;
+    time: f32;
+}
+record SoundPosition {
+    space: u32;
+    position: Vec3;
+    instance: u32;
+    surface: u32;
+}
+record SoundPath {
+    left: f32;
+    right: f32;
+    lowpass: f32;
+    gain: f32;
+    id: u64;
+    truncated: bool;
+}
+record AcousticNode {
+    space: u32;
+    point: Vec3;
+    direction: Vec3;
+    distance: f32;
+    units: f32;
+    transmission: f32;
+    lowpass: f32;
+    parent: u32;
+    portal: u32;
+    id: u64;
+    visited: bool;
+}
+fn sound_position(space: u32, point: Vec3) -> SoundPosition {
+    return make SoundPosition {
+        space: space,
+        position: point,
+        instance: 0xffffffffu32,
+        surface: 0xffffffffu32
+    };
+}
+fn sound_path_empty() -> SoundPath {
+    return make SoundPath {
+        left: 0f32,
+        right: 0f32,
+        lowpass: 1f32,
+        gain: 0f32,
+        id: 0u64,
+        truncated: false
+    };
+}
+fn acoustic_gain(distance: f32) -> f32 {
+    var scaled: f32 = distance / ACOUSTIC_NEAR;
+    return 1f32 / (1f32 + scaled * scaled);
+}
+fn acoustic_stereo(gain: f32, direction: Vec3, right: Vec3) -> SoundPath {
+    var pan: f32 = clamp(dot(unit_vector(direction), right), -1f32, 1f32);
+    var path: SoundPath = sound_path_empty();
+    path.left = gain * sqrtf((1f32 - pan) * 0.5f32);
+    path.right = gain * sqrtf((1f32 + pan) * 0.5f32);
+    path.gain = gain;
+    return path;
+}

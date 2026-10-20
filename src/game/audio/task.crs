@@ -1,0 +1,80 @@
+record SoundPayload {
+    collision: *CollisionScene;
+    frame: GameSoundFrame;
+}
+opaque;
+resource SoundContext {
+    pool: read TaskPool;
+    collision: read CollisionScene;
+    payload: *SoundPayload;
+}
+opaque drop sound_context_drop;
+resource SoundTask {
+    context: mut SoundContext;
+    job: PoolJob;
+}
+opaque drop sound_task_drop;
+fn sound_context(pool: read TaskPool, collision: read CollisionScene) -> SoundContext transfers(
+    collision
+) from pool, collision {
+    var payload: *SoundPayload = task_allocate(sizeof(SoundPayload)) as *SoundPayload;
+    if payload == null(*SoundPayload) {
+        task_error("sound preparation allocation failed");
+    }
+    if payload != null(*SoundPayload) {
+        payload -> collision = &collision;
+    }
+    return make SoundContext {
+        pool: read pool,
+        collision: read collision,
+        payload: payload
+    };
+}
+fn sound_context_ready(context: read SoundContext) -> bool {
+    return context.payload != null(*SoundPayload);
+}
+fn sound_context_drop(context: mut SoundContext) -> unit {
+    task_release(context.payload as *u8);
+}
+fn sound_execute(data: *u8) -> bool {
+    var payload: *SoundPayload = data as *SoundPayload;
+    game_sound_prepare(read * payload -> collision, mut payload -> frame);
+    return true;
+}
+fn sound_start(context: mut SoundContext, frame: GameSoundFrame) -> SoundTask from context {
+    context.payload -> frame = frame;
+    var job: PoolJob = pool_submit(
+        read context.pool,
+        sound_execute,
+        context.payload as *u8
+    );
+    return make SoundTask {
+        context: mut context,
+        job: move job
+    };
+}
+fn sound_task_drop(task: mut SoundTask) -> unit {
+    while pool_job_poll(read task.job) == 0i32 {
+        pool_job_idle(read task.job);
+    }
+}
+fn game_sound_join(
+    graph: mut TaskGraph,
+    task: mut SoundTask,
+    control: mut GameControl,
+    input: mut InputState
+) -> unit {
+    var status: i32 = pool_job_poll(read task.job);
+    while status == 0i32 {
+        pool_job_idle(read task.job);
+        if !game_poll(mut control, mut input) {
+            task_cancel(mut graph);
+        }
+        status = pool_job_poll(read task.job);
+    }
+    var good: bool = status > 0i32;
+    if good {
+        good = game_sound_submit(mut control, read task.context.payload -> frame);
+    }
+    task_complete(mut graph, 5u32, good);
+}

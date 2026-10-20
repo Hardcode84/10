@@ -19,7 +19,9 @@ reused after drain. Optional spans record ready, start, submission, and finish
 times for the most recent execution. Completion spans record executor observation
 time, not the device timestamp. Read spans before starting the next execution.
 
-After simulation, prediction and scene preparation are independent tasks.
+After simulation, prediction, sound preparation, and scene preparation are
+independent tasks. Sound preparation reads copied contact facts and the shared
+collision scene. It produces an owned numeric batch for the sound mixer.
 Scene preparation reads the completed prediction from the preceding frame.
 A pool worker reads a copied trial and the shared collision scene to produce
 markers for the next frame. The current camera, body, hook, lights, and input
@@ -32,6 +34,9 @@ coordinates remain valid across player portal crossings.
 flowchart LR
     S[Current simulation] --> P[Prediction for next frame]
     S --> A[Scene with previous prediction]
+    S --> U[Sound preparation]
+    U --> B[Publish sound batch]
+    B --> J
     A --> R[Full GPU render]
     R --> O[Presentation]
     P --> J[Frame join]
@@ -40,7 +45,7 @@ flowchart LR
 ```
 
 Rendering and presentation have no dependency on current prediction. The frame
-joins the prediction task before it can reuse the result context. This bounds
+joins prediction and sound preparation before it can reuse their result contexts. This bounds
 prediction delay to one rendered frame. With a pool worker, a slow forecast can delay the next simulation. Current
 render submission and presentation can complete before that forecast.
 Input events remain active during asynchronous GPU, presentation, and worker
@@ -54,7 +59,8 @@ boundaries. Shared collision storage has a trusted `share` contract. Ordinary
 computation needs no execution annotation. The typed game adapter contains
 the provider callback; checked frame code contains no raw callback or pointer.
 
-Native builds use one prediction worker by default. `--workers 0` uses the
+Native builds use one worker and two admitted job slots by default. Sound is
+submitted before prediction. The audio callback runs independently of this pool. `--workers 0` uses the
 calling thread and starts prediction after full GPU submission. Browser builds
 use this zero-worker schedule and reject nonzero worker counts. Prediction then
 overlaps GPU execution, while CPU scene preparation and presentation calls stay

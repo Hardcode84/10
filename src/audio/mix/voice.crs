@@ -1,0 +1,72 @@
+record AudioVoice {
+    active: bool;
+    releasing: bool;
+    source: u32;
+    generation: u32;
+    sound: u32;
+    priority: u32;
+    pending: bool;
+    replacement: AudioCommand;
+    cursor: u64;
+    left: f32;
+    right: f32;
+    target_left: f32;
+    target_right: f32;
+    pitch: f32;
+    target_pitch: f32;
+    lowpass: f32;
+    target_lowpass: f32;
+    history: f32;
+}
+fn audio_voice_empty() -> AudioVoice {
+    return make AudioVoice {
+        active: false,
+        releasing: false,
+        source: 0u32,
+        generation: 0u32,
+        sound: 0u32,
+        priority: 0u32,
+        pending: false,
+        replacement: audio_command(0u32, 0u32, 0u64),
+        cursor: 0u64,
+        left: 0f32,
+        right: 0f32,
+        target_left: 0f32,
+        target_right: 0f32,
+        pitch: 1f32,
+        target_pitch: 1f32,
+        lowpass: 1f32,
+        target_lowpass: 1f32,
+        history: 0f32
+    };
+}
+fn audio_approach(value: f32, target: f32) -> f32 {
+    var step: f32 = 1f32 / AUDIO_FADE as f32;
+    if value < target {
+        return clamp(value + step, value, target);
+    }
+    return clamp(value - step, target, value);
+}
+
+fn audio_voice_begin(command: AudioCommand) -> AudioVoice {
+    var voice: AudioVoice = audio_voice_empty();
+    voice.active = true;
+    voice.source = command.source;
+    voice.generation = command.generation;
+    voice.sound = command.sound;
+    voice.priority = command.priority;
+    voice.pitch = command.pitch;
+    audio_voice_targets(mut voice, command);
+    return voice;
+}
+fn audio_voice_targets(voice: mut AudioVoice, command: AudioCommand) -> unit {
+    voice.target_left = command.left;
+    voice.target_right = command.right;
+    voice.target_pitch = command.pitch;
+    voice.target_lowpass = command.lowpass;
+}
+fn audio_voice_release(voice: mut AudioVoice) -> unit {
+    voice.target_left = 0f32;
+    voice.target_right = 0f32;
+    voice.releasing = true;
+}

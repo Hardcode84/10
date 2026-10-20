@@ -11,7 +11,7 @@ fn check_frame_order() -> unit {
             trap;
         }
         task_complete(mut graph, 1u32, true);
-        if task_next(mut graph) != 2u32 || task_next(mut graph) != 4u32 {
+        if !check_frame_ready(mut graph) {
             trap;
         }
         if mode == 1u32 {
@@ -38,6 +38,7 @@ fn check_frame_order() -> unit {
             }
             task_complete(mut graph, 2u32, true);
         }
+        task_complete(mut graph, 5u32, true);
         if !task_drained(read graph) || task_succeeded(read graph) != (mode < 2u32) {
             trap;
         }
@@ -89,4 +90,8 @@ fn check_prediction_visibility() -> unit {
     if shown.count != 0u32 {
         trap;
     }
+}
+
+fn check_frame_ready(graph: mut TaskGraph) -> bool {
+    return task_next(mut graph) == 2u32 && task_next(mut graph) == 5u32 && task_next(mut graph) == 4u32;
 }

@@ -1,0 +1,210 @@
+record AudioMixer {
+    bank: SoundBank;
+    voices: *AudioVoice;
+    capacity: u32;
+    clock: u64;
+    epoch: u32;
+    sequence: u64;
+    paused: bool;
+    gain: f32;
+    failed: bool;
+    late: u64;
+    replacements: u64;
+}
+opaque;
+fn audio_mixer_create(bank: SoundBank, capacity: u32) -> *AudioMixer {
+    var mixer: *AudioMixer = channel_allocate(1usize, sizeof(AudioMixer)) as *AudioMixer;
+    if mixer == null(*AudioMixer) {
+        return mixer;
+    }
+    mixer -> bank = move bank;
+    mixer -> capacity = capacity;
+    mixer -> gain = 1f32;
+    mixer -> voices = channel_allocate(capacity as usize, sizeof(AudioVoice)) as *AudioVoice;
+    if mixer -> voices == null(*AudioVoice) {
+        audio_mixer_destroy(mixer);
+        return null(*AudioMixer);
+    }
+    var i: u32 = 0u32;
+    while i < capacity {
+        mixer -> voices[i as usize] = audio_voice_empty();
+        i = i + 1u32;
+    }
+    return mixer;
+}
+fn audio_mixer_destroy(mixer: *AudioMixer) -> unit {
+    if mixer == null(*AudioMixer) {
+        return;
+    }
+    drop mixer -> bank;
+    channel_free(mixer -> voices as *u8);
+    channel_free(mixer as *u8);
+}
+fn audio_release_all(mixer: *AudioMixer) -> unit {
+    var i: u32 = 0u32;
+    while i < mixer -> capacity {
+        mixer -> voices[i as usize].target_left = 0f32;
+        mixer -> voices[i as usize].target_right = 0f32;
+        mixer -> voices[i as usize].releasing = true;
+        mixer -> voices[i as usize].pending = false;
+        i = i + 1u32;
+    }
+}
+fn audio_find_voice(mixer: *AudioMixer, command: AudioCommand) -> u32 {
+    var i: u32 = 0u32;
+    var available: u32 = mixer -> capacity;
+    while i < mixer -> capacity {
+        var voice: AudioVoice = mixer -> voices[i as usize];
+        if voice.active && voice.source == command.source {
+            if voice.generation > command.generation {
+                return mixer -> capacity + 1u32;
+            }
+            if !voice.releasing || voice.generation != command.generation {
+                return i;
+            }
+        }
+        if voice.pending && voice.replacement.source == command.source {
+            return i;
+        }
+        if !voice.active && available == mixer -> capacity && (
+            command.priority >= AUDIO_CRITICAL || i >= AUDIO_RESERVED
+        ) {
+            available = i;
+        }
+        i = i + 1u32;
+    }
+    return available;
+}
+fn audio_replacement(mixer: *AudioMixer, command: AudioCommand) -> u32 {
+    var victim: u32 = mixer -> capacity;
+    var priority: u32 = command.priority;
+    var i: u32 = 0u32;
+    while i < mixer -> capacity {
+        var voice: AudioVoice = mixer -> voices[i as usize];
+        if !voice.pending && !voice.releasing && voice.priority < priority {
+            victim = i;
+            priority = voice.priority;
+        }
+        i = i + 1u32;
+    }
+    return victim;
+}
+fn audio_mixer_command(mixer: *AudioMixer, command: AudioCommand) -> unit {
+    if command.kind == AUDIO_RESET {
+        if command.epoch <= mixer -> epoch {
+            return;
+        }
+        audio_release_all(mixer);
+        mixer -> epoch = command.epoch;
+        mixer -> sequence = 0u64;
+        return;
+    }
+    if command.epoch != mixer -> epoch || command.sequence <= mixer -> sequence {
+        return;
+    }
+    mixer -> sequence = command.sequence;
+    if command.kind == AUDIO_PAUSE {
+        mixer -> paused = command.left != 0f32;
+        return;
+    }
+    var slot: u32 = audio_find_voice(mixer, command);
+    if slot > mixer -> capacity {
+        return;
+    }
+    if slot == mixer -> capacity {
+        if command.kind == AUDIO_STOP {
+            return;
+        }
+        slot = audio_replacement(mixer, command);
+        if slot == mixer -> capacity {
+            mixer -> failed = true;
+            return;
+        }
+        mixer -> replacements = mixer -> replacements + 1u64;
+    }
+    audio_voice_command(&mixer -> voices[slot as usize], command);
+}
+fn audio_voice_command(voice: *AudioVoice, command: AudioCommand) -> unit {
+    if command.kind == AUDIO_STOP {
+        if voice -> pending && voice -> replacement.source == command.source {
+            voice -> pending = false;
+        }
+        if voice -> source == command.source && voice -> generation == command.generation {
+            audio_voice_release(mut * voice);
+        }
+        return;
+    }
+    if !voice -> active {
+        *voice = audio_voice_begin(command);
+        return;
+    }
+    if voice -> source != command.source || voice -> generation != command.generation || voice -> pending {
+        if voice -> pending && voice -> replacement.generation > command.generation {
+            return;
+        }
+        voice -> replacement = command;
+        voice -> pending = true;
+        audio_voice_release(mut * voice);
+        return;
+    }
+    audio_voice_targets(mut * voice, command);
+}
+fn audio_voice_sample(voice: *AudioVoice, bank: *SoundBank, advance: bool) -> f32 {
+    var sound: BankSound = bank -> sounds[voice -> sound as usize];
+    var index: u32 = (voice -> cursor >> 32u64) as u32;
+    var next: u32 = index + 1u32;
+    if next == sound.count {
+        next = index;
+        if sound.loop {
+            next = 0u32;
+        }
+    }
+    var fraction: f32 = (voice -> cursor & 0xffffffffu64) as f32 / 4294967296f32;
+    var sample: f32 = sound.samples[index as usize] + (
+        sound.samples[next as usize] - sound.samples[index as usize]
+    ) * fraction;
+    voice -> lowpass = audio_approach(voice -> lowpass, voice -> target_lowpass);
+    voice -> history = voice -> history + voice -> lowpass * (sample - voice -> history);
+    if advance {
+        voice -> pitch = audio_approach(voice -> pitch, voice -> target_pitch);
+        voice -> cursor = voice -> cursor + (voice -> pitch * 4294967296f32) as u64;
+        while voice -> cursor >= (sound.count as u64 << 32u64) {
+            if !sound.loop {
+                voice -> active = false;
+                return 0f32;
+            }
+            voice -> cursor = voice -> cursor - (sound.count as u64 << 32u64);
+        }
+    }
+    return voice -> history;
+}
+fn audio_mix_sample(mixer: *AudioMixer, left: *f32, right: *f32) -> unit {
+    var target: f32 = 1f32;
+    if mixer -> paused {
+        target = 0f32;
+    }
+    mixer -> gain = audio_approach(mixer -> gain, target);
+    var i: u32 = 0u32;
+    var l: f32 = 0f32;
+    var r: f32 = 0f32;
+    while i < mixer -> capacity {
+        var voice: *AudioVoice = &mixer -> voices[i as usize];
+        if voice -> active {
+            voice -> left = audio_approach(voice -> left, voice -> target_left);
+            voice -> right = audio_approach(voice -> right, voice -> target_right);
+            var sample: f32 = audio_voice_sample(voice, &mixer -> bank, mixer -> gain > 0f32);
+            l = l + sample * voice -> left;
+            r = r + sample * voice -> right;
+            if voice -> releasing && voice -> left == 0f32 && voice -> right == 0f32 {
+                voice -> active = false;
+            }
+            if !voice -> active && voice -> pending {
+                *voice = audio_voice_begin(voice -> replacement);
+            }
+        }
+        i = i + 1u32;
+    }
+    * left = clamp(l * mixer -> gain, -1f32, 1f32);
+    *right = clamp(r * mixer -> gain, -1f32, 1f32);
+    mixer -> clock = mixer -> clock + 1u64;
+}
