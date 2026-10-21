@@ -9,7 +9,12 @@ const urls = [];
 const loadedFiles = new Map();
 function message(text) { log.textContent += String(text) + '\n'; log.scrollTop = log.scrollHeight; }
 function fail(error) { status.textContent = String(error.message || error); message(error.stack || error); }
-function abort(error) { game?.releaseRenderers(); fail(error); }
+function releaseAudio() {
+  const context = game?.SDL3?.audioContext;
+  if (!context || context.state === 'closed') return Promise.resolve();
+  return context.close();
+}
+function abort(error) { game?.releaseRenderers(); releaseAudio().catch(fail); fail(error); }
 function downloads() {
   const container = document.querySelector('#downloads');
   for (const [path, label, type] of [['/flight.swr','Download recording','application/octet-stream'],['/capture.ppm','Download image','image/x-portable-pixmap']]) {
@@ -20,7 +25,7 @@ function downloads() {
 }
 function finished(code) {
   if (!running) return;
-  running = false; document.exitPointerLock();
+  running = false; releaseAudio().catch(fail); document.exitPointerLock();
   if (document.fullscreenElement) document.exitFullscreen().catch(fail);
   document.querySelector('#restart').hidden = false;
   document.querySelector('#quit').disabled = true;
@@ -69,8 +74,8 @@ form.addEventListener('submit', event => {
   event.preventDefault();
   if (!game || running) return;
   const args = [];
-  for (const name of ['seed','complexity','width','height','fov','ticks']) args.push('--'+name, form.elements[name].value);
-  for (const name of ['fullscreen','slow','full-spin','headless','scaling']) if(form.elements[name].checked) args.push('--'+name);
+  for (const name of ['seed','complexity','width','height','fov','ticks','volume']) args.push('--'+name, form.elements[name].value);
+  for (const name of ['fullscreen','slow','full-spin','headless','scaling','mute']) if(form.elements[name].checked) args.push('--'+name);
   if(form.elements['debug-shaders'].checked) args.push('--debug-shaders','1');
   if(form.elements.record.checked) args.push('--record','/flight.swr');
   if(form.elements.capture.checked) args.push('--capture','/capture.ppm');
@@ -87,5 +92,35 @@ document.querySelector('#quit').onclick = () => {
   canvas.dispatchEvent(new KeyboardEvent('keyup',{key:'Escape',code:'Escape',keyCode:27,which:27,bubbles:true}));
 };
 document.querySelector('#restart').onclick = () => location.reload();
-window.addEventListener('beforeunload',()=>{game?.releaseRenderers();for(const url of urls)URL.revokeObjectURL(url);});
+window.addEventListener('beforeunload',()=>{releaseAudio().catch(fail);game?.releaseRenderers();for(const url of urls)URL.revokeObjectURL(url);});
 prepare().catch(fail);
+
+const audioStatus = document.querySelector('#audio-status');
+const resumeAudio = document.querySelector('#resume-audio');
+let watchedAudio;
+function updateAudioStatus() {
+  const context = game?.SDL3?.audioContext;
+  if (context && context !== watchedAudio) {
+    watchedAudio = context;
+    context.addEventListener('statechange', updateAudioStatus);
+  }
+  resumeAudio.hidden = !running || !context || context.state === 'running';
+  if (!running) { audioStatus.textContent = ''; return; }
+  if (form.elements.mute.checked || form.elements.headless.checked || form.elements.capture.checked) {
+    audioStatus.textContent = 'Sound off';
+  } else if (context) {
+    audioStatus.textContent = context.state === 'running' ? 'Sound on' : 'Sound suspended';
+  } else {
+    audioStatus.textContent = 'Starting sound…';
+  }
+}
+resumeAudio.onclick = async () => {
+  try {
+    const context = game?.SDL3?.audioContext;
+    if (!context) throw new Error('Audio output is unavailable');
+    await context.resume();
+    updateAudioStatus();
+    canvas.focus();
+  } catch (error) { fail(error); }
+};
+setInterval(updateAudioStatus, 250);
