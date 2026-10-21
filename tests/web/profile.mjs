@@ -20,7 +20,7 @@ async function call(method, params = {}) {
   if (result.error) throw Error(JSON.stringify(result.error));
   return result.result;
 }
-async function witness(enabled, early) {
+async function witness(enabled, early, stall) {
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const until = async predicate => {
     const end = performance.now() + 90000;
@@ -38,6 +38,12 @@ async function witness(enabled, early) {
   let frames = 0;
   const original = GPUCanvasContext.prototype.getCurrentTexture;
   GPUCanvasContext.prototype.getCurrentTexture = function() { frames++; return original.call(this); };
+  const originalDone = GPUQueue.prototype.onSubmittedWorkDone;
+  if (stall) GPUQueue.prototype.onSubmittedWorkDone = function() {
+    const done = originalDone.call(this), until = performance.now() + 12;
+    while (performance.now() < until) {}
+    return done;
+  };
   try {
     form.requestSubmit();
     await until(() => enabled && !early ? !!spinward.webGPUProfile : frames >= (early ? 35 : 60));
@@ -56,17 +62,28 @@ async function witness(enabled, early) {
           if (!Number.isFinite(value.p50) || value.p50 < 0 || value.p95 < value.p50) throw Error('Invalid counter: ' + name);
         }
       }
+      for (const phase of [profile.baseline, profile.timestamps]) {
+        for (const name of ['submitCallMs','encodeToSubmitMs','firstYieldMs','microtaskDelayMs','maxEventLoopLagMs','readbackMapMs','readbackCopyMs','observedMs','polls','readbackBytes','readbackBuffers']) {
+          if (!phase[name]) throw Error('Missing timeline measurement: ' + name);
+        }
+        if (phase.observedMs.p50 < phase.retirementMs.p50) throw Error('Retirement observation precedes completion');
+        if (!(phase.readbackBytes.p50 > 0 && phase.readbackBuffers.p50 > 0)) throw Error('Missing production readbacks');
+      }
+      if (profile.timestamps.gpuCommandSpanMs.p50 < profile.timestamps.gpuSpanMs.p50) throw Error('Command timestamps exclude compute');
+      if (stall && (profile.baseline.firstYieldMs.p50 < 12 || profile.baseline.microtaskDelayMs.p50 < 12)) throw Error('Injected CPU stall was not measured');
+      if (early && profile.idleProbe) throw Error('Idle probe ran before sample collection finished');
+      if (!early && (profile.idleProbe?.submissions !== 5 || !profile.idleProbe.queueMs || !profile.idleProbe.readbackMapMs)) throw Error('Missing idle queue control');
       if (!(profile.timestamps.gpuSpanMs.p50 > 0) || !profile.stages.raster || !profile.stages.shade) throw Error('Missing GPU stage measurements');
     }
     return {frames, profile};
-  } finally { GPUCanvasContext.prototype.getCurrentTexture = original; }
+  } finally { GPUCanvasContext.prototype.getCurrentTexture = original; GPUQueue.prototype.onSubmittedWorkDone = originalDone; }
 }
 const timeout = setTimeout(() => { console.error('GPU profile check timed out'); process.exitCode = 1; socket.close(); }, 120000);
 try {
   await call('Page.navigate', {url: origin + '/?profile-check=' + Date.now()});
   await Bun.sleep(1500);
   await call('Page.bringToFront');
-  const result = await call('Runtime.evaluate', {expression: `(${witness})(${!process.argv.includes("--disabled")}, ${process.argv.includes("--early-exit")})`, awaitPromise: true, returnByValue: true, userGesture: true});
+  const result = await call('Runtime.evaluate', {expression: `(${witness})(${!process.argv.includes("--disabled")}, ${process.argv.includes("--early-exit")}, ${process.argv.includes("--stall")})`, awaitPromise: true, returnByValue: true, userGesture: true});
   if (result.exceptionDetails) throw Error(JSON.stringify(result.exceptionDetails));
   console.log(JSON.stringify(result.result.value, null, 2));
 } finally { clearTimeout(timeout); await call('Page.navigate', {url: 'about:blank'}); socket.close(); }

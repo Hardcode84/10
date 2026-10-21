@@ -92,7 +92,7 @@ mergeInto(LibraryManager.library, {
     s.bindings=s.device.createBindGroup({layout:s.layout,entries});
   },
   web_begin__deps: ['$SWGPU'], web_begin: id => { const s=SWGPU.get(id); SWGPU.releaseCommands(s); s.encoder=s.device.createCommandEncoder(); if(s.profile)SWGPUProfile.begin(s); },
-  web_end__deps: ['$SWGPU'], web_end: id => { const s=SWGPU.get(id); s.encoder.resolveQuerySet(s.queries,0,s.queryCount,s.queryResults,0); if(s.profile)SWGPUProfile.end(s); s.commands=s.encoder.finish(); if(s.profile?.current)s.profile.current.encodeMs=performance.now()-s.profile.current.start; s.encoder=null; },
+  web_end__deps: ['$SWGPU'], web_end: id => { const s=SWGPU.get(id); s.encoder.resolveQuerySet(s.queries,0,s.queryCount,s.queryResults,0); if(s.profile)SWGPUProfile.end(s); s.commands=s.encoder.finish(); if(s.profile?.current){s.profile.current.encoded=performance.now();s.profile.current.encodeMs=s.profile.current.encoded-s.profile.current.start;} s.encoder=null; },
   web_bind__deps: ['$SWGPU'], web_bind: (id, slot) => { SWGPU.get(id).pipeline=slot; },
   web_dispatch__deps: ['$SWGPU'], web_dispatch: (id, groups, offset, indirect) => {
     const s=SWGPU.get(id);
@@ -111,6 +111,7 @@ mergeInto(LibraryManager.library, {
   web_transfer__deps: ['$SWGPU'], web_transfer: (id, memory, offset, size, upload) => {
     const s=SWGPU.get(id);
     if(upload) { if(s.profile?.current)s.profile.current.uploadBytes+=size; s.device.queue.writeBuffer(s.buffer,offset,HEAPU8,(memory>>>0)+offset,size); return; }
+    if(s.profile?.current){s.profile.current.readbackBytes+=size;s.profile.current.readbackBuffers++;}
     const b=SWGPU.buffer(s,size,GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ);
     s.encoder.copyBufferToBuffer(s.buffer,offset,b,0,size); s.reads.push({buffer:b,ptr:(memory>>>0)+offset}); s.temporary.push(b);
   },
@@ -118,18 +119,22 @@ mergeInto(LibraryManager.library, {
     const s=SWGPU.get(id);
     try {
       if(s.pending)throw new Error('Renderer already has a pending submission');
-      s.device.queue.submit([s.commands]); s.commands=null;
-      if(s.profile)s.profile.index++;
-      const operation={result:0, completion:null}; s.pending=operation;
       const sample=s.profile?.current;
+      if(sample){sample.submitted=performance.now();sample.encodeToSubmitMs=sample.submitted-sample.encoded;}
+      s.device.queue.submit([s.commands]); s.commands=null;
+      if(sample){sample.submitCallMs=performance.now()-sample.submitted;SWGPUProfile.submitted(sample);}
+      if(s.profile)s.profile.index++;
+      const operation={result:0, completion:null, sample}; s.pending=operation;
       const done=s.device.queue.onSubmittedWorkDone();
       const reads=s.reads.map(async r=>{
         await r.buffer.mapAsync(GPUMapMode.READ);
+        const mapped=sample ? performance.now() : 0;
+        if(sample)sample.readbackMapMs=Math.max(sample.readbackMapMs,mapped-sample.submitted);
         try { HEAPU8.set(new Uint8Array(r.buffer.getMappedRange()),r.ptr); }
-        finally { r.buffer.unmap(); }
+        finally { r.buffer.unmap(); if(sample)sample.readbackCopyMs+=performance.now()-mapped; }
       });
       if(sample) {
-        reads.push(SWGPUProfile.submitted(s,sample));
+        reads.push(SWGPUProfile.read(sample));
         reads.push(done.then(()=> { sample.queueMs=performance.now()-sample.submitted; }));
       }
       operation.completion=Promise.allSettled([...reads,done]).then(results=>{
@@ -145,16 +150,19 @@ mergeInto(LibraryManager.library, {
   },
   web_poll__deps: ['$SWGPU'], web_poll: id => {
     const s=SWGPU.get(id); if(!s.pending)return 1;
+    if(s.pending.sample)s.pending.sample.polls++;
     const result=s.pending.result;
-    if(result)s.pending=null;
+    if(result){if(s.profile)SWGPUProfile.observed(s);s.pending=null;}
     return result;
   },
   web_wait__deps: ['$SWGPU', '$Asyncify'], web_wait: id => Asyncify.handleAsync(async()=> {
     const s=SWGPU.get(id); if(!s.pending)return 1;
-    const result=await s.pending.completion; s.pending=null; return result===1;
+    if(s.profile)SWGPUProfile.yield(s);
+    const result=await s.pending.completion; if(s.profile)SWGPUProfile.observed(s);s.pending=null; return result===1;
   }),
   web_idle__deps: ['$SWGPU', '$Asyncify'], web_idle: id => Asyncify.handleAsync(async()=> {
     const s=SWGPU.get(id);
+    if(s.profile)SWGPUProfile.yield(s);
     if(s.pending)await Promise.race([s.pending.completion,new Promise(resolve=>setTimeout(resolve,1))]);
   }),
   web_present_start__deps: ['$SWGPU'], web_present_start: (id, offset, width, height) => {
@@ -182,7 +190,7 @@ mergeInto(LibraryManager.library, {
     s.device.queue.submit([commands]);
     await s.device.queue.onSubmittedWorkDone();
     if(sample)sample.presentQueueMs=performance.now()-submitted;
-    if(s.profile)SWGPUProfile.report(s,false);
+    if(s.profile)await SWGPUProfile.finish(s);
     if(s.error)throw s.error;
     return 1;
     } catch(error) {SWGPU.failure(error);return -1;} finally {packed?.destroy();}

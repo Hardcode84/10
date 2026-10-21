@@ -68,15 +68,55 @@ browser scheduling delays. `presentWaitMs` measures the animation-frame wait;
 notification. `presentIntervalMs` measures time between presentation submissions.
 
 `gpuSpanMs` uses GPU timestamps from the first compute pass through the last.
-`stages` gives mean GPU time and dispatch count per measured submission for each
-shader. It includes dispatches with no active work. Compare baseline and timestamp
-results because timestamp collection and readback add cost. A submission can
-contain part of a frame, so its duration is not an FPS measurement.
+`gpuCommandSpanMs` includes commands before and after those passes, through
+readback copies and per-pass query resolution. `gpuBeforePassesMs` and
+`gpuAfterPassesMs` show those two GPU intervals. The command-span query's own
+resolve and copy remain outside its interval. Queue writes issued before
+submission also remain outside it. `stages` gives mean GPU time and dispatch
+count per measured submission for each shader, including empty dispatches.
+
+The submission timeline has these additional fields:
+
+| Field | Measurement |
+|---|---|
+| `encodeToSubmitMs` | End of recording to entry into `queue.submit`. |
+| `submitCallMs` | CPU duration of `queue.submit`. |
+| `firstYieldMs` | Submission to the first renderer wait or idle call. |
+| `microtaskDelayMs` | Submission to a queued microtask. This measures when the current JS/Wasm call stack releases control. |
+| `eventTurnMs` | Submission to a zero-delay timer callback. Omitted if retirement occurs first. Timer scheduling can add delay. |
+| `maxEventLoopLagMs` | Maximum lateness of a four-millisecond timer during submission retirement. Includes browser timer scheduling. |
+| `readbackMapMs` | Submission to the last production buffer-map callback. |
+| `readbackCopyMs` | Total CPU time to copy mapped production data and unmap it. |
+| `timestampMapMs` | Submission to the last profiling buffer-map callback. |
+| `observedMs` | Submission to the game observing retirement through poll or wait. |
+| `polls`, `idleCalls` | Renderer polling and wait-call counts. |
+| `readbackBytes`, `readbackBuffers` | Production readback size and count; excludes profiling queries. |
+
+After all samples and the final presentation retire, `idleProbe` measures five
+four-byte buffer clears, maps, and queue completion notifications. The next game frame
+waits for this control; input polling can continue. Its time is excluded from frame samples.
+An early exit skips the control.
+
+Compare `firstYieldMs` and `microtaskDelayMs` with `queueMs` to find application
+thread delays. Compare maps, retirement, and observation to find additional
+completion delays. Compare the command span with the compute span to find GPU
+work omitted from per-pass timing. A fast idle probe with slow frame completion
+points to a frame-dependent delay. It does not prove which browser or driver
+operation causes that delay.
+
+CPU and GPU timestamps have separate origins. These fields cannot directly
+measure submission-to-GPU-start latency or GPU-end-to-callback latency.
+[WebGPU promise ordering](https://www.w3.org/TR/webgpu/#programming-model-asynchrony)
+also permits queue and map callbacks to arrive in different orders. Keep their
+measurements separate. Compare baseline and timestamp results because profiling
+adds cost. A submission can contain part of a frame; its duration is not an FPS
+measurement.
 
 Run `bun tests/web/profile.mjs` against the local site and a dedicated browser
 with remote debugging enabled. The check mutes the game and validates a complete
 report. Use `--early-exit` to check partial-report cleanup, or `--disabled` to check
-that ordinary runs do not collect a report.
+that ordinary runs do not collect a report. Use `--stall` to inject a known
+12 ms application-thread delay and check that the timeline records it.
 
 ## Backend contract
 
