@@ -127,7 +127,7 @@ fn compute() -> unit {
     if words_load(5u32) == 0u32 {
         reduce_view_keys();
     }
-    shader_barrier();
+    shader_all_memory_barrier();
     if shader_global_x() == 0u32 {
         advance();
     }

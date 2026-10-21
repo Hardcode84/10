@@ -17,29 +17,29 @@ fn list_bound(p: u32, axis: u32, upper: bool, extent: u32) -> u32 {
     return value as u32 / 8u32;
 }
 fn list_task(tile: u32, view: u32) -> u32 {
-    var link: u32 = words_load(words_load(TILE_STATS) + tile * 4u32);
+    var link: u32 = tile_read(words_load(TILE_STATS) + tile * 4u32);
     while link != 0u32 {
         var task: u32 = link - 1u32;
         if words_load(task_base() + task * 4u32 + 1u32) == view {
             return task;
         }
-        link = words_load(words_load(TILE_STATS) + task * 4u32 + 1u32);
+        link = tile_read(words_load(TILE_STATS) + task * 4u32 + 1u32);
     }
     return 0xffffffffu32;
 }
 fn list_reference(task: u32, id: u32, write: bool) -> unit {
     var stats: u32 = words_load(TILE_STATS) + task * 4u32;
     if !write {
-        words_atomic_add(stats + 2u32, 1u32);
+        tiles_atomic_add(stats + 2u32, 1u32);
         return;
     }
     var stride: u32 = tile_bit_stride();
     var base: u32 = words_load(TILE_BITS) + task * stride;
-    if words_load(stats + 2u32) <= stride {
-        var index: u32 = words_atomic_add(stats + 3u32, 1u32);
-        words_store(base + index, id);
+    if tile_read(stats + 2u32) <= stride {
+        var index: u32 = tiles_atomic_add(stats + 3u32, 1u32);
+        tile_write(base + index, id);
     } else {
-        words_atomic_or(base + id / 32u32, 1u32 << (id % 32u32));
+        tiles_atomic_or(base + id / 32u32, 1u32 << (id % 32u32));
     }
 }
 fn list_fan(id: u32, write: bool) -> unit {
@@ -70,68 +70,6 @@ fn list_fan(id: u32, write: bool) -> unit {
         i = i + LOCAL_SIZE;
     }
 }
-fn list_clear_heads() -> unit {
-    var tiles: u32 = ((words_load(0u32) + 7u32) / 8u32) * ((words_load(1u32) + 7u32) / 8u32);
-    var i: u32 = shader_global_x();
-    while i < tiles {
-        words_store(words_load(TILE_STATS) + i * 4u32, 0u32);
-        i = i + MAX_INVOCATIONS;
-    }
-}
-fn list_task_phase(phase: u32) -> unit {
-    var task: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
-    if task >= words_load(6u32) {
-        return;
-    }
-    var view: u32 = words_load(task_base() + task * 4u32 + 1u32);
-    if phase != LIST_LINK_TASKS && !batch_active(view) {
-        return;
-    }
-    var lane: u32 = shader_local_x();
-    var stats: u32 = words_load(TILE_STATS) + task * 4u32;
-    if phase == LIST_LINK_TASKS && lane == 0u32 {
-        var tile: u32 = words_load(task_base() + task * 4u32);
-        var previous: u32 = words_atomic_exchange(
-            words_load(TILE_STATS) + tile * 4u32,
-            task + 1u32
-        );
-        words_store(stats + 1u32, previous);
-    }
-    if phase == LIST_RESET_COUNTS && lane == 0u32 {
-        words_store(stats + 2u32, 0u32);
-        words_store(stats + 3u32, 0u32);
-    }
-    if phase == LIST_CLEAR_BITMAPS && words_load(stats + 2u32) > tile_bit_stride() {
-        var count: u32 = (batch_size(view) * MAX_FAN + 31u32) / 32u32;
-        var i: u32 = lane;
-        while i < count {
-            words_store(words_load(TILE_BITS) + task * tile_bit_stride() + i, 0u32);
-            i = i + LOCAL_SIZE;
-        }
-    }
-}
-fn list_dispatch() -> unit {
-    if words_load(5u32) != 0u32 {
-        return;
-    }
-    var phase: u32 = TILE_LIST_PHASE;
-    if phase == LIST_CLEAR_HEADS {
-        list_clear_heads();
-    } else if phase == LIST_COUNT_REFERENCES || phase == LIST_WRITE_REFERENCES {
-        var i: u32 = shader_global_x() / LOCAL_SIZE;
-        while i < words_load(BATCH_COUNT) * MAX_FAN {
-            list_fan(i, phase == LIST_WRITE_REFERENCES);
-            i = i + MAX_INVOCATIONS / LOCAL_SIZE;
-        }
-    } else {
-        list_task_phase(phase);
-    }
-}
-
-fn compute() -> unit {
-    list_dispatch();
-}
-
 fn list_view_bound(p: u32, view: u32, axis: u32, upper: bool) -> u32 {
     var bound: u32 = list_bound(p, axis, upper, words_load(axis));
     var rect: u32 = words_load(

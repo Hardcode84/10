@@ -63,8 +63,8 @@ fn device_profile(v: *RenderState) -> bool {
     if props.properties.limits.minStorageBufferOffsetAlignment > 256u64 {
         return error("buffer interface requires storage alignment at most 256 bytes");
     }
-    if props.properties.limits.maxPerStageDescriptorStorageBuffers < 3u32 || props.properties.limits.maxDescriptorSetStorageBuffers < 3u32 {
-        return error("requires three storage-buffer bindings");
+    if props.properties.limits.maxPerStageDescriptorStorageBuffers < 4u32 || props.properties.limits.maxDescriptorSetStorageBuffers < 4u32 {
+        return error("requires four storage-buffer bindings");
     }
     if props.properties.limits.maxComputeWorkGroupCount[0usize] < MAX_INVOCATIONS / LOCAL_SIZE || props.properties.limits.maxComputeWorkGroupInvocations < 64u32 || props.properties.limits.maxComputeWorkGroupSize[
         0usize

@@ -1,1 +1,19 @@
-const TILE_LIST_PHASE: u32 = 4u32;
+fn compute() -> unit {
+    var task: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
+    if words_load(5u32) != 0u32 || task >= words_load(6u32) {
+        return;
+    }
+    var view: u32 = words_load(task_base() + task * 4u32 + 1u32);
+    if !batch_active(view) {
+        return;
+    }
+    var stats: u32 = words_load(TILE_STATS) + task * 4u32;
+    if tile_read(stats + 2u32) > tile_bit_stride() {
+        var count: u32 = (batch_size(view) * MAX_FAN + 31u32) / 32u32;
+        var i: u32 = shader_local_x();
+        while i < count {
+            tile_write(words_load(TILE_BITS) + task * tile_bit_stride() + i, 0u32);
+            i = i + LOCAL_SIZE;
+        }
+    }
+}

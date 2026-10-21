@@ -5,7 +5,7 @@ fn shader_source(
     report: bool,
     checked: bool
 ) -> bool {
-    var paths: [*u8; 11] = make [*u8; 11] {
+    var paths: [*u8; 12] = make [*u8; 12] {
         "src/render/interface.crs",
         "src/render/device/common.crs",
         "src/render/device/shadows.crs",
@@ -16,13 +16,17 @@ fn shader_source(
         "src/render/device/projection-math.crs",
         "src/render/device/raster-math.crs",
         "src/render/device/projection-storage.crs",
+        "src/render/device/tile-storage.crs",
         name
     };
-    var count: usize = 10usize;
+    var count: usize = 11usize;
+    if shader_atomic_tiles(name) {
+        paths[10usize] = "src/render/device/tile-storage-atomic.crs";
+    }
     var extra: *u8 = shader_extra_source(name);
     if extra != null(*u8) {
-        paths[10usize] = extra;
-        count = 11usize;
+        paths[11usize] = extra;
+        count = 12usize;
     }
     if checked {
         paths[4usize] = "src/render/device/checked.crs";
@@ -31,7 +35,7 @@ fn shader_source(
         paths[1usize] = name;
         count = 2usize;
     }
-    var parts: [CrustSource; 11] = uninit;
+    var parts: [CrustSource; 12] = uninit;
     var size: usize = count;
     var part: usize = 0usize;
     while part < count {
@@ -79,7 +83,7 @@ fn build_shader(
     checked: bool,
     web: bool
 ) -> bool {
-    var resources: [ShaderResource; 4] = make [ShaderResource; 4] {
+    var resources: [ShaderResource; 5] = make [ShaderResource; 5] {
         make ShaderResource {
             name: "words",
             kind: SHADER_BUFFER_U32,
@@ -99,6 +103,15 @@ fn build_shader(
             height: 0u32
         },
         make ShaderResource {
+            name: "tiles",
+            kind: SHADER_BUFFER_U32,
+            layout: SHADER_COUNTED,
+            set: 0u32,
+            binding: 2u32,
+            length: 0u32,
+            height: 0u32
+        },
+        make ShaderResource {
             name: "shared",
             kind: shared_kind,
             layout: SHADER_FIXED,
@@ -112,15 +125,18 @@ fn build_shader(
             kind: SHADER_BUFFER_U32,
             layout: SHADER_FIXED,
             set: 0u32,
-            binding: 2u32,
+            binding: 3u32,
             length: MAX_INVOCATIONS,
             height: 0u32
         }
 
     };
-    var resource_count: usize = 2usize;
+    if shader_atomic_tiles(name) {
+        resources[2usize].kind = SHADER_BUFFER_ATOMIC_U32;
+    }
+    var resource_count: usize = 3usize;
     if shared_length != 0u32 {
-        resource_count = 3usize;
+        resource_count = 4usize;
     }
     var config: ShaderConfig = make ShaderConfig {
         interfaces: null(*ShaderInterface),
@@ -135,7 +151,7 @@ fn build_shader(
         invocations: MAX_INVOCATIONS,
         local_size: LOCAL_SIZE,
         status_set: 0u32,
-        status_binding: 2u32,
+        status_binding: 3u32,
         preserve_denorms: false
     };
     if !checked {
@@ -143,7 +159,7 @@ fn build_shader(
     }
     if report {
         config.execution = SHADER_RAW;
-        config.resource_count = 4usize;
+        config.resource_count = 5usize;
     }
     var source: CrustSource = uninit;
     if !shader_source(root, name, &source, report, checked) {
@@ -278,30 +294,24 @@ fn shader_is_shade(name: *u8) -> bool {
     ) == 0i32;
 }
 
-fn shader_is_tile_list(name: *u8) -> bool {
-    var paths: [*u8; 6] = make [*u8; 6] {
-        "src/render/device/tile-list.crs",
-        "src/render/device/tile-list-link.crs",
-        "src/render/device/tile-list-reset.crs",
-        "src/render/device/tile-list-count.crs",
-        "src/render/device/tile-list-clear.crs",
+fn shader_tile_references(name: *u8) -> bool {
+    return cache_strcmp(name, "src/render/device/tile-list-count.crs") == 0i32 || cache_strcmp(
+        name,
         "src/render/device/tile-list-write.crs"
-    };
-    var i: usize = 0usize;
-    while i < 6usize {
-        if cache_strcmp(name, paths[i]) == 0i32 {
-            return true;
-        }
-        i = i + 1usize;
-    }
-    return false;
+    ) == 0i32;
+}
+fn shader_atomic_tiles(name: *u8) -> bool {
+    return shader_tile_references(name) || cache_strcmp(
+        name,
+        "src/render/device/tile-list-link.crs"
+    ) == 0i32;
 }
 
 fn shader_extra_source(name: *u8) -> *u8 {
     if shader_is_shade(name) {
         return "src/render/device/shade-data.crs";
     }
-    if shader_is_tile_list(name) {
+    if shader_tile_references(name) {
         return "src/render/device/tile-list-data.crs";
     }
     return null(*u8);

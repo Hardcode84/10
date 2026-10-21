@@ -1,0 +1,6 @@
+fn tile_read(index: u32) -> u32 {
+    return tiles_load(index);
+}
+fn tile_write(index: u32, value: u32) -> unit {
+    tiles_store(index, value);
+}

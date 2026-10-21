@@ -18,7 +18,7 @@ fn compute() -> unit {
     shared_store(lane, first);
     shared_store(64u32 + lane, count);
     shared_store(128u32 + lane, flags);
-    shader_barrier();
+    shader_all_memory_barrier();
     if lane == 0u32 {
         var j: u32 = 0u32;
         first = 0xffffffffu32;

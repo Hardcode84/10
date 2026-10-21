@@ -50,11 +50,11 @@ fn compute() -> unit {
     if index < words_load(10u32) {
         view_rect_lane(view, lane);
     }
-    shader_barrier();
+    shader_all_memory_barrier();
     if index < words_load(10u32) && lane < 4u32 {
         view_rect_reduce(view, lane);
     }
-    shader_barrier();
+    shader_all_memory_barrier();
     if index < words_load(10u32) {
         var instance: u32 = lane;
         while instance < words_load(INSTANCE_COUNT) {

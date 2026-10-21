@@ -14,7 +14,7 @@ fn raster_candidates(task: u32, view: u32, x: u32, y: u32) -> unit {
     var selected: u32 = 0xffffffffu32;
     var px: f32 = x as f32 + 0.5f32;
     var py: f32 = y as f32 + 0.5f32;
-    var sparse: bool = words_load(words_load(TILE_STATS) + task * 4u32 + 2u32) <= tile_bit_stride();
+    var sparse: bool = tile_read(words_load(TILE_STATS) + task * 4u32 + 2u32) <= tile_bit_stride();
     var count: u32 = raster_candidate_count(task, view, sparse);
     var i: u32 = 0u32;
     if !sparse {
@@ -73,13 +73,13 @@ fn compute() -> unit {
 
 fn raster_candidate_count(task: u32, view: u32, sparse: bool) -> u32 {
     if sparse {
-        return words_load(words_load(TILE_STATS) + task * 4u32 + 2u32);
+        return tile_read(words_load(TILE_STATS) + task * 4u32 + 2u32);
     }
     return batch_size(view) * MAX_FAN;
 }
 fn raster_candidate_id(task: u32, i: u32, sparse: bool) -> u32 {
     if sparse {
-        return words_load(words_load(TILE_BITS) + task * tile_bit_stride() + i);
+        return tile_read(words_load(TILE_BITS) + task * tile_bit_stride() + i);
     }
     return i;
 }

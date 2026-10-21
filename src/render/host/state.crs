@@ -43,6 +43,7 @@ record RenderState {
     light_capacity: u32;
     words: u32;
     floats: u32;
+    tile_words: u32;
     triangle_capacity: u32;
     shadow_capacity: u32;
     projection_capacity: u32;
@@ -87,7 +88,7 @@ fn buffer_create(v: *RenderState) -> bool {
     if v -> triangle_capacity == 0u32 && !geometry_layout(v, 1u32) {
         return false;
     }
-    var staging_size: u64 = (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64;
+    var staging_size: u64 = status_buffer_offset(v);
     var size: u64 = staging_size + v -> shader_checks as u64 * MAX_INVOCATIONS as u64 * 4u64;
     if !buffers_allocate(v, size, staging_size) {
         return false;
@@ -95,6 +96,7 @@ fn buffer_create(v: *RenderState) -> bool {
     zero(v -> mapped, (staging_size) as usize);
     (v -> mapped as *u32)[0usize] = v -> words;
     (v -> mapped as *u32)[(v -> words + 1u32) as usize] = v -> floats;
+    ((v -> mapped + tile_buffer_offset(v) as isize) as *u32)[0usize] = v -> tile_words;
     v -> mapped = v -> mapped + 4isize;
     geometry_header(v);
     v -> asset_dirty_begin = 0u32;

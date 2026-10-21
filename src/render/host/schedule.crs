@@ -19,11 +19,7 @@ fn commands_setup_body(v: *RenderState) -> unit {
     command_stamp(v, 0u32);
     upload_scene(v);
     if v -> shader_checks {
-        command_clear(
-            v,
-            (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
-            MAX_INVOCATIONS as u64 * 4u64
-        );
+        command_clear(v, status_buffer_offset(v), MAX_INVOCATIONS as u64 * 4u64);
     }
     command_barrier(v, BARRIER_UPLOAD);
     if (v -> mapped as *u32)[26usize] != 0u32 || (v -> mapped as *u32)[

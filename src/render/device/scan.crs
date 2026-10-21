@@ -16,7 +16,7 @@ fn compute() -> unit {
         n = words_load(words_load(CANDIDATES) + i * (1u32 + LOCAL_SIZE * 3u32));
     }
     shared_store(lane, n);
-    shader_barrier();
+    shader_all_memory_barrier();
     var j: u32 = 0u32;
     var offset: u32 = 0u32;
     while j < lane {

@@ -69,7 +69,7 @@ mergeInto(LibraryManager.library, {
   }),
   web_buffer_close__deps: ['$SWGPU'], web_buffer_close: (id, handle) => { const s=SWGPU.get(id); s.buffers.get(handle).destroy(); s.buffers.delete(handle); },
   web_layout__deps: ['$SWGPU'], web_layout: (id, checked) => {
-    const s=SWGPU.get(id); s.layout=s.device.createBindGroupLayout({entries:Array.from({length:2+checked},(_,binding)=>({binding,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}}))});
+    const s=SWGPU.get(id); s.layout=s.device.createBindGroupLayout({entries:Array.from({length:3+checked},(_,binding)=>({binding,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}}))});
     s.pipelineLayout=s.device.createPipelineLayout({bindGroupLayouts:[s.layout]});
     s.indirect=SWGPU.buffer(s,12,GPUBufferUsage.COPY_DST|GPUBufferUsage.INDIRECT);
   },
@@ -84,10 +84,11 @@ mergeInto(LibraryManager.library, {
       s.pipelines[slot]=await s.device.createComputePipelineAsync({layout:s.pipelineLayout,compute:{module,entryPoint:'main'}}); return 1;
     }catch(error){return SWGPU.failure(error);}
   }),
-  web_bindings__deps: ['$SWGPU'], web_bindings: (id, handle, words, floats, status) => {
+  web_bindings__deps: ['$SWGPU'], web_bindings: (id, handle, words, floats, tiles, status) => {
     const s=SWGPU.get(id); s.buffer=s.buffers.get(handle);
     const entries=[{binding:0,resource:{buffer:s.buffer,offset:0,size:(words+1)*4}},{binding:1,resource:{buffer:s.buffer,offset:(words+1)*4,size:(floats+1)*4}}];
-    if(status)entries.push({binding:2,resource:{buffer:s.buffer,offset:(words+floats+2)*4,size:status*4}});
+    entries.push({binding:2,resource:{buffer:s.buffer,offset:(words+floats+2)*4,size:(tiles+1)*4}});
+    if(status)entries.push({binding:3,resource:{buffer:s.buffer,offset:(words+floats+tiles+3)*4,size:status*4}});
     s.bindings=s.device.createBindGroup({layout:s.layout,entries});
   },
   web_begin__deps: ['$SWGPU'], web_begin: id => { const s=SWGPU.get(id); SWGPU.releaseCommands(s); s.encoder=s.device.createCommandEncoder(); if(s.profile)SWGPUProfile.begin(s); },

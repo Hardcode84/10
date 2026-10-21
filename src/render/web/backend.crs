@@ -8,7 +8,14 @@ extern fn web_buffer(id: u32, bytes: u32) -> u32 = "web_buffer";
 extern fn web_buffer_close(id: u32, buffer: u32) -> unit = "web_buffer_close";
 extern fn web_layout(id: u32, checked: u32) -> unit = "web_layout";
 extern fn web_pipeline(id: u32, bytes: *u8, size: u32, slot: u32, name: *u8) -> bool = "web_pipeline";
-extern fn web_bindings(id: u32, buffer: u32, words: u32, floats: u32, status: u32) -> unit = "web_bindings";
+extern fn web_bindings(
+    id: u32,
+    buffer: u32,
+    words: u32,
+    floats: u32,
+    tiles: u32,
+    status: u32
+) -> unit = "web_bindings";
 extern fn web_begin(id: u32) -> unit = "web_begin";
 extern fn web_end(id: u32) -> unit = "web_end";
 extern fn web_submit(id: u32) -> bool = "web_submit";
@@ -99,6 +106,7 @@ fn descriptors_update(v: *RenderState) -> unit {
         v -> buffer as usize as u32,
         v -> words,
         v -> floats,
+        v -> tile_words,
         v -> shader_checks as u32 * MAX_INVOCATIONS
     );
 }

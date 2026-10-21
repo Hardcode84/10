@@ -1,1 +1,10 @@
-const TILE_LIST_PHASE: u32 = 3u32;
+fn compute() -> unit {
+    if words_load(5u32) != 0u32 {
+        return;
+    }
+    var i: u32 = shader_global_x() / LOCAL_SIZE;
+    while i < words_load(BATCH_COUNT) * MAX_FAN {
+        list_fan(i, false);
+        i = i + MAX_INVOCATIONS / LOCAL_SIZE;
+    }
+}

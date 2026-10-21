@@ -15,7 +15,7 @@ in Crust. The submodule pin selects the compiler version.
 - The shader stage supplies `shader_sqrt(f32) -> f32` for finite, non-negative
   inputs. It emits LLVM square root and validates the final SPIR-V.
 - Device errors use invocation status. The stage rejects raw pointers, `usize`,
-  recursion, `trap`, and barrier placements that violate its device contract.
+  recursion and `trap`. Barrier participation is the caller's responsibility.
 - Shader publication requires successful Vulkan 1.2 SPIR-V validation.
 - The shader stage selects LLVM single-exit lowering. Host LLVM emission uses
   direct returns by default. The shader stage runs `mem2reg` and

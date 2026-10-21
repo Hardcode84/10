@@ -671,7 +671,7 @@ Shutdown also waits for presentation use before releasing its resources.
 
 The native renderer consumes compute Shader SPIR-V validated for Vulkan 1.2.
 The current device profile requires `shaderInt8`, Float32 round-to-nearest-even
-and signed-zero/Inf/NaN preservation, at least three storage bindings, storage
+and signed-zero/Inf/NaN preservation, at least four storage bindings, storage
 offset alignment no greater than 256 bytes, 64-lane workgroups, sufficient X
 dispatch capacity, and at least 2 KiB of shared memory for the application raster
 pass. Optional experiment kernels can require more shared storage. No path
@@ -744,6 +744,17 @@ combines bitmap bits. Atomic add reserves list entries. Equal-depth fragments
 use the shared source-identity tie rule, independent of insertion order.
 Assignment proves tile overlap for every stored candidate. The tile-list raster
 therefore runs per-pixel coverage and depth tests without repeating tile overlap.
+
+Tile candidates and the four task-stat words use a separate storage binding.
+The scene metadata binding uses ordinary loads and stores in every pass.
+Only the link, count, and write passes declare the tile binding as atomic.
+The clear, reset, and raster passes declare an ordinary view of that range.
+Compute dependencies order these views. The bindings cover separate aligned
+ranges in the device buffer. The checked status buffer follows the tile range.
+
+Crust resource declarations select atomic access explicitly. The compiler
+emits barriers directly. Shader authors must keep workgroup participation
+uniform, including after a checked failure. WGSL validation remains enabled.
 
 The four existing tile-stat words hold the tile head, task link, reference
 count, and list cursor. The candidate region keeps its existing allocation.

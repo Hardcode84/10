@@ -5,7 +5,7 @@ fn compute() -> unit {
     var width: u32 = words_load(0u32);
     var height: u32 = words_load(1u32);
     shared_store(shader_local_x(), 1f32);
-    shader_barrier();
+    shader_all_memory_barrier();
     if i < width * height {
         var x: u32 = i % width;
         var y: u32 = i / width;

@@ -278,13 +278,13 @@ fn compute() -> unit {
             shared_store(255u32, batch_has_tree() as u32);
         }
     }
-    shader_barrier();
+    shader_all_memory_barrier();
     var round: u32 = 0u32;
     while shared_uniform_load(255u32) != 0u32 {
         batch_worker_count(lane);
-        shader_barrier();
+        shader_all_memory_barrier();
         batch_worker_emit(lane);
-        shader_barrier();
+        shader_all_memory_barrier();
         if lane == 0u32 {
             batch_workers_finish();
             batch_step_begin();
@@ -293,7 +293,7 @@ fn compute() -> unit {
                 (batch_has_tree() && round + 1u32 < GEOMETRY_WALK_STEPS) as u32
             );
         }
-        shader_barrier();
+        shader_all_memory_barrier();
         round = round + 1u32;
     }
     if lane == 0u32 && (words_load(BATCH_MODE) & 8u32) == 0u32 {

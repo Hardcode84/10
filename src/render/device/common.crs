@@ -486,7 +486,7 @@ fn next_tile_candidate(task: u32, start: u32, count: u32) -> u32 {
     var word: u32 = start / 32u32;
     var bits: u32 = 0u32;
     while word < (count + 31u32) / 32u32 {
-        bits = words_load(words_load(TILE_BITS) + task * tile_bit_stride() + word);
+        bits = tile_read(words_load(TILE_BITS) + task * tile_bit_stride() + word);
         if word == start / 32u32 {
             bits = bits & (0xffffffffu32 << (start % 32u32));
         }

@@ -65,10 +65,10 @@ fn allocate_buffer(
 }
 
 fn layout_create(v: *RenderState) -> bool {
-    var bindings: [VkDescriptorSetLayoutBinding; 3] = uninit;
-    zero(&bindings as *u8, sizeof([VkDescriptorSetLayoutBinding; 3]));
+    var bindings: [VkDescriptorSetLayoutBinding; 4] = uninit;
+    zero(&bindings as *u8, sizeof([VkDescriptorSetLayoutBinding; 4]));
     var i: usize = 0usize;
-    while i < 2usize + v -> shader_checks as usize {
+    while i < 3usize + v -> shader_checks as usize {
         bindings[i].binding = i as u32;
         bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         bindings[i].descriptorCount = 1u32;
@@ -78,7 +78,7 @@ fn layout_create(v: *RenderState) -> bool {
     var info: VkDescriptorSetLayoutCreateInfo = uninit;
     zero(&info as *u8, sizeof(VkDescriptorSetLayoutCreateInfo));
     info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    info.bindingCount = 2u32 + v -> shader_checks as u32;
+    info.bindingCount = 3u32 + v -> shader_checks as u32;
     info.pBindings = &bindings[0usize];
     if !vk_ok(
         vkCreateDescriptorSetLayout(
@@ -153,7 +153,7 @@ fn pipeline_create(v: *RenderState, code: *ShaderCode, slot: usize) -> bool {
 fn descriptors_create(v: *RenderState) -> bool {
     var size: VkDescriptorPoolSize = make VkDescriptorPoolSize {
         type: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        descriptorCount: 3u32
+        descriptorCount: 4u32
     };
     var pool: VkDescriptorPoolCreateInfo = uninit;
     zero(&pool as *u8, sizeof(VkDescriptorPoolCreateInfo));
@@ -183,7 +183,7 @@ fn descriptors_create(v: *RenderState) -> bool {
     return true;
 }
 fn descriptors_update(v: *RenderState) -> unit {
-    var buffers: [VkDescriptorBufferInfo; 3] = uninit;
+    var buffers: [VkDescriptorBufferInfo; 4] = uninit;
     buffers[0usize] = make VkDescriptorBufferInfo {
         buffer: v -> buffer,
         offset: 0u64,
@@ -196,13 +196,18 @@ fn descriptors_update(v: *RenderState) -> unit {
     };
     buffers[2usize] = make VkDescriptorBufferInfo {
         buffer: v -> buffer,
-        offset: (v -> words as u64 + v -> floats as u64 + 2u64) * 4u64,
+        offset: tile_buffer_offset(v),
+        range: (v -> tile_words as u64 + 1u64) * 4u64
+    };
+    buffers[3usize] = make VkDescriptorBufferInfo {
+        buffer: v -> buffer,
+        offset: status_buffer_offset(v),
         range: MAX_INVOCATIONS as u64 * 4u64
     };
-    var writes: [VkWriteDescriptorSet; 3] = uninit;
-    zero(&writes as *u8, sizeof([VkWriteDescriptorSet; 3]));
+    var writes: [VkWriteDescriptorSet; 4] = uninit;
+    zero(&writes as *u8, sizeof([VkWriteDescriptorSet; 4]));
     var i: usize = 0usize;
-    while i < 3usize {
+    while i < 4usize {
         writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         writes[i].dstSet = v -> gpu.set;
         writes[i].dstBinding = i as u32;
@@ -213,7 +218,7 @@ fn descriptors_update(v: *RenderState) -> unit {
     }
     vkUpdateDescriptorSets(
         v -> gpu.device,
-        2u32 + v -> shader_checks as u32,
+        3u32 + v -> shader_checks as u32,
         &writes[0usize],
         0u32,
         null(*u8)

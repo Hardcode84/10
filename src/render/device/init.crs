@@ -23,7 +23,7 @@ fn compute() -> unit {
     while words_load(26u32) != 0u32 && pixel < words_load(TASK_CAPACITY) {
         var field: u32 = 0u32;
         while field < 4u32 {
-            words_store(words_load(TILE_STATS) + pixel * 4u32 + field, 0u32);
+            tile_write(words_load(TILE_STATS) + pixel * 4u32 + field, 0u32);
             field = field + 1u32;
         }
         pixel = pixel + MAX_INVOCATIONS;
