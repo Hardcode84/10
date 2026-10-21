@@ -34,6 +34,12 @@ mergeInto(LibraryManager.library, {
       if (!navigator.gpu) throw new Error('WebGPU requires a supported browser and a secure context');
       const adapter = await navigator.gpu.requestAdapter();
       if (!adapter) throw new Error('No WebGPU adapter');
+      const info = adapter.info;
+      Module.print('WebGPU adapter: ' + JSON.stringify({
+        vendor: info.vendor, architecture: info.architecture,
+        device: info.device, description: info.description,
+        isFallbackAdapter: info.isFallbackAdapter,
+      }));
       if (!adapter.features.has('timestamp-query')) throw new Error('Renderer requires WebGPU timestamp queries');
       const device = await adapter.requestDevice({requiredFeatures:['timestamp-query'], requiredLimits:{
         maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,
