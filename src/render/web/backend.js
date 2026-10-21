@@ -1,4 +1,5 @@
 mergeInto(LibraryManager.library, {
+  $SWGPU__deps: ['$SWGPUProfile'],
   $SWGPU__postset: 'SWGPU.devices = new Map(); Module.releaseRenderers = () => { for (const id of [...SWGPU.devices.keys()]) SWGPU.close(id); };',
   $SWGPU: {
     next: 1,
@@ -23,6 +24,7 @@ mergeInto(LibraryManager.library, {
     },
     close(id) {
       const s=SWGPU.get(id); s.closed=true;
+      if(s.profile)SWGPUProfile.close(s);
       s.context?.unconfigure(); SWGPU.releaseCommands(s);
       for(const buffer of s.buffers.values()) buffer.destroy();
       s.device.destroy(); SWGPU.devices.delete(id);
@@ -46,7 +48,7 @@ mergeInto(LibraryManager.library, {
         maxBufferSize: adapter.limits.maxBufferSize,
         maxComputeWorkgroupsPerDimension: 65535,
       }});
-      const s = {device, buffers:new Map(), next:1, pipelines:[], temporary:[], reads:[], error:null};
+      const s = {device, buffers:new Map(), next:1, pipelines:[], pipelineNames:[], profile:Module.profileGPU ? SWGPUProfile.create() : null, temporary:[], reads:[], error:null};
       device.addEventListener('uncapturederror', event => { s.error = event.error; SWGPU.failure(event.error); });
       device.lost.then(info => { if (!s.closed) { s.error = new Error('WebGPU device lost: '+info.message); SWGPU.failure(s.error); } });
       const id = SWGPU.next++; SWGPU.devices.set(id, s); return id;
@@ -71,13 +73,14 @@ mergeInto(LibraryManager.library, {
     s.pipelineLayout=s.device.createPipelineLayout({bindGroupLayouts:[s.layout]});
     s.indirect=SWGPU.buffer(s,12,GPUBufferUsage.COPY_DST|GPUBufferUsage.INDIRECT);
   },
-  web_pipeline__deps: ['$SWGPU', '$Asyncify'], web_pipeline: (id, ptr, size, slot) => Asyncify.handleAsync(async()=> {
+  web_pipeline__deps: ['$SWGPU', '$Asyncify'], web_pipeline: (id, ptr, size, slot, name) => Asyncify.handleAsync(async()=> {
     const s=SWGPU.get(id), code=new TextDecoder().decode(HEAPU8.subarray(ptr>>>0,(ptr>>>0)+size));
     try {
       const module=s.device.createShaderModule({code});
       const report=await module.getCompilationInfo();
       const errors=report.messages.filter(x=>x.type==='error');
       if(errors.length)throw new Error(errors.map(x=>`${x.lineNum}:${x.linePos}: ${x.message}`).join('\n'));
+      s.pipelineNames[slot]=UTF8ToString(name);
       s.pipelines[slot]=await s.device.createComputePipelineAsync({layout:s.pipelineLayout,compute:{module,entryPoint:'main'}}); return 1;
     }catch(error){return SWGPU.failure(error);}
   }),
@@ -87,24 +90,26 @@ mergeInto(LibraryManager.library, {
     if(status)entries.push({binding:2,resource:{buffer:s.buffer,offset:(words+floats+2)*4,size:status*4}});
     s.bindings=s.device.createBindGroup({layout:s.layout,entries});
   },
-  web_begin__deps: ['$SWGPU'], web_begin: id => { const s=SWGPU.get(id); SWGPU.releaseCommands(s); s.encoder=s.device.createCommandEncoder(); },
-  web_end__deps: ['$SWGPU'], web_end: id => { const s=SWGPU.get(id); s.encoder.resolveQuerySet(s.queries,0,s.queryCount,s.queryResults,0); s.commands=s.encoder.finish(); s.encoder=null; },
+  web_begin__deps: ['$SWGPU'], web_begin: id => { const s=SWGPU.get(id); SWGPU.releaseCommands(s); s.encoder=s.device.createCommandEncoder(); if(s.profile)SWGPUProfile.begin(s); },
+  web_end__deps: ['$SWGPU'], web_end: id => { const s=SWGPU.get(id); s.encoder.resolveQuerySet(s.queries,0,s.queryCount,s.queryResults,0); if(s.profile)SWGPUProfile.end(s); s.commands=s.encoder.finish(); if(s.profile?.current)s.profile.current.encodeMs=performance.now()-s.profile.current.start; s.encoder=null; },
   web_bind__deps: ['$SWGPU'], web_bind: (id, slot) => { SWGPU.get(id).pipeline=slot; },
   web_dispatch__deps: ['$SWGPU'], web_dispatch: (id, groups, offset, indirect) => {
     const s=SWGPU.get(id);
     if(indirect)s.encoder.copyBufferToBuffer(s.buffer,offset,s.indirect,0,12);
-    const pass=s.encoder.beginComputePass(); pass.setPipeline(s.pipelines[s.pipeline]); pass.setBindGroup(0,s.bindings);
+    if(s.profile?.current && indirect)s.profile.current.indirect++;
+    const pass=s.encoder.beginComputePass(s.profile ? SWGPUProfile.pass(s) : undefined); pass.setPipeline(s.pipelines[s.pipeline]); pass.setBindGroup(0,s.bindings);
     if(indirect)pass.dispatchWorkgroupsIndirect(s.indirect,0);else if(groups)pass.dispatchWorkgroups(groups);
     pass.end();
   },
   web_clear__deps: ['$SWGPU'], web_clear: (id, offset, size) => { const s=SWGPU.get(id); s.encoder.clearBuffer(s.buffer,offset,size); },
   web_word__deps: ['$SWGPU'], web_word: (id, offset, value) => {
     const s=SWGPU.get(id), b=s.device.createBuffer({size:4,usage:GPUBufferUsage.COPY_SRC,mappedAtCreation:true});
+    if(s.profile?.current)s.profile.current.wordCopies++;
     new Uint32Array(b.getMappedRange())[0]=value; b.unmap(); s.temporary.push(b); s.encoder.copyBufferToBuffer(b,0,s.buffer,offset,4);
   },
   web_transfer__deps: ['$SWGPU'], web_transfer: (id, memory, offset, size, upload) => {
     const s=SWGPU.get(id);
-    if(upload) { s.device.queue.writeBuffer(s.buffer,offset,HEAPU8,(memory>>>0)+offset,size); return; }
+    if(upload) { if(s.profile?.current)s.profile.current.uploadBytes+=size; s.device.queue.writeBuffer(s.buffer,offset,HEAPU8,(memory>>>0)+offset,size); return; }
     const b=SWGPU.buffer(s,size,GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ);
     s.encoder.copyBufferToBuffer(s.buffer,offset,b,0,size); s.reads.push({buffer:b,ptr:(memory>>>0)+offset}); s.temporary.push(b);
   },
@@ -113,15 +118,23 @@ mergeInto(LibraryManager.library, {
     try {
       if(s.pending)throw new Error('Renderer already has a pending submission');
       s.device.queue.submit([s.commands]); s.commands=null;
+      if(s.profile)s.profile.index++;
       const operation={result:0, completion:null}; s.pending=operation;
+      const sample=s.profile?.current;
+      const done=s.device.queue.onSubmittedWorkDone();
       const reads=s.reads.map(async r=>{
         await r.buffer.mapAsync(GPUMapMode.READ);
         try { HEAPU8.set(new Uint8Array(r.buffer.getMappedRange()),r.ptr); }
         finally { r.buffer.unmap(); }
       });
-      operation.completion=Promise.allSettled([...reads,s.device.queue.onSubmittedWorkDone()]).then(results=>{
+      if(sample) {
+        reads.push(SWGPUProfile.submitted(s,sample));
+        reads.push(done.then(()=> { sample.queueMs=performance.now()-sample.submitted; }));
+      }
+      operation.completion=Promise.allSettled([...reads,done]).then(results=>{
         const failure=results.find(result=>result.status==='rejected');
         SWGPU.releaseCommands(s);
+        if(sample)SWGPUProfile.complete(s,sample);
         if(failure||s.error){SWGPU.failure(failure?.reason||s.error);operation.result=-1;}
         else operation.result=1;
         return operation.result;
@@ -150,8 +163,10 @@ mergeInto(LibraryManager.library, {
     const operation={result:0,completion:null}; s.presentation=operation;
     operation.completion=(async()=>{
     let packed=null;
+    const sample=s.profile?.current, start=sample ? performance.now() : 0;
     try {
     if(!await SWGPU.frameReady())return 2;
+    if(sample)sample.presentWaitMs=performance.now()-start;
     if(s.error)throw s.error;
     if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}
     if(!s.context){s.context=canvas.getContext('webgpu');s.context.configure({device:s.device,format:'rgba8unorm',usage:GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT,alphaMode:'opaque'});}
@@ -161,8 +176,12 @@ mergeInto(LibraryManager.library, {
     encoder.copyBufferToTexture({buffer,offset:sourceOffset,bytesPerRow:pitch,rowsPerImage:height},{texture:s.context.getCurrentTexture()},[width,height]);
     const commands=encoder.finish();
     s.presentTime=BigInt(Math.round(performance.now()*1000000));
+    if(s.profile)SWGPUProfile.present(s);
+    const submitted=sample ? performance.now() : 0;
     s.device.queue.submit([commands]);
     await s.device.queue.onSubmittedWorkDone();
+    if(sample)sample.presentQueueMs=performance.now()-submitted;
+    if(s.profile)SWGPUProfile.report(s,false);
     if(s.error)throw s.error;
     return 1;
     } catch(error) {SWGPU.failure(error);return -1;} finally {packed?.destroy();}

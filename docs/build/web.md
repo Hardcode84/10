@@ -47,6 +47,37 @@ and check the state hash at every tick. Select **Record flight** to download a
 recording after the run. **Render capture** runs without a window and supplies a
 PPM download. A finite tick limit is useful for captures without a replay file.
 
+## Performance report
+
+Select **Profile rendering** under **Options and recordings**, then start the
+game. Keep the camera still until a `WebGPU profile:` line appears in **Run log**.
+Copy that line with the `WebGPU adapter:` line when reporting slow rendering.
+The browser can leave adapter identifiers empty.
+
+The report skips eight submissions, measures twenty-four baseline submissions,
+then measures sixteen submissions with per-dispatch GPU timestamps. Collection
+stops automatically. A run that ends early prints a partial report. Profiling
+does not run unless selected.
+
+`baseline` and `timestamps` contain median and 95th-percentile measurements.
+Time values use milliseconds. `encodeMs` measures command recording;
+`queueMs` measures submission through the GPU completion notification;
+`retirementMs` also includes readback completion. These host times include
+browser scheduling delays. `presentWaitMs` measures the animation-frame wait;
+`presentQueueMs` measures the presentation submission through its completion
+notification. `presentIntervalMs` measures time between presentation submissions.
+
+`gpuSpanMs` uses GPU timestamps from the first compute pass through the last.
+`stages` gives mean GPU time and dispatch count per measured submission for each
+shader. It includes dispatches with no active work. Compare baseline and timestamp
+results because timestamp collection and readback add cost. A submission can
+contain part of a frame, so its duration is not an FPS measurement.
+
+Run `bun tests/web/profile.mjs` against the local site and a dedicated browser
+with remote debugging enabled. The check mutes the game and validates a complete
+report. Use `--early-exit` to check partial-report cleanup, or `--disabled` to check
+that ordinary runs do not collect a report.
+
 ## Backend contract
 
 `RenderState`, resource layout, capacity planning, transfer ranges, and pass

@@ -7,7 +7,7 @@ extern fn web_close(id: u32) -> unit = "web_close";
 extern fn web_buffer(id: u32, bytes: u32) -> u32 = "web_buffer";
 extern fn web_buffer_close(id: u32, buffer: u32) -> unit = "web_buffer_close";
 extern fn web_layout(id: u32, checked: u32) -> unit = "web_layout";
-extern fn web_pipeline(id: u32, bytes: *u8, size: u32, slot: u32) -> bool = "web_pipeline";
+extern fn web_pipeline(id: u32, bytes: *u8, size: u32, slot: u32, name: *u8) -> bool = "web_pipeline";
 extern fn web_bindings(id: u32, buffer: u32, words: u32, floats: u32, status: u32) -> unit = "web_bindings";
 extern fn web_begin(id: u32) -> unit = "web_begin";
 extern fn web_end(id: u32) -> unit = "web_end";
@@ -81,7 +81,13 @@ fn layout_create(v: *RenderState) -> bool {
     return true;
 }
 fn pipeline_create(v: *RenderState, code: *ShaderCode, slot: usize) -> bool {
-    return web_pipeline(v -> gpu.id, code -> bytes, code -> size as u32, slot as u32);
+    return web_pipeline(
+        v -> gpu.id,
+        code -> bytes,
+        code -> size as u32,
+        slot as u32,
+        render_shader_name(slot, v -> shader_checks)
+    );
 }
 fn descriptors_create(v: *RenderState) -> bool {
     descriptors_update(v);

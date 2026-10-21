@@ -73,6 +73,7 @@ for (const name of ['replay','bindings']) form.elements[name].addEventListener('
 form.addEventListener('submit', event => {
   event.preventDefault();
   if (!game || running) return;
+  game.profileGPU = form.elements['profile-gpu'].checked;
   const args = [];
   for (const name of ['seed','complexity','width','height','fov','ticks','volume']) args.push('--'+name, form.elements[name].value);
   for (const name of ['fullscreen','slow','full-spin','headless','scaling','mute']) if(form.elements[name].checked) args.push('--'+name);

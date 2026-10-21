@@ -163,7 +163,7 @@ fn web_toolchain_fetch(root: *CrustRun) -> bool {
     return true;
 }
 fn web_link(root: *CrustRun) -> bool {
-    var args: [*u8; 22] = make [*u8; 22] {
+    var args: [*u8; 24] = make [*u8; 24] {
         "env",
         native_join(
             root -> context,
@@ -185,15 +185,17 @@ fn web_link(root: *CrustRun) -> bool {
         "-sEXPORTED_FUNCTIONS=[\"_main\",\"_malloc\",\"_free\"]",
         "--js-library",
         host_path(root, "src/render/web/backend.js"),
+        "--js-library",
+        host_path(root, "src/render/web/profile.js"),
         "-sMODULARIZE",
         "-sEXPORT_NAME=Spinward",
         "-o",
         host_path(root, "build/web/game.js"),
         null(*u8)
     };
-    var command: [*u8; 105] = uninit;
+    var command: [*u8; 107] = uninit;
     var i: usize = 0usize;
-    while i < 21usize {
+    while i < 23usize {
         command[i] = args[i];
         i = i + 1usize;
     }
