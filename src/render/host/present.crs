@@ -145,16 +145,13 @@ fn swapchain_resources(v: *RenderState) -> bool {
     ) {
         return false;
     }
+    if !present_semaphores_open(v, count) {
+        return false;
+    }
     if v -> gpu.acquired != null(*u8) {
         return true;
     }
-    var fence: VkFenceCreateInfo = uninit;
-    zero(&fence as *u8, sizeof(VkFenceCreateInfo));
-    fence.sType = 8u32;
-    if !vk_ok(
-        vkCreateFence(v -> gpu.device, &fence, null(*u8), &v -> gpu.acquired),
-        "vkCreateFence"
-    ) {
+    if !present_semaphore_create(v, &v -> gpu.acquired) {
         return false;
     }
     var allocation: VkCommandBufferAllocateInfo = uninit;
@@ -204,7 +201,7 @@ fn present_record(v: *RenderState, index: u32, width: u32, height: u32) -> bool 
     };
     vkCmdPipelineBarrier(
         v -> gpu.present_commands,
-        1u32,
+        4096u32,
         4096u32,
         0u32,
         0u32,
@@ -270,8 +267,8 @@ fn present_image(v: *RenderState) -> bool {
         v -> gpu.device,
         v -> gpu.swapchain,
         ~0u64,
-        null(*u8),
         v -> gpu.acquired,
+        null(*u8),
         &index
     );
     if result == -1000001004i32 {
@@ -284,18 +281,18 @@ fn present_image(v: *RenderState) -> bool {
     if result != 0i32 && result != 1000001003i32 {
         return vk_ok(result, "vkAcquireNextImageKHR");
     }
-    if !vk_ok(
-        vkWaitForFences(v -> gpu.device, 1u32, &v -> gpu.acquired, 1u32, ~0u64),
-        "vkWaitForFences"
-    ) || !vk_ok(
-        vkResetFences(v -> gpu.device, 1u32, &v -> gpu.acquired),
-        "vkResetFences"
-    ) || !present_record(v, index, v -> output_width, v -> output_height) {
+    if !present_record(v, index, v -> output_width, v -> output_height) {
         return false;
     }
     var submit: VkSubmitInfo = uninit;
     zero(&submit as *u8, sizeof(VkSubmitInfo));
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    var stage: u32 = 4096u32;
+    submit.waitSemaphoreCount = 1u32;
+    submit.pWaitSemaphores = &v -> gpu.acquired;
+    submit.pWaitDstStageMask = &stage;
+    submit.signalSemaphoreCount = 1u32;
+    submit.pSignalSemaphores = &v -> gpu.present_semaphores[index as usize];
     submit.commandBufferCount = 1u32;
     submit.pCommandBuffers = &v -> gpu.present_commands;
     if !vk_ok(
@@ -304,16 +301,14 @@ fn present_image(v: *RenderState) -> bool {
     ) {
         return false;
     }
-    if !vk_ok(vkQueueWaitIdle(v -> gpu.queue), "vkQueueWaitIdle presentation") {
-        exit(1i32);
-        return false;
-    }
     return present_release(v, index);
 }
 fn present_release(v: *RenderState, index: u32) -> bool {
     var info: VkPresentInfoKHR = uninit;
     zero(&info as *u8, sizeof(VkPresentInfoKHR));
     info.sType = 1000001001u32;
+    info.waitSemaphoreCount = 1u32;
+    info.pWaitSemaphores = &v -> gpu.present_semaphores[index as usize];
     info.swapchainCount = 1u32;
     info.pSwapchains = &v -> gpu.swapchain;
     info.pImageIndices = &index;
@@ -328,18 +323,52 @@ fn present_release(v: *RenderState, index: u32) -> bool {
     if result != 0i32 && result != 1000001003i32 {
         return vk_ok(result, "vkQueuePresentKHR");
     }
-    if !vk_ok(vkQueueWaitIdle(v -> gpu.queue), "vkQueueWaitIdle present release") {
-        exit(1i32);
-        return false;
-    }
     return true;
 }
 
 fn swapchain_close(v: *RenderState) -> unit {
+    var i: usize = 0usize;
+    while i < v -> gpu.present_semaphore_count as usize {
+        vkDestroySemaphore(
+            v -> gpu.device,
+            v -> gpu.present_semaphores[i],
+            null(*u8)
+        );
+        i = i + 1usize;
+    }
+    free(v -> gpu.present_semaphores as *u8);
+    v -> gpu.present_semaphores = null(**u8);
+    v -> gpu.present_semaphore_count = 0u32;
     if v -> gpu.swapchain != null(*u8) {
         vkDestroySwapchainKHR(v -> gpu.device, v -> gpu.swapchain, null(*u8));
         v -> gpu.swapchain = null(*u8);
     }
     free(v -> gpu.images as *u8);
     v -> gpu.images = null(**u8);
+}
+
+fn present_semaphore_create(v: *RenderState, semaphore: **u8) -> bool {
+    var info: VkSemaphoreCreateInfo = uninit;
+    zero(&info as *u8, sizeof(VkSemaphoreCreateInfo));
+    info.sType = 9u32;
+    return vk_ok(
+        vkCreateSemaphore(v -> gpu.device, &info, null(*u8), semaphore),
+        "create presentation semaphore"
+    );
+}
+fn present_semaphores_open(v: *RenderState, count: u32) -> bool {
+    v -> gpu.present_semaphores = malloc(count as usize * sizeof(*u8)) as **u8;
+    if v -> gpu.present_semaphores == null(**u8) {
+        return error("presentation semaphore list allocation failed");
+    }
+    while v -> gpu.present_semaphore_count < count {
+        if !present_semaphore_create(
+            v,
+            &v -> gpu.present_semaphores[v -> gpu.present_semaphore_count as usize]
+        ) {
+            return false;
+        }
+        v -> gpu.present_semaphore_count = v -> gpu.present_semaphore_count + 1u32;
+    }
+    return true;
 }

@@ -134,6 +134,9 @@ fn geometry_reserve(v: *RenderState, required: u32) -> bool {
 }
 fn storage_replace(v: *RenderState, planned: *RenderState) -> bool {
     retirement_wait(v);
+    if !device_wait_idle(v) {
+        return false;
+    }
     var next: RenderState = *planned;
     next.submitted = false;
     buffers_forget(&next);

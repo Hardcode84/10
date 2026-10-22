@@ -626,10 +626,19 @@ sequenceDiagram
     Game->>R: frame_poll, then frame_image after validation
     R-->>Game: ValidatedImage lease
     Game->>P: image_present
-    P-->>R: Output source released
+    P->>GPU: Submit output copy and presentation request
+    P-->>R: Submission complete; later writes use queue order
     R-->>Game: Renderer loan released
     CPU-->>Game: Join and retain markers for next frame
 ```
+
+Presentation completion releases the CPU loan after submission. GPU completion
+is not required at this point. Both backends order the output copy before later
+writes on the same queue. Native acquisition and presentation use GPU semaphores;
+presentation semaphores belong to individual swapchain images. The next render
+fence covers the previous copy before its command buffer and acquire semaphore
+are reused. Storage replacement and shutdown wait before freeing native buffers.
+WebGPU keeps submitted buffer uses alive after buffer destruction.
 
 The optional split-frame API remains available for controlled renderer tests.
 The game uses the full-frame operation above.

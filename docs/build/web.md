@@ -64,8 +64,8 @@ Time values use milliseconds. `encodeMs` measures command recording;
 `queueMs` measures submission through the GPU completion notification;
 `retirementMs` also includes readback completion. These host times include
 browser scheduling delays. `presentWaitMs` measures the animation-frame wait;
-`presentQueueMs` measures the presentation submission through its completion
-notification. `presentIntervalMs` measures time between presentation submissions.
+`presentIntervalMs` measures time between presentation submissions. Presentation
+returns after submission, without a CPU wait for GPU completion.
 
 `gpuSpanMs` uses GPU timestamps from the first compute pass through the last.
 `gpuCommandSpanMs` includes commands before and after those passes, through
@@ -235,3 +235,12 @@ An exact cross-target replay contract needs one deterministic trigonometric
 implementation for host physics and generated geometry. Check its bit results
 and rotating contacts on both targets. Keep the exact recording hash check;
 changing collision tolerances does not correct this math contract.
+
+Check presentation without GPU completion notifications:
+
+```sh
+bun tests/web/profile.mjs --disabled --defer-present
+```
+
+This check holds presentation completion promises unresolved. It requires at
+least 60 presentation submissions and uses an odd width to check row padding.

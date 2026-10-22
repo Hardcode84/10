@@ -1069,3 +1069,17 @@ extern fn vkCmdUpdateBuffer(
 ) -> unit = "vkCmdUpdateBuffer";
 
 extern fn vkGetFenceStatus(device: *u8, fence: *u8) -> i32 = "vkGetFenceStatus";
+
+record VkSemaphoreCreateInfo {
+    sType: u32;
+    pNext: *u8;
+    flags: u32;
+}
+opaque;
+extern fn vkCreateSemaphore(
+    device: *u8,
+    info: *VkSemaphoreCreateInfo,
+    allocator: *u8,
+    semaphore: **u8
+) -> i32 = "vkCreateSemaphore";
+extern fn vkDestroySemaphore(device: *u8, semaphore: *u8, allocator: *u8) -> unit = "vkDestroySemaphore";

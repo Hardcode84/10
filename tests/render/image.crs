@@ -252,6 +252,15 @@ fn image_async_frame(renderer: mut Renderer, window: *u8) -> bool {
     {
         var discarded: SubmittedFrame = frame_submit(mut renderer);
     }
+    if !image_async_present(mut renderer) {
+        return false;
+    }
+    var state: *RenderState = &renderer.state;
+    return geometry_reserve(state, state -> triangle_capacity + 1u32) && renderer_draw(state) && present(
+        state
+    );
+}
+fn image_async_present(renderer: mut Renderer) -> bool {
     var frame: SubmittedFrame = frame_submit(mut renderer);
     var status: i32 = frame_poll(mut frame);
     while status == 0i32 {

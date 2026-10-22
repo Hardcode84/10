@@ -183,13 +183,10 @@ mergeInto(LibraryManager.library, {
     let buffer=s.buffer, sourceOffset=offset;
     if(pitch!==width*4){packed=SWGPU.buffer(s,pitch*height,GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST);for(let y=0;y<height;y++)encoder.copyBufferToBuffer(buffer,offset+y*width*4,packed,y*pitch,width*4);buffer=packed;sourceOffset=0;}
     encoder.copyBufferToTexture({buffer,offset:sourceOffset,bytesPerRow:pitch,rowsPerImage:height},{texture:s.context.getCurrentTexture()},[width,height]);
-    const commands=encoder.finish();
+    const commands=encoder.finish({label:"presentation"});
     s.presentTime=BigInt(Math.round(performance.now()*1000000));
     if(s.profile)SWGPUProfile.present(s);
-    const submitted=sample ? performance.now() : 0;
     s.device.queue.submit([commands]);
-    await s.device.queue.onSubmittedWorkDone();
-    if(sample)sample.presentQueueMs=performance.now()-submitted;
     if(s.profile)await SWGPUProfile.finish(s);
     if(s.error)throw s.error;
     return 1;

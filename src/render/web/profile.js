@@ -124,7 +124,7 @@ mergeInto(LibraryManager.library, {
     },
     summary(samples) {
       const result={submissions:samples.length};
-      for(const key of ['encodeMs','queueMs','retirementMs','presentIntervalMs','presentWaitMs','presentQueueMs','gpuSpanMs','gpuCommandSpanMs','gpuBeforePassesMs','gpuAfterPassesMs','submitCallMs','encodeToSubmitMs','firstYieldMs','microtaskDelayMs','eventTurnMs','maxEventLoopLagMs','readbackMapMs','readbackCopyMs','timestampMapMs','observedMs','idleCalls','polls','dispatches','indirect','uploadBytes','wordCopies','readbackBytes','readbackBuffers']) {
+      for(const key of ['encodeMs','queueMs','retirementMs','presentIntervalMs','presentWaitMs','gpuSpanMs','gpuCommandSpanMs','gpuBeforePassesMs','gpuAfterPassesMs','submitCallMs','encodeToSubmitMs','firstYieldMs','microtaskDelayMs','eventTurnMs','maxEventLoopLagMs','readbackMapMs','readbackCopyMs','timestampMapMs','observedMs','idleCalls','polls','dispatches','indirect','uploadBytes','wordCopies','readbackBytes','readbackBuffers']) {
         const values=samples.map(s=>s[key]).filter(v=>v!==undefined).sort((a,b)=>a-b);
         if(values.length)result[key]={p50:values[Math.ceil(values.length*0.5)-1],p95:values[Math.ceil(values.length*0.95)-1]};
       }
@@ -149,7 +149,8 @@ mergeInto(LibraryManager.library, {
     async finish(s) {
       const p=s.profile;
       if(p.reported || p.samples.length<SWGPUProfile.baseline+SWGPUProfile.detailed)return;
-      // The final present has retired; the next game frame waits for this control.
+      // Drain once before the idle control, outside the measured frames.
+      await s.device.queue.onSubmittedWorkDone();
       p.idleProbe=await SWGPUProfile.probe(s);
       SWGPUProfile.report(s,false);
     },

@@ -64,7 +64,8 @@ resource Presentation {
     outcome: i32;
 }
 opaque drop presentation_drop;
-// Reserves the validated output until the presentation service releases it.
+// Reserves the output until its copy and presentation request are submitted.
+// Later rendering is ordered after the copy; GPU completion is not required.
 fn image_present(image: mut ValidatedImage) -> Presentation from image {
     var accepted: bool = presentation_start(&image.storage);
     return make Presentation {

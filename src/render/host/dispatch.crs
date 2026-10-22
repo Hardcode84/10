@@ -86,7 +86,7 @@ fn device_close(v: *RenderState) -> unit {
         }
         queries_close(v);
         if v -> gpu.acquired != null(*u8) {
-            vkDestroyFence(v -> gpu.device, v -> gpu.acquired, null(*u8));
+            vkDestroySemaphore(v -> gpu.device, v -> gpu.acquired, null(*u8));
         }
         swapchain_close(v);
         if v -> gpu.command_pool != null(*u8) {
@@ -160,6 +160,7 @@ fn command_begin(v: *RenderState) -> bool {
     if !command_continue(v) {
         return false;
     }
+    frame_barrier(v, 4096u32, 0u32, 4096u32 | 2048u32, 0u32);
     vkCmdResetQueryPool(v -> gpu.commands, v -> gpu.query_pool, 0u32, v -> query_count);
     if v -> gpu.batch_queries != null(*u8) {
         vkCmdResetQueryPool(

@@ -70,11 +70,22 @@ prediction, GPU, and output operations before their storage can be reused.
 
 `SubmittedFrame` holds an exclusive renderer loan through validation or scope
 exit. `ValidatedImage` requires successful validation. `Presentation` holds the
-image loan until the output service releases the source. A native completion
-service waits outside the application executor. Browser promises retain readback
-and output storage until completion. The application processes events between
-completion checks. Native presentation uses the existing queue-drain protocol
-on the service thread. It does not introduce present-wait semaphores.
+image loan until the output copy and presentation request are submitted. The GPU
+can still use the source after this loan ends. Later rendering uses the same queue.
+A native completion service waits for render readback outside the application
+executor. The application processes events between completion checks.
+
+Native presentation waits for acquisition on a GPU semaphore and signals one
+presentation semaphore per swapchain image. The next render fence covers the
+previous presentation copy before its command buffer and acquire semaphore are
+reused. An execution barrier orders the copy before later writes to the output.
+Storage replacement and shutdown drain the queue before they free resources.
+The presentation service can wait for a swapchain image, but does not wait for
+GPU copy completion or drain the queue each frame.
+
+Browser presentation completes after queue submission. Queue order protects the
+source against later writes. WebGPU retains submitted buffer uses after buffer
+destruction. The render readback still gates validation and capacity checks.
 
 Crust checks opaque resources with explicit borrowed fields through destruction
 and moves. It also distinguishes loans from separate opaque owners embedded in
@@ -918,7 +929,7 @@ Expose distinct results:
 | Submission accepted | The backend accepted the work and owns its referenced resources |
 | GPU work complete | Device execution and required transfer operations completed |
 | Frame valid | Capacity result and enabled debug checks passed; image can be presented |
-| Presentation source released | The output service completed its final read of the validated output |
+| Presentation submitted | The output copy and request were submitted; later source writes are ordered after the copy |
 | Presentation retired | The provider no longer uses the surface image or its presentation synchronization |
 | Frame retired | All frame consumers released their resource leases; the slot can be reused |
 
@@ -928,8 +939,9 @@ it. A capture is another image consumer and holds its own lease until readback
 and file output complete.
 
 Keep the existing offscreen output path on both backends. Validation precedes
-acquisition and copying into a surface image. The source output remains leased
-until that copy completes on the GPU. Browser canvas acquisition occurs in the
+acquisition and copying into a surface image. The CPU loan ends after submission.
+The backend keeps storage alive through GPU use and orders later writes after
+the copy. Browser canvas acquisition occurs in the
 presentation callback on the context-owning thread. Measure the latency of this
 path; do not assume that it adds a fixed number of frames.
 

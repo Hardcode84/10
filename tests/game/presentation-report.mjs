@@ -11,7 +11,7 @@ for (const path of process.argv.slice(2)) {
   }
   const pairs = {submitToFence: [3, 5], completionToValidation: [5, 6],
     presentationDispatch: [6, 7], acquireAndCopy: [7, 4],
-    presentationDrain: [4, 8], releaseDelivery: [8, 9], submitToRelease: [3, 9]};
+    presentationCall: [4, 8], releaseDelivery: [8, 9], submitToRelease: [3, 9]};
   const measures = Object.fromEntries(Object.keys(pairs).map(name => [name, []]));
   measures.presentationInterval = [];
   let previous;
