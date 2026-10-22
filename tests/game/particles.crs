@@ -213,6 +213,7 @@ fn spark_portal_checks() -> bool {
     return true;
 }
 fn spark_capture_input(input: mut FrameInput) -> bool {
+    var anchors: RoomAnchors = room_anchors_new();
     var scene: CollisionScene = collision_new();
     if !spark_test_wall(mut scene) {
         return false;
@@ -244,7 +245,7 @@ fn spark_capture_input(input: mut FrameInput) -> bool {
         vec(20f32, 20f32, 4f32),
         vec(-20f32, 20f32, 4f32)
     );
-    draw_sparks(read scene, mut input, read sparks);
+    draw_sparks(read scene, mut input, read sparks, mut anchors);
     return true;
 }
 fn sprite_depth_input(input: mut FrameInput, cutout: bool) -> unit {

@@ -2,7 +2,8 @@ fn draw_cable(
     collision: read CollisionScene,
     v: mut FrameInput,
     drone: read Drone,
-    config: GameConfig
+    config: GameConfig,
+    anchors: mut RoomAnchors
 ) -> unit {
     if drone.cable.phase != CABLE_ATTACHED && drone.cable.phase != CABLE_FLYING {
         return;
@@ -18,7 +19,8 @@ fn draw_cable(
         mut v,
         drone.cable.space,
         physical,
-        read drone.cable.size
+        read drone.cable.size,
+        mut anchors
     );
     var start: Vec3 = add(
         drone.position,
@@ -109,7 +111,12 @@ fn hook_light_position(collision: read CollisionScene, drone: read Drone) -> Vec
     }
     return point;
 }
-fn hook_light(collision: read CollisionScene, input: mut FrameInput, drone: read Drone) -> unit {
+fn hook_light(
+    collision: read CollisionScene,
+    input: mut FrameInput,
+    drone: read Drone,
+    anchors: mut RoomAnchors
+) -> unit {
     if drone.cable.phase != CABLE_FLYING && drone.cable.phase != CABLE_ATTACHED {
         return;
     }
@@ -121,7 +128,13 @@ fn hook_light(collision: read CollisionScene, input: mut FrameInput, drone: read
         radius: 6f32,
         mode: LIGHT_UNSHADOWED
     };
-    light_scaled_object_anchors(read collision, mut input, light, read drone.cable.size);
+    light_scaled_object_anchors(
+        read collision,
+        mut input,
+        light,
+        read drone.cable.size,
+        mut anchors
+    );
 }
 
 fn draw_hook_anchors(
@@ -129,9 +142,10 @@ fn draw_hook_anchors(
     input: mut FrameInput,
     space: u32,
     point: Vec3,
-    ratio: read Rational
+    ratio: read Rational,
+    anchors: mut RoomAnchors
 ) -> unit {
-    var anchors: RoomAnchors = room_anchors_new();
+    room_anchors_clear(mut anchors);
     var still: Vec3 = vec(0f32, 0f32, 0f32);
     var body: CollisionBody = collision_body(HOOK_RADIUS * sqrtf(3f32), read ratio);
     if !collision_scaled_anchors(

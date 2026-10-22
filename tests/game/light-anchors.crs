@@ -36,6 +36,7 @@ fn anchor_light_scene(scene: mut CollisionScene) -> bool {
     return collision_finish(move builder, mut scene);
 }
 fn anchor_light_input(scene: read CollisionScene, input: mut FrameInput, lit: bool) -> bool {
+    var anchors: RoomAnchors = room_anchors_new();
     game_palette(mut input);
     input_frame(mut input);
     render_portals(mut input, read scene);
@@ -85,7 +86,7 @@ fn anchor_light_input(scene: read CollisionScene, input: mut FrameInput, lit: bo
     drone.position = eye;
     hook_launch(mut drone);
     drone.cable.anchor = vec(0f32, 0f32, 1f32);
-    hook_light(read scene, mut input, read drone);
+    hook_light(read scene, mut input, read drone, mut anchors);
     var count: u32 = input_word(read input, LIGHT_COUNT as usize);
     if count < 3u32 {
         return error("recursive same-room light must have multiple anchors");

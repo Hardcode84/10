@@ -42,7 +42,11 @@ fn room_anchors_new() -> RoomAnchors {
     };
 }
 fn room_anchors_drop(anchors: mut RoomAnchors) -> unit {
-    room_anchors_clear(mut anchors);
+    var i: u32 = 0u32;
+    while anchors.extra != null(*AnchorEntry) && i < anchors.capacity {
+        drop anchors.extra[i as usize];
+        i = i + 1u32;
+    }
     free(anchors.extra as *u8);
 }
 fn room_anchor_count(anchors: read RoomAnchors) -> u32 {
@@ -84,15 +88,21 @@ fn room_anchor_take(anchors: mut RoomAnchors, anchor: RoomAnchor, ratio: Rationa
                 i = i + 1u32;
             }
         }
+        var i: u32 = anchors.capacity;
+        while i < size as u32 {
+            next[i as usize] = make AnchorEntry {
+                placement: anchor,
+                ratio: rational_new(1u64, 1u64)
+            };
+            i = i + 1u32;
+        }
         free(anchors.extra as *u8);
         anchors.extra = next;
         anchors.capacity = size as u32;
     }
     if anchors.extra != null(*AnchorEntry) {
-        anchors.extra[anchors.count as usize] = make AnchorEntry {
-            placement: anchor,
-            ratio: rational_clone(read ratio)
-        };
+        anchors.extra[anchors.count as usize].placement = anchor;
+        rational_assign(mut anchors.extra[anchors.count as usize].ratio, read ratio);
     } else {
         anchors.local[anchors.count as usize] = anchor;
         rational_assign(mut anchors.ratios[anchors.count as usize], read ratio);
@@ -101,11 +111,6 @@ fn room_anchor_take(anchors: mut RoomAnchors, anchor: RoomAnchor, ratio: Rationa
     return true;
 }
 fn room_anchors_clear(anchors: mut RoomAnchors) -> unit {
-    var i: u32 = 0u32;
-    while anchors.extra != null(*AnchorEntry) && i < anchors.count {
-        drop anchors.extra[i as usize];
-        i = i + 1u32;
-    }
     anchors.count = 0u32;
 }
 

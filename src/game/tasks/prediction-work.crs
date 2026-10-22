@@ -1,6 +1,7 @@
 record PredictionPayload {
     collision: *CollisionScene;
     trial: Trial;
+    forecast: Drone;
     result: Prediction;
 }
 opaque;
@@ -25,6 +26,7 @@ fn prediction_context(pool: read TaskPool, collision: read CollisionScene) -> Pr
     } else {
         payload -> collision = &collision;
         payload -> trial = new_trial();
+        payload -> forecast = new_drone();
     }
     return make PredictionContext {
         pool: read pool,
@@ -42,12 +44,17 @@ fn prediction_context_ready(context: read PredictionContext) -> bool {
 fn prediction_context_drop(context: mut PredictionContext) -> unit {
     if context.payload != null(*PredictionPayload) {
         drop context.payload -> trial;
+        drop context.payload -> forecast;
     }
     task_release(context.payload as *u8);
 }
 fn prediction_execute(data: *u8) -> bool {
     var payload: *PredictionPayload = data as *PredictionPayload;
-    payload -> result = predict_paths(read * payload -> collision, read payload -> trial);
+    payload -> result = predict_paths(
+        read * payload -> collision,
+        read payload -> trial,
+        mut payload -> forecast
+    );
     return true;
 }
 fn prediction_start(context: mut PredictionContext, trial: read Trial) -> PredictionTask from context {

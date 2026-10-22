@@ -93,7 +93,7 @@ fn predict_segment(
     }
     trail.distance = trail.distance + segment;
 }
-fn predict_paths(collision: read CollisionScene, trial: read Trial) -> Prediction {
+fn predict_paths(collision: read CollisionScene, trial: read Trial, scratch: mut Drone) -> Prediction {
     var prediction: Prediction = prediction_new();
     prediction.attempt = trial.attempt;
     prediction.source_tick = trial.tick;
@@ -103,9 +103,21 @@ fn predict_paths(collision: read CollisionScene, trial: read Trial) -> Predictio
     if hook_ready {
         limit = PREVIEW_MARKERS / 2u32;
     }
-    var used: u32 = predict_drone(read collision, mut prediction, read trial, limit);
+    var used: u32 = predict_drone(
+        read collision,
+        mut prediction,
+        read trial,
+        mut scratch,
+        limit
+    );
     if hook_ready {
-        predict_hook(read collision, mut prediction, read trial, PREVIEW_MARKERS - used);
+        predict_hook(
+            read collision,
+            mut prediction,
+            read trial,
+            mut scratch,
+            PREVIEW_MARKERS - used
+        );
     }
     return prediction;
 }
@@ -113,12 +125,13 @@ fn predict_drone(
     collision: read CollisionScene,
     prediction: mut Prediction,
     trial: read Trial,
+    drone: mut Drone,
     limit: u32
 ) -> u32 {
     if !trial.preview_enabled {
         return 0u32;
     }
-    var drone: Drone = clone_drone(read trial.drone);
+    assign_drone(mut drone, read trial.drone);
     var eye: PredictionEye = prediction_eye(read trial.drone);
     var command: Command = idle_command();
     command.tether = drone.cable.phase == CABLE_ATTACHED || drone.cable.phase == CABLE_FLYING;
@@ -175,9 +188,10 @@ fn predict_hook(
     collision: read CollisionScene,
     prediction: mut Prediction,
     trial: read Trial,
+    drone: mut Drone,
     limit: u32
 ) -> unit {
-    var drone: Drone = clone_drone(read trial.drone);
+    assign_drone(mut drone, read trial.drone);
     var command: Command = idle_command();
     command.tether = true;
     var trail: PreviewTrail = preview_trail(limit, HOOK_PREVIEW_MATERIAL, 0f32);

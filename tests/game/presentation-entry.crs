@@ -12,6 +12,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     return presentation_measure(game_session(&launch), launch.config);
 }
 fn presentation_measure(session: GameSession, config: GameConfig) -> i32 {
+    var forecast: Drone = new_drone();
     var collision: CollisionScene = collision_new();
     var loop: GameLoop = make GameLoop {
         sparks: sparks_new(),
@@ -32,7 +33,11 @@ fn presentation_measure(session: GameSession, config: GameConfig) -> i32 {
                 return 1i32;
             }
         }
-        var prediction: Prediction = predict_paths(read collision, read loop.trial);
+        var prediction: Prediction = predict_paths(
+            read collision,
+            read loop.trial,
+            mut forecast
+        );
         game_prepare(read collision, mut session, read loop, config, read prediction);
         if config.tasks {
             if !presentation_async(mut session) {

@@ -1,15 +1,3 @@
-fn draw_hook_preview(
-    collision: read CollisionScene,
-    v: mut FrameInput,
-    trial: read Trial,
-    config: GameConfig,
-    limit: u32
-) -> unit {
-    var prediction: Prediction = prediction_new();
-    predict_hook(read collision, mut prediction, read trial, limit);
-    draw_prediction(mut v, read prediction, config);
-}
-
 fn draw_hook_marker(
     v: mut FrameInput,
     center: Vec3,

@@ -20,7 +20,7 @@ async function call(method, params = {}) {
   if (result.error) throw Error(JSON.stringify(result.error));
   return result.result;
 }
-async function witness(enabled, early, stall, deferPresent) {
+async function witness(enabled, early, stall, deferPresent, allocations) {
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const until = async predicate => {
     const end = performance.now() + 90000;
@@ -38,6 +38,16 @@ async function witness(enabled, early, stall, deferPresent) {
   let frames = 0;
   const original = GPUCanvasContext.prototype.getCurrentTexture;
   GPUCanvasContext.prototype.getCurrentTexture = function() { frames++; return original.call(this); };
+  const resourceMethods = ['createBuffer','createBindGroup','createQuerySet','createTexture','createSampler'];
+  const originalResources = resourceMethods.map(name => GPUDevice.prototype[name]);
+  const resourceCounts = Object.fromEntries(resourceMethods.map(name => [name,0]));
+  if (allocations) for (const name of resourceMethods) {
+    const original = GPUDevice.prototype[name];
+    GPUDevice.prototype[name] = function(...args) {
+      if (frames >= 8 && frames < 60) resourceCounts[name]++;
+      return original.apply(this,args);
+    };
+  }
   const originalDone = GPUQueue.prototype.onSubmittedWorkDone;
   const originalSubmit = GPUQueue.prototype.submit;
   let presentationSubmitted = false, completionRequests = 0, presentationSubmissions = 0;
@@ -90,15 +100,17 @@ async function witness(enabled, early, stall, deferPresent) {
     }
     if (deferPresent && presentationSubmissions < 60) throw Error("Presentation submission witness did not run");
     if (deferPresent && completionRequests) throw Error("Presentation requested CPU completion");
-    return {frames, profile};
-  } finally { GPUCanvasContext.prototype.getCurrentTexture = original; GPUQueue.prototype.onSubmittedWorkDone = originalDone; GPUQueue.prototype.submit = originalSubmit; }
+    if (allocations && frames < 60) throw Error('Allocation witness requires 60 presented frames');
+    if (allocations && Object.values(resourceCounts).some(count => count !== 0)) throw Error('Steady GPU resource allocations: '+JSON.stringify(resourceCounts));
+    return {frames, profile, resourceCounts: allocations ? resourceCounts : undefined};
+  } finally { for (let i=0;i<resourceMethods.length;i++)GPUDevice.prototype[resourceMethods[i]]=originalResources[i]; GPUCanvasContext.prototype.getCurrentTexture = original; GPUQueue.prototype.onSubmittedWorkDone = originalDone; GPUQueue.prototype.submit = originalSubmit; }
 }
 const timeout = setTimeout(() => { console.error('GPU profile check timed out'); process.exitCode = 1; socket.close(); }, 120000);
 try {
   await call('Page.navigate', {url: origin + '/?profile-check=' + Date.now()});
   await Bun.sleep(1500);
   await call('Page.bringToFront');
-  const result = await call('Runtime.evaluate', {expression: `(${witness})(${!process.argv.includes("--disabled")}, ${process.argv.includes("--early-exit")}, ${process.argv.includes("--stall")}, ${process.argv.includes("--defer-present")})`, awaitPromise: true, returnByValue: true, userGesture: true});
+  const result = await call('Runtime.evaluate', {expression: `(${witness})(${!process.argv.includes("--disabled")}, ${process.argv.includes("--early-exit")}, ${process.argv.includes("--stall")}, ${process.argv.includes("--defer-present")}, ${process.argv.includes("--allocations")})`, awaitPromise: true, returnByValue: true, userGesture: true});
   if (result.exceptionDetails) throw Error(JSON.stringify(result.exceptionDetails));
   console.log(JSON.stringify(result.result.value, null, 2));
 } finally { clearTimeout(timeout); await call('Page.navigate', {url: 'about:blank'}); socket.close(); }

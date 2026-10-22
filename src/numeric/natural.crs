@@ -56,13 +56,7 @@ fn natural_u64(value: u64) -> Natural {
 }
 fn natural_clone(value: read Natural) -> Natural {
     var result: Natural = natural_new();
-    natural_reserve(mut result, value.count);
-    result.count = value.count;
-    var i: usize = 0usize;
-    while i < value.count {
-        result.words[i] = value.words[i];
-        i = i + 1usize;
-    }
+    natural_assign(mut result, read value);
     return move result;
 }
 fn natural_compare(a: read Natural, b: read Natural) -> i32 {
@@ -249,4 +243,14 @@ fn natural_swap(a: mut Natural, b: mut Natural) -> unit {
     b.words = words;
     b.count = count;
     b.capacity = capacity;
+}
+
+fn natural_assign(result: mut Natural, value: read Natural) -> unit {
+    natural_reserve(mut result, value.count);
+    result.count = value.count;
+    var i: usize = 0usize;
+    while i < value.count {
+        result.words[i] = value.words[i];
+        i = i + 1usize;
+    }
 }

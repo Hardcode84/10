@@ -41,6 +41,7 @@ fn body_input(
     mesh: read Mesh,
     mode: u32
 ) -> unit {
+    var anchors: RoomAnchors = room_anchors_new();
     game_palette(mut input);
     input_frame(mut input);
     input_set_word(mut input, BACKGROUND as usize, 0xff123456u32);
@@ -55,7 +56,7 @@ fn body_input(
     camera_row(mut input, 4usize, drone.basis.up, drone.position);
     camera_row(mut input, 8usize, drone.basis.forward, drone.position);
     if mode != 2u32 && mode != 5u32 {
-        draw_drone(read scene, mut input, read mesh, read drone);
+        draw_drone(read scene, mut input, read mesh, read drone, mut anchors);
     }
     if mode == 1u32 || mode == 5u32 {
         render_portals(mut input, read scene);
@@ -119,12 +120,13 @@ fn body_exterior_input(input: mut FrameInput) -> unit {
 }
 
 fn body_overlap_check(scene: read CollisionScene, input: mut FrameInput, mesh: read Mesh) -> bool {
+    var anchors: RoomAnchors = room_anchors_new();
     input_frame(mut input);
     var drone: Drone = new_drone();
     drone.world = 0u32;
     drone.position = vec(0f32, 0f32, 0.9f32);
     drone.basis = turn_basis(identity_basis(), vec(1f32, 0f32, 0f32), 0.3f32);
-    draw_drone(read scene, mut input, read mesh, read drone);
+    draw_drone(read scene, mut input, read mesh, read drone, mut anchors);
     var count: u32 = mesh_triangle_count(read mesh);
     if input_word(read input, 3usize) != count * 2u32 {
         return false;

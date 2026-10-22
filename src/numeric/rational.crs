@@ -120,13 +120,13 @@ fn rational_new(n: u64, d: u64) -> Rational {
     };
 }
 fn rational_numerator(value: read Rational) -> Natural {
-    if value.large == null(*RationalLarge) {
+    if value.denominator != 0u64 {
         return natural_u64(value.numerator);
     }
     return natural_clone(read value.large -> numerator);
 }
 fn rational_denominator(value: read Rational) -> Natural {
-    if value.large == null(*RationalLarge) {
+    if value.denominator != 0u64 {
         return natural_u64(value.denominator);
     }
     return natural_clone(read value.large -> denominator);
@@ -199,7 +199,7 @@ fn rational_take(n: Natural, d: Natural) -> Rational {
     };
 }
 fn rational_clone(value: read Rational) -> Rational {
-    if value.large == null(*RationalLarge) {
+    if value.denominator != 0u64 {
         return make Rational {
             numerator: value.numerator,
             denominator: value.denominator,
@@ -210,7 +210,7 @@ fn rational_clone(value: read Rational) -> Rational {
     return rational_take(rational_numerator(read value), rational_denominator(read value));
 }
 fn rational_inverse(value: read Rational) -> Rational {
-    if value.large == null(*RationalLarge) {
+    if value.denominator != 0u64 {
         return rational_new(value.denominator, value.numerator);
     }
     return rational_take(rational_denominator(read value), rational_numerator(read value));
@@ -236,13 +236,13 @@ fn rational_large_product(a: read Rational, b: read Rational) -> Rational {
     );
 }
 fn rational_product(a: read Rational, b: read Rational) -> Rational {
-    if a.large == null(*RationalLarge) && a.numerator == a.denominator {
+    if a.denominator != 0u64 && a.numerator == a.denominator {
         return rational_clone(read b);
     }
-    if b.large == null(*RationalLarge) && b.numerator == b.denominator {
+    if b.denominator != 0u64 && b.numerator == b.denominator {
         return rational_clone(read a);
     }
-    if a.large != null(*RationalLarge) || b.large != null(*RationalLarge) {
+    if a.denominator == 0u64 || b.denominator == 0u64 {
         return rational_large_product(read a, read b);
     }
     var x: u64 = rational_gcd(a.numerator, b.denominator);
@@ -260,10 +260,10 @@ fn rational_float(value: read Rational) -> f32 {
     return value.value;
 }
 fn rational_equal(a: read Rational, b: read Rational) -> bool {
-    if a.large == null(*RationalLarge) && b.large == null(*RationalLarge) {
+    if a.denominator != 0u64 && b.denominator != 0u64 {
         return a.numerator == b.numerator && a.denominator == b.denominator;
     }
-    if a.large == null(*RationalLarge) || b.large == null(*RationalLarge) {
+    if a.denominator != 0u64 || b.denominator != 0u64 {
         return false;
     }
     return natural_compare(read a.large -> numerator, read b.large -> numerator) == 0i32 && natural_compare(
@@ -291,12 +291,28 @@ fn rational_multiply(a: mut Rational, b: read Rational) -> unit {
 }
 
 fn rational_assign(a: mut Rational, b: read Rational) -> unit {
-    var result: Rational = rational_clone(read b);
-    rational_swap(mut a, mut result);
+    if b.denominator == 0u64 {
+        if a.large == null(*RationalLarge) {
+            a.large = malloc(sizeof(RationalLarge)) as *RationalLarge;
+            if a.large == null(*RationalLarge) {
+                error("rational allocation failed");
+                trap;
+            }
+            * a.large = make RationalLarge {
+                numerator: natural_new(),
+                denominator: natural_new()
+            };
+        }
+        natural_assign(mut a.large -> numerator, read b.large -> numerator);
+        natural_assign(mut a.large -> denominator, read b.large -> denominator);
+    }
+    a.numerator = b.numerator;
+    a.denominator = b.denominator;
+    a.value = b.value;
 }
 
 fn rational_word_count(value: read Rational, numerator: bool) -> usize {
-    if value.large != null(*RationalLarge) {
+    if value.denominator == 0u64 {
         if numerator {
             return value.large -> numerator.count;
         }
@@ -309,7 +325,7 @@ fn rational_word_count(value: read Rational, numerator: bool) -> usize {
     return 1usize + (number > 0xffffffffu64) as usize;
 }
 fn rational_word(value: read Rational, numerator: bool, index: usize) -> u32 {
-    if value.large != null(*RationalLarge) {
+    if value.denominator == 0u64 {
         if numerator {
             return value.large -> numerator.words[index];
         }

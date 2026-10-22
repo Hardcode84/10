@@ -66,7 +66,11 @@ fn game_render(
     loop: read GameLoop,
     config: GameConfig
 ) -> bool {
-    var prediction: Prediction = predict_paths(read collision, read loop.trial);
+    var prediction: Prediction = predict_paths(
+        read collision,
+        read loop.trial,
+        mut session.forecast
+    );
     game_prepare(read collision, mut session, read loop, config, read prediction);
     return game_draw(mut session) && game_present(mut session);
 }
@@ -88,8 +92,14 @@ fn game_prepare_begin(
 ) -> unit {
     game_trace_snapshot(mut session, loop.ticks);
     var inputs: FrameInput = renderer_inputs(mut session.renderer);
-    game_scene_begin(read collision, mut inputs, read loop.trial, config);
-    draw_sparks(read collision, mut inputs, read loop.sparks);
+    game_scene_begin(
+        read collision,
+        mut inputs,
+        read loop.trial,
+        config,
+        mut session.view_anchors
+    );
+    draw_sparks(read collision, mut inputs, read loop.sparks, mut session.view_anchors);
 }
 fn game_prepare_finish(
     collision: read CollisionScene,

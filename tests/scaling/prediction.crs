@@ -99,6 +99,7 @@ fn prediction_view_markers(input: mut FrameInput, config: GameConfig, size: f32)
     draw_prediction(mut input, read prediction, config);
 }
 fn prediction_hook_mesh(scene: read CollisionScene, input: mut FrameInput, drone: read Drone) -> bool {
+    var anchors: RoomAnchors = room_anchors_new();
     var point: Vec3 = space_point(
         space_inverse(drone.cable.frame),
         drone.cable.anchor
@@ -118,7 +119,8 @@ fn prediction_hook_mesh(scene: read CollisionScene, input: mut FrameInput, drone
         mut input,
         drone.cable.space,
         point,
-        read drone.cable.size
+        read drone.cable.size,
+        mut anchors
     );
     if input_word(read input, 3usize) != 12u32 {
         return error("distant attached hook must have one body placement");

@@ -521,6 +521,34 @@ uploaded again. Buffer replacement marks persistent ranges for upload into the
 new allocation. Normal window rendering reads no image pixels and reads no
 visibility counts to control subsequent GPU work.
 
+### Reused host and browser storage
+
+The game session owns the serial prediction scratch and the view-anchor list.
+The prediction task owns a separate forecast drone. Each forecast copies state
+into that owner. Cable path assignment and clear retain path capacity. View
+passes clear and reuse the session anchor list in sequence. Anchor clear retains
+slot storage, including exact-scale backing storage. Spark storage is allocated
+when the effect owner is created.
+
+The browser renderer retains word-upload chunks, readback slots, timestamp
+readback storage, and row-padding storage. Each recorded word copy has a separate
+source offset. The renderer uploads these chunks before it submits their copies.
+A readback slot can be reused after mapping, copying, and unmapping finish.
+Queue order protects row-padding storage between presentation copies.
+
+These buffers grow when demand exceeds capacity. They are released with the
+renderer. WebGPU command encoders, command buffers, mapping results, and API
+promises still have per-operation lifetimes. The browser resource test counts
+application GPU resource creation after warm-up. Run
+`bun tests/web/profile.mjs --disabled --defer-present --allocations` with the
+browser test harness described in [the web build guide](../build/web.md).
+
+Collision queries still create temporary anchor lists and contact results.
+Large exact-scale arithmetic still creates temporary integers. These paths need
+caller-owned query and arithmetic workspaces before the complete frame loop can
+have an allocation-free contract. Capacity growth must occur with frame admission
+paused. Repeated creation of the same temporary storage is not capacity growth.
+
 ### Independent bounds
 
 | Capacity | Meaning and failure rule |

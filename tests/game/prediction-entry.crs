@@ -43,15 +43,28 @@ fn prediction_sample(collision: read CollisionScene, trial: read Trial) -> Predi
     }
     var result: Prediction = prediction_new();
     var begin: u64 = now();
-    var used: u32 = predict_drone(read collision, mut result, read trial, limit);
+    var scratch: Drone = new_drone();
+    var used: u32 = predict_drone(read collision, mut result, read trial, mut scratch, limit);
     var after_drone: u64 = now();
     if ready {
-        predict_hook(read collision, mut result, read trial, PREVIEW_MARKERS - used);
+        predict_hook(
+            read collision,
+            mut result,
+            read trial,
+            mut scratch,
+            PREVIEW_MARKERS - used
+        );
     }
     var after_hook: u64 = now();
     var independent: Prediction = prediction_new();
     if ready {
-        predict_hook(read collision, mut independent, read trial, PREVIEW_MARKERS);
+        predict_hook(
+            read collision,
+            mut independent,
+            read trial,
+            mut scratch,
+            PREVIEW_MARKERS
+        );
     }
     var finish: u64 = now();
     return make PredictionTiming {

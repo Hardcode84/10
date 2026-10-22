@@ -1,4 +1,9 @@
-fn graph_lighting(scene: read CollisionScene, input: mut FrameInput, trial: read Trial) -> unit {
+fn graph_lighting(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    trial: read Trial,
+    anchors: mut RoomAnchors
+) -> unit {
     if !trial.graph_run {
         return;
     }
@@ -10,10 +15,10 @@ fn graph_lighting(scene: read CollisionScene, input: mut FrameInput, trial: read
         radius: 16f32,
         mode: LIGHT_ROOM
     };
-    light_object_anchors(read scene, mut input, lamp);
+    light_object_anchors(read scene, mut input, lamp, mut anchors);
     lamp.id = 3u32;
     lamp.space = trial.goal_world;
     lamp.position = vec(0f32, 10f32, 0f32);
     lamp.radius = 12f32;
-    light_object_anchors(read scene, mut input, lamp);
+    light_object_anchors(read scene, mut input, lamp, mut anchors);
 }

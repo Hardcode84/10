@@ -1,4 +1,5 @@
 fn main(argc: i32, argv: **u8) -> i32 {
+    var anchors: RoomAnchors = room_anchors_new();
     var options: Launch = uninit;
     if !game_options(argc, argv, &options) {
         return 1i32;
@@ -62,7 +63,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
                 var trial: Trial = new_trial();
                 trial.graph_run = true;
                 trial.goal_world = 73u32;
-                graph_lighting(read scene, mut input, read trial);
+                graph_lighting(read scene, mut input, read trial, mut anchors);
             }
         }
         if !renderer_draw(&renderer.state) {
@@ -90,6 +91,7 @@ fn hook_light_transformed(
     input: mut FrameInput,
     drone: read Drone
 ) -> bool {
+    var anchors: RoomAnchors = room_anchors_new();
     var moved: Drone = clone_drone(read drone);
     var expected: Vec3 = hook_light_position(read scene, read drone);
     moved.cable.frame.origin = vec(10f32, 20f32, 30f32);
@@ -102,7 +104,7 @@ fn hook_light_transformed(
     moved.position = vec(-2f32, 3f32, 5f32);
     moved.basis = moved.cable.frame.basis;
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
-    hook_light(read scene, mut input, read moved);
+    hook_light(read scene, mut input, read moved, mut anchors);
     if drone.cable.phase != CABLE_FLYING && drone.cable.phase != CABLE_ATTACHED {
         return input_word(read input, LIGHT_COUNT as usize) == 0u32;
     }
@@ -113,7 +115,7 @@ fn hook_light_transformed(
         input_float(read input, p + 2usize)
     );
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
-    hook_light(read scene, mut input, read drone);
+    hook_light(read scene, mut input, read drone, mut anchors);
     return length(sub(expected, actual)) < 0.00001f32 || error(
         "hook light changed room-local position across a transformed connection"
     );

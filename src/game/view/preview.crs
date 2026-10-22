@@ -51,15 +51,6 @@ fn draw_preview_marker(
         edge = edge + 1u32;
     }
 }
-fn draw_preview(
-    collision: read CollisionScene,
-    v: mut FrameInput,
-    trial: read Trial,
-    config: GameConfig
-) -> unit {
-    var prediction: Prediction = predict_paths(read collision, read trial);
-    draw_prediction(mut v, read prediction, config);
-}
 fn draw_prediction(v: mut FrameInput, prediction: read Prediction, config: GameConfig) -> unit {
     var i: u32 = 0u32;
     while i < prediction.count {

@@ -3,9 +3,10 @@ fn draw_drone(
     scene: read CollisionScene,
     input: mut FrameInput,
     mesh: read Mesh,
-    drone: read Drone
+    drone: read Drone,
+    anchors: mut RoomAnchors
 ) -> unit {
-    var anchors: RoomAnchors = room_anchors_new();
+    room_anchors_clear(mut anchors);
     var body: CollisionBody = flight_body(read drone);
     if !collision_scaled_anchors(
         read scene,

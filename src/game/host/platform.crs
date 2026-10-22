@@ -15,6 +15,8 @@ record GameControl {
 }
 opaque;
 record GameSession {
+    forecast: Drone;
+    view_anchors: RoomAnchors;
     control: GameControl;
     frame_rate: FrameRate;
     room: RoomAsset;
@@ -34,6 +36,8 @@ fn game_window_drop(window: mut GameWindow) -> unit {
 fn game_session(o: *Launch) -> GameSession {
     var renderer: Renderer = renderer_new();
     return make GameSession {
+        forecast: new_drone(),
+        view_anchors: room_anchors_new(),
         control: make GameControl {
             graph: graph_new(),
             window: make GameWindow {
@@ -156,7 +160,12 @@ fn game_scene_finish(
     var input: FrameInput = renderer_inputs(mut session.renderer);
     draw_prediction(mut input, read prediction, config);
     draw_frame(mut input, read trial.drone, config);
-    draw_portal_admission(read collision, mut input, read trial.drone);
+    draw_portal_admission(
+        read collision,
+        mut input,
+        read trial.drone,
+        mut session.view_anchors
+    );
     if config.scaling {
         scaling_draw(
             read collision,
@@ -165,7 +174,13 @@ fn game_scene_finish(
             trial.drone.clock as f32 * STEP
         );
     }
-    draw_drone(read collision, mut input, read session.drone_mesh, read trial.drone);
+    draw_drone(
+        read collision,
+        mut input,
+        read session.drone_mesh,
+        read trial.drone,
+        mut session.view_anchors
+    );
     if trial.graph_run {
         graph_scene(read session.control.graph, mut input, read trial, config);
     }

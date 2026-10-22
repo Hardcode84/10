@@ -18,17 +18,17 @@ fn hook_attach(
         contact_time
     );
     var size: Rational = rational_product(read drone.cable.size, read query.ratio);
-    var path: PortalPath = portal_path_clone(read drone.cable.path);
     var i: u32 = 0u32;
     while i < portal_path_count(read query.path) {
         var index: u32 = portal_path_at(read query.path, i);
         var link: CollisionPortal = collision_portal(read scene, index);
-        portal_path_append(mut path, index, link.reverse);
+        portal_path_append(mut drone.cable.path, index, link.reverse);
         i = i + 1u32;
     }
-    var frame: SpaceTransform = space_inverse(space_path(read scene, read path));
+    var frame: SpaceTransform = space_inverse(
+        space_path(read scene, read drone.cable.path)
+    );
     rational_swap(mut drone.cable.size, mut size);
-    portal_path_swap(mut drone.cable.path, mut path);
     drone.cable.frame = frame;
     drone.cable.instance = contact.instance;
     drone.cable.surface = contact.surface;

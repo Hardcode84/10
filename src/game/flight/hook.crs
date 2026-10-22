@@ -97,17 +97,17 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
     }
     if portal.time < query.contact.hit.time && portal.time <= limit {
         var link: CollisionPortal = collision_portal(read collision, portal.index);
-        var path: PortalPath = portal_path_clone(read drone.cable.path);
         if link.reverse == 0xffffffffu32 {
             error("a tether crossing requires a reciprocal portal");
             trap;
         }
-        portal_path_append(mut path, portal.index, link.reverse);
-        var frame: SpaceTransform = space_inverse(space_path(read collision, read path));
+        portal_path_append(mut drone.cable.path, portal.index, link.reverse);
+        var frame: SpaceTransform = space_inverse(
+            space_path(read collision, read drone.cable.path)
+        );
         var factor: Rational = portal_ratio(link);
         var size: Rational = rational_product(read drone.cable.size, read factor);
         rational_swap(mut drone.cable.size, mut size);
-        portal_path_swap(mut drone.cable.path, mut path);
         drone.cable.anchor = add(drone.cable.anchor, scale(travel, portal.time));
         drone.cable.frame = frame;
         drone.cable.space = link.destination;

@@ -37,9 +37,10 @@ fn light_scaled_object_anchors(
     scene: read CollisionScene,
     input: mut FrameInput,
     light: LightObject,
-    size: read Rational
+    size: read Rational,
+    anchors: mut RoomAnchors
 ) -> unit {
-    var anchors: RoomAnchors = room_anchors_new();
+    room_anchors_clear(mut anchors);
     if !light_scaled_anchors(
         read scene,
         mut anchors,
@@ -69,7 +70,12 @@ fn light_scaled_object_anchors(
         i = i + 1u32;
     }
 }
-fn game_object_lighting(scene: read CollisionScene, input: mut FrameInput, trial: read Trial) -> unit {
+fn game_object_lighting(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    trial: read Trial,
+    anchors: mut RoomAnchors
+) -> unit {
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
     var player: LightObject = make LightObject {
         id: 0u32,
@@ -80,18 +86,25 @@ fn game_object_lighting(scene: read CollisionScene, input: mut FrameInput, trial
         mode: LIGHT_HEADLAMP
     };
     input_set_float(mut input, CAMERA_LIGHT as usize, 0f32);
-    light_scaled_object_anchors(read scene, mut input, player, read trial.drone.size);
-    hook_light(read scene, mut input, read trial.drone);
-    graph_lighting(read scene, mut input, read trial);
+    light_scaled_object_anchors(
+        read scene,
+        mut input,
+        player,
+        read trial.drone.size,
+        mut anchors
+    );
+    hook_light(read scene, mut input, read trial.drone, mut anchors);
+    graph_lighting(read scene, mut input, read trial, mut anchors);
 }
 
 fn light_object_anchors(
     scene: read CollisionScene,
     input: mut FrameInput,
-    light: LightObject
+    light: LightObject,
+    anchors: mut RoomAnchors
 ) -> unit {
     var size: Rational = rational_new(1u64, 1u64);
-    light_scaled_object_anchors(read scene, mut input, light, read size);
+    light_scaled_object_anchors(read scene, mut input, light, read size, mut anchors);
 }
 fn light_object_submit(input: mut FrameInput, light: LightObject, anchor: RoomAnchor) -> unit {
     light_placement_submit(

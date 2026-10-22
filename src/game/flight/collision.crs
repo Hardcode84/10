@@ -78,18 +78,16 @@ fn drone_portal_at(
     var t: SpaceTransform = portal.transform;
     var factor: Rational = portal_ratio(portal);
     var size: Rational = rational_product(read drone.size, read factor);
-    var path: PortalPath = portal_path_clone(read drone.cable.path);
     var frame: SpaceTransform = drone.cable.frame;
     if drone.cable.phase == CABLE_FLYING || drone.cable.phase == CABLE_ATTACHED {
         if portal.reverse == 0xffffffffu32 {
             error("a tether crossing requires a reciprocal portal");
             trap;
         }
-        portal_path_prepend(mut path, portal.reverse, index);
-        frame = space_inverse(space_path(read scene, read path));
+        portal_path_prepend(mut drone.cable.path, portal.reverse, index);
+        frame = space_inverse(space_path(read scene, read drone.cable.path));
     }
     rational_swap(mut drone.size, mut size);
-    portal_path_swap(mut drone.cable.path, mut path);
     drone.cable.frame = frame;
     drone.step_frame = space_compose(t, drone.step_frame);
     drone.world = portal.destination;

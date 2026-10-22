@@ -1,4 +1,9 @@
-fn draw_spark(scene: read CollisionScene, input: mut FrameInput, item: Spark) -> unit {
+fn draw_spark(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    item: Spark,
+    anchors: mut RoomAnchors
+) -> unit {
     var phase: u32 = 0u32;
     if item.age >= 5u32 {
         phase = 1u32;
@@ -6,7 +11,7 @@ fn draw_spark(scene: read CollisionScene, input: mut FrameInput, item: Spark) ->
     if item.age * 2u32 > item.lifetime {
         phase = 2u32;
     }
-    var anchors: RoomAnchors = room_anchors_new();
+    room_anchors_clear(mut anchors);
     var size: Rational = rational_new(1u64, 1u64);
     var body: CollisionBody = collision_body(item.size * sqrtf(2f32), read size);
     if !collision_scaled_anchors(
@@ -43,12 +48,17 @@ fn draw_spark(scene: read CollisionScene, input: mut FrameInput, item: Spark) ->
         i = i + 1u32;
     }
 }
-fn draw_sparks(scene: read CollisionScene, input: mut FrameInput, sparks: read Sparks) -> unit {
+fn draw_sparks(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    sparks: read Sparks,
+    anchors: mut RoomAnchors
+) -> unit {
     var i: u32 = 0u32;
     while i < spark_count(read sparks.storage) {
         var item: Spark = spark_get(read sparks.storage, i);
         if item.age < item.lifetime {
-            draw_spark(read scene, mut input, item);
+            draw_spark(read scene, mut input, item, mut anchors);
         }
         i = i + 1u32;
     }

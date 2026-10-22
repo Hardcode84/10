@@ -68,7 +68,8 @@ fn game_scene_begin(
     collision: read CollisionScene,
     v: mut FrameInput,
     trial: read Trial,
-    config: GameConfig
+    config: GameConfig,
+    anchors: mut RoomAnchors
 ) -> unit {
     input_frame(mut v);
     input_set_word(mut v, 4usize, 0u32);
@@ -86,8 +87,8 @@ fn game_scene_begin(
     camera_row(mut v, 0usize, trial.drone.basis.right, trial.drone.position);
     camera_row(mut v, 4usize, trial.drone.basis.up, trial.drone.position);
     camera_row(mut v, 8usize, trial.drone.basis.forward, trial.drone.position);
-    game_object_lighting(read collision, mut v, read trial);
-    draw_cable(read collision, mut v, read trial.drone, config);
+    game_object_lighting(read collision, mut v, read trial, mut anchors);
+    draw_cable(read collision, mut v, read trial.drone, config, mut anchors);
 }
 fn game_dynamic_space(v: mut FrameInput, first: u32, space: u32) -> unit {
     var i: u32 = first;
