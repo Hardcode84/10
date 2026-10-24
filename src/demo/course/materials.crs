@@ -34,12 +34,21 @@ fn course_palette(input: mut FrameInput) -> bool {
 }
 // Configure each prefab's material dimensions to match its generated geometry.
 fn course_palette_configured(input: mut FrameInput, configuration: read AssetValues) -> bool {
+    return course_palette_reserved(mut input, read configuration, 0u32, 0u32);
+}
+// Reserve extra material records and payload words. The caller must fill them before use.
+fn course_palette_reserved(
+    input: mut FrameInput,
+    configuration: read AssetValues,
+    extra_count: u32,
+    extra_words: u32
+) -> bool {
     var words: u32 = course_material_words(read configuration);
     if words == 0u32 {
         return false;
     }
-    var count: u32 = course_material_base(PREFAB_COUNT);
-    app_assets_extra(mut input, GAME_MATERIALS, count - GAME_MATERIALS, words);
+    var count: u32 = course_material_base(PREFAB_COUNT) + extra_count;
+    app_assets_extra(mut input, GAME_MATERIALS, count - GAME_MATERIALS, words + extra_words);
     game_palette_fill(mut input);
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
     input_set_float(mut input, CAMERA_LIGHT as usize, 36f32);
@@ -119,4 +128,11 @@ fn course_material_values(
         i = i + 1u32;
     }
     return true;
+}
+
+// Offset of the payload reserved after the standard course materials.
+fn course_extra_offset(configuration: read AssetValues, extra_count: u32) -> u32 {
+    return (course_material_base(PREFAB_COUNT) + extra_count) * MATERIAL_WORDS + GAME_MATERIALS * 64u32 + PALETTE_COLORS * LIGHT_STATES + course_material_words(
+        read configuration
+    );
 }

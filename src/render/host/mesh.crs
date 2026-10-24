@@ -180,3 +180,20 @@ fn mesh_triangle_count(mesh: read Mesh) -> u32 {
 fn mesh_triangle(mesh: read Mesh, index: u32) -> MeshTriangle {
     return mesh.triangles[index as usize];
 }
+
+// Replace a material in a valid triangle range. Vertex data and bounds stay the same.
+fn mesh_replace_material(
+    mesh: mut Mesh,
+    first: u32,
+    count: u32,
+    source: u32,
+    target: u32
+) -> unit {
+    var i: u32 = first;
+    while i < first + count {
+        if mesh.triangles[i as usize].material == source {
+            mesh.triangles[i as usize].material = target;
+        }
+        i = i + 1u32;
+    }
+}

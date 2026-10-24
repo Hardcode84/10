@@ -121,3 +121,22 @@ fn level_install(graph: read RoomGraph, scene: mut CollisionScene) -> bool {
     }
     return true;
 }
+
+// Replace one material region in an assembled room. Geometry and collision stay the same.
+fn level_room_material(
+    graph: read RoomGraph,
+    mesh: mut Mesh,
+    room: u32,
+    region: u32,
+    material: u32
+) -> unit {
+    var node: GraphNode = graph_node(read graph, room);
+    var source: u32 = course_material_base(node.kind) + region;
+    mesh_replace_material(
+        mut mesh,
+        node.mesh.first,
+        node.mesh.count,
+        source,
+        material
+    );
+}
