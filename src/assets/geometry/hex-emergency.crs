@@ -59,7 +59,7 @@ fn hex_emergency_fixture(frame: SurfaceFrame, asset: mut RoomAsset) -> bool {
             space: 0u32,
             position: sub(frame.origin, scale(frame.normal, 0.17f32)),
             colour: vec(1.2f32, 0.025f32, 0.012f32),
-            radius: 1.3f32
+            radius: 2f32
         }
     );
 }
