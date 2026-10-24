@@ -1,7 +1,19 @@
 fn prefab_hex_tunnel_parameter_count() -> u32 {
-    return 1u32;
+    return 19u32;
 }
 fn prefab_hex_tunnel_parameter(index: u32) -> AssetParameter {
+    if index != 0u32 {
+        var maximum: f32 = 1f32;
+        if (index - 1u32) % 3u32 == 0u32 {
+            maximum = 3f32;
+        }
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: maximum,
+            initial: 0f32,
+            step: 1f32
+        };
+    }
     return make AssetParameter {
         minimum: 0.75f32,
         maximum: 20f32,
@@ -10,18 +22,37 @@ fn prefab_hex_tunnel_parameter(index: u32) -> AssetParameter {
     };
 }
 fn prefab_hex_tunnel_parameter_name(index: u32) -> AssetName {
-    return asset_name("length");
+    if index == 0u32 {
+        return asset_name("length");
+    }
+    var wall: u32 = (index - 1u32) / 3u32;
+    var kind: u32 = (index - 1u32) % 3u32;
+    if kind == 0u32 {
+        return hex_pipe_count_name(wall);
+    }
+    if kind == 1u32 {
+        return hex_pipe_entry_name(wall);
+    }
+    return hex_pipe_exit_name(wall);
 }
+
 fn prefab_hex_tunnel_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !prefab_hex_tunnel_parameters_valid(read parameters) {
         return false;
     }
-    return hex_tunnel_build(asset_value(read parameters, 0u32), mut asset);
+    var extent: f32 = asset_value(read parameters, 0u32);
+    return passage_shape(extent, true, service_hex_profile(), mut asset) && hex_tunnel_pipes(
+        read parameters,
+        mut asset
+    ) && room_asset_finish(mut asset);
 }
 fn prefab_hex_tunnel_material_count() -> u32 {
-    return 1u32;
+    return 2u32;
 }
 fn prefab_hex_tunnel_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 1u32 {
+        return service_pipe_material();
+    }
     return hex_tunnel_material();
 }
 
@@ -34,7 +65,68 @@ fn prefab_hex_tunnel_parameters_valid(values: read AssetValues) -> bool {
         ) {
             return false;
         }
+        var value: f32 = asset_value(read values, i);
+        if i != 0u32 && value != (value as u32) as f32 {
+            return error("pipe counts and end modes must be integers");
+        }
         i = i + 1u32;
     }
     return true;
+}
+
+fn hex_pipe_count_name(wall: u32) -> AssetName {
+    if wall == 0u32 {
+        return asset_name("wall-0-pipes");
+    }
+    if wall == 1u32 {
+        return asset_name("wall-1-pipes");
+    }
+    if wall == 2u32 {
+        return asset_name("wall-2-pipes");
+    }
+    if wall == 3u32 {
+        return asset_name("wall-3-pipes");
+    }
+    if wall == 4u32 {
+        return asset_name("wall-4-pipes");
+    }
+    return asset_name("wall-5-pipes");
+}
+
+fn hex_pipe_entry_name(wall: u32) -> AssetName {
+    if wall == 0u32 {
+        return asset_name("wall-0-entry");
+    }
+    if wall == 1u32 {
+        return asset_name("wall-1-entry");
+    }
+    if wall == 2u32 {
+        return asset_name("wall-2-entry");
+    }
+    if wall == 3u32 {
+        return asset_name("wall-3-entry");
+    }
+    if wall == 4u32 {
+        return asset_name("wall-4-entry");
+    }
+    return asset_name("wall-5-entry");
+}
+
+fn hex_pipe_exit_name(wall: u32) -> AssetName {
+    if wall == 0u32 {
+        return asset_name("wall-0-exit");
+    }
+    if wall == 1u32 {
+        return asset_name("wall-1-exit");
+    }
+    if wall == 2u32 {
+        return asset_name("wall-2-exit");
+    }
+    if wall == 3u32 {
+        return asset_name("wall-3-exit");
+    }
+    if wall == 4u32 {
+        return asset_name("wall-4-exit");
+    }
+    return asset_name("wall-5-exit");
 }

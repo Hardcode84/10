@@ -1,0 +1,114 @@
+const HEX_PIPE_RADIUS: f32 = 0.06f32;
+const HEX_PIPE_BEND: f32 = 0.12f32;
+const HEX_PIPE_OFFSET: f32 = 0.18f32;
+const HEX_PIPE_EMBED: f32 = 0.06f32;
+const HEX_PIPE_SPACING: f32 = 0.2f32;
+
+record HexPipeRun {
+    wall: Vec3;
+    normal: Vec3;
+    across: Vec3;
+    length: f32;
+    entry: bool;
+    exit: bool;
+}
+fn hex_pipe_point(run: HexPipeRun, height: f32, depth: f32) -> Vec3 {
+    var point: Vec3 = add(run.wall, scale(run.normal, depth));
+    point.y = height;
+    return point;
+}
+fn hex_pipe_style(run: HexPipeRun) -> TubeStyle {
+    var distance: f32 = run.length;
+    var extra: f32 = HEX_PIPE_EMBED + HEX_PIPE_OFFSET - 3f32 * HEX_PIPE_BEND + 1.57079632679f32 * HEX_PIPE_BEND;
+    if !run.entry {
+        distance = distance + extra;
+    }
+    if !run.exit {
+        distance = distance + extra;
+    }
+    var tile: f32 = service_pipe_material().tile_metres;
+    var repeats: u32 = (distance / tile) as u32;
+    if repeats as f32 * tile < distance {
+        repeats = repeats + 1u32;
+    }
+    return make TubeStyle {
+        radius: HEX_PIPE_RADIUS,
+        sides: 8u32,
+        tile_metres: distance / repeats as f32,
+        region: 1u32
+    };
+}
+fn hex_pipe_run(run: HexPipeRun, asset: mut RoomAsset) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var axis: Vec3 = vec(0f32, 1f32, 0f32);
+    var start: Vec3 = hex_pipe_point(run, 0f32, -HEX_PIPE_OFFSET);
+    var tangent: Vec3 = axis;
+    if !run.entry {
+        start = hex_pipe_point(run, HEX_PIPE_BEND, HEX_PIPE_EMBED);
+        tangent = scale(run.normal, -1f32);
+    }
+    var sweep: TubeSweep = tube_sweep_begin(
+        start,
+        tangent,
+        run.across,
+        hex_pipe_style(run)
+    );
+    if !run.entry && !tube_sweep_corner(
+        mut asset.geometry,
+        mut sweep,
+        hex_pipe_point(run, HEX_PIPE_BEND, -HEX_PIPE_OFFSET),
+        axis,
+        HEX_PIPE_BEND
+    ) {
+        return false;
+    }
+    var end: Vec3 = hex_pipe_point(run, run.length, -HEX_PIPE_OFFSET);
+    if !run.exit {
+        if !tube_sweep_corner(
+            mut asset.geometry,
+            mut sweep,
+            hex_pipe_point(run, run.length - HEX_PIPE_BEND, -HEX_PIPE_OFFSET),
+            run.normal,
+            HEX_PIPE_BEND
+        ) {
+            return false;
+        }
+        end = hex_pipe_point(run, run.length - HEX_PIPE_BEND, HEX_PIPE_EMBED);
+    }
+    return tube_sweep_finish(mut asset.geometry, mut sweep, end) && pipe_graph_part(
+        mut asset,
+        first
+    );
+}
+// Adds the requested solid bundles to a straight passage before room completion.
+// Parameters contain a length and six triples: count, entry mode, exit mode.
+fn hex_tunnel_pipes(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    var wall: u32 = 0u32;
+    while wall < 6u32 {
+        var base: u32 = 1u32 + wall * 3u32;
+        var count: u32 = asset_value(read parameters, base) as u32;
+        var frame: SurfaceFrame = hull_frame(
+            read asset.hull,
+            asset_face(read asset.hull, wall)
+        );
+        var across: Vec3 = cross(frame.normal, vec(0f32, 1f32, 0f32));
+        var i: u32 = 0u32;
+        while i < count {
+            var offset: f32 = (i as f32 - (count - 1u32) as f32 * 0.5f32) * HEX_PIPE_SPACING;
+            var run: HexPipeRun = make HexPipeRun {
+                wall: add(frame.origin, scale(across, offset)),
+                normal: frame.normal,
+                across: across,
+                length: asset_value(read parameters, 0u32),
+                entry: asset_value(read parameters, base + 1u32) == 1f32,
+                exit: asset_value(read parameters, base + 2u32) == 1f32
+            };
+            if !hex_pipe_run(run, mut asset) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+        wall = wall + 1u32;
+    }
+    return true;
+}
