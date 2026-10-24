@@ -75,10 +75,13 @@ fn hex_pipe_run(run: HexPipeRun, asset: mut RoomAsset) -> bool {
         }
         end = hex_pipe_point(run, run.length - HEX_PIPE_BEND, HEX_PIPE_EMBED);
     }
-    return tube_sweep_finish(mut asset.geometry, mut sweep, end) && pipe_graph_part(
+    if !tube_sweep_finish(mut asset.geometry, mut sweep, end) || !pipe_graph_part(
         mut asset,
         first
-    );
+    ) {
+        return false;
+    }
+    return hex_pipe_wall_collars(run, mut asset);
 }
 // Adds the requested solid bundles to a straight passage before room completion.
 // Parameters contain a length and six triples: count, entry mode, exit mode.
@@ -108,7 +111,96 @@ fn hex_tunnel_pipes(parameters: read AssetValues, asset: mut RoomAsset) -> bool 
             }
             i = i + 1u32;
         }
+        if count != 0u32 && !hex_pipe_supports(
+            frame,
+            count,
+            asset_value(read parameters, 0u32),
+            mut asset
+        ) {
+            return false;
+        }
         wall = wall + 1u32;
     }
     return true;
+}
+
+// Adds rectangular wall plates through the straight bundle at regular intervals.
+fn hex_pipe_supports(frame: SurfaceFrame, count: u32, extent: f32, asset: mut RoomAsset) -> bool {
+    var spacing: f32 = 2f32;
+    var plates: u32 = (extent / spacing) as u32;
+    if plates as f32 * spacing < extent {
+        plates = plates + 1u32;
+    }
+    var edge: f32 = 0.03f32;
+    var embed: f32 = 0.01f32;
+    var depth: f32 = HEX_PIPE_OFFSET + HEX_PIPE_RADIUS + edge;
+    var dimensions: Vec3 = vec(
+        (count - 1u32) as f32 * HEX_PIPE_SPACING + 2f32 * (HEX_PIPE_RADIUS + edge),
+        0.08f32,
+        depth + embed
+    );
+    var basis: Basis = make Basis {
+        right: cross(frame.normal, vec(0f32, 1f32, 0f32)),
+        up: vec(0f32, 1f32, 0f32),
+        forward: scale(frame.normal, -1f32)
+    };
+    var i: u32 = 0u32;
+    while i < plates {
+        var origin: Vec3 = sub(
+            frame.origin,
+            scale(frame.normal, (depth - embed) * 0.5f32)
+        );
+        origin.y = extent * (i as f32 + 0.5f32) / plates as f32;
+        var first: u32 = mesh_triangle_count(read asset.geometry);
+        if !solid_box(
+            mut asset.geometry,
+            dimensions,
+            2u32,
+            origin,
+            basis,
+            service_mount_material(false).tile_metres
+        ) || !pipe_graph_part(mut asset, first) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn hex_pipe_wall_collars(run: HexPipeRun, asset: mut RoomAsset) -> bool {
+    if !run.entry && !hex_pipe_wall_collar(run, HEX_PIPE_BEND, mut asset) {
+        return false;
+    }
+    if !run.exit && !hex_pipe_wall_collar(run, run.length - HEX_PIPE_BEND, mut asset) {
+        return false;
+    }
+    return true;
+}
+fn hex_pipe_wall_collar(run: HexPipeRun, height: f32, asset: mut RoomAsset) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var thickness: f32 = 0.02f32;
+    if !solid_cylinder(
+        mut asset.geometry,
+        8u32,
+        HEX_PIPE_RADIUS * 1.6f32,
+        thickness,
+        2u32,
+        service_mount_material(false).tile_metres
+    ) {
+        return false;
+    }
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: asset_name("COLLAR"),
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: hex_pipe_point(run, height, -thickness * 0.5f32),
+            basis: make Basis {
+                right: run.across,
+                up: run.normal,
+                forward: cross(run.across, run.normal)
+            }
+        }
+    );
 }

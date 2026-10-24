@@ -47,11 +47,14 @@ fn prefab_hex_tunnel_build(parameters: read AssetValues, asset: mut RoomAsset) -
     ) && room_asset_finish(mut asset);
 }
 fn prefab_hex_tunnel_material_count() -> u32 {
-    return 2u32;
+    return 3u32;
 }
 fn prefab_hex_tunnel_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     if region == 1u32 {
         return service_pipe_material();
+    }
+    if region == 2u32 {
+        return service_mount_material(false);
     }
     return hex_tunnel_material();
 }

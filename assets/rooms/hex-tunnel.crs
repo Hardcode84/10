@@ -3,7 +3,9 @@
 // N runs from 0 to 5: wall 0 lies between the +X corner and the next corner
 // towards +Z. Each subsequent wall advances by 60 degrees around local +Y.
 // Continued bundles require matching wall positions and counts in the next room,
-// including its portal roll. Pipes have solid collision and cast shadows.
+// including its portal roll. Pipes pass through rectangular wall supports along
+// the straight run. Dark collars surround each wall entry. Pipes and mounts
+// have solid collision and cast shadows.
 // Straight hexagonal tunnel, one metre long by default and 6 m across corners.
 // Local +Y runs from ENTRY at zero to EXIT at length. Both use HEX-6M and
 // permit six mating rolls. Local +Z is the up direction of both port frames.
