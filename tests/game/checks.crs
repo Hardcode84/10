@@ -2,13 +2,14 @@ fn near(a: f32, b: f32, tolerance: f32) -> bool {
     return absf(a - b) <= tolerance;
 }
 fn test_forces() -> bool {
+    var frame: RoomFrame = room_frame(flight_course_origin(), identity_basis());
     var p: Vec3 = vec(0f32, 0f32, 0f32);
-    var stopped: Vec3 = flight_acceleration(p, vec(0f32, 0f32, 0f32), false);
-    var gravity: Vec3 = flight_acceleration(p, vec(0f32, 0f32, 0f32), true);
+    var stopped: Vec3 = flight_acceleration(frame, p, vec(0f32, 0f32, 0f32), false);
+    var gravity: Vec3 = flight_acceleration(frame, p, vec(0f32, 0f32, 0f32), true);
     var v: Vec3 = vec(0f32, 30f32, 0f32);
     var change: Vec3 = sub(
-        flight_acceleration(p, v, true),
-        flight_acceleration(p, v, false)
+        flight_acceleration(frame, p, v, true),
+        flight_acceleration(frame, p, v, false)
     );
     return game_check(
         length(stopped) == 0f32 && near(gravity.y, -1.8376875f32, 0.00001f32) && near(
@@ -88,9 +89,9 @@ fn game_tests() -> bool {
     if !collision_build_game(mut collision) {
         return false;
     }
-    return test_reference_collision() && test_forces() && test_hook(read collision) && test_winch(
+    return test_reference_collision() && test_forces() && test_room_frame_equivalence() && test_room_frame_bodies() && test_hook(
         read collision
-    ) && test_swing(read collision) && test_tether(read collision) && test_flight_pulses() && test_input() && test_short_press() && test_mouse_accumulation();
+    ) && test_winch(read collision) && test_swing(read collision) && test_tether(read collision) && test_flight_pulses() && test_input() && test_short_press() && test_mouse_accumulation();
 }
 
 fn test_reference_collision() -> bool {

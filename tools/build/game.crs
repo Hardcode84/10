@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 155] = make [*u8; 155] {
+    var files: [*u8; 156] = make [*u8; 156] {
         "src/audio/api/model.crs",
         "src/audio/mix/voice.crs",
         "src/audio/synthesis/recipe.crs",
@@ -121,6 +121,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/flight/spawn.crs",
         "src/game/flight/command.crs",
         "src/game/flight/environment.crs",
+        "src/demo/course/placement.crs",
         "src/game/flight/drone.crs",
         "src/game/flight/attachment.crs",
         "src/game/flight/energy.crs",
@@ -157,14 +158,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 155usize {
+    while i < 156usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 48] = make [*u8; 48] {
+    var files: [*u8; 49] = make [*u8; 49] {
         "src/runtime/channel/spsc.crs",
         "src/audio/platform/bank.crs",
         "src/audio/platform/mixer.crs",
@@ -188,6 +189,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/app/window-vulkan.crs",
         "src/app/render-open.crs",
         "src/collision/storage.crs",
+        "src/spatial/room-frame.crs",
         "src/collision/portal-storage.crs",
         "src/spatial/anchors.crs",
         "src/numeric/natural.crs",
@@ -215,7 +217,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/runtime/trace/frame.crs"
     };
     var i: usize = 0usize;
-    while i < 48usize {
+    while i < 49usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

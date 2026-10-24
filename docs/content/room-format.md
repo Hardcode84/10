@@ -29,7 +29,7 @@ not yet have room links or cross-room traversal.
 | Hull polygon | Stable face ID, ordered vertex indices, surface/material assignment |
 | Room connection | Unique local port ID, compatibility name, face ID, local frame, allowed rotation count, closure surface/material |
 | Prop instance | Unique local ID, generated asset reference, rigid local pose |
-| Room instance | Unique instance ID, room definition reference, room-local state |
+| Room instance | Unique instance ID, room definition reference, global origin and orientation, room-local state |
 | Room link | Two room-instance/port-ID endpoints and one allowed rotation choice |
 
 A connection name selects a shared profile. It is a compatibility key, not a
@@ -141,12 +141,18 @@ required. The reverse traversal uses the exact inverse transform.
 
 Positions and displacements use the full similarity map. Unit directions use
 its rotational part. The exact profile ratio defines the scale.
-Body velocity transfer must also account for the selected drum frames. Renderer,
+Renderer,
 player, hook, tether, prediction, and saved references must use the same link.
-The remaining work is [drum-frame transfer](engine-gaps.md#p1-drum-frames-and-forces)
-and [persistent content identity](engine-gaps.md#t2-platform-delivery-persistence-and-content-identity).
+Persistent content identity remains in the
+[engine register](engine-gaps.md#t2-platform-delivery-persistence-and-content-identity).
 
-A global embedding is optional. An ordinary assembly can place both openings
+Each room has a global origin and orientation for the shared force field.
+The local origin maps to that global origin. Setup derives the spin axis in
+local coordinates. See [room-local forces](../game/movement.md#simulation-contract).
+Portal links need not agree with these placements. A crossing applies only the
+portal transform; the destination placement selects subsequent forces.
+
+A consistent global embedding is optional. An ordinary assembly can place both openings
 at the same world plane, with opposite normals and non-overlapping interiors.
 A transformed portal needs no such placement. A cycle can return with a net
 transform; this does not invalidate a portal graph. Do not reject a valid

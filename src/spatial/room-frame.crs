@@ -1,0 +1,104 @@
+record RoomFrame {
+    global: SpaceTransform;
+    axis_origin: Vec3;
+    axis: Vec3;
+}
+
+fn room_frame(origin: Vec3, orientation: Basis) -> RoomFrame {
+    var placement: SpaceTransform = make SpaceTransform {
+        origin: origin,
+        basis: orientation,
+        factor: 1f32
+    };
+    var inverse: SpaceTransform = space_inverse(placement);
+    return make RoomFrame {
+        global: placement,
+        axis_origin: inverse.origin,
+        axis: basis_vector(inverse.basis, vec(0f32, 0f32, 1f32))
+    };
+}
+// Sets a room's global placement. Origin is in metres; orientation must be a proper rigid basis.
+// Portal links and local geometry remain valid without a shared global embedding.
+fn collision_place_room(
+    scene: mut CollisionScene,
+    id: u32,
+    origin: Vec3,
+    orientation: Basis
+) -> bool {
+    if !collision_finite(origin) || !collision_rigid(orientation) {
+        return error("room placement requires a finite origin and rigid orientation");
+    }
+    var frame: RoomFrame = room_frame(origin, orientation);
+    if !collision_finite(frame.axis_origin) {
+        return error("room placement exceeds coordinate range");
+    }
+    var i: u32 = collision_frame_index(read scene, id);
+    if i < scene.frame_count && scene.frames[i as usize].id == id {
+        scene.frames[i as usize].frame = frame;
+        return true;
+    }
+    if !collision_frame_reserve(mut scene) {
+        return false;
+    }
+    var next: u32 = scene.frame_count;
+    while next > i {
+        scene.frames[next as usize] = scene.frames[(next - 1u32) as usize];
+        next = next - 1u32;
+    }
+    scene.frames[i as usize] = make RoomFrameEntry {
+        id: id,
+        frame: frame
+    };
+    scene.frame_count = scene.frame_count + 1u32;
+    return true;
+}
+fn collision_frame_reserve(scene: mut CollisionScene) -> bool {
+    if scene.frame_count < scene.frame_capacity {
+        return true;
+    }
+    var capacity: u64 = scene.frame_capacity as u64 * 2u64 + 1u64;
+    var bytes: u64 = capacity * sizeof(RoomFrameEntry) as u64;
+    if capacity > 0xffffffffu64 || bytes > ~0usize as u64 {
+        return error("room placement storage exceeds address range");
+    }
+    var next: *RoomFrameEntry = malloc(bytes as usize) as *RoomFrameEntry;
+    if next == null(*RoomFrameEntry) {
+        return error("room placement allocation failed");
+    }
+    var i: u32 = 0u32;
+    while i < scene.frame_count {
+        next[i as usize] = scene.frames[i as usize];
+        i = i + 1u32;
+    }
+    free(scene.frames as *u8);
+    scene.frames = next;
+    scene.frame_capacity = capacity as u32;
+    return true;
+}
+fn collision_frame_index(scene: read CollisionScene, id: u32) -> u32 {
+    var lo: u32 = 0u32;
+    var hi: u32 = scene.frame_count;
+    while lo < hi {
+        var mid: u32 = lo + (hi - lo) / 2u32;
+        if scene.frames[mid as usize].id < id {
+            lo = mid + 1u32;
+        } else {
+            hi = mid;
+        }
+    }
+    return lo;
+}
+// Rooms have identity global placement until the level sets their placement.
+fn collision_room_frame(scene: read CollisionScene, id: u32) -> RoomFrame {
+    var i: u32 = collision_frame_index(read scene, id);
+    if i < scene.frame_count && scene.frames[i as usize].id == id {
+        return scene.frames[i as usize].frame;
+    }
+    return room_frame(vec(0f32, 0f32, 0f32), identity_basis());
+}
+fn collision_room_count(scene: read CollisionScene) -> u32 {
+    return scene.space_count;
+}
+fn collision_room_id(scene: read CollisionScene, index: u32) -> u32 {
+    return scene.spaces[index as usize].id;
+}

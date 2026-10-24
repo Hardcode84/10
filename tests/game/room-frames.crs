@@ -1,0 +1,125 @@
+fn test_room_frame_equivalence() -> bool {
+    var basis: Basis = make Basis {
+        right: vec(0f32, 1f32, 0f32),
+        up: vec(0f32, 0f32, 1f32),
+        forward: vec(1f32, 0f32, 0f32)
+    };
+    var frame: RoomFrame = room_frame(vec(350f32, -1200f32, 900f32), basis);
+    var world: RoomFrame = room_frame(vec(0f32, 0f32, 0f32), identity_basis());
+    var p: Vec3 = vec(12f32, 40f32, -5f32);
+    var v: Vec3 = vec(-7f32, 3f32, 20f32);
+    var expected: Vec3 = flight_acceleration(
+        world,
+        space_point(frame.global, p),
+        basis_vector(basis, v),
+        true
+    );
+    var actual: Vec3 = basis_vector(basis, flight_acceleration(frame, p, v, true));
+    var axial: Vec3 = add(p, scale(frame.axis, 10000f32));
+    return game_check(
+        length(sub(expected, actual)) < 0.00001f32 && length(
+            sub(drum_position(frame, p), drum_position(frame, axial))
+        ) < 0.00001f32 && air_density(frame, p) == air_density(frame, axial),
+        "room rotation or axial displacement changes the global force field"
+    );
+}
+
+fn test_room_frame_bodies() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !test_room_frame_portals(mut scene) {
+        return false;
+    }
+    var basis: Basis = make Basis {
+        right: vec(0f32, 1f32, 0f32),
+        up: vec(0f32, 0f32, 1f32),
+        forward: vec(1f32, 0f32, 0f32)
+    };
+    if !collision_place_room(mut scene, 1u32, vec(0f32, -1600f32, 40f32), basis) || !collision_place_room(
+        mut scene,
+        0u32,
+        vec(900f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var hook: Drone = new_drone();
+    hook.position = vec(0f32, 0f32, -0.1f32);
+    hook_launch(mut hook);
+    hook_step(read scene, mut hook, false);
+    if !game_check(hook.cable.space == 1u32, "hook must cross the room-frame fixture portal") {
+        return false;
+    }
+    var body: Drone = new_drone();
+    body.position = hook.cable.anchor;
+    body.velocity = hook.cable.velocity;
+    drone_portal(read scene, mut body, 0u32);
+    if !game_check(
+        body.world == 1u32 && length(sub(body.velocity, hook.cable.velocity)) == 0f32,
+        "global placement must not add a portal velocity impulse"
+    ) {
+        return false;
+    }
+    var expected: Vec3 = add(
+        body.velocity,
+        scale(
+            flight_acceleration(
+                collision_room_frame(read scene, 1u32),
+                body.position,
+                body.velocity,
+                true
+            ),
+            STEP
+        )
+    );
+    simulate(read scene, mut body, idle_command(), true, false);
+    hook_step(read scene, mut hook, true);
+    if !game_check(
+        length(sub(body.velocity, expected)) < 0.00001f32 && length(
+            sub(body.velocity, hook.cable.velocity)
+        ) < 0.00001f32 && length(sub(body.position, hook.cable.anchor)) < 0.00001f32,
+        "player and remote hook must use their own room-local force frame"
+    ) {
+        return false;
+    }
+    var old: RoomFrame = collision_room_frame(read scene, 1u32);
+    basis.right = vec(2f32, 0f32, 0f32);
+    if collision_place_room(mut scene, 1u32, vec(0f32, 0f32, 0f32), basis) {
+        return game_check(false, "non-rigid room placement accepted");
+    }
+    return game_check(
+        length(
+            sub(old.axis_origin, collision_room_frame(read scene, 1u32).axis_origin)
+        ) == 0f32,
+        "invalid placement changed the room frame"
+    );
+}
+
+fn test_room_frame_portals(scene: mut CollisionScene) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
+        source_scale: scale_identity(),
+        target_scale: scale_identity(),
+        reverse: 1u32,
+        space: 0u32,
+        destination: 1u32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        radius: 3f32,
+        sides: 6u32,
+        phase: 0f32,
+        transform: space_identity()
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.reverse = 0u32;
+    portal.space = 1u32;
+    portal.destination = 0u32;
+    portal.basis.right = vec(-1f32, 0f32, 0f32);
+    portal.basis.forward = vec(0f32, 0f32, -1f32);
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}

@@ -46,7 +46,7 @@ fn demo_room_build(
         }
         i = i + 2u32;
     }
-    return collision_finish(move builder, mut collision);
+    return collision_finish(move builder, mut collision) && flight_place_course(mut collision);
 }
 
 // Constant room light, added to player and hook lighting.

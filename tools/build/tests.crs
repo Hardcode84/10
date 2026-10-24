@@ -139,6 +139,8 @@ fn build_game_tests(
     source_count = source_count + 1usize;
     sources[source_count] = host_path(root, "tests/game/checks.crs");
     source_count = source_count + 1usize;
+    sources[source_count] = host_path(root, "tests/game/room-frames.crs");
+    source_count = source_count + 1usize;
     sources[source_count] = host_path(root, "tests/game/pulses.crs");
     source_count = source_count + 1usize;
     sources[source_count] = host_path(root, "tests/game/hook.crs");

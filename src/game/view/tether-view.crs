@@ -39,7 +39,15 @@ fn draw_cable(
     );
     middle = add(
         middle,
-        scale(unit_vector(drum_position(drone.position)), slack * 0.5f32)
+        scale(
+            unit_vector(
+                drum_position(
+                    collision_room_frame(read collision, drone.world),
+                    drone.position
+                )
+            ),
+            slack * 0.5f32
+        )
     );
     if collision_portal_count(read collision) == 0u32 {
         draw_ribbon(

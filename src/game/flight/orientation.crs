@@ -7,7 +7,7 @@ fn turn_basis(b: Basis, axis: Vec3, angle: f32) -> Basis {
         forward: f
     };
 }
-fn orient(drone: mut Drone, look: Vec3, auto_level: bool) -> unit {
+fn orient(frame: RoomFrame, drone: mut Drone, look: Vec3, auto_level: bool) -> unit {
     var factor: f32 = 1f32;
     if !auto_level {
         factor = 1.3f32;
@@ -24,7 +24,7 @@ fn orient(drone: mut Drone, look: Vec3, auto_level: bool) -> unit {
         drone.basis = turn_basis(drone.basis, drone.basis.forward, delta.z);
         return;
     }
-    var up: Vec3 = unit_vector(scale(drum_position(drone.position), -1f32));
+    var up: Vec3 = unit_vector(scale(drum_position(frame, drone.position), -1f32));
     var desired: Vec3 = sub(
         up,
         scale(drone.basis.forward, dot(up, drone.basis.forward))

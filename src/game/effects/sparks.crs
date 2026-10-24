@@ -78,7 +78,15 @@ fn spark_step(scene: read CollisionScene, item: Spark, full_spin: bool, time: f3
     item.velocity = scale(
         add(
             item.velocity,
-            scale(flight_acceleration(item.position, item.velocity, full_spin), STEP)
+            scale(
+                flight_acceleration(
+                    collision_room_frame(read scene, item.space),
+                    item.position,
+                    item.velocity,
+                    full_spin
+                ),
+                STEP
+            )
         ),
         0.96f32
     );

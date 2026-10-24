@@ -32,7 +32,7 @@ selecting another renderer.
 | `src/render/web/` | WebGPU resources, commands, and presentation |
 | `src/render/device/` | Compute shaders |
 | `src/render/interface.crs` | Shared host and device data definitions |
-| `src/spatial/` | Object-to-room anchor storage |
+| `src/spatial/` | Object-to-room anchors and global room placement with local force frames |
 | `src/collision/` | Mesh storage, kinematic poses, spatial indices, sphere queries, and contact solving |
 | `src/app/` | Shared window, clock, capture, shader, and asset helpers |
 | `src/app/web/` | Browser launcher, window provider, and toolchain configuration |

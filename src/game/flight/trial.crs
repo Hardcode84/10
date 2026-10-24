@@ -28,7 +28,12 @@ fn trial_step(collision: read CollisionScene, trial: mut Trial, command: Command
         trial.started = true;
     }
     if !trial.started {
-        orient(mut trial.drone, command.look, trial.auto_level);
+        orient(
+            collision_room_frame(read collision, trial.drone.world),
+            mut trial.drone,
+            command.look,
+            trial.auto_level
+        );
         return;
     }
     var before: Vec3 = trial.drone.position;

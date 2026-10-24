@@ -53,7 +53,12 @@ fn simulate(
 ) -> unit {
     drone.contact = flight_contact_empty();
     drone.step_frame = space_identity();
-    orient(mut drone, command.look, auto_level);
+    orient(
+        collision_room_frame(read collision, drone.world),
+        mut drone,
+        command.look,
+        auto_level
+    );
     var boosted: bool = flight_pulses(mut drone, command);
     tether_input(mut drone, command);
     var thrust: Vec3 = command.thrust;
@@ -66,6 +71,7 @@ fn simulate(
     var acceleration: Vec3 = add(
         scale(
             flight_acceleration(
+                collision_room_frame(read collision, drone.world),
                 drone.position,
                 scale(drone.velocity, drone_size(read drone)),
                 full_spin

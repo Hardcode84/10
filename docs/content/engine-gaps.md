@@ -16,22 +16,21 @@ are implemented. These features are no longer open tasks.
 
 ## Physics and spatial state
 
-### P1. Drum frames and forces
+### P1. Time-dependent shared spin
 
 [Force evaluation](../../src/game/flight/environment.crs) includes centrifugal
-force, Coriolis force, and speed-dependent drag. The hook uses the same force
-function. Drum origin, spin axis, atmosphere profile, and the running spin rate
-are fixed in that source. Spin selection is a boolean. There is no per-region
-frame, partial-spin parameter, or time-dependent angular velocity.
+force, Coriolis force, and speed-dependent drag in room-local coordinates.
+Room placement defines a cached local axis origin and direction. Player, hook,
+and sparks use their own room's frame. Global placements are independent of
+portal links. There are no drum IDs or portal velocity corrections.
 
-**Change:** before a level uses distinct drum frames, represent origin, axis,
-angular velocity, and atmosphere as region data. Define state transfer between
-frames for player and hook motion. Include Euler acceleration when angular
-velocity changes with time. Keep constant-spin regions simple.
+**Change:** replace the shared stopped/full-spin selection with a time-dependent
+spin state for beacon activation. Include Euler acceleration while spin changes.
+The atmosphere profile remains shared by all rooms.
 
-**Check:** stopped, partial, and full spin; different axes and origins; frame
-transfers; and equivalent inertial trajectories. Compare force and energy
-behaviour with controlled reference cases.
+**Check:** stopped, partial, and full spin; spin-up with the Euler term; and
+controlled reference trajectories. Room placement and rotation equivalence are
+covered by the game force checks.
 
 ### P2. Integration checks for new force and body requirements
 
@@ -110,7 +109,7 @@ game has no save/load implementation.
 identity for assets and recordings. For save/load, preserve room and instance
 identity, body scale, cable portal path, and local attachment state. Restore
 references only after their assets are available. Define byte order and numeric
-reproducibility for cross-platform replay. Frame transfer remains under P1;
+reproducibility for cross-platform replay. Shared spin-up remains under P1;
 asset lifetime remains under W3.
 
 **Check:** rebuild assets from source, reject mismatched content explicitly,

@@ -33,6 +33,7 @@ fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) 
     }
     var inverse: SpaceTransform = space_inverse(drone.cable.frame);
     var acceleration: Vec3 = flight_acceleration(
+        collision_room_frame(read collision, drone.cable.space),
         space_point(inverse, drone.cable.anchor),
         space_vector(inverse, scale(drone.cable.velocity, drone_size(read drone))),
         full_spin

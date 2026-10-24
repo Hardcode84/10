@@ -57,7 +57,7 @@ fn demo_room_build(
     ) {
         return false;
     }
-    return collision_finish(move builder, mut collision);
+    return collision_finish(move builder, mut collision) && flight_place_course(mut collision);
 }
 fn course_hex_route(
     graph: mut RoomGraph,

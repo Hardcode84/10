@@ -36,7 +36,14 @@ resource CollisionBuilder {
     data: CollisionData;
 }
 opaque drop collision_builder_drop;
+record RoomFrameEntry {
+    id: u32;
+    frame: RoomFrame;
+}
 resource CollisionScene {
+    frames: *RoomFrameEntry;
+    frame_count: u32;
+    frame_capacity: u32;
     data: CollisionData;
     nodes: *CollisionNode;
     node_count: u32;
@@ -80,6 +87,7 @@ fn collision_builder_drop(builder: mut CollisionBuilder) -> unit {
     free(builder.data.instances as *u8);
 }
 fn collision_drop(scene: mut CollisionScene) -> unit {
+    free(scene.frames as *u8);
     free(scene.data.portals as *u8);
     free(scene.data.faces as *u8);
     free(scene.data.instances as *u8);
@@ -89,6 +97,9 @@ fn collision_drop(scene: mut CollisionScene) -> unit {
 }
 fn collision_new() -> CollisionScene {
     return make CollisionScene {
+        frames: null(*RoomFrameEntry),
+        frame_count: 0u32,
+        frame_capacity: 0u32,
         data: collision_empty_data(),
         nodes: null(*CollisionNode),
         node_count: 0u32,
@@ -295,7 +306,7 @@ fn collision_bytes(scene: read CollisionScene) -> u64 {
     if scene.spaces != null(*CollisionSpace) {
         bytes = bytes + (scene.data.instance_count as u64 + 1u64) * sizeof(CollisionSpace) as u64;
     }
-    return bytes + scene.data.portal_count as u64 * (
+    return bytes + scene.frame_capacity as u64 * sizeof(RoomFrameEntry) as u64 + scene.data.portal_count as u64 * (
         sizeof(CollisionPortal) + sizeof(CollisionPortalEntry)
     ) as u64;
 }

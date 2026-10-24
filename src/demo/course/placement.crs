@@ -1,0 +1,16 @@
+// Places prototype course rooms at their common reference radius.
+fn flight_place_course(scene: mut CollisionScene) -> bool {
+    var i: u32 = 0u32;
+    while i < collision_room_count(read scene) {
+        var id: u32 = collision_room_id(read scene, i);
+        if !collision_place_room(mut scene, id, flight_course_origin(), identity_basis()) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn flight_course_origin() -> Vec3 {
+    return vec(0f32, -750f32, 0f32);
+}

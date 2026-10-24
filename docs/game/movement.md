@@ -155,10 +155,25 @@ path clears. It does not pull the player through the surface. Winch work uses
 the velocity constraint impulse and the actual reel speed. There is no load
 limit or tension warning. Ctrl and LB remain downward thrust while tethered.
 
-The camera, inputs, and game rules remain outside `src/render/`. Each room
-uses its own local force frame. Full spin uses 0.0495 rad/s about local Z, with
-the local origin 750 m from the axis and positive Y toward it. A portal applies
-a rigid state transform; it does not add a bearing-ring frame velocity.
+The camera, inputs, and game rules remain outside `src/render/`.
+Each room has a global origin and a proper rigid orientation. Global +Z is the
+shared spin axis through the global origin. `collision_place_room` sets a room's
+placement after collision scene construction. It also computes the axis origin
+and direction in that room's local coordinates. Unplaced rooms use identity
+placement. Placement storage also supports rooms with no collision geometry.
+
+Force evaluation uses these local axis values. Radial distance excludes the
+component along the axis. Player, hook, sparks, auto-level, and cable sag use
+the frame of their own room. The shared spin selection still chooses stopped
+or full spin. Integration, collision, velocity units, and portal transfer use
+the existing local-space rules. A portal can connect rooms whose global
+placements disagree. Crossing adds no velocity correction from this disagreement.
+
+The current labyrinth and room demos explicitly use `flight_place_course` to
+retain their common prototype placement. Level code can then set distinct room
+placements with `collision_place_room`. Placement changes require exclusive
+scene access; prediction tasks read the same immutable scene as simulation.
+There is no room-placement allocation during force evaluation.
 
 ## Input binding file
 

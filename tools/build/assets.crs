@@ -118,8 +118,9 @@ fn asset_collision_sources(root: *CrustRun, args: **u8) -> usize {
     return i;
 }
 fn asset_collision_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 9] = make [*u8; 9] {
+    var files: [*u8; 10] = make [*u8; 10] {
         "src/collision/storage.crs",
+        "src/spatial/room-frame.crs",
         "src/collision/portal-storage.crs",
         "src/spatial/anchors.crs",
         "src/numeric/natural.crs",
@@ -130,7 +131,7 @@ fn asset_collision_providers(root: *CrustRun, args: **u8) -> usize {
         "src/collision/contact-storage.crs"
     };
     var i: usize = 0usize;
-    while i < 9usize {
+    while i < 10usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
