@@ -1,0 +1,106 @@
+// Run: crust demo.crs levels/doors-64.crs
+// SIDE-0 is the radial room's only through route. Working hex doors connect
+// directly to each other and twist by one sixth-turn at each successive door.
+// Unused radial exits and the far end have closed bulkheads.
+const DOOR_CHAIN_COUNT: u32 = 64u32;
+fn demo_room_build(
+    asset: mut RoomAsset,
+    collision: mut CollisionScene,
+    mesh: mut Mesh,
+    graph: mut RoomGraph,
+    seed: u32
+) -> bool {
+    var values: AssetValues = asset_values_new();
+    if !course_values(PREFAB_RADIAL_START, 0u32, mut values) || !room_build(
+        read values,
+        mut asset
+    ) {
+        return false;
+    }
+    if !graph_allocate(
+        mut graph,
+        DOOR_CHAIN_COUNT + asset_port_count(read asset.ports) + 1u32,
+        0u32
+    ) {
+        return false;
+    }
+    var exit_port: RoomPort = asset_port(read asset.ports, 0u32);
+    var forward: Vec3 = unit_vector(sub(exit_port.position, asset.spawn.position));
+    var right: Vec3 = unit_vector(cross(vec(0f32, 1f32, 0f32), forward));
+    asset.spawn.basis = make Basis {
+        right: right,
+        up: cross(forward, right),
+        forward: forward
+    };
+    var builder: CollisionBuilder = collision_builder_new();
+    if !course_room_mesh(
+        read asset,
+        mut graph,
+        mut builder,
+        mut mesh,
+        PREFAB_RADIAL_START,
+        0u32
+    ) || !door_chain_build(mut graph, mut builder, mut mesh) || !course_close_ports(
+        mut graph,
+        mut builder,
+        mut mesh
+    ) || !course_links(read graph, mut builder) {
+        return false;
+    }
+    return collision_finish(move builder, mut collision) && flight_place_course(mut collision);
+}
+fn door_chain_build(graph: mut RoomGraph, builder: mut CollisionBuilder, mesh: mut Mesh) -> bool {
+    var values: AssetValues = asset_values_new();
+    var section: RoomAsset = room_asset_new();
+    if !course_values(PREFAB_HEX_STOPPER_OPEN, 0u32, mut values) || !course_build(
+        PREFAB_HEX_STOPPER_OPEN,
+        read values,
+        mut section
+    ) {
+        return false;
+    }
+    var previous: u32 = course_socket(read graph, 0u32, asset_name("SIDE-0"));
+    var i: u32 = 0u32;
+    while i < DOOR_CHAIN_COUNT {
+        var room: u32 = graph_count(read graph);
+        if !course_room_mesh(
+            read section,
+            mut graph,
+            mut builder,
+            mut mesh,
+            PREFAB_HEX_STOPPER_OPEN,
+            0u32
+        ) {
+            return false;
+        }
+        var entry: u32 = course_socket(read graph, room, asset_name("ENTRY"));
+        course_pair(mut graph, previous, entry);
+        if i != 0u32 {
+            door_chain_roll(mut graph, previous, entry);
+        }
+        previous = course_socket(read graph, room, asset_name("EXIT"));
+        i = i + 1u32;
+    }
+    return true;
+}
+fn door_chain_roll(graph: mut RoomGraph, first: u32, second: u32) -> unit {
+    var a: GraphSocket = graph_socket(read graph, first);
+    var b: GraphSocket = graph_socket(read graph, second);
+    var rotations: u32 = connection_rotations(a.port, b.port);
+    var roll: u32 = (a.roll + 1u32) % rotations;
+    a.roll = roll;
+    b.roll = roll;
+    graph_socket_set(mut graph, first, a);
+    graph_socket_set(mut graph, second, b);
+}
+fn demo_room_ambient() -> Vec3 {
+    return vec(0.08f32, 0.09f32, 0.11f32);
+}
+fn demo_palette(input: mut FrameInput) -> bool {
+    return course_palette(mut input);
+}
+fn demo_room_lighting(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    anchors: mut RoomAnchors
+) -> unit {}

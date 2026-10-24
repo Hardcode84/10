@@ -10,6 +10,7 @@ program with the Crust ownership stage. Device programs use the shader stage.
 | `crust labyrinth.crs --web` | Build the same demo for WebAssembly and WebGPU. |
 | `crust demo.crs levels/radial.crs` | Fly through the generated room with game controls and linked portals. |
 | `crust demo.crs levels/prefabs.crs` | Inspect all room presets in one connected flight course. |
+| `crust demo.crs levels/doors-64.crs` | Fly through a twisted chain of working hex doors. |
 | `crust viewer.crs ROOM.crs` | Build and inspect a Crust room recipe. |
 | `crust tests.crs` | Run all automated checks. |
 
