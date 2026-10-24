@@ -10,6 +10,7 @@ record RoomAsset {
     // Room-local visual surfaces, appended after solids and excluded from collision.
     decals: Mesh;
     parts: AssetParts;
+    door_leaves: AssetParts;
     lights: FixtureLights;
     routes: PipeRouter;
     collision: CollisionScene;
@@ -25,6 +26,7 @@ fn room_asset_new() -> RoomAsset {
         geometry: mesh_new(),
         decals: mesh_new(),
         parts: asset_parts_new(),
+        door_leaves: asset_parts_new(),
         lights: fixture_lights_new(),
         routes: pipe_router_new(),
         collision: collision_new(),
@@ -57,16 +59,23 @@ fn room_asset_finish(asset: mut RoomAsset) -> bool {
     ) {
         return false;
     }
-    if !room_parts_collision(read asset, mut builder, 0u32) || !room_parts_render(mut asset) {
+    if !room_parts_collision(read asset, mut builder, 0u32) || !room_leaf_collision(
+        read asset,
+        mut builder,
+        0u32
+    ) || !room_parts_render(mut asset) || !room_leaf_render(mut asset) {
         return false;
     }
     if !collision_finish(move builder, mut asset.collision) {
         return false;
     }
     if !asset.spawn_enabled {
-        return collision_embedded(read asset.collision, 0u32, asset.spawn.position) == 0xffffffffu32 || error(
-            "room preview camera is inside a solid part"
-        );
+        return collision_embedded_at(
+            read asset.collision,
+            0u32,
+            asset.spawn.position,
+            0f32
+        ) == 0xffffffffu32 || error("room preview camera is inside a solid part");
     }
     return collision_position_valid(
         read asset.collision,

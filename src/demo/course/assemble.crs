@@ -51,7 +51,13 @@ fn course_room_mesh(
         i = i + 1u32;
     }
     graph_node_set(mut graph, id, node);
-    return graph_lights_append(mut graph, read asset.lights, id);
+    return graph_lights_append(mut graph, read asset.lights, id) && graph_doors_add(
+        mut graph,
+        read asset,
+        mut builder,
+        id,
+        course_material_base(kind)
+    );
 }
 fn course_append(
     graph: mut RoomGraph,

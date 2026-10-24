@@ -97,7 +97,7 @@ fn room_linked_mesh(
         }
         face = face + 1u32;
     }
-    while primitive_index < mesh_triangle_count(read asset.mesh) {
+    while primitive_index < mesh_triangle_count(read asset.mesh) - room_leaf_triangles(read asset) {
         var t: MeshTriangle = mesh_triangle(read asset.mesh, primitive_index);
         t.material = t.material + material_base;
         if !mesh_append(mut render, t) {

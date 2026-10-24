@@ -1,13 +1,13 @@
 record PredictionPayload {
-    collision: *CollisionScene;
+    collision: CollisionScene;
     trial: Trial;
     forecast: Drone;
     result: Prediction;
+    doors: DoorSet;
 }
 opaque;
 resource PredictionContext {
     pool: read TaskPool;
-    collision: read CollisionScene;
     payload: *PredictionPayload;
     times: TaskRunTimes;
 }
@@ -17,20 +17,33 @@ resource PredictionTask {
     job: PoolJob;
 }
 opaque drop prediction_task_drop;
-fn prediction_context(pool: read TaskPool, collision: read CollisionScene) -> PredictionContext transfers(
-    collision
-) from pool, collision {
+fn prediction_context(
+    pool: read TaskPool,
+    collision: read CollisionScene,
+    doors: read DoorSet
+) -> PredictionContext from pool {
     var payload: *PredictionPayload = task_allocate(sizeof(PredictionPayload)) as *PredictionPayload;
     if payload == null(*PredictionPayload) {
         task_error("prediction task allocation failed");
     } else {
-        payload -> collision = &collision;
+        payload -> collision = collision_new();
+        payload -> doors = doors_new();
+        if !collision_snapshot(read collision, mut payload -> collision) || !doors_copy(
+            read doors,
+            mut payload -> doors
+        ) {
+            drop payload -> collision;
+            drop payload -> doors;
+            task_release(payload as *u8);
+            payload = null(*PredictionPayload);
+        }
+    }
+    if payload != null(*PredictionPayload) {
         payload -> trial = new_trial();
         payload -> forecast = new_drone();
     }
     return make PredictionContext {
         pool: read pool,
-        collision: read collision,
         payload: payload,
         times: make TaskRunTimes {
             start: 0u64,
@@ -43,6 +56,8 @@ fn prediction_context_ready(context: read PredictionContext) -> bool {
 }
 fn prediction_context_drop(context: mut PredictionContext) -> unit {
     if context.payload != null(*PredictionPayload) {
+        drop context.payload -> collision;
+        drop context.payload -> doors;
         drop context.payload -> trial;
         drop context.payload -> forecast;
     }
@@ -50,14 +65,20 @@ fn prediction_context_drop(context: mut PredictionContext) -> unit {
 }
 fn prediction_execute(data: *u8) -> bool {
     var payload: *PredictionPayload = data as *PredictionPayload;
-    payload -> result = predict_paths(
-        read * payload -> collision,
+    payload -> result = predict_scene(
+        read payload -> collision,
         read payload -> trial,
-        mut payload -> forecast
+        mut payload -> forecast,
+        read payload -> doors
     );
     return true;
 }
-fn prediction_start(context: mut PredictionContext, trial: read Trial) -> PredictionTask from context {
+fn prediction_start(
+    context: mut PredictionContext,
+    collision: read CollisionScene,
+    trial: read Trial
+) -> PredictionTask from context {
+    collision_snapshot_motion(read collision, mut context.payload -> collision);
     assign_trial(mut context.payload -> trial, read trial);
     var job: PoolJob = pool_submit(
         read context.pool,

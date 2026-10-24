@@ -17,6 +17,7 @@ record GraphSocket {
 }
 resource RoomGraph {
     lights: FixtureLights;
+    doors: DoorSet;
     nodes: *GraphNode;
     sockets: *GraphSocket;
     capacity: u32;
@@ -29,6 +30,7 @@ opaque drop graph_drop;
 fn graph_new() -> RoomGraph {
     return make RoomGraph {
         lights: fixture_lights_new(),
+        doors: doors_new(),
         nodes: null(*GraphNode),
         sockets: null(*GraphSocket),
         capacity: 0u32,
@@ -144,4 +146,20 @@ fn graph_lights(graph: read RoomGraph) -> read FixtureLights from graph {
 }
 fn graph_lights_append(graph: mut RoomGraph, source: read FixtureLights, room: u32) -> bool {
     return fixture_lights_place(read source, room, mut graph.lights);
+}
+
+fn graph_doors(graph: read RoomGraph) -> read DoorSet from graph {
+    return read graph.doors;
+}
+fn graph_doors_add(
+    graph: mut RoomGraph,
+    asset: read RoomAsset,
+    builder: mut CollisionBuilder,
+    room: u32,
+    material: u32
+) -> bool {
+    return doors_asset(mut graph.doors, read asset, mut builder, room, material);
+}
+fn graph_doors_upload(graph: mut RoomGraph, input: mut FrameInput) -> bool {
+    return doors_upload(mut graph.doors, mut input);
 }

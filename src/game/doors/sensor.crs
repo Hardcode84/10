@@ -1,0 +1,61 @@
+// Tests a swept drone centre against the finite approach volume on both sides.
+fn door_approach(door: DoorDefinition, before: Vec3, after: Vec3, radius: f32) -> bool {
+    var start: Vec3 = sub(before, door.origin);
+    var travel: Vec3 = sub(after, before);
+    var low: f32 = 0f32;
+    var high: f32 = 1f32;
+    var plane: u32 = 0u32;
+    while plane < 8u32 {
+        var normal: Vec3 = vec(0f32, 1f32, 0f32);
+        var limit: f32 = DOOR_APPROACH_DEPTH + radius;
+        if plane < 6u32 {
+            var angle: f32 = (plane as f32 + 0.5f32) * 1.0471975512f32;
+            normal = vec(cosf(angle), 0f32, sinf(angle));
+            limit = door.radius * cosf(0.5235987756f32) + radius;
+        } else if plane == 7u32 {
+            normal.y = -1f32;
+        }
+        var offset: f32 = dot(normal, start) - limit;
+        var speed: f32 = dot(normal, travel);
+        if speed == 0f32 {
+            if offset > 0f32 {
+                return false;
+            }
+        } else if speed < 0f32 {
+            low = collision_max_scalar(low, -offset / speed);
+        } else {
+            high = mask_min(high, -offset / speed);
+        }
+        if low > high {
+            return false;
+        }
+        plane = plane + 1u32;
+    }
+    return true;
+}
+fn doors_predict(
+    scene: read CollisionScene,
+    doors: read DoorSet,
+    prediction: mut Prediction,
+    before: Vec3,
+    after: Vec3,
+    eye: PredictionEye
+) -> unit {
+    if prediction.door != 0xffffffffu32 {
+        return;
+    }
+    var i: u32 = 0u32;
+    while i < doors_count(read doors) {
+        var door: DoorDefinition = door_get(read doors, i);
+        if door.space == eye.world && door_state(read scene, door, 0f32) == DOOR_CLOSED && door_approach(
+            door,
+            before,
+            after,
+            DRONE_RADIUS * eye.factor
+        ) {
+            prediction.door = i;
+            return;
+        }
+        i = i + 1u32;
+    }
+}

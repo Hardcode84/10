@@ -1,8 +1,10 @@
 // Open HEX-6M stopper, 1 m deep along +Y. ENTRY and EXIT have six mating rolls.
-// The door leaves and LEDs are absent. A centred black band marks the 0.2 m seat.
+// Two sliding leaves meet on the jagged seam and have red full-bright LEDs.
+// Prediction opens them during play. The viewer shows their closed pose.
 // The default leaves 0.4 m from each portal to the door seat. Local +Z is up.
-// This room has no player spawn; its centre pose is for inspection.
-// Regions: 0 sleeve and preview closures, 1 black door seat. Depth is in metres.
+// This room has no player spawn; its inspection pose is in front of the leaves.
+// Regions: 0 sleeve and preview closures, 1 black seat and rims, 2 leaf faces.
+// Depth is in metres.
 fn room_parameter_count() -> u32 {
     return prefab_hex_stopper_open_parameter_count();
 }

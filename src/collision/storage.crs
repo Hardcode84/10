@@ -6,6 +6,9 @@ record CollisionFace {
     neighbours: [u32; 3];
 }
 record CollisionInstance {
+    controlled: bool;
+    motion_start: f32;
+    motion_duration: f32;
     solid: bool;
     linear: Vec3;
     angular: Vec3;
@@ -261,6 +264,9 @@ fn collision_append(
         i = i + 1u32;
     }
     builder.data.instances[builder.data.instance_count as usize] = make CollisionInstance {
+        controlled: false,
+        motion_start: 0f32,
+        motion_duration: 0f32,
         solid: false,
         linear: vec(0f32, 0f32, 0f32),
         angular: vec(0f32, 0f32, 0f32),
@@ -352,4 +358,47 @@ fn collision_set_motion(builder: mut CollisionBuilder, linear: Vec3, angular: Ve
         builder.data.moving = index;
     }
     return true;
+}
+
+// Reserves the last solid as a runtime-controlled translating body, including while stopped.
+fn collision_controlled(builder: mut CollisionBuilder) -> unit {
+    var index: u32 = builder.data.instance_count - 1u32;
+    var item: *CollisionInstance = &builder.data.instances[index as usize];
+    item -> controlled = true;
+    item -> next_moving = builder.data.moving;
+    builder.data.moving = index;
+}
+// Schedules one bounded translation from the body's reference pose.
+// The controlled body has no rotation. Duration is positive; start is simulation time.
+fn collision_slide(
+    scene: mut CollisionScene,
+    index: u32,
+    start: f32,
+    duration: f32,
+    travel: Vec3
+) -> unit {
+    var item: *CollisionInstance = &scene.data.instances[index as usize];
+    item -> motion_start = start;
+    item -> motion_duration = duration;
+    item -> linear = scale(travel, 1f32 / duration);
+}
+fn collision_controlled_reset(scene: mut CollisionScene) -> unit {
+    var index: u32 = scene.data.moving;
+    while index != 0xffffffffu32 {
+        var item: *CollisionInstance = &scene.data.instances[index as usize];
+        if item -> controlled {
+            item -> linear = vec(0f32, 0f32, 0f32);
+            item -> motion_start = 0f32;
+            item -> motion_duration = 0f32;
+        }
+        index = item -> next_moving;
+    }
+}
+// Copies runtime motion into an already allocated snapshot of the same scene.
+fn collision_snapshot_motion(source: read CollisionScene, target: mut CollisionScene) -> unit {
+    var index: u32 = source.data.moving;
+    while index != 0xffffffffu32 {
+        target.data.instances[index as usize] = source.data.instances[index as usize];
+        index = source.data.instances[index as usize].next_moving;
+    }
 }

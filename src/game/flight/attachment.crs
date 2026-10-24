@@ -17,6 +17,11 @@ fn hook_attach(
         ),
         contact_time
     );
+    var body: CollisionInstance = collision_instance(read scene, contact.instance);
+    if body.controlled && length(collision_pose(body, contact_time).linear) != 0f32 {
+        hook_disconnect(mut drone);
+        return;
+    }
     var size: Rational = rational_product(read drone.cable.size, read query.ratio);
     var i: u32 = 0u32;
     while i < portal_path_count(read query.path) {
@@ -44,6 +49,9 @@ fn hook_attach(
     drone.cable.space = contact.space;
     drone.cable.phase = CABLE_ATTACHED;
     hook_follow(read scene, mut drone, time);
+    if drone.cable.phase != CABLE_ATTACHED {
+        return;
+    }
     drone.cable.extent = clamp(
         length(sub(drone.position, drone.cable.anchor)) / drone_size(read drone),
         0.75f32,
@@ -52,6 +60,11 @@ fn hook_attach(
 }
 fn hook_follow(scene: read CollisionScene, drone: mut Drone, time: f32) -> unit {
     if drone.cable.phase != CABLE_ATTACHED {
+        return;
+    }
+    var body: CollisionInstance = collision_instance(read scene, drone.cable.instance);
+    if body.controlled && length(collision_pose(body, time).linear) != 0f32 {
+        hook_disconnect(mut drone);
         return;
     }
     drone.cable.anchor = space_point(
@@ -79,6 +92,11 @@ fn hook_follow(scene: read CollisionScene, drone: mut Drone, time: f32) -> unit 
 // Release preserves the velocity acquired from a machine or the winch.
 fn hook_release(drone: mut Drone) -> unit {
     reset_cable(mut drone.cable);
+}
+// Disconnects without relaunching until the tether control is released.
+fn hook_disconnect(drone: mut Drone) -> unit {
+    hook_release(mut drone);
+    drone.cable.phase = CABLE_SNAPPED;
 }
 // Applies an inelastic, unit-player-mass constraint in the current space frame.
 fn tether_constraint(drone: mut Drone) -> unit {

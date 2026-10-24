@@ -71,6 +71,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
 fn latency_run(session: GameSession, config: GameConfig) -> i32 {
     var collision: CollisionScene = collision_new();
     var loop: GameLoop = make GameLoop {
+        door: 0xffffffffu32,
         sparks: sparks_new(),
         trial: new_trial(),
         input: input_new(),
@@ -93,7 +94,7 @@ fn latency_run(session: GameSession, config: GameConfig) -> i32 {
         return 1i32;
     }
     service_submit(service, latency_produce, &producer as *u8);
-    var result: i32 = game_run_active(read collision, mut session, mut loop, config);
+    var result: i32 = game_run_active(mut collision, mut session, mut loop, config);
     var completed: i32 = service_poll(service);
     while completed == 0i32 {
         service_idle(service);

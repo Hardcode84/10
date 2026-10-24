@@ -2,7 +2,7 @@ fn game_task_frame(
     graph: mut TaskGraph,
     context: mut PredictionContext,
     sound: mut SoundContext,
-    collision: read CollisionScene,
+    collision: mut CollisionScene,
     session: mut GameSession,
     loop: mut GameLoop,
     config: GameConfig,
@@ -15,7 +15,7 @@ fn game_task_frame(
     }
     game_simulation_task(
         mut graph,
-        read collision,
+        mut collision,
         mut session.control,
         mut loop,
         config,
@@ -40,7 +40,7 @@ fn game_task_frame(
 }
 
 fn game_run_tasks(
-    collision: read CollisionScene,
+    collision: mut CollisionScene,
     session: mut GameSession,
     loop: mut GameLoop,
     config: GameConfig
@@ -55,7 +55,11 @@ fn game_run_tasks(
     if !task_pool_open(mut pool, config.workers, 2u32) {
         return 1i32;
     }
-    var context: PredictionContext = prediction_context(read pool, read collision);
+    var context: PredictionContext = prediction_context(
+        read pool,
+        read collision,
+        graph_doors(game_graph(read session.control))
+    );
     if !prediction_context_ready(read context) {
         return 1i32;
     }
@@ -69,7 +73,7 @@ fn game_run_tasks(
             mut graph,
             mut context,
             mut sound,
-            read collision,
+            mut collision,
             mut session,
             mut loop,
             config,
@@ -100,7 +104,7 @@ fn game_frame_graph(graph: mut TaskGraph) -> bool {
 }
 fn game_simulation_task(
     graph: mut TaskGraph,
-    collision: read CollisionScene,
+    collision: mut CollisionScene,
     control: mut GameControl,
     loop: mut GameLoop,
     config: GameConfig,
@@ -112,7 +116,7 @@ fn game_simulation_task(
     task_complete(
         mut graph,
         1u32,
-        game_advance(read collision, mut control, mut loop, config, elapsed)
+        game_advance(mut collision, mut control, mut loop, config, elapsed)
     );
 }
 fn game_frame_execute(

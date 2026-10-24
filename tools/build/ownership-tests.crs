@@ -80,7 +80,7 @@ fn check_collision_ownership(root: *CrustRun) -> bool {
         "value is uninitialized or has been moved",
         "access conflicts with an active payload loan",
         "access conflicts with an active payload loan",
-        "access conflicts with an active payload loan",
+        null(*u8),
         null(*u8),
         "transfer requires transferable storage or a shareable read loan",
         "foreign calls require an explicit foreign contract",

@@ -1,0 +1,253 @@
+// Exercises the authored sliding leaf through scene assembly, prediction and physics.
+fn test_doors() -> bool {
+    var asset: RoomAsset = room_asset_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    var snapshot: CollisionScene = collision_new();
+    var doors: DoorSet = doors_new();
+    if !hex_door_leaves(1f32, mut asset) || !doors_asset(
+        mut doors,
+        read asset,
+        mut builder,
+        0u32,
+        0u32
+    ) {
+        return false;
+    }
+    if !test_door_portals(mut builder) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) || !collision_snapshot(
+        read scene,
+        mut snapshot
+    ) {
+        return false;
+    }
+    if !test_door_portal_sensor(read scene, read doors) {
+        return false;
+    }
+    var door: DoorDefinition = door_get(read doors, 0u32);
+    if !test_door_forecast(read scene, read doors, -1f32) || !test_door_forecast(
+        read scene,
+        read doors,
+        1f32
+    ) {
+        return false;
+    }
+    var closed: CollisionSweep = collision_local_sweep_interval(
+        read scene,
+        0u32,
+        vec(0f32, -2f32, 0f32),
+        vec(0f32, 5f32, 0f32),
+        DRONE_RADIUS,
+        0f32,
+        STEP
+    );
+    if !game_check(
+        closed.contact.hit.time <= 1f32,
+        "closed leaves did not block the aperture"
+    ) {
+        return false;
+    }
+    return test_door_opening(mut scene, mut snapshot, read doors, read closed);
+}
+fn test_door_opening(
+    scene: mut CollisionScene,
+    snapshot: mut CollisionScene,
+    doors: read DoorSet,
+    closed: read CollisionSweep
+) -> bool {
+    var door: DoorDefinition = door_get(read doors, 0u32);
+    var trial: Trial = new_trial();
+    trial.drone.cable.phase = CABLE_ATTACHED;
+    trial.drone.cable.instance = door.leaves[0usize];
+    trial.drone.velocity = vec(1f32, 2f32, 3f32);
+    var request: Prediction = prediction_new();
+    request.attempt = trial.attempt;
+    request.door = 0u32;
+    door_request(mut scene, read doors, request, mut trial);
+    if !game_check(
+        trial.drone.cable.phase == CABLE_SNAPPED && length(
+            sub(trial.drone.velocity, vec(1f32, 2f32, 3f32))
+        ) == 0f32,
+        "opening door must release the hook without changing ship velocity"
+    ) {
+        return false;
+    }
+    var held: Command = idle_command();
+    held.tether = true;
+    tether_input(mut trial.drone, held);
+    if !game_check(
+        trial.drone.cable.phase == CABLE_SNAPPED && length(
+            sub(trial.drone.velocity, vec(1f32, 2f32, 3f32))
+        ) == 0f32,
+        "held tether relaunched after door disconnection"
+    ) {
+        return false;
+    }
+    if !game_check(
+        door_state(read snapshot, door, 0f32) == DOOR_CLOSED,
+        "worker snapshot changed with the live scene"
+    ) {
+        return false;
+    }
+    collision_snapshot_motion(read scene, mut snapshot);
+    if !game_check(
+        door_state(read snapshot, door, 0f32) == DOOR_OPENING,
+        "worker did not receive door motion"
+    ) {
+        return false;
+    }
+    hook_attach(read scene, mut trial.drone, read closed, STEP, STEP);
+    if !game_check(
+        trial.drone.cable.phase == CABLE_SNAPPED,
+        "hook attached to a moving leaf"
+    ) {
+        return false;
+    }
+    return test_door_open(mut scene, door) && test_door_motion_boundaries(mut scene, door);
+}
+fn test_door_open(scene: mut CollisionScene, door: DoorDefinition) -> bool {
+    var open: CollisionSweep = collision_local_sweep_interval(
+        read scene,
+        0u32,
+        vec(0f32, -2f32, 0f32),
+        vec(0f32, 5f32, 0f32),
+        DRONE_RADIUS,
+        DOOR_OPEN_SECONDS,
+        STEP
+    );
+    if !game_check(
+        open.status == 0u32 && open.contact.hit.time > 1f32,
+        "opened leaves still block the aperture"
+    ) {
+        return false;
+    }
+    var pose: CollisionInstance = collision_pose(
+        collision_instance(read scene, door.leaves[0usize]),
+        DOOR_OPEN_SECONDS
+    );
+    var later: CollisionInstance = collision_pose(
+        collision_instance(read scene, door.leaves[0usize]),
+        DOOR_OPEN_SECONDS + 10f32
+    );
+    if !game_check(
+        length(sub(pose.origin, later.origin)) == 0f32 && length(later.linear) == 0f32,
+        "opened leaf continued moving"
+    ) {
+        return false;
+    }
+    collision_controlled_reset(mut scene);
+    return game_check(
+        door_state(read scene, door, 0f32) == DOOR_CLOSED,
+        "run reset left the door open"
+    );
+}
+fn test_door_forecast(scene: read CollisionScene, doors: read DoorSet, side: f32) -> bool {
+    var trial: Trial = new_trial();
+    trial.full_spin = false;
+    trial.preview_enabled = false;
+    trial.drone.world = 0u32;
+    trial.drone.position = vec(0f32, side * 60f32, 0f32);
+    trial.drone.velocity = vec(0f32, -side * 45f32, 0f32);
+    var scratch: Drone = new_drone();
+    var prediction: Prediction = predict_scene(read scene, read trial, mut scratch, read doors);
+    var visible: Prediction = prediction_visible(prediction, read trial);
+    return game_check(
+        prediction.door == 0u32 && visible.count == 0u32 && scratch.clock == trial.drone.clock + PREDICTION_TICKS,
+        "hidden ship forecast did not request the approached door for its full horizon"
+    );
+}
+
+fn test_door_motion_boundaries(scene: mut CollisionScene, door: DoorDefinition) -> bool {
+    collision_slide(
+        mut scene,
+        door.leaves[0usize],
+        1f32,
+        1f32,
+        vec(0f32, 2f32, 0f32)
+    );
+    var hit: CollisionSweep = collision_local_sweep_interval(
+        read scene,
+        door.space,
+        vec(-1f32, -2f32, 0f32),
+        vec(0f32, 5f32, 0f32),
+        DRONE_RADIUS,
+        0f32,
+        3f32
+    );
+    var surface: f32 = door.origin.y - DOOR_THICKNESS * 0.5f32 + 2f32;
+    var expected: f32 = (surface - DRONE_RADIUS + 2f32) / 5f32;
+    return game_check(
+        hit.status == 0u32 && absf(hit.contact.hit.time - expected) < 0.00001f32 && absf(
+            hit.contact.point.y - surface
+        ) < 0.00001f32,
+        "sweep across translation start and stop lost contact time or final surface"
+    );
+}
+
+fn test_door_portals(builder: mut CollisionBuilder) -> bool {
+    var transform: SpaceTransform = make SpaceTransform {
+        factor: 1f32,
+        origin: vec(0f32, -8f32, 0f32),
+        basis: make Basis {
+            right: vec(1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, -1f32),
+            forward: vec(0f32, 1f32, 0f32)
+        }
+    };
+    var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
+        source_scale: scale_identity(),
+        target_scale: scale_identity(),
+        reverse: 1u32,
+        space: 1u32,
+        destination: 0u32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        radius: 3f32,
+        sides: 6u32,
+        phase: 0f32,
+        transform: transform
+    };
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    portal.reverse = 0u32;
+    portal.space = 0u32;
+    portal.destination = 1u32;
+    portal.origin = transform.origin;
+    portal.basis = space_basis(
+        transform,
+        make Basis {
+            right: vec(-1f32, 0f32, 0f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(0f32, 0f32, -1f32)
+        }
+    );
+    portal.transform = space_inverse(transform);
+    return collision_portal_append(mut builder, portal);
+}
+fn test_door_portal_sensor(scene: read CollisionScene, doors: read DoorSet) -> bool {
+    var prediction: Prediction = prediction_new();
+    var trail: PreviewTrail = preview_trail(0u32, PREVIEW_MATERIAL, 0f32);
+    var eye: PredictionEye = make PredictionEye {
+        position: vec(0f32, 0f32, -1f32),
+        basis: identity_basis(),
+        world: 1u32,
+        factor: 1f32
+    };
+    predict_door_portal(
+        read scene,
+        read doors,
+        mut prediction,
+        mut trail,
+        eye.position,
+        vec(0f32, 0f32, 10f32),
+        eye
+    );
+    return game_check(
+        prediction.door == 0u32,
+        "translated and rotated portal lost door approach"
+    );
+}

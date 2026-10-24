@@ -1,11 +1,10 @@
 record SoundPayload {
-    collision: *CollisionScene;
+    collision: CollisionScene;
     frame: GameSoundFrame;
 }
 opaque;
 resource SoundContext {
     pool: read TaskPool;
-    collision: read CollisionScene;
     payload: *SoundPayload;
 }
 opaque drop sound_context_drop;
@@ -14,19 +13,21 @@ resource SoundTask {
     job: PoolJob;
 }
 opaque drop sound_task_drop;
-fn sound_context(pool: read TaskPool, collision: read CollisionScene) -> SoundContext transfers(
-    collision
-) from pool, collision {
+fn sound_context(pool: read TaskPool, collision: read CollisionScene) -> SoundContext from pool {
     var payload: *SoundPayload = task_allocate(sizeof(SoundPayload)) as *SoundPayload;
     if payload == null(*SoundPayload) {
         task_error("sound preparation allocation failed");
     }
     if payload != null(*SoundPayload) {
-        payload -> collision = &collision;
+        payload -> collision = collision_new();
+        if !collision_snapshot(read collision, mut payload -> collision) {
+            drop payload -> collision;
+            task_release(payload as *u8);
+            payload = null(*SoundPayload);
+        }
     }
     return make SoundContext {
         pool: read pool,
-        collision: read collision,
         payload: payload
     };
 }
@@ -34,14 +35,22 @@ fn sound_context_ready(context: read SoundContext) -> bool {
     return context.payload != null(*SoundPayload);
 }
 fn sound_context_drop(context: mut SoundContext) -> unit {
+    if context.payload != null(*SoundPayload) {
+        drop context.payload -> collision;
+    }
     task_release(context.payload as *u8);
 }
 fn sound_execute(data: *u8) -> bool {
     var payload: *SoundPayload = data as *SoundPayload;
-    game_sound_prepare(read * payload -> collision, mut payload -> frame);
+    game_sound_prepare(read payload -> collision, mut payload -> frame);
     return true;
 }
-fn sound_start(context: mut SoundContext, frame: GameSoundFrame) -> SoundTask from context {
+fn sound_start(
+    context: mut SoundContext,
+    collision: read CollisionScene,
+    frame: GameSoundFrame
+) -> SoundTask from context {
+    collision_snapshot_motion(read collision, mut context.payload -> collision);
     context.payload -> frame = frame;
     var job: PoolJob = pool_submit(
         read context.pool,

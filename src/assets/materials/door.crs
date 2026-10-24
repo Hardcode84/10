@@ -1,16 +1,20 @@
+const DOOR_JOINT_STEP: f32 = 0.4f32;
+const DOOR_JOINT_WIDTH: f32 = 0.22f32;
 // Returns the lateral offset of a repeating trapezoidal door joint in metres.
 fn metal_door_joint(y: f32) -> f32 {
-    var phase: f32 = mask_repeat(y, 1.6f32);
-    if phase < 0.4f32 {
-        return -0.22f32 + phase * 1.1f32;
+    var phase: f32 = mask_repeat(y, DOOR_JOINT_STEP * 4f32);
+    if phase < DOOR_JOINT_STEP {
+        return -DOOR_JOINT_WIDTH + phase * (2f32 * DOOR_JOINT_WIDTH / DOOR_JOINT_STEP);
     }
-    if phase < 0.8f32 {
-        return 0.22f32;
+    if phase < DOOR_JOINT_STEP * 2f32 {
+        return DOOR_JOINT_WIDTH;
     }
-    if phase < 1.2f32 {
-        return 0.22f32 - (phase - 0.8f32) * 1.1f32;
+    if phase < DOOR_JOINT_STEP * 3f32 {
+        return DOOR_JOINT_WIDTH - (phase - DOOR_JOINT_STEP * 2f32) * (
+            2f32 * DOOR_JOINT_WIDTH / DOOR_JOINT_STEP
+        );
     }
-    return -0.22f32;
+    return -DOOR_JOINT_WIDTH;
 }
 // Samples a closed two-leaf door with an interlocking joint. Dimensions are metres.
 // Two indicators use the material's full-bright palette entries.

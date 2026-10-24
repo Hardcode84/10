@@ -1,10 +1,20 @@
 // Poses use space-local time in seconds. Angular velocity is expressed in that space.
 fn collision_moving(item: CollisionInstance) -> bool {
-    return dot(item.linear, item.linear) != 0f32 || dot(item.angular, item.angular) != 0f32;
+    return item.controlled || dot(item.linear, item.linear) != 0f32 || dot(
+        item.angular,
+        item.angular
+    ) != 0f32;
 }
 fn collision_pose(item: CollisionInstance, time: f32) -> CollisionInstance {
     var pose: CollisionInstance = item;
-    pose.origin = add(item.origin, scale(item.linear, time));
+    var elapsed: f32 = time;
+    if item.controlled {
+        elapsed = clamp(time - item.motion_start, 0f32, item.motion_duration);
+        if time < item.motion_start || time >= item.motion_start + item.motion_duration {
+            pose.linear = vec(0f32, 0f32, 0f32);
+        }
+    }
+    pose.origin = add(item.origin, scale(item.linear, elapsed));
     var speed: f32 = length(item.angular);
     if speed != 0f32 {
         var axis: Vec3 = collision_divide(item.angular, speed);

@@ -1,4 +1,5 @@
 record GameLoop {
+    door: u32;
     sparks: Sparks;
     trial: Trial;
     input: InputState;
@@ -7,13 +8,15 @@ record GameLoop {
     running: bool;
 }
 fn game_tick(
-    collision: read CollisionScene,
+    collision: mut CollisionScene,
     session: mut GameControl,
     loop: mut GameLoop,
     config: GameConfig
 ) -> bool {
     var command: Command = input_consume(mut loop.input);
-    var status: i32 = game_command(mut session, mut command);
+    var door: u32 = loop.door;
+    loop.door = 0xffffffffu32;
+    var status: i32 = game_command(mut session, mut command, mut door);
     if status < 0i32 {
         return false;
     }
@@ -21,16 +24,25 @@ fn game_tick(
         loop.running = false;
         return true;
     }
+    if !game_door_command(
+        mut collision,
+        game_graph(read session),
+        mut loop.trial,
+        command,
+        door
+    ) {
+        return false;
+    }
     var finished: bool = loop.trial.finished;
     var attempt: u32 = loop.trial.attempt;
     var clock: u32 = loop.trial.drone.clock;
     trial_step(read collision, mut loop.trial, command);
     if loop.trial.attempt != attempt {
         sparks_clear(mut loop.sparks);
+        collision_controlled_reset(mut collision);
     }
-    if loop.trial.drone.clock != 0u32 && (
-        loop.trial.drone.clock != clock || loop.trial.attempt != attempt
-    ) {
+    var advanced: bool = loop.trial.drone.clock != clock || loop.trial.attempt != attempt;
+    if loop.trial.drone.clock != 0u32 && advanced {
         sparks_step(
             read collision,
             mut loop.sparks,
@@ -44,7 +56,7 @@ fn game_tick(
             flight_scrape(read collision, read loop.trial.drone)
         );
     }
-    if loop.trial.drone.clock != clock || loop.trial.attempt != attempt {
+    if advanced {
         if !game_sound_tick(mut session, read loop.trial, loop.ticks + 1u32, config) {
             return false;
         }
@@ -58,7 +70,12 @@ fn game_tick(
     if config.ticks != 0u32 && loop.ticks >= config.ticks {
         loop.running = false;
     }
-    return game_record(mut session, command, trial_hash(read loop.trial));
+    return game_record(
+        mut session,
+        command,
+        door,
+        doors_hash(read collision, trial_hash(read loop.trial))
+    );
 }
 fn game_render(
     collision: read CollisionScene,
@@ -71,6 +88,7 @@ fn game_render(
         read loop.trial,
         mut session.forecast
     );
+    prediction = prediction_visible(prediction, read loop.trial);
     game_prepare(read collision, mut session, read loop, config, read prediction);
     return game_draw(mut session) && game_present(mut session);
 }
@@ -127,7 +145,7 @@ fn game_prepare_finish(
     }
 }
 fn game_advance(
-    collision: read CollisionScene,
+    collision: mut CollisionScene,
     session: mut GameControl,
     loop: mut GameLoop,
     config: GameConfig,
@@ -141,7 +159,7 @@ fn game_advance(
         return true;
     }
     if config.headless {
-        return game_tick(read collision, mut session, mut loop, config);
+        return game_tick(mut collision, mut session, mut loop, config);
     }
     if elapsed > 1000000000u64 {
         loop.input.paused = true;
@@ -156,7 +174,7 @@ fn game_advance(
     var rate: u64 = game_tick_rate(config) as u64;
     loop.credit = loop.credit + elapsed * rate;
     while loop.credit >= 1000000000u64 && loop.running {
-        if !game_tick(read collision, mut session, mut loop, config) {
+        if !game_tick(mut collision, mut session, mut loop, config) {
             return false;
         }
         loop.credit = loop.credit - 1000000000u64;
@@ -167,6 +185,7 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
     var collision: CollisionScene = collision_new();
 
     var loop: GameLoop = make GameLoop {
+        door: 0xffffffffu32,
         sparks: sparks_new(),
         trial: new_trial(),
         input: input_new(),
@@ -177,10 +196,10 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
     if !game_run_setup(mut session, mut collision, mut loop, config) {
         return 1i32;
     }
-    return game_run_ready(read collision, mut session, mut loop, config);
+    return game_run_ready(mut collision, mut session, mut loop, config);
 }
 fn game_run_ready(
-    collision: read CollisionScene,
+    collision: mut CollisionScene,
     session: mut GameSession,
     loop: mut GameLoop,
     config: GameConfig
@@ -188,30 +207,43 @@ fn game_run_ready(
     if !config.headless && !game_render(read collision, mut session, read loop, config) {
         return 1i32;
     }
-    return game_run_active(read collision, mut session, mut loop, config);
+    return game_run_active(mut collision, mut session, mut loop, config);
 }
 fn game_run_active(
-    collision: read CollisionScene,
+    collision: mut CollisionScene,
     session: mut GameSession,
     loop: mut GameLoop,
     config: GameConfig
 ) -> i32 {
     if config.tasks {
-        return game_run_tasks(read collision, mut session, mut loop, config);
+        return game_run_tasks(mut collision, mut session, mut loop, config);
     }
     var previous: u64 = now();
     while loop.running {
         var current: u64 = now();
         var elapsed: u64 = current - previous;
         previous = current;
-        if !game_advance(read collision, mut session.control, mut loop, config, elapsed) {
+        if !game_advance(mut collision, mut session.control, mut loop, config, elapsed) {
             return 1i32;
+        }
+        var prediction: Prediction = predict_scene(
+            read collision,
+            read loop.trial,
+            mut session.forecast,
+            graph_doors(game_graph(read session.control))
+        );
+        if prediction.attempt == loop.trial.attempt {
+            loop.door = prediction.door;
         }
         if !game_sound_serial(read collision, mut session.control, read loop, config) {
             return 1i32;
         }
-        if !config.headless && !game_render(read collision, mut session, read loop, config) {
-            return 1i32;
+        if !config.headless {
+            prediction = prediction_visible(prediction, read loop.trial);
+            game_prepare(read collision, mut session, read loop, config, read prediction);
+            if !game_draw(mut session) || !game_present(mut session) {
+                return 1i32;
+            }
         }
         if !config.headless {
             game_wait();

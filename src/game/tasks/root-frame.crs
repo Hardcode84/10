@@ -13,6 +13,7 @@ fn game_root_frame(
     }
     var sound_work: SoundTask = sound_start(
         mut sound,
+        read collision,
         game_sound_snapshot(mut session.control, read loop, config)
     );
     var surface: i32 = game_surface(mut session);
@@ -26,7 +27,11 @@ fn game_root_frame(
     }
     var visible: Prediction = prediction_visible(prediction, read loop.trial);
     if config.workers > 0u32 {
-        var work: PredictionTask = prediction_start(mut context, read loop.trial);
+        var work: PredictionTask = prediction_start(
+            mut context,
+            read collision,
+            read loop.trial
+        );
         game_prediction_scene(
             mut graph,
             read collision,
@@ -64,7 +69,11 @@ fn game_root_frame(
         );
         var frame: SubmittedFrame = frame_submit(mut session.renderer);
         task_submission_returned(mut graph, 0u32, frame_accepted(read frame));
-        var work: PredictionTask = prediction_start(mut context, read loop.trial);
+        var work: PredictionTask = prediction_start(
+            mut context,
+            read collision,
+            read loop.trial
+        );
         game_frame_execute(
             mut graph,
             mut frame,
@@ -83,6 +92,9 @@ fn game_root_frame(
     game_sound_join(mut graph, mut sound_work, mut session.control, mut loop.input);
     if !task_succeeded(read graph) {
         return false;
+    }
+    if prediction.attempt == loop.trial.attempt {
+        loop.door = prediction.door;
     }
     game_presented(mut session);
     return true;

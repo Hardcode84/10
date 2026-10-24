@@ -1,4 +1,8 @@
-fn invalid_worker_reuse(context: mut PredictionContext, trial: Trial) -> unit {
-    var first: PredictionTask = prediction_start(mut context, read trial);
-    var second: PredictionTask = prediction_start(mut context, read trial);
+fn invalid_worker_reuse(
+    context: mut PredictionContext,
+    collision: read CollisionScene,
+    trial: Trial
+) -> unit {
+    var first: PredictionTask = prediction_start(mut context, read collision, read trial);
+    var second: PredictionTask = prediction_start(mut context, read collision, read trial);
 }

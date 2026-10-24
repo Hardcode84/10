@@ -64,7 +64,7 @@ fn collision_rotating_face(
     result.status = 6u32;
     return move result;
 }
-fn collision_sweep_moving(
+fn collision_sweep_moving_piece(
     scene: read CollisionScene,
     index: u32,
     item: CollisionInstance,
@@ -77,7 +77,7 @@ fn collision_sweep_moving(
     anchor_index: u32
 ) -> CollisionSweep {
     var pose: CollisionInstance = collision_pose(item, time);
-    var relative: Vec3 = sub(d, scale(item.linear, duration));
+    var relative: Vec3 = sub(d, scale(pose.linear, duration));
     var reach: f32 = collision_reach(item) + radius;
     var extent: Vec3 = vec(reach, reach, reach);
     var result: CollisionSweep = collision_sweep_result(collision_miss(item.space));
@@ -101,11 +101,11 @@ fn collision_sweep_moving(
             false,
             read anchors,
             anchor_index,
-            scale(item.linear, duration)
+            scale(pose.linear, duration)
         );
         result.contact.point = add(
             result.contact.point,
-            scale(item.linear, duration * result.contact.hit.time)
+            scale(pose.linear, duration * result.contact.hit.time)
         );
         return move result;
     }
@@ -170,4 +170,69 @@ fn collision_rotation_advance(
         }
     }
     return advance;
+}
+
+// Sweeps include the stationary and moving intervals of a bounded translation.
+fn collision_sweep_moving(
+    scene: read CollisionScene,
+    index: u32,
+    item: CollisionInstance,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32,
+    anchors: read RoomAnchors,
+    anchor_index: u32
+) -> CollisionSweep {
+    if !item.controlled || duration == 0f32 {
+        return collision_sweep_moving_piece(
+            read scene,
+            index,
+            item,
+            p,
+            d,
+            radius,
+            time,
+            duration,
+            read anchors,
+            anchor_index
+        );
+    }
+    var fraction: f32 = 0f32;
+    var result: CollisionSweep = collision_sweep_result(collision_miss(item.space));
+    while fraction < 1f32 {
+        var end: f32 = 1f32;
+        var begin: f32 = (item.motion_start - time) / duration;
+        var stop: f32 = (item.motion_start + item.motion_duration - time) / duration;
+        if begin > fraction && begin < end {
+            end = begin;
+        }
+        if stop > fraction && stop < end {
+            end = stop;
+        }
+        var current: f32 = time + duration * fraction;
+        var span: f32 = duration * (end - fraction);
+        var next: CollisionSweep = collision_sweep_moving_piece(
+            read scene,
+            index,
+            item,
+            add(p, scale(d, fraction)),
+            scale(d, end - fraction),
+            radius,
+            current,
+            span,
+            read anchors,
+            anchor_index
+        );
+        if next.status != 0u32 {
+            return move next;
+        }
+        if next.contact.hit.time <= 1f32 {
+            next.contact.hit.time = fraction + (end - fraction) * next.contact.hit.time;
+            return move next;
+        }
+        fraction = end;
+    }
+    return move result;
 }

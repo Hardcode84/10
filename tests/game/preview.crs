@@ -3,7 +3,7 @@ fn test_preview_station(collision: read CollisionScene, trial: read Trial, index
     var distance: f32 = trial.preview_phase;
     var station: f32 = index as f32 * PREVIEW_SPACING;
     var i: u32 = 0u32;
-    while i < 240u32 {
+    while i < PREDICTION_TICKS {
         var before: Vec3 = drone.position;
         simulate(
             read collision,

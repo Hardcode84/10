@@ -1,0 +1,136 @@
+record DoorDefinition {
+    space: u32;
+    origin: Vec3;
+    radius: f32;
+    leaves: [u32; 2];
+    meshes: [MeshRange; 2];
+}
+resource DoorSet {
+    data: *DoorDefinition;
+    count: u32;
+    capacity: u32;
+    mesh: Mesh;
+}
+opaque drop doors_drop;
+fn doors_new() -> DoorSet {
+    return make DoorSet {
+        data: null(*DoorDefinition),
+        count: 0u32,
+        capacity: 0u32,
+        mesh: mesh_new()
+    };
+}
+fn doors_drop(doors: mut DoorSet) -> unit {
+    free(doors.data as *u8);
+}
+fn doors_count(doors: read DoorSet) -> u32 {
+    return doors.count;
+}
+fn door_get(doors: read DoorSet, index: u32) -> DoorDefinition {
+    return doors.data[index as usize];
+}
+fn door_add(doors: mut DoorSet, definition: DoorDefinition) -> bool {
+    if doors.count == doors.capacity {
+        var capacity: u64 = doors.capacity as u64 * 2u64 + 1u64;
+        if capacity > 0xffffffffu64 {
+            return error("door count exceeds address range");
+        }
+        var data: *DoorDefinition = malloc(capacity as usize * sizeof(DoorDefinition)) as *DoorDefinition;
+        if data == null(*DoorDefinition) {
+            return error("door allocation failed");
+        }
+        var i: u32 = 0u32;
+        while i < doors.count {
+            data[i as usize] = doors.data[i as usize];
+            i = i + 1u32;
+        }
+        free(doors.data as *u8);
+        doors.data = data;
+        doors.capacity = capacity as u32;
+    }
+    doors.data[doors.count as usize] = definition;
+    doors.count = doors.count + 1u32;
+    return true;
+}
+// Copies immutable sensor and collider identities for a prediction worker.
+fn doors_copy(source: read DoorSet, target: mut DoorSet) -> bool {
+    var i: u32 = 0u32;
+    while i < source.count {
+        if !door_add(mut target, source.data[i as usize]) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn doors_asset(
+    doors: mut DoorSet,
+    asset: read RoomAsset,
+    builder: mut CollisionBuilder,
+    space: u32,
+    material: u32
+) -> bool {
+    if asset_part_count(read asset.door_leaves) == 0u32 {
+        return true;
+    }
+    var first: u32 = collision_builder_instances(read builder);
+    if !room_leaf_collision(read asset, mut builder, space) {
+        return false;
+    }
+    var door: DoorDefinition = make DoorDefinition {
+        space: space,
+        origin: asset_part(read asset.door_leaves, 0u32).origin,
+        radius: service_hex_profile().radius,
+        leaves: make [u32; 2] {
+            first,
+            first + 1u32
+        },
+        meshes: make [MeshRange; 2] {
+            mesh_empty_range(),
+            mesh_empty_range()
+        }
+    };
+    var leaf: u32 = 0u32;
+    while leaf < 2u32 {
+        var part: AssetPart = asset_part(read asset.door_leaves, leaf);
+        var slice: MeshRange = mesh_empty_range();
+        slice.first = mesh_triangle_count(read doors.mesh);
+        slice.count = part.count;
+        var local: Mesh = mesh_new();
+        var i: u32 = 0u32;
+        while i < part.count {
+            var t: MeshTriangle = mesh_triangle(read asset.geometry, part.first + i);
+            t.material = t.material + material;
+            if !mesh_append(mut local, t) || !mesh_append(mut doors.mesh, t) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+        slice.bounds = local.bounds;
+        door.meshes[leaf as usize] = slice;
+        leaf = leaf + 1u32;
+    }
+    return door_add(mut doors, door);
+}
+fn doors_upload(doors: mut DoorSet, input: mut FrameInput) -> bool {
+    var i: u32 = 0u32;
+    while i < doors.count {
+        var leaf: u32 = 0u32;
+        while leaf < 2u32 {
+            var range: MeshRange = doors.data[i as usize].meshes[leaf as usize];
+            if !input_mesh_slice(
+                mut input,
+                read doors.mesh,
+                range.first,
+                range.count,
+                mut range
+            ) {
+                return false;
+            }
+            doors.data[i as usize].meshes[leaf as usize] = range;
+            leaf = leaf + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

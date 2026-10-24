@@ -148,7 +148,7 @@ fn game_static_open(session: mut GameSession, world: u32) -> bool {
         mut input,
         mut session.world,
         read session.room_mesh
-    );
+    ) && graph_doors_upload(mut session.control.graph, mut input);
 }
 fn game_scene_finish(
     collision: read CollisionScene,
@@ -184,6 +184,12 @@ fn game_scene_finish(
     if trial.graph_run {
         graph_scene(read session.control.graph, mut input, read trial, config);
     }
+    doors_draw(
+        read collision,
+        graph_doors(read session.control.graph),
+        mut input,
+        trial.drone.clock as f32 * STEP
+    );
     if !input_instances(mut input, read session.world) {
         scene_overflow();
     }

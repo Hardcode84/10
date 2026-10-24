@@ -29,11 +29,12 @@ fn asset_camera_pose(asset: read RoomAsset, mesh: MeshRange, camera: AssetCamera
             cosf(camera.yaw) * cosf(camera.pitch)
         );
         eye = center;
-        if camera.view == 0u32 && !collision_position_valid(
+        if camera.view == 0u32 && !collision_position_valid_at(
             read asset.collision,
             0u32,
             eye,
-            0.35f32
+            0.35f32,
+            0f32
         ) {
             eye = asset.spawn.position;
         }

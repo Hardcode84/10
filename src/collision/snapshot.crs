@@ -1,0 +1,73 @@
+// Target must be empty. The result owns an independent copy of the scene.
+fn collision_snapshot(source: read CollisionScene, target: mut CollisionScene) -> bool {
+    target.data = source.data;
+    target.data.faces = collision_snapshot_bytes(
+        source.data.faces as *u8,
+        source.data.face_count as usize * sizeof(CollisionFace)
+    ) as *CollisionFace;
+    target.data.instances = collision_snapshot_bytes(
+        source.data.instances as *u8,
+        source.data.instance_count as usize * sizeof(CollisionInstance)
+    ) as *CollisionInstance;
+    target.data.portals = collision_snapshot_bytes(
+        source.data.portals as *u8,
+        source.data.portal_count as usize * sizeof(CollisionPortal)
+    ) as *CollisionPortal;
+    target.data.face_capacity = source.data.face_count;
+    target.data.instance_capacity = source.data.instance_count;
+    target.frames = collision_snapshot_bytes(
+        source.frames as *u8,
+        source.frame_count as usize * sizeof(RoomFrameEntry)
+    ) as *RoomFrameEntry;
+    target.frame_count = source.frame_count;
+    target.frame_capacity = source.frame_count;
+    target.nodes = collision_snapshot_bytes(
+        source.nodes as *u8,
+        source.node_count as usize * sizeof(CollisionNode)
+    ) as *CollisionNode;
+    target.node_count = source.node_count;
+    target.spaces = collision_snapshot_bytes(
+        source.spaces as *u8,
+        source.space_count as usize * sizeof(CollisionSpace)
+    ) as *CollisionSpace;
+    target.space_count = source.space_count;
+    target.portal_index = collision_snapshot_bytes(
+        source.portal_index as *u8,
+        source.data.portal_count as usize * sizeof(CollisionPortalEntry)
+    ) as *CollisionPortalEntry;
+    return collision_snapshot_valid(read target);
+}
+fn collision_snapshot_bytes(source: *u8, size: usize) -> *u8 {
+    if size == 0usize {
+        return null(*u8);
+    }
+    var data: *u8 = malloc(size);
+    if data != null(*u8) {
+        memcpy(data, source, size);
+    }
+    return data;
+}
+fn collision_snapshot_valid(scene: read CollisionScene) -> bool {
+    var valid: bool = true;
+    if scene.data.face_count != 0u32 {
+        valid = valid && scene.data.faces != null(*CollisionFace);
+    }
+    if scene.data.instance_count != 0u32 {
+        valid = valid && scene.data.instances != null(*CollisionInstance);
+    }
+    if scene.data.portal_count != 0u32 {
+        valid = valid && scene.data.portals != null(*CollisionPortal) && scene.portal_index != null(
+            *CollisionPortalEntry
+        );
+    }
+    if scene.frame_count != 0u32 {
+        valid = valid && scene.frames != null(*RoomFrameEntry);
+    }
+    if scene.node_count != 0u32 {
+        valid = valid && scene.nodes != null(*CollisionNode);
+    }
+    if scene.space_count != 0u32 {
+        valid = valid && scene.spaces != null(*CollisionSpace);
+    }
+    return valid || error("collision snapshot allocation failed");
+}

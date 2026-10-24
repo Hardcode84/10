@@ -1,0 +1,30 @@
+fn doors_draw(
+    scene: read CollisionScene,
+    doors: read DoorSet,
+    input: mut FrameInput,
+    time: f32
+) -> unit {
+    var i: u32 = 0u32;
+    while i < doors_count(read doors) {
+        var door: DoorDefinition = door_get(read doors, i);
+        var leaf: u32 = 0u32;
+        while leaf < 2u32 {
+            var pose: CollisionInstance = collision_pose(
+                collision_instance(read scene, door.leaves[leaf as usize]),
+                time
+            );
+            var instance: MeshInstance = mesh_identity(
+                door.meshes[leaf as usize],
+                door.space
+            );
+            instance.transform[3usize] = pose.origin.x;
+            instance.transform[7usize] = pose.origin.y;
+            instance.transform[11usize] = pose.origin.z;
+            if !input_instance(mut input, instance) {
+                scene_overflow();
+            }
+            leaf = leaf + 1u32;
+        }
+        i = i + 1u32;
+    }
+}

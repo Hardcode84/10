@@ -1,0 +1,144 @@
+fn hex_door_next_z(z: f32, radius: f32, apothem: f32) -> f32 {
+    var index: u32 = ((z + radius) / DOOR_JOINT_STEP) as u32 + 1u32;
+    var next: f32 = index as f32 * DOOR_JOINT_STEP - radius;
+    if next <= z {
+        next = next + DOOR_JOINT_STEP;
+    }
+    if z < 0f32 && next > 0f32 {
+        next = 0f32;
+    }
+    return mask_min(next, apothem);
+}
+fn hex_door_rows(radius: f32, apothem: f32) -> u32 {
+    var rows: u32 = 1u32;
+    var z: f32 = -apothem;
+    while z < apothem {
+        z = hex_door_next_z(z, radius, apothem);
+        rows = rows + 1u32;
+    }
+    return rows;
+}
+fn hex_door_ring(hull: mut AssetHull, ring: u32, z: f32, radius: f32, side: u32) -> unit {
+    var edge: f32 = radius - absf(z) / sqrtf(3f32);
+    var joint: f32 = metal_door_joint(z + radius);
+    var low: f32 = -edge;
+    var high: f32 = joint;
+    if side != 0u32 {
+        low = joint;
+        high = edge;
+    }
+    asset_vertex_set(mut hull, ring * 4u32, vec(low, -DOOR_THICKNESS * 0.5f32, z));
+    asset_vertex_set(mut hull, ring * 4u32 + 1u32, vec(low, DOOR_THICKNESS * 0.5f32, z));
+    asset_vertex_set(mut hull, ring * 4u32 + 2u32, vec(high, DOOR_THICKNESS * 0.5f32, z));
+    asset_vertex_set(mut hull, ring * 4u32 + 3u32, vec(high, -DOOR_THICKNESS * 0.5f32, z));
+}
+fn hex_door_leaf(depth: f32, side: u32, asset: mut RoomAsset) -> bool {
+    var radius: f32 = service_hex_profile().radius;
+    var apothem: f32 = radius * sqrtf(3f32) * 0.5f32;
+    var rows: u32 = hex_door_rows(radius, apothem);
+    var hull: AssetHull = asset_hull_new();
+    var profile: RegularProfile = make RegularProfile {
+        sides: 4u32,
+        phase: 0f32
+    };
+    if !loft_allocate(mut hull, profile, rows) {
+        return false;
+    }
+    var z: f32 = -apothem;
+    var ring: u32 = 0u32;
+    while ring < rows {
+        hex_door_ring(mut hull, ring, z, radius, side);
+        if ring != 0u32 {
+            loft_span(mut hull, profile, ring - 1u32, 2u32);
+        }
+        z = hex_door_next_z(z, radius, apothem);
+        ring = ring + 1u32;
+    }
+    loft_caps(mut hull, profile, rows, 1u32, 1u32);
+    var plate: Mesh = mesh_new();
+    if !hull_solid_mesh(
+        read hull,
+        mut plate,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        2f32
+    ) {
+        return false;
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !stopper_surface_uvs(
+        mut asset.geometry,
+        read plate,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        radius * 2f32,
+        1u32
+    ) {
+        return false;
+    }
+    return asset_part_append(
+        mut asset.door_leaves,
+        make AssetPart {
+            name: asset_name("DOOR-LEAF"),
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: vec(0f32, depth * 0.5f32, 0f32),
+            basis: identity_basis()
+        }
+    );
+}
+// Two solid leaves meet on the texture's jagged joint and occupy the central seat.
+fn hex_door_leaves(depth: f32, asset: mut RoomAsset) -> bool {
+    return hex_door_leaf(depth, 0u32, mut asset) && hex_door_leaf(depth, 1u32, mut asset);
+}
+fn room_leaf_triangles(asset: read RoomAsset) -> u32 {
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < asset_part_count(read asset.door_leaves) {
+        count = count + asset_part(read asset.door_leaves, i).count;
+        i = i + 1u32;
+    }
+    return count;
+}
+fn room_leaf_render(asset: mut RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_part_count(read asset.door_leaves) {
+        var part: AssetPart = asset_part(read asset.door_leaves, i);
+        var j: u32 = 0u32;
+        while j < part.count {
+            if !mesh_append(
+                mut asset.mesh,
+                placed_triangle(
+                    mesh_triangle(read asset.geometry, part.first + j),
+                    part.origin,
+                    part.basis
+                )
+            ) {
+                return false;
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn room_leaf_collision(asset: read RoomAsset, builder: mut CollisionBuilder, space: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_part_count(read asset.door_leaves) {
+        var part: AssetPart = asset_part(read asset.door_leaves, i);
+        var mesh: Mesh = mesh_new();
+        var j: u32 = 0u32;
+        while j < part.count {
+            if !mesh_append(mut mesh, mesh_triangle(read asset.geometry, part.first + j)) {
+                return false;
+            }
+            j = j + 1u32;
+        }
+        if !collision_append_solid(mut builder, read mesh, space, part.origin, part.basis) {
+            return false;
+        }
+        collision_controlled(mut builder);
+        i = i + 1u32;
+    }
+    return true;
+}

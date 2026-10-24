@@ -13,8 +13,9 @@ rigid body. Release keeps the player's current velocity.
 
 Append the mesh, then call `collision_set_motion` once before `collision_finish`.
 Construction rejects non-finite velocities. Zero velocities specify a static
-instance. Geometry, identities, and motion remain immutable after construction.
-Queries can run concurrently. No query changes a pose or rebuilds the index.
+instance. Geometry and identities remain immutable after construction. Constant
+motion remains fixed. Controlled translation uses the schedule below. Queries
+can run concurrently on one snapshot. No query changes a pose or rebuilds the index.
 
 For a local surface point `q`, the pose and velocity are:
 
@@ -158,3 +159,30 @@ reaches 1024 connections. It does not silently discard the remaining overlap.
 Run crust tests.crs collision for transformed seam contacts, pre-crossing hook
 attachments, and moving destination surfaces. Run crust tests.crs hook-light
 for physical light anchors and the recursive GPU capture.
+
+## Controlled translation
+
+A controlled body can start a finite translation during a run. It stays in the
+moving-body query list while stopped. Its pose stays at the reference position
+before the start time and at the final position after the stop time. Sweeps split
+at these times. Surface velocity is zero outside the motion interval.
+
+The open hex stopper contains two separate solid leaves. Each leaf has a retained
+render mesh and a collider. Both use the same translation schedule. The jagged
+leaf edges and the face texture use one joint profile.
+
+A ship forecast requests a closed door when a predicted segment enters its finite
+approach volume from either side. The volume is in the door room's local space.
+Prediction splits segments at portals before this test. The next simulation tick
+starts the opening movement. The door stays open until a run reset. See
+[src/game/doors/state.crs](../../src/game/doors/state.crs) for timing and distance
+values.
+
+An attached hook releases when its leaf starts to move. A moving leaf rejects a
+new hook attachment. Release preserves ship velocity and waits for the tether
+control to be released before another launch. Other moving bodies keep
+their attachment rules.
+
+Recordings store the door request on its simulation tick and include controlled
+motion in the state hash. Replay uses that request instead of forecast completion
+time. Worker jobs query independent scene snapshots.

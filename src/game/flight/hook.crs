@@ -132,8 +132,7 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
             end_time
         );
     } else if limit < 1f32 {
-        reset_cable(mut drone.cable);
-        drone.cable.phase = CABLE_SNAPPED;
+        hook_disconnect(mut drone);
     } else {
         drone.cable.anchor = add(drone.cable.anchor, travel);
     }

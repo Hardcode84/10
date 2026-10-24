@@ -20,11 +20,11 @@ times for the most recent execution. Completion spans record executor observatio
 time, not the device timestamp. Read spans before starting the next execution.
 
 After simulation, prediction, sound preparation, and scene preparation are
-independent tasks. Sound preparation reads copied contact facts and the shared
-collision scene. It produces an owned numeric batch for the sound mixer.
+independent tasks. Sound preparation reads copied contact facts and its collision snapshot. It produces an owned numeric batch for the sound mixer.
 Scene preparation reads the completed prediction from the preceding frame.
-A pool worker reads a copied trial and the shared collision scene to produce
-markers for the next frame. The current camera, body, hook, lights, and input
+A pool worker reads a copied trial and its collision snapshot to produce
+markers and a door request for the next frame. Ship prediction runs for the full
+forecast horizon when marker display is off. The current camera, body, hook, lights, and input
 use the current simulation state. The first task frame has no prediction markers.
 Restart and spin-mode changes discard old markers. Disabling preview hides all
 markers; launching the hook hides its old forecast at once. Portal-local marker
@@ -53,7 +53,11 @@ waits. Both window loops use the same delay before the next simulation step.
 
 The native pool has bounded job storage, completion generations, and joined
 shutdown. A job retains its pool loan until cleanup. The prediction operation
-also retains its collision input and exclusive result context until cleanup.
+retains its exclusive result context until cleanup. Prediction and sound contexts
+each allocate an owned collision snapshot at scene load. Before each job, the
+application copies moving-body records into that snapshot. Static geometry and
+query indices are copied only at load. This adds two scene copies to host memory;
+frame updates allocate no snapshot storage.
 Crust checks structural transfer and sharing capabilities at `transfers` capture
 boundaries. Shared collision storage has a trusted `share` contract. Ordinary
 computation needs no execution annotation. The typed game adapter contains

@@ -1,0 +1,85 @@
+const DOOR_OPEN_SECONDS: f32 = 0.35f32;
+const DOOR_APPROACH_DEPTH: f32 = 3f32;
+const DOOR_CLOSED: u32 = 0u32;
+const DOOR_OPENING: u32 = 1u32;
+const DOOR_OPEN: u32 = 2u32;
+fn door_state(scene: read CollisionScene, door: DoorDefinition, time: f32) -> u32 {
+    var item: CollisionInstance = collision_instance(read scene, door.leaves[0usize]);
+    if item.motion_duration == 0f32 {
+        return DOOR_CLOSED;
+    }
+    if time < item.motion_start + item.motion_duration {
+        return DOOR_OPENING;
+    }
+    return DOOR_OPEN;
+}
+// A request starts both leaves together. Open doors remain open until the run resets.
+fn door_request(
+    scene: mut CollisionScene,
+    doors: read DoorSet,
+    prediction: Prediction,
+    trial: mut Trial
+) -> unit {
+    if prediction.door == 0xffffffffu32 || prediction.attempt != trial.attempt {
+        return;
+    }
+    var door: DoorDefinition = door_get(read doors, prediction.door);
+    var time: f32 = trial.drone.clock as f32 * STEP;
+    if door_state(read scene, door, time) != DOOR_CLOSED {
+        return;
+    }
+    var distance: f32 = door.radius + DOOR_JOINT_WIDTH + 0.05f32;
+    collision_slide(
+        mut scene,
+        door.leaves[0usize],
+        time,
+        DOOR_OPEN_SECONDS,
+        vec(-distance, 0f32, 0f32)
+    );
+    collision_slide(
+        mut scene,
+        door.leaves[1usize],
+        time,
+        DOOR_OPEN_SECONDS,
+        vec(distance, 0f32, 0f32)
+    );
+    if trial.drone.cable.phase == CABLE_ATTACHED && (
+        trial.drone.cable.instance == door.leaves[0usize] || trial.drone.cable.instance == door.leaves[
+            1usize
+        ]
+    ) {
+        hook_disconnect(mut trial.drone);
+    }
+}
+fn doors_hash(scene: read CollisionScene, hash: u32) -> u32 {
+    var index: u32 = collision_moving_head(read scene);
+    while index != 0xffffffffu32 {
+        var item: CollisionInstance = collision_instance(read scene, index);
+        if item.controlled {
+            hash = hash_word(hash, float_bits(item.motion_start));
+            hash = hash_word(hash, float_bits(item.motion_duration));
+            hash = hash_vec(hash, item.linear);
+        }
+        index = item.next_moving;
+    }
+    return hash;
+}
+
+fn game_door_command(
+    scene: mut CollisionScene,
+    graph: read RoomGraph,
+    trial: mut Trial,
+    command: Command,
+    door: u32
+) -> bool {
+    if door != 0xffffffffu32 && door >= doors_count(graph_doors(read graph)) {
+        return error("recording door index is outside the scene");
+    }
+    if !command.restart && !command.spin {
+        var request: Prediction = prediction_new();
+        request.door = door;
+        request.attempt = trial.attempt;
+        door_request(mut scene, graph_doors(read graph), request, mut trial);
+    }
+    return true;
+}
