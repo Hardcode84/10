@@ -151,10 +151,7 @@ fn service_pig_style(graph: read RoomGraph, mesh: mut Mesh, cursor: LevelCursor)
     var i: u32 = 0u32;
     while i < count {
         var port: RoomPort = graph_socket(read graph, node.first + i).port;
-        if count == 1u32 || asset_names_equal(port.id, asset_name("ENTRY")) || asset_names_equal(
-            port.id,
-            asset_name("EXIT")
-        ) {
+        if count == 1u32 || service_pig_entry(port) {
             level_room_material(
                 read graph,
                 mut mesh,
@@ -214,7 +211,7 @@ fn service_pig_run(
         back = asset_name("EXIT");
         ahead = asset_name("ENTRY");
     }
-    if !level_piece(
+    if !service_pig_junction(
         mut graph,
         mut builder,
         mut mesh,
@@ -233,7 +230,7 @@ fn service_pig_run(
         mut cursor,
         metres,
         refuge
-    ) || !level_piece(
+    ) || !service_pig_junction(
         mut graph,
         mut builder,
         mut mesh,
@@ -259,7 +256,7 @@ fn service_pig_span(
         return service_pig_straight(mut graph, mut builder, mut mesh, mut cursor, metres);
     }
     var first: f32 = metres * 0.4f32;
-    if !service_pig_straight(mut graph, mut builder, mut mesh, mut cursor, first) || !level_piece(
+    if !service_pig_straight(mut graph, mut builder, mut mesh, mut cursor, first) || !service_pig_junction(
         mut graph,
         mut builder,
         mut mesh,
@@ -388,5 +385,54 @@ fn demo_room_lighting(
 fn service_junction_span() -> f32 {
     return 2f32 * (
         service_hex_profile().radius + prefab_hex_t_junction_parameter(0u32).initial
+    );
+}
+
+fn service_pig_junction(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor,
+    kind: u32,
+    entry: AssetName,
+    exit_name: AssetName
+) -> bool {
+    var values: AssetValues = asset_values_new();
+    var asset: RoomAsset = room_asset_new();
+    var room: u32 = graph_count(read graph);
+    if !course_values(kind, 0u32, mut values) || !course_build(kind, read values, mut asset) {
+        return false;
+    }
+    var styles: [u32; 4] = make [u32; 4] {
+        0u32,
+        0u32,
+        0u32,
+        0u32
+    };
+    var i: u32 = 0u32;
+    while i < asset_port_count(read asset.ports) {
+        if service_pig_entry(asset_port(read asset.ports, i)) {
+            styles[i as usize] = 1u32;
+        }
+        i = i + 1u32;
+    }
+    if !junction_style_seams(mut asset, styles) || !course_room_mesh(
+        read asset,
+        mut graph,
+        mut builder,
+        mut mesh,
+        kind,
+        0u32
+    ) {
+        return false;
+    }
+    level_attach(mut graph, mut cursor, room, entry, exit_name);
+    return true;
+}
+
+fn service_pig_entry(port: RoomPort) -> bool {
+    return asset_names_equal(port.id, asset_name("ENTRY")) || asset_names_equal(
+        port.id,
+        asset_name("EXIT")
     );
 }

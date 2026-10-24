@@ -40,6 +40,23 @@ fn graph_material_region(graph: read RoomGraph, node: GraphNode, region: u32) ->
     }
     return TUNNEL_STYLES;
 }
+fn graph_junction_seams(graph: read RoomGraph, node: GraphNode, asset: mut RoomAsset) -> bool {
+    if node.kind < 2u32 || node.kind > 4u32 {
+        return true;
+    }
+    var styles: [u32; 4] = make [u32; 4] {
+        0u32,
+        0u32,
+        0u32,
+        0u32
+    };
+    var i: u32 = 0u32;
+    while i < node.count {
+        styles[i as usize] = graph_material_region(read graph, node, i);
+        i = i + 1u32;
+    }
+    return junction_style_seams(mut asset, styles);
+}
 fn graph_assemble_room(
     graph: mut RoomGraph,
     id: u32,
@@ -50,6 +67,9 @@ fn graph_assemble_room(
     var node: GraphNode = graph_node(read graph, id);
     var asset: RoomAsset = room_asset_new();
     if !graph_asset(node.kind, mut asset) {
+        return false;
+    }
+    if !graph_junction_seams(read graph, node, mut asset) {
         return false;
     }
     if id == 0u32 {

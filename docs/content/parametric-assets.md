@@ -245,6 +245,8 @@ floor, and ceiling patches at an entrance use that region. Each patch starts
 its axial texture at the port plane and uses the tunnel's cross-section phase.
 A level can assign a different material to each region. The junction recipes
 expose `style-entry`, `style-east`, `style-exit`, and `style-west` for their ports.
+Different entrance styles have narrow dark seams along their shared surface
+boundaries. The seams use the material border width.
 
 Expose a small set of independent dimensions. Derive related dimensions from
 shared tables and construction rules. A nominal pipe size determines its

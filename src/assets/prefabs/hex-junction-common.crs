@@ -30,3 +30,25 @@ fn hex_junction_parameter_name(index: u32) -> AssetName {
     }
     return asset_name("style-west");
 }
+
+fn hex_junction_styled_build(
+    connections: u32,
+    parameters: read AssetValues,
+    asset: mut RoomAsset
+) -> bool {
+    if !hex_junction_build(connections, asset_value(read parameters, 0u32), mut asset) {
+        return false;
+    }
+    var styles: [u32; 4] = make [u32; 4] {
+        0u32,
+        0u32,
+        0u32,
+        0u32
+    };
+    var i: u32 = 0u32;
+    while i < asset_port_count(read asset.ports) {
+        styles[i as usize] = asset_value(read parameters, i + 1u32) as u32;
+        i = i + 1u32;
+    }
+    return junction_style_seams(mut asset, styles);
+}

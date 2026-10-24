@@ -12,9 +12,9 @@ fn prefab_hex_x_junction_build(parameters: read AssetValues, asset: mut RoomAsse
     if !prefab_hex_x_junction_parameters_valid(read parameters) {
         return false;
     }
-    return hex_junction_build(
+    return hex_junction_styled_build(
         prefab_hex_x_junction_CONNECTIONS,
-        asset_value(read parameters, 0u32),
+        read parameters,
         mut asset
     );
 }

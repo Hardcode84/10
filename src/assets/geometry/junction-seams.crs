@@ -1,0 +1,96 @@
+// Add dark visual strips at boundaries between different entrance styles.
+// Requires a finished shell without style seams. Style values are identities in port order.
+fn junction_style_seams(asset: mut RoomAsset, styles: [u32; 4]) -> bool {
+    var face_id: u32 = asset_port_count(read asset.ports);
+    while face_id < asset_face_count(read asset.hull) {
+        var face: HullFace = asset_face(read asset.hull, face_id);
+        var edge: u32 = 0u32;
+        while edge < face.count {
+            var a: u32 = asset_index(read asset.hull, face.first + edge);
+            var b: u32 = asset_index(
+                read asset.hull,
+                face.first + (edge + 1u32) % face.count
+            );
+            if junction_style_edge(read asset.hull, face_id, a, b, styles) && !junction_seam_strip(
+                read asset.hull,
+                mut asset.mesh,
+                face_id,
+                edge
+            ) {
+                return false;
+            }
+            edge = edge + 1u32;
+        }
+        face_id = face_id + 1u32;
+    }
+    return true;
+}
+fn junction_style_edge(
+    hull: read AssetHull,
+    face_id: u32,
+    a: u32,
+    b: u32,
+    styles: [u32; 4]
+) -> bool {
+    var style: u32 = styles[asset_face(read hull, face_id).region as usize];
+    var other: u32 = 0u32;
+    while other < asset_face_count(read hull) {
+        var face: HullFace = asset_face(read hull, other);
+        if styles[face.region as usize] != style {
+            var edge: u32 = 0u32;
+            while edge < face.count {
+                if asset_index(read hull, face.first + edge) == b && asset_index(
+                    read hull,
+                    face.first + (edge + 1u32) % face.count
+                ) == a {
+                    return true;
+                }
+                edge = edge + 1u32;
+            }
+        }
+        other = other + 1u32;
+    }
+    return false;
+}
+fn junction_seam_strip(hull: read AssetHull, mesh: mut Mesh, id: u32, edge: u32) -> bool {
+    var face: HullFace = asset_face(read hull, id);
+    var frame: SurfaceFrame = hull_frame(read hull, face);
+    var a: Vec3 = hull_corner(read hull, face, edge);
+    var b: Vec3 = hull_corner(read hull, face, (edge + 1u32) % face.count);
+    var width: f32 = hex_tunnel_material().border;
+    var across: Vec3 = scale(unit_vector(cross(frame.normal, sub(b, a))), width);
+    var lift: Vec3 = scale(frame.normal, -0.001f32);
+    var points: [Vec3; 4] = make [Vec3; 4] {
+        add(a, lift),
+        add(b, lift),
+        add(add(b, across), lift),
+        add(add(a, across), lift)
+    };
+    var piece: u32 = 1u32;
+    while piece < 3u32 {
+        var t: MeshTriangle = make MeshTriangle {
+            vertices: make [MeshVertex; 3] {
+                junction_seam_vertex(points[0usize]),
+                junction_seam_vertex(points[(piece + 1u32) as usize]),
+                junction_seam_vertex(points[piece as usize])
+            },
+            material: face.region,
+            portal: 0u32,
+            flags: 4u32
+        };
+        if !mesh_append(mut mesh, t) {
+            return false;
+        }
+        piece = piece + 1u32;
+    }
+    return true;
+}
+fn junction_seam_vertex(p: Vec3) -> MeshVertex {
+    return make MeshVertex {
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        u: 0f32,
+        v: 0f32
+    };
+}

@@ -12,11 +12,7 @@ fn prefab_hex_elbow_build(parameters: read AssetValues, asset: mut RoomAsset) ->
     if !prefab_hex_elbow_parameters_valid(read parameters) {
         return false;
     }
-    return hex_junction_build(
-        prefab_hex_elbow_CONNECTIONS,
-        asset_value(read parameters, 0u32),
-        mut asset
-    );
+    return hex_junction_styled_build(prefab_hex_elbow_CONNECTIONS, read parameters, mut asset);
 }
 fn prefab_hex_elbow_material_count() -> u32 {
     return 2u32;
