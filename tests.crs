@@ -229,6 +229,21 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "benchmark") == 0i32 
     run -> argv = run -> argv + 1isize;
     return launch_application(run, "build/benchmark-graph");
 };
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "service-layout") == 0i32 {
+    if !build_demo_target(
+        run,
+        backend.emit,
+        "levels/service.crs",
+        "tests/game/service-layout.crs",
+        null(*u8),
+        "build/tests-service-layout"
+    ) {
+        return 1i32;
+    }
+    run -> argc = run -> argc - 1i32;
+    run -> argv = run -> argv + 1isize;
+    return launch_application(run, "build/tests-service-layout");
+};
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "graph-layout") == 0i32 {
     if !build_game_target(
         run,

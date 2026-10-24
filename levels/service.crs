@@ -3,6 +3,7 @@
 // Grey service tunnels connect those junctions. Branch passages rejoin after the first
 // pig lane, after the middle lane, and at the last lane exit. A lower cross-link
 // joins the two side routes. The full detour is longer and has more turns.
+// The seed varies detour bends between fixed junctions. Pig lanes and connections stay fixed.
 // Inner branches use blue-grey tread plate; outer branches use green ribbed metal.
 // The finish changes across the middle pig intersection. Branch materials have no full-bright texels.
 // Ochre walls and amber full-bright strips identify the pig lanes. Pigs are not installed.
@@ -24,13 +25,14 @@ fn demo_room_build(
     asset: mut RoomAsset,
     collision: mut CollisionScene,
     mesh: mut Mesh,
-    graph: mut RoomGraph
+    graph: mut RoomGraph,
+    seed: u32
 ) -> bool {
     var values: AssetValues = asset_values_new();
     if !course_values(PREFAB_RADIAL_START, 0u32, mut values) || !room_build(
         read values,
         mut asset
-    ) || !graph_allocate(mut graph, 96u32, 0u32) {
+    ) || !graph_allocate(mut graph, 112u32, seed) {
         return false;
     }
     var port: RoomPort = asset_port(read asset.ports, 0u32);
@@ -92,7 +94,7 @@ fn demo_room_build(
         mut builder,
         mut mesh,
         mut cursor
-    ) || !service_build_branches(mut graph, mut builder, mut mesh, branches) || !level_close(
+    ) || !service_build_branches(mut graph, mut builder, mut mesh, branches, seed) || !level_close(
         mut graph,
         mut builder,
         mut mesh
@@ -698,7 +700,7 @@ fn service_parallel_branch(
     target: LevelCursor,
     reach: f32,
     fork_distance: f32,
-    detour: f32,
+    shape: ServicePathShape,
     fork: mut LevelCursor,
     style: u32
 ) -> bool {
@@ -722,7 +724,7 @@ fn service_parallel_branch(
         mut start,
         absf(across) - service_junction_span(),
         fork_distance,
-        detour,
+        shape,
         mut fork,
         style
     ) || !service_route_turn(mut graph, mut builder, mut mesh, mut start, right, style) || !service_route_straight(
@@ -750,7 +752,7 @@ fn service_branch_span(
     cursor: mut LevelCursor,
     metres: f32,
     fork_distance: f32,
-    detour: f32,
+    shape: ServicePathShape,
     fork: mut LevelCursor,
     style: u32
 ) -> bool {
@@ -761,7 +763,7 @@ fn service_branch_span(
             mut mesh,
             mut cursor,
             metres,
-            detour,
+            shape,
             style
         );
     }
@@ -797,7 +799,7 @@ fn service_branch_span(
         mut mesh,
         mut cursor,
         metres - fork_distance - service_junction_span(),
-        detour,
+        shape,
         style
     );
 }
@@ -805,7 +807,8 @@ fn service_build_branches(
     graph: mut RoomGraph,
     builder: mut CollisionBuilder,
     mesh: mut Mesh,
-    branches: ServiceBranches
+    branches: ServiceBranches,
+    seed: u32
 ) -> bool {
     var lower_fork: LevelCursor = branches.approach;
     var upper_fork: LevelCursor = branches.middle;
@@ -820,7 +823,7 @@ fn service_build_branches(
         branches.first_join,
         18f32,
         60f32,
-        0f32,
+        service_path_shape(seed, 0u32, 0f32),
         mut lower_fork,
         SERVICE_BRANCH_INNER
     ) || !service_parallel_branch(
@@ -831,7 +834,7 @@ fn service_build_branches(
         branches.last,
         43f32,
         upper_split,
-        -20f32,
+        service_path_shape(seed, 1u32, -1f32),
         mut upper_fork,
         SERVICE_BRANCH_OUTER
     ) || !service_parallel_branch(
@@ -842,7 +845,7 @@ fn service_build_branches(
         branches.south,
         60f32,
         0f32,
-        20f32,
+        service_path_shape(seed, 2u32, 1f32),
         mut lower_fork,
         SERVICE_BRANCH_INNER
     ) {
@@ -865,16 +868,17 @@ fn service_build_branches(
 }
 
 // A four-corner offset returns to the original axis with the same forward displacement.
-fn service_route_span(
+fn service_route_cell(
     graph: mut RoomGraph,
     builder: mut CollisionBuilder,
     mesh: mut Mesh,
     cursor: mut LevelCursor,
     metres: f32,
-    detour: f32,
-    style: u32
+    shape: ServicePathShape,
+    style: u32,
+    cell: u32
 ) -> bool {
-    if detour == 0f32 {
+    if shape.offset == 0f32 {
         return service_route_straight(
             mut graph,
             mut builder,
@@ -884,9 +888,15 @@ fn service_route_span(
             style
         );
     }
-    var right: bool = detour > 0f32;
-    var lead: f32 = metres * 0.2f32;
-    var middle: f32 = metres * 0.4f32;
+    var right: bool = shape.offset > 0f32;
+    var minimum: f32 = 4f32;
+    var available: f32 = metres - 2f32 * service_junction_span() - 3f32 * minimum;
+    var lead: f32 = minimum + available * (
+        0.1f32 + 0.25f32 * service_path_fraction(shape, cell * 2u32)
+    );
+    var middle: f32 = minimum + available * (
+        0.25f32 + 0.25f32 * service_path_fraction(shape, cell * 2u32 + 1u32)
+    );
     var tail: f32 = metres - lead - middle - 2f32 * service_junction_span();
     return service_route_straight(mut graph, mut builder, mut mesh, mut cursor, lead, style) && service_route_turn(
         mut graph,
@@ -900,7 +910,7 @@ fn service_route_span(
         mut builder,
         mut mesh,
         mut cursor,
-        absf(detour),
+        absf(shape.offset),
         style
     ) && service_route_turn(mut graph, mut builder, mut mesh, mut cursor, !right, style) && service_route_straight(
         mut graph,
@@ -914,7 +924,7 @@ fn service_route_span(
         mut builder,
         mut mesh,
         mut cursor,
-        absf(detour),
+        absf(shape.offset),
         style
     ) && service_route_turn(mut graph, mut builder, mut mesh, mut cursor, right, style) && service_route_straight(
         mut graph,
@@ -924,4 +934,61 @@ fn service_route_span(
         tail,
         style
     );
+}
+
+record ServicePathShape {
+    seed: u32;
+    route: u32;
+    cells: u32;
+    offset: f32;
+}
+// Route keys are stable across room insertion. The signed side selects the reserved corridor.
+fn service_path_shape(seed: u32, route: u32, side: f32) -> ServicePathShape {
+    return make ServicePathShape {
+        seed: seed,
+        route: route,
+        cells: 1u32 + metal_hash(seed, route, 0x10u32) % 2u32,
+        offset: side * (16u32 + metal_hash(seed, route, 0x20u32) % 11u32) as f32
+    };
+}
+fn service_path_fraction(shape: ServicePathShape, field: u32) -> f32 {
+    return (metal_hash(shape.seed, shape.route, 0x100u32 + field) & 1023u32) as f32 / 1023f32;
+}
+// Each cell returns to the forward axis. Junction anchors and topology remain unchanged.
+fn service_route_span(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor,
+    metres: f32,
+    shape: ServicePathShape,
+    style: u32
+) -> bool {
+    if shape.offset == 0f32 {
+        return service_route_straight(
+            mut graph,
+            mut builder,
+            mut mesh,
+            mut cursor,
+            metres,
+            style
+        );
+    }
+    var cell: u32 = 0u32;
+    while cell < shape.cells {
+        if !service_route_cell(
+            mut graph,
+            mut builder,
+            mut mesh,
+            mut cursor,
+            metres / shape.cells as f32,
+            shape,
+            style,
+            cell
+        ) {
+            return false;
+        }
+        cell = cell + 1u32;
+    }
+    return true;
 }

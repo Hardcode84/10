@@ -3,7 +3,8 @@ fn game_world_open(session: mut GameSession, collision: mut CollisionScene, tria
         mut session.room,
         mut collision,
         mut session.room_mesh,
-        mut session.control.graph
+        mut session.control.graph,
+        session.control.launch.config.seed
     ) {
         return false;
     }

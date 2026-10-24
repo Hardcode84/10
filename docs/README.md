@@ -5,7 +5,7 @@ program with the Crust ownership stage. Device programs use the shader stage.
 
 | Root | Program |
 | --- | --- |
-| `crust main.crs` | Fly the authored service-network level. |
+| `crust main.crs --seed N` | Fly the service network with seeded tunnel paths. |
 | `crust labyrinth.crs` | Play the labyrinth demo. Use `--seed N --complexity N`. |
 | `crust labyrinth.crs --web` | Build the same demo for WebAssembly and WebGPU. |
 | `crust demo.crs levels/radial.crs` | Fly through the generated room with game controls and linked portals. |
@@ -92,6 +92,7 @@ crust tests.crs asset-viewer
 crust tests.crs collision --sanitize
 crust tests.crs game
 crust tests.crs graph-layout
+crust tests.crs service-layout
 crust tests.crs tunnel-styles
 crust tests.crs graph --complexity 8 --width 320 --height 180
 crust tests.crs viewer --width 320 --height 180
@@ -107,6 +108,9 @@ textures; 7 checks retained portal views; 8 checks portal capacity; 9 checks ima
 Run case 10 on a display to check window and swapchain resize.
 Use case 0 with `--capture FILE --frames N` to compare a custom demo sequence
 with the CPU reference.
+
+The service-layout check builds seeded paths on the CPU. It checks repeatability,
+fixed anchors, loop counts, and clearance between rooms.
 
 The graph-layout check tests seeded topology and corridor style continuity without
 rendering the game. The tunnel-styles check renders the six shared materials with

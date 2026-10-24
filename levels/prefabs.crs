@@ -12,7 +12,8 @@ fn demo_room_build(
     asset: mut RoomAsset,
     collision: mut CollisionScene,
     mesh: mut Mesh,
-    graph: mut RoomGraph
+    graph: mut RoomGraph,
+    seed: u32
 ) -> bool {
     var values: AssetValues = asset_values_new();
     if !course_values(PREFAB_RADIAL_START, 0u32, mut values) || !room_build(

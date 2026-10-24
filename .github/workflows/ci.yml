@@ -59,8 +59,10 @@ jobs:
           crust tests.crs ratios
           crust tests.crs flight
           crust tests.crs reel
-      - name: Check labyrinth topology
-        run: crust tests.crs graph-layout
+      - name: Check level topology and seeded paths
+        run: |
+          crust tests.crs graph-layout
+          crust tests.crs service-layout
       - name: Fetch the checked LLVM release
         run: |
           mkdir -p build/toolchain/ci-llvm

@@ -210,7 +210,7 @@ The demo has no completion condition.
 
 A level is a checked Crust source file. It defines
 `demo_room_build(asset: mut RoomAsset, collision: mut CollisionScene,
-mesh: mut Mesh, graph: mut RoomGraph) -> bool`. The function sets the spawn, room ports, rendered
+mesh: mut Mesh, graph: mut RoomGraph, seed: u32) -> bool`. The function sets the spawn, room ports, rendered
 mesh, and finished collision scene. Portal triangle IDs start at one and
 refer to the collision link order. For a single space, leave the graph empty and use local space zero. For
 multiple spaces, fill the graph with one mesh range per room and all portal
@@ -223,7 +223,9 @@ It also defines `demo_room_ambient() -> Vec3`. This returns the
 constant red, green, and blue light added to player and hook lighting.
 
 `levels/service.crs` is the authored service-network section used by `main.crs`.
-Its source comments define the route. It also runs through `demo.crs`.
+Its source comments define the route. It also runs through `demo.crs`. Use `--seed N` to vary its detour paths.
+The same seed produces the same layout. The route connections and pig lanes
+stay fixed.
 
 `levels/prefabs.crs` connects the hexagonal and octagonal prefab sets through
 the rotor, pipe, and girder shafts, then the hub. Its source comments specify

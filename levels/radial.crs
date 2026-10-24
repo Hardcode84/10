@@ -4,7 +4,8 @@ fn demo_room_build(
     asset: mut RoomAsset,
     collision: mut CollisionScene,
     mesh: mut Mesh,
-    graph: mut RoomGraph
+    graph: mut RoomGraph,
+    seed: u32
 ) -> bool {
     var values: AssetValues = asset_values_new();
     if !asset_values_allocate(mut values, room_parameter_count()) {
