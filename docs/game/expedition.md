@@ -127,9 +127,10 @@ Graph generation and mesh assembly run once at launch. Storage scales with
 room and socket counts. Route construction takes linear time; distance
 relaxation repeats edge scans until distances stop changing. Generation can
 therefore take quadratic time as complexity grows. The renderer uploads room
-meshes once and submits local-space instances. It displays up to six portal
-crossings, with 129 reserved views independent of total room count. Exhausted
-view storage rejects the frame. Physical traversal has no view-depth limit.
+meshes once and submits local-space instances. Portal rendering follows visible
+apertures within the distance and work budgets in the
+[rendering contract](../render/rendering.md). Unresolved portal pixels keep the
+background colour when a budget is reached. Physical traversal has no view-depth limit.
 The start room has a fixed warm lamp at its centre with a 16 m attenuation
 radius. The ending room has a fixed warm lamp halfway along its axis with a
 12 m attenuation radius. These lamps light only their own rooms and remain

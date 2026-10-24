@@ -34,7 +34,7 @@ fn commands_raster_body(v: *RenderState) -> unit {
     commands_root_begin(v);
     command_stamp(v, v -> query_count - 4u32);
     command_stamp(v, v -> query_count - 3u32);
-    commands_raster_depths(v, 0u32);
+    commands_traversal(v, 0u32);
 }
 fn commands_root_begin(v: *RenderState) -> unit {
     retained_dispatch(v, 0usize, (v -> width * v -> height + 63u32) / 64u32);
@@ -42,29 +42,50 @@ fn commands_root_begin(v: *RenderState) -> unit {
     command_stamp(v, 1u32);
 }
 fn commands_view_begin(v: *RenderState) -> unit {
-    commands_list_phase(v, LIST_CLEAR_HEADS);
-    commands_list_phase(v, LIST_LINK_TASKS);
-    view_dispatch(v, 7usize);
+    command_bind(v, 12usize);
+    command_indirect(v, (CLEAR_COMMAND as u64 + 1u64) * 4u64);
+    command_barrier(v, BARRIER_COMPUTE);
+    commands_dispatch_base(v, 0u32);
+    command_bind(v, 15usize);
+    command_indirect(v, (FRONTIER_COMMAND as u64 + 1u64) * 4u64);
+    command_barrier(v, BARRIER_COMPUTE);
+    command_bind(v, 7usize);
+    command_indirect(v, (VIEW_COMMAND as u64 + 1u64) * 4u64);
     command_barrier(v, BARRIER_COMPUTE);
 }
-fn commands_portal_advance(v: *RenderState, depth: u32) -> unit {
-    command_stamp(v, 2u32 + depth * 2u32);
+fn commands_portal_advance(v: *RenderState) -> unit {
     task_dispatch(v, 4usize, 3u32);
     command_barrier(v, BARRIER_COMPUTE);
     command_bind(v, 2usize);
-    command_direct(v, 1u32);
+    command_indirect(v, (ADVANCE_COMMAND as u64 + 1u64) * 4u64);
     command_barrier(v, BARRIER_INDIRECT);
     task_dispatch(v, 5usize, 6u32);
     command_barrier(v, BARRIER_COMPUTE);
-    command_stamp(v, 3u32 + depth * 2u32);
 }
-fn commands_raster_depths(v: *RenderState, depth: u32) -> unit {
-    while depth <= v -> crossing_limit {
-        commands_view_begin(v);
-        commands_geometry_batches(v, depth, true);
-        commands_portal_advance(v, depth);
-        depth = depth + 1u32;
+fn commands_traversal(v: *RenderState, round: u32) -> unit {
+    var rounds: u32 = v -> work_rounds;
+    if v -> portal_capacity == 0u32 {
+        var bound: u32 = projection_root_rounds(v);
+        if bound < round {
+            bound = round;
+        }
+        if bound < rounds {
+            rounds = bound;
+        }
     }
+    if rounds - round > RENDER_CHUNK_ROUNDS {
+        rounds = round + RENDER_CHUNK_ROUNDS;
+    }
+    v -> scheduled_rounds = rounds;
+    command_barrier(v, BARRIER_BEFORE_UPDATE);
+    command_word(v, ROUND_STOP + 1u32, rounds);
+    command_barrier(v, BARRIER_AFTER_UPDATE);
+    while round < rounds {
+        commands_dynamic_round(v);
+        round = round + 1u32;
+    }
+    command_stamp(v, 2u32);
+    command_stamp(v, 3u32);
     retained_dispatch(
         v,
         PIPELINE_COMPOSE as usize,
@@ -96,18 +117,6 @@ fn task_dispatch(v: *RenderState, pipeline: usize, field: u32) -> unit {
     }
 }
 
-fn view_dispatch(v: *RenderState, pipeline: usize) -> unit {
-    var base: u32 = 0u32;
-    while base < v -> view_capacity {
-        var count: u32 = v -> view_capacity - base;
-        if count > MAX_INVOCATIONS / LOCAL_SIZE {
-            count = MAX_INVOCATIONS / LOCAL_SIZE;
-        }
-        commands_dispatch_base(v, base);
-        retained_dispatch(v, pipeline, count);
-        base = base + count;
-    }
-}
 fn commands_dispatch_base(v: *RenderState, base: u32) -> unit {
     if v -> command_dispatch_base == base {
         return;
@@ -152,21 +161,18 @@ fn commands_shadow_build(v: *RenderState) -> unit {
     }
 }
 
-fn commands_geometry_batches(v: *RenderState, depth: u32, shade: bool) -> unit {
-    var rounds: u64 = projection_depth_work(v, depth) / (v -> mapped as *u32)[
-        PROJECTION_CAPACITY as usize
-    ] as u64 + projection_depth_steps(v, depth) / GEOMETRY_WALK_STEPS as u64 + 2u64;
-    var round: u64 = 0u64;
+fn commands_root_geometry(v: *RenderState, rounds: u32) -> unit {
+    var round: u32 = 0u32;
     while round < rounds {
         command_batch_stamp(v);
         var mode: u32 = 1u32;
-        if round == 0u64 {
+        if round == 0u32 {
             mode = mode | 2u32;
         }
-        if round + 1u64 == rounds {
+        if round + 1u32 == rounds {
             mode = mode | 4u32;
         }
-        if round == 0u64 || round + 1u64 == rounds {
+        if round == 0u32 || round + 1u32 == rounds {
             command_barrier(v, BARRIER_BEFORE_UPDATE);
             command_word(v, BATCH_MODE + 1u32, mode);
             command_barrier(v, BARRIER_UPDATED_COMPUTE);
@@ -175,12 +181,8 @@ fn commands_geometry_batches(v: *RenderState, depth: u32, shade: bool) -> unit {
         command_direct(v, 1u32);
         command_barrier(v, BARRIER_INDIRECT);
         commands_batch_geometry(v);
-        if shade {
-            task_dispatch(v, shade_pipeline(v), 9u32);
-            command_barrier(v, BARRIER_COMPUTE);
-        }
         command_batch_stamp(v);
-        round = round + 1u64;
+        round = round + 1u32;
     }
 }
 
@@ -251,4 +253,17 @@ fn commands_batch_geometry(v: *RenderState) -> unit {
     task_dispatch(v, 13usize, 0u32);
     command_barrier(v, BARRIER_COMPUTE);
     command_batch_stamp(v);
+}
+
+fn commands_dynamic_round(v: *RenderState) -> unit {
+    commands_view_begin(v);
+    command_batch_stamp(v);
+    command_bind(v, 11usize);
+    command_indirect(v, (PLAN_COMMAND as u64 + 1u64) * 4u64);
+    command_barrier(v, BARRIER_INDIRECT);
+    commands_batch_geometry(v);
+    task_dispatch(v, shade_pipeline(v), 9u32);
+    command_barrier(v, BARRIER_COMPUTE);
+    command_batch_stamp(v);
+    commands_portal_advance(v);
 }

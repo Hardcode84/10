@@ -1,9 +1,7 @@
 fn geometry_snapshot(v: *RenderState) -> unit {
     var w: *u32 = v -> mapped as *u32;
     var f: *f32 = (v -> mapped as *f32) + (v -> words + 1u32) as isize;
-    v -> crossing_limit = 0u32;
     v -> read_pixels = false;
-    w[4usize] = 0u32;
     w[26usize] = 0u32;
     w[LIGHT_COUNT as usize] = 0u32;
     w[LIGHT_MODEL as usize] = 0u32;

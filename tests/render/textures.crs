@@ -108,7 +108,6 @@ fn texture_scene(v: mut FrameInput, index: u32) -> unit {
         trap;
     }
     input_set_word(mut v, 3usize, 0u32);
-    input_set_word(mut v, 4usize, 0u32);
     input_set_word(mut v, 20usize, 0u32);
     input_set_word(mut v, 2usize, index % 2u32);
     input_set_word(mut v, LIGHT_MODEL as usize, 1u32);

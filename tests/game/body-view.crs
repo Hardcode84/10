@@ -47,7 +47,6 @@ fn body_input(
     input_set_word(mut input, BACKGROUND as usize, 0xff123456u32);
     input_set_word(mut input, SHARED_AMBIENT as usize, 1u32);
     input_set_word(mut input, 20usize, 0u32);
-    input_set_word(mut input, 4usize, 0u32);
     var drone: Drone = new_drone();
     drone.position = vec(0f32, 0f32, 0f32);
     drone.world = 0u32;
@@ -60,7 +59,6 @@ fn body_input(
     }
     if mode == 1u32 || mode == 5u32 {
         render_portals(mut input, read scene);
-        input_set_word(mut input, 4usize, 4u32);
         quad(
             mut input,
             0u32,

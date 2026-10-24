@@ -1,6 +1,6 @@
 fn compute() -> unit {
     var i: u32 = shader_global_x() + words_load(DISPATCH_BASE);
-    if words_load(5u32) == 0u32 && i < words_load(27u32) {
+    if (words_load(5u32) == 0u32 || words_load(5u32) == RENDER_PENDING) && i < words_load(27u32) {
         var offset: u32 = words_load(words_load(GROUP_PREFIX) + i / 64u32) + words_load(
             words_load(TASK_PREFIX) + i
         );

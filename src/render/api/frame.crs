@@ -25,6 +25,14 @@ fn frame_poll(frame: mut SubmittedFrame) -> i32 {
         return frame.outcome;
     }
     var state: i32 = retirement_poll(&frame.storage);
+    if state > 0i32 && renderer_pending(&frame.storage) {
+        if renderer_resume(&frame.storage) {
+            retirement_observer_start(&frame.storage);
+            return 0i32;
+        }
+        frame.outcome = -1i32;
+        return frame.outcome;
+    }
     if state != 0i32 {
         frame.outcome = -1i32;
         if state > 0i32 && renderer_complete(&frame.storage) {

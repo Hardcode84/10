@@ -166,3 +166,25 @@ const LIST_WRITE_REFERENCES: u32 = 5u32;
 
 const WORK_EMPTY_ACTIVE: u32 = 44u32;
 const WORK_EMPTY_IDLE: u32 = 122u32;
+
+// Frame traversal budgets and indirect commands. Distance is in camera units; zero disables it.
+const VIEW_DISTANCE: u32 = 22u32;
+const VIEW_WORLD_BOUND: u32 = 23u32;
+const TRAVERSAL_TILES: u32 = 130u32;
+const TILE_WORK_BUDGET: u32 = 131u32;
+const TRAVERSAL_STOPPED: u32 = 132u32;
+const FRONTIER_COMMAND: u32 = 133u32;
+const VIEW_COMMAND: u32 = 136u32;
+const PLAN_COMMAND: u32 = 139u32;
+const ADVANCE_COMMAND: u32 = 142u32;
+const CLEAR_COMMAND: u32 = 145u32;
+const TRAVERSAL_ROUNDS: u32 = 148u32;
+const TRAVERSAL_TILE_LIMIT: u32 = 149u32;
+
+const DEFAULT_RENDER_WORK_ROUNDS: u32 = 128u32;
+
+const ROUND_STOP: u32 = 150u32;
+const RENDER_PENDING: u32 = 4u32;
+const RENDER_CHUNK_ROUNDS: u32 = 8u32;
+
+const RENDER_NUMERIC_MARGIN: f32 = 4096f32;

@@ -68,12 +68,16 @@ submitted before prediction. The audio callback runs independently of this pool.
 calling thread and starts prediction after full GPU submission. Browser builds
 use this zero-worker schedule and reject nonzero worker counts. Prediction then
 overlaps GPU execution, while CPU scene preparation and presentation calls stay
-on the calling thread. No reserved geometry or second render submission is
-needed. Pool admission failure fails the frame. Cancellation drains accepted
+on the calling thread. Prediction requires no reserved geometry or separate
+render submission. Pool admission failure fails the frame. Cancellation drains accepted
 prediction, GPU, and output operations before their storage can be reused.
 
 `SubmittedFrame` holds an exclusive renderer loan through validation or scope
-exit. `ValidatedImage` requires successful validation. `Presentation` holds the
+exit. Rendering can span several bounded traversal chunks. The completion word
+requests the next chunk after asynchronous retirement. `frame_poll` submits it
+and remains pending. The same loan protects all chunks; completed geometry and
+portal state stay on the GPU. Only the final chunk can expose an image.
+`ValidatedImage` requires successful validation. `Presentation` holds the
 image loan until the output copy and presentation request are submitted. The GPU
 can still use the source after this loan ends. Later rendering uses the same queue.
 A native completion service waits for render readback outside the application

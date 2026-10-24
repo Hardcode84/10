@@ -185,31 +185,36 @@ flowchart TD
     shade --> batch{"More batches?"}
     batch -- Yes --> plan
     batch -- No --> children["Scan masks, check capacities and fill child tasks"]
-    children --> depth{"Next depth?"}
-    depth -- Yes --> visibility
-    depth -- No --> compose["Scale image and compose overlay"]
+    children --> budget{"Visible masks and budget remain?"}
+    budget -- Yes --> visibility
+    budget -- No --> compose["Keep unfinished pixels dark; compose overlay"]
     compose --> check["Read capacity result and validate image"]
 ```
 
-This diagram shows logical work. The host records a conservative number of
-geometry rounds from source counts, instance counts, portal connectivity, and
-view capacity. GPU counts suppress inactive work. Empty recorded rounds still
-have command and dependency costs.
+This diagram shows logical work. The host records a small chunk of work
+rounds. Each round processes one geometry batch. The GPU advances to child
+views when all geometry in the current view group is complete. A round can
+continue a large room or process a small room and advance through its portals.
+The number of room boundaries does not set the visibility limit.
 
 At each portal depth, up to 64 lanes traverse disjoint mesh subtrees. Saved node,
 subtree-end, and partial-leaf cursors permit continuation after a traversal
 quantum or projection batch fills. Dynamic geometry shares the same nearest-hit
 state. The default projection batch holds 8192 source triangles across views.
 `input_batch_limit` changes the active maximum; zero restores the default.
-A smaller batch increases resumptions without changing the image.
+A smaller batch increases resumptions. The image stays the same if the work
+budget permits all required batches.
 
 The planner stops its workgroup loop when the batch is full, the view range is
 complete, or its 64-step quantum ends. The loop condition uses a workgroup
-uniform load. The host keeps a conservative round bound because visible work
-is resolved on the device. Empty later rounds publish zero work counts. Their
-command and barrier costs remain; no CPU readback is used to terminate them.
-The host updates batch control only for the first and last rounds. It also
-tracks the last recorded dispatch base. It omits repeated writes of that value
+uniform load. Indirect commands select view setup, planning, rasterization,
+shading, and portal expansion. The GPU sets these counts to zero when no work
+remains. Later rounds in that chunk launch no workgroups. Their command and
+barrier costs remain. If work remains at the chunk boundary, the existing
+completion word reports pending work. After asynchronous retirement, the host
+submits the next chunk. It retains geometry cursors, portal masks, and hit data.
+The application and task workers do not wait for the GPU.
+The host tracks the last recorded dispatch base. It omits repeated writes of that value
 and their transfer barriers. A scene upload invalidates this command state. The planner
 clears the initialization flag after it starts the view range. The last round
 retains the completion check that rejects an unfinished frame.
@@ -226,8 +231,8 @@ Each pixel keeps depth, stable source/fan identity, and interpolation data acros
 batches. Equal depths use the stable primitive key. Cutout sampling precedes
 winner selection; an empty texel cannot hide a surface or portal. Opaque texture
 sampling and lighting run after the view's geometry is complete. Continuing
-portal winners emit masks without first shading the portal surface. At the
-crossing limit, the portal material is shaded as a terminal result.
+portal winners emit masks and leave the background colour in unresolved pixels.
+A portal surface is never shaded as a substitute for a child view.
 
 Distance lighting and dynamic lighting use separate shading entry points with
 shared source. The host selects the entry point from the frame's lighting
@@ -289,15 +294,57 @@ farther recursive copies. It does not change aperture clipping.
 A tile writes at most 64 nonempty portal records, each with a portal ID and
 64-bit mask. The first selecting pixel owns the record. Child masks partition
 parent pixels, so the live task count at one depth is at most the internal
-pixel count. A smaller task budget can still fail when a tile splits between
-many portals. View count is a separate resource bound. Disjoint active masks
+pixel count. If a split exceeds task capacity, child expansion stops.
+View count is a separate resource bound. Disjoint active masks
 share per-pixel hit and colour storage. The renderer does not allocate a full
 colour and depth image for every view.
 
-The scene selects a finite crossing limit and terminal material. Reaching the
-limit is successful termination. Task, view, or geometry work exhaustion is a
-frame error. The renderer must reject that image before presentation; it must
-never discard geometry or reuse previous-frame pixels to conceal failure.
+### Dynamic traversal and termination
+
+`work_rounds` bounds geometry batches across the whole frame. `view_budget`
+bounds all path views, including the root. `task_budget` bounds the live masked
+tiles. `tile_work_budget` can also bound the sum of admitted masked tiles across
+all views. Zero selects the product of task capacity and the round budget,
+saturated to the counter range. Each root tile consumes one unit.
+
+A child group is admitted only when the entire group fits the view and tile
+budgets. If it does not fit, traversal stops. Completed solid pixels remain
+visible. Unresolved pixels keep the caller's `BACKGROUND` colour. The game uses
+darkness. Geometry from an incomplete view is never shaded. Capacity cutoffs
+are valid frames; invalid source data and shader failures remain errors.
+Diagnostic capture reports the stop reason and completed round count.
+
+`view_distance` is an optional radial distance from the viewer. Zero disables
+it. Each hit uses its composed camera-space position, in viewer units. This is
+the length of the unfolded sightline through the portal transforms, including
+scale. Both solid hits and portal hits at or beyond this distance use the
+background colour. Portal hits within the distance can create child views.
+
+Distance alone cannot bound all recursion. A cube with recursive connections
+can create many visible paths. Repeated shrinking views can remain inside a
+finite distance. View, tile, and work-round budgets bound both cases. Repeated
+room IDs remain valid views; each path has its own transform and pixel mask.
+Before a child enters the queue, the GPU checks its composed transform against
+the finite arithmetic envelope. An unsafe composition ends traversal with the
+same background result. The host validates source geometry and individual
+connections before submission.
+
+The scheduler is shared by Vulkan and WebGPU. Both backends submit bounded
+chunks. The chunk size is defined by `RENDER_CHUNK_ROUNDS` in the shared
+[interface](../../src/render/interface.crs). Completed work sets later indirect
+dispatch sizes to zero. Short sightlines therefore record only one small chunk.
+Deep sightlines continue through more submissions until they finish or consume
+the frame budget.
+
+`SubmittedFrame` holds the renderer and all frame input through every chunk.
+`frame_poll` can submit a continuation and return pending. A continuation does
+not upload the scene again or rebuild shadows. The normal completion readback
+also reports continuation state. Only the completed frame can produce a
+`ValidatedImage`. Synchronous callers wait through the same continuation path.
+
+Native timestamp spans include queue idle time between chunks. Use dispatch
+measurements to separate GPU execution from continuation delay. The browser
+profile records each chunk as a submission.
 
 ## Materials and image style
 
@@ -454,7 +501,10 @@ grows with the light reservation and is included in device capacity checks.
 
 The separate `CAMERA_LIGHT` input is view-relative. Physical game lamps use
 room anchors so camera motion cannot move their sources. The game propagates
-anchors through apertures within light range and the frame crossing limit.
+anchors through apertures within light range. Each source uses the frame view
+budget as its placement-count limit. This also bounds CPU work in recursive rooms.
+Recursive light placements stop before their coordinates or ranges exceed the
+renderer arithmetic envelope.
 It requires the source to be inside the outgoing plane and suppresses the
 immediate reverse link. Different paths may create anchors in the same room.
 Scaled connections transform positions and ranges according to the shared
@@ -554,17 +604,19 @@ paused. Repeated creation of the same temporary storage is not capacity growth.
 | Capacity | Meaning and failure rule |
 | --- | --- |
 | Source geometry, meshes, instances, assets, lights | Grow from demand up to device range and allocation limits. Preserve input on rejected growth. |
-| Projection batch | Reusable source-triangle scratch. Reduce the batch to fit the device buffer range, including tile bitmaps. Continue until all geometry is processed. |
+| Projection batch | Reusable source-triangle scratch. Reduce the batch to fit the device buffer range, including tile bitmaps. Continue until all geometry is processed or the frame work budget is reached. |
 | `portal_budget` | Directed portal records; zero is valid. |
-| `view_budget` | Total path views including root; positive. Exhaustion rejects the frame. |
-| `task_budget` | Masked tiles at one depth; positive. Exhaustion rejects the frame. |
-| `crossing_limit` | Finite path depth; zero renders only the root and terminal portals. |
+| `view_budget` | Total path views including root; positive. Exhaustion ends child expansion. |
+| `task_budget` | Live masked tiles; must hold the root image. Child exhaustion ends expansion. |
+| `work_rounds` | Positive maximum number of geometry batches across all views. |
+| `tile_work_budget` | Total admitted masked tiles; zero selects the derived maximum. |
+| `view_distance` | Non-negative distance in viewer units; zero disables the cutoff. |
 | Internal/output extents | Positive, within window-coordinate, address, device-range, and allocation bounds. |
 
-Portal/view/task/depth configuration controls allocation and command recording.
-A frame can select a smaller crossing limit. Root input cannot raise it beyond
-the configured limit. Resize can increase task capacity to fit the root tiles.
-Other configuration changes require a new renderer.
+Portal, view, task, and round configuration controls allocation and command
+recording. Resize can increase task capacity to fit the root tiles. An explicit
+tile-work budget must also fit the resized root. Other configuration changes
+require a new renderer.
 
 Image passes use bounded dispatches with at most 2,097,152 invocations and stride
 across larger images. Portal task dispatches use batches of at most 32,768 tiles.
@@ -590,7 +642,7 @@ with a minimum of one for an empty root. Significant storage terms are:
 | Retained source pool | 176 bytes per triangle for vertices, metadata, spatial index, and tree. |
 | Instance records | 92 bytes each. |
 | Shadow storage | `84 * L * (D + I)` bytes. Retained triangle capacity does not enter this term. |
-| Timestamp queries | `4 + 2 * (crossing_limit + 1)` entries. |
+| Timestamp queries | Eight entries for setup, traversal, composition, readback, and the deferred-input gap. |
 
 Dynamic shadow capacity grows from the submitted dynamic triangle count during
 frame preparation. Retained instances use shared mesh trees and a separate
@@ -649,8 +701,12 @@ sequenceDiagram
     Game->>CPU: Predict next-frame markers from a copied trial
     Game->>R: FrameInput with current scene and previous markers
     Game->>R: frame_submit
-    R->>GPU: Upload, shadows, geometry, lighting, portals and compose
-    GPU-->>R: Render retires with capacity result
+    R->>GPU: Upload, shadows and first traversal chunk
+    loop Traversal work remains within frame budget
+        GPU-->>R: Chunk retires; completion word reports pending
+        R->>GPU: Continue retained GPU frame state
+    end
+    GPU-->>R: Completed image and validation result
     Game->>R: frame_poll, then frame_image after validation
     R-->>Game: ValidatedImage lease
     Game->>P: image_present
@@ -680,7 +736,9 @@ leaves root shading pending. The second submission uploads the reserved range
 and the updated space index. It preserves traversal headers and root hits.
 Late triangles use the same projection, tile-list and raster passes as other
 geometry. Their stable source IDs resolve equal-depth ties. The last late batch
-shades the root and emits its portal masks. Child views then consume the complete
+shades the root and emits its portal masks. Root setup and late geometry must
+fit the frame round budget. Setup rejects a reservation whose conservative
+round count exceeds that budget. Child views then consume the complete
 scene, including late geometry in other rooms and recursive copies.
 
 The second submission reuses staging and commands only after setup retires.
@@ -834,7 +892,7 @@ batch. The fused shader keeps hit depth, identity, and UV values in registers.
 It writes those values to the continuation buffer only for unfinished views.
 For a finished view, it shades the hit directly and produces the same child
 portal masks. The host omits the separate raster dispatch. Planning, clipping,
-tile assignment, capacity, and portal-depth limits stay unchanged.
+tile assignment and capacity rules stay unchanged.
 
 The other variants load projected triangle records into workgroup memory in
 chunks of 16 or 64. All lanes participate in chunk loads and barriers, including
@@ -970,7 +1028,7 @@ cutouts, equal-depth ties, near-eye crossings, sprites, room shadows, portable
 lights, anchors, resize, and storage retirement. Small work capacities must
 finish through continuation. Unreachable rooms must not add triangle work;
 transient counts must not invalidate static geometry. Preserve resolution,
-geometry, lighting, depth budget, and input-to-display behaviour.
+geometry, lighting, traversal budgets, and input-to-display behaviour.
 
 The full-game targets at 1920 by 1080 on the measured Intel device are GPU p99
 at most 10 ms and complete non-pacing frame p99 at most 12 ms. The 16.67 ms
@@ -1102,7 +1160,7 @@ Capture files are binary RGB PPM. All GPU checks use the application renderer.
 | `crust tests.crs render 5` | Geometry growth, shrink, empty scenes, 8193 overlapping triangles, ties and allocation rejection. |
 | `crust tests.crs render 6` | Arbitrary texture dimensions, atlas stride, shared palettes, UV seams, repeat/clamp and invalid descriptors. |
 | `crust tests.crs render 7` | Retained transformed views, culling control, a 64 MiB buffer budget, and seven-triangle batches. |
-| `crust tests.crs render 8` | Many portal paths, 64 portals in one tile, deep cycles, 65,536 tasks, exhaustion and recovery. |
+| `crust tests.crs render 8` | Deep chains, recursive and shrinking cubes, scaled distance, 64 portals in one tile, split tasks, budget cutoffs and reset. |
 | `crust tests.crs render 9` | Resize, portrait/landscape/4K/wide images, exact scaling and storage rejection. |
 | `crust tests.crs render 10` | Real window resize and swapchain replacement; requires a display. |
 | `crust tests.crs render 11` | Lighting-model switches, growable lights, cutout blockers, light-facing rejection, retained shadows and portable-light propagation. |

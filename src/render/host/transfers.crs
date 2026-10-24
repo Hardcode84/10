@@ -49,7 +49,13 @@ fn upload_scene(v: *RenderState) -> unit {
         true
     );
     persistent_upload(v);
-    copy_region(v, v -> staging, v -> buffer, 0u64, (LIGHT_INDEX as u64 + 2u64) * 4u64);
+    copy_region(
+        v,
+        v -> staging,
+        v -> buffer,
+        0u64,
+        (TRAVERSAL_TILE_LIMIT as u64 + 2u64) * 4u64
+    );
     if (v -> mapped as *u32)[OVERLAY_ENABLED as usize] != 0u32 {
         copy_region(
             v,
@@ -76,7 +82,7 @@ fn upload_scene(v: *RenderState) -> unit {
     );
     copy_region(v, v -> staging, v -> buffer, tile_buffer_offset(v), 4u64);
     var base: u64 = (v -> words as u64 + 1u64) * 4u64;
-    copy_region(v, v -> staging, v -> buffer, base, (DETAIL_NEAR as u64 + 2u64) * 4u64);
+    copy_region(v, v -> staging, v -> buffer, base, (VIEW_WORLD_BOUND as u64 + 2u64) * 4u64);
     copy_region(
         v,
         v -> staging,
@@ -96,7 +102,13 @@ fn upload_scene(v: *RenderState) -> unit {
 fn readback(v: *RenderState) -> unit {
     retained_readback(v);
     if (v -> mapped as *u32)[26usize] != 0u32 {
-        copy_region(v, v -> buffer, v -> staging, 0u64, (LIGHT_INDEX as u64 + 2u64) * 4u64);
+        copy_region(
+            v,
+            v -> buffer,
+            v -> staging,
+            0u64,
+            (TRAVERSAL_TILE_LIMIT as u64 + 2u64) * 4u64
+        );
 
     } else {
         copy_region(v, v -> buffer, v -> staging, 24u64, 4u64);

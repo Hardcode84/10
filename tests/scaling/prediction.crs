@@ -44,7 +44,6 @@ fn prediction_view_base(
     game_palette(mut input);
     input_frame(mut input);
     render_portals(mut input, read scene);
-    input_set_word(mut input, 4usize, (mode == 2u32) as u32);
     input_set_word(mut input, BACKGROUND as usize, 0xff123456u32);
     input_set_float(mut input, RENDER_STYLE as usize, 0.04f32 * size);
     input_set_float(

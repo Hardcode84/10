@@ -10,7 +10,6 @@ fn capacity_scene(v: mut FrameInput, index: u32) -> unit {
         17u32
     };
     input_set_word(mut v, 3usize, 0u32);
-    input_set_word(mut v, 4usize, 0u32);
     input_set_word(mut v, 20usize, 0u32);
     input_set_word(mut v, LIGHT_MODEL as usize, 0u32);
     input_set_word(mut v, BACKGROUND as usize, 0xff302010u32);

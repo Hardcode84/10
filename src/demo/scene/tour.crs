@@ -299,7 +299,6 @@ fn tour_scene(v: mut FrameInput, width: u32, height: u32, frame: u32, mode: u32)
     input_set_word(mut v, 1usize, height);
     input_set_word(mut v, 2usize, mode);
     input_set_word(mut v, 3usize, 0u32);
-    input_set_word(mut v, 4usize, 3u32);
     input_set_word(mut v, BACKGROUND as usize, 0xff493525u32);
     input_set_float(mut v, RENDER_STYLE as usize, 0.125f32);
     tour_camera(mut v, frame);
@@ -334,7 +333,6 @@ fn tour_scene(v: mut FrameInput, width: u32, height: u32, frame: u32, mode: u32)
 
 fn light_band_scene(v: mut FrameInput) -> unit {
     input_set_word(mut v, 3usize, 0u32);
-    input_set_word(mut v, 4usize, 0u32);
     input_set_float(mut v, 7usize, 0f32);
     input_set_float(mut v, 11usize, 0f32);
     input_set_float(mut v, CAMERA_LIGHT as usize, 0f32);

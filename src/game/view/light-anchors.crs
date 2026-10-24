@@ -3,20 +3,20 @@ fn light_scaled_anchors(
     anchors: mut RoomAnchors,
     light: LightObject,
     size: read Rational,
-    depth: u32
+    budget: u32
 ) -> bool {
     if !room_anchor_add(mut anchors, primary_anchor(light.id, light.space)) {
         return false;
     }
     var cursor: u32 = 0u32;
     while cursor < room_anchor_count(read anchors) {
-        var anchor: RoomAnchor = room_anchor(read anchors, cursor);
-        if anchor.depth < depth && !light_anchor_children(
+        if room_anchor_count(read anchors) < budget && !light_anchor_children(
             read scene,
             mut anchors,
             light,
             read size,
-            cursor
+            cursor,
+            budget
         ) {
             return false;
         }
@@ -29,7 +29,8 @@ fn light_anchor_children(
     anchors: mut RoomAnchors,
     light: LightObject,
     size: read Rational,
-    parent: u32
+    parent: u32,
+    budget: u32
 ) -> bool {
     var anchor: RoomAnchor = room_anchor(read anchors, parent);
     var point: Vec3 = space_point(anchor.transform, light.position);
@@ -39,7 +40,7 @@ fn light_anchor_children(
     );
     var radius: f32 = light_object_reach(light) * rational_float(read placement);
     var i: u32 = 0u32;
-    while i < collision_portal_count(read scene) {
+    while i < collision_portal_count(read scene) && room_anchor_count(read anchors) < budget {
         var portal: CollisionPortal = collision_portal(read scene, i);
         var distance: f32 = dot(portal.basis.forward, sub(point, portal.origin));
         if portal.space == anchor.space && i != anchor.incoming && distance <= 0f32 && portal_reaches(
@@ -58,7 +59,11 @@ fn light_anchor_children(
                 incoming: portal.reverse,
                 depth: anchor.depth + 1u32
             };
-            if !room_anchor_link(mut anchors, next, portal) {
+            if light_anchor_numeric_valid(next, light, rational_float(read size)) && !room_anchor_link(
+                mut anchors,
+                next,
+                portal
+            ) {
                 return false;
             }
         }
@@ -67,12 +72,23 @@ fn light_anchor_children(
     return true;
 }
 
+// Recursive placements stop before their coordinates exceed renderer arithmetic.
+fn light_anchor_numeric_valid(anchor: RoomAnchor, light: LightObject, size: f32) -> bool {
+    var point: Vec3 = space_point(anchor.transform, light.position);
+    var bound: f32 = absf(point.x) + absf(point.y) + absf(point.z) + (
+        light.radius + light_object_reach(light)
+    ) * size * anchor.transform.factor + anchor.transform.factor + 1f32 / anchor.transform.factor;
+    var square: f32 = bound * bound;
+    var envelope: f32 = square * square * RENDER_NUMERIC_MARGIN;
+    return anchor.transform.factor > 0f32 && envelope - envelope == 0f32;
+}
+
 fn light_anchors(
     scene: read CollisionScene,
     anchors: mut RoomAnchors,
     light: LightObject,
-    depth: u32
+    budget: u32
 ) -> bool {
     var size: Rational = rational_new(1u64, 1u64);
-    return light_scaled_anchors(read scene, mut anchors, light, read size, depth);
+    return light_scaled_anchors(read scene, mut anchors, light, read size, budget);
 }

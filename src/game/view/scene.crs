@@ -72,10 +72,6 @@ fn game_scene_begin(
     anchors: mut RoomAnchors
 ) -> unit {
     input_frame(mut v);
-    input_set_word(mut v, 4usize, 0u32);
-    if collision_portal_count(read collision) != 0u32 {
-        input_set_word(mut v, 4usize, 6u32);
-    }
     render_portals(mut v, read collision);
     input_set_word(mut v, 20usize, trial.drone.world);
     input_set_word(mut v, SHARED_AMBIENT as usize, 1u32);

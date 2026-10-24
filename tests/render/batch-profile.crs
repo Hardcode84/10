@@ -7,16 +7,7 @@ fn batch_profile_open(v: *RenderState, deferred: u32) -> bool {
             count = 5u64;
         }
     }
-    var depth: u32 = 0u32;
-    while depth <= v -> crossing_limit {
-        count = count + 5u64 * (
-            projection_depth_work(v, depth) / (v -> mapped as *u32)[PROJECTION_CAPACITY as usize] as u64 + projection_depth_steps(
-                v,
-                depth
-            ) / GEOMETRY_WALK_STEPS as u64 + 2u64
-        );
-        depth = depth + 1u32;
-    }
+    count = count + 5u64 * v -> work_rounds as u64;
     if count > 0xffffffffu64 {
         return error("batch profile query count exceeds Vulkan range");
     }

@@ -32,7 +32,9 @@ fn demo_render_config(o: *Options) -> RenderConfig {
         view_budget: o -> view_budget,
         portal_budget: 4u32,
         task_budget: demo_task_budget(o -> width, o -> height),
-        crossing_limit: 3u32,
+        work_rounds: DEFAULT_RENDER_WORK_ROUNDS,
+        tile_work_budget: 0u32,
+        view_distance: 0f32,
         fault: o -> fault
     };
     return config;

@@ -242,3 +242,7 @@ fn presentation_status(v: *RenderState) -> i32 {
 fn presentation_pause(v: *RenderState) -> unit {
     web_present_idle(v -> gpu.id);
 }
+
+fn command_resume(v: *RenderState) -> bool {
+    return command_continue(v);
+}

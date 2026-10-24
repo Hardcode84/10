@@ -270,9 +270,9 @@ in the same room. The cable passes through obstacles, as in the game.
 A flying hook still snaps at 120 m of unfolded distance. An attached cable
 retains its extent until the winch shortens it or the player releases it.
 
-The renderer shows up to six portal crossings. Reaching this view depth does
-not stop physical traversal. View storage is a separate render budget; an
-exhausted budget rejects the frame with an error. Recordings identify the demo
+The renderer follows visible portals within its distance and work budgets.
+When a budget is reached, unresolved pixels keep the background colour.
+Render budgets do not limit physical traversal. Recordings identify the demo
 application and reject playback in the graph game. Use the same level file
 for recording and playback.
 

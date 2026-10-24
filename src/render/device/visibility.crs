@@ -43,8 +43,7 @@ fn view_rect_reduce(view: u32, axis: u32) -> unit {
     }
     words_store(words_load(VIEW_RECT) + view * 4u32 + axis, value);
 }
-fn compute() -> unit {
-    var index: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
+fn visibility_view(index: u32) -> unit {
     var lane: u32 = shader_local_x();
     var view: u32 = words_load(9u32) + index;
     if index < words_load(10u32) {
@@ -78,5 +77,22 @@ fn compute() -> unit {
             }
             instance = instance + LOCAL_SIZE;
         }
+    }
+}
+
+fn compute() -> unit {
+    var index: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
+    var stride: u32 = MAX_INVOCATIONS / LOCAL_SIZE;
+    if shader_local_x() == 0u32 {
+        shared_store(255u32, (words_load(10u32) + stride - 1u32) / stride);
+    }
+    shader_workgroup_barrier();
+    var rounds: u32 = shared_uniform_load(255u32);
+    var round: u32 = 0u32;
+    while round < rounds {
+        visibility_view(index);
+        shader_all_memory_barrier();
+        index = index + stride;
+        round = round + 1u32;
     }
 }

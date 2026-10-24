@@ -35,6 +35,7 @@ fn input_defer(input: mut FrameInput, capacity: u32) -> DeferredGeometry {
 resource FrameSetup {
     storage: mut RenderState;
     range: DeferredGeometry;
+    root_rounds: u32;
     outcome: i32;
 }
 opaque drop frame_setup_drop;
@@ -42,17 +43,24 @@ opaque drop frame_setup_drop;
 // Holds all frame storage until scope exit. Final output requires frame_setup_submit.
 fn frame_setup(renderer: mut Renderer, range: DeferredGeometry) -> FrameSetup from renderer {
     var v: *RenderState = &renderer.state;
+    var root_rounds: u32 = 0u32;
     var accepted: bool = deferred_geometry_valid(v, range) && retirement_observer_open(v) && renderer_prepare(
         v,
         range.capacity
-    ) && command_reset(v) && command_begin(v);
+    );
+    if accepted {
+        root_rounds = projection_root_rounds(v);
+        accepted = frame_setup_budget(v, root_rounds, range.capacity) && command_reset(v) && command_begin(
+            v
+        );
+    }
     if accepted {
         commands_setup_body(v);
         commands_root_begin(v);
         commands_view_begin(v);
-        commands_geometry_batches(v, 0u32, false);
+        commands_root_geometry(v, root_rounds);
         command_stamp(v, v -> query_count - 4u32);
-        accepted = command_end(v) && dispatch_submit(v);
+        accepted = command_end(v) && renderer_submit(v);
     }
     if accepted {
         retirement_observer_start(v);
@@ -60,6 +68,7 @@ fn frame_setup(renderer: mut Renderer, range: DeferredGeometry) -> FrameSetup fr
     return make FrameSetup {
         storage: mut renderer.state,
         range: range,
+        root_rounds: root_rounds,
         outcome: -((!accepted) as i32)
     };
 }
@@ -132,9 +141,12 @@ fn frame_setup_submit(setup: mut FrameSetup) -> SubmittedFrame from setup {
         upload_deferred(v, setup.range.first, setup.range.capacity);
         command_barrier(v, BARRIER_UPLOAD);
         commands_deferred(v, setup.range.first, setup.range.capacity);
-        commands_portal_advance(v, 0u32);
-        commands_raster_depths(v, 1u32);
-        accepted = command_end(v) && dispatch_submit(v);
+        commands_portal_advance(v);
+        commands_traversal(
+            v,
+            setup.root_rounds + deferred_rounds(v, setup.range.capacity)
+        );
+        accepted = command_end(v) && renderer_submit(v);
     }
     if accepted {
         retirement_observer_start(v);
@@ -175,6 +187,20 @@ fn deferred_geometry_valid(v: *RenderState, range: DeferredGeometry) -> bool {
             return error("deferred geometry reservation is no longer inactive");
         }
         i = i + 1u32;
+    }
+    return true;
+}
+
+fn deferred_rounds(v: *RenderState, count: u32) -> u32 {
+    var capacity: u32 = (v -> mapped as *u32)[PROJECTION_CAPACITY as usize];
+    if count == 0u32 {
+        return 1u32;
+    }
+    return (count - 1u32) / capacity + 1u32;
+}
+fn frame_setup_budget(v: *RenderState, root: u32, count: u32) -> bool {
+    if root as u64 + deferred_rounds(v, count) as u64 > v -> work_rounds as u64 {
+        return error("deferred root geometry exceeds the configured work-round budget");
     }
     return true;
 }

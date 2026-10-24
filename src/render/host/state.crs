@@ -52,7 +52,9 @@ record RenderState {
     view_capacity: u32;
     portal_capacity: u32;
     task_capacity: u32;
-    crossing_limit: u32;
+    work_rounds: u32;
+    scheduled_rounds: u32;
+    frame_chunks: u32;
     query_count: u32;
     storage_limit: u32;
 

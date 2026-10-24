@@ -268,7 +268,7 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
     var space: u32 = w[20usize];
     var depth: u32 = 0u32;
     var clip: u32 = 0xffffffffu32;
-    while depth <= w[4usize] {
+    while depth < w[31usize] {
         var hit: Hit = make Hit {
             factor: factor,
             eye: ray.origin,
@@ -314,6 +314,9 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
             }
             tri = tri + 1u32;
         }
+        if reference_far(f, hit, d) {
+            hit.triangle = 0xffffffffu32;
+        }
         if hit.triangle == 0xffffffffu32 {
             *final = hit;
             return w[BACKGROUND as usize];
@@ -328,7 +331,7 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
             *boundary = true;
         }
         var portal: u32 = w[(w[META as usize] + hit.triangle * 4u32 + 2u32) as usize];
-        if portal == 0u32 || depth == w[4usize] {
+        if portal == 0u32 {
             *final = hit;
             return reference_color(w, f, hit, x, y);
         }
@@ -343,7 +346,8 @@ fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit)
         clip = portal;
         depth = depth + 1u32;
     }
-    return 0u32;
+    final -> triangle = 0xffffffffu32;
+    return w[BACKGROUND as usize];
 }
 fn color_distance(a: u32, b: u32) -> u32 {
     var result: u32 = 0u32;
@@ -834,4 +838,10 @@ fn reference_shadow_facing(w: *u32, f: *f32, tri: u32, light: Vec) -> bool {
         sub(vertex(f, p + 10usize), a)
     );
     return dot(normal, sub(light, a)) > 0f32;
+}
+
+fn reference_far(f: *f32, hit: Hit, direction: Vec) -> bool {
+    return hit.triangle != 0xffffffffu32 && f[VIEW_DISTANCE as usize] > 0f32 && hit.distance * sqrtf(
+        dot(direction, direction)
+    ) >= f[VIEW_DISTANCE as usize];
 }

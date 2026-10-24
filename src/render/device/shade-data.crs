@@ -10,11 +10,16 @@ fn shade_pixel(view: u32, lane: u32, x: u32, y: u32) -> unit {
     if identity != 0xffffffffu32 {
         winner = identity / MAX_FAN;
         var portal: u32 = scene_meta(winner, 2u32);
-        if portal != 0u32 && words_load(12u32) < words_load(4u32) {
-            shared_store(320u32 + lane, portal);
+        if portal != 0u32 {
+            words_store(PIXELS + pixel, words_load(BACKGROUND));
+            if !view_distance_exceeded(1f32 / depth, x, y) {
+                shared_store(320u32 + lane, portal);
+            }
             return;
         }
-        color = shade_color(winner, view, u, v, 1f32 / depth, x, y);
+        if !view_distance_exceeded(1f32 / depth, x, y) {
+            color = shade_color(winner, view, u, v, 1f32 / depth, x, y);
+        }
     }
     if words_load(26u32) != 0u32 {
         var debug: u32 = words_load(DEBUG_VALUES) + pixel * 4u32;
@@ -137,4 +142,17 @@ fn shade_color(tri: u32, view: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u
             y
         )
     );
+}
+
+fn view_distance_exceeded(z: f32, x: u32, y: u32) -> bool {
+    var limit: f32 = floats_load(VIEW_DISTANCE);
+    if limit == 0f32 {
+        return false;
+    }
+    var h: f32 = words_load(1u32) as f32;
+    var dx: f32 = (2f32 * (x as f32 + 0.5f32) - words_load(0u32) as f32) / h * floats_load(
+        PROJECTION
+    );
+    var dy: f32 = (h - 2f32 * (y as f32 + 0.5f32)) / h * floats_load(PROJECTION);
+    return z * shader_sqrt(1f32 + dx * dx + dy * dy) >= limit;
 }

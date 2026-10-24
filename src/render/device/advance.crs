@@ -1,4 +1,4 @@
-fn child_view(parent: u32, portal: u32, view: u32) -> unit {
+fn child_view(parent: u32, portal: u32, view: u32) -> bool {
     var src: u32 = words_load(VIEW_FLOAT) + parent * PORTAL_TRANSFORM_WORDS;
     var transform: u32 = words_load(PORTAL_FLOAT) + portal * PORTAL_TRANSFORM_WORDS;
     var dst: u32 = words_load(VIEW_FLOAT) + view * PORTAL_TRANSFORM_WORDS;
@@ -25,11 +25,15 @@ fn child_view(parent: u32, portal: u32, view: u32) -> unit {
         r = r + 1u32;
     }
     floats_store(dst + 16u32, floats_load(src + 16u32) * floats_load(transform + 16u32));
+    if !child_numeric_valid(dst) {
+        return false;
+    }
     view_space(view, words_load(words_load(PORTAL_META) + portal * 4u32 + 1u32));
     words_store(
         words_load(VIEW_META) + view * 4u32 + 3u32,
         words_load(words_load(PORTAL_META) + portal * 4u32 + 2u32)
     );
+    return true;
 }
 fn allocate_key_word(word: u32, mask: u32, views: u32) -> u32 {
     var next: u32 = views;
@@ -37,16 +41,19 @@ fn allocate_key_word(word: u32, mask: u32, views: u32) -> u32 {
     while bit < 32u32 {
         if (mask & (1u32 << bit)) != 0u32 {
             if next == words_load(31u32) {
-                words_store(5u32, 2u32);
+                words_store(TRAVERSAL_STOPPED, 2u32);
                 return next;
             }
             var key: u32 = word * 32u32 + bit;
             words_store(words_load(VIEW_MAP) + key, next);
-            child_view(
+            if !child_view(
                 key / words_load(PORTAL_CAPACITY),
                 key % words_load(PORTAL_CAPACITY),
                 next
-            );
+            ) {
+                words_store(TRAVERSAL_STOPPED, 4u32);
+                return next;
+            }
             next = next + 1u32;
         }
         bit = bit + 1u32;
@@ -59,7 +66,7 @@ fn allocate_views(views: u32) -> u32 {
     var end: u32 = (
         (words_load(9u32) + words_load(10u32)) * words_load(PORTAL_CAPACITY) + 31u32
     ) / 32u32;
-    while word < end && words_load(5u32) == 0u32 {
+    while word < end && words_load(TRAVERSAL_STOPPED) == 0u32 {
         var mask: u32 = words_load(words_load(VIEW_KEYS) + word);
         next = allocate_key_word(word, mask, next);
         word = word + 1u32;
@@ -67,8 +74,16 @@ fn allocate_views(views: u32) -> u32 {
     return next;
 }
 fn advance() -> unit {
-    task_commands(0u32, 0u32);
-    words_store(16u32, 0u32);
+    if !traversal_finished() {
+        if words_load(TRAVERSAL_ROUNDS) >= words_load(4u32) {
+            traversal_halt();
+            words_store(TRAVERSAL_STOPPED, 3u32);
+        } else {
+            traversal_yield();
+        }
+        return;
+    }
+    traversal_halt();
     if words_load(5u32) != 0u32 {
         return;
     }
@@ -84,15 +99,26 @@ fn advance() -> unit {
     if count > words_load(PEAK_TASKS) {
         words_store(PEAK_TASKS, count);
     }
-    if count > words_load(TASK_CAPACITY) {
-        words_store(5u32, 1u32);
+    var limit: u32 = words_load(TRAVERSAL_TILE_LIMIT);
+    if count > words_load(TASK_CAPACITY) || count > limit - words_load(TRAVERSAL_TILES) {
+        words_store(TRAVERSAL_STOPPED, 1u32);
+        return;
+    }
+    if count == 0u32 {
+        words_store(6u32, 0u32);
+        words_store(10u32, 0u32);
+        return;
+    }
+    if words_load(TRAVERSAL_ROUNDS) >= words_load(4u32) {
+        words_store(TRAVERSAL_STOPPED, 3u32);
         return;
     }
     var oldviews: u32 = words_load(11u32);
     var views: u32 = allocate_views(oldviews);
-    if words_load(5u32) != 0u32 {
+    if words_load(TRAVERSAL_STOPPED) != 0u32 {
         return;
     }
+    traversal_count_tiles(count);
     task_commands(count, tasks);
     words_store(27u32, tasks);
     words_store(6u32, count);
@@ -101,10 +127,9 @@ fn advance() -> unit {
     words_store(10u32, views - oldviews);
     words_store(11u32, views);
     words_store(12u32, words_load(12u32) + 1u32);
-    words_store(
-        16u32,
-        geometry_groups((views - oldviews) * words_load(PROJECTION_CAPACITY))
-    );
+    words_store(BATCH_MODE, 3u32);
+    traversal_frontier(count);
+    traversal_yield();
 }
 fn reduce_view_keys() -> unit {
     var word: u32 = words_load(9u32) * words_load(PORTAL_CAPACITY) / 32u32 + shader_local_x();
@@ -124,11 +149,60 @@ fn reduce_view_keys() -> unit {
     }
 }
 fn compute() -> unit {
-    if words_load(5u32) == 0u32 {
+    if words_load(5u32) == 0u32 && traversal_finished() {
         reduce_view_keys();
     }
     shader_all_memory_barrier();
     if shader_global_x() == 0u32 {
         advance();
+    }
+}
+
+fn traversal_halt() -> unit {
+    task_commands(0u32, 0u32);
+    words_store(16u32, 0u32);
+    words_store(LIST_COMMAND, 0u32);
+    words_store(27u32, 0u32);
+    traversal_command(FRONTIER_COMMAND, 0u32);
+    traversal_command(VIEW_COMMAND, 0u32);
+    traversal_command(PLAN_COMMAND, 0u32);
+    traversal_command(ADVANCE_COMMAND, 0u32);
+    traversal_command(CLEAR_COMMAND, 0u32);
+}
+fn traversal_count_tiles(count: u32) -> unit {
+    words_store(TRAVERSAL_TILES, words_load(TRAVERSAL_TILES) + count);
+}
+// Requires a composed child transform. Rejects unsafe arithmetic before projection.
+fn child_numeric_valid(matrix: u32) -> bool {
+    var factor: f32 = floats_load(matrix + 16u32);
+    var inverse: f32 = 1f32 / factor;
+    var translation: f32 = view_abs(floats_load(matrix + 3u32)) + view_abs(
+        floats_load(matrix + 7u32)
+    ) + view_abs(floats_load(matrix + 11u32));
+    var bound: f32 = floats_load(VIEW_WORLD_BOUND) * factor + translation;
+    if inverse > 1f32 {
+        bound = bound * inverse;
+    }
+    if inverse > bound {
+        bound = inverse;
+    }
+    if factor > bound {
+        bound = factor;
+    }
+    var square: f32 = bound * bound;
+    var envelope: f32 = square * square * RENDER_NUMERIC_MARGIN;
+    return factor > 0f32 && envelope - envelope == 0f32;
+}
+
+fn view_abs(value: f32) -> f32 {
+    if value < 0f32 {
+        return -value;
+    }
+    return value;
+}
+
+fn traversal_yield() -> unit {
+    if words_load(TRAVERSAL_ROUNDS) >= words_load(ROUND_STOP) {
+        words_store(5u32, RENDER_PENDING);
     }
 }

@@ -46,7 +46,7 @@ fn light_scaled_object_anchors(
         mut anchors,
         light,
         read size,
-        input_word(read input, 4usize)
+        input_word(read input, 31usize)
     ) {
         scene_overflow();
     }

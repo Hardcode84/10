@@ -23,98 +23,45 @@ fn render_bounds_close(v: *RenderState) -> unit {
     v -> bounds_portals = null(*u8);
     v -> bounds_bytes = 0usize;
 }
-fn render_bounds_step(v: *RenderState, w: *u32, f: *f32, before: *f32, after: *f32) -> unit {
+fn render_bounds_compute(v: *RenderState, w: *u32, f: *f32) -> bool {
     var i: u32 = 0u32;
     while i < v -> portal_capacity {
-        var meta: usize = (w[PORTAL_META as usize] + i * 4u32) as usize;
         var p: usize = (w[PORTAL_FLOAT as usize] + i * PORTAL_TRANSFORM_WORDS) as usize;
         var factor: f32 = f[p + 16usize];
-        var offset: f32 = render_bound_abs(f[p + 3usize]) + render_bound_abs(f[p + 7usize]) + render_bound_abs(
-            f[p + 11usize]
-        );
-        var largest: f32 = 1f32;
-        var inverse: f32 = 1f32;
-        var translation: f32 = 0f32;
-        var j: u32 = 0u32;
-        while j < v -> portal_capacity {
-            var previous: usize = (w[PORTAL_META as usize] + j * 4u32) as usize;
-            if w[previous + 1usize] == w[meta] {
-                largest = render_bound_max(largest, before[(j * 3u32) as usize]);
-                inverse = render_bound_max(inverse, before[(j * 3u32 + 1u32) as usize]);
-                translation = render_bound_max(
-                    translation,
-                    before[(j * 3u32 + 2u32) as usize]
-                );
-            }
-            j = j + 1u32;
-        }
-        after[(i * 3u32) as usize] = largest * factor * 1.000001f32;
-        after[(i * 3u32 + 1u32) as usize] = inverse / factor * 1.000001f32;
-        after[(i * 3u32 + 2u32) as usize] = (translation + largest * offset) * 1.000001f32;
-        v -> bounds_scale = render_bound_max(v -> bounds_scale, after[(i * 3u32) as usize]);
-        v -> bounds_inverse = render_bound_max(
-            v -> bounds_inverse,
-            after[(i * 3u32 + 1u32) as usize]
-        );
-        v -> bounds_translation = render_bound_max(
-            v -> bounds_translation,
-            after[(i * 3u32 + 2u32) as usize]
-        );
-        j = 0u32;
-        while j < 4u32 {
-            v -> bounds_plane = render_bound_max(
-                v -> bounds_plane,
-                render_bound_abs(f[p + 12usize + j as usize])
-            );
-            j = j + 1u32;
-        }
-        i = i + 1u32;
-    }
-}
-fn render_bounds_compute(v: *RenderState, w: *u32, f: *f32) -> bool {
-    var bytes: usize = v -> portal_capacity as usize * 3usize * sizeof(f32);
-    if bytes == 0usize {
-        return true;
-    }
-    var data: *f32 = malloc(bytes * 2usize) as *f32;
-    if data == null(*f32) {
-        return error("portal arithmetic bounds allocation failed");
-    }
-    var next: *f32 = data + (v -> portal_capacity * 3u32) as isize;
-    var i: u32 = 0u32;
-    while i < v -> portal_capacity {
-        data[(i * 3u32) as usize] = 1f32;
-        data[(i * 3u32 + 1u32) as usize] = 1f32;
-        data[(i * 3u32 + 2u32) as usize] = 0f32;
-        var p: usize = (w[PORTAL_FLOAT as usize] + i * PORTAL_TRANSFORM_WORDS) as usize;
-        if!(f[p + 16usize] > 0f32) {
-            free(data as *u8);
+        if!(factor > 0f32) || factor - factor != 0f32 {
             return error("portal factor must be positive and finite");
         }
+        v -> bounds_scale = render_bound_max(v -> bounds_scale, factor);
+        v -> bounds_inverse = render_bound_max(v -> bounds_inverse, 1f32 / factor);
+        v -> bounds_translation = render_bound_max(
+            v -> bounds_translation,
+            render_bound_abs(f[p + 3usize]) + render_bound_abs(f[p + 7usize]) + render_bound_abs(
+                f[p + 11usize]
+            )
+        );
+        var j: usize = 0usize;
+        while j < 4usize {
+            v -> bounds_plane = render_bound_max(
+                v -> bounds_plane,
+                render_bound_abs(f[p + 12usize + j])
+            );
+            j = j + 1usize;
+        }
         i = i + 1u32;
     }
-    i = 0u32;
-    while i < w[4usize] {
-        render_bounds_step(v, w, f, data, next);
-        memcpy(data as *u8, next as *u8, bytes);
-        i = i + 1u32;
-    }
-    free(data as *u8);
     return true;
 }
 fn render_portal_bounds(v: *RenderState, w: *u32, f: *f32) -> bool {
     var floats: usize = v -> portal_capacity as usize * PORTAL_TRANSFORM_WORDS as usize * 4usize;
     var meta: usize = v -> portal_capacity as usize * 16usize;
-    var size: usize = floats + meta + 4usize;
+    var size: usize = floats + meta;
     var source: *u8 = (f + w[PORTAL_FLOAT as usize] as isize) as *u8;
     var spaces: *u8 = (w + w[PORTAL_META as usize] as isize) as *u8;
-    if size == v -> bounds_bytes && v -> bounds_portals != null(*u8) && *(
-        v -> bounds_portals as *u32
-    ) == w[4usize] && bounds_compare(source, v -> bounds_portals + 4isize, floats) == 0i32 && bounds_compare(
-        spaces,
-        v -> bounds_portals + 4isize + floats as isize,
-        meta
-    ) == 0i32 {
+    if size == v -> bounds_bytes && v -> bounds_portals != null(*u8) && bounds_compare(
+        source,
+        v -> bounds_portals,
+        floats
+    ) == 0i32 && bounds_compare(spaces, v -> bounds_portals + floats as isize, meta) == 0i32 {
         return true;
     }
     v -> bounds_scale = 1f32;
@@ -133,9 +80,8 @@ fn render_portal_bounds(v: *RenderState, w: *u32, f: *f32) -> bool {
         v -> bounds_portals = data;
         v -> bounds_bytes = size;
     }
-    * (v -> bounds_portals as *u32) = w[4usize];
-    memcpy(v -> bounds_portals + 4isize, source, floats);
-    memcpy(v -> bounds_portals + 4isize + floats as isize, spaces, meta);
+    memcpy(v -> bounds_portals, source, floats);
+    memcpy(v -> bounds_portals + floats as isize, spaces, meta);
     return true;
 }
 fn render_geometry_bound(v: *RenderState, w: *u32, f: *f32) -> f32 {
@@ -208,8 +154,13 @@ fn render_numeric_bounds(v: *RenderState) -> bool {
         f[7usize]
     ) + render_bound_abs(f[11usize]);
     var world: f32 = render_geometry_bound(v, w, f);
+    f[VIEW_WORLD_BOUND as usize] = world;
     var bound: f32 = render_bound_max((world * factor + translation) * inverse, inverse);
     bound = render_bound_max(bound, v -> bounds_plane * (world + 1f32));
+    var far: f32 = f[VIEW_DISTANCE as usize];
+    if!(far >= 0f32) || far - far != 0f32 {
+        return error("view distance must be non-negative and finite");
+    }
     var clip_near: f32 = f[RENDER_STYLE as usize];
     var lens: f32 = f[PROJECTION as usize];
     var detail_near: f32 = f[DETAIL_NEAR as usize];
@@ -231,7 +182,7 @@ fn render_numeric_bounds(v: *RenderState) -> bool {
     // Frustum clipping bounds screen coordinates before rasterization.
     var square: f32 = bound * bound;
     var fourth: f32 = square * square;
-    var envelope: f32 = fourth * 4096f32;
+    var envelope: f32 = fourth * RENDER_NUMERIC_MARGIN;
     if envelope - envelope != 0f32 {
         return error("recursive renderer transforms exceed the finite arithmetic envelope");
     }

@@ -165,3 +165,56 @@ fn light_direction_check() -> bool {
         "light propagated backwards through a portal and repeated a closed cycle"
     );
 }
+
+fn light_recursive_scale_check() -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var portal: CollisionPortal = make CollisionPortal {
+        support_bound: 0f32,
+        source_scale: scale_identity(),
+        target_scale: scale_ratio(2u64, 1u64),
+        reverse: 0xffffffffu32,
+        space: 0u32,
+        destination: 0u32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis(),
+        radius: 1f32,
+        sides: 4u32,
+        phase: 0f32,
+        transform: make SpaceTransform {
+            factor: 2f32,
+            origin: vec(0f32, 0f32, 0f32),
+            basis: identity_basis()
+        }
+    };
+    var scene: CollisionScene = collision_new();
+    if !collision_portal_append(mut builder, portal) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var light: LightObject = make LightObject {
+        id: 0u32,
+        space: 0u32,
+        position: vec(0f32, 0f32, 0f32),
+        colour: vec(1f32, 1f32, 1f32),
+        radius: 1f32,
+        mode: LIGHT_UNSHADOWED
+    };
+    var anchors: RoomAnchors = room_anchors_new();
+    if !light_anchors(read scene, mut anchors, light, 256u32) {
+        return false;
+    }
+    var count: u32 = room_anchor_count(read anchors);
+    if count <= 6u32 || count >= 256u32 {
+        return error("recursive scaled lights must stop at their numeric envelope");
+    }
+    var last: RoomAnchor = room_anchor(read anchors, count - 1u32);
+    var next: RoomAnchor = last;
+    next.transform = space_compose(portal.transform, last.transform);
+    return light_anchor_numeric_valid(last, light, 1f32) && !light_anchor_numeric_valid(
+        next,
+        light,
+        1f32
+    ) || error("light numeric boundary is inconsistent");
+}

@@ -30,11 +30,23 @@ fn compute() -> unit {
     }
     if i == 0u32 {
         var bad: u32 = 0u32;
-        if tiles > words_load(TASK_CAPACITY) {
+        var limit: u32 = words_load(TILE_WORK_BUDGET);
+        if limit == 0u32 {
+            limit = 0xffffffffu32;
+            if words_load(4u32) <= limit / words_load(TASK_CAPACITY) {
+                limit = words_load(4u32) * words_load(TASK_CAPACITY);
+            }
+        }
+        words_store(TRAVERSAL_TILE_LIMIT, limit);
+        if tiles > words_load(TASK_CAPACITY) || tiles > limit {
             bad = 1u32;
             tiles = 0u32;
         }
         words_store(PEAK_TASKS, tiles);
+        words_store(TRAVERSAL_TILES, tiles);
+        words_store(TRAVERSAL_STOPPED, 0u32);
+        words_store(TRAVERSAL_ROUNDS, 0u32);
+        words_store(ROUND_STOP, words_load(4u32));
         words_store(WORK_NODES, 0u32);
         words_store(WORK_TRIANGLES, 0u32);
         words_store(WORK_BATCHES, 0u32);
@@ -54,6 +66,9 @@ fn compute() -> unit {
         words_store(18u32, 1u32);
         view_space(0u32, words_load(20u32));
         words_store(words_load(VIEW_META) + 3u32, 0u32);
+        words_store(BATCH_MODE, 3u32);
+        traversal_frontier(tiles);
+        traversal_command(ADVANCE_COMMAND, 0u32);
         var j: u32 = 0u32;
         while j < 12u32 {
             floats_store(words_load(VIEW_FLOAT) + j, floats_load(j));

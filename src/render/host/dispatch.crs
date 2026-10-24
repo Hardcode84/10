@@ -285,3 +285,12 @@ fn command_copy(v: *RenderState, src: *u8, dst: *u8, offset: u64, size: u64) -> 
     };
     vkCmdCopyBuffer(v -> gpu.commands, src, dst, 1u32, &copy);
 }
+
+fn command_resume(v: *RenderState) -> bool {
+    if !command_continue(v) {
+        return false;
+    }
+    vkCmdResetQueryPool(v -> gpu.commands, v -> gpu.query_pool, 2u32, 2u32);
+    vkCmdResetQueryPool(v -> gpu.commands, v -> gpu.query_pool, 6u32, 2u32);
+    return true;
+}

@@ -97,6 +97,10 @@ fn traversal_scene(v: mut FrameInput, index: u32) -> unit {
     input_set_float(mut v, 0usize, 1f32);
     input_set_float(mut v, 5usize, 1f32);
     input_set_float(mut v, 10usize, 1f32);
+    if index >= 10u32 {
+        traversal_extended(mut v, index);
+        return;
+    }
     if index == 1u32 || index == 2u32 {
         tour_portal(mut v, 80u32, 0u32, 0u32, 1f32, 0f32, 0f32, 2f32, 0f32, 1f32, 0f32);
         traversal_aperture(mut v, 80u32, -1000f32, -1000f32, 2000f32, 2000f32, false);
@@ -210,4 +214,88 @@ fn traversal_pixel_portals(v: mut FrameInput) -> unit {
         i = i + 1u32;
     }
     traversal_destination(mut v, 65u32);
+}
+
+fn traversal_chain(v: mut FrameInput, links: u32) -> unit {
+    var i: u32 = 0u32;
+    while i < links {
+        tour_portal(mut v, i, i, i + 1u32, 1f32, 0f32, 0f32, 2f32, 0f32, 1f32, 0f32);
+        var first: u32 = input_word(read v, 3usize);
+        traversal_aperture(mut v, i, -1000f32, -1000f32, 2000f32, 2000f32, false);
+        var meta: u32 = input_word(read v, META as usize);
+        input_set_word(mut v, (meta + first * 4u32) as usize, i);
+        input_set_word(mut v, (meta + (first + 1u32) * 4u32) as usize, i);
+        i = i + 1u32;
+    }
+    var first: u32 = input_word(read v, 3usize);
+    traversal_destination(mut v, 0u32);
+    var meta: u32 = input_word(read v, META as usize);
+    input_set_word(mut v, (meta + first * 4u32) as usize, links);
+    input_set_word(mut v, (meta + (first + 1u32) * 4u32) as usize, links);
+}
+fn traversal_cube(v: mut FrameInput, factor: f32) -> unit {
+    var face: u32 = 0u32;
+    while face < 6u32 {
+        var meta: u32 = input_word(read v, PORTAL_META as usize);
+        var axis: u32 = face / 2u32;
+        var side: f32 = 1f32 - 2f32 * (face % 2u32) as f32;
+        tour_portal(mut v, face, 0u32, 0u32, factor, 0f32, 0f32, 0f32, 0f32, 0f32, 2f32);
+        var p: usize = (
+            input_word(read v, PORTAL_FLOAT as usize) + face * PORTAL_TRANSFORM_WORDS
+        ) as usize;
+        input_set_float(mut v, p + 5usize, factor);
+        input_set_float(
+            mut v,
+            p + (axis * 4u32 + 3u32) as usize,
+            side * (2f32 + 2f32 * factor)
+        );
+        input_set_float(mut v, p + 12usize + axis as usize, side);
+        input_set_float(mut v, p + 16usize, factor);
+        input_set_word(mut v, (meta + face * 4u32 + 2u32) as usize, (face ^ 1u32) + 1u32);
+        var first: u32 = input_word(read v, 3usize);
+        traversal_aperture(mut v, face, -2f32, -2f32, 4f32, 4f32, false);
+        var corner: u32 = 0u32;
+        while corner < 6u32 {
+            var point: usize = (GEOMETRY + first * 15u32 + corner * 5u32) as usize;
+            var x: f32 = input_float(read v, point);
+            var y: f32 = input_float(read v, point + 1usize);
+            input_set_float(mut v, point + axis as usize, side * 2f32);
+            input_set_float(mut v, point + ((axis + 1u32) % 3u32) as usize, x);
+            input_set_float(mut v, point + ((axis + 2u32) % 3u32) as usize, y);
+            corner = corner + 1u32;
+        }
+        face = face + 1u32;
+    }
+}
+fn traversal_extended(v: mut FrameInput, index: u32) -> unit {
+    if index == 10u32 || index == 11u32 || index == 14u32 || index == 15u32 || index == 16u32 || index == 18u32 {
+        traversal_chain(mut v, 64u32);
+        if index == 18u32 {
+            var i: u32 = 0u32;
+            while i < 64u32 {
+                traversal_factor(mut v, i, 2f32);
+                i = i + 1u32;
+            }
+        }
+    } else if index == 17u32 {
+        tour_portal(mut v, 0u32, 0u32, 0u32, 1f32, 0f32, 0f32, 2f32, 0f32, 1f32, 0f32);
+        traversal_factor(mut v, 0u32, 0.5f32);
+        traversal_aperture(mut v, 0u32, -1e8f32, -1e8f32, 2e8f32, 2e8f32, false);
+    } else {
+        var factor: f32 = 1f32;
+        if index == 13u32 {
+            factor = 0.5f32;
+        }
+        traversal_cube(mut v, factor);
+    }
+}
+
+fn traversal_factor(v: mut FrameInput, portal: u32, factor: f32) -> unit {
+    var p: usize = (
+        input_word(read v, PORTAL_FLOAT as usize) + portal * PORTAL_TRANSFORM_WORDS
+    ) as usize;
+    input_set_float(mut v, p, factor);
+    input_set_float(mut v, p + 5usize, factor);
+    input_set_float(mut v, p + 10usize, factor);
+    input_set_float(mut v, p + 16usize, factor);
 }

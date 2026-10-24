@@ -2,7 +2,9 @@ fn render_config_valid(config: *RenderConfig) -> bool {
     if config -> fault != 0u32 && !config -> shader_checks {
         return error("fault injection requires checked shaders");
     }
-    if config -> width == 0u32 || config -> height == 0u32 || config -> output_width == 0u32 || config -> output_height == 0u32 || config -> view_budget == 0u32 || config -> task_budget == 0u32 || config -> crossing_limit > 0x3ffffffdu32 {
+    if config -> width == 0u32 || config -> height == 0u32 || config -> output_width == 0u32 || config -> output_height == 0u32 || config -> view_budget == 0u32 || config -> task_budget == 0u32 || config -> work_rounds == 0u32 ||!(
+        config -> view_distance >= 0f32
+    ) || config -> view_distance - config -> view_distance != 0f32 {
         return error("render configuration exceeds image or view capacity");
     }
     return image_extent_valid(
@@ -29,10 +31,7 @@ fn frame_valid(v: *RenderState) -> bool {
     }
     var failure: u32 = (v -> mapped as *u32)[5usize];
     if failure == 1u32 {
-        return error("portal task budget exhausted; output rejected");
-    }
-    if failure == 2u32 {
-        return error("portal view budget exhausted; output rejected");
+        return error("root tiles exceed task capacity or total tile-work budget; output rejected");
     }
     if failure == 3u32 {
         return error("geometry batch queue exceeds its admitted work bound");
@@ -50,7 +49,9 @@ record RenderConfig {
     view_budget: u32;
     portal_budget: u32;
     task_budget: u32;
-    crossing_limit: u32;
+    work_rounds: u32;
+    tile_work_budget: u32;
+    view_distance: f32;
     fault: u32;
 }
 // Requires an instance and an optional surface. Shader bytes are borrowed for this call.
@@ -69,8 +70,8 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
     v -> view_capacity = config -> view_budget;
     v -> portal_capacity = config -> portal_budget;
     v -> task_capacity = config -> task_budget;
-    v -> crossing_limit = config -> crossing_limit;
-    v -> query_count = 6u32 + (config -> crossing_limit + 1u32) * 2u32;
+    v -> work_rounds = config -> work_rounds;
+    v -> query_count = 8u32;
     if !device_open(v) || !traversal_valid(v) || !buffer_create(v) || !layout_create(v) {
         return false;
     }
@@ -78,7 +79,9 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
         return false;
     }
     var w: *u32 = v -> mapped as *u32;
-    w[4usize] = config -> crossing_limit;
+    w[4usize] = config -> work_rounds;
+    w[TILE_WORK_BUDGET as usize] = config -> tile_work_budget;
+    ((v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32)[VIEW_DISTANCE as usize] = config -> view_distance;
     w[0usize] = config -> width;
     w[1usize] = config -> height;
     w[22usize] = config -> output_width;
@@ -101,6 +104,7 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
 // Returns after GPU completion and the selected readback. A failed frame must not be presented.
 // Requires no input borrow. Frame storage addresses can change when room geometry grows.
 fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
+    v -> frame_chunks = 0u32;
     v -> frame_submit_ns = 0u64;
     v -> frame_present_ns = 0u64;
     v -> frame_retired_ns = 0u64;
@@ -113,8 +117,8 @@ fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
         return false;
     }
     var w: *u32 = v -> mapped as *u32;
-    if w[4usize] > v -> crossing_limit {
-        return error("frame crossing limit exceeds configured traversal depth");
+    if w[4usize] > v -> work_rounds {
+        return error("frame round budget exceeds configured work rounds");
     }
     if w[INSTANCE_COUNT as usize] == 0u32 {
         w[DYNAMIC_COUNT as usize] = w[3usize];
@@ -141,7 +145,7 @@ fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
     return true;
 }
 fn renderer_begin(v: *RenderState) -> bool {
-    if !renderer_prepare(v, 0u32) || !command_reset(v) || !commands_record(v) || !dispatch_submit(
+    if !renderer_prepare(v, 0u32) || !command_reset(v) || !commands_record(v) || !renderer_submit(
         v
     ) {
         return false;
@@ -169,6 +173,12 @@ fn renderer_draw(v: *RenderState) -> bool {
         return false;
     }
     retirement_wait(v);
+    while renderer_pending(v) {
+        if !renderer_resume(v) {
+            return false;
+        }
+        retirement_wait(v);
+    }
     return renderer_complete(v);
 }
 
@@ -192,4 +202,30 @@ fn renderer_pipelines(v: *RenderState, shaders: *ShaderCode) -> bool {
 }
 fn renderer_pipeline_count(v: *RenderState) -> usize {
     return PIPELINE_COUNT as usize - 1usize + v -> shader_checks as usize;
+}
+
+fn renderer_pending(v: *RenderState) -> bool {
+    return (v -> mapped as *u32)[5usize] == RENDER_PENDING;
+}
+// Requires a retired pending chunk. Continues the same frame and retains all input storage.
+fn renderer_resume(v: *RenderState) -> bool {
+    if !command_reset(v) || !command_resume(v) {
+        return false;
+    }
+    command_barrier(v, BARRIER_BEFORE_UPDATE);
+    command_word(v, 6u32, 0u32);
+    command_barrier(v, BARRIER_AFTER_UPDATE);
+    commands_traversal(v, v -> scheduled_rounds);
+    var first_submit: u64 = v -> frame_submit_ns;
+    var accepted: bool = command_end(v) && renderer_submit(v);
+    v -> frame_submit_ns = first_submit;
+    return accepted;
+}
+
+fn renderer_submit(v: *RenderState) -> bool {
+    if !dispatch_submit(v) {
+        return false;
+    }
+    v -> frame_chunks = v -> frame_chunks + 1u32;
+    return true;
 }

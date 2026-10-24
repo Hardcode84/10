@@ -2,12 +2,12 @@ fn traversal_config(config: *RenderConfig, index: u32) -> unit {
     config -> portal_budget = 96u32;
     config -> view_budget = 128u32;
     config -> task_budget = 1000u32;
-    config -> crossing_limit = 1u32;
+    config -> work_rounds = 128u32;
     if index == 1u32 {
-        config -> crossing_limit = 80u32;
+        config -> view_budget = 81u32;
     }
     if index == 2u32 {
-        config -> crossing_limit = 0u32;
+        config -> work_rounds = 1u32;
     }
     if index == 3u32 || index == 4u32 {
         config -> portal_budget = 8u32;
@@ -25,9 +25,30 @@ fn traversal_config(config: *RenderConfig, index: u32) -> unit {
     if index == 6u32 {
         config -> task_budget = 1u32;
     }
+    traversal_extended_config(config, index);
+}
+fn traversal_extended_config(config: *RenderConfig, index: u32) -> unit {
+    if index == 11u32 || index == 18u32 {
+        config -> view_distance = 20f32;
+    }
+    if index == 14u32 {
+        config -> tile_work_budget = 500u32;
+    }
+    if index == 15u32 {
+        config -> work_rounds = 8u32;
+    }
+    if index == 16u32 {
+        config -> work_rounds = 1u32;
+    }
+    if index == 12u32 || index == 13u32 {
+        config -> task_budget = 10240u32;
+    }
 }
 fn traversal_result(v: *RenderState, index: u32, drawn: bool) -> bool {
     var w: *u32 = v -> mapped as *u32;
+    if index >= 10u32 {
+        return traversal_extended_result(v, index, drawn);
+    }
     if index == 7u32 {
         return !drawn && w[5usize] == 0u32 && w[STATUS_REPORT as usize] == 0u32 && w[
             (STATUS_REPORT + 1u32) as usize
@@ -36,12 +57,13 @@ fn traversal_result(v: *RenderState, index: u32, drawn: bool) -> bool {
     if index == 9u32 {
         return traversal_tile_result(v, drawn);
     }
-    if index >= 4u32 {
-        var expected: u32 = 1u32;
-        if index == 5u32 {
-            expected = 2u32;
-        }
-        return !drawn && w[5usize] == expected;
+    if index == 6u32 {
+        return !drawn && w[5usize] == 1u32;
+    }
+    if index == 4u32 || index == 5u32 {
+        return drawn && w[5usize] == 0u32 && w[TRAVERSAL_STOPPED as usize] == index - 3u32 && traversal_dark(
+            v
+        );
     }
     if !drawn {
         return false;
@@ -99,19 +121,24 @@ fn traversal_case(base_options: *Options, index: u32) -> bool {
     }
     {
         var input: FrameInput = renderer_inputs(mut renderer);
-        traversal_scene(mut input, index);
+        traversal_populate(mut input, index);
     }
-    if index == 0u32 {
-        traversal_sparse_spaces(&renderer.state);
+    if !traversal_prepare_submit(mut renderer, index) {
+        return false;
     }
-    var drawn: bool = renderer_draw(&renderer.state);
+    var drawn: bool = traversal_submit(mut renderer);
     if !traversal_result(&renderer.state, index, drawn) {
         return error("portal traversal case failed");
     }
     if index == 4u32 || index == 5u32 {
-        (renderer.state.mapped as *u32)[4usize] = 0u32;
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            input_frame(mut input);
+            traversal_destination(mut input, 0u32);
+            input_set_word(mut input, 20usize, 1u32);
+        }
         if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
-            return error("renderer did not recover after rejected portal frame");
+            return error("renderer did not reset traversal after a budget cutoff");
         }
     }
     print_number(index as i64);
@@ -137,7 +164,7 @@ fn traversal_sparse_spaces(v: *RenderState) -> unit {
 }
 fn traversal_test(base_options: *Options) -> bool {
     var i: u32 = 0u32;
-    while i < 10u32 {
+    while i < 20u32 {
         if !traversal_case(base_options, i) {
             return false;
         }
@@ -153,4 +180,120 @@ fn traversal_tile_result(v: *RenderState, drawn: bool) -> bool {
         return error("one tile must produce 64 distinct child masks and views");
     }
     return reference_check(v -> mapped) && presentation_check(v);
+}
+
+fn traversal_dark(v: *RenderState) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var i: u32 = 0u32;
+    while i < v -> width * v -> height {
+        if w[(PIXELS + i) as usize] != w[BACKGROUND as usize] {
+            return error("unfinished portal pixels must use the background colour");
+        }
+        i = i + 1u32;
+    }
+    return presentation_check(v);
+}
+
+fn traversal_extended_result(v: *RenderState, index: u32, drawn: bool) -> bool {
+    if index == 19u32 {
+        return !drawn && v -> frame_chunks == 0u32;
+    }
+    var w: *u32 = v -> mapped as *u32;
+    if !drawn || w[TRAVERSAL_ROUNDS as usize] > v -> work_rounds || w[11usize] > v -> view_capacity || w[
+        WORK_EMPTY_IDLE as usize
+    ] != 0u32 {
+        return error("dynamic traversal exceeded its bounds or ran idle planners");
+    }
+    if index == 10u32 {
+        if w[11usize] != 65u32 || w[TRAVERSAL_ROUNDS as usize] != 65u32 || w[
+            TRAVERSAL_STOPPED as usize
+        ] != 0u32 {
+            return error("deep straight chain did not reach its terminal room");
+        }
+        if v -> frame_chunks != (65u32 + RENDER_CHUNK_ROUNDS - 1u32) / RENDER_CHUNK_ROUNDS {
+            return error("deep chain did not continue through bounded asynchronous chunks");
+        }
+        return reference_check(v -> mapped);
+    }
+    return traversal_budget_result(v, index) && traversal_dark(v);
+}
+fn traversal_budget_result(v: *RenderState, index: u32) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    if index == 11u32 &&!(
+        w[11usize] > 1u32 && w[11usize] < 65u32 && w[TRAVERSAL_STOPPED as usize] == 0u32
+    ) {
+        return error("view distance did not terminate a deep chain");
+    }
+    if (index == 12u32 || index == 13u32) &&!(
+        w[11usize] > 6u32 && (w[TRAVERSAL_STOPPED as usize] != 0u32 || w[6usize] == 0u32)
+    ) {
+        return error("recursive cube did not expand and terminate");
+    }
+    return traversal_limit_result(v, index);
+}
+fn traversal_limit_result(v: *RenderState, index: u32) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    if index == 14u32 && (
+        w[TRAVERSAL_TILES as usize] > w[TILE_WORK_BUDGET as usize] || w[
+            TRAVERSAL_STOPPED as usize
+        ] != 1u32
+    ) {
+        return error("cumulative tile work exceeded its budget");
+    }
+    if index == 15u32 && w[TRAVERSAL_STOPPED as usize] != 3u32 {
+        return error("round budget did not terminate a deep chain");
+    }
+    if index == 16u32 && (
+        w[WORK_TRIANGLES as usize] != 1u32 || w[TRAVERSAL_STOPPED as usize] != 3u32
+    ) {
+        return error("partial geometry did not stop within its round budget");
+    }
+    if index == 17u32 && w[TRAVERSAL_STOPPED as usize] != 4u32 {
+        return error("recursive scaling did not stop before unsafe numeric operations");
+    }
+    if index == 18u32 && (w[11usize] != 4u32 || w[TRAVERSAL_STOPPED as usize] != 0u32) {
+        return error("scaled portal distance was not measured in viewer units");
+    }
+    return true;
+}
+
+fn traversal_populate(input: mut FrameInput, index: u32) -> unit {
+    traversal_scene(mut input, index);
+    if index == 16u32 {
+        input_batch_limit(mut input, 1u32);
+    }
+    if index == 19u32 {
+        input_set_float(mut input, VIEW_DISTANCE as usize, -1f32);
+    }
+}
+
+fn traversal_submit(renderer: mut Renderer) -> bool {
+    var frame: SubmittedFrame = frame_submit(mut renderer);
+    if !frame_accepted(read frame) {
+        return false;
+    }
+    var result: i32 = frame_poll(mut frame);
+    while result == 0i32 {
+        frame_idle(mut frame);
+        result = frame_poll(mut frame);
+    }
+    return result == 1i32;
+}
+
+fn traversal_prepare_submit(renderer: mut Renderer, index: u32) -> bool {
+    if index == 0u32 {
+        traversal_sparse_spaces(&renderer.state);
+    }
+    if index != 10u32 {
+        return true;
+    }
+    {
+        var abandoned: SubmittedFrame = frame_submit(mut renderer);
+        if !frame_accepted(read abandoned) {
+            return false;
+        }
+    }
+    return renderer_pending(&renderer.state) && !renderer.state.present_ready || error(
+        "dropping a chunked frame exposed an unfinished image"
+    );
 }

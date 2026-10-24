@@ -1,8 +1,4 @@
 fn game_renderer_open(v: *RenderState, o: *Launch, window: *u8, portals: u32) -> bool {
-    var depth: u32 = 0u32;
-    if portals != 0u32 {
-        depth = 6u32;
-    }
     var c: RenderConfig = make RenderConfig {
         width: o -> config.width,
         height: o -> config.height,
@@ -16,7 +12,9 @@ fn game_renderer_open(v: *RenderState, o: *Launch, window: *u8, portals: u32) ->
         task_budget: ((o -> config.width + 7u32) / 8u32) * (
             (o -> config.height + 7u32) / 8u32
         ),
-        crossing_limit: depth,
+        work_rounds: DEFAULT_RENDER_WORK_ROUNDS,
+        tile_work_budget: 0u32,
+        view_distance: 1000f32,
         fault: 0u32
     };
     if window != null(*u8) {

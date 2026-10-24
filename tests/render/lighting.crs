@@ -116,7 +116,6 @@ fn lighting_test(base: *Options) -> bool {
     var config: RenderConfig = demo_render_config(&o);
     config.view_budget = 1u32;
     config.portal_budget = 0u32;
-    config.crossing_limit = 0u32;
     config.task_budget = 64u32;
     if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
         return false;
@@ -491,7 +490,6 @@ fn lighting_large_mesh_test(base: *Options) -> bool {
     var config: RenderConfig = demo_render_config(&o);
     config.view_budget = 1u32;
     config.portal_budget = 0u32;
-    config.crossing_limit = 0u32;
     config.task_budget = 1u32;
     if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
         return false;

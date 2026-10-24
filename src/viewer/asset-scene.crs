@@ -6,7 +6,6 @@ fn asset_scene(
     camera: AssetCamera
 ) -> bool {
     input_frame(mut input);
-    input_set_word(mut input, 4usize, 0u32);
     input_set_word(mut input, 20usize, 0u32);
     input_set_word(mut input, LIGHT_MODEL as usize, 1u32);
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);

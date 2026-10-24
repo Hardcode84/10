@@ -357,12 +357,9 @@ fn dynamic_shadow_checks(renderer: mut Renderer, config: GameConfig) -> bool {
 fn recursive_light_capture(options: *Launch) -> bool {
     var renderer: Renderer = renderer_new();
     var scene: CollisionScene = collision_new();
-    if !light_direction_check() || !anchor_light_scene(mut scene) || !game_renderer_open(
-        &renderer.state,
-        options,
-        null(*u8),
-        2u32
-    ) {
+    if !light_direction_check() || !light_recursive_scale_check() || !anchor_light_scene(
+        mut scene
+    ) || !game_renderer_open(&renderer.state, options, null(*u8), 2u32) {
         return false;
     }
     var mode: u32 = 0u32;

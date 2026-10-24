@@ -332,28 +332,21 @@ The reverse path restores scale; a different return path need not do so. Never
 force an object back to its initial scale merely because it enters the start room.
 
 Recursive visibility and light propagation can encounter infinitely many distinct
-placements. Preserve explicit traversal budgets and clipping. Define the visible
-budget endpoint using the renderer's portal-capacity contract: at the crossing
-limit, shade the portal surface without requesting a child. View or task storage
-exhaustion rejects the frame. Do not silently
-merge distinct scales or let a repeated room ID end traversal. Test tiny and large
-recursive appearances against the renderer's capacity and numerical error paths.
+placements. Use explicit work budgets and clipping. The renderer keeps completed
+solid pixels and uses the background colour for unfinished views. Repeated room
+IDs and distinct scales remain separate views. Test branching and shrinking
+cycles against the [traversal contract](../render/rendering.md#dynamic-traversal-and-termination).
 
 Exact integer storage does not solve binary32 spatial resolution. Host anchor
-construction can fail allocation; derived physical or visual transforms can fail
-numerical checks. Report each failure separately from declared traversal limits.
-At content load, reject per-link ratios that cannot be represented in shader
-inputs. Before dispatch, bound scale and coordinate magnitudes over the selected
-recursion depth using the admitted link transforms, scene bounds, and camera.
-Reject a frame whose transform arithmetic cannot be represented safely. Cache
-static bounds. The host computes conservative scale, inverse-scale, and
-translation bounds over room-connected walks. The cache key contains the
-portal data, room IDs, and recursion depth. This cold calculation costs
-O(depth * links^2) time and O(links) temporary storage. Each frame checks
-dynamic geometry, retained instance bounds, lights, and camera data against
-the cached result. This check requires no shader-error readback. Debug
-shader checks can verify the bound. A floating-point logarithm of scale does not
-make an overflowing translation or projected coordinate representable.
+construction can fail allocation. At content load, reject per-link ratios that
+cannot be represented in shader inputs. Before dispatch, validate source geometry,
+retained instance bounds, lights, camera data, and individual portal transforms.
+Cache the static connection bounds. This check takes O(links) time when portal
+data changes. Before it admits a child view, the GPU checks the composed scale,
+inverse scale, and translation against the finite arithmetic envelope. Unsafe
+compositions end child expansion. This requires no CPU readback between rounds.
+Debug shader checks can verify the bound. A floating-point logarithm of scale
+does not make an overflowing translation or projected coordinate representable.
 Exact physical scales must never be reconstructed from GPU view matrices.
 
 ## Components and data ownership

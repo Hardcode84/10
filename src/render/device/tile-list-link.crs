@@ -1,12 +1,15 @@
 fn compute() -> unit {
-    var task: u32 = shader_global_x() / LOCAL_SIZE + words_load(DISPATCH_BASE);
-    if words_load(5u32) != 0u32 || task >= words_load(6u32) || shader_local_x() != 0u32 {
+    if words_load(5u32) != 0u32 || shader_local_x() != 0u32 {
         return;
     }
-    var tile: u32 = words_load(task_base() + task * 4u32);
-    var previous: u32 = tiles_atomic_exchange(
-        words_load(TILE_STATS) + tile * 4u32,
-        task + 1u32
-    );
-    tile_write(words_load(TILE_STATS) + task * 4u32 + 1u32, previous);
+    var task: u32 = shader_global_x() / LOCAL_SIZE;
+    while task < words_load(6u32) {
+        var tile: u32 = words_load(task_base() + task * 4u32);
+        var previous: u32 = tiles_atomic_exchange(
+            words_load(TILE_STATS) + tile * 4u32,
+            task + 1u32
+        );
+        tile_write(words_load(TILE_STATS) + task * 4u32 + 1u32, previous);
+        task = task + MAX_INVOCATIONS / LOCAL_SIZE;
+    }
 }

@@ -25,7 +25,7 @@ fn queries_report(v: *RenderState) -> bool {
         return false;
     }
     puts(
-        "last frame GPU intervals in microseconds: upload/init; projection+raster+lighting/advance per depth; compose; readback"
+        "last frame GPU intervals in microseconds: upload/init; geometry+lighting+portal traversal; compose; readback"
     );
     var gap: u64 = (
         values[(v -> query_count - 3u32) as usize] - values[(v -> query_count - 4u32) as usize]

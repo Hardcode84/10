@@ -97,7 +97,6 @@ fn scene(v: mut FrameInput, width: u32, height: u32, frame: u32, mode: u32) -> u
     input_set_word(mut v, 1usize, height);
     input_set_word(mut v, 2usize, mode);
     input_set_word(mut v, 3usize, 0u32);
-    input_set_word(mut v, 4usize, 3u32);
     input_set_word(mut v, BACKGROUND as usize, 0xff463026u32);
     input_set_float(mut v, RENDER_STYLE as usize, 0.125f32);
     input_set_float(mut v, (RENDER_STYLE + 1u32) as usize, 6f32);

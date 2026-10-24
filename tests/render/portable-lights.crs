@@ -1,7 +1,6 @@
 fn portable_scene(input: mut FrameInput, mode: u32) -> unit {
     lighting_scene(mut input, 0u32);
     input_frame(mut input);
-    input_set_word(mut input, 4usize, 2u32);
     input_set_word(mut input, SHARED_AMBIENT as usize, 1u32);
     input_set_word(mut input, LIGHT_COUNT as usize, 1u32);
     tour_light(mut input, 0u32, 0u32, 1f32, 0f32, 2f32, 100f32, 2f32, 2f32, 2f32);
@@ -120,7 +119,6 @@ fn portable_lights_test(base: *Options) -> bool {
     var config: RenderConfig = demo_render_config(&o);
     config.view_budget = 3u32;
     config.portal_budget = 2u32;
-    config.crossing_limit = 2u32;
     config.task_budget = 64u32;
     if !demo_renderer_configured(&renderer.state, &config, null(*u8)) {
         return false;
