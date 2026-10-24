@@ -282,6 +282,10 @@ fn junction_port(side: u32, face: u32, distance: f32) -> RoomPort {
 // Convex junction of two adjacent, three, or four HEX-6M connections.
 // Bits 0..3 select south, east, north, and west. Collar must be positive.
 fn hex_junction_build(connections: u32, collar: f32, asset: mut RoomAsset) -> bool {
+    return hex_junction_shape(connections, collar, mut asset) && room_asset_finish(mut asset);
+}
+// Builds the shell and ports. Add solid parts before room completion.
+fn hex_junction_shape(connections: u32, collar: f32, asset: mut RoomAsset) -> bool {
     var radius: f32 = service_hex_profile().radius;
     var plan: JunctionPlan = junction_plan(connections, radius, radius + collar);
     var indices: u32 = plan.count * 32u32;
@@ -321,7 +325,7 @@ fn hex_junction_build(connections: u32, collar: f32, asset: mut RoomAsset) -> bo
         position: scale(centre, 1f32 / plan.count as f32),
         basis: junction_port(2u32, 0u32, plan.distance).basis
     };
-    return room_asset_finish(mut asset);
+    return true;
 }
 
 // Every entrance owns one material region, in port order. UVs meet its tunnel at a plate seam.

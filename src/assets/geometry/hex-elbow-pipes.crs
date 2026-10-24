@@ -1,0 +1,114 @@
+record HexElbowPipe {
+    start: Vec3;
+    radial: Vec3;
+    distance: f32;
+}
+fn hex_elbow_pipe_start(asset: read RoomAsset, wall: u32, offset: f32) -> HexElbowPipe {
+    var port: RoomPort = asset_port(read asset.ports, 0u32);
+    var a: Vec3 = connection_point(port, wall);
+    var b: Vec3 = connection_point(port, (wall + 1u32) % 6u32);
+    var normal: Vec3 = unit_vector(cross(vec(0f32, 1f32, 0f32), sub(b, a)));
+    var across: Vec3 = cross(normal, vec(0f32, 1f32, 0f32));
+    return make HexElbowPipe {
+        start: add(
+            sub(scale(add(a, b), 0.5f32), scale(normal, HEX_PIPE_OFFSET)),
+            scale(across, offset)
+        ),
+        radial: across,
+        distance: -port.position.y
+    };
+}
+fn hex_elbow_pipe_style(pipe: HexElbowPipe) -> TubeStyle {
+    var lead: f32 = HEX_PIPE_BEND * 0.5f32;
+    var trim: f32 = HEX_PIPE_BEND * (sqrtf(2f32) - 1f32);
+    var distance: f32 = 2f32 * lead + sqrtf(2f32) * (pipe.distance - lead - pipe.start.x) - 4f32 * trim + HEX_PIPE_BEND * 1.57079632679f32;
+    var tile: f32 = service_pipe_material().tile_metres;
+    var repeats: u32 = (distance / tile) as u32;
+    if repeats as f32 * tile < distance {
+        repeats = repeats + 1u32;
+    }
+    return make TubeStyle {
+        radius: HEX_PIPE_RADIUS,
+        sides: 8u32,
+        region: 2u32,
+        tile_metres: distance / repeats as f32
+    };
+}
+fn hex_elbow_pipe(pipe: HexElbowPipe, asset: mut RoomAsset) -> bool {
+    var lead: f32 = HEX_PIPE_BEND * 0.5f32;
+    var a: Vec3 = add(pipe.start, vec(0f32, lead, 0f32));
+    var b: Vec3 = vec(pipe.distance - lead, -pipe.start.x, pipe.start.z);
+    var end: Vec3 = vec(pipe.distance, -pipe.start.x, pipe.start.z);
+    var diagonal: Vec3 = unit_vector(sub(b, a));
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var sweep: TubeSweep = tube_sweep_begin(
+        pipe.start,
+        vec(0f32, 1f32, 0f32),
+        pipe.radial,
+        hex_elbow_pipe_style(pipe)
+    );
+    if !tube_sweep_corner(mut asset.geometry, mut sweep, a, diagonal, HEX_PIPE_BEND) || !tube_sweep_corner(
+        mut asset.geometry,
+        mut sweep,
+        b,
+        vec(1f32, 0f32, 0f32),
+        HEX_PIPE_BEND
+    ) || !tube_sweep_finish(mut asset.geometry, mut sweep, end) || !pipe_graph_part(
+        mut asset,
+        first
+    ) {
+        return false;
+    }
+    return hex_elbow_pipe_supports(a, b, mut asset);
+}
+fn hex_elbow_pipe_supports(a: Vec3, b: Vec3, asset: mut RoomAsset) -> bool {
+    var tangent: Vec3 = unit_vector(sub(b, a));
+    var plates: u32 = hex_pipe_support_count(length(sub(b, a)));
+    var i: u32 = 0u32;
+    while i < plates {
+        var centre: Vec3 = add(
+            a,
+            scale(sub(b, a), (i as f32 + 0.5f32) / plates as f32)
+        );
+        var wall: SurfaceFrame = hull_frame(
+            read asset.hull,
+            asset_face(read asset.hull, 2u32)
+        );
+        var gap: f32 = dot(wall.normal, sub(wall.origin, centre));
+        var face: u32 = 3u32;
+        while face < asset_face_count(read asset.hull) {
+            var candidate: SurfaceFrame = hull_frame(
+                read asset.hull,
+                asset_face(read asset.hull, face)
+            );
+            var next: f32 = dot(candidate.normal, sub(candidate.origin, centre));
+            if next < gap {
+                wall = candidate;
+                gap = next;
+            }
+            face = face + 1u32;
+        }
+        if !hex_pipe_support_at(centre, wall.normal, tangent, 0f32, gap, 3u32, mut asset) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+// Counts select bundles at ENTRY. Each bundle continues through EAST with no wall end.
+fn hex_elbow_pipes(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    var wall: u32 = 0u32;
+    while wall < 6u32 {
+        var count: u32 = asset_value(read parameters, 3u32 + wall) as u32;
+        var i: u32 = 0u32;
+        while i < count {
+            var offset: f32 = (i as f32 - (count - 1u32) as f32 * 0.5f32) * HEX_PIPE_SPACING;
+            if !hex_elbow_pipe(hex_elbow_pipe_start(read asset, wall, offset), mut asset) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+        wall = wall + 1u32;
+    }
+    return true;
+}

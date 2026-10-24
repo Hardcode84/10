@@ -1,23 +1,47 @@
 const prefab_hex_elbow_CONNECTIONS: u32 = 3u32;
 fn prefab_hex_elbow_parameter_count() -> u32 {
-    return 3u32;
+    return 9u32;
 }
 fn prefab_hex_elbow_parameter(index: u32) -> AssetParameter {
+    if index >= 3u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 3f32,
+            initial: 0f32,
+            step: 1f32
+        };
+    }
     return hex_junction_parameter(index);
 }
 fn prefab_hex_elbow_parameter_name(index: u32) -> AssetName {
+    if index >= 3u32 {
+        return hex_pipe_count_name(index - 3u32);
+    }
     return hex_junction_parameter_name(index);
 }
 fn prefab_hex_elbow_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !prefab_hex_elbow_parameters_valid(read parameters) {
         return false;
     }
-    return hex_junction_styled_build(prefab_hex_elbow_CONNECTIONS, read parameters, mut asset);
+    return hex_junction_shape(
+        prefab_hex_elbow_CONNECTIONS,
+        asset_value(read parameters, 0u32),
+        mut asset
+    ) && hex_elbow_pipes(read parameters, mut asset) && room_asset_finish(mut asset) && hex_junction_style_seams(
+        read parameters,
+        mut asset
+    );
 }
 fn prefab_hex_elbow_material_count() -> u32 {
-    return 2u32;
+    return 4u32;
 }
 fn prefab_hex_elbow_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 2u32 {
+        return service_pipe_material();
+    }
+    if region == 3u32 {
+        return service_mount_material(false);
+    }
     return hex_tunnel_style(asset_value(read parameters, region + 1u32) as u32);
 }
 
@@ -29,6 +53,10 @@ fn prefab_hex_elbow_parameters_valid(values: read AssetValues) -> bool {
             asset_value(read values, i)
         ) {
             return false;
+        }
+        var value: f32 = asset_value(read values, i);
+        if i >= 3u32 && value != (value as u32) as f32 {
+            return error("pipe counts must be integers");
         }
         i = i + 1u32;
     }

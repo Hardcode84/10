@@ -39,6 +39,9 @@ fn hex_junction_styled_build(
     if !hex_junction_build(connections, asset_value(read parameters, 0u32), mut asset) {
         return false;
     }
+    return hex_junction_style_seams(read parameters, mut asset);
+}
+fn hex_junction_style_seams(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     var styles: [u32; 4] = make [u32; 4] {
         0u32,
         0u32,

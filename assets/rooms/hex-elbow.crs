@@ -1,3 +1,9 @@
+// wall-N-pipes (N=0..5) enables 0..3 pipes on each ENTRY wall, numbered as in
+// the straight hex tunnel. Each bundle follows the diagonal wall to EAST.
+// Both ends continue through the ports. There are no wall-entry end modes.
+// At EAST the wall is reflected: entry walls 0,1,2,3,4,5 meet port-profile
+// walls 2,1,0,5,4,3. Match the adjoining tunnel after its portal roll.
+// Rectangular wall plates support the pipes. Pipes and plates are solid.
 // Each entrance has its own style parameter and material region.
 // Compact 90-degree HEX-6M elbow: ENTRY faces -Y, EAST faces +X, +Z is up.
 // The outline joins only these two full-width openings with a diagonal wall.
