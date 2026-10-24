@@ -58,7 +58,7 @@ fn build_demo_target_providers(
     provider_count = provider_count + game_providers(root, &providers[provider_count]);
     var i: usize = 0usize;
     while i < provider_count {
-        if cache_strcmp(providers[i], host_path(root, "src/game/host/world.crs")) == 0i32 {
+        if cache_strcmp(providers[i], host_path(root, "src/demo/labyrinth/world.crs")) == 0i32 {
             providers[i] = host_path(root, "src/demo/room/world.crs");
         }
         i = i + 1usize;

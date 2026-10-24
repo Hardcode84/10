@@ -76,7 +76,7 @@ with Crust's shared backend option, before application or test arguments:
 
 ```sh
 crust tests.crs --backend stages/c/package.crs c_backend_build collision
-crust main.crs --backend stages/c/package.crs c_backend_build --build-only
+crust labyrinth.crs --backend stages/c/package.crs c_backend_build --build-only
 ```
 
 Package paths start at the `crust/` package base. Crust also accepts
@@ -123,7 +123,7 @@ game, demo, and viewer. The default suite includes ownership checks, headless
 renderer cases, simulation checks, and viewer checks. The LLVM release and
 archive checksum are stored in `.github/toolchains/llvm-release.json`.
 
-The web job runs `crust main.crs --web` and the Crust WebAssembly C backend
+The web job runs `crust labyrinth.crs --web` and the Crust WebAssembly C backend
 and ABI checks. It uses Bun and the toolchain selected by the application root.
 It does not run the browser interaction tests. Those tests require a browser
 with WebGPU and a native Vulkan run for replay comparison. The windowed
@@ -145,7 +145,7 @@ fetch rules, and Windows builds of the application platform providers.
 
 ## Play the game
 
-Run `crust main.crs` to build and start the expedition. See
+Run `crust labyrinth.crs` to build and start the expedition. See
 [the expedition guide](../game/expedition.md) for objectives, seeds, and recording.
 Use `crust tests.crs game` for the simulation checks.
 See [movement](../game/movement.md) for controls and replay

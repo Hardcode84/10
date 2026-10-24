@@ -1,4 +1,6 @@
-# There and Back
+# Labyrinth demo: There and Back
+
+This is the seeded labyrinth demo. `main.crs` is reserved for the main game.
 
 Start in the radial room. Find the gold beacon near the closed end of the
 ending room. Enter its 2 m activation radius, then return to the cyan beacon
@@ -9,9 +11,9 @@ It excludes pauses and stops when the round trip is complete. It uses simulation
 time, so slow mode advances it at the slower simulation rate. Backspace resets the run in the same graph.
 
 ```sh
-crust main.crs --seed 42 --complexity 8
-crust main.crs --seed 42 --complexity 8 --width 1280 --height 960
-crust main.crs --fullscreen --seed 42 --complexity 8
+crust labyrinth.crs --seed 42 --complexity 8
+crust labyrinth.crs --seed 42 --complexity 8 --width 1280 --height 960
+crust labyrinth.crs --fullscreen --seed 42 --complexity 8
 ```
 
 Use `--fullscreen` for a borderless window at the desktop size. `--width` and
@@ -98,9 +100,9 @@ the cooldown. Completion freezes simulation until restart.
 ## Recording and capture
 
 ```sh
-crust main.crs --seed 42 --complexity 8 --record build/run.rec
-crust main.crs --seed 42 --complexity 8 --replay build/run.rec
-crust main.crs --seed 42 --complexity 8 --capture build/start.ppm
+crust labyrinth.crs --seed 42 --complexity 8 --record build/run.rec
+crust labyrinth.crs --seed 42 --complexity 8 --replay build/run.rec
+crust labyrinth.crs --seed 42 --complexity 8 --capture build/start.ppm
 ```
 
 Recordings store the scene, seed, complexity, initial spin mode, commands, and
@@ -112,12 +114,12 @@ tick. `--ticks N` selects a longer run. Run progress is held in memory.
 
 | Component | Responsibility |
 | --- | --- |
-| `src/game/graph/storage.crs` | Owned room and socket arrays, seeded random state |
-| `src/game/graph/generate.crs` | Connectivity, rolls, and graph distances |
-| `src/game/graph/routes.crs` | Corridor runs, approach merges, and downstream forks |
-| `src/game/graph/assemble.crs` | Room recipes, local meshes, and shared portal links |
-| `src/game/graph/progress.crs` | Collection, return, and visits |
-| `src/game/graph/view.crs` | Port numbers, beacons, and objective HUD |
+| `src/demo/labyrinth/graph/storage.crs` | Owned room and socket arrays, seeded random state |
+| `src/demo/labyrinth/graph/generate.crs` | Connectivity, rolls, and graph distances |
+| `src/demo/labyrinth/graph/routes.crs` | Corridor runs, approach merges, and downstream forks |
+| `src/demo/labyrinth/graph/assemble.crs` | Room recipes, local meshes, and shared portal links |
+| `src/demo/labyrinth/graph/progress.crs` | Collection, return, and visits |
+| `src/demo/labyrinth/graph/view.crs` | Port numbers, beacons, and objective HUD |
 | `src/game/flight/` | Shared drone and tether simulation |
 | `src/game/host/` | Input, window, recording, and command-line options |
 

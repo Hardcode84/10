@@ -1,6 +1,6 @@
 # Flight controls and physics
 
-Run `crust main.crs` for [There and Back](expedition.md), or `crust demo.crs levels/radial.crs`
+Run `crust labyrinth.crs` for [There and Back](expedition.md), or `crust demo.crs levels/radial.crs`
 for the linked-room flight demo. Both use the same input and physics code.
 
 Hold right mouse and a movement key to boost in that direction.

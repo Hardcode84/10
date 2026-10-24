@@ -61,14 +61,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/drone.crs",
         "src/assets/geometry/hex-tunnel.crs",
         "src/assets/geometry/hex-ending.crs",
-        "src/game/graph/generate.crs",
-        "src/game/graph/routes.crs",
-        "src/game/graph/styles.crs",
-        "src/game/graph/assemble.crs",
-        "src/game/graph/scaling.crs",
-        "src/game/graph/progress.crs",
-        "src/game/graph/view.crs",
-        "src/game/graph/lighting.crs",
+        "src/demo/labyrinth/graph/generate.crs",
+        "src/demo/labyrinth/graph/routes.crs",
+        "src/demo/labyrinth/graph/styles.crs",
+        "src/demo/labyrinth/graph/assemble.crs",
+        "src/demo/labyrinth/graph/scaling.crs",
+        "src/demo/labyrinth/graph/progress.crs",
+        "src/demo/labyrinth/graph/view.crs",
+        "src/demo/labyrinth/graph/lighting.crs",
         "src/assets/geometry/hex-junction.crs",
         "src/assets/geometry/placement.crs",
         "src/assets/materials/tunnel-metal.crs",
@@ -199,8 +199,8 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/app/clock.crs",
         "src/app/shaders.crs",
         "src/game/host/platform.crs",
-        "src/game/graph/storage.crs",
-        "src/game/host/world.crs",
+        "src/demo/labyrinth/graph/storage.crs",
+        "src/demo/labyrinth/world.crs",
         "src/game/host/collision-errors.crs",
         "src/game/host/controls.crs",
         "src/game/host/renderer-host.crs",
@@ -225,7 +225,7 @@ fn build_game(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    return build_game_entry(root, emit, "src/game/host/entry.crs", "build/game");
+    return build_game_entry(root, emit, "src/demo/labyrinth/entry.crs", "build/game");
 }
 fn build_game_entry(
     root: *CrustRun,

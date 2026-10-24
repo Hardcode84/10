@@ -2,7 +2,7 @@
 
 ## Scope and use
 
-Run `crust main.crs --scaling` for the scaling course. The browser launcher
+Run `crust labyrinth.crs --scaling` for the scaling course. The browser launcher
 has a **Scaling portal course** option. Both builds use the same scene and
 simulation. The course has two blind hexagonal rooms, at profile scales 1
 and 2, with a 60-degree connection roll. A solid stands near the destination

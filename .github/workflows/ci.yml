@@ -95,7 +95,7 @@ jobs:
           crust tests.crs particles
       - name: Build native application entry points
         run: |
-          crust main.crs --build-only
+          crust labyrinth.crs --build-only
           crust demo.crs levels/radial.crs --build-only
           crust demo.crs levels/cylinder.crs --build-only
           crust demo.crs levels/prefabs.crs --build-only
@@ -122,8 +122,8 @@ jobs:
         run: |
           make -C crust all CC=cc
           echo "$PWD/crust/build" >> "$GITHUB_PATH"
-      - name: Build the web game from its root
-        run: crust main.crs --web
+      - name: Build the web labyrinth demo from its root
+        run: crust labyrinth.crs --web
       - name: Check WebAssembly C backend and ABI
         working-directory: crust
         run: |

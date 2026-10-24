@@ -4,7 +4,7 @@
 
 This document defines the target architecture and the current implementation.
 The default game loop runs next-frame prediction in parallel with rendering and asynchronous render
-and presentation operations. Run it with `crust main.crs`. Use `--serial`
+and presentation operations. Run it with `crust labyrinth.crs`. Use `--serial`
 to select the synchronous loop for comparisons.
 The [rendering storage and ownership contract](../render/rendering.md#storage-and-capacity) describes current resource use.
 Keep that contract until each replacement passes the delivery gates below.
@@ -200,7 +200,7 @@ It measures the stationary control path; it cannot establish flight-load costs.
 SDL event injection is thread-safe and copies the event. See the
 [SDL event contract](https://wiki.libsdl.org/SDL3/SDL_PushEvent).
 
-For the browser, build `crust main.crs --web`, run
+For the browser, build `crust labyrinth.crs --web`, run
 `bun tools/web/serve.mjs`, and open a browser with remote debugging on port 9227.
 Then run:
 
@@ -576,7 +576,7 @@ crust tests.crs ownership
 crust tests.crs tasks --serial --width 640 --height 480 --capture build/serial.ppm
 crust tests.crs tasks --tasks --width 640 --height 480 --capture build/tasks.ppm
 crust tests.crs render 10
-crust main.crs --web
+crust labyrinth.crs --web
 bun tests/web/check.mjs --tasks
 ```
 
@@ -621,7 +621,7 @@ the directories that are implemented.
 | Application services | `src/app/` | Input, window, clock, file and capture interfaces; platform event delivery |
 | Game graph | `src/game/tasks/` | Simulation, snapshots, predictions, light anchors, geometry and HUD tasks |
 | Other application graphs | `src/demo/`, `src/viewer/` | Compose the same services for their own application policy |
-| Build roots | `main.crs`, `demo.crs`, `viewer.crs`, `tests.crs` | Select providers and compose the required components |
+| Build roots | `labyrinth.crs`, `demo.crs`, `viewer.crs`, `tests.crs` | Select providers and compose the required components |
 
 Dependencies point from the game to checked service interfaces. The renderer
 and application services use the generic task API. The task runtime does not

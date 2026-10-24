@@ -2,22 +2,8 @@ host_source(run, "crust/stages/build/load.crs");
 if !application_setup(run, "crust") {
     return 1i32;
 };
-host_source(run, "tools/build/setup.crs");
-var backend: ApplicationBackend = uninit;
-var stages: *StageSession = project_open(run, &backend);
-if stages == null(*StageSession) {
-    return 1i32;
-};
-if !project_render(run, stages, &backend) {
-    return 1i32;
-};
-
-host_source(run, "tools/build/game.crs");
-host_source(run, "tools/build/web.crs");
-if run -> argc == 1i32 && cache_strcmp(run -> argv[0usize], "--web") == 0i32 {
-    return (!build_web(run, backend.emit)) as i32;
-};
-if !check_renderer(run) || !build_game(run, backend.emit) || !build_render_shaders(run) {
-    return 1i32;
-};
-return launch_application(run, "build/game");
+native_error(
+    run -> context,
+    "The main game has no entry yet. Run crust labyrinth.crs for the labyrinth demo, or crust demo.crs LEVEL.crs for a room demo."
+);
+return 2i32;

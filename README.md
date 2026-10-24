@@ -1,6 +1,6 @@
 # SPINWARD
 
-SPINWARD is a 6DOF exploration game in a megastructure. Fly through a
+SPINWARD is a 6DOF exploration game in a megastructure. The labyrinth demo lets you fly through a
 seeded network of rooms and tunnels, use a launched tether to change course,
 reach the ending room, and return to the start. Portal connections can rotate
 and translate space; rooms do not need to fit into one global coordinate system.
@@ -36,8 +36,8 @@ Set the shader tool paths to your installed tools. For example, if LLVM is in
 ```sh
 export LLVM_DIRECTORY="$HOME/toolchains/llvm"
 export SPIRV_VAL="$(command -v spirv-val)"
-crust main.crs --build-only
-crust main.crs
+crust labyrinth.crs --build-only
+crust labyrinth.crs
 ```
 
 Each root builds its host program and required shaders before execution.
@@ -50,11 +50,11 @@ Emscripten toolchain require Python. See [bootstrap details](docs/build/bootstra
 Run these commands from the repository root:
 
 ```sh
-# Play a seeded expedition.
-crust main.crs --seed 42 --complexity 8
+# Play the seeded labyrinth demo.
+crust labyrinth.crs --seed 42 --complexity 8
 
 # Use a borderless fullscreen window with a 1024 by 768 internal image.
-crust main.crs --fullscreen --width 1024 --height 768
+crust labyrinth.crs --fullscreen --width 1024 --height 768
 
 # Fly through the room demo with the game physics and tether.
 crust demo.crs levels/radial.crs
@@ -64,8 +64,8 @@ crust demo.crs levels/prefabs.crs
 # Inspect a generated room recipe.
 crust viewer.crs assets/rooms/radial-start.crs
 
-# Build and serve the browser game. Requires Bun; no Node.js or npm.
-crust main.crs --web
+# Build and serve the browser labyrinth demo. Requires Bun; no Node.js or npm.
+crust labyrinth.crs --web
 bun tools/web/serve.mjs
 ```
 
@@ -79,14 +79,16 @@ recording exchange, and the focused browser check.
 
 | Path | Purpose |
 | --- | --- |
-| `main.crs` | Playable game build and entry point |
+| `main.crs` | Reserved main game entry point |
+| `labyrinth.crs` | Seeded labyrinth demo, native and web |
 | `demo.crs` | Selected level flight demo build and entry point |
 | `levels/` | Crust demo level recipes |
 | `viewer.crs` | Prefab viewer build and entry point |
 | `tests.crs` | Automated test build and runner |
 | `src/render/` | Shared renderer, Vulkan and WebGPU providers, and compute shaders |
 | `src/collision/` | Collision geometry, queries, and contact solving |
-| `src/game/` | Flight, tether, room graph, objectives, input, and HUD |
+| `src/game/` | Shared flight, tether, input, session, and HUD |
+| `src/demo/labyrinth/` | Labyrinth graph, objective, and application entry |
 | `src/demo/` | Room demo and automatic renderer fixtures |
 | `src/viewer/` | Prefab viewer |
 | `src/assets/` | Parametric geometry, textures, and room assembly |
@@ -120,5 +122,5 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-Run `crust main.crs --scaling` for the reciprocal scaling-portal course.
+Run `crust labyrinth.crs --scaling` for the reciprocal scaling-portal course.
 See the [scaling contract](docs/game/scaling-portals.md).

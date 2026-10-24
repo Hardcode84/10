@@ -45,7 +45,7 @@ fn build_web_game(
         i = i + 1usize;
     }
     providers[selected] = host_path(root, "src/render/web/backend.crs");
-    providers[selected + 1usize] = host_path(root, "src/game/host/entry.crs");
+    providers[selected + 1usize] = host_path(root, "src/demo/labyrinth/entry.crs");
     var args: **u8 = crust_try_alloc(
         root -> context,
         (source_count + 4usize) * sizeof(*u8),

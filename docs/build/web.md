@@ -1,8 +1,8 @@
-# Web game
+# Web labyrinth demo
 
-The browser runs the main game. Game rules, generated assets, collision, flight,
-tether, portal traversal, HUD, and shader sources are shared with the native game.
-The demo and asset viewer keep their native entry points.
+The browser runs the labyrinth demo. Rules, generated assets, collision, flight,
+tether, portal traversal, HUD, and shader sources are shared with the native demo.
+The selected-level demo and asset viewer keep their native entry points.
 
 ## Build and run
 
@@ -11,7 +11,7 @@ Build on Linux x86-64. First follow the seed bootstrap in the
 support, and sha256sum. Do not install Node.js or npm.
 
 ```sh
-crust main.crs --web
+crust labyrinth.crs --web
 bun tools/web/serve.mjs
 ```
 
@@ -159,8 +159,8 @@ open. Use the browser's normal GPU configuration. For a local headless Chromium
 check, Vulkan and unsafe WebGPU flags can be required by that browser build.
 
 ```sh
-crust main.crs --build-only
-crust main.crs --web
+crust labyrinth.crs --build-only
+crust labyrinth.crs --web
 bun tests/web/check.mjs
 ```
 

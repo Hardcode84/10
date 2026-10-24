@@ -5,8 +5,8 @@ program with the Crust ownership stage. Device programs use the shader stage.
 
 | Root | Program |
 | --- | --- |
-| `crust main.crs` | Play the portal graph. Use `--seed N --complexity N`. |
-| `crust main.crs --web` | Build the same game for WebAssembly and WebGPU. |
+| `crust labyrinth.crs` | Play the labyrinth demo. Use `--seed N --complexity N`. |
+| `crust labyrinth.crs --web` | Build the same demo for WebAssembly and WebGPU. |
 | `crust demo.crs levels/radial.crs` | Fly through the generated room with game controls and linked portals. |
 | `crust demo.crs levels/prefabs.crs` | Inspect all room presets in one connected flight course. |
 | `crust viewer.crs ROOM.crs` | Build and inspect a Crust room recipe. |
@@ -40,7 +40,7 @@ selecting another renderer.
 | `src/demo/room/` | Flight demo entry and room links |
 | `src/demo/host/` | Automatic playback fixture used by renderer checks |
 | `src/demo/scene/` | Automatic scene fixture used by renderer checks |
-| `src/game/graph/` | Seeded graph, room assembly, objective, and navigation cues |
+| `src/demo/labyrinth/graph/` | Seeded graph, room assembly, objective, and navigation cues |
 | `src/game/flight/` | Movement state, forces, collisions, and tether |
 | `src/game/view/` | Game geometry submission, HUD, and path markers |
 | `src/game/host/` | Game entry, input, options, replay, and session |
