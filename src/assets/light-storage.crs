@@ -1,0 +1,48 @@
+record FixtureLight {
+    space: u32;
+    position: Vec3;
+    colour: Vec3;
+    radius: f32;
+}
+resource FixtureLights {
+    data: *FixtureLight;
+    count: u32;
+    capacity: u32;
+}
+opaque drop fixture_lights_drop;
+fn fixture_lights_new() -> FixtureLights {
+    return make FixtureLights {
+        data: null(*FixtureLight),
+        count: 0u32,
+        capacity: 0u32
+    };
+}
+fn fixture_lights_drop(lights: mut FixtureLights) -> unit {
+    free(lights.data as *u8);
+}
+fn fixture_light_count(lights: read FixtureLights) -> u32 {
+    return lights.count;
+}
+fn fixture_light(lights: read FixtureLights, index: u32) -> FixtureLight {
+    return lights.data[index as usize];
+}
+fn fixture_light_append(lights: mut FixtureLights, light: FixtureLight) -> bool {
+    if lights.count == lights.capacity {
+        var capacity: u32 = lights.capacity * 2u32 + 4u32;
+        var data: *FixtureLight = malloc(capacity as usize * sizeof(FixtureLight)) as *FixtureLight;
+        if data == null(*FixtureLight) {
+            return error("fixture light allocation failed");
+        }
+        var i: u32 = 0u32;
+        while i < lights.count {
+            data[i as usize] = lights.data[i as usize];
+            i = i + 1u32;
+        }
+        free(lights.data as *u8);
+        lights.data = data;
+        lights.capacity = capacity;
+    }
+    lights.data[lights.count as usize] = light;
+    lights.count = lights.count + 1u32;
+    return true;
+}

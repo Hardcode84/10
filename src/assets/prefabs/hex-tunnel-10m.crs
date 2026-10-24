@@ -1,7 +1,15 @@
 fn prefab_hex_tunnel_10m_parameter_count() -> u32 {
-    return prefab_hex_tunnel_parameter_count();
+    return prefab_hex_tunnel_parameter_count() + 1u32;
 }
 fn prefab_hex_tunnel_10m_parameter(index: u32) -> AssetParameter {
+    if index == prefab_hex_tunnel_parameter_count() {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 3f32,
+            initial: 0f32,
+            step: 1f32
+        };
+    }
     var parameter: AssetParameter = prefab_hex_tunnel_parameter(index);
     if index == 0u32 {
         parameter.initial = 10f32;
@@ -9,14 +17,35 @@ fn prefab_hex_tunnel_10m_parameter(index: u32) -> AssetParameter {
     return parameter;
 }
 fn prefab_hex_tunnel_10m_parameter_name(index: u32) -> AssetName {
+    if index == prefab_hex_tunnel_parameter_count() {
+        return asset_name("emergency-lights");
+    }
     return prefab_hex_tunnel_parameter_name(index);
 }
 fn prefab_hex_tunnel_10m_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    return prefab_hex_tunnel_build(read parameters, mut asset);
+    var index: u32 = prefab_hex_tunnel_parameter_count();
+    var lights: f32 = asset_value(read parameters, index);
+    if !prefab_hex_tunnel_parameters_valid(read parameters) || !asset_parameter_valid(
+        prefab_hex_tunnel_10m_parameter(index),
+        lights
+    ) {
+        return false;
+    }
+    if lights != (lights as u32) as f32 {
+        return error("emergency light count must be an integer");
+    }
+    var extent: f32 = asset_value(read parameters, 0u32);
+    return passage_shape(extent, true, service_hex_profile(), mut asset) && hex_tunnel_pipes(
+        read parameters,
+        mut asset
+    ) && hex_emergency_lights(extent, lights as u32, mut asset) && room_asset_finish(mut asset);
 }
 fn prefab_hex_tunnel_10m_material_count() -> u32 {
-    return prefab_hex_tunnel_material_count();
+    return prefab_hex_tunnel_material_count() + 1u32;
 }
 fn prefab_hex_tunnel_10m_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 3u32 {
+        return emergency_light_material();
+    }
     return prefab_hex_tunnel_material(region, read parameters);
 }

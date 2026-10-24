@@ -126,3 +126,26 @@ fn berth_light() -> LightObject {
         mode: LIGHT_ROOM
     };
 }
+
+// Submits authored fixtures through the same portal anchors as other light objects.
+fn game_fixture_lighting(
+    scene: read CollisionScene,
+    lights: read FixtureLights,
+    input: mut FrameInput,
+    anchors: mut RoomAnchors
+) -> unit {
+    var i: u32 = 0u32;
+    while i < fixture_light_count(read lights) {
+        var fixture: FixtureLight = fixture_light(read lights, i);
+        var light: LightObject = make LightObject {
+            id: 4u32 + i,
+            space: fixture.space,
+            position: fixture.position,
+            colour: fixture.colour,
+            radius: fixture.radius,
+            mode: LIGHT_UNSHADOWED
+        };
+        light_object_anchors(read scene, mut input, light, mut anchors);
+        i = i + 1u32;
+    }
+}

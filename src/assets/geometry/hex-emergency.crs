@@ -1,0 +1,76 @@
+// The fixtures use evenly spaced walls, at the passage midpoint.
+// The lateral offset leaves the centred cable bundle clear.
+fn hex_emergency_frame(extent: f32, count: u32, index: u32) -> SurfaceFrame {
+    var wall: u32 = index * 6u32 / count;
+    var angle: f32 = (wall as f32 + 0.5f32) * 1.0471975512f32;
+    var normal: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
+    var right: Vec3 = cross(normal, vec(0f32, 1f32, 0f32));
+    var origin: Vec3 = add(
+        scale(normal, service_hex_profile().radius * cosf(0.5235987756f32)),
+        scale(right, 0.65f32)
+    );
+    origin.y = extent * 0.5f32;
+    return make SurfaceFrame {
+        origin: origin,
+        normal: normal,
+        right: right,
+        up: vec(0f32, 1f32, 0f32)
+    };
+}
+fn emergency_light_material() -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.finish = METAL_FULLBRIGHT;
+    material.emission = 0x1818ffu32;
+    material.tile_metres = 0.1f32;
+    material.tile_height = 0.1f32;
+    return material;
+}
+fn hex_emergency_fixture(frame: SurfaceFrame, asset: mut RoomAsset) -> bool {
+    var basis: Basis = make Basis {
+        right: frame.right,
+        up: frame.up,
+        forward: scale(frame.normal, -1f32)
+    };
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !solid_box(
+        mut asset.geometry,
+        vec(0.30f32, 0.24f32, 0.04f32),
+        2u32,
+        sub(frame.origin, scale(frame.normal, 0.015f32)),
+        basis,
+        service_mount_material(false).tile_metres
+    ) || !pipe_graph_part(mut asset, first) {
+        return false;
+    }
+    first = mesh_triangle_count(read asset.geometry);
+    if !solid_box(
+        mut asset.geometry,
+        vec(0.22f32, 0.16f32, 0.10f32),
+        3u32,
+        sub(frame.origin, scale(frame.normal, 0.08f32)),
+        basis,
+        emergency_light_material().tile_metres
+    ) || !pipe_graph_part(mut asset, first) {
+        return false;
+    }
+    return fixture_light_append(
+        mut asset.lights,
+        make FixtureLight {
+            space: 0u32,
+            position: sub(frame.origin, scale(frame.normal, 0.17f32)),
+            colour: vec(1.2f32, 0.025f32, 0.012f32),
+            radius: 1.3f32
+        }
+    );
+}
+// Adds zero to three midpoint emergency fixtures, their solid parts and light sources.
+fn hex_emergency_lights(extent: f32, count: u32, asset: mut RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < count {
+        if !hex_emergency_fixture(hex_emergency_frame(extent, count, i), mut asset) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

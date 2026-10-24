@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 160] = make [*u8; 160] {
+    var files: [*u8; 162] = make [*u8; 162] {
         "src/audio/api/model.crs",
         "src/audio/mix/voice.crs",
         "src/audio/synthesis/recipe.crs",
@@ -63,6 +63,8 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/hex-tunnel.crs",
         "src/assets/geometry/hex-tunnel-pipes.crs",
         "src/assets/geometry/hex-elbow-pipes.crs",
+        "src/assets/geometry/hex-emergency.crs",
+        "src/assets/lights.crs",
         "src/assets/geometry/hex-ending.crs",
         "src/demo/labyrinth/graph/generate.crs",
         "src/demo/labyrinth/graph/routes.crs",
@@ -162,14 +164,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 160usize {
+    while i < 162usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 49] = make [*u8; 49] {
+    var files: [*u8; 50] = make [*u8; 50] {
         "src/runtime/channel/spsc.crs",
         "src/audio/platform/bank.crs",
         "src/audio/platform/mixer.crs",
@@ -187,6 +189,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/pipe-graph-storage.crs",
         "src/assets/geometry/pipe-router-storage.crs",
         "src/assets/parameter-storage.crs",
+        "src/assets/light-storage.crs",
         "src/assets/connections/storage.crs",
         "src/app/window.crs",
         "src/app/input.crs",
@@ -221,7 +224,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/runtime/trace/frame.crs"
     };
     var i: usize = 0usize;
-    while i < 49usize {
+    while i < 50usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

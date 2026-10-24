@@ -45,14 +45,24 @@ fn level_pipe_room(
         return true;
     }
     var asset: RoomAsset = room_asset_new();
-    if !level_pipe_asset(read graph, room, segment, mut asset) || !room_parts_collision(
-        read asset,
+    return level_pipe_asset(read graph, room, segment, mut asset) && level_parts_append(
+        mut asset,
+        room,
+        course_material_base(graph_node(read graph, room).kind),
         mut builder,
-        room
-    ) || !room_parts_render(mut asset) {
+        mut mesh
+    );
+}
+fn level_parts_append(
+    asset: mut RoomAsset,
+    room: u32,
+    base: u32,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh
+) -> bool {
+    if !room_parts_collision(read asset, mut builder, room) || !room_parts_render(mut asset) {
         return false;
     }
-    var base: u32 = course_material_base(graph_node(read graph, room).kind);
     var i: u32 = 0u32;
     while i < mesh_triangle_count(read asset.mesh) {
         var primitive: MeshTriangle = mesh_triangle(read asset.mesh, i);
@@ -74,8 +84,8 @@ fn level_pipe_mesh_copy(source: read Mesh, first: u32, count: u32, target: mut M
     }
     return true;
 }
-// Adds planned pipes during level loading, preserving room ranges and portal IDs.
-fn level_pipes(
+// Adds pipe runs and sparse emergency lights during loading. Room and portal IDs stay fixed.
+fn level_tunnel_details(
     graph: mut RoomGraph,
     builder: mut CollisionBuilder,
     mesh: mut Mesh,
@@ -100,6 +110,13 @@ fn level_pipes(
             read graph,
             room,
             level_pipe_segment(read plan, room),
+            mut builder,
+            mut combined
+        ) || !level_emergency_room(
+            mut graph,
+            room,
+            seed,
+            excluded_style,
             mut builder,
             mut combined
         ) {

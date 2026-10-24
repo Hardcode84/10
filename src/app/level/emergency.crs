@@ -1,0 +1,33 @@
+// Most service segments remain dark. The seed selects a sparse subset and its fixture count.
+fn level_emergency_count(node: GraphNode, room: u32, seed: u32, excluded_style: u32) -> u32 {
+    if node.kind != PREFAB_HEX_TUNNEL_10M || node.style == excluded_style {
+        return 0u32;
+    }
+    if metal_hash(seed, room, 0x6c616d70u32) % 8u32 != 0u32 {
+        return 0u32;
+    }
+    return 1u32 + metal_hash(seed, room, 0x726564u32) % 3u32;
+}
+fn level_emergency_room(
+    graph: mut RoomGraph,
+    room: u32,
+    seed: u32,
+    excluded_style: u32,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh
+) -> bool {
+    var node: GraphNode = graph_node(read graph, room);
+    var count: u32 = level_emergency_count(node, room, seed, excluded_style);
+    if count == 0u32 {
+        return true;
+    }
+    var extent: f32 = graph_socket(read graph, node.first + 1u32).port.position.y;
+    var asset: RoomAsset = room_asset_new();
+    return hex_emergency_lights(extent, count, mut asset) && level_parts_append(
+        mut asset,
+        room,
+        course_material_base(node.kind),
+        mut builder,
+        mut mesh
+    ) && graph_lights_append(mut graph, read asset.lights, room);
+}

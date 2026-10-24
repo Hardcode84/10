@@ -99,6 +99,12 @@ fn game_prepare_begin(
         config,
         mut session.view_anchors
     );
+    game_fixture_lighting(
+        read collision,
+        graph_lights(game_graph(read session.control)),
+        mut inputs,
+        mut session.view_anchors
+    );
     draw_sparks(read collision, mut inputs, read loop.sparks, mut session.view_anchors);
 }
 fn game_prepare_finish(

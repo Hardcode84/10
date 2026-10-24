@@ -114,6 +114,9 @@ fn layout_proof(seed: u32, proof: mut ServiceLayoutProof) -> bool {
     if seed == 0u32 && !service_pipes_check(read graph, read mesh, read scene, seed) {
         return false;
     }
+    if !layout_emergency_check(read graph, read mesh) {
+        return false;
+    }
     proof.geometry = service_pipes_hash(read mesh);
     proof.anchors = 0u32;
     proof.loops = graph_ports(read graph) / 2u32 + 1u32 - graph_count(read graph);
@@ -194,4 +197,33 @@ fn layout_mesh_bounds(mesh: read Mesh, node: GraphNode) -> [f32; 6] {
         i = i + 1u32;
     }
     return result;
+}
+
+fn layout_emergency_check(graph: read RoomGraph, mesh: read Mesh) -> bool {
+    var lights: read FixtureLights = graph_lights(read graph);
+    var room: u32 = 0u32;
+    while room < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, room);
+        var count: u32 = 0u32;
+        var i: u32 = 0u32;
+        while i < fixture_light_count(read lights) {
+            var light: FixtureLight = fixture_light(read lights, i);
+            if light.space == room {
+                if node.kind != PREFAB_HEX_TUNNEL_10M || layout_pig_room(read mesh, node) {
+                    return error("emergency light appears outside an eligible service tunnel");
+                }
+                var extent: f32 = graph_socket(read graph, node.first + 1u32).port.position.y;
+                if light.position.y != extent * 0.5f32 || light.radius <= 0f32 || light.colour.x <= light.colour.y || light.colour.x <= light.colour.z {
+                    return error("emergency fixture lost its midpoint or red light");
+                }
+                count = count + 1u32;
+            }
+            i = i + 1u32;
+        }
+        if count > 3u32 {
+            return error("too many emergency lights in one tunnel");
+        }
+        room = room + 1u32;
+    }
+    return true;
 }

@@ -84,6 +84,11 @@ Game and demo entry points reject these rooms as starting locations.
 The viewer uses the spawn point when the room centre has no player clearance.
 Parts remain static until a consumer supplies motion for their pivots.
 
+A room can also contain fixture lights with local positions, colours, and radii.
+The viewer displays these lights. Level assembly copies them into the room graph;
+the game submits them through portal anchors. These small fixture lights do not
+cast shadows. A full-bright material and a light source are separate properties.
+
 UV coordinates use metres in each polygon plane. Panel materials specify tile
 size, texture density, and border width. Size changes repeat the tile without
 changing its physical border width. Each material has a 256-entry palette.

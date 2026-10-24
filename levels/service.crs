@@ -4,7 +4,8 @@
 // pig lane, after the middle lane, and at the last lane exit. A lower cross-link
 // joins the two side routes. The full detour is longer and has more turns.
 // Seeded cable bundles cross service straights and elbows, with wall ends before
-// junctions and other unsupported rooms. Pig lanes have no cable bundles.
+// junctions and other unsupported rooms. Sparse midpoint emergency lights emit red light.
+// Pig lanes have no cable bundles or emergency lights.
 // The seed varies detour bends between fixed junctions. Pig lanes and connections stay fixed.
 // Inner branches use blue-grey tread plate; outer branches use green ribbed metal.
 // The finish changes across the middle pig intersection. Branch materials have no full-bright texels.
@@ -104,7 +105,7 @@ fn demo_room_build(
     ) {
         return false;
     }
-    if !level_pipes(mut graph, mut builder, mut mesh, SERVICE_PIG_STYLE, seed) {
+    if !level_tunnel_details(mut graph, mut builder, mut mesh, SERVICE_PIG_STYLE, seed) {
         return false;
     }
     return collision_finish(move builder, mut collision) && level_install(

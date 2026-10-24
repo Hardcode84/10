@@ -1,3 +1,6 @@
+// emergency-lights selects 0..3 small red fixtures at the axial midpoint.
+// Two fixtures use opposite walls; three use alternating walls. Each emits a
+// small red pool of light. The red box stays full-bright in darkness.
 // Each wall has wall-N-pipes (0 disables, 1..3 enables a centred bundle),
 // wall-N-entry and wall-N-exit (0 bends into the wall, 1 continues at the port).
 // N runs from 0 to 5: wall 0 lies between the +X corner and the next corner

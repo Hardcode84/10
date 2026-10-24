@@ -1,3 +1,4 @@
+const METAL_FULLBRIGHT: u32 = 14u32;
 const METAL_PLATE: u32 = 0u32;
 const METAL_TREAD: u32 = 1u32;
 const METAL_RIBBED: u32 = 2u32;
@@ -27,6 +28,7 @@ const METAL_GIRDER_MOUNT: u32 = 13u32;
 // METAL_GIRDER_MOUNT, METAL_GIRDER_WEB, METAL_PIPE_COATED, or METAL_OCT_DOOR. METAL_LEAK uses a 1.1 by 1.8 m cutout tile.
 // METAL_PIPE_COATED uses exposed length, circumference, and face width as
 // tile_metres, tile_height, and panel_height. Exposed length is at least 0.5 m.
+// METAL_FULLBRIGHT fills the tile with the emission colour.
 // Colours use packed RGB.
 record PanelMaterial {
     colour: u32;
@@ -202,6 +204,9 @@ fn metal_plate_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
 }
 
 fn panel_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    if material.finish == METAL_FULLBRIGHT {
+        return 248u32;
+    }
     var local_y: f32 = y;
     if material.band_width > 0f32 {
         if y < material.band_width * 0.5f32 || y >= material.tile_height - material.band_width * 0.5f32 {

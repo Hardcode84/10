@@ -228,6 +228,9 @@ bundles. Bundles continue through straights and elbows. They return to the wall
 in a straight section before a junction or another unsupported room. Pig lanes
 have no cable bundles. Portal roll determines the wall used in the next room.
 Cable geometry and solid collision are built during level loading.
+A sparse seeded subset of non-pig straight segments has red emergency fixtures
+at the midpoint. Each fixture stays full-bright and emits a small pool of red
+light. The tunnel prefab exposes the count as `emergency-lights` (zero to three).
 
 It also runs through `demo.crs`. Use `--seed N` to vary its detour paths.
 The same seed produces the same layout. The route connections and pig lanes

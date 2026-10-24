@@ -10,6 +10,7 @@ record RoomAsset {
     // Room-local visual surfaces, appended after solids and excluded from collision.
     decals: Mesh;
     parts: AssetParts;
+    lights: FixtureLights;
     routes: PipeRouter;
     collision: CollisionScene;
     spawn: AssetSpawn;
@@ -24,6 +25,7 @@ fn room_asset_new() -> RoomAsset {
         geometry: mesh_new(),
         decals: mesh_new(),
         parts: asset_parts_new(),
+        lights: fixture_lights_new(),
         routes: pipe_router_new(),
         collision: collision_new(),
         spawn: make AssetSpawn {

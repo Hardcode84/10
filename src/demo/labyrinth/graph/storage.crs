@@ -16,6 +16,7 @@ record GraphSocket {
     port: RoomPort;
 }
 resource RoomGraph {
+    lights: FixtureLights;
     nodes: *GraphNode;
     sockets: *GraphSocket;
     capacity: u32;
@@ -27,6 +28,7 @@ resource RoomGraph {
 opaque drop graph_drop;
 fn graph_new() -> RoomGraph {
     return make RoomGraph {
+        lights: fixture_lights_new(),
         nodes: null(*GraphNode),
         sockets: null(*GraphSocket),
         capacity: 0u32,
@@ -136,4 +138,10 @@ fn graph_pair(graph: mut RoomGraph, a: u32, b: u32) -> unit {
 }
 fn graph_mesh_bounds(mesh: read Mesh) -> [f32; 6] {
     return mesh.bounds;
+}
+fn graph_lights(graph: read RoomGraph) -> read FixtureLights from graph {
+    return read graph.lights;
+}
+fn graph_lights_append(graph: mut RoomGraph, source: read FixtureLights, room: u32) -> bool {
+    return fixture_lights_place(read source, room, mut graph.lights);
 }

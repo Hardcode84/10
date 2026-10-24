@@ -21,10 +21,10 @@ fn asset_scene(
         i = i + 1u32;
     }
     asset_camera(mut input, read asset, mesh, camera);
-    return input_instance(mut input, mesh_identity(mesh, 0u32)) && input_instance(
+    return fixture_lights_preview(read asset.lights, mut input) && input_instance(
         mut input,
-        mesh_identity(labels, 0u32)
-    );
+        mesh_identity(mesh, 0u32)
+    ) && input_instance(mut input, mesh_identity(labels, 0u32));
 }
 // Builds the selected shell and optional solid parts for inspection.
 fn asset_view_filtered_mesh(
@@ -221,4 +221,28 @@ fn asset_view_visible(
         return asset_guide_range(read session);
     }
     return range;
+}
+
+// Adds room-local fixture lights to a single-room preview.
+fn fixture_lights_preview(lights: read FixtureLights, input: mut FrameInput) -> bool {
+    var first: u32 = input_word(read input, LIGHT_COUNT as usize);
+    if !input_lights(mut input, first + fixture_light_count(read lights)) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < fixture_light_count(read lights) {
+        var light: FixtureLight = fixture_light(read lights, i);
+        var p: usize = (input_word(read input, LIGHT_DATA as usize) + (first + i) * 8u32) as usize;
+        input_set_float(mut input, p, light.position.x);
+        input_set_float(mut input, p + 1usize, light.position.y);
+        input_set_float(mut input, p + 2usize, light.position.z);
+        input_set_float(mut input, p + 3usize, light.radius * light.radius);
+        input_set_float(mut input, p + 4usize, light.colour.x);
+        input_set_float(mut input, p + 5usize, light.colour.y);
+        input_set_float(mut input, p + 6usize, light.colour.z);
+        input_set_float(mut input, p + 7usize, LIGHT_UNSHADOWED as f32);
+        input_light_space(mut input, first + i, light.space);
+        i = i + 1u32;
+    }
+    return true;
 }

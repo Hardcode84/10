@@ -1,0 +1,13 @@
+// Copies the asset's local lights into an assembled room.
+fn fixture_lights_place(source: read FixtureLights, room: u32, target: mut FixtureLights) -> bool {
+    var i: u32 = 0u32;
+    while i < fixture_light_count(read source) {
+        var light: FixtureLight = fixture_light(read source, i);
+        light.space = room;
+        if !fixture_light_append(mut target, light) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
