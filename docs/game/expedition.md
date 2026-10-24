@@ -1,6 +1,6 @@
 # Labyrinth demo: There and Back
 
-This is the seeded labyrinth demo. `main.crs` is reserved for the main game.
+This is the seeded labyrinth demo. `main.crs` builds the authored service-network level.
 
 Start in the radial room. Find the gold beacon near the closed end of the
 ending room. Enter its 2 m activation radius, then return to the cyan beacon

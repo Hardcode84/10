@@ -217,8 +217,13 @@ multiple spaces, fill the graph with one mesh range per room and all portal
 links. The renderer uses these ranges and their room IDs. Return false on a
 build error. The level defines `demo_palette(input: mut FrameInput) -> bool`
 to upload the materials used by its meshes.
-The level also defines `demo_room_ambient() -> Vec3`. This returns the
+The level defines `demo_room_lighting(scene: read CollisionScene, input: mut FrameInput,
+anchors: mut RoomAnchors) -> unit` to submit its fixed lights for each frame.
+It also defines `demo_room_ambient() -> Vec3`. This returns the
 constant red, green, and blue light added to player and hook lighting.
+
+`levels/service.crs` is the authored service-network section used by `main.crs`.
+Its source comments define the route. It also runs through `demo.crs`.
 
 `levels/prefabs.crs` connects the hexagonal and octagonal prefab sets through
 the rotor, pipe, and girder shafts, then the hub. Its source comments specify

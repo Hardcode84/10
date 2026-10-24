@@ -50,6 +50,9 @@ Emscripten toolchain require Python. See [bootstrap details](docs/build/bootstra
 Run these commands from the repository root:
 
 ```sh
+# Fly the authored service-network level.
+crust main.crs
+
 # Play the seeded labyrinth demo.
 crust labyrinth.crs --seed 42 --complexity 8
 
@@ -79,7 +82,7 @@ recording exchange, and the focused browser check.
 
 | Path | Purpose |
 | --- | --- |
-| `main.crs` | Reserved main game entry point |
+| `main.crs` | Authored service-network level |
 | `labyrinth.crs` | Seeded labyrinth demo, native and web |
 | `demo.crs` | Selected level flight demo build and entry point |
 | `levels/` | Crust demo level recipes |

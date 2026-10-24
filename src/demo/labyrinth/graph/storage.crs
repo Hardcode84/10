@@ -1,4 +1,5 @@
 record GraphNode {
+    placement: SpaceTransform;
     kind: u32;
     first: u32;
     count: u32;
@@ -102,6 +103,7 @@ fn graph_add_ports(graph: mut RoomGraph, kind: u32, depth: u32, branch: u32, cou
         trap;
     }
     graph.nodes[id as usize] = make GraphNode {
+        placement: space_identity(),
         kind: kind,
         first: graph.port_count,
         count: count,

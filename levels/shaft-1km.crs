@@ -137,3 +137,9 @@ fn demo_palette(input: mut FrameInput) -> bool {
     );
     return course_palette_configured(mut input, read configuration);
 }
+
+fn demo_room_lighting(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    anchors: mut RoomAnchors
+) -> unit {}

@@ -95,6 +95,7 @@ jobs:
           crust tests.crs particles
       - name: Build native application entry points
         run: |
+          crust main.crs --build-only
           crust labyrinth.crs --build-only
           crust demo.crs levels/radial.crs --build-only
           crust demo.crs levels/cylinder.crs --build-only

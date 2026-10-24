@@ -24,7 +24,7 @@ A 6DOF exploration game in a megastructure.
 ## Implementation
 
 - Run the generated-room flight demo with `crust demo.crs levels/radial.crs`. Use `labyrinth.crs`
-  for the seeded portal-graph demo. `main.crs` is reserved for the main game. Use `--seed N --complexity N`.
+  for the seeded portal-graph demo. `main.crs` builds the authored service-network level. Use `--seed N --complexity N`.
   See [expedition rules](docs/game/expedition.md). Run
   `crust viewer.crs assets/rooms/radial-start.crs` to inspect a Crust room recipe.
   See [parametric assets](docs/content/parametric-assets.md#implemented-recipe-workflow).

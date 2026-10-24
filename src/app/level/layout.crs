@@ -1,0 +1,123 @@
+record LevelCursor {
+    room: u32;
+    exit: AssetName;
+}
+fn level_port(graph: read RoomGraph, cursor: LevelCursor) -> RoomPort {
+    return graph_socket(read graph, course_socket(read graph, cursor.room, cursor.exit)).port;
+}
+fn level_port_global(graph: read RoomGraph, cursor: LevelCursor) -> SpaceTransform {
+    var port: RoomPort = level_port(read graph, cursor);
+    return space_compose(
+        graph_node(read graph, cursor.room).placement,
+        make SpaceTransform {
+            factor: 1f32,
+            origin: port.position,
+            basis: port.basis
+        }
+    );
+}
+fn level_place_child(graph: mut RoomGraph, first: u32, second: u32) -> unit {
+    var a: GraphSocket = graph_socket(read graph, first);
+    var b: GraphSocket = graph_socket(read graph, second);
+    var node: GraphNode = graph_node(read graph, b.room);
+    node.placement = space_compose(
+        graph_node(read graph, a.room).placement,
+        space_inverse(connection_transform(a.port, b.port, a.roll))
+    );
+    graph_node_set(mut graph, b.room, node);
+}
+fn level_attach(
+    graph: mut RoomGraph,
+    cursor: mut LevelCursor,
+    room: u32,
+    entry: AssetName,
+    exit_name: AssetName
+) -> unit {
+    var first: u32 = course_socket(read graph, cursor.room, cursor.exit);
+    var second: u32 = course_socket(read graph, room, entry);
+    course_pair(mut graph, first, second);
+    level_place_child(mut graph, first, second);
+    cursor.room = room;
+    cursor.exit = exit_name;
+}
+fn level_piece(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor,
+    kind: u32,
+    entry: AssetName,
+    exit_name: AssetName
+) -> bool {
+    var next: CourseCursor = make CourseCursor {
+        room: 0u32
+    };
+    if !course_append(mut graph, mut builder, mut mesh, kind, 0u32, mut next) {
+        return false;
+    }
+    level_attach(mut graph, mut cursor, next.room, entry, exit_name);
+    return true;
+}
+fn level_straight(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor,
+    metres: f32
+) -> bool {
+    var asset: RoomAsset = room_asset_new();
+    var room: u32 = graph_count(read graph);
+    if !hex_tunnel_build(metres, mut asset) || !course_room_mesh(
+        read asset,
+        mut graph,
+        mut builder,
+        mut mesh,
+        PREFAB_HEX_TUNNEL_10M,
+        0u32
+    ) {
+        return false;
+    }
+    level_attach(mut graph, mut cursor, room, asset_name("ENTRY"), asset_name("EXIT"));
+    return true;
+}
+fn level_close(graph: mut RoomGraph, builder: mut CollisionBuilder, mesh: mut Mesh) -> bool {
+    var first: u32 = graph_count(read graph);
+    if !course_close_ports(mut graph, mut builder, mut mesh) {
+        return false;
+    }
+    while first < graph_count(read graph) {
+        var socket: u32 = graph_node(read graph, first).first;
+        var peer: u32 = graph_socket(read graph, socket).peer;
+        level_place_child(mut graph, peer, socket);
+        first = first + 1u32;
+    }
+    return course_links(read graph, mut builder);
+}
+// Requires a connected rigid layout. Every paired port must share one global frame.
+fn level_install(graph: read RoomGraph, scene: mut CollisionScene) -> bool {
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var pose: SpaceTransform = graph_node(read graph, i).placement;
+        if !collision_place_room(mut scene, i, pose.origin, pose.basis) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < graph_ports(read graph) {
+        var a: GraphSocket = graph_socket(read graph, i);
+        var b: GraphSocket = graph_socket(read graph, a.peer);
+        var pose: SpaceTransform = graph_node(read graph, a.room).placement;
+        var mapped: SpaceTransform = space_compose(
+            graph_node(read graph, b.room).placement,
+            connection_transform(a.port, b.port, a.roll)
+        );
+        if length(sub(pose.origin, mapped.origin)) > 0.002f32 || length(
+            sub(pose.basis.right, mapped.basis.right)
+        ) > 0.00001f32 || length(sub(pose.basis.up, mapped.basis.up)) > 0.00001f32 {
+            return error("level connections disagree with global placement");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

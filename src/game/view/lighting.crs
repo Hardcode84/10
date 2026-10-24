@@ -95,6 +95,7 @@ fn game_object_lighting(
     );
     hook_light(read scene, mut input, read trial.drone, mut anchors);
     graph_lighting(read scene, mut input, read trial, mut anchors);
+    game_world_lighting(read scene, mut input, mut anchors);
 }
 
 fn light_object_anchors(
@@ -113,4 +114,15 @@ fn light_object_submit(input: mut FrameInput, light: LightObject, anchor: RoomAn
         anchor,
         light.radius * anchor.transform.factor
     );
+}
+
+fn berth_light() -> LightObject {
+    return make LightObject {
+        id: 2u32,
+        space: 0u32,
+        position: vec(0f32, 7f32, 0f32),
+        colour: vec(1.6f32, 1.45f32, 1.2f32),
+        radius: 16f32,
+        mode: LIGHT_ROOM
+    };
 }

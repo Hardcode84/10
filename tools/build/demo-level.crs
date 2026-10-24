@@ -49,7 +49,8 @@ fn build_demo_target_providers(
     sources[source_count + 2usize] = host_path(root, "src/demo/course/catalogue.crs");
     sources[source_count + 3usize] = host_path(root, "src/demo/course/materials.crs");
     sources[source_count + 4usize] = host_path(root, "src/demo/course/assemble.crs");
-    source_count = source_count + 5usize;
+    sources[source_count + 5usize] = host_path(root, "src/app/level/layout.crs");
+    source_count = source_count + 6usize;
     if check != null(*u8) {
         sources[source_count] = host_path(root, check);
         source_count = source_count + 1usize;

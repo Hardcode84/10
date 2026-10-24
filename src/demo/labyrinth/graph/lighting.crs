@@ -7,14 +7,7 @@ fn graph_lighting(
     if !trial.graph_run {
         return;
     }
-    var lamp: LightObject = make LightObject {
-        id: 2u32,
-        space: 0u32,
-        position: vec(0f32, 7f32, 0f32),
-        colour: vec(1.6f32, 1.45f32, 1.2f32),
-        radius: 16f32,
-        mode: LIGHT_ROOM
-    };
+    var lamp: LightObject = berth_light();
     light_object_anchors(read scene, mut input, lamp, mut anchors);
     lamp.id = 3u32;
     lamp.space = trial.goal_world;

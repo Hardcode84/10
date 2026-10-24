@@ -57,3 +57,9 @@ fn demo_room_ambient() -> Vec3 {
 fn demo_palette(input: mut FrameInput) -> bool {
     return game_room_palette(mut input);
 }
+
+fn demo_room_lighting(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    anchors: mut RoomAnchors
+) -> unit {}

@@ -5,6 +5,7 @@ program with the Crust ownership stage. Device programs use the shader stage.
 
 | Root | Program |
 | --- | --- |
+| `crust main.crs` | Fly the authored service-network level. |
 | `crust labyrinth.crs` | Play the labyrinth demo. Use `--seed N --complexity N`. |
 | `crust labyrinth.crs --web` | Build the same demo for WebAssembly and WebGPU. |
 | `crust demo.crs levels/radial.crs` | Fly through the generated room with game controls and linked portals. |

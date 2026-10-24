@@ -28,3 +28,9 @@ fn game_world_ambient() -> Vec3 {
 fn game_world_palette(input: mut FrameInput) -> bool {
     return game_room_palette(mut input);
 }
+
+fn game_world_lighting(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    anchors: mut RoomAnchors
+) -> unit {}

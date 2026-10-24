@@ -1,0 +1,286 @@
+// First service-network section. Start on the spin axis in the radial berth.
+// SIDE-0 is open; the seven other start ports have closed hex doors.
+// Route: 32 m approach, 18 m dogleg, 110 m pig run, opposite 18 m dogleg,
+// a 140 m run with an off-centre refuge, then a 110 m run with a refuge and
+// a parallel bypass. The terminal door face is at radius SERVICE_END_RADIUS.
+// Long runs are individual cells between junctions. Pigs are not installed.
+// Port-derived placements form one continuous rigid layout, including the bypass.
+const SERVICE_END_RADIUS: f32 = 500f32;
+const SERVICE_BYPASS_RUN: f32 = 110f32;
+const SERVICE_BYPASS_SIDE: f32 = 18f32;
+fn demo_room_build(
+    asset: mut RoomAsset,
+    collision: mut CollisionScene,
+    mesh: mut Mesh,
+    graph: mut RoomGraph
+) -> bool {
+    var values: AssetValues = asset_values_new();
+    if !course_values(PREFAB_RADIAL_START, 0u32, mut values) || !room_build(
+        read values,
+        mut asset
+    ) || !graph_allocate(mut graph, 64u32, 0u32) {
+        return false;
+    }
+    var port: RoomPort = asset_port(read asset.ports, 0u32);
+    var forward: Vec3 = unit_vector(sub(port.position, asset.spawn.position));
+    var right: Vec3 = unit_vector(cross(vec(0f32, 1f32, 0f32), forward));
+    asset.spawn.basis = make Basis {
+        right: right,
+        up: cross(forward, right),
+        forward: forward
+    };
+    var builder: CollisionBuilder = collision_builder_new();
+    if !course_room_mesh(
+        read asset,
+        mut graph,
+        mut builder,
+        mut mesh,
+        PREFAB_RADIAL_START,
+        0u32
+    ) {
+        return false;
+    }
+    var node: GraphNode = graph_node(read graph, 0u32);
+    var local: SpaceTransform = make SpaceTransform {
+        factor: 1f32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: port.basis
+    };
+    var desired: SpaceTransform = make SpaceTransform {
+        factor: 1f32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: make Basis {
+            right: vec(0f32, 1f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(1f32, 0f32, 0f32)
+        }
+    };
+    node.placement = space_compose(desired, space_inverse(local));
+    graph_node_set(mut graph, 0u32, node);
+    var cursor: LevelCursor = make LevelCursor {
+        room: 0u32,
+        exit: asset_name("SIDE-0")
+    };
+    if !service_approach(mut graph, mut builder, mut mesh, mut cursor) || !service_runs(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor
+    ) || !service_bypass(mut graph, mut builder, mut mesh, mut cursor) || !service_terminal(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor
+    ) || !level_close(mut graph, mut builder, mut mesh) {
+        return false;
+    }
+    return collision_finish(move builder, mut collision) && level_install(
+        read graph,
+        mut collision
+    );
+}
+fn service_approach(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor
+) -> bool {
+    return level_piece(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        PREFAB_HEX_STOPPER_OPEN,
+        asset_name("ENTRY"),
+        asset_name("EXIT")
+    ) && level_straight(mut graph, mut builder, mut mesh, mut cursor, 32f32) && service_dogleg(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        true
+    );
+}
+fn service_dogleg(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor,
+    right: bool
+) -> bool {
+    var entry: AssetName = asset_name("ENTRY");
+    var exit_name: AssetName = asset_name("EAST");
+    if !right {
+        entry = asset_name("EAST");
+        exit_name = asset_name("ENTRY");
+    }
+    return level_piece(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        PREFAB_HEX_ELBOW,
+        entry,
+        exit_name
+    ) && level_straight(mut graph, mut builder, mut mesh, mut cursor, 18f32) && level_piece(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        PREFAB_HEX_ELBOW,
+        exit_name,
+        entry
+    );
+}
+fn service_junction(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor
+) -> bool {
+    return level_piece(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        PREFAB_HEX_T_JUNCTION,
+        asset_name("ENTRY"),
+        asset_name("EXIT")
+    );
+}
+fn service_refuge(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: LevelCursor
+) -> bool {
+    cursor.exit = asset_name("EAST");
+    return level_straight(mut graph, mut builder, mut mesh, mut cursor, 8f32);
+}
+fn service_runs(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor
+) -> bool {
+    return level_straight(mut graph, mut builder, mut mesh, mut cursor, 110f32) && service_junction(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor
+    ) && service_refuge(mut graph, mut builder, mut mesh, cursor) && service_dogleg(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        false
+    ) && level_straight(mut graph, mut builder, mut mesh, mut cursor, 55f32) && service_junction(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor
+    ) && service_refuge(mut graph, mut builder, mut mesh, cursor) && level_straight(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        78f32
+    );
+}
+fn service_bypass(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor
+) -> bool {
+    if !service_junction(mut graph, mut builder, mut mesh, mut cursor) {
+        return false;
+    }
+    var branch: LevelCursor = cursor;
+    branch.exit = asset_name("EAST");
+    if !level_straight(mut graph, mut builder, mut mesh, mut cursor, 40f32) || !service_junction(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor
+    ) || !service_refuge(mut graph, mut builder, mut mesh, cursor) || !level_straight(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        SERVICE_BYPASS_RUN - 40f32 - service_junction_span()
+    ) || !service_junction(mut graph, mut builder, mut mesh, mut cursor) {
+        return false;
+    }
+    var target: u32 = course_socket(read graph, cursor.room, asset_name("EAST"));
+    if !level_straight(mut graph, mut builder, mut mesh, mut branch, SERVICE_BYPASS_SIDE) || !level_piece(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut branch,
+        PREFAB_HEX_ELBOW,
+        asset_name("EAST"),
+        asset_name("ENTRY")
+    ) || !level_straight(mut graph, mut builder, mut mesh, mut branch, SERVICE_BYPASS_RUN) || !level_piece(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut branch,
+        PREFAB_HEX_ELBOW,
+        asset_name("EAST"),
+        asset_name("ENTRY")
+    ) || !level_straight(mut graph, mut builder, mut mesh, mut branch, SERVICE_BYPASS_SIDE) {
+        return false;
+    }
+    var end: u32 = course_socket(read graph, branch.room, branch.exit);
+    course_pair(mut graph, end, target);
+    return true;
+}
+fn service_terminal(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor
+) -> bool {
+    var port: SpaceTransform = level_port_global(read graph, cursor);
+    var p: Vec3 = port.origin;
+    var d: Vec3 = port.basis.forward;
+    p.z = 0f32;
+    d.z = 0f32;
+    var along: f32 = dot(p, d);
+    var length_metres: f32 = (
+        -along + sqrtf(
+            along * along + dot(d, d) * (SERVICE_END_RADIUS * SERVICE_END_RADIUS - dot(p, p))
+        )
+    ) / dot(d, d);
+    var depth: f32 = prefab_hex_stopper_parameter(0u32).initial;
+    return level_straight(mut graph, mut builder, mut mesh, mut cursor, length_metres - depth) && level_piece(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        PREFAB_HEX_STOPPER,
+        asset_name("ENTRY"),
+        asset_name("ENTRY")
+    );
+}
+fn demo_room_ambient() -> Vec3 {
+    return vec(0f32, 0f32, 0f32);
+}
+fn demo_palette(input: mut FrameInput) -> bool {
+    return course_palette(mut input);
+}
+
+fn demo_room_lighting(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    anchors: mut RoomAnchors
+) -> unit {
+    light_object_anchors(read scene, mut input, berth_light(), mut anchors);
+}
+
+fn service_junction_span() -> f32 {
+    return 2f32 * (
+        service_hex_profile().radius + prefab_hex_t_junction_parameter(0u32).initial
+    );
+}
