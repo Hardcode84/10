@@ -1,3 +1,4 @@
+// Each entrance has its own style parameter and material region.
 // HEX-6M cross: ENTRY -Y, EAST +X, EXIT +Y, WEST -X. Local +Z is up.
 // A convex faceted shell joins all four full-width openings. Collar separates
 // adjacent mouths without changing their 6 m profile or six mating rolls.

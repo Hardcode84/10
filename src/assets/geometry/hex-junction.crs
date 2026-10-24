@@ -93,33 +93,168 @@ fn junction_side(hull: mut AssetHull, port: u32, count: u32) -> unit {
         i = i + 1u32;
     }
     junction_face(mut hull, port, port * 6u32, 6u32);
+    var face: HullFace = asset_face(read hull, port);
+    face.region = port;
+    asset_face_set(mut hull, port, face);
 }
-fn junction_spans(hull: mut AssetHull, port: u32, count: u32) -> unit {
-    var n: u32 = count * 2u32;
-    var a: u32 = port * 2u32 + 1u32;
-    var b: u32 = (a + 1u32) % n;
+// Each gap has a shared midpoint on every ring, so adjoining surface patches share edges.
+fn junction_midpoints(hull: mut AssetHull, plan: JunctionPlan) -> unit {
     var layer: u32 = 0u32;
-    while layer < 2u32 {
-        var first: u32 = count * 6u32 + (port * 2u32 + layer) * 4u32;
-        asset_index_set(mut hull, first, layer * n + a);
-        asset_index_set(mut hull, first + 1u32, layer * n + b);
-        asset_index_set(mut hull, first + 2u32, (layer + 1u32) * n + b);
-        asset_index_set(mut hull, first + 3u32, (layer + 1u32) * n + a);
-        junction_face(mut hull, count + port * 2u32 + layer, first, 4u32);
+    while layer < 3u32 {
+        var port: u32 = 0u32;
+        while port < plan.count {
+            var a: u32 = layer * plan.count * 2u32 + port * 2u32 + 1u32;
+            var b: u32 = layer * plan.count * 2u32 + ((port + 1u32) % plan.count) * 2u32;
+            var middle: Vec3 = scale(
+                add(asset_vertex(read hull, a), asset_vertex(read hull, b)),
+                0.5f32
+            );
+            asset_vertex_set(
+                mut hull,
+                plan.count * 6u32 + layer * plan.count + port,
+                middle
+            );
+            port = port + 1u32;
+        }
         layer = layer + 1u32;
     }
 }
-fn junction_caps(hull: mut AssetHull, count: u32) -> unit {
-    var n: u32 = count * 2u32;
-    var first: u32 = count * 14u32;
+fn junction_patch(
+    hull: mut AssetHull,
+    id: u32,
+    first: u32,
+    corners: [u32; 4],
+    region: u32
+) -> unit {
     var i: u32 = 0u32;
-    while i < n {
-        asset_index_set(mut hull, first + i, n - 1u32 - i);
-        asset_index_set(mut hull, first + n + i, n * 2u32 + i);
+    while i < 4u32 {
+        asset_index_set(mut hull, first + i, corners[i as usize]);
         i = i + 1u32;
     }
-    junction_face(mut hull, count * 3u32, first, n);
-    junction_face(mut hull, count * 3u32 + 1u32, first + n, n);
+    junction_face(mut hull, id, first, 4u32);
+    var face: HullFace = asset_face(read hull, id);
+    face.region = region;
+    asset_face_set(mut hull, id, face);
+}
+fn junction_spans(hull: mut AssetHull, port: u32, plan: JunctionPlan) -> unit {
+    var n: u32 = plan.count * 2u32;
+    var next: u32 = (port + 1u32) % plan.count;
+    var layer: u32 = 0u32;
+    while layer < 2u32 {
+        var a: u32 = layer * n + port * 2u32 + 1u32;
+        var b: u32 = layer * n + next * 2u32;
+        var middle: u32 = plan.count * 6u32 + layer * plan.count + port;
+        var id: u32 = plan.count + port * 4u32 + layer * 2u32;
+        var first: u32 = plan.count * 6u32 + (port * 4u32 + layer * 2u32) * 4u32;
+        junction_patch(
+            mut hull,
+            id,
+            first,
+            make [u32; 4] {
+                a,
+                middle,
+                middle + plan.count,
+                a + n
+            },
+            port
+        );
+        junction_patch(
+            mut hull,
+            id + 1u32,
+            first + 4u32,
+            make [u32; 4] {
+                middle,
+                b,
+                b + n,
+                middle + plan.count
+            },
+            next
+        );
+        junction_wall_surface(
+            mut hull,
+            id,
+            junction_port(plan.sides[port as usize], port, plan.distance),
+            a,
+            a + n
+        );
+        junction_wall_surface(
+            mut hull,
+            id + 1u32,
+            junction_port(plan.sides[next as usize], next, plan.distance),
+            b,
+            b + n
+        );
+        layer = layer + 1u32;
+    }
+}
+fn junction_caps(hull: mut AssetHull, plan: JunctionPlan) -> unit {
+    var corners: u32 = 5u32;
+    if plan.count == 2u32 {
+        corners = 4u32;
+    }
+    var side: u32 = 0u32;
+    while side < 2u32 {
+        var ring: u32 = side * plan.count * 4u32;
+        var centre: Vec3 = vec(0f32, 0f32, 0f32);
+        var i: u32 = 0u32;
+        while i < plan.count * 2u32 {
+            centre = add(centre, asset_vertex(read hull, ring + i));
+            i = i + 1u32;
+        }
+        var centre_id: u32 = plan.count * 9u32 + side;
+        asset_vertex_set(
+            mut hull,
+            centre_id,
+            scale(centre, 1f32 / (plan.count * 2u32) as f32)
+        );
+        var port: u32 = 0u32;
+        while port < plan.count {
+            junction_cap_patch(mut hull, plan, port, side, corners);
+            port = port + 1u32;
+        }
+        side = side + 1u32;
+    }
+}
+fn junction_cap_patch(
+    hull: mut AssetHull,
+    plan: JunctionPlan,
+    port: u32,
+    side: u32,
+    count: u32
+) -> unit {
+    var ring: u32 = side * plan.count * 4u32;
+    var middle: u32 = plan.count * 6u32 + side * plan.count * 2u32;
+    var previous: u32 = (port + plan.count - 1u32) % plan.count;
+    var points: [u32; 5] = make [u32; 5] {
+        ring + port * 2u32,
+        ring + port * 2u32 + 1u32,
+        middle + port,
+        plan.count * 9u32 + side,
+        middle + previous
+    };
+    if count == 4u32 {
+        points[3usize] = points[4usize];
+    }
+    var id: u32 = plan.count * 5u32 + side * plan.count + port;
+    var first: u32 = plan.count * 22u32 + (side * plan.count + port) * count;
+    var i: u32 = 0u32;
+    while i < count {
+        var index: u32 = i;
+        if side == 0u32 {
+            index = count - 1u32 - i;
+        }
+        asset_index_set(mut hull, first + i, points[index as usize]);
+        i = i + 1u32;
+    }
+    junction_face(mut hull, id, first, count);
+    var face: HullFace = asset_face(read hull, id);
+    face.region = port;
+    asset_face_set(mut hull, id, face);
+    junction_cap_surface(
+        mut hull,
+        id,
+        junction_port(plan.sides[port as usize], port, plan.distance)
+    );
 }
 fn junction_port(side: u32, face: u32, distance: f32) -> RoomPort {
     var id: AssetName = asset_name("ENTRY");
@@ -149,19 +284,24 @@ fn junction_port(side: u32, face: u32, distance: f32) -> RoomPort {
 fn hex_junction_build(connections: u32, collar: f32, asset: mut RoomAsset) -> bool {
     var radius: f32 = service_hex_profile().radius;
     var plan: JunctionPlan = junction_plan(connections, radius, radius + collar);
+    var indices: u32 = plan.count * 32u32;
+    if plan.count == 2u32 {
+        indices = plan.count * 30u32;
+    }
     if !asset_hull_allocate(
         mut asset.hull,
-        plan.count * 6u32,
-        plan.count * 3u32 + 2u32,
-        plan.count * 18u32
+        plan.count * 9u32 + 2u32,
+        plan.count * 7u32,
+        indices
     ) {
         return false;
     }
     junction_vertices(mut asset.hull, plan);
+    junction_midpoints(mut asset.hull, plan);
     var port: u32 = 0u32;
     while port < plan.count {
         junction_side(mut asset.hull, port, plan.count);
-        junction_spans(mut asset.hull, port, plan.count);
+        junction_spans(mut asset.hull, port, plan);
         if !asset_port_append(
             mut asset.ports,
             junction_port(plan.sides[port as usize], port, plan.distance)
@@ -170,7 +310,7 @@ fn hex_junction_build(connections: u32, collar: f32, asset: mut RoomAsset) -> bo
         }
         port = port + 1u32;
     }
-    junction_caps(mut asset.hull, plan.count);
+    junction_caps(mut asset.hull, plan);
     var centre: Vec3 = vec(0f32, 0f32, 0f32);
     port = 0u32;
     while port < plan.count {
@@ -182,4 +322,32 @@ fn hex_junction_build(connections: u32, collar: f32, asset: mut RoomAsset) -> bo
         basis: junction_port(2u32, 0u32, plan.distance).basis
     };
     return room_asset_finish(mut asset);
+}
+
+// Every entrance owns one material region, in port order. UVs meet its tunnel at a plate seam.
+fn junction_wall_surface(hull: mut AssetHull, id: u32, port: RoomPort, a: u32, b: u32) -> unit {
+    var edge_a: Vec3 = asset_vertex(read hull, a);
+    var edge_b: Vec3 = asset_vertex(read hull, b);
+    var frame: SurfaceFrame = asset_surface(read hull, id);
+    frame.up = unit_vector(sub(edge_b, edge_a));
+    frame.origin = sub(
+        scale(add(edge_a, edge_b), 0.5f32),
+        scale(frame.up, hex_tunnel_material().panel_height * 0.5f32)
+    );
+    frame.right = scale(port.basis.forward, -hex_tunnel_material().tile_metres);
+    asset_surface_set(mut hull, id, frame);
+}
+fn junction_cap_surface(hull: mut AssetHull, id: u32, port: RoomPort) -> unit {
+    var face: HullFace = asset_face(read hull, id);
+    var frame: SurfaceFrame = asset_surface(read hull, id);
+    frame.right = scale(port.basis.forward, -1f32);
+    frame.up = cross(frame.normal, frame.right);
+    frame.origin = port.position;
+    frame.origin.z = hull_corner(read hull, face, 0u32).z;
+    frame.origin = sub(
+        frame.origin,
+        scale(frame.up, hex_tunnel_material().panel_height * 0.5f32)
+    );
+    frame.right = scale(frame.right, hex_tunnel_material().tile_metres);
+    asset_surface_set(mut hull, id, frame);
 }

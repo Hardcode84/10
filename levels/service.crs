@@ -143,13 +143,28 @@ fn service_connector(
     ) && level_straight(mut graph, mut builder, mut mesh, mut cursor, 18f32);
 }
 fn service_pig_style(graph: read RoomGraph, mesh: mut Mesh, cursor: LevelCursor) -> unit {
-    level_room_material(
-        read graph,
-        mut mesh,
-        cursor.room,
-        0u32,
-        course_material_base(PREFAB_COUNT)
-    );
+    var node: GraphNode = graph_node(read graph, cursor.room);
+    var count: u32 = 1u32;
+    if node.kind == PREFAB_HEX_T_JUNCTION || node.kind == PREFAB_HEX_X_JUNCTION {
+        count = node.count;
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        var port: RoomPort = graph_socket(read graph, node.first + i).port;
+        if count == 1u32 || asset_names_equal(port.id, asset_name("ENTRY")) || asset_names_equal(
+            port.id,
+            asset_name("EXIT")
+        ) {
+            level_room_material(
+                read graph,
+                mut mesh,
+                cursor.room,
+                i,
+                course_material_base(PREFAB_COUNT)
+            );
+        }
+        i = i + 1u32;
+    }
 }
 fn service_pig_straight(
     graph: mut RoomGraph,
@@ -182,7 +197,7 @@ fn service_refuge(
     port: AssetName
 ) -> bool {
     cursor.exit = port;
-    return service_pig_straight(mut graph, mut builder, mut mesh, mut cursor, 8f32);
+    return level_straight(mut graph, mut builder, mut mesh, mut cursor, 8f32);
 }
 fn service_pig_run(
     graph: mut RoomGraph,

@@ -1,0 +1,32 @@
+// Index zero controls the collar. Subsequent parameters select the style at each port.
+fn hex_junction_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 0.25f32,
+            maximum: 3f32,
+            initial: 0.5f32,
+            step: 0.25f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 0f32,
+        maximum: (TUNNEL_STYLES - 1u32) as f32,
+        initial: 0f32,
+        step: 1f32
+    };
+}
+fn hex_junction_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("collar");
+    }
+    if index == 1u32 {
+        return asset_name("style-entry");
+    }
+    if index == 2u32 {
+        return asset_name("style-east");
+    }
+    if index == 3u32 {
+        return asset_name("style-exit");
+    }
+    return asset_name("style-west");
+}

@@ -1,3 +1,4 @@
+// Each entrance has its own style parameter and material region.
 // Compact 90-degree HEX-6M elbow: ENTRY faces -Y, EAST faces +X, +Z is up.
 // The outline joins only these two full-width openings with a diagonal wall.
 // Collar separates the mouths; it does not change their 6 m profile.

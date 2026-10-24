@@ -240,6 +240,12 @@ only when a concrete authoring or ownership case requires it.
 
 ## Shared style and parameters
 
+Hex junctions have one material region per entrance, in port order. The wall,
+floor, and ceiling patches at an entrance use that region. Each patch starts
+its axial texture at the port plane and uses the tunnel's cross-section phase.
+A level can assign a different material to each region. The junction recipes
+expose `style-entry`, `style-east`, `style-exit`, and `style-west` for their ports.
+
 Expose a small set of independent dimensions. Derive related dimensions from
 shared tables and construction rules. A nominal pipe size determines its
 compatible flange, support, and socket sizes. Increasing a cabinet width

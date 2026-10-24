@@ -1,5 +1,5 @@
 // Each connected run of two-port rooms shares one style, including elbows.
-// Junctions and terminal rooms use plain steel. Style choice does not change topology.
+// Junction entrances use the style of the adjoining run. Terminal rooms use plain steel.
 fn graph_styles(graph: mut RoomGraph, seed: u32) -> unit {
     var i: u32 = 0u32;
     while i < graph_count(read graph) {

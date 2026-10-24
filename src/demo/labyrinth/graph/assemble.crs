@@ -27,6 +27,19 @@ fn graph_asset(kind: u32, asset: mut RoomAsset) -> bool {
     }
     return hex_ending_build(10f32, 20f32, mut asset);
 }
+fn graph_material_region(graph: read RoomGraph, node: GraphNode, region: u32) -> u32 {
+    if node.kind >= 2u32 && node.kind <= 4u32 {
+        if node.kind == 2u32 {
+            return node.style;
+        }
+        var peer: u32 = graph_socket(read graph, node.first + region).peer;
+        return graph_node(read graph, graph_socket(read graph, peer).room).style;
+    }
+    if region == 0u32 {
+        return node.style;
+    }
+    return TUNNEL_STYLES;
+}
 fn graph_assemble_room(
     graph: mut RoomGraph,
     id: u32,
@@ -78,11 +91,11 @@ fn graph_assemble_room(
     while i < node.mesh.count {
         var primitive: MeshTriangle = mesh_triangle(read render, i);
         if node.kind != 0u32 {
-            if primitive.material == material {
-                primitive.material = material + node.style;
-            } else if primitive.material == material + 1u32 {
-                primitive.material = material + TUNNEL_STYLES;
-            }
+            primitive.material = material + graph_material_region(
+                read graph,
+                node,
+                primitive.material - material
+            );
         }
         if primitive.portal != 0u32 {
             primitive.portal = primitive.portal + node.first;

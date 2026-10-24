@@ -1,3 +1,4 @@
+// Each entrance has its own style parameter and material region.
 // HEX-6M T junction: ENTRY faces -Y, EXIT faces +Y, EAST faces +X.
 // Local +Z is up. The west wall is continuous, without a closed hatch.
 // Collar separates adjacent mouths without changing the 6 m openings.

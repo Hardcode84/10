@@ -1,17 +1,12 @@
 const prefab_hex_t_junction_CONNECTIONS: u32 = 7u32;
 fn prefab_hex_t_junction_parameter_count() -> u32 {
-    return 1u32;
+    return 4u32;
 }
 fn prefab_hex_t_junction_parameter(index: u32) -> AssetParameter {
-    return make AssetParameter {
-        minimum: 0.25f32,
-        maximum: 3f32,
-        initial: 0.5f32,
-        step: 0.25f32
-    };
+    return hex_junction_parameter(index);
 }
 fn prefab_hex_t_junction_parameter_name(index: u32) -> AssetName {
-    return asset_name("collar");
+    return hex_junction_parameter_name(index);
 }
 fn prefab_hex_t_junction_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     if !prefab_hex_t_junction_parameters_valid(read parameters) {
@@ -24,10 +19,10 @@ fn prefab_hex_t_junction_build(parameters: read AssetValues, asset: mut RoomAsse
     );
 }
 fn prefab_hex_t_junction_material_count() -> u32 {
-    return 1u32;
+    return 3u32;
 }
 fn prefab_hex_t_junction_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
-    return hex_tunnel_material();
+    return hex_tunnel_style(asset_value(read parameters, region + 1u32) as u32);
 }
 
 fn prefab_hex_t_junction_parameters_valid(values: read AssetValues) -> bool {

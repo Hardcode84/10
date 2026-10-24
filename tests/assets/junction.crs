@@ -7,9 +7,9 @@ fn asset_test_junctions() -> bool {
             var collar: f32 = 0.25f32;
             while collar <= 3f32 {
                 var asset: RoomAsset = room_asset_new();
-                if !hex_junction_build(mask, collar, mut asset) || !asset_test_shell(read asset) || !asset_test_ports(
+                if !hex_junction_build(mask, collar, mut asset) || !asset_test_junction_surfaces(
                     read asset
-                ) {
+                ) || !asset_test_shell(read asset) || !asset_test_ports(read asset) {
                     return false;
                 }
                 collar = collar * 2f32;
@@ -18,4 +18,61 @@ fn asset_test_junctions() -> bool {
         mask = mask + 1u32;
     }
     return true;
+}
+
+fn asset_test_junction_surfaces(asset: read RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_port_count(read asset.ports) {
+        var port: RoomPort = asset_port(read asset.ports, i);
+        var face: HullFace = asset_face(read asset.hull, port.face);
+        var edge: u32 = 0u32;
+        while edge < face.count {
+            var a: u32 = asset_index(read asset.hull, face.first + edge);
+            var b: u32 = asset_index(
+                read asset.hull,
+                face.first + (edge + 1u32) % face.count
+            );
+            if !asset_test_junction_edge(read asset.hull, a, b, i) {
+                return false;
+            }
+            edge = edge + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn asset_test_junction_edge(hull: read AssetHull, a: u32, b: u32, region: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        var face: HullFace = asset_face(read hull, i);
+        var edge: u32 = 0u32;
+        while edge < face.count {
+            if asset_index(read hull, face.first + edge) == b && asset_index(
+                read hull,
+                face.first + (edge + 1u32) % face.count
+            ) == a {
+                return face.region == region && asset_test_junction_frame(read hull, i, a, b);
+            }
+            edge = edge + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return error("junction mouth edge has no wall patch");
+}
+fn asset_test_junction_frame(hull: read AssetHull, face: u32, a: u32, b: u32) -> bool {
+    var frame: SurfaceFrame = asset_surface(read hull, face);
+    var p: Vec3 = asset_vertex(read hull, a);
+    var q: Vec3 = asset_vertex(read hull, b);
+    var material: PanelMaterial = hex_tunnel_material();
+    var midpoint: MeshVertex = surface_vertex(
+        scale(add(p, q), 0.5f32),
+        frame,
+        material.tile_metres
+    );
+    var edge: Vec3 = sub(q, p);
+    return absf(midpoint.u) < 0.00001f32 && absf(
+        midpoint.v - material.panel_height * 0.5f32 / material.tile_metres
+    ) < 0.00001f32 && absf(dot(edge, frame.right)) < 0.00001f32 && absf(
+        absf(dot(edge, frame.up)) - length(edge)
+    ) < 0.00001f32 || error("junction mouth texture scale or phase differs from the passage");
 }
