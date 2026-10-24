@@ -77,6 +77,7 @@ selecting another renderer.
 - Content: [parametric assets](content/parametric-assets.md),
   [room format](content/room-format.md),
   [room catalogue](content/room-catalogue.md),
+  [shaft-grid generation](content/shaft-grid.md),
   [engine gaps](content/engine-gaps.md).
 
 ## Checks
