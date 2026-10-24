@@ -3,12 +3,15 @@
 // Grey service tunnels connect those junctions. Branch passages rejoin after the first
 // pig lane, after the middle lane, and at the last lane exit. A lower cross-link
 // joins the two side routes. The full detour is longer and has more turns.
+// Seeded cable bundles cross service straights and elbows, with wall ends before
+// junctions and other unsupported rooms. Pig lanes have no cable bundles.
 // The seed varies detour bends between fixed junctions. Pig lanes and connections stay fixed.
 // Inner branches use blue-grey tread plate; outer branches use green ribbed metal.
 // The finish changes across the middle pig intersection. Branch materials have no full-bright texels.
 // Ochre walls and amber full-bright strips identify the pig lanes. Pigs are not installed.
 // Port-derived placements form a continuous rigid layout. The terminal door face is
 // at radius SERVICE_END_RADIUS from the spin axis.
+const SERVICE_PIG_STYLE: u32 = 1u32;
 const SERVICE_END_RADIUS: f32 = 500f32;
 const SERVICE_END_BAY: f32 = 8f32;
 const SERVICE_BRANCH_INNER: u32 = 2u32;
@@ -99,6 +102,9 @@ fn demo_room_build(
         mut builder,
         mut mesh
     ) {
+        return false;
+    }
+    if !level_pipes(mut graph, mut builder, mut mesh, SERVICE_PIG_STYLE, seed) {
         return false;
     }
     return collision_finish(move builder, mut collision) && level_install(
@@ -260,6 +266,9 @@ fn service_pig_straight(
     if !level_straight(mut graph, mut builder, mut mesh, mut cursor, metres) {
         return false;
     }
+    var node: GraphNode = graph_node(read graph, cursor.room);
+    node.style = SERVICE_PIG_STYLE;
+    graph_node_set(mut graph, cursor.room, node);
     service_pig_style(read graph, mut mesh, cursor);
     return true;
 }

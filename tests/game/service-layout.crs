@@ -111,7 +111,10 @@ fn layout_proof(seed: u32, proof: mut ServiceLayoutProof) -> bool {
     ) {
         return false;
     }
-    proof.geometry = 0u32;
+    if seed == 0u32 && !service_pipes_check(read graph, read mesh, read scene, seed) {
+        return false;
+    }
+    proof.geometry = service_pipes_hash(read mesh);
     proof.anchors = 0u32;
     proof.loops = graph_ports(read graph) / 2u32 + 1u32 - graph_count(read graph);
     var i: u32 = 0u32;
@@ -159,7 +162,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
         return 1i32;
     }
     puts(
-        "Seeded layouts preserve anchors and loops, reproduce geometry, and keep rooms separate."
+        "Seeded layouts preserve anchors and loops, reproduce geometry, and keep rooms separate. Pipe seams, boundaries, pig exclusion and collision passed."
     );
     return 0i32;
 }

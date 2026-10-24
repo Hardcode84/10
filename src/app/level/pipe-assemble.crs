@@ -1,0 +1,119 @@
+fn level_pipe_asset(
+    graph: read RoomGraph,
+    room: u32,
+    segment: LevelPipeSegment,
+    asset: mut RoomAsset
+) -> bool {
+    var node: GraphNode = graph_node(read graph, room);
+    var values: AssetValues = asset_values_new();
+    if !course_values(node.kind, 0u32, mut values) {
+        return false;
+    }
+    if node.kind == PREFAB_HEX_ELBOW {
+        var collar: f32 = -graph_socket(read graph, node.first).port.position.y - service_hex_profile().radius;
+        asset_value_set(mut values, 3u32 + segment.wall, segment.count as f32);
+        return hex_junction_shape(prefab_hex_elbow_CONNECTIONS, collar, mut asset) && hex_elbow_pipes(
+            read values,
+            mut asset
+        );
+    }
+    var extent: f32 = graph_socket(read graph, node.first + 1u32).port.position.y;
+    asset_value_set(mut values, 0u32, extent);
+    var base: u32 = 1u32 + segment.wall * 3u32;
+    asset_value_set(mut values, base, segment.count as f32);
+    asset_value_set(mut values, base + 1u32, 0f32);
+    asset_value_set(mut values, base + 2u32, 0f32);
+    if segment.entry {
+        asset_value_set(mut values, base + 1u32, 1f32);
+    }
+    if segment.exit {
+        asset_value_set(mut values, base + 2u32, 1f32);
+    }
+    return passage_shape(extent, true, service_hex_profile(), mut asset) && hex_tunnel_pipes(
+        read values,
+        mut asset
+    );
+}
+fn level_pipe_room(
+    graph: read RoomGraph,
+    room: u32,
+    segment: LevelPipeSegment,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh
+) -> bool {
+    if segment.count == 0u32 {
+        return true;
+    }
+    var asset: RoomAsset = room_asset_new();
+    if !level_pipe_asset(read graph, room, segment, mut asset) || !room_parts_collision(
+        read asset,
+        mut builder,
+        room
+    ) || !room_parts_render(mut asset) {
+        return false;
+    }
+    var base: u32 = course_material_base(graph_node(read graph, room).kind);
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read asset.mesh) {
+        var primitive: MeshTriangle = mesh_triangle(read asset.mesh, i);
+        primitive.material = primitive.material + base;
+        if !mesh_append(mut mesh, primitive) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn level_pipe_mesh_copy(source: read Mesh, first: u32, count: u32, target: mut Mesh) -> bool {
+    var i: u32 = 0u32;
+    while i < count {
+        if !mesh_append(mut target, mesh_triangle(read source, first + i)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+// Adds planned pipes during level loading, preserving room ranges and portal IDs.
+fn level_pipes(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    excluded_style: u32,
+    seed: u32
+) -> bool {
+    var plan: LevelPipePlan = level_pipe_plan_new();
+    if !level_pipe_plan(read graph, excluded_style, seed, mut plan) {
+        return false;
+    }
+    var result: Mesh = mesh_new();
+    var room: u32 = 0u32;
+    while room < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, room);
+        var combined: Mesh = mesh_new();
+        if !level_pipe_mesh_copy(
+            read mesh,
+            node.mesh.first,
+            node.mesh.count,
+            mut combined
+        ) || !level_pipe_room(
+            read graph,
+            room,
+            level_pipe_segment(read plan, room),
+            mut builder,
+            mut combined
+        ) {
+            return false;
+        }
+        node.mesh.first = mesh_triangle_count(read result);
+        node.mesh.count = mesh_triangle_count(read combined);
+        node.mesh.bounds = graph_mesh_bounds(read combined);
+        if !level_pipe_mesh_copy(read combined, 0u32, node.mesh.count, mut result) {
+            return false;
+        }
+        graph_node_set(mut graph, room, node);
+        room = room + 1u32;
+    }
+    mesh_swap(mut mesh, mut result);
+    return true;
+}

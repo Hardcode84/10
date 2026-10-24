@@ -1,0 +1,147 @@
+const LEVEL_PIPE_NONE: u32 = 0xffffffffu32;
+fn level_pipe_supported(node: GraphNode, excluded_style: u32) -> bool {
+    return node.style != excluded_style && (
+        node.kind == PREFAB_HEX_TUNNEL_10M || node.kind == PREFAB_HEX_TUNNEL || node.kind == PREFAB_HEX_ELBOW
+    );
+}
+fn level_pipe_other(graph: read RoomGraph, socket: u32) -> u32 {
+    var node: GraphNode = graph_node(read graph, graph_socket(read graph, socket).room);
+    return node.first + 1u32 - (socket - node.first);
+}
+fn level_pipe_peer_supported(graph: read RoomGraph, plan: read LevelPipePlan, socket: u32) -> bool {
+    var peer: u32 = graph_socket(read graph, socket).peer;
+    return peer != LEVEL_PIPE_NONE && level_pipe_segment(
+        read plan,
+        graph_socket(read graph, peer).room
+    ).supported;
+}
+// Wall indices follow the prefab's ENTRY frame. Named HEX profiles have six rolls.
+fn level_pipe_next_wall(graph: read RoomGraph, socket: u32, wall: u32) -> u32 {
+    var a: GraphSocket = graph_socket(read graph, socket);
+    var b: GraphSocket = graph_socket(read graph, a.peer);
+    if socket != graph_node(read graph, a.room).first {
+        wall = (8u32 - wall) % 6u32;
+    }
+    wall = (a.roll + 11u32 - wall) % 6u32;
+    if a.peer != graph_node(read graph, b.room).first {
+        wall = (8u32 - wall) % 6u32;
+    }
+    return wall;
+}
+// Finds the first and last straights, leaving boundary elbows without pipes.
+fn level_pipe_limits(graph: read RoomGraph, plan: mut LevelPipePlan, start: u32) -> [u32; 2] {
+    var limits: [u32; 2] = make [u32; 2] {
+        LEVEL_PIPE_NONE,
+        LEVEL_PIPE_NONE
+    };
+    var socket: u32 = start;
+    while true {
+        var room: u32 = graph_socket(read graph, socket).room;
+        var node: GraphNode = graph_node(read graph, room);
+        var segment: LevelPipeSegment = level_pipe_segment(read plan, room);
+        segment.visited = true;
+        level_pipe_segment_set(mut plan, room, segment);
+        var end: u32 = level_pipe_other(read graph, socket);
+        if node.kind != PREFAB_HEX_ELBOW {
+            if limits[0usize] == LEVEL_PIPE_NONE {
+                limits[0usize] = socket;
+            }
+            limits[1usize] = end;
+        }
+        if !level_pipe_peer_supported(read graph, read plan, end) {
+            return limits;
+        }
+        socket = graph_socket(read graph, end).peer;
+    }
+}
+fn level_pipe_route(
+    graph: read RoomGraph,
+    plan: mut LevelPipePlan,
+    limits: [u32; 2],
+    seed: u32
+) -> unit {
+    if limits[0usize] == LEVEL_PIPE_NONE {
+        return;
+    }
+    var socket: u32 = limits[0usize];
+    var wall: u32 = metal_hash(seed, socket, 0x70697065u32) % 6u32;
+    var count: u32 = 1u32 + metal_hash(seed, socket, 0x62756e64u32) % 3u32;
+    while true {
+        var room: u32 = graph_socket(read graph, socket).room;
+        var node: GraphNode = graph_node(read graph, room);
+        var segment: LevelPipeSegment = level_pipe_segment(read plan, room);
+        var end: u32 = level_pipe_other(read graph, socket);
+        segment.wall = wall;
+        segment.count = count;
+        segment.entry = true;
+        segment.exit = true;
+        if socket == limits[0usize] {
+            if socket == node.first {
+                segment.entry = false;
+            } else {
+                segment.exit = false;
+            }
+        }
+        if end == limits[1usize] {
+            if end == node.first {
+                segment.entry = false;
+            } else {
+                segment.exit = false;
+            }
+        }
+        level_pipe_segment_set(mut plan, room, segment);
+        if end == limits[1usize] {
+            return;
+        }
+        wall = level_pipe_next_wall(read graph, end, wall);
+        socket = graph_socket(read graph, end).peer;
+    }
+}
+// Plans one seeded bundle per bounded supported chain. Excluded room styles stay bare.
+fn level_pipe_plan(
+    graph: read RoomGraph,
+    excluded_style: u32,
+    seed: u32,
+    plan: mut LevelPipePlan
+) -> bool {
+    if !level_pipe_plan_allocate(mut plan, graph_count(read graph)) {
+        return false;
+    }
+    var room: u32 = 0u32;
+    while room < graph_count(read graph) {
+        var segment: LevelPipeSegment = level_pipe_segment(read plan, room);
+        segment.supported = level_pipe_supported(
+            graph_node(read graph, room),
+            excluded_style
+        );
+        level_pipe_segment_set(mut plan, room, segment);
+        room = room + 1u32;
+    }
+    var socket: u32 = 0u32;
+    while socket < graph_ports(read graph) {
+        var segment: LevelPipeSegment = level_pipe_segment(
+            read plan,
+            graph_socket(read graph, socket).room
+        );
+        if segment.supported && !segment.visited && !level_pipe_peer_supported(
+            read graph,
+            read plan,
+            socket
+        ) {
+            var limits: [u32; 2] = level_pipe_limits(read graph, mut plan, socket);
+            level_pipe_route(read graph, mut plan, limits, seed);
+        }
+        socket = socket + 1u32;
+    }
+    room = 0u32;
+    while room < graph_count(read graph) {
+        var segment: LevelPipeSegment = level_pipe_segment(read plan, room);
+        if segment.supported && !segment.visited {
+            return error(
+                "pipe run has no boundary: split the closed tunnel chain with an unsupported room"
+            );
+        }
+        room = room + 1u32;
+    }
+    return true;
+}

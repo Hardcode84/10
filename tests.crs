@@ -235,7 +235,7 @@ if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "service-layout") == 
         backend.emit,
         "levels/service.crs",
         "tests/game/service-layout.crs",
-        null(*u8),
+        "tests/game/service-pipes.crs",
         "build/tests-service-layout"
     ) {
         return 1i32;

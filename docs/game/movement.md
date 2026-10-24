@@ -223,7 +223,13 @@ It also defines `demo_room_ambient() -> Vec3`. This returns the
 constant red, green, and blue light added to player and hook lighting.
 
 `levels/service.crs` is the authored service-network section used by `main.crs`.
-Its source comments define the route. It also runs through `demo.crs`. Use `--seed N` to vary its detour paths.
+Its source comments define the route. Non-pig tunnel chains have seeded cable
+bundles. Bundles continue through straights and elbows. They return to the wall
+in a straight section before a junction or another unsupported room. Pig lanes
+have no cable bundles. Portal roll determines the wall used in the next room.
+Cable geometry and solid collision are built during level loading.
+
+It also runs through `demo.crs`. Use `--seed N` to vary its detour paths.
 The same seed produces the same layout. The route connections and pig lanes
 stay fixed.
 

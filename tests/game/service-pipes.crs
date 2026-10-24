@@ -1,0 +1,164 @@
+fn service_pipe_material_id(node: GraphNode) -> u32 {
+    var region: u32 = 1u32;
+    if node.kind == PREFAB_HEX_ELBOW {
+        region = 2u32;
+    }
+    return course_material_base(node.kind) + region;
+}
+fn service_pipe_vertex_present(mesh: read Mesh, node: GraphNode, point: Vec3) -> bool {
+    var i: u32 = 0u32;
+    while i < node.mesh.count {
+        var t: MeshTriangle = mesh_triangle(read mesh, node.mesh.first + i);
+        var v: u32 = 0u32;
+        while v < 3u32 && t.material == service_pipe_material_id(node) {
+            var p: MeshVertex = t.vertices[v as usize];
+            if length(sub(point, vec(p.x, p.y, p.z))) < 0.00002f32 {
+                return true;
+            }
+            v = v + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return false;
+}
+fn service_pipe_port_check(
+    graph: read RoomGraph,
+    mesh: read Mesh,
+    socket: u32,
+    continuation: bool
+) -> bool {
+    var a: GraphSocket = graph_socket(read graph, socket);
+    var b: GraphSocket = graph_socket(read graph, a.peer);
+    var node: GraphNode = graph_node(read graph, a.room);
+    var mapped: SpaceTransform = connection_transform(a.port, b.port, a.roll);
+    var found: bool = false;
+    var i: u32 = 0u32;
+    while i < node.mesh.count {
+        var t: MeshTriangle = mesh_triangle(read mesh, node.mesh.first + i);
+        var v: u32 = 0u32;
+        while v < 3u32 && t.material == service_pipe_material_id(node) {
+            var p: MeshVertex = t.vertices[v as usize];
+            var point: Vec3 = vec(p.x, p.y, p.z);
+            if absf(dot(sub(point, a.port.position), a.port.basis.forward)) < 0.00001f32 {
+                found = true;
+                if !continuation || !service_pipe_vertex_present(
+                    read mesh,
+                    graph_node(read graph, b.room),
+                    space_point(mapped, point)
+                ) {
+                    puts("pipe seam room / peer / socket / roll / local XYZ micrometres");
+                    print_number(a.room as i64);
+                    print_number(b.room as i64);
+                    print_number(socket as i64);
+                    print_number(a.roll as i64);
+                    print_number((point.x * 1000000f32) as i64);
+                    print_number((point.y * 1000000f32) as i64);
+                    print_number((point.z * 1000000f32) as i64);
+                    return error(
+                        "generated pipe is unmatched at a portal or crosses a run boundary"
+                    );
+                }
+            }
+            v = v + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return found == continuation || error("generated pipe does not reach its continuation portal");
+}
+fn service_pipe_collision(
+    graph: read RoomGraph,
+    scene: read CollisionScene,
+    room: u32,
+    segment: LevelPipeSegment
+) -> bool {
+    var node: GraphNode = graph_node(read graph, room);
+    var pipe: RoomAsset = room_asset_new();
+    if !level_pipe_asset(read graph, room, segment, mut pipe) {
+        return false;
+    }
+    var offset: f32 = 0f32;
+    if segment.count == 2u32 {
+        offset = HEX_PIPE_SPACING * 0.5f32;
+    }
+    var centre: Vec3 = vec(0f32, 0f32, 0f32);
+    if node.kind == PREFAB_HEX_ELBOW {
+        var path: HexElbowPipe = hex_elbow_pipe_start(read pipe, segment.wall, offset);
+        centre = scale(
+            add(path.start, vec(path.distance, -path.start.x, path.start.z)),
+            0.5f32
+        );
+    } else {
+        var frame: SurfaceFrame = hull_frame(
+            read pipe.hull,
+            asset_face(read pipe.hull, segment.wall)
+        );
+        centre = add(
+            sub(frame.origin, scale(frame.normal, HEX_PIPE_OFFSET)),
+            scale(cross(frame.normal, vec(0f32, 1f32, 0f32)), offset)
+        );
+    }
+    return !collision_position_valid(read scene, room, centre, 0.01f32) || error(
+        "generated pipe has no solid collision"
+    );
+}
+fn service_pipes_check(
+    graph: read RoomGraph,
+    mesh: read Mesh,
+    scene: read CollisionScene,
+    seed: u32
+) -> bool {
+    var plan: LevelPipePlan = level_pipe_plan_new();
+    if !level_pipe_plan(read graph, SERVICE_PIG_STYLE, seed, mut plan) {
+        return false;
+    }
+    var room: u32 = 0u32;
+    var decorated: u32 = 0u32;
+    while room < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, room);
+        var segment: LevelPipeSegment = level_pipe_segment(read plan, room);
+        if segment.count != 0u32 {
+            decorated = decorated + 1u32;
+            if layout_pig_room(read mesh, node) || !service_pipe_port_check(
+                read graph,
+                read mesh,
+                node.first,
+                segment.entry
+            ) || !service_pipe_port_check(
+                read graph,
+                read mesh,
+                node.first + 1u32,
+                segment.exit
+            ) || !service_pipe_collision(read graph, read scene, room, segment) {
+                return error("generated pipe run failed its geometry or collision contract");
+            }
+        } else if node.kind == PREFAB_HEX_TUNNEL_10M || node.kind == PREFAB_HEX_ELBOW {
+            var i: u32 = 0u32;
+            while i < node.mesh.count {
+                if mesh_triangle(read mesh, node.mesh.first + i).material == service_pipe_material_id(
+                    node
+                ) {
+                    return error("pipes appeared in a disabled room");
+                }
+                i = i + 1u32;
+            }
+        }
+        room = room + 1u32;
+    }
+    return decorated != 0u32 || error("service network contains no pipe runs");
+}
+fn service_pipes_hash(mesh: read Mesh) -> u32 {
+    var hash: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read mesh) {
+        var t: MeshTriangle = mesh_triangle(read mesh, i);
+        hash = metal_hash(hash, t.material, t.portal);
+        var v: u32 = 0u32;
+        while v < 3u32 {
+            var p: MeshVertex = t.vertices[v as usize];
+            hash = layout_hash_point(hash, vec(p.x, p.y, p.z));
+            v = v + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return hash;
+}

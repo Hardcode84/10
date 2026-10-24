@@ -197,3 +197,19 @@ fn mesh_replace_material(
         i = i + 1u32;
     }
 }
+
+// Exchanges two owned meshes. Each retains sole ownership of its storage.
+fn mesh_swap(a: mut Mesh, b: mut Mesh) -> unit {
+    var triangles: *MeshTriangle = a.triangles;
+    a.triangles = b.triangles;
+    b.triangles = triangles;
+    var count: u32 = a.count;
+    a.count = b.count;
+    b.count = count;
+    var capacity: u32 = a.capacity;
+    a.capacity = b.capacity;
+    b.capacity = capacity;
+    var bounds: [f32; 6] = a.bounds;
+    a.bounds = b.bounds;
+    b.bounds = bounds;
+}

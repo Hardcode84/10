@@ -1,0 +1,48 @@
+record LevelPipeSegment {
+    supported: bool;
+    visited: bool;
+    wall: u32;
+    count: u32;
+    entry: bool;
+    exit: bool;
+}
+resource LevelPipePlan {
+    data: *LevelPipeSegment;
+    count: u32;
+}
+opaque drop level_pipe_plan_drop;
+fn level_pipe_plan_new() -> LevelPipePlan {
+    return make LevelPipePlan {
+        data: null(*LevelPipeSegment),
+        count: 0u32
+    };
+}
+fn level_pipe_plan_drop(plan: mut LevelPipePlan) -> unit {
+    free(plan.data as *u8);
+}
+fn level_pipe_plan_allocate(plan: mut LevelPipePlan, count: u32) -> bool {
+    plan.data = malloc(count as usize * sizeof(LevelPipeSegment)) as *LevelPipeSegment;
+    plan.count = count;
+    if plan.data == null(*LevelPipeSegment) {
+        return error("pipe plan allocation failed");
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        plan.data[i as usize] = make LevelPipeSegment {
+            supported: false,
+            visited: false,
+            wall: 0u32,
+            count: 0u32,
+            entry: false,
+            exit: false
+        };
+        i = i + 1u32;
+    }
+    return true;
+}
+fn level_pipe_segment(plan: read LevelPipePlan, room: u32) -> LevelPipeSegment {
+    return plan.data[room as usize];
+}
+fn level_pipe_segment_set(plan: mut LevelPipePlan, room: u32, segment: LevelPipeSegment) -> unit {
+    plan.data[room as usize] = segment;
+}
