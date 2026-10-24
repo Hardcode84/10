@@ -71,7 +71,6 @@ fn main(argc: i32, argv: **u8) -> i32 {
 fn latency_run(session: GameSession, config: GameConfig) -> i32 {
     var collision: CollisionScene = collision_new();
     var loop: GameLoop = make GameLoop {
-        door: 0xffffffffu32,
         sparks: sparks_new(),
         trial: new_trial(),
         input: input_new(),

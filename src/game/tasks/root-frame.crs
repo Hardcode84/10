@@ -56,7 +56,8 @@ fn game_root_frame(
             mut work,
             mut session.control,
             mut loop.input,
-            mut prediction
+            mut prediction,
+            loop.trial.attempt
         );
     } else {
         game_prediction_scene(
@@ -86,15 +87,13 @@ fn game_root_frame(
             mut work,
             mut session.control,
             mut loop.input,
-            mut prediction
+            mut prediction,
+            loop.trial.attempt
         );
     }
     game_sound_join(mut graph, mut sound_work, mut session.control, mut loop.input);
     if !task_succeeded(read graph) {
         return false;
-    }
-    if prediction.attempt == loop.trial.attempt {
-        loop.door = prediction.door;
     }
     game_presented(mut session);
     return true;
@@ -123,7 +122,8 @@ fn game_prediction_join(
     work: mut PredictionTask,
     control: mut GameControl,
     input: mut InputState,
-    prediction: mut Prediction
+    prediction: mut Prediction,
+    attempt: u32
 ) -> unit {
     var status: i32 = prediction_task_poll(read work);
     while status == 0i32 {
@@ -135,6 +135,7 @@ fn game_prediction_join(
     }
     if status > 0i32 {
         prediction = prediction_task_result(mut work);
+        prediction_task_doors(read work, game_doors_mut(mut control), attempt);
     }
     task_complete(mut graph, 2u32, status > 0i32);
 }

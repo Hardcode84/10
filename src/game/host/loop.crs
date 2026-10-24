@@ -1,5 +1,4 @@
 record GameLoop {
-    door: u32;
     sparks: Sparks;
     trial: Trial;
     input: InputState;
@@ -14,9 +13,7 @@ fn game_tick(
     config: GameConfig
 ) -> bool {
     var command: Command = input_consume(mut loop.input);
-    var door: u32 = loop.door;
-    loop.door = 0xffffffffu32;
-    var status: i32 = game_command(mut session, mut command, mut door);
+    var status: i32 = game_command(mut session, mut command);
     if status < 0i32 {
         return false;
     }
@@ -24,14 +21,9 @@ fn game_tick(
         loop.running = false;
         return true;
     }
-    if !game_door_command(
-        mut collision,
-        game_graph(read session),
-        mut loop.trial,
-        command,
-        door
-    ) {
-        return false;
+    var reset: bool = command.restart || command.spin;
+    if !reset {
+        doors_step(mut collision, game_doors_mut(mut session), mut loop.trial);
     }
     var finished: bool = loop.trial.finished;
     var attempt: u32 = loop.trial.attempt;
@@ -40,6 +32,7 @@ fn game_tick(
     if loop.trial.attempt != attempt {
         sparks_clear(mut loop.sparks);
         collision_controlled_reset(mut collision);
+        doors_reset(game_doors_mut(mut session));
     }
     var advanced: bool = loop.trial.drone.clock != clock || loop.trial.attempt != attempt;
     if loop.trial.drone.clock != 0u32 && advanced {
@@ -62,7 +55,7 @@ fn game_tick(
         }
     }
     game_trace_tick(mut session, loop.ticks + 1u32, command);
-    game_graph_visit(mut session, read loop.trial, command.restart || command.spin);
+    game_graph_visit(mut session, read loop.trial, reset);
     if loop.trial.finished && !finished {
         game_completion(loop.trial.tick);
     }
@@ -70,12 +63,12 @@ fn game_tick(
     if config.ticks != 0u32 && loop.ticks >= config.ticks {
         loop.running = false;
     }
-    return game_record(
-        mut session,
-        command,
-        door,
-        doors_hash(read collision, trial_hash(read loop.trial))
+    var hash: u32 = doors_hash(
+        read collision,
+        graph_doors(game_graph(read session)),
+        trial_hash(read loop.trial)
     );
+    return game_record(mut session, command, hash);
 }
 fn game_render(
     collision: read CollisionScene,
@@ -185,7 +178,6 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
     var collision: CollisionScene = collision_new();
 
     var loop: GameLoop = make GameLoop {
-        door: 0xffffffffu32,
         sparks: sparks_new(),
         trial: new_trial(),
         input: input_new(),
@@ -230,11 +222,8 @@ fn game_run_active(
             read collision,
             read loop.trial,
             mut session.forecast,
-            graph_doors(game_graph(read session.control))
+            game_doors_mut(mut session.control)
         );
-        if prediction.attempt == loop.trial.attempt {
-            loop.door = prediction.door;
-        }
         if !game_sound_serial(read collision, mut session.control, read loop, config) {
             return 1i32;
         }

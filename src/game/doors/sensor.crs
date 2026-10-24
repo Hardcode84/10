@@ -1,5 +1,5 @@
 // Tests a swept drone centre against the finite approach volume on both sides.
-fn door_approach(door: DoorDefinition, before: Vec3, after: Vec3, radius: f32) -> bool {
+fn door_approach(door: DoorInstance, before: Vec3, after: Vec3, radius: f32) -> bool {
     var start: Vec3 = sub(before, door.origin);
     var travel: Vec3 = sub(after, before);
     var low: f32 = 0f32;
@@ -33,29 +33,39 @@ fn door_approach(door: DoorDefinition, before: Vec3, after: Vec3, radius: f32) -
     }
     return true;
 }
-fn doors_predict(
-    scene: read CollisionScene,
-    doors: read DoorSet,
-    prediction: mut Prediction,
-    before: Vec3,
-    after: Vec3,
-    eye: PredictionEye
-) -> unit {
-    if prediction.door != 0xffffffffu32 {
-        return;
-    }
+fn doors_predict(doors: mut DoorSet, before: Vec3, after: Vec3, eye: PredictionEye) -> unit {
     var i: u32 = 0u32;
     while i < doors_count(read doors) {
-        var door: DoorDefinition = door_get(read doors, i);
-        if door.space == eye.world && door_state(read scene, door, 0f32) == DOOR_CLOSED && door_approach(
+        var door: DoorInstance = door_get(read doors, i);
+        if door.space == eye.world && door_approach(
             door,
             before,
             after,
             DRONE_RADIUS * eye.factor
         ) {
-            prediction.door = i;
-            return;
+            door_set_requested(mut doors, i, true);
         }
         i = i + 1u32;
     }
+}
+
+fn door_occupied(door: DoorInstance, anchors: read RoomAnchors, drone: read Drone) -> bool {
+    var body: CollisionBody = collision_body(DRONE_RADIUS, read drone.size);
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        var anchor: RoomAnchor = room_anchor(read anchors, i);
+        if anchor.space == door.space {
+            var center: Vec3 = space_point(anchor.transform, drone.position);
+            if door_approach(
+                door,
+                center,
+                center,
+                collision_placement_radius(read body, read anchors, i)
+            ) {
+                return true;
+            }
+        }
+        i = i + 1u32;
+    }
+    return false;
 }

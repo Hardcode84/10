@@ -23,7 +23,7 @@ After simulation, prediction, sound preparation, and scene preparation are
 independent tasks. Sound preparation reads copied contact facts and its collision snapshot. It produces an owned numeric batch for the sound mixer.
 Scene preparation reads the completed prediction from the preceding frame.
 A pool worker reads a copied trial and its collision snapshot to produce
-markers and a door request for the next frame. Ship prediction runs for the full
+markers and all door trigger requests for the next frame. Ship prediction runs for the full
 forecast horizon when marker display is off. The current camera, body, hook, lights, and input
 use the current simulation state. The first task frame has no prediction markers.
 Restart and spin-mode changes discard old markers. Disabling preview hides all

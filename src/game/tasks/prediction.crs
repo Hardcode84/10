@@ -20,7 +20,6 @@ record PredictionMarker {
     material: u32;
 }
 record Prediction {
-    door: u32;
     attempt: u32;
     source_tick: u32;
     full_spin: bool;
@@ -35,7 +34,6 @@ fn prediction_new() -> Prediction {
         material: 0u32
     };
     return make Prediction {
-        door: 0xffffffffu32,
         attempt: 0u32,
         source_tick: 0u32,
         full_spin: false,
@@ -98,14 +96,15 @@ fn predict_segment(
 }
 fn predict_paths(collision: read CollisionScene, trial: read Trial, scratch: mut Drone) -> Prediction {
     var doors: DoorSet = doors_new();
-    return predict_scene(read collision, read trial, mut scratch, read doors);
+    return predict_scene(read collision, read trial, mut scratch, mut doors);
 }
 fn predict_scene(
     collision: read CollisionScene,
     trial: read Trial,
     scratch: mut Drone,
-    doors: read DoorSet
+    doors: mut DoorSet
 ) -> Prediction {
+    doors_clear_requests(mut doors);
     var prediction: Prediction = prediction_new();
     prediction.attempt = trial.attempt;
     prediction.source_tick = trial.tick;
@@ -121,7 +120,7 @@ fn predict_scene(
         read trial,
         mut scratch,
         limit,
-        read doors
+        mut doors
     );
     if hook_ready {
         predict_hook(
@@ -140,7 +139,7 @@ fn predict_drone(
     trial: read Trial,
     drone: mut Drone,
     limit: u32,
-    doors: read DoorSet
+    doors: mut DoorSet
 ) -> u32 {
     assign_drone(mut drone, read trial.drone);
     var eye: PredictionEye = prediction_eye(read trial.drone);
@@ -153,7 +152,7 @@ fn predict_drone(
         simulate(read collision, mut drone, command, trial.full_spin, trial.auto_level);
         predict_door_portal(
             read collision,
-            read doors,
+            mut doors,
             mut prediction,
             mut trail,
             before,
@@ -176,7 +175,7 @@ fn predict_portal(
     var doors: DoorSet = doors_new();
     predict_door_portal(
         read collision,
-        read doors,
+        mut doors,
         mut prediction,
         mut trail,
         before,
@@ -186,7 +185,7 @@ fn predict_portal(
 }
 fn predict_door_portal(
     collision: read CollisionScene,
-    doors: read DoorSet,
+    doors: mut DoorSet,
     prediction: mut Prediction,
     trail: mut PreviewTrail,
     before: Vec3,
@@ -203,12 +202,12 @@ fn predict_door_portal(
             travel
         );
         if crossing.time > 1f32 {
-            doors_predict(read collision, read doors, mut prediction, before, after, eye);
+            doors_predict(mut doors, before, after, eye);
             predict_segment(mut prediction, mut trail, before, after, eye);
             return;
         }
         var point: Vec3 = add(before, scale(travel, crossing.time));
-        doors_predict(read collision, read doors, mut prediction, before, point, eye);
+        doors_predict(mut doors, before, point, eye);
         predict_segment(mut prediction, mut trail, before, point, eye);
         var portal: CollisionPortal = collision_portal(read collision, crossing.index);
         before = space_point(portal.transform, point);

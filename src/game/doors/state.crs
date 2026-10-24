@@ -1,42 +1,39 @@
 const DOOR_OPEN_SECONDS: f32 = 0.35f32;
+const DOOR_CLOSE_DELAY: f32 = 3f32;
 const DOOR_APPROACH_DEPTH: f32 = 3f32;
 const DOOR_CLOSED: u32 = 0u32;
 const DOOR_OPENING: u32 = 1u32;
 const DOOR_OPEN: u32 = 2u32;
-fn door_state(scene: read CollisionScene, door: DoorDefinition, time: f32) -> u32 {
+const DOOR_CLOSING: u32 = 3u32;
+fn door_state(scene: read CollisionScene, door: DoorInstance, time: f32) -> u32 {
     var item: CollisionInstance = collision_instance(read scene, door.leaves[0usize]);
-    if item.motion_duration == 0f32 {
-        return DOOR_CLOSED;
+    var opening: bool = item.motion_target.x < 0f32;
+    if time < item.motion_start + item.motion_duration && length(item.linear) != 0f32 {
+        if opening {
+            return DOOR_OPENING;
+        }
+        return DOOR_CLOSING;
     }
-    if time < item.motion_start + item.motion_duration {
-        return DOOR_OPENING;
+    if opening {
+        return DOOR_OPEN;
     }
-    return DOOR_OPEN;
+    return DOOR_CLOSED;
 }
-// A request starts both leaves together. Open doors remain open until the run resets.
-fn door_request(
-    scene: mut CollisionScene,
-    doors: read DoorSet,
-    prediction: Prediction,
-    trial: mut Trial
-) -> unit {
-    if prediction.door == 0xffffffffu32 || prediction.attempt != trial.attempt {
-        return;
-    }
-    var door: DoorDefinition = door_get(read doors, prediction.door);
+// A new target preserves the current leaf positions. Moving leaves release their hook.
+fn door_move(scene: mut CollisionScene, door: DoorInstance, trial: mut Trial, open: bool) -> unit {
     var time: f32 = trial.drone.clock as f32 * STEP;
-    if door_state(read scene, door, time) != DOOR_CLOSED {
-        return;
+    var distance: f32 = 0f32;
+    if open {
+        distance = door.radius + DOOR_JOINT_WIDTH + 0.05f32;
     }
-    var distance: f32 = door.radius + DOOR_JOINT_WIDTH + 0.05f32;
-    collision_slide(
+    collision_retarget(
         mut scene,
         door.leaves[0usize],
         time,
         DOOR_OPEN_SECONDS,
         vec(-distance, 0f32, 0f32)
     );
-    collision_slide(
+    collision_retarget(
         mut scene,
         door.leaves[1usize],
         time,
@@ -51,35 +48,65 @@ fn door_request(
         hook_disconnect(mut trial.drone);
     }
 }
-fn doors_hash(scene: read CollisionScene, hash: u32) -> u32 {
+// Forecast requests hold doors open. An occupied approach volume also prevents closing.
+fn doors_step(scene: mut CollisionScene, doors: mut DoorSet, trial: mut Trial) -> unit {
+    if doors_count(read doors) == 0u32 {
+        return;
+    }
+    {
+        var anchors: mut RoomAnchors = doors_occupants_mut(mut doors);
+        room_anchors_clear(mut anchors);
+        if !collision_body_anchors(
+            read scene,
+            mut anchors,
+            trial.drone.world,
+            trial.drone.position,
+            vec(0f32, 0f32, 0f32),
+            drone_radius(read trial.drone)
+        ) {
+            scene_motion_failure();
+        }
+    }
+    var time: f32 = trial.drone.clock as f32 * STEP;
+    var i: u32 = 0u32;
+    while i < doors_count(read doors) {
+        var door: DoorInstance = door_get(read doors, i);
+        var occupied: bool = door_occupied(
+            door,
+            doors_occupants(read doors),
+            read trial.drone
+        );
+        var hold: bool = door.requested || occupied;
+        var opening: bool = collision_instance(read scene, door.leaves[0usize]).motion_target.x < 0f32;
+        if hold {
+            door_set_hold(mut doors, i, time + DOOR_CLOSE_DELAY);
+            if !opening {
+                door_move(mut scene, door, mut trial, true);
+            }
+        } else if opening && time >= door.hold_until {
+            door_move(mut scene, door, mut trial, false);
+        }
+        i = i + 1u32;
+    }
+}
+fn doors_hash(scene: read CollisionScene, doors: read DoorSet, hash: u32) -> u32 {
     var index: u32 = collision_moving_head(read scene);
     while index != 0xffffffffu32 {
         var item: CollisionInstance = collision_instance(read scene, index);
         if item.controlled {
             hash = hash_word(hash, float_bits(item.motion_start));
             hash = hash_word(hash, float_bits(item.motion_duration));
+            hash = hash_vec(hash, item.motion_offset);
+            hash = hash_vec(hash, item.motion_target);
             hash = hash_vec(hash, item.linear);
         }
         index = item.next_moving;
     }
+    var i: u32 = 0u32;
+    while i < doors_count(read doors) {
+        var door: DoorInstance = door_get(read doors, i);
+        hash = hash_word(hash, float_bits(door.hold_until));
+        i = i + 1u32;
+    }
     return hash;
-}
-
-fn game_door_command(
-    scene: mut CollisionScene,
-    graph: read RoomGraph,
-    trial: mut Trial,
-    command: Command,
-    door: u32
-) -> bool {
-    if door != 0xffffffffu32 && door >= doors_count(graph_doors(read graph)) {
-        return error("recording door index is outside the scene");
-    }
-    if !command.restart && !command.spin {
-        var request: Prediction = prediction_new();
-        request.door = door;
-        request.attempt = trial.attempt;
-        door_request(mut scene, graph_doors(read graph), request, mut trial);
-    }
-    return true;
 }

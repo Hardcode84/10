@@ -6,7 +6,7 @@ fn doors_draw(
 ) -> unit {
     var i: u32 = 0u32;
     while i < doors_count(read doors) {
-        var door: DoorDefinition = door_get(read doors, i);
+        var door: DoorInstance = door_get(read doors, i);
         var leaf: u32 = 0u32;
         while leaf < 2u32 {
             var pose: CollisionInstance = collision_pose(

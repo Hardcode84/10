@@ -9,6 +9,8 @@ record CollisionInstance {
     controlled: bool;
     motion_start: f32;
     motion_duration: f32;
+    motion_offset: Vec3;
+    motion_target: Vec3;
     solid: bool;
     linear: Vec3;
     angular: Vec3;
@@ -267,6 +269,8 @@ fn collision_append(
         controlled: false,
         motion_start: 0f32,
         motion_duration: 0f32,
+        motion_offset: vec(0f32, 0f32, 0f32),
+        motion_target: vec(0f32, 0f32, 0f32),
         solid: false,
         linear: vec(0f32, 0f32, 0f32),
         angular: vec(0f32, 0f32, 0f32),
@@ -380,6 +384,8 @@ fn collision_slide(
     var item: *CollisionInstance = &scene.data.instances[index as usize];
     item -> motion_start = start;
     item -> motion_duration = duration;
+    item -> motion_offset = vec(0f32, 0f32, 0f32);
+    item -> motion_target = travel;
     item -> linear = scale(travel, 1f32 / duration);
 }
 fn collision_controlled_reset(scene: mut CollisionScene) -> unit {
@@ -390,6 +396,8 @@ fn collision_controlled_reset(scene: mut CollisionScene) -> unit {
             item -> linear = vec(0f32, 0f32, 0f32);
             item -> motion_start = 0f32;
             item -> motion_duration = 0f32;
+            item -> motion_offset = vec(0f32, 0f32, 0f32);
+            item -> motion_target = vec(0f32, 0f32, 0f32);
         }
         index = item -> next_moving;
     }
@@ -401,4 +409,22 @@ fn collision_snapshot_motion(source: read CollisionScene, target: mut CollisionS
         target.data.instances[index as usize] = source.data.instances[index as usize];
         index = source.data.instances[index as usize].next_moving;
     }
+}
+
+// Retargets a controlled translation without changing its current position.
+// Target is relative to the reference origin. Duration must be positive.
+fn collision_retarget(
+    scene: mut CollisionScene,
+    index: u32,
+    time: f32,
+    duration: f32,
+    target: Vec3
+) -> unit {
+    var item: *CollisionInstance = &scene.data.instances[index as usize];
+    var offset: Vec3 = sub(collision_pose(*item, time).origin, item -> origin);
+    item -> motion_offset = offset;
+    item -> motion_target = target;
+    item -> motion_start = time;
+    item -> motion_duration = duration;
+    item -> linear = scale(sub(target, offset), 1f32 / duration);
 }

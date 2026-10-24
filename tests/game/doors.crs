@@ -23,13 +23,13 @@ fn test_doors() -> bool {
     ) {
         return false;
     }
-    if !test_door_portal_sensor(read scene, read doors) {
+    if !test_door_portal_sensor(read scene, mut doors) {
         return false;
     }
-    var door: DoorDefinition = door_get(read doors, 0u32);
-    if !test_door_forecast(read scene, read doors, -1f32) || !test_door_forecast(
+    var door: DoorInstance = door_get(read doors, 0u32);
+    if !test_door_forecast(read scene, mut doors, -1f32) || !test_door_forecast(
         read scene,
-        read doors,
+        mut doors,
         1f32
     ) {
         return false;
@@ -49,23 +49,21 @@ fn test_doors() -> bool {
     ) {
         return false;
     }
-    return test_door_opening(mut scene, mut snapshot, read doors, read closed);
+    return test_door_opening(mut scene, mut snapshot, mut doors, read closed);
 }
 fn test_door_opening(
     scene: mut CollisionScene,
     snapshot: mut CollisionScene,
-    doors: read DoorSet,
+    doors: mut DoorSet,
     closed: read CollisionSweep
 ) -> bool {
-    var door: DoorDefinition = door_get(read doors, 0u32);
+    var door: DoorInstance = door_get(read doors, 0u32);
     var trial: Trial = new_trial();
     trial.drone.cable.phase = CABLE_ATTACHED;
     trial.drone.cable.instance = door.leaves[0usize];
     trial.drone.velocity = vec(1f32, 2f32, 3f32);
-    var request: Prediction = prediction_new();
-    request.attempt = trial.attempt;
-    request.door = 0u32;
-    door_request(mut scene, read doors, request, mut trial);
+    door_set_requested(mut doors, 0u32, true);
+    doors_step(mut scene, mut doors, mut trial);
     if !game_check(
         trial.drone.cable.phase == CABLE_SNAPPED && length(
             sub(trial.drone.velocity, vec(1f32, 2f32, 3f32))
@@ -105,9 +103,12 @@ fn test_door_opening(
     ) {
         return false;
     }
-    return test_door_open(mut scene, door) && test_door_motion_boundaries(mut scene, door);
+    return test_door_open(mut scene, door) && test_door_motion_boundaries(mut scene, door) && test_door_closing(
+        mut scene,
+        mut doors
+    ) && test_door_portal_occupancy(mut scene, mut doors) && test_door_multiple();
 }
-fn test_door_open(scene: mut CollisionScene, door: DoorDefinition) -> bool {
+fn test_door_open(scene: mut CollisionScene, door: DoorInstance) -> bool {
     var open: CollisionSweep = collision_local_sweep_interval(
         read scene,
         0u32,
@@ -143,7 +144,7 @@ fn test_door_open(scene: mut CollisionScene, door: DoorDefinition) -> bool {
         "run reset left the door open"
     );
 }
-fn test_door_forecast(scene: read CollisionScene, doors: read DoorSet, side: f32) -> bool {
+fn test_door_forecast(scene: read CollisionScene, doors: mut DoorSet, side: f32) -> bool {
     var trial: Trial = new_trial();
     trial.full_spin = false;
     trial.preview_enabled = false;
@@ -151,15 +152,15 @@ fn test_door_forecast(scene: read CollisionScene, doors: read DoorSet, side: f32
     trial.drone.position = vec(0f32, side * 60f32, 0f32);
     trial.drone.velocity = vec(0f32, -side * 45f32, 0f32);
     var scratch: Drone = new_drone();
-    var prediction: Prediction = predict_scene(read scene, read trial, mut scratch, read doors);
+    var prediction: Prediction = predict_scene(read scene, read trial, mut scratch, mut doors);
     var visible: Prediction = prediction_visible(prediction, read trial);
     return game_check(
-        prediction.door == 0u32 && visible.count == 0u32 && scratch.clock == trial.drone.clock + PREDICTION_TICKS,
+        door_get(read doors, 0u32).requested && visible.count == 0u32 && scratch.clock == trial.drone.clock + PREDICTION_TICKS,
         "hidden ship forecast did not request the approached door for its full horizon"
     );
 }
 
-fn test_door_motion_boundaries(scene: mut CollisionScene, door: DoorDefinition) -> bool {
+fn test_door_motion_boundaries(scene: mut CollisionScene, door: DoorInstance) -> bool {
     collision_slide(
         mut scene,
         door.leaves[0usize],
@@ -189,7 +190,7 @@ fn test_door_motion_boundaries(scene: mut CollisionScene, door: DoorDefinition) 
 fn test_door_portals(builder: mut CollisionBuilder) -> bool {
     var transform: SpaceTransform = make SpaceTransform {
         factor: 1f32,
-        origin: vec(0f32, -8f32, 0f32),
+        origin: vec(0f32, -1f32, 0f32),
         basis: make Basis {
             right: vec(1f32, 0f32, 0f32),
             up: vec(0f32, 0f32, -1f32),
@@ -228,7 +229,7 @@ fn test_door_portals(builder: mut CollisionBuilder) -> bool {
     portal.transform = space_inverse(transform);
     return collision_portal_append(mut builder, portal);
 }
-fn test_door_portal_sensor(scene: read CollisionScene, doors: read DoorSet) -> bool {
+fn test_door_portal_sensor(scene: read CollisionScene, doors: mut DoorSet) -> bool {
     var prediction: Prediction = prediction_new();
     var trail: PreviewTrail = preview_trail(0u32, PREVIEW_MATERIAL, 0f32);
     var eye: PredictionEye = make PredictionEye {
@@ -239,7 +240,7 @@ fn test_door_portal_sensor(scene: read CollisionScene, doors: read DoorSet) -> b
     };
     predict_door_portal(
         read scene,
-        read doors,
+        mut doors,
         mut prediction,
         mut trail,
         eye.position,
@@ -247,7 +248,160 @@ fn test_door_portal_sensor(scene: read CollisionScene, doors: read DoorSet) -> b
         eye
     );
     return game_check(
-        prediction.door == 0u32,
+        door_get(read doors, 0u32).requested,
         "translated and rotated portal lost door approach"
+    );
+}
+
+fn test_door_closing(scene: mut CollisionScene, doors: mut DoorSet) -> bool {
+    collision_controlled_reset(mut scene);
+    doors_reset(mut doors);
+    var door: DoorInstance = door_get(read doors, 0u32);
+    var trial: Trial = new_trial();
+    trial.drone.position = vec(0f32, -20f32, 0f32);
+    door_set_requested(mut doors, 0u32, true);
+    doors_step(mut scene, mut doors, mut trial);
+    trial.drone.clock = (DOOR_OPEN_SECONDS / STEP) as u32 + 1u32;
+    doors_step(mut scene, mut doors, mut trial);
+    door_set_requested(mut doors, 0u32, false);
+    var close_tick: u32 = (door_get(read doors, 0u32).hold_until / STEP) as u32 + 1u32;
+    trial.drone.clock = close_tick - 2u32;
+    doors_step(mut scene, mut doors, mut trial);
+    if !game_check(
+        door_state(read scene, door, trial.drone.clock as f32 * STEP) == DOOR_OPEN,
+        "door closed before the forecast grace period"
+    ) {
+        return false;
+    }
+    trial.drone.clock = close_tick;
+    trial.drone.cable.phase = CABLE_ATTACHED;
+    trial.drone.cable.instance = door.leaves[0usize];
+    var before: CollisionInstance = collision_pose(
+        collision_instance(read scene, door.leaves[0usize]),
+        trial.drone.clock as f32 * STEP
+    );
+    doors_step(mut scene, mut doors, mut trial);
+    var after: CollisionInstance = collision_pose(
+        collision_instance(read scene, door.leaves[0usize]),
+        trial.drone.clock as f32 * STEP
+    );
+    if !game_check(
+        door_state(read scene, door, trial.drone.clock as f32 * STEP) == DOOR_CLOSING && length(
+            sub(before.origin, after.origin)
+        ) == 0f32 && trial.drone.cable.phase == CABLE_SNAPPED,
+        "closing jumped the leaf or retained its hook"
+    ) {
+        return false;
+    }
+    return test_door_reverse(mut scene, mut doors, mut trial, door);
+}
+fn test_door_reverse(
+    scene: mut CollisionScene,
+    doors: mut DoorSet,
+    trial: mut Trial,
+    door: DoorInstance
+) -> bool {
+    trial.drone.clock = trial.drone.clock + (DOOR_OPEN_SECONDS * 0.5f32 / STEP) as u32;
+    var time: f32 = trial.drone.clock as f32 * STEP;
+    var before: CollisionInstance = collision_pose(
+        collision_instance(read scene, door.leaves[0usize]),
+        time
+    );
+    door_set_requested(mut doors, 0u32, true);
+    doors_step(mut scene, mut doors, mut trial);
+    var after: CollisionInstance = collision_pose(
+        collision_instance(read scene, door.leaves[0usize]),
+        time
+    );
+    if !game_check(
+        door_state(read scene, door, time) == DOOR_OPENING && length(
+            sub(before.origin, after.origin)
+        ) == 0f32,
+        "returning forecast did not reverse the closing leaf continuously"
+    ) {
+        return false;
+    }
+    door_set_requested(mut doors, 0u32, false);
+    trial.drone.clock = (door_get(read doors, 0u32).hold_until / STEP) as u32 + 1u32;
+    doors_step(mut scene, mut doors, mut trial);
+    trial.drone.clock = trial.drone.clock + (DOOR_OPEN_SECONDS / STEP) as u32 + 1u32;
+    time = trial.drone.clock as f32 * STEP;
+    var final: CollisionInstance = collision_pose(
+        collision_instance(read scene, door.leaves[0usize]),
+        time
+    );
+    if !game_check(
+        door_state(read scene, door, time) == DOOR_CLOSED && length(
+            sub(final.origin, door.origin)
+        ) == 0f32,
+        "door did not return exactly to its closed reference pose"
+    ) {
+        return false;
+    }
+    trial.drone.position = door.origin;
+    doors_step(mut scene, mut doors, mut trial);
+    return game_check(
+        door_state(read scene, door, time) == DOOR_OPENING,
+        "occupied door ignored the ship while waiting for a forecast"
+    );
+}
+fn test_door_multiple() -> bool {
+    var first: RoomAsset = room_asset_new();
+    var second: RoomAsset = room_asset_new();
+    var doors: DoorSet = doors_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    if !hex_door_leaves(1f32, mut first) || !hex_door_leaves(17f32, mut second) || !doors_asset(
+        mut doors,
+        read first,
+        mut builder,
+        0u32,
+        0u32
+    ) || !doors_asset(mut doors, read second, mut builder, 0u32, 0u32) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var trial: Trial = new_trial();
+    trial.drone.position = vec(0f32, -8f32, 0f32);
+    door_set_requested(mut doors, 0u32, true);
+    door_set_requested(mut doors, 1u32, true);
+    doors_step(mut scene, mut doors, mut trial);
+    trial.drone.clock = (DOOR_OPEN_SECONDS / STEP) as u32 + 1u32;
+    trial.drone.velocity = vec(0f32, 30f32, 0f32);
+    trial.auto_level = false;
+    var scratch: Drone = new_drone();
+    var prediction: Prediction = predict_scene(read scene, read trial, mut scratch, mut doors);
+    if !game_check(
+        door_get(read doors, 0u32).requested && door_get(read doors, 1u32).requested,
+        "one forecast did not hold all approached open doors"
+    ) {
+        return false;
+    }
+    trial.drone.velocity.y = -30f32;
+    prediction = predict_scene(read scene, read trial, mut scratch, mut doors);
+    return game_check(
+        !door_get(read doors, 0u32).requested && !door_get(read doors, 1u32).requested,
+        "doors retained requests after the forecast left both triggers"
+    );
+}
+
+fn test_door_portal_occupancy(scene: mut CollisionScene, doors: mut DoorSet) -> bool {
+    collision_controlled_reset(mut scene);
+    doors_reset(mut doors);
+    var door: DoorInstance = door_get(read doors, 0u32);
+    var trial: Trial = new_trial();
+    door_move(mut scene, door, mut trial, true);
+    trial.drone.clock = ((DOOR_OPEN_SECONDS + DOOR_CLOSE_DELAY) / STEP) as u32 + 1u32;
+    trial.drone.world = 1u32;
+    trial.drone.position = vec(0f32, 0f32, -0.1f32);
+    var size: Rational = rational_new(5u64, 1u64);
+    rational_assign(mut trial.drone.size, read size);
+    doors_step(mut scene, mut doors, mut trial);
+    var time: f32 = trial.drone.clock as f32 * STEP;
+    return game_check(
+        door_state(read scene, door, time) == DOOR_OPEN && door_get(read doors, 0u32).hold_until > time,
+        "scaled ship overlap through a rotated portal allowed the door to close"
     );
 }

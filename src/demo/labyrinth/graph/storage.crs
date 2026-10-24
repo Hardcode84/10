@@ -163,3 +163,7 @@ fn graph_doors_add(
 fn graph_doors_upload(graph: mut RoomGraph, input: mut FrameInput) -> bool {
     return doors_upload(mut graph.doors, mut input);
 }
+
+fn graph_doors_mut(graph: mut RoomGraph) -> mut DoorSet from graph {
+    return mut graph.doors;
+}

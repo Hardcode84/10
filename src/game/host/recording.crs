@@ -40,7 +40,7 @@ fn recording_open(stream: *Recording, o: *Launch) -> bool {
     }
     var header: [u32; 6] = make [u32; 6] {
         0x53504e30u32,
-        19u32,
+        20u32,
         o -> config.full_spin as u32,
         o -> config.room_demo as u32 + 2u32 * o -> config.scaling as u32,
         o -> config.seed,
@@ -53,7 +53,7 @@ fn recording_open(stream: *Recording, o: *Launch) -> bool {
     }
     if fread(&header as *u8, 24usize, 1usize, stream -> file) != 1usize || header[0usize] != 0x53504e30u32 || header[
         1usize
-    ] != 19u32 || header[2usize] > 1u32 || header[3usize] > 2u32 {
+    ] != 20u32 || header[2usize] > 1u32 || header[3usize] > 2u32 {
         return error("invalid recording header");
     }
     if header[3usize] != o -> config.room_demo as u32 + 2u32 * o -> config.scaling as u32 {
@@ -89,7 +89,7 @@ fn recording_finish(stream: *Recording) -> bool {
     }
     return true;
 }
-fn recording_read(stream: *Recording, c: *Command, door: *u32) -> i32 {
+fn recording_read(stream: *Recording, c: *Command, doors: mut DoorSet) -> i32 {
     if stream -> mode != 2u32 {
         return 1i32;
     }
@@ -143,13 +143,19 @@ fn recording_read(stream: *Recording, c: *Command, door: *u32) -> i32 {
     c -> assist = (flags & 32u32) != 0u32;
     c -> preview = (flags & 64u32) != 0u32;
     stream -> expected = data[9usize];
-    *door = data[10usize];
+    if !recording_doors_read(stream -> file, mut doors, data[10usize]) {
+        return -1i32;
+    }
     return 1i32;
 }
-fn game_command(session: mut GameControl, command: mut Command, door: mut u32) -> i32 {
-    return recording_read(&session.stream, &command, &door);
+fn game_command(session: mut GameControl, command: mut Command) -> i32 {
+    return recording_read(
+        &session.stream,
+        &command,
+        graph_doors_mut(mut session.graph)
+    );
 }
-fn game_record(session: mut GameControl, command: Command, door: u32, hash: u32) -> bool {
+fn game_record(session: mut GameControl, command: Command, hash: u32) -> bool {
     var stream: *Recording = &session.stream;
     if stream -> mode == 2u32 && hash != stream -> expected {
         print_number(stream -> count as i64);
@@ -167,9 +173,12 @@ fn game_record(session: mut GameControl, command: Command, door: u32, hash: u32)
             command.reel as u32,
             command_flags(command),
             hash,
-            door
+            doors_count(graph_doors(read session.graph))
         };
-        if fwrite(&data as *u8, 44usize, 1usize, stream -> file) != 1usize {
+        if fwrite(&data as *u8, 44usize, 1usize, stream -> file) != 1usize || !recording_doors_write(
+            stream -> file,
+            graph_doors(read session.graph)
+        ) {
             return error("cannot write input tick");
         }
     }
@@ -191,4 +200,31 @@ fn game_summary(trial: read Trial) -> unit {
     print_number(trial.drone.bursts as i64);
     print_number(trial.drone.brake_speed as i64);
     print_number(trial.drone.winch_work as i64);
+}
+
+fn recording_doors_read(file: *u8, doors: mut DoorSet, count: u32) -> bool {
+    if count != doors_count(read doors) {
+        return error("recording door count differs from scene");
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        var requested: u8 = 0u8;
+        if fread(&requested, 1usize, 1usize, file) != 1usize || requested > 1u8 {
+            return error("invalid or truncated recording door requests");
+        }
+        door_set_requested(mut doors, i, requested != 0u8);
+        i = i + 1u32;
+    }
+    return true;
+}
+fn recording_doors_write(file: *u8, doors: read DoorSet) -> bool {
+    var i: u32 = 0u32;
+    while i < doors_count(read doors) {
+        var requested: u8 = door_get(read doors, i).requested as u8;
+        if fwrite(&requested, 1usize, 1usize, file) != 1usize {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
 }

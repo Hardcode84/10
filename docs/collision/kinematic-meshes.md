@@ -163,18 +163,27 @@ for physical light anchors and the recursive GPU capture.
 ## Controlled translation
 
 A controlled body can start a finite translation during a run. It stays in the
-moving-body query list while stopped. Its pose stays at the reference position
-before the start time and at the final position after the stop time. Sweeps split
-at these times. Surface velocity is zero outside the motion interval.
+moving-body query list while stopped. Each motion has a starting offset and a
+final offset from the reference position. The pose stays at the starting offset
+before the start time and at the final offset after the stop time. Sweeps split
+at these times. Surface velocity is zero outside the motion interval. A new
+target starts at the current position. The final offset is stored explicitly,
+so a completed closing movement returns exactly to the reference pose.
 
 The open hex stopper contains two separate solid leaves. Each leaf has a retained
 render mesh and a collider. Both use the same translation schedule. The jagged
 leaf edges and the face texture use one joint profile.
 
-A ship forecast requests a closed door when a predicted segment enters its finite
+A ship forecast requests a door when a predicted segment enters its finite
 approach volume from either side. The volume is in the door room's local space.
 Prediction splits segments at portals before this test. The next simulation tick
-starts the opening movement. The door stays open until a run reset. See
+starts the opening movement. Each completed forecast replaces the request for
+every door, including doors that are already open. When a request ends, the door
+waits for the close delay and then closes. A returning request reverses a closing
+door from its current position. A ship in the approach volume also holds the
+door open while a forecast is pending. The occupancy check includes the ship
+placements in adjacent portal spaces and their scale. A run reset restores the
+closed pose. See
 [src/game/doors/state.crs](../../src/game/doors/state.crs) for timing and distance
 values.
 
@@ -183,6 +192,6 @@ new hook attachment. Release preserves ship velocity and waits for the tether
 control to be released before another launch. Other moving bodies keep
 their attachment rules.
 
-Recordings store the door request on its simulation tick and include controlled
-motion in the state hash. Replay uses that request instead of forecast completion
-time. Worker jobs query independent scene snapshots.
+Recordings store all door requests on each simulation tick and include controlled
+motion and close deadlines in the state hash. Replay uses these requests instead
+of forecast completion time. Worker jobs query independent scene snapshots.

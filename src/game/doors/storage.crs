@@ -1,4 +1,6 @@
-record DoorDefinition {
+record DoorInstance {
+    requested: bool;
+    hold_until: f32;
     space: u32;
     origin: Vec3;
     radius: f32;
@@ -6,18 +8,20 @@ record DoorDefinition {
     meshes: [MeshRange; 2];
 }
 resource DoorSet {
-    data: *DoorDefinition;
+    data: *DoorInstance;
     count: u32;
     capacity: u32;
     mesh: Mesh;
+    occupants: RoomAnchors;
 }
 opaque drop doors_drop;
 fn doors_new() -> DoorSet {
     return make DoorSet {
-        data: null(*DoorDefinition),
+        data: null(*DoorInstance),
         count: 0u32,
         capacity: 0u32,
-        mesh: mesh_new()
+        mesh: mesh_new(),
+        occupants: room_anchors_new()
     };
 }
 fn doors_drop(doors: mut DoorSet) -> unit {
@@ -26,17 +30,17 @@ fn doors_drop(doors: mut DoorSet) -> unit {
 fn doors_count(doors: read DoorSet) -> u32 {
     return doors.count;
 }
-fn door_get(doors: read DoorSet, index: u32) -> DoorDefinition {
+fn door_get(doors: read DoorSet, index: u32) -> DoorInstance {
     return doors.data[index as usize];
 }
-fn door_add(doors: mut DoorSet, definition: DoorDefinition) -> bool {
+fn door_add(doors: mut DoorSet, definition: DoorInstance) -> bool {
     if doors.count == doors.capacity {
         var capacity: u64 = doors.capacity as u64 * 2u64 + 1u64;
         if capacity > 0xffffffffu64 {
             return error("door count exceeds address range");
         }
-        var data: *DoorDefinition = malloc(capacity as usize * sizeof(DoorDefinition)) as *DoorDefinition;
-        if data == null(*DoorDefinition) {
+        var data: *DoorInstance = malloc(capacity as usize * sizeof(DoorInstance)) as *DoorInstance;
+        if data == null(*DoorInstance) {
             return error("door allocation failed");
         }
         var i: u32 = 0u32;
@@ -52,7 +56,7 @@ fn door_add(doors: mut DoorSet, definition: DoorDefinition) -> bool {
     doors.count = doors.count + 1u32;
     return true;
 }
-// Copies immutable sensor and collider identities for a prediction worker.
+// Copies door instances for an independent forecast context.
 fn doors_copy(source: read DoorSet, target: mut DoorSet) -> bool {
     var i: u32 = 0u32;
     while i < source.count {
@@ -77,7 +81,9 @@ fn doors_asset(
     if !room_leaf_collision(read asset, mut builder, space) {
         return false;
     }
-    var door: DoorDefinition = make DoorDefinition {
+    var door: DoorInstance = make DoorInstance {
+        requested: false,
+        hold_until: 0f32,
         space: space,
         origin: asset_part(read asset.door_leaves, 0u32).origin,
         radius: service_hex_profile().radius,
@@ -133,4 +139,41 @@ fn doors_upload(doors: mut DoorSet, input: mut FrameInput) -> bool {
         i = i + 1u32;
     }
     return true;
+}
+
+fn door_set_requested(doors: mut DoorSet, index: u32, requested: bool) -> unit {
+    doors.data[index as usize].requested = requested;
+}
+fn door_set_hold(doors: mut DoorSet, index: u32, time: f32) -> unit {
+    doors.data[index as usize].hold_until = time;
+}
+fn doors_clear_requests(doors: mut DoorSet) -> unit {
+    var i: u32 = 0u32;
+    while i < doors.count {
+        doors.data[i as usize].requested = false;
+        i = i + 1u32;
+    }
+}
+// Both sets describe the same scene. Copy only completed forecast requests.
+fn doors_publish(source: read DoorSet, target: mut DoorSet) -> unit {
+    var i: u32 = 0u32;
+    while i < source.count {
+        target.data[i as usize].requested = source.data[i as usize].requested;
+        i = i + 1u32;
+    }
+}
+fn doors_reset(doors: mut DoorSet) -> unit {
+    var i: u32 = 0u32;
+    while i < doors.count {
+        doors.data[i as usize].requested = false;
+        doors.data[i as usize].hold_until = 0f32;
+        i = i + 1u32;
+    }
+}
+
+fn doors_occupants(doors: read DoorSet) -> read RoomAnchors from doors {
+    return read doors.occupants;
+}
+fn doors_occupants_mut(doors: mut DoorSet) -> mut RoomAnchors from doors {
+    return mut doors.occupants;
 }

@@ -69,7 +69,7 @@ fn prediction_execute(data: *u8) -> bool {
         read payload -> collision,
         read payload -> trial,
         mut payload -> forecast,
-        read payload -> doors
+        mut payload -> doors
     );
     return true;
 }
@@ -109,5 +109,14 @@ fn prediction_context_times(context: read PredictionContext) -> TaskRunTimes {
 fn prediction_task_drop(task: mut PredictionTask) -> unit {
     while prediction_task_poll(read task) == 0i32 {
         prediction_task_idle(read task);
+    }
+}
+
+fn prediction_task_doors(task: read PredictionTask, target: mut DoorSet, attempt: u32) -> unit {
+    if prediction_task_poll(read task) != 1i32 {
+        trap;
+    }
+    if task.context.payload -> result.attempt == attempt {
+        doors_publish(read task.context.payload -> doors, mut target);
     }
 }

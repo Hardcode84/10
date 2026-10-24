@@ -15,6 +15,13 @@ fn collision_pose(item: CollisionInstance, time: f32) -> CollisionInstance {
         }
     }
     pose.origin = add(item.origin, scale(item.linear, elapsed));
+    if item.controlled {
+        var offset: Vec3 = add(item.motion_offset, scale(item.linear, elapsed));
+        if time >= item.motion_start + item.motion_duration {
+            offset = item.motion_target;
+        }
+        pose.origin = add(item.origin, offset);
+    }
     var speed: f32 = length(item.angular);
     if speed != 0f32 {
         var axis: Vec3 = collision_divide(item.angular, speed);

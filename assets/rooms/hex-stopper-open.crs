@@ -1,5 +1,5 @@
 // Open HEX-6M stopper, 1 m deep along +Y. ENTRY and EXIT have six mating rolls.
-// Two sliding leaves meet on the jagged seam and have red full-bright LEDs.
+// Two sliding leaves meet on the jagged seam and have green full-bright LEDs.
 // Prediction opens them during play. The viewer shows their closed pose.
 // The default leaves 0.4 m from each portal to the door seat. Local +Z is up.
 // This room has no player spawn; its inspection pose is in front of the leaves.
