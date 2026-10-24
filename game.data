@@ -112,7 +112,40 @@ s_words_store((s_meta + 1u), s_first);
 s_words_store((s_meta + 2u), s_count);
 }
 }
-fn s_child_view(p_parent: u32, p_portal: u32, p_view: u32) {
+fn s_traversal_command(p_field: u32, p_count: u32) {
+var s_field = p_field;
+var s_count = p_count;
+{
+s_words_store(s_field, s_count);
+s_words_store((s_field + 1u), 1u);
+s_words_store((s_field + 2u), 1u);
+}
+}
+fn s_traversal_frontier(p_count: u32) {
+var s_count = p_count;
+{
+s_traversal_command(133u, s_traversal_groups(s_count));
+s_traversal_command(136u, s_traversal_groups(s_words_load(10u)));
+var s_tiles: u32 = (checked_div_u32((s_words_load(0u) + 7u), 8u) * checked_div_u32((s_words_load(1u) + 7u), 8u));
+s_traversal_command(145u, (s_geometry_groups(s_tiles) * select(u32(0), u32(1), (s_count != 0u))));
+s_traversal_command(139u, select(u32(0), u32(1), (s_count != 0u)));
+}
+}
+fn s_traversal_finished() -> bool {
+{
+return (s_words_load(99u) == (s_words_load(9u) + s_words_load(10u)));
+}
+}
+fn s_traversal_groups(p_count: u32) -> u32 {
+var s_count = p_count;
+{
+if ((s_count > checked_div_u32(2097152u, 64u))) {
+return checked_div_u32(2097152u, 64u);
+}
+return s_count;
+}
+}
+fn s_child_view(p_parent: u32, p_portal: u32, p_view: u32) -> bool {
 var s_parent = p_parent;
 var s_portal = p_portal;
 var s_view = p_view;
@@ -139,8 +172,12 @@ s_floats_store(((s_dst + 12u) + s_r), s_floats_load(((s_transform + 12u) + s_r))
 s_r = (s_r + 1u);
 }
 s_floats_store((s_dst + 16u), (s_floats_load((s_src + 16u)) * s_floats_load((s_transform + 16u))));
+if ((!s_child_numeric_valid(s_dst))) {
+return false;
+}
 s_view_space(s_view, s_words_load(((s_words_load(64u) + (s_portal * 4u)) + 1u)));
 s_words_store(((s_words_load(63u) + (s_view * 4u)) + 3u), s_words_load(((s_words_load(64u) + (s_portal * 4u)) + 2u)));
+return true;
 }
 }
 fn s_allocate_key_word(p_word: u32, p_mask: u32, p_views: u32) -> u32 {
@@ -153,12 +190,15 @@ var s_bit: u32 = 0u;
 while ((s_bit < 32u)) {
 if (((s_mask & checked_shl_u32(1u, s_bit)) != 0u)) {
 if ((s_next == s_words_load(31u))) {
-s_words_store(5u, 2u);
+s_words_store(132u, 2u);
 return s_next;
 }
 var s_key: u32 = ((s_word * 32u) + s_bit);
 s_words_store((s_words_load(62u) + s_key), s_next);
-s_child_view(checked_div_u32(s_key, s_words_load(71u)), checked_rem_u32(s_key, s_words_load(71u)), s_next);
+if ((!s_child_view(checked_div_u32(s_key, s_words_load(71u)), checked_rem_u32(s_key, s_words_load(71u)), s_next))) {
+s_words_store(132u, 4u);
+return s_next;
+}
 s_next = (s_next + 1u);
 }
 s_bit = (s_bit + 1u);
@@ -172,7 +212,7 @@ var s_views = p_views;
 var s_next: u32 = s_views;
 var s_word: u32 = checked_div_u32((s_words_load(9u) * s_words_load(71u)), 32u);
 var s_end: u32 = checked_div_u32((((s_words_load(9u) + s_words_load(10u)) * s_words_load(71u)) + 31u), 32u);
-while (((s_word < s_end) && (s_words_load(5u) == 0u))) {
+while (((s_word < s_end) && (s_words_load(132u) == 0u))) {
 var s_mask: u32 = s_words_load((s_words_load(76u) + s_word));
 s_next = s_allocate_key_word(s_word, s_mask, s_next);
 s_word = (s_word + 1u);
@@ -182,8 +222,17 @@ return s_next;
 }
 fn s_advance() {
 {
-s_task_commands(0u, 0u);
-s_words_store(16u, 0u);
+if ((!s_traversal_finished())) {
+if ((s_words_load(148u) >= s_words_load(4u))) {
+s_traversal_halt();
+s_words_store(132u, 3u);
+}
+else {
+s_traversal_yield();
+}
+return;
+}
+s_traversal_halt();
 if ((s_words_load(5u) != 0u)) {
 return;
 }
@@ -199,15 +248,26 @@ s_i = (s_i + 1u);
 if ((s_count > s_words_load(75u))) {
 s_words_store(75u, s_count);
 }
-if ((s_count > s_words_load(72u))) {
-s_words_store(5u, 1u);
+var s_limit: u32 = s_words_load(149u);
+if (((s_count > s_words_load(72u)) || (s_count > (s_limit - s_words_load(130u))))) {
+s_words_store(132u, 1u);
+return;
+}
+if ((s_count == 0u)) {
+s_words_store(6u, 0u);
+s_words_store(10u, 0u);
+return;
+}
+if ((s_words_load(148u) >= s_words_load(4u))) {
+s_words_store(132u, 3u);
 return;
 }
 var s_oldviews: u32 = s_words_load(11u);
 var s_views: u32 = s_allocate_views(s_oldviews);
-if ((s_words_load(5u) != 0u)) {
+if ((s_words_load(132u) != 0u)) {
 return;
 }
+s_traversal_count_tiles(s_count);
 s_task_commands(s_count, s_tasks);
 s_words_store(27u, s_tasks);
 s_words_store(6u, s_count);
@@ -216,7 +276,9 @@ s_words_store(9u, s_oldviews);
 s_words_store(10u, (s_views - s_oldviews));
 s_words_store(11u, s_views);
 s_words_store(12u, (s_words_load(12u) + 1u));
-s_words_store(16u, s_geometry_groups(((s_views - s_oldviews) * s_words_load(92u))));
+s_words_store(98u, 3u);
+s_traversal_frontier(s_count);
+s_traversal_yield();
 }
 }
 fn s_reduce_view_keys() {
@@ -238,12 +300,68 @@ s_word = (s_word + 64u);
 }
 fn s_compute() {
 {
-if ((s_words_load(5u) == 0u)) {
+if (((s_words_load(5u) == 0u) && s_traversal_finished())) {
 s_reduce_view_keys();
 }
 s_shader_all_memory_barrier();
 if ((s_shader_global_x() == 0u)) {
 s_advance();
+}
+}
+}
+fn s_traversal_halt() {
+{
+s_task_commands(0u, 0u);
+s_words_store(16u, 0u);
+s_words_store(126u, 0u);
+s_words_store(27u, 0u);
+s_traversal_command(133u, 0u);
+s_traversal_command(136u, 0u);
+s_traversal_command(139u, 0u);
+s_traversal_command(142u, 0u);
+s_traversal_command(145u, 0u);
+}
+}
+fn s_traversal_count_tiles(p_count: u32) {
+var s_count = p_count;
+{
+s_words_store(130u, (s_words_load(130u) + s_count));
+}
+}
+fn s_child_numeric_valid(p_matrix: u32) -> bool {
+var s_matrix = p_matrix;
+{
+var s_factor: f32 = s_floats_load((s_matrix + 16u));
+var s_inverse: f32 = (bitcast<f32>(1065353216u) / s_factor);
+var s_translation: f32 = ((s_view_abs(s_floats_load((s_matrix + 3u))) + s_view_abs(s_floats_load((s_matrix + 7u)))) + s_view_abs(s_floats_load((s_matrix + 11u))));
+var s_bound: f32 = ((s_floats_load(23u) * s_factor) + s_translation);
+if ((s_inverse > bitcast<f32>(1065353216u))) {
+s_bound = (s_bound * s_inverse);
+}
+if ((s_inverse > s_bound)) {
+s_bound = s_inverse;
+}
+if ((s_factor > s_bound)) {
+s_bound = s_factor;
+}
+var s_square: f32 = (s_bound * s_bound);
+var s_envelope: f32 = ((s_square * s_square) * bitcast<f32>(1166016512u));
+return ((s_factor > bitcast<f32>(0u)) && ((s_envelope - s_envelope) == bitcast<f32>(0u)));
+}
+}
+fn s_view_abs(p_value: f32) -> f32 {
+var s_value = p_value;
+{
+if ((s_value < bitcast<f32>(0u))) {
+return (-s_value);
+}
+return s_value;
+}
+}
+fn s_traversal_yield() {
+{
+if ((s_words_load(148u) >= s_words_load(150u))) {
+s_words_store(5u, 4u);
 }
 }
 }
@@ -350,7 +468,40 @@ s_words_store((s_meta + 1u), s_first);
 s_words_store((s_meta + 2u), s_count);
 }
 }
-fn s_child_view(p_parent: u32, p_portal: u32, p_view: u32) {
+fn s_traversal_command(p_field: u32, p_count: u32) {
+var s_field = p_field;
+var s_count = p_count;
+{
+s_words_store(s_field, s_count);
+s_words_store((s_field + 1u), 1u);
+s_words_store((s_field + 2u), 1u);
+}
+}
+fn s_traversal_frontier(p_count: u32) {
+var s_count = p_count;
+{
+s_traversal_command(133u, s_traversal_groups(s_count));
+s_traversal_command(136u, s_traversal_groups(s_words_load(10u)));
+var s_tiles: u32 = (((s_words_load(0u) + 7u) / 8u) * ((s_words_load(1u) + 7u) / 8u));
+s_traversal_command(145u, (s_geometry_groups(s_tiles) * select(u32(0), u32(1), (s_count != 0u))));
+s_traversal_command(139u, select(u32(0), u32(1), (s_count != 0u)));
+}
+}
+fn s_traversal_finished() -> bool {
+{
+return (s_words_load(99u) == (s_words_load(9u) + s_words_load(10u)));
+}
+}
+fn s_traversal_groups(p_count: u32) -> u32 {
+var s_count = p_count;
+{
+if ((s_count > (2097152u / 64u))) {
+return (2097152u / 64u);
+}
+return s_count;
+}
+}
+fn s_child_view(p_parent: u32, p_portal: u32, p_view: u32) -> bool {
 var s_parent = p_parent;
 var s_portal = p_portal;
 var s_view = p_view;
@@ -377,8 +528,12 @@ s_floats_store(((s_dst + 12u) + s_r), s_floats_load(((s_transform + 12u) + s_r))
 s_r = (s_r + 1u);
 }
 s_floats_store((s_dst + 16u), (s_floats_load((s_src + 16u)) * s_floats_load((s_transform + 16u))));
+if ((!s_child_numeric_valid(s_dst))) {
+return false;
+}
 s_view_space(s_view, s_words_load(((s_words_load(64u) + (s_portal * 4u)) + 1u)));
 s_words_store(((s_words_load(63u) + (s_view * 4u)) + 3u), s_words_load(((s_words_load(64u) + (s_portal * 4u)) + 2u)));
+return true;
 }
 }
 fn s_allocate_key_word(p_word: u32, p_mask: u32, p_views: u32) -> u32 {
@@ -391,12 +546,15 @@ var s_bit: u32 = 0u;
 while ((s_bit < 32u)) {
 if (((s_mask & (1u << u32(s_bit))) != 0u)) {
 if ((s_next == s_words_load(31u))) {
-s_words_store(5u, 2u);
+s_words_store(132u, 2u);
 return s_next;
 }
 var s_key: u32 = ((s_word * 32u) + s_bit);
 s_words_store((s_words_load(62u) + s_key), s_next);
-s_child_view((s_key / s_words_load(71u)), (s_key % s_words_load(71u)), s_next);
+if ((!s_child_view((s_key / s_words_load(71u)), (s_key % s_words_load(71u)), s_next))) {
+s_words_store(132u, 4u);
+return s_next;
+}
 s_next = (s_next + 1u);
 }
 s_bit = (s_bit + 1u);
@@ -410,7 +568,7 @@ var s_views = p_views;
 var s_next: u32 = s_views;
 var s_word: u32 = ((s_words_load(9u) * s_words_load(71u)) / 32u);
 var s_end: u32 = ((((s_words_load(9u) + s_words_load(10u)) * s_words_load(71u)) + 31u) / 32u);
-while (((s_word < s_end) && (s_words_load(5u) == 0u))) {
+while (((s_word < s_end) && (s_words_load(132u) == 0u))) {
 var s_mask: u32 = s_words_load((s_words_load(76u) + s_word));
 s_next = s_allocate_key_word(s_word, s_mask, s_next);
 s_word = (s_word + 1u);
@@ -420,8 +578,17 @@ return s_next;
 }
 fn s_advance() {
 {
-s_task_commands(0u, 0u);
-s_words_store(16u, 0u);
+if ((!s_traversal_finished())) {
+if ((s_words_load(148u) >= s_words_load(4u))) {
+s_traversal_halt();
+s_words_store(132u, 3u);
+}
+else {
+s_traversal_yield();
+}
+return;
+}
+s_traversal_halt();
 if ((s_words_load(5u) != 0u)) {
 return;
 }
@@ -437,15 +604,26 @@ s_i = (s_i + 1u);
 if ((s_count > s_words_load(75u))) {
 s_words_store(75u, s_count);
 }
-if ((s_count > s_words_load(72u))) {
-s_words_store(5u, 1u);
+var s_limit: u32 = s_words_load(149u);
+if (((s_count > s_words_load(72u)) || (s_count > (s_limit - s_words_load(130u))))) {
+s_words_store(132u, 1u);
+return;
+}
+if ((s_count == 0u)) {
+s_words_store(6u, 0u);
+s_words_store(10u, 0u);
+return;
+}
+if ((s_words_load(148u) >= s_words_load(4u))) {
+s_words_store(132u, 3u);
 return;
 }
 var s_oldviews: u32 = s_words_load(11u);
 var s_views: u32 = s_allocate_views(s_oldviews);
-if ((s_words_load(5u) != 0u)) {
+if ((s_words_load(132u) != 0u)) {
 return;
 }
+s_traversal_count_tiles(s_count);
 s_task_commands(s_count, s_tasks);
 s_words_store(27u, s_tasks);
 s_words_store(6u, s_count);
@@ -454,7 +632,9 @@ s_words_store(9u, s_oldviews);
 s_words_store(10u, (s_views - s_oldviews));
 s_words_store(11u, s_views);
 s_words_store(12u, (s_words_load(12u) + 1u));
-s_words_store(16u, s_geometry_groups(((s_views - s_oldviews) * s_words_load(92u))));
+s_words_store(98u, 3u);
+s_traversal_frontier(s_count);
+s_traversal_yield();
 }
 }
 fn s_reduce_view_keys() {
@@ -476,12 +656,68 @@ s_word = (s_word + 64u);
 }
 fn s_compute() {
 {
-if ((s_words_load(5u) == 0u)) {
+if (((s_words_load(5u) == 0u) && s_traversal_finished())) {
 s_reduce_view_keys();
 }
 s_shader_all_memory_barrier();
 if ((s_shader_global_x() == 0u)) {
 s_advance();
+}
+}
+}
+fn s_traversal_halt() {
+{
+s_task_commands(0u, 0u);
+s_words_store(16u, 0u);
+s_words_store(126u, 0u);
+s_words_store(27u, 0u);
+s_traversal_command(133u, 0u);
+s_traversal_command(136u, 0u);
+s_traversal_command(139u, 0u);
+s_traversal_command(142u, 0u);
+s_traversal_command(145u, 0u);
+}
+}
+fn s_traversal_count_tiles(p_count: u32) {
+var s_count = p_count;
+{
+s_words_store(130u, (s_words_load(130u) + s_count));
+}
+}
+fn s_child_numeric_valid(p_matrix: u32) -> bool {
+var s_matrix = p_matrix;
+{
+var s_factor: f32 = s_floats_load((s_matrix + 16u));
+var s_inverse: f32 = (bitcast<f32>(1065353216u) / s_factor);
+var s_translation: f32 = ((s_view_abs(s_floats_load((s_matrix + 3u))) + s_view_abs(s_floats_load((s_matrix + 7u)))) + s_view_abs(s_floats_load((s_matrix + 11u))));
+var s_bound: f32 = ((s_floats_load(23u) * s_factor) + s_translation);
+if ((s_inverse > bitcast<f32>(1065353216u))) {
+s_bound = (s_bound * s_inverse);
+}
+if ((s_inverse > s_bound)) {
+s_bound = s_inverse;
+}
+if ((s_factor > s_bound)) {
+s_bound = s_factor;
+}
+var s_square: f32 = (s_bound * s_bound);
+var s_envelope: f32 = ((s_square * s_square) * bitcast<f32>(1166016512u));
+return ((s_factor > bitcast<f32>(0u)) && ((s_envelope - s_envelope) == bitcast<f32>(0u)));
+}
+}
+fn s_view_abs(p_value: f32) -> f32 {
+var s_value = p_value;
+{
+if ((s_value < bitcast<f32>(0u))) {
+return (-s_value);
+}
+return s_value;
+}
+}
+fn s_traversal_yield() {
+{
+if ((s_words_load(148u) >= s_words_load(150u))) {
+s_words_store(5u, 4u);
 }
 }
 }
@@ -530,6 +766,20 @@ if ((s_count > 2097152u)) {
 return checked_div_u32(2097152u, 64u);
 }
 return checked_div_u32(((s_count + 64u) - 1u), 64u);
+}
+}
+fn s_traversal_command(p_field: u32, p_count: u32) {
+var s_field = p_field;
+var s_count = p_count;
+{
+s_words_store(s_field, s_count);
+s_words_store((s_field + 1u), 1u);
+s_words_store((s_field + 2u), 1u);
+}
+}
+fn s_traversal_finished() -> bool {
+{
+return (s_words_load(99u) == (s_words_load(9u) + s_words_load(10u)));
 }
 }
 fn s_shadow_abs(p_value: f32) -> f32 {
@@ -846,6 +1096,27 @@ s_work_count_add(122u, 1u);
 }
 }
 s_batch_task_commands((s_words_load(101u) < s_words_load(102u)));
+var s_finished: bool = s_traversal_finished();
+var s_base: u32 = 0u;
+var s_batch: u32 = 0u;
+while ((s_base < s_words_load(72u))) {
+var s_count: u32 = 0u;
+if ((s_finished && (s_words_load(6u) > s_base))) {
+s_count = (s_words_load(6u) - s_base);
+if ((s_count > checked_div_u32(2097152u, 64u))) {
+s_count = checked_div_u32(2097152u, 64u);
+}
+}
+s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 3u), checked_div_u32((s_count + 63u), 64u));
+s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 6u), 0u);
+s_base = (s_base + checked_div_u32(2097152u, 64u));
+s_batch = (s_batch + 1u);
+}
+s_traversal_command(142u, 1u);
+s_traversal_command(133u, 0u);
+s_traversal_command(136u, 0u);
+s_traversal_command(145u, 0u);
+s_words_store(148u, (s_words_load(148u) + 1u));
 s_words_store(16u, s_geometry_groups(s_words_load(103u)));
 var s_fans: u32 = (s_words_load(103u) * 8u);
 if ((s_fans > checked_div_u32(2097152u, 64u))) {
@@ -895,6 +1166,7 @@ s_batch_finish();
 }
 fn s_batch_deferred() {
 {
+s_words_store(148u, (s_words_load(148u) + 1u));
 var s_first: u32 = s_words_load(101u);
 var s_count: u32 = s_words_load(103u);
 s_work_count_add(120u, s_count);
@@ -920,6 +1192,7 @@ s_words_store(102u, 1u);
 s_words_store(114u, s_count);
 s_words_store(118u, s_finished);
 s_batch_task_commands(true);
+s_traversal_command(142u, s_finished);
 s_words_store(16u, s_geometry_groups(s_count));
 var s_fans: u32 = (s_count * 8u);
 if ((s_fans > checked_div_u32(2097152u, 64u))) {
@@ -1029,6 +1302,20 @@ if ((s_count > 2097152u)) {
 return (2097152u / 64u);
 }
 return (((s_count + 64u) - 1u) / 64u);
+}
+}
+fn s_traversal_command(p_field: u32, p_count: u32) {
+var s_field = p_field;
+var s_count = p_count;
+{
+s_words_store(s_field, s_count);
+s_words_store((s_field + 1u), 1u);
+s_words_store((s_field + 2u), 1u);
+}
+}
+fn s_traversal_finished() -> bool {
+{
+return (s_words_load(99u) == (s_words_load(9u) + s_words_load(10u)));
 }
 }
 fn s_shadow_abs(p_value: f32) -> f32 {
@@ -1345,6 +1632,27 @@ s_work_count_add(122u, 1u);
 }
 }
 s_batch_task_commands((s_words_load(101u) < s_words_load(102u)));
+var s_finished: bool = s_traversal_finished();
+var s_base: u32 = 0u;
+var s_batch: u32 = 0u;
+while ((s_base < s_words_load(72u))) {
+var s_count: u32 = 0u;
+if ((s_finished && (s_words_load(6u) > s_base))) {
+s_count = (s_words_load(6u) - s_base);
+if ((s_count > (2097152u / 64u))) {
+s_count = (2097152u / 64u);
+}
+}
+s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 3u), ((s_count + 63u) / 64u));
+s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 6u), 0u);
+s_base = (s_base + (2097152u / 64u));
+s_batch = (s_batch + 1u);
+}
+s_traversal_command(142u, 1u);
+s_traversal_command(133u, 0u);
+s_traversal_command(136u, 0u);
+s_traversal_command(145u, 0u);
+s_words_store(148u, (s_words_load(148u) + 1u));
 s_words_store(16u, s_geometry_groups(s_words_load(103u)));
 var s_fans: u32 = (s_words_load(103u) * 8u);
 if ((s_fans > (2097152u / 64u))) {
@@ -1394,6 +1702,7 @@ s_batch_finish();
 }
 fn s_batch_deferred() {
 {
+s_words_store(148u, (s_words_load(148u) + 1u));
 var s_first: u32 = s_words_load(101u);
 var s_count: u32 = s_words_load(103u);
 s_work_count_add(120u, s_count);
@@ -1419,6 +1728,7 @@ s_words_store(102u, 1u);
 s_words_store(114u, s_count);
 s_words_store(118u, s_finished);
 s_batch_task_commands(true);
+s_traversal_command(142u, s_finished);
 s_words_store(16u, s_geometry_groups(s_count));
 var s_fans: u32 = (s_count * 8u);
 if ((s_fans > (2097152u / 64u))) {
@@ -1761,7 +2071,7 @@ return s_words_load(59u);
 fn s_compute() {
 {
 var s_i: u32 = (s_shader_global_x() + s_words_load(73u));
-if (((s_words_load(5u) == 0u) && (s_i < s_words_load(27u)))) {
+if ((((s_words_load(5u) == 0u) || (s_words_load(5u) == 4u)) && (s_i < s_words_load(27u)))) {
 var s_offset: u32 = (s_words_load((s_words_load(70u) + checked_div_u32(s_i, 64u))) + s_words_load((s_words_load(68u) + s_i)));
 var s_source: u32 = (s_other_tasks() + (s_i * 4u));
 var s_parent: u32 = s_words_load((s_source + 1u));
@@ -1819,7 +2129,7 @@ return s_words_load(59u);
 fn s_compute() {
 {
 var s_i: u32 = (s_shader_global_x() + s_words_load(73u));
-if (((s_words_load(5u) == 0u) && (s_i < s_words_load(27u)))) {
+if ((((s_words_load(5u) == 0u) || (s_words_load(5u) == 4u)) && (s_i < s_words_load(27u)))) {
 var s_offset: u32 = (s_words_load((s_words_load(70u) + (s_i / 64u))) + s_words_load((s_words_load(68u) + s_i)));
 var s_source: u32 = (s_other_tasks() + (s_i * 4u));
 var s_parent: u32 = s_words_load((s_source + 1u));
@@ -1960,6 +2270,34 @@ s_words_store((s_meta + 1u), s_first);
 s_words_store((s_meta + 2u), s_count);
 }
 }
+fn s_traversal_command(p_field: u32, p_count: u32) {
+var s_field = p_field;
+var s_count = p_count;
+{
+s_words_store(s_field, s_count);
+s_words_store((s_field + 1u), 1u);
+s_words_store((s_field + 2u), 1u);
+}
+}
+fn s_traversal_frontier(p_count: u32) {
+var s_count = p_count;
+{
+s_traversal_command(133u, s_traversal_groups(s_count));
+s_traversal_command(136u, s_traversal_groups(s_words_load(10u)));
+var s_tiles: u32 = (checked_div_u32((s_words_load(0u) + 7u), 8u) * checked_div_u32((s_words_load(1u) + 7u), 8u));
+s_traversal_command(145u, (s_geometry_groups(s_tiles) * select(u32(0), u32(1), (s_count != 0u))));
+s_traversal_command(139u, select(u32(0), u32(1), (s_count != 0u)));
+}
+}
+fn s_traversal_groups(p_count: u32) -> u32 {
+var s_count = p_count;
+{
+if ((s_count > checked_div_u32(2097152u, 64u))) {
+return checked_div_u32(2097152u, 64u);
+}
+return s_count;
+}
+}
 fn s_compute() {
 {
 var s_i: u32 = s_shader_global_x();
@@ -1993,11 +2331,23 @@ s_pixel = (s_pixel + 2097152u);
 }
 if ((s_i == 0u)) {
 var s_bad: u32 = 0u;
-if ((s_tiles > s_words_load(72u))) {
+var s_limit: u32 = s_words_load(131u);
+if ((s_limit == 0u)) {
+s_limit = 4294967295u;
+if ((s_words_load(4u) <= checked_div_u32(s_limit, s_words_load(72u)))) {
+s_limit = (s_words_load(4u) * s_words_load(72u));
+}
+}
+s_words_store(149u, s_limit);
+if (((s_tiles > s_words_load(72u)) || (s_tiles > s_limit))) {
 s_bad = 1u;
 s_tiles = 0u;
 }
 s_words_store(75u, s_tiles);
+s_words_store(130u, s_tiles);
+s_words_store(132u, 0u);
+s_words_store(148u, 0u);
+s_words_store(150u, s_words_load(4u));
 s_words_store(119u, 0u);
 s_words_store(120u, 0u);
 s_words_store(121u, 0u);
@@ -2017,6 +2367,9 @@ s_words_store(17u, 1u);
 s_words_store(18u, 1u);
 s_view_space(0u, s_words_load(20u));
 s_words_store((s_words_load(63u) + 3u), 0u);
+s_words_store(98u, 3u);
+s_traversal_frontier(s_tiles);
+s_traversal_command(142u, 0u);
 var s_j: u32 = 0u;
 while ((s_j < 12u)) {
 s_floats_store((s_words_load(65u) + s_j), s_floats_load(s_j));
@@ -2148,6 +2501,34 @@ s_words_store((s_meta + 1u), s_first);
 s_words_store((s_meta + 2u), s_count);
 }
 }
+fn s_traversal_command(p_field: u32, p_count: u32) {
+var s_field = p_field;
+var s_count = p_count;
+{
+s_words_store(s_field, s_count);
+s_words_store((s_field + 1u), 1u);
+s_words_store((s_field + 2u), 1u);
+}
+}
+fn s_traversal_frontier(p_count: u32) {
+var s_count = p_count;
+{
+s_traversal_command(133u, s_traversal_groups(s_count));
+s_traversal_command(136u, s_traversal_groups(s_words_load(10u)));
+var s_tiles: u32 = (((s_words_load(0u) + 7u) / 8u) * ((s_words_load(1u) + 7u) / 8u));
+s_traversal_command(145u, (s_geometry_groups(s_tiles) * select(u32(0), u32(1), (s_count != 0u))));
+s_traversal_command(139u, select(u32(0), u32(1), (s_count != 0u)));
+}
+}
+fn s_traversal_groups(p_count: u32) -> u32 {
+var s_count = p_count;
+{
+if ((s_count > (2097152u / 64u))) {
+return (2097152u / 64u);
+}
+return s_count;
+}
+}
 fn s_compute() {
 {
 var s_i: u32 = s_shader_global_x();
@@ -2181,11 +2562,23 @@ s_pixel = (s_pixel + 2097152u);
 }
 if ((s_i == 0u)) {
 var s_bad: u32 = 0u;
-if ((s_tiles > s_words_load(72u))) {
+var s_limit: u32 = s_words_load(131u);
+if ((s_limit == 0u)) {
+s_limit = 4294967295u;
+if ((s_words_load(4u) <= (s_limit / s_words_load(72u)))) {
+s_limit = (s_words_load(4u) * s_words_load(72u));
+}
+}
+s_words_store(149u, s_limit);
+if (((s_tiles > s_words_load(72u)) || (s_tiles > s_limit))) {
 s_bad = 1u;
 s_tiles = 0u;
 }
 s_words_store(75u, s_tiles);
+s_words_store(130u, s_tiles);
+s_words_store(132u, 0u);
+s_words_store(148u, 0u);
+s_words_store(150u, s_words_load(4u));
 s_words_store(119u, 0u);
 s_words_store(120u, 0u);
 s_words_store(121u, 0u);
@@ -2205,6 +2598,9 @@ s_words_store(17u, 1u);
 s_words_store(18u, 1u);
 s_view_space(0u, s_words_load(20u));
 s_words_store((s_words_load(63u) + 3u), 0u);
+s_words_store(98u, 3u);
+s_traversal_frontier(s_tiles);
+s_traversal_command(142u, 0u);
 var s_j: u32 = 0u;
 while ((s_j < 12u)) {
 s_floats_store((s_words_load(65u) + s_j), s_floats_load(s_j));
@@ -4476,11 +4872,16 @@ var s_color: u32 = s_words_load(34u);
 if ((s_identity != 4294967295u)) {
 s_winner = checked_div_u32(s_identity, 8u);
 var s_portal: u32 = s_scene_meta(s_winner, 2u);
-if (((s_portal != 0u) && (s_words_load(12u) < s_words_load(4u)))) {
+if ((s_portal != 0u)) {
+s_words_store((8192u + s_pixel), s_words_load(34u));
+if ((!s_view_distance_exceeded((bitcast<f32>(1065353216u) / s_depth), s_x, s_y))) {
 s_shared_store((320u + s_lane), s_portal);
+}
 return;
 }
+if ((!s_view_distance_exceeded((bitcast<f32>(1065353216u) / s_depth), s_x, s_y))) {
 s_color = s_shade_color(s_winner, s_view, s_u, s_v, (bitcast<f32>(1065353216u) / s_depth), s_x, s_y);
+}
 }
 if ((s_words_load(26u) != 0u)) {
 var s_debug: u32 = (s_words_load(78u) + (s_pixel * 4u));
@@ -4616,6 +5017,21 @@ if (true) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
 return s_words_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+}
+}
+fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
+var s_z = p_z;
+var s_x = p_x;
+var s_y = p_y;
+{
+var s_limit: f32 = s_floats_load(22u);
+if ((s_limit == bitcast<f32>(0u))) {
+return false;
+}
+var s_h: f32 = f32(s_words_load(1u));
+var s_dx: f32 = ((((bitcast<f32>(1073741824u) * (f32(s_x) + bitcast<f32>(1056964608u))) - f32(s_words_load(0u))) / s_h) * s_floats_load(20u));
+var s_dy: f32 = (((s_h - (bitcast<f32>(1073741824u) * (f32(s_y) + bitcast<f32>(1056964608u)))) / s_h) * s_floats_load(20u));
+return ((s_z * s_shader_sqrt(((bitcast<f32>(1065353216u) + (s_dx * s_dx)) + (s_dy * s_dy)))) >= s_limit);
 }
 }
 @compute @workgroup_size(64, 1, 1) fn main(@builtin(global_invocation_id) global: vec3<u32>, @builtin(local_invocation_id) local: vec3<u32>) { global_x = global.x; local_x = local.x; s_compute(); status[global_x] = status[global_x] | select(0u, 1u, failed); }
@@ -5518,11 +5934,16 @@ var s_color: u32 = s_words_load(34u);
 if ((s_identity != 4294967295u)) {
 s_winner = (s_identity / 8u);
 var s_portal: u32 = s_scene_meta(s_winner, 2u);
-if (((s_portal != 0u) && (s_words_load(12u) < s_words_load(4u)))) {
+if ((s_portal != 0u)) {
+s_words_store((8192u + s_pixel), s_words_load(34u));
+if ((!s_view_distance_exceeded((bitcast<f32>(1065353216u) / s_depth), s_x, s_y))) {
 s_shared_store((320u + s_lane), s_portal);
+}
 return;
 }
+if ((!s_view_distance_exceeded((bitcast<f32>(1065353216u) / s_depth), s_x, s_y))) {
 s_color = s_shade_color(s_winner, s_view, s_u, s_v, (bitcast<f32>(1065353216u) / s_depth), s_x, s_y);
+}
 }
 if ((s_words_load(26u) != 0u)) {
 var s_debug: u32 = (s_words_load(78u) + (s_pixel * 4u));
@@ -5658,6 +6079,21 @@ if (true) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
 return s_words_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+}
+}
+fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
+var s_z = p_z;
+var s_x = p_x;
+var s_y = p_y;
+{
+var s_limit: f32 = s_floats_load(22u);
+if ((s_limit == bitcast<f32>(0u))) {
+return false;
+}
+var s_h: f32 = f32(s_words_load(1u));
+var s_dx: f32 = ((((bitcast<f32>(1073741824u) * (f32(s_x) + bitcast<f32>(1056964608u))) - f32(s_words_load(0u))) / s_h) * s_floats_load(20u));
+var s_dy: f32 = (((s_h - (bitcast<f32>(1073741824u) * (f32(s_y) + bitcast<f32>(1056964608u)))) / s_h) * s_floats_load(20u));
+return ((s_z * s_shader_sqrt(((bitcast<f32>(1065353216u) + (s_dx * s_dx)) + (s_dy * s_dy)))) >= s_limit);
 }
 }
 @compute @workgroup_size(64, 1, 1) fn main(@builtin(global_invocation_id) global: vec3<u32>, @builtin(local_invocation_id) local: vec3<u32>) { global_x = global.x; local_x = local.x; s_compute(); }
@@ -6572,11 +7008,16 @@ var s_color: u32 = s_words_load(34u);
 if ((s_identity != 4294967295u)) {
 s_winner = checked_div_u32(s_identity, 8u);
 var s_portal: u32 = s_scene_meta(s_winner, 2u);
-if (((s_portal != 0u) && (s_words_load(12u) < s_words_load(4u)))) {
+if ((s_portal != 0u)) {
+s_words_store((8192u + s_pixel), s_words_load(34u));
+if ((!s_view_distance_exceeded((bitcast<f32>(1065353216u) / s_depth), s_x, s_y))) {
 s_shared_store((320u + s_lane), s_portal);
+}
 return;
 }
+if ((!s_view_distance_exceeded((bitcast<f32>(1065353216u) / s_depth), s_x, s_y))) {
 s_color = s_shade_color(s_winner, s_view, s_u, s_v, (bitcast<f32>(1065353216u) / s_depth), s_x, s_y);
+}
 }
 if ((s_words_load(26u) != 0u)) {
 var s_debug: u32 = (s_words_load(78u) + (s_pixel * 4u));
@@ -6712,6 +7153,21 @@ if (false) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
 return s_words_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+}
+}
+fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
+var s_z = p_z;
+var s_x = p_x;
+var s_y = p_y;
+{
+var s_limit: f32 = s_floats_load(22u);
+if ((s_limit == bitcast<f32>(0u))) {
+return false;
+}
+var s_h: f32 = f32(s_words_load(1u));
+var s_dx: f32 = ((((bitcast<f32>(1073741824u) * (f32(s_x) + bitcast<f32>(1056964608u))) - f32(s_words_load(0u))) / s_h) * s_floats_load(20u));
+var s_dy: f32 = (((s_h - (bitcast<f32>(1073741824u) * (f32(s_y) + bitcast<f32>(1056964608u)))) / s_h) * s_floats_load(20u));
+return ((s_z * s_shader_sqrt(((bitcast<f32>(1065353216u) + (s_dx * s_dx)) + (s_dy * s_dy)))) >= s_limit);
 }
 }
 @compute @workgroup_size(64, 1, 1) fn main(@builtin(global_invocation_id) global: vec3<u32>, @builtin(local_invocation_id) local: vec3<u32>) { global_x = global.x; local_x = local.x; s_compute(); status[global_x] = status[global_x] | select(0u, 1u, failed); }
@@ -7614,11 +8070,16 @@ var s_color: u32 = s_words_load(34u);
 if ((s_identity != 4294967295u)) {
 s_winner = (s_identity / 8u);
 var s_portal: u32 = s_scene_meta(s_winner, 2u);
-if (((s_portal != 0u) && (s_words_load(12u) < s_words_load(4u)))) {
+if ((s_portal != 0u)) {
+s_words_store((8192u + s_pixel), s_words_load(34u));
+if ((!s_view_distance_exceeded((bitcast<f32>(1065353216u) / s_depth), s_x, s_y))) {
 s_shared_store((320u + s_lane), s_portal);
+}
 return;
 }
+if ((!s_view_distance_exceeded((bitcast<f32>(1065353216u) / s_depth), s_x, s_y))) {
 s_color = s_shade_color(s_winner, s_view, s_u, s_v, (bitcast<f32>(1065353216u) / s_depth), s_x, s_y);
+}
 }
 if ((s_words_load(26u) != 0u)) {
 var s_debug: u32 = (s_words_load(78u) + (s_pixel * 4u));
@@ -7754,6 +8215,21 @@ if (false) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
 return s_words_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+}
+}
+fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
+var s_z = p_z;
+var s_x = p_x;
+var s_y = p_y;
+{
+var s_limit: f32 = s_floats_load(22u);
+if ((s_limit == bitcast<f32>(0u))) {
+return false;
+}
+var s_h: f32 = f32(s_words_load(1u));
+var s_dx: f32 = ((((bitcast<f32>(1073741824u) * (f32(s_x) + bitcast<f32>(1056964608u))) - f32(s_words_load(0u))) / s_h) * s_floats_load(20u));
+var s_dy: f32 = (((s_h - (bitcast<f32>(1073741824u) * (f32(s_y) + bitcast<f32>(1056964608u)))) / s_h) * s_floats_load(20u));
+return ((s_z * s_shader_sqrt(((bitcast<f32>(1065353216u) + (s_dx * s_dx)) + (s_dy * s_dy)))) >= s_limit);
 }
 }
 @compute @workgroup_size(64, 1, 1) fn main(@builtin(global_invocation_id) global: vec3<u32>, @builtin(local_invocation_id) local: vec3<u32>) { global_x = global.x; local_x = local.x; s_compute(); }
@@ -9336,13 +9812,16 @@ return s_words_load(60u);
 }
 fn s_compute() {
 {
-var s_task: u32 = (checked_div_u32(s_shader_global_x(), 64u) + s_words_load(73u));
-if ((((s_words_load(5u) != 0u) || (s_task >= s_words_load(6u))) || (s_shader_local_x() != 0u))) {
+if (((s_words_load(5u) != 0u) || (s_shader_local_x() != 0u))) {
 return;
 }
+var s_task: u32 = checked_div_u32(s_shader_global_x(), 64u);
+while ((s_task < s_words_load(6u))) {
 var s_tile: u32 = s_words_load((s_task_base() + (s_task * 4u)));
 var s_previous: u32 = s_tiles_atomic_exchange((s_words_load(123u) + (s_tile * 4u)), (s_task + 1u));
 s_tile_write(((s_words_load(123u) + (s_task * 4u)) + 1u), s_previous);
+s_task = (s_task + checked_div_u32(2097152u, 64u));
+}
 }
 }
 fn s_tile_write(p_index: u32, p_value: u32) {
@@ -9389,13 +9868,16 @@ return s_words_load(60u);
 }
 fn s_compute() {
 {
-var s_task: u32 = ((s_shader_global_x() / 64u) + s_words_load(73u));
-if ((((s_words_load(5u) != 0u) || (s_task >= s_words_load(6u))) || (s_shader_local_x() != 0u))) {
+if (((s_words_load(5u) != 0u) || (s_shader_local_x() != 0u))) {
 return;
 }
+var s_task: u32 = (s_shader_global_x() / 64u);
+while ((s_task < s_words_load(6u))) {
 var s_tile: u32 = s_words_load((s_task_base() + (s_task * 4u)));
 var s_previous: u32 = s_tiles_atomic_exchange((s_words_load(123u) + (s_tile * 4u)), (s_task + 1u));
 s_tile_write(((s_words_load(123u) + (s_task * 4u)) + 1u), s_previous);
+s_task = (s_task + (2097152u / 64u));
+}
 }
 }
 fn s_tile_write(p_index: u32, p_value: u32) {
@@ -11360,9 +11842,9 @@ s_lane = (s_lane + 1u);
 s_words_store(((s_words_load(113u) + (s_view * 4u)) + s_axis), s_value);
 }
 }
-fn s_compute() {
+fn s_visibility_view(p_index: u32) {
+var s_index = p_index;
 {
-var s_index: u32 = (checked_div_u32(s_shader_global_x(), 64u) + s_words_load(73u));
 var s_lane: u32 = s_shader_local_x();
 var s_view: u32 = (s_words_load(9u) + s_index);
 if ((s_index < s_words_load(10u))) {
@@ -11385,6 +11867,24 @@ s_words_store(((s_words_load(55u) + (s_view * s_words_load(56u))) + s_instance),
 }
 s_instance = (s_instance + 64u);
 }
+}
+}
+}
+fn s_compute() {
+{
+var s_index: u32 = (checked_div_u32(s_shader_global_x(), 64u) + s_words_load(73u));
+var s_stride: u32 = checked_div_u32(2097152u, 64u);
+if ((s_shader_local_x() == 0u)) {
+s_shared_store(255u, checked_div_u32(((s_words_load(10u) + s_stride) - 1u), s_stride));
+}
+s_shader_workgroup_barrier();
+var s_rounds: u32 = s_shared_uniform_load(255u);
+var s_round: u32 = 0u;
+while ((s_round < s_rounds)) {
+s_visibility_view(s_index);
+s_shader_all_memory_barrier();
+s_index = (s_index + s_stride);
+s_round = (s_round + 1u);
 }
 }
 }
@@ -11596,9 +12096,9 @@ s_lane = (s_lane + 1u);
 s_words_store(((s_words_load(113u) + (s_view * 4u)) + s_axis), s_value);
 }
 }
-fn s_compute() {
+fn s_visibility_view(p_index: u32) {
+var s_index = p_index;
 {
-var s_index: u32 = ((s_shader_global_x() / 64u) + s_words_load(73u));
 var s_lane: u32 = s_shader_local_x();
 var s_view: u32 = (s_words_load(9u) + s_index);
 if ((s_index < s_words_load(10u))) {
@@ -11621,6 +12121,24 @@ s_words_store(((s_words_load(55u) + (s_view * s_words_load(56u))) + s_instance),
 }
 s_instance = (s_instance + 64u);
 }
+}
+}
+}
+fn s_compute() {
+{
+var s_index: u32 = ((s_shader_global_x() / 64u) + s_words_load(73u));
+var s_stride: u32 = (2097152u / 64u);
+if ((s_shader_local_x() == 0u)) {
+s_shared_store(255u, (((s_words_load(10u) + s_stride) - 1u) / s_stride));
+}
+s_shader_workgroup_barrier();
+var s_rounds: u32 = s_shared_uniform_load(255u);
+var s_round: u32 = 0u;
+while ((s_round < s_rounds)) {
+s_visibility_view(s_index);
+s_shader_all_memory_barrier();
+s_index = (s_index + s_stride);
+s_round = (s_round + 1u);
 }
 }
 }
