@@ -25,23 +25,28 @@ fn shaft_grid_nodes() -> u32 {
 fn shaft_grid_blocks() -> u32 {
     return shaft_grid_columns() / 4u32;
 }
-fn shaft_grid_axial_distance() -> u32 {
-    return (SHAFT_GRID_LAYERS - 1u32) * SHAFT_GRID_SUBDIVISIONS;
+fn shaft_grid_axial_distance(climb: u32) -> u32 {
+    return (SHAFT_GRID_LAYERS - 1u32 + 2u32 * climb) * SHAFT_GRID_SUBDIVISIONS;
 }
-fn shaft_grid_length_min() -> u32 {
-    return shaft_grid_axial_distance() + 1u32;
+fn shaft_grid_length_min(climb: u32) -> u32 {
+    if climb != 0u32 {
+        return shaft_grid_axial_distance(climb) + 2u32;
+    }
+    return shaft_grid_axial_distance(climb) + 1u32;
 }
-fn shaft_grid_length_max() -> u32 {
-    return shaft_grid_axial_distance() + (SHAFT_GRID_LAYERS - 2u32) * SHAFT_GRID_CROSS_RUN_LIMIT;
+fn shaft_grid_length_max(climb: u32) -> u32 {
+    return shaft_grid_axial_distance(climb) + (SHAFT_GRID_LAYERS - 2u32 + 2u32 * climb) * SHAFT_GRID_CROSS_RUN_LIMIT;
 }
 record ShaftGridOptions {
     length: u32;
+    climb: u32;
     branches: u32;
     branch_length: u32;
 }
 fn shaft_grid_defaults() -> ShaftGridOptions {
     return make ShaftGridOptions {
-        length: 15u32,
+        length: 20u32,
+        climb: 1u32,
         branches: 2u32,
         branch_length: 1u32
     };

@@ -24,10 +24,12 @@ and assigns no moving-body controller or airflow field. It does not change
 `main.crs`.
 
 The [graph model](../../src/app/level/shafts/model.crs) owns the default settings:
-`length`, `branches`, and `branch_length`. The recipe can change these settings
+`length`, `climb`, `branches`, and `branch_length`. The recipe can change these settings
 before it calls the generator. The shared demo runner supplies the seed.
 
 - `length` is the exact entrance-to-exit distance in graph steps.
+- `climb` is the number of shaft segments in one upward detour. Zero selects
+  a monotone descent. Both turns must stay on internal layers.
 - `branches` is the maximum number of dead ends. Zero disables them.
 - `branch_length` is the maximum number of cross tunnels in each dead end.
   It must be positive when branches are enabled.
@@ -99,40 +101,48 @@ when the route or a branch uses it.
 
 ## Construct the exact route
 
-The main route moves outward through each depth layer once. Its four axial
-passages contribute twelve graph steps. For a requested length `L`, assign the
-remaining `N = L - 12` steps to cross tunnels on the three internal layers.
-The [graph model](../../src/app/level/shafts/model.crs) defines the maximum
-consecutive cross-tunnel count and derives the supported length range from it.
-The lower bound requires at least one cross tunnel so the endpoint columns differ.
-The upper bound adds the cross-tunnel capacity of all internal layers to the
-axial distance. Requests outside this range produce an error.
+The main route crosses all depth layers and can include one upward detour.
+The [graph model](../../src/app/level/shafts/model.crs) owns the route settings,
+the consecutive cross-tunnel limit, and the supported length bounds.
 
-Choose the entrance column and cycle direction with the seed. Divide the
-cross-tunnel budget among the internal layers with seeded bounded draws:
+For climb `u`, the route has `4 + 2u` axial passages. Each contributes three
+graph steps. A monotone route needs at least one cross tunnel. A route with a
+climb needs at least two: one before each reversal of axial direction. The
+maximum length adds the cross-tunnel capacity of every internal station visit
+to the axial distance. Requests outside these bounds produce an error.
 
-1. Calculate how many cross tunnels the remaining layers can hold.
-2. Set the current layer's lower bound to the steps that cannot fit later,
-   or zero when all remaining steps can fit later.
-3. Set its upper bound to the smaller of the remaining budget and the
-   consecutive cross-tunnel limit.
-4. Draw its length from that interval. The last layer uses the remainder.
+Choose the entrance column and cycle direction with the seed. For a climb,
+choose a lower turn depth that leaves the full upward leg between internal
+layers. The route descends to this turn, climbs the requested number of layers,
+then descends to the outer boundary. A monotone route visits each internal
+layer once. A climb adds two internal visits per upward shaft segment.
 
-No draw can make the remaining budget impossible. Some layers can have no
-cross tunnels, which gives a longer continuous shaft run. Transfer depths vary
-with the seed. The main route cannot exceed the cross-tunnel limit between
-shaft segments.
+Divide the cross-tunnel budget among these visits with seeded bounded draws:
 
-All layers follow the same column-cycle direction. The total lateral budget
-is positive and smaller than the cycle, so entrance and exit columns differ.
-The route never returns to an earlier column. Consecutive axial passages can
-use the same column at different depths without repeating a station.
+1. Require a cross tunnel before each reversal of axial direction. Reserve
+   the required crossings at later turns before the current draw.
+2. Calculate how many cross tunnels the remaining visits can hold. The current
+   lower bound must leave no more than this capacity for later visits, and
+   must include the crossing when this visit is a turn.
+3. Set the upper bound to the smaller of the consecutive cross-tunnel limit
+   and the budget left after the reserved crossings.
+4. Draw from that interval. The last visit uses the remaining budget.
+
+No draw can make the remaining budget impossible. Visits with no cross tunnel
+continue the same shaft run. Both turns of an upward detour change columns,
+so the route cannot retrace a shaft segment. The seed changes the turn depth
+and the positions of optional transfers.
+
+All cross tunnels follow the same column-cycle direction. The supported
+lateral budgets are positive and smaller than the cycle. Entrance and exit
+columns therefore differ, and the route never returns to an earlier column.
+Repeated depths during a climb use different columns and station IDs.
 
 Open the terminal passages and record every main-route station. Leave every
 other candidate passage closed. Endpoints are selected with the route; they
 are not an independent pair imposed before construction.
 
-The exact route guarantee applies to this outward-moving construction and its
+The exact route guarantee applies to this single-detour construction and its
 stated range. It does not enumerate all possible paths in the full cubic grid.
 
 ## Add short dead ends
@@ -200,10 +210,10 @@ allocation or graph search in the frame loop.
 ## Verification
 
 Run `crust tests.crs shaft-grid`. This focused test builds no geometry and starts
-no renderer. It checks every supported length across seeds. Checks include:
+no renderer. It checks every supported length and climb across seeds. Checks include:
 
 - Exact path cost and no repeated main-route station.
-- Outward shaft travel and the consecutive cross-tunnel limit.
+- Requested upward travel, net outward travel, and the consecutive cross-tunnel limit.
 - Independent BFS over expanded unit-edge adjacency.
 - Reachability equal to the selected set, tree topology, and closed unused ends.
 - Distinct endpoint columns and deterministic replay.

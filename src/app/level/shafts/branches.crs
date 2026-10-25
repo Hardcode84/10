@@ -77,7 +77,12 @@ fn shaft_grid_branches(grid: mut ShaftGrid, options: ShaftGridOptions) -> bool {
 }
 // Builds one route of the requested length and up to the requested number of short dead ends.
 fn shaft_grid_generate(grid: mut ShaftGrid, seed: u32, options: ShaftGridOptions) -> bool {
-    if options.length < shaft_grid_length_min() || options.length > shaft_grid_length_max() {
+    if options.climb > SHAFT_GRID_LAYERS - 3u32 {
+        return error("shaft climb must fit between internal layers");
+    }
+    if options.length < shaft_grid_length_min(options.climb) || options.length > shaft_grid_length_max(
+        options.climb
+    ) {
         return error("shaft route length is outside the supported range");
     }
     if options.branches != 0u32 && options.branch_length == 0u32 {
@@ -90,6 +95,6 @@ fn shaft_grid_generate(grid: mut ShaftGrid, seed: u32, options: ShaftGridOptions
     if !shaft_grid_cycle(mut grid) {
         return false;
     }
-    shaft_grid_initial_path(mut grid, options.length);
+    shaft_grid_initial_path(mut grid, options);
     return shaft_grid_branches(mut grid, options);
 }
