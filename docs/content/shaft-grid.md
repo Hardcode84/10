@@ -102,29 +102,31 @@ when the route or a branch uses it.
 The main route moves outward through each depth layer once. Its four axial
 passages contribute twelve graph steps. For a requested length `L`, assign the
 remaining `N = L - 12` steps to cross tunnels on the three internal layers.
-Each layer can use zero through 63 consecutive cycle edges without repeating
-a station. The supported exact-length range is therefore 13 through 201.
-The lower bound also permits distinct entrance and exit columns.
+The [graph model](../../src/app/level/shafts/model.crs) defines the maximum
+consecutive cross-tunnel count and derives the supported length range from it.
+The lower bound requires at least one cross tunnel so the endpoint columns differ.
+The upper bound adds the cross-tunnel capacity of all internal layers to the
+axial distance. Requests outside this range produce an error.
 
 Choose the entrance column and cycle direction with the seed. Divide the
 cross-tunnel budget among the internal layers with seeded bounded draws:
 
-1. Give each layer a lower bound of `floor(N / 6)` steps.
-2. For each layer, calculate the interval that leaves enough capacity and the
-   lower bound for every remaining layer.
-3. Draw its length from that interval. The last layer uses the remainder.
+1. Calculate how many cross tunnels the remaining layers can hold.
+2. Set the current layer's lower bound to the steps that cannot fit later,
+   or zero when all remaining steps can fit later.
+3. Set its upper bound to the smaller of the remaining budget and the
+   consecutive cross-tunnel limit.
+4. Draw its length from that interval. The last layer uses the remainder.
 
-This gives different descent positions across seeds. No draw can make the
-remaining budget impossible. Each layer uses at most 63 edges, so its path is
-simple. Stations on different layers have different IDs.
+No draw can make the remaining budget impossible. Some layers can have no
+cross tunnels, which gives a longer continuous shaft run. Transfer depths vary
+with the seed. The main route cannot exceed the cross-tunnel limit between
+shaft segments.
 
-Normally all layers follow the same cycle direction. The final column is then
-`N` steps along the cycle from the entrance. When `N` is a multiple of 64,
-reverse direction after the first internal layer. Exclude 32 from that layer's
-length draw. The only positive multiples in the supported range are 64 and
-128. Their lower bounds exclude zero, and the maximum excludes 64. Thus the
-signed displacement `2 * first_length - N` cannot be zero modulo 64.
-Entrance and exit columns always differ.
+All layers follow the same column-cycle direction. The total lateral budget
+is positive and smaller than the cycle, so entrance and exit columns differ.
+The route never returns to an earlier column. Consecutive axial passages can
+use the same column at different depths without repeating a station.
 
 Open the terminal passages and record every main-route station. Leave every
 other candidate passage closed. Endpoints are selected with the route; they
@@ -198,10 +200,10 @@ allocation or graph search in the frame loop.
 ## Verification
 
 Run `crust tests.crs shaft-grid`. This focused test builds no geometry and starts
-no renderer. It checks every supported length across seeds, including the
-cycle-length multiples that require reversal. Checks include:
+no renderer. It checks every supported length across seeds. Checks include:
 
 - Exact path cost and no repeated main-route station.
+- Outward shaft travel and the consecutive cross-tunnel limit.
 - Independent BFS over expanded unit-edge adjacency.
 - Reachability equal to the selected set, tree topology, and closed unused ends.
 - Distinct endpoint columns and deterministic replay.

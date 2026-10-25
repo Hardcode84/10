@@ -2,6 +2,7 @@ const SHAFT_GRID_WIDTH: u32 = 8u32;
 const SHAFT_GRID_LAYERS: u32 = 5u32;
 const SHAFT_GRID_SUBDIVISIONS: u32 = 3u32;
 const SHAFT_GRID_SPAN: f32 = 125f32;
+const SHAFT_GRID_CROSS_RUN_LIMIT: u32 = 2u32;
 const SHAFT_GRID_NONE: u32 = 0xffffffffu32;
 fn shaft_grid_columns() -> u32 {
     return SHAFT_GRID_WIDTH * SHAFT_GRID_WIDTH;
@@ -31,9 +32,7 @@ fn shaft_grid_length_min() -> u32 {
     return shaft_grid_axial_distance() + 1u32;
 }
 fn shaft_grid_length_max() -> u32 {
-    return shaft_grid_axial_distance() + (SHAFT_GRID_LAYERS - 2u32) * (
-        shaft_grid_columns() - 1u32
-    );
+    return shaft_grid_axial_distance() + (SHAFT_GRID_LAYERS - 2u32) * SHAFT_GRID_CROSS_RUN_LIMIT;
 }
 record ShaftGridOptions {
     length: u32;
@@ -42,9 +41,9 @@ record ShaftGridOptions {
 }
 fn shaft_grid_defaults() -> ShaftGridOptions {
     return make ShaftGridOptions {
-        length: 60u32,
-        branches: 3u32,
-        branch_length: 2u32
+        length: 15u32,
+        branches: 2u32,
+        branch_length: 1u32
     };
 }
 record ShaftPassage {

@@ -86,6 +86,8 @@ fn shaft_test_path(grid: read ShaftGrid, length: u32) -> bool {
     }
     generation_words_fill(mut visited, 0u32);
     var cost: u32 = 0u32;
+    var cross_run: u32 = 0u32;
+    var axials: u32 = 0u32;
     var i: u32 = 0u32;
     while i < shaft_grid_path_count(read grid) {
         var node: u32 = shaft_grid_path(read grid, i);
@@ -102,11 +104,25 @@ fn shaft_test_path(grid: read ShaftGrid, length: u32) -> bool {
             if !edge.open || !edge.required {
                 return error("main route misses a passage");
             }
+            if edge.cost == 1u32 {
+                cross_run = cross_run + 1u32;
+                if cross_run > SHAFT_GRID_CROSS_RUN_LIMIT {
+                    return error("main route chains too many cross tunnels");
+                }
+            } else {
+                cross_run = 0u32;
+                axials = axials + 1u32;
+                if node != previous + shaft_grid_columns() {
+                    return error("main route must descend between layers");
+                }
+            }
             cost = cost + edge.cost;
         }
         i = i + 1u32;
     }
-    return cost == length || error("main route length is not exact");
+    return (cost == length || error("main route length is not exact")) && (
+        axials == SHAFT_GRID_LAYERS - 1u32 || error("main route misses shaft travel")
+    );
 }
 fn shaft_test_branch(grid: read ShaftGrid, root: u32, first: u32, limit: u32) -> bool {
     var previous: u32 = root;
@@ -264,7 +280,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
         return 1i32;
     }
     var seed: u32 = 0u32;
-    while seed < 16u32 {
+    while seed < 64u32 {
         var options: ShaftGridOptions = shaft_grid_defaults();
         if !shaft_test_seed(seed, options) {
             return 1i32;
