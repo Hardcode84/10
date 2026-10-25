@@ -115,8 +115,10 @@ ends and vary the other cap families where their machine role fits.
 ##### Route construction
 
 The [shaft-grid generator design](shaft-grid.md) specifies station layers,
-unit-edge distance, seeded construction, and the guaranteed minimum route length.
-The small route below illustrates content roles; it is not the generator algorithm.
+unit-edge distance, seeded construction, and the exact route length and short dead-end limits.
+The small route below illustrates content roles. The standalone generator uses
+one main route and short dead ends; it does not generate the alternate routes
+in this broader content example.
 
 Build the route as a graph of shaft sections and cross tunnels before adding
 surface detail. An axial edge joins successive open sections in one shaft.

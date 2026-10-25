@@ -1,6 +1,6 @@
 // Run: crust demo.crs levels/shafts.crs --seed N
-// A radial shaft region with a guaranteed minimum route distance.
-// The graph defaults set the minimum distance and branch limits.
+// A radial shaft region with an exact route distance.
+// The graph defaults set the exact distance and short dead-end limits.
 // The bearing cap is the entrance. The offset outlet is the exit.
 // Fans are stopped. Closed caps and octagonal doors seal unused connections.
 fn demo_room_build(

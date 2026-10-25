@@ -5,18 +5,6 @@ fn shaft_cycle_next(grid: read ShaftGrid, previous: u32, station: u32) -> u32 {
     }
     return node.first;
 }
-fn shaft_cycle_arc(grid: read ShaftGrid, start: u32, next: u32, finish: u32) -> u32 {
-    var previous: u32 = start;
-    var node: u32 = next;
-    var distance: u32 = 0u32;
-    while previous != finish {
-        distance = distance + shaft_passage(read grid, shaft_grid_between(previous, node)).cost;
-        var after: u32 = shaft_cycle_next(read grid, previous, node);
-        previous = node;
-        node = after;
-    }
-    return distance;
-}
 fn shaft_grid_reach(grid: mut ShaftGrid, station: u32) -> unit {
     var node: ShaftStation = shaft_station(read grid, station);
     node.reached = true;
@@ -37,40 +25,87 @@ fn shaft_grid_path_append(grid: mut ShaftGrid, node: u32) -> unit {
     shaft_grid_record_path(mut grid, node);
     shaft_grid_reach(mut grid, node);
 }
-fn shaft_grid_initial_path(grid: mut ShaftGrid) -> unit {
-    var start: u32 = shaft_grid_entrance(read grid) + shaft_grid_columns();
-    var finish: u32 = shaft_grid_exit(read grid) - shaft_grid_columns();
-    var node: ShaftStation = shaft_station(read grid, start);
-    var arc: u32 = shaft_cycle_arc(read grid, start, node.first, finish);
-    var next: u32 = node.first;
-    if arc * 2u32 < shaft_grid_cycle_length(read grid) {
-        next = node.second;
-    }
-    if arc * 2u32 == shaft_grid_cycle_length(read grid) && shaft_grid_random(mut grid, 2u32) != 0u32 {
-        next = node.second;
-    }
-    var entrance: u32 = shaft_grid_entrance(read grid);
-    shaft_grid_path_append(mut grid, entrance);
-    shaft_grid_path_append(mut grid, start);
+fn shaft_grid_layer_path(
+    grid: mut ShaftGrid,
+    start: u32,
+    next: u32,
+    layer: u32,
+    count: u32
+) -> u32 {
     var previous: u32 = start;
-    while previous != finish {
-        shaft_grid_path_append(mut grid, next);
-        var after: u32 = shaft_cycle_next(read grid, previous, next);
-        previous = next;
-        next = after;
+    var current: u32 = next;
+    var i: u32 = 0u32;
+    while i < count {
+        shaft_grid_path_append(mut grid, current + (layer - 1u32) * shaft_grid_columns());
+        var after: u32 = shaft_cycle_next(read grid, previous, current);
+        previous = current;
+        current = after;
+        i = i + 1u32;
     }
-    var destination: u32 = shaft_grid_exit(read grid);
-    shaft_grid_path_append(mut grid, destination);
+    return current;
 }
-fn shaft_grid_endpoints(grid: mut ShaftGrid) -> unit {
-    var entrance: u32 = shaft_grid_random(mut grid, shaft_grid_columns());
-    var exit_column: u32 = shaft_grid_random(mut grid, shaft_grid_columns() - 1u32);
-    if exit_column >= entrance {
-        exit_column = exit_column + 1u32;
+fn shaft_grid_layer_length(
+    grid: mut ShaftGrid,
+    remaining: u32,
+    layers: u32,
+    minimum: u32,
+    avoid_half: bool
+) -> u32 {
+    var maximum: u32 = shaft_grid_columns() - 1u32;
+    var low: u32 = minimum;
+    if remaining > (layers - 1u32) * maximum + low {
+        low = remaining - (layers - 1u32) * maximum;
     }
-    shaft_grid_set_endpoints(
-        mut grid,
-        entrance,
-        (SHAFT_GRID_LAYERS - 1u32) * shaft_grid_columns() + exit_column
-    );
+    var high: u32 = remaining - (layers - 1u32) * minimum;
+    if high > maximum {
+        high = maximum;
+    }
+    var forbidden: u32 = shaft_grid_columns() / 2u32;
+    var skip: bool = avoid_half && low <= forbidden && high >= forbidden;
+    var choices: u32 = high - low + 1u32;
+    if skip {
+        choices = choices - 1u32;
+    }
+    var count: u32 = low + shaft_grid_random(mut grid, choices);
+    if skip && count >= forbidden {
+        count = count + 1u32;
+    }
+    return count;
+}
+fn shaft_grid_initial_path(grid: mut ShaftGrid, target_length: u32) -> unit {
+    var entrance: u32 = shaft_grid_random(mut grid, shaft_grid_columns());
+    var start: u32 = entrance + shaft_grid_columns();
+    var next: u32 = shaft_station(read grid, start).first;
+    if shaft_grid_random(mut grid, 2u32) != 0u32 {
+        next = shaft_station(read grid, start).second;
+    }
+    shaft_grid_path_append(mut grid, entrance);
+    var lateral: u32 = target_length - shaft_grid_axial_distance();
+    var layers: u32 = SHAFT_GRID_LAYERS - 2u32;
+    var remaining: u32 = lateral;
+    var minimum: u32 = lateral / (2u32 * layers);
+    var layer: u32 = 1u32;
+    while layer <= layers {
+        var count: u32 = shaft_grid_layer_length(
+            mut grid,
+            remaining,
+            layers - layer + 1u32,
+            minimum,
+            layer == 1u32 && lateral % shaft_grid_columns() == 0u32
+        );
+        remaining = remaining - count;
+        shaft_grid_path_append(mut grid, start + (layer - 1u32) * shaft_grid_columns());
+        next = shaft_grid_layer_path(mut grid, start, next, layer, count);
+        start = shaft_grid_path(read grid, shaft_grid_path_count(read grid) - 1u32) - (
+            layer - 1u32
+        ) * shaft_grid_columns();
+        if layer == 1u32 && lateral % shaft_grid_columns() == 0u32 {
+            next = shaft_cycle_next(read grid, next, start);
+        }
+        layer = layer + 1u32;
+    }
+    var destination: u32 = start + layers * shaft_grid_columns();
+    shaft_grid_path_append(mut grid, destination);
+    shaft_grid_set_endpoints(mut grid, entrance, destination);
+    shaft_grid_set_distance(mut grid, target_length);
 }

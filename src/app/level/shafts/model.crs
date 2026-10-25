@@ -22,24 +22,29 @@ fn shaft_grid_nodes() -> u32 {
     return shaft_grid_stations() + shaft_grid_axials() * (SHAFT_GRID_SUBDIVISIONS - 1u32);
 }
 fn shaft_grid_blocks() -> u32 {
-    return shaft_grid_columns() / 2u32;
+    return shaft_grid_columns() / 4u32;
 }
-fn shaft_grid_minimum_max() -> u32 {
-    var internal: u32 = shaft_grid_columns() * (SHAFT_GRID_LAYERS - 2u32);
-    var paired: u32 = (SHAFT_GRID_WIDTH / 2u32 - 1u32) * SHAFT_GRID_WIDTH;
-    var axial: u32 = shaft_grid_blocks() * 2u32 * (SHAFT_GRID_LAYERS - 3u32) - 2u32 * paired;
-    return (internal + axial * (SHAFT_GRID_SUBDIVISIONS - 1u32)) / 2u32 + 2u32 * SHAFT_GRID_SUBDIVISIONS;
+fn shaft_grid_axial_distance() -> u32 {
+    return (SHAFT_GRID_LAYERS - 1u32) * SHAFT_GRID_SUBDIVISIONS;
+}
+fn shaft_grid_length_min() -> u32 {
+    return shaft_grid_axial_distance() + 1u32;
+}
+fn shaft_grid_length_max() -> u32 {
+    return shaft_grid_axial_distance() + (SHAFT_GRID_LAYERS - 2u32) * (
+        shaft_grid_columns() - 1u32
+    );
 }
 record ShaftGridOptions {
-    minimum: u32;
-    attachments: u32;
-    shortcuts: u32;
+    length: u32;
+    branches: u32;
+    branch_length: u32;
 }
 fn shaft_grid_defaults() -> ShaftGridOptions {
     return make ShaftGridOptions {
-        minimum: 60u32,
-        attachments: SHAFT_GRID_NONE,
-        shortcuts: SHAFT_GRID_NONE
+        length: 60u32,
+        branches: 3u32,
+        branch_length: 2u32
     };
 }
 record ShaftPassage {

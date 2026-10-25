@@ -6,8 +6,6 @@ resource ShaftGrid {
     entrance: u32;
     exit: u32;
     distance: u32;
-    cycle_length: u32;
-    paired_splices: u32;
     random: u32;
 }
 opaque drop shaft_grid_drop;
@@ -20,8 +18,6 @@ fn shaft_grid_new() -> ShaftGrid {
         entrance: 0u32,
         exit: 0u32,
         distance: 0u32,
-        cycle_length: 0u32,
-        paired_splices: 0u32,
         random: 0u32
     };
 }
@@ -72,12 +68,6 @@ fn shaft_grid_exit(grid: read ShaftGrid) -> u32 {
 fn shaft_grid_distance(grid: read ShaftGrid) -> u32 {
     return grid.distance;
 }
-fn shaft_grid_cycle_length(grid: read ShaftGrid) -> u32 {
-    return grid.cycle_length;
-}
-fn shaft_grid_paired_splices(grid: read ShaftGrid) -> u32 {
-    return grid.paired_splices;
-}
 fn shaft_grid_path_count(grid: read ShaftGrid) -> u32 {
     return grid.path_count;
 }
@@ -90,12 +80,6 @@ fn shaft_grid_set_endpoints(grid: mut ShaftGrid, entrance: u32, destination: u32
 }
 fn shaft_grid_set_distance(grid: mut ShaftGrid, distance: u32) -> unit {
     grid.distance = distance;
-}
-fn shaft_grid_add_cycle_length(grid: mut ShaftGrid, cost: u32) -> unit {
-    grid.cycle_length = grid.cycle_length + cost;
-}
-fn shaft_grid_add_splice(grid: mut ShaftGrid) -> unit {
-    grid.paired_splices = grid.paired_splices + 1u32;
 }
 fn shaft_grid_record_path(grid: mut ShaftGrid, node: u32) -> unit {
     generation_word_set(mut grid.path, grid.path_count, node);
