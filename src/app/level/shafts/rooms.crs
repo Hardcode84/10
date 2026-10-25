@@ -120,12 +120,34 @@ fn shaft_region_radial(
         shaft_region_cursor(generation_word(read rooms, edge.b), destination)
     );
 }
+fn shaft_region_open_stopper(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor,
+    asset: read RoomAsset
+) -> bool {
+    var room: u32 = graph_count(read graph);
+    if !course_room_mesh(
+        read asset,
+        mut graph,
+        mut builder,
+        mut mesh,
+        PREFAB_OCT_STOPPER_OPEN,
+        0u32
+    ) {
+        return false;
+    }
+    level_attach(mut graph, mut cursor, room, asset_name("ENTRY"), asset_name("EXIT"));
+    return true;
+}
 fn shaft_region_lateral(
     graph: mut RoomGraph,
     builder: mut CollisionBuilder,
     mesh: mut Mesh,
     edge: ShaftPassage,
-    rooms: read GenerationWords
+    rooms: read GenerationWords,
+    stopper: read RoomAsset
 ) -> bool {
     var spinward: bool = edge.b - edge.a == 1u32;
     var slot: u32 = 3u32;
@@ -140,6 +162,15 @@ fn shaft_region_lateral(
         generation_word(read rooms, edge.b),
         shaft_region_port(slot - 1u32)
     );
+    if !shaft_region_open_stopper(mut graph, mut builder, mut mesh, mut a, read stopper) || !shaft_region_open_stopper(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut b,
+        read stopper
+    ) {
+        return false;
+    }
     var first: SpaceTransform = level_port_global(read graph, a);
     var last: SpaceTransform = level_port_global(read graph, b);
     var direction: Vec3 = unit_vector(sub(last.origin, first.origin));

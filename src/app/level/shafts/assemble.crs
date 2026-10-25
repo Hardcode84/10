@@ -148,6 +148,15 @@ fn shaft_region_passages(
         }
         i = i + 1u32;
     }
+    var stopper: RoomAsset = room_asset_new();
+    var values: AssetValues = asset_values_new();
+    if !shaft_region_values(PREFAB_OCT_STOPPER_OPEN, mut values) || !course_build(
+        PREFAB_OCT_STOPPER_OPEN,
+        read values,
+        mut stopper
+    ) {
+        return false;
+    }
     i = shaft_grid_axials();
     while i < shaft_grid_edges() {
         var edge: ShaftPassage = shaft_passage(read grid, i);
@@ -156,7 +165,8 @@ fn shaft_region_passages(
             mut builder,
             mut mesh,
             edge,
-            read rooms
+            read rooms,
+            read stopper
         ) {
             return false;
         }
@@ -195,10 +205,10 @@ fn shaft_region_build(
         return false;
     }
     generation_words_fill(mut rooms, SHAFT_GRID_NONE);
-    // One station per selected node, one room per passage, at most six closures per station.
+    // Capacity includes stations, passage rooms, two sleeves per lateral link, and closures.
     if !graph_allocate(
         mut graph,
-        shaft_grid_stations() * 7u32 + shaft_grid_edges() + 1u32,
+        shaft_grid_stations() * 7u32 + shaft_grid_axials() + 6u32 * shaft_grid_lateral_axis() + 1u32,
         seed
     ) {
         return false;

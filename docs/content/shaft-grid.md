@@ -37,7 +37,9 @@ The [placement code](../../src/app/level/shafts/placement.crs) defines the inner
 radius and grid pitch. Grid `x` follows the circumference; grid `y` follows the
 drum axis. Grid `z` increases radial depth. Station centres keep their radial
 position and orientation. Side tunnels use rigid octagonal links with angled
-end faces and four continuous pipes. Their end frames match both stations.
+end faces and four continuous pipes. An open octagonal stopper joins each
+end to its station. The tunnel spans the two stopper exit frames, so station
+positions and pipe connections stay aligned.
 
 Only selected stations and open passages become rooms. Each unused radial
 port ends in a closed bearing, collector, or filter cap. Each unused lateral

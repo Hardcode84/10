@@ -80,12 +80,28 @@ fn shaft_layout_fixture(grid: mut ShaftGrid) -> bool {
     shaft_grid_set_endpoints(mut grid, entrance, destination);
     return true;
 }
+fn shaft_layout_side_connection(portal: CollisionPortal, from: u32, to: u32) -> bool {
+    if from == PREFAB_OCT_TUNNEL_10M {
+        return to == PREFAB_OCT_STOPPER_OPEN || error(
+            "shaft side tunnel bypasses an open stopper"
+        );
+    }
+    if from == PREFAB_SHAFT_STATION && portal.sides == service_oct_profile().shape.sides {
+        return to == PREFAB_OCT_STOPPER || to == PREFAB_OCT_STOPPER_OPEN || error(
+            "shaft side port lacks a stopper"
+        );
+    }
+    return true;
+}
 fn shaft_layout_crossings(scene: read CollisionScene, graph: read RoomGraph) -> bool {
     var i: u32 = 0u32;
     while i < collision_portal_count(read scene) {
         var portal: CollisionPortal = collision_portal(read scene, i);
         var from: u32 = graph_node(read graph, portal.space).kind;
         var to: u32 = graph_node(read graph, portal.destination).kind;
+        if !shaft_layout_side_connection(portal, from, to) {
+            return false;
+        }
         if from != PREFAB_OCT_STOPPER && to != PREFAB_OCT_STOPPER {
             if !shaft_layout_cross(read scene, portal) {
                 print_number(i as i64);
