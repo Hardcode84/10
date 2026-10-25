@@ -5,7 +5,11 @@
 // Match diameter and core-diameter to the adjoining shaft recipes.
 // Width and depth must leave a solid rim around the shaft openings.
 // All ports retain closures until level assembly connects them.
-// Materials: 0 metal shell, 1 shaft caps, 2 spindle, 3 oct caps, 4 dark seams.
+// Four pipes continue from each oct port. pipe-seed selects routes to other ports
+// along wall waypoints. Pipes without a clear port route connect to the spindle.
+// Viewer waypoint mode shows the routing graph.
+// Materials: 0 metal shell, 1 shaft caps, 2 spindle, 3 oct caps, 4 dark seams,
+// 5 service pipes, 6 spindle flanges, 7 leaks.
 fn room_parameter_count() -> u32 {
     return prefab_shaft_station_parameter_count();
 }
