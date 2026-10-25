@@ -151,6 +151,8 @@ fn storage_replace(v: *RenderState, planned: *RenderState) -> bool {
     geometry_copy(&next, v);
     buffers_close(v);
     next.mesh_dirty = true;
+    next.mesh_dirty_begin = 0u32;
+    next.mesh_dirty_end = next.mesh_count;
     *v = next;
     descriptors_update(v);
     return command_reset(v) && commands_record(v);

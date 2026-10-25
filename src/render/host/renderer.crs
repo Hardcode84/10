@@ -157,6 +157,8 @@ fn renderer_complete(v: *RenderState) -> bool {
         return false;
     }
     v -> mesh_dirty = false;
+    v -> mesh_dirty_begin = 0u32;
+    v -> mesh_dirty_end = 0u32;
     v -> instance_map_dirty = false;
     v -> instance_map_count = (v -> mapped as *u32)[INSTANCE_COUNT as usize];
     v -> asset_dirty_begin = 0u32;

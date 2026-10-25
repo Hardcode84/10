@@ -101,4 +101,5 @@ Set numerical budgets from this baseline before extending the implementation.
 
 The [visibility experiment](streaming-experiment.md) measures selection, loading
 waves, retained-list replacement, and rendered output on production scenes. It
-supports a bounded arena prototype. It does not pass the full ownership gate above.
+includes a fixed-arena reuse witness with partial uploads and exact restored
+images. The CPU snapshot and full ownership gate above remains open.

@@ -1,0 +1,131 @@
+// Bounded allocator prototype. The renderer outlives the arena. Its reserved
+// extent remains fixed until renderer shutdown; empty arenas reuse that extent.
+record StreamHandle {
+    index: u32;
+    generation: u64;
+}
+record StreamAllocation {
+    range: MeshRange;
+    live: bool;
+}
+resource StreamArena {
+    owner: *RenderState;
+    allocations: *StreamAllocation;
+    count: u32;
+    first: u32;
+    capacity: u32;
+    used: u32;
+    live: u32;
+    generation: u64;
+}
+opaque drop stream_arena_drop;
+fn stream_arena_new() -> StreamArena {
+    return make StreamArena {
+        owner: null(*RenderState),
+        allocations: null(*StreamAllocation),
+        count: 0u32,
+        first: 0u32,
+        capacity: 0u32,
+        used: 0u32,
+        live: 0u32,
+        generation: 1u64
+    };
+}
+fn stream_arena_drop(arena: mut StreamArena) -> unit {
+    free(arena.allocations as *u8);
+}
+fn stream_arena_hole(input: mut FrameInput, first: u32, count: u32) -> unit {
+    if count == 0u32 {
+        return;
+    }
+    var w: *u32 = input.storage.mapped as *u32;
+    var p: usize = (w[MESH_META as usize] + first * 4u32) as usize;
+    w[p] = count;
+    w[p + 3usize] = 0u32;
+}
+fn stream_arena_reserve(input: mut FrameInput, arena: mut StreamArena, capacity: u32) -> bool {
+    var total: u64 = input.storage.mesh_count as u64 + capacity as u64;
+    if capacity == 0u32 || total > 0xffffffffu64 {
+        return error("invalid arena capacity");
+    }
+    arena.allocations = malloc(capacity as usize * sizeof(StreamAllocation)) as *StreamAllocation;
+    if arena.allocations == null(*StreamAllocation) {
+        return error("arena records allocation failed");
+    }
+    if !retained_reserve(&input.storage, total as u32, input.storage.instance_capacity) {
+        return false;
+    }
+    arena.owner = &input.storage;
+    arena.first = input.storage.mesh_count;
+    arena.capacity = capacity;
+    input.storage.mesh_count = total as u32;
+    stream_arena_hole(mut input, arena.first, capacity);
+    return true;
+}
+fn stream_arena_contains(arena: read StreamArena, handle: StreamHandle) -> bool {
+    return handle.generation == arena.generation && handle.index < arena.count && arena.allocations[
+        handle.index as usize
+    ].live;
+}
+fn stream_arena_load(
+    input: mut FrameInput,
+    arena: mut StreamArena,
+    mesh: read Mesh,
+    source: MeshRange,
+    handle: mut StreamHandle
+) -> bool {
+    if source.count == 0u32 || source.first > mesh.count || source.count > mesh.count - source.first {
+        return error("invalid arena source range");
+    }
+    if source.count > arena.capacity - arena.used {
+        return error("arena capacity exhausted");
+    }
+    var range: MeshRange = mesh_empty_range();
+    input_mesh_write(
+        mut input,
+        read mesh,
+        source.first,
+        source.count,
+        arena.first + arena.used,
+        mut range
+    );
+    arena.allocations[arena.count as usize] = make StreamAllocation {
+        range: range,
+        live: true
+    };
+    handle.index = arena.count;
+    handle.generation = arena.generation;
+    arena.count = arena.count + 1u32;
+    arena.used = arena.used + source.count;
+    arena.live = arena.live + source.count;
+    stream_arena_hole(mut input, arena.first + arena.used, arena.capacity - arena.used);
+    return true;
+}
+fn stream_arena_release(input: mut FrameInput, arena: mut StreamArena, handle: StreamHandle) -> bool {
+    if &input.storage != arena.owner || input_word(read input, INSTANCE_COUNT as usize) != 0u32 {
+        return error("arena release requires idle owner inputs");
+    }
+    if !stream_arena_contains(read arena, handle) {
+        return error("stale arena handle");
+    }
+    var range: MeshRange = arena.allocations[handle.index as usize].range;
+    arena.allocations[handle.index as usize].live = false;
+    arena.live = arena.live - range.count;
+    stream_arena_hole(mut input, range.first, range.count);
+    input.storage.instance_map_dirty = true;
+    return true;
+}
+fn stream_arena_reset(input: mut FrameInput, arena: mut StreamArena) -> bool {
+    if &input.storage != arena.owner || input_word(read input, INSTANCE_COUNT as usize) != 0u32 || arena.live != 0u32 {
+        return error("arena reset requires no live meshes or frame instances");
+    }
+    if arena.generation == 0xffffffffffffffffu64 {
+        return error("arena generation exhausted");
+    }
+    arena.generation = arena.generation + 1u64;
+    arena.count = 0u32;
+    arena.used = 0u32;
+    stream_arena_hole(mut input, arena.first, arena.capacity);
+    input.storage.instance_map_dirty = true;
+    return true;
+}

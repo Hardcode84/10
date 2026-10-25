@@ -16,7 +16,7 @@ fn transfer_test(base: *Options) -> bool {
         var input: FrameInput = renderer_inputs(mut renderer);
         tour_assets(mut input);
         tour_scene(mut input, 320u32, 180u32, 0u32, 1u32);
-        retain_scene(mut input);
+        retain_scene_grouped(mut input);
     }
     if !transfer_measure(&renderer.state) {
         return false;
@@ -25,7 +25,7 @@ fn transfer_test(base: *Options) -> bool {
     (renderer.state.mapped as *u32)[26usize] = 1u32;
     if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) || !transfer_assets(
         mut renderer
-    ) || !transfer_debug(base) {
+    ) || !transfer_mesh_edit(mut renderer) || !transfer_debug(base) {
         return false;
     }
     return transfer_shutdown(&renderer.state);
@@ -238,4 +238,28 @@ fn transfer_debug_record(v: *RenderState) -> bool {
     frame_barrier(v, 2048u32, 64u32, 4096u32, 2048u32);
     readback(v);
     return vk_ok(vkEndCommandBuffer(v -> gpu.commands), "end debug fixture");
+}
+
+fn transfer_mesh_edit(renderer: mut Renderer) -> bool {
+    var first: u32 = 0u32;
+    var count: u32 = 0u32;
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        var meta: u32 = input_word(read input, MESH_META as usize);
+        first = input_word(read input, (meta + 3u32) as usize);
+        count = input_word(read input, (meta + first * 4u32 + 3u32) as usize);
+        if count < 2u32 || first + count >= input.storage.mesh_count {
+            return error("partial upload witness needs an interior multi-triangle mesh");
+        }
+        var p: usize = (
+            input_word(read input, MESH_FLOAT as usize) + (first + count / 2u32) * 15u32
+        ) as usize;
+        input_set_float(mut input, p, input_float(read input, p) + 0.125f32);
+    }
+    if !renderer_draw(&renderer.state) || renderer.state.mesh_upload_bytes != count as u64 * 176u64 || !reference_check(
+        renderer.state.mapped
+    ) {
+        return error("mesh edit did not upload exactly its complete hierarchy");
+    }
+    return renderer_draw(&renderer.state) && renderer.state.mesh_upload_bytes == 0u64;
 }

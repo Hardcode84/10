@@ -574,8 +574,12 @@ flowchart TD
 Identical asset writes do not mark dirty intervals. A successful draw uploads
 changed ranges once. Unchanged meshes, materials, instances, and fonts are not
 uploaded again. Buffer replacement marks persistent ranges for upload into the
-new allocation. Normal window rendering reads no image pixels and reads no
-visibility counts to control subsequent GPU work.
+new allocation. Mesh edits track a dirty interval. Tree preparation expands that
+interval to complete intersecting meshes, rebuilds their trees, and uploads the
+same interval in the five mesh arrays. Separate edits can include unchanged data
+between them. Reserved free extents are skipped during tree construction.
+Normal window rendering reads no image pixels and reads no visibility counts to
+control subsequent GPU work.
 
 ### Reused host and browser storage
 

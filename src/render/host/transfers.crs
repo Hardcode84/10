@@ -190,7 +190,8 @@ fn input_word_dirty(input: mut FrameInput, index: u32) -> unit {
     }
     var mesh: u32 = input_word(read input, MESH_META as usize);
     if index >= mesh && index - mesh < input.storage.mesh_capacity * 4u32 {
-        input.storage.mesh_dirty = true;
+        var mesh_slot: u32 = (index - mesh) / 4u32;
+        retained_dirty(&input.storage, mesh_slot, mesh_slot + 1u32);
     }
     var instances: u32 = input_word(read input, INSTANCE_META as usize);
     if index >= instances && index - instances < input.storage.instance_capacity * 5u32 {
@@ -222,7 +223,8 @@ fn persistent_upload(v: *RenderState) -> unit {
 fn input_float_dirty(input: mut FrameInput, index: u32) -> unit {
     var mesh: u32 = input_word(read input, MESH_FLOAT as usize);
     if index >= mesh && index - mesh < input.storage.mesh_capacity * 15u32 {
-        input.storage.mesh_dirty = true;
+        var mesh_slot: u32 = (index - mesh) / 15u32;
+        retained_dirty(&input.storage, mesh_slot, mesh_slot + 1u32);
     }
     var instances: u32 = input_word(read input, INSTANCE_FLOAT as usize);
     if index >= instances && index - instances < input.storage.instance_capacity * 18u32 {

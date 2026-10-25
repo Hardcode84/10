@@ -133,14 +133,23 @@ fn mesh_trees_prepare(v: *RenderState) -> unit {
     };
     var i: u32 = 0u32;
     while i < v -> mesh_count {
-        b.index[i as usize] = i;
-        i = i + 1u32;
-    }
-    i = 0u32;
-    while i < v -> mesh_count {
-        var count: u32 = w[(w[MESH_META as usize] + i * 4u32 + 3u32) as usize];
-        mesh_tree_node(&b, i * 2u32, i, count, 0xffffffffu32);
-        i = i + count;
+        var header: u32 = w[MESH_META as usize] + i * 4u32;
+        var count: u32 = w[(header + 3u32) as usize];
+        if count == 0u32 {
+            // A reserved free extent has its size in the first header word.
+            i = i + w[header as usize];
+        } else {
+            if i < v -> mesh_dirty_end && i + count > v -> mesh_dirty_begin {
+                var j: u32 = i;
+                while j < i + count {
+                    b.index[j as usize] = j;
+                    j = j + 1u32;
+                }
+                mesh_tree_node(&b, i * 2u32, i, count, 0xffffffffu32);
+                retained_dirty(v, i, i + count);
+            }
+            i = i + count;
+        }
     }
 }
 

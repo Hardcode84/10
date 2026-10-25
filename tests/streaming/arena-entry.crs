@@ -1,0 +1,323 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var options: Launch = uninit;
+    if !game_options_scene(argc, argv, &options, true) {
+        return 2i32;
+    }
+    options.config.headless = true;
+    options.mute = true;
+    return (!stream_arena_experiment(game_session(&options), options.config)) as i32;
+}
+resource StreamArenaRun {
+    arena: StreamArena;
+    persistent: InstanceList;
+    target: u32;
+    source: MeshRange;
+    handle: StreamHandle;
+    pixels: GenerationWords;
+}
+opaque drop stream_arena_run_drop;
+fn stream_arena_run_drop(run: mut StreamArenaRun) -> unit {}
+fn stream_arena_setup(session: mut GameSession, run: mut StreamArenaRun) -> bool {
+    var input: FrameInput = renderer_inputs(mut session.renderer);
+    input_clear_meshes(mut input);
+    var i: u32 = 0u32;
+    while i < graph_count(read session.control.graph) {
+        var range: MeshRange = mesh_empty_range();
+        var source: MeshRange = graph_node(read session.control.graph, i).mesh;
+        if i != run.target && !input_mesh_slice(
+            mut input,
+            read session.room_mesh,
+            source.first,
+            source.count,
+            mut range
+        ) {
+            return false;
+        }
+        if !instances_append(mut run.persistent, mesh_identity(range, i)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return graph_doors_upload(mut session.control.graph, mut input) && stream_arena_reserve(
+        mut input,
+        mut run.arena,
+        run.source.count * 2u32
+    ) && stream_arena_load(
+        mut input,
+        mut run.arena,
+        read session.room_mesh,
+        run.source,
+        mut run.handle
+    );
+}
+fn stream_arena_world(session: mut GameSession, run: read StreamArenaRun, visible: bool) -> bool {
+    instances_clear(mut session.world);
+    var i: u32 = 0u32;
+    while i < instances_count(read run.persistent) {
+        var instance: MeshInstance = instances_get(read run.persistent, i);
+        if i != run.target || visible {
+            if i == run.target {
+                if !stream_arena_contains(read run.arena, run.handle) {
+                    return error("stale arena instance");
+                }
+                instance.mesh = run.arena.allocations[run.handle.index as usize].range;
+            }
+            if !instances_append(mut session.world, instance) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn stream_arena_frame(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig
+) -> bool {
+    var prediction: Prediction = prediction_new();
+    game_prepare(read scene, mut session, read loop, config, read prediction);
+    var frame: SubmittedFrame = frame_submit(mut session.renderer);
+    var state: i32 = frame_poll(mut frame);
+    while state == 0i32 {
+        frame_idle(mut frame);
+        state = frame_poll(mut frame);
+    }
+    return state == 1i32;
+}
+fn stream_arena_check(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    run: mut StreamArenaRun,
+    step: u32,
+    visible: bool,
+    upload: u64
+) -> bool {
+    if !stream_arena_world(mut session, read run, visible) {
+        return false;
+    }
+    var start: u64 = now();
+    if !stream_arena_frame(read scene, mut session, read loop, config) {
+        return false;
+    }
+    var elapsed: u64 = now() - start;
+    var changed: u32 = stream_pixels(
+        &session.renderer.state,
+        mut run.pixels,
+        config.width * config.height,
+        false
+    );
+    stream_number(step as u64, false);
+    stream_number(run.arena.live as u64 * 176u64, false);
+    stream_number((run.arena.used - run.arena.live) as u64 * 176u64, false);
+    stream_number((run.arena.capacity - run.arena.used) as u64 * 176u64, false);
+    stream_number(session.renderer.state.mesh_upload_bytes, false);
+    stream_number(elapsed, false);
+    stream_number(changed as u64, true);
+    if (changed == 0u32) != visible {
+        return error("arena image mismatch");
+    }
+    if upload != 0xffffffffffffffffu64 && session.renderer.state.mesh_upload_bytes != upload {
+        return error("arena uploaded unchanged mesh data");
+    }
+    return true;
+}
+fn stream_arena_advance(session: mut GameSession, run: mut StreamArenaRun, reset: bool) -> bool {
+    var old: StreamHandle = run.handle;
+    var input: FrameInput = renderer_inputs(mut session.renderer);
+    input_frame(mut input);
+    if !stream_arena_release(mut input, mut run.arena, old) {
+        return false;
+    }
+    if reset && !stream_arena_reset(mut input, mut run.arena) {
+        return false;
+    }
+    if !stream_arena_load(
+        mut input,
+        mut run.arena,
+        read session.room_mesh,
+        run.source,
+        mut run.handle
+    ) {
+        return false;
+    }
+    if stream_arena_contains(read run.arena, old) {
+        return error("released arena handle became valid");
+    }
+    return true;
+}
+fn stream_arena_experiment(session: GameSession, config: GameConfig) -> bool {
+    var scene: CollisionScene = collision_new();
+    var loop: GameLoop = make GameLoop {
+        sparks: sparks_new(),
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    if !game_run_setup(mut session, mut scene, mut loop, config) {
+        return false;
+    }
+    if graph_count(read session.control.graph) == 0u32 {
+        return error("arena experiment requires a room graph");
+    }
+    var run: StreamArenaRun = make StreamArenaRun {
+        arena: stream_arena_new(),
+        persistent: instances_new(),
+        target: 0u32,
+        source: graph_node(read session.control.graph, 0u32).mesh,
+        handle: make StreamHandle {
+            index: 0u32,
+            generation: 0u64
+        },
+        pixels: generation_words_new()
+    };
+    stream_arena_select(
+        read scene,
+        read session.control.graph,
+        mut loop.trial.drone,
+        mut run
+    );
+    session.renderer.state.read_pixels = true;
+    if !generation_words_allocate(mut run.pixels, config.width * config.height) || !stream_arena_frame(
+        read scene,
+        mut session,
+        read loop,
+        config
+    ) {
+        return false;
+    }
+    stream_pixels(
+        &session.renderer.state,
+        mut run.pixels,
+        config.width * config.height,
+        true
+    );
+    puts("target_room,target_triangles,arena_bytes");
+    stream_number(run.target as u64, false);
+    stream_number(run.source.count as u64, false);
+    stream_number(run.source.count as u64 * 352u64, true);
+    if !stream_arena_setup(mut session, mut run) {
+        return false;
+    }
+    puts("step,live_bytes,trapped_bytes,free_bytes,upload_bytes,frame_ns,pixel_changes");
+    if !stream_arena_check(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        mut run,
+        0u32,
+        true,
+        0xffffffffffffffffu64
+    ) || !stream_arena_check(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        mut run,
+        1u32,
+        true,
+        0u64
+    ) {
+        return false;
+    }
+    if !stream_arena_check(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        mut run,
+        2u32,
+        false,
+        0u64
+    ) {
+        return false;
+    }
+    if !stream_arena_advance(mut session, mut run, false) || !stream_arena_check(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        mut run,
+        3u32,
+        true,
+        run.source.count as u64 * 176u64
+    ) {
+        return false;
+    }
+    if !stream_arena_rejections(mut session, mut run) {
+        return false;
+    }
+    if !stream_arena_advance(mut session, mut run, true) || !stream_arena_check(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        mut run,
+        4u32,
+        true,
+        run.source.count as u64 * 176u64
+    ) {
+        return false;
+    }
+    return stream_arena_check(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        mut run,
+        5u32,
+        true,
+        0u64
+    ) && game_finish(mut session);
+}
+
+fn stream_arena_rejections(session: mut GameSession, run: mut StreamArenaRun) -> bool {
+    var input: FrameInput = renderer_inputs(mut session.renderer);
+    input_frame(mut input);
+    var rejected: StreamHandle = run.handle;
+    if stream_arena_load(
+        mut input,
+        mut run.arena,
+        read session.room_mesh,
+        run.source,
+        mut rejected
+    ) {
+        return error("arena accepted an over-budget load");
+    }
+    if stream_arena_reset(mut input, mut run.arena) {
+        return error("arena reset a live allocation");
+    }
+    var stale: StreamHandle = make StreamHandle {
+        index: 0u32,
+        generation: run.arena.generation
+    };
+    if stream_arena_release(mut input, mut run.arena, stale) {
+        return error("arena accepted a duplicate release");
+    }
+    return stream_arena_contains(read run.arena, run.handle) && run.arena.live == run.source.count && run.arena.used == run.arena.capacity;
+}
+
+fn stream_arena_select(
+    scene: read CollisionScene,
+    graph: read RoomGraph,
+    drone: mut Drone,
+    run: mut StreamArenaRun
+) -> unit {
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, i);
+        if node.mesh.count > run.source.count && node.count != 0u32 {
+            if stream_camera(read scene, read graph, node.first, mut drone) {
+                run.target = i;
+                run.source = node.mesh;
+            }
+        }
+        i = i + 1u32;
+    }
+}

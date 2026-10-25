@@ -111,3 +111,51 @@ Raw results: [shaft region](measurements/streaming-shafts.txt),
 [1 km shaft](measurements/streaming-shaft-1km.txt),
 [door chain](measurements/streaming-doors-64.txt).
 Runner: [tests/streaming](../../tests/streaming).
+
+## Fixed-arena witness
+
+```sh
+crust tests.crs arena levels/shafts.crs --width 960 --height 540
+crust tests.crs arena levels/prefabs.crs --width 960 --height 540
+```
+
+This second experiment reserves one fixed extent inside the current mesh buffers.
+The allocator stays in test code. It uses bump allocation, live allocation records,
+and generation handles. The rest of the scene uses ordinary retained meshes.
+Collision, source meshes, and textures stay resident.
+
+Select the largest room with a valid portal approach. Compare its arena rendering
+with the full-residency image. Hide the room as a negative control, release its
+allocation, and reload it into the second half of the arena. Then release it,
+reset the empty arena, and reload it at the original offset. Compare each restored
+image exactly. Reject the old handle after release and after generation reuse.
+Also reject an over-budget load, a reset with live data, and a duplicate release;
+verify that the live allocation survives those rejected operations.
+
+Submit through `SubmittedFrame`. Release and reset require exclusive renderer
+inputs after retirement and no queued instances. Existing ownership checks reject
+input access during a submitted frame. No worker waits for this GPU completion.
+
+| Scene | Room triangles | Initial full mesh upload, MB | Room reload, MB | Warm or hidden-room mesh upload |
+|---|---:|---:|---:|---:|
+| Shaft region | 4744 | 25.93 | 0.835 | 0 |
+| Prefab course | 17236 | 12.23 | 3.034 | 0 |
+
+Both restored images match exactly. Removing the target room changes 482467
+pixels in each selected view. With a second allocation live, the first half of
+the arena remains trapped. Empty-arena reset recovers it. Arena backing capacity
+stays allocated; this proves reuse, not release of a GPU buffer to the driver.
+
+The shared renderer now rebuilds and uploads the dirty mesh interval. A regular
+renderer regression edits an interior triangle in a multi-triangle mesh, checks
+the exact hierarchy upload size and rendered reference, then checks zero mesh
+uploads on the next frame. Buffer replacement still requires a full upload.
+
+Proceed to the CPU snapshot ownership boundary before a multi-arena renderer.
+The allocator has no shipping consumer yet. Multiple independent GPU buffers,
+room collision reclamation, attached-hook pins, and asynchronous asset generation
+still require the complete gate above. Multiple separated edits currently merge
+into one dirty interval; use per-arena intervals when adding independent arenas.
+
+Raw results: [shaft arena](measurements/arena-shafts.txt),
+[prefab arena](measurements/arena-prefabs.txt).

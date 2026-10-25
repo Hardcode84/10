@@ -15,6 +15,8 @@ record RenderState {
     mesh_count: u32;
     instance_capacity: u32;
     mesh_dirty: bool;
+    mesh_dirty_begin: u32;
+    mesh_dirty_end: u32;
     instance_map_dirty: bool;
     instance_map_count: u32;
     instance_dirty: bool;

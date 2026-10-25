@@ -88,7 +88,27 @@ fn input_mesh_slice(
     ) {
         return error("retained mesh storage exhausted");
     }
-    result.first = input.storage.mesh_count;
+    input_mesh_write(
+        mut input,
+        read mesh,
+        start,
+        count,
+        input.storage.mesh_count,
+        mut result
+    );
+    input.storage.mesh_count = total as u32;
+    return true;
+}
+// Requires a valid source slice and a reserved destination extent.
+fn input_mesh_write(
+    input: mut FrameInput,
+    mesh: read Mesh,
+    start: u32,
+    count: u32,
+    destination: u32,
+    result: mut MeshRange
+) -> unit {
+    result.first = destination;
     result.count = count;
     result.bounds = mesh.bounds;
     var first: u32 = input_word(read input, MESH_FLOAT as usize) + result.first * 15u32;
@@ -126,9 +146,7 @@ fn input_mesh_slice(
     if count != 0u32 {
         input_set_word(mut input, (metadata + 3u32) as usize, count);
     }
-    input.storage.mesh_count = total as u32;
-    input.storage.mesh_dirty = true;
-    return true;
+    retained_dirty(&input.storage, destination, destination + count);
 }
 fn instance_bounds(input: mut FrameInput, offset: u32, instance: MeshInstance) -> unit {
     var row: usize = 0usize;
@@ -236,6 +254,8 @@ fn input_clear_meshes(input: mut FrameInput) -> unit {
     input_frame(mut input);
     input.storage.mesh_count = 0u32;
     input.storage.mesh_dirty = true;
+    input.storage.mesh_dirty_begin = 0u32;
+    input.storage.mesh_dirty_end = 0u32;
 }
 
 fn range_vertex_bounds(range: mut MeshRange, vertex: MeshVertex, first: bool) -> unit {
@@ -254,4 +274,17 @@ fn range_vertex_bounds(range: mut MeshRange, vertex: MeshVertex, first: bool) ->
         }
         axis = axis + 1usize;
     }
+}
+
+fn retained_dirty(v: *RenderState, begin: u32, end: u32) -> unit {
+    if begin == end {
+        return;
+    }
+    if !v -> mesh_dirty || begin < v -> mesh_dirty_begin {
+        v -> mesh_dirty_begin = begin;
+    }
+    if !v -> mesh_dirty || end > v -> mesh_dirty_end {
+        v -> mesh_dirty_end = end;
+    }
+    v -> mesh_dirty = true;
 }

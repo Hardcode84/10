@@ -19,12 +19,14 @@ fn retained_transfer(v: *RenderState, slot: u32, count: u32, floats: bool, uploa
 }
 fn retained_upload(v: *RenderState) -> unit {
     if v -> mesh_dirty {
-        retained_transfer(v, MESH_FLOAT, v -> mesh_count * 15u32, true, true);
-        retained_transfer(v, MESH_META, v -> mesh_count * 4u32, false, true);
-        retained_transfer(v, MESH_INDEX, v -> mesh_count, false, true);
-        retained_transfer(v, MESH_NODES, v -> mesh_count * 10u32, false, true);
-        retained_transfer(v, MESH_BOUNDS, v -> mesh_count * 14u32, true, true);
-        v -> mesh_upload_bytes = v -> mesh_count as u64 * 176u64;
+        var first: u32 = v -> mesh_dirty_begin;
+        var count: u32 = v -> mesh_dirty_end - first;
+        retained_upload_span(v, MESH_FLOAT, first * 15u32, count * 15u32, true);
+        retained_upload_span(v, MESH_META, first * 4u32, count * 4u32, false);
+        retained_upload_span(v, MESH_INDEX, first, count, false);
+        retained_upload_span(v, MESH_NODES, first * 10u32, count * 10u32, false);
+        retained_upload_span(v, MESH_BOUNDS, first * 14u32, count * 14u32, true);
+        v -> mesh_upload_bytes = count as u64 * 176u64;
     }
     if !v -> instance_dirty {
         return;
@@ -59,4 +61,18 @@ fn retained_readback(v: *RenderState) -> unit {
         (w[META as usize] as u64 + 1u64) * 4u64,
         w[3usize] as u64 * 16u64
     );
+}
+
+fn retained_upload_span(
+    v: *RenderState,
+    slot: u32,
+    first: u32,
+    count: u32,
+    floats: bool
+) -> unit {
+    var offset: u64 = (v -> mapped as *u32)[slot as usize] as u64 + first as u64 + 1u64;
+    if floats {
+        offset = offset + v -> words as u64 + 1u64;
+    }
+    copy_region(v, v -> staging, v -> buffer, offset * 4u64, count as u64 * 4u64);
 }

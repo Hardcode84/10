@@ -1,0 +1,17 @@
+Shaft region base route / rooms / source triangles
+20
+107
+145850
+AMD Radeon PRO W7900 Dual Slot  (RADV NAVI31)
+target_room,target_triangles,arena_bytes
+56,4744,1669888
+step,live_bytes,trapped_bytes,free_bytes,upload_bytes,frame_ns,pixel_changes
+0,834944,0,834944,25931488,52472374,0
+1,834944,0,834944,0,4546702,0
+2,834944,0,834944,0,1905178,482467
+3,834944,834944,0,834944,6257499,0
+arena capacity exhausted
+arena reset requires no live meshes or frame instances
+stale arena handle
+4,834944,0,834944,834944,6303398,0
+5,834944,0,834944,0,4527443,0
