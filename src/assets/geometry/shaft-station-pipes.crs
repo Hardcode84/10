@@ -78,7 +78,11 @@ fn station_pipe_wall(
             );
             target.y = layout.height * 0.5f32;
             var node: u32 = hub_lane_point(mut router, target);
-            if !pipe_route_link(mut router, node, corner + 8u32) || !pipe_route_via(
+            if !pipe_route_link(mut router, node, corner) || !pipe_route_link(
+                mut router,
+                node,
+                corner + 4u32
+            ) || !pipe_route_link(mut router, node, corner + 8u32) || !pipe_route_via(
                 mut router,
                 mouth,
                 node,
@@ -150,13 +154,10 @@ fn station_service_pipes(asset: mut RoomAsset, layout: StationPipeLayout, seed: 
         }
         face = face + 1u32;
     }
-    if !station_pipe_sinks(mut router, layout) || !pipe_route_solve(
+    if !station_pipe_bypass(mut router, layout, seed % 2u32, (seed / 2u32) % 4u32) || !station_pipe_sinks(
         mut router,
-        mut graph,
-        layout.bend,
-        oct_pipe_radius(),
-        seed
-    ) || !pipe_graph_mesh(
+        layout
+    ) || !pipe_route_solve(mut router, mut graph, layout.bend, oct_pipe_radius(), seed) || !pipe_graph_mesh(
         mut asset,
         read graph,
         make TubeStyle {
@@ -209,6 +210,34 @@ fn station_pipe_mounts(
             }
         }
         i = i + 1u32;
+    }
+    return true;
+}
+fn station_pipe_bypass(
+    router: mut PipeRouter,
+    layout: StationPipeLayout,
+    layer: u32,
+    gap: u32
+) -> bool {
+    var first: u32 = route_nodes_count(read router);
+    var inner: StationPipeLayout = layout;
+    inner.width = inner.width - 2f32;
+    inner.depth = inner.depth - 2f32;
+    if !station_pipe_ring(mut router, inner, layer) {
+        return false;
+    }
+    var corner: u32 = 0u32;
+    while corner < 4u32 {
+        if (
+            corner != gap && !pipe_route_link(
+                mut router,
+                first + corner,
+                first + (corner + 1u32) % 4u32
+            )
+        ) || !pipe_route_link(mut router, first + corner, layer * 4u32 + corner) {
+            return false;
+        }
+        corner = corner + 1u32;
     }
     return true;
 }

@@ -47,6 +47,7 @@ fn pipe_route_via(router: mut PipeRouter, a: u32, b: u32, position: Vec3) -> boo
     );
     return pipe_route_link(mut router, a, middle) && pipe_route_link(mut router, middle, b);
 }
+// Optional terminations leave shared junctions available for exit routes.
 fn route_mark_mouth(router: mut PipeRouter, mouth: u32) -> unit {
     var previous: u32 = PIPE_NO_EXIT;
     var current: u32 = mouth;
@@ -55,8 +56,6 @@ fn route_mark_mouth(router: mut PipeRouter, mouth: u32) -> unit {
         if current != mouth && (node.exit_id != PIPE_NO_EXIT || node.sink) {
             return;
         }
-        node.owner = mouth;
-        route_nodes_set(mut router, current, node);
         var next: u32 = PIPE_NO_EXIT;
         var degree: u32 = 0u32;
         var edge: u32 = node.head;
@@ -68,6 +67,11 @@ fn route_mark_mouth(router: mut PipeRouter, mouth: u32) -> unit {
             }
             edge = arc.next;
         }
+        if current != mouth && degree > 1u32 && route_nodes_get(read router, mouth).sink {
+            return;
+        }
+        node.owner = mouth;
+        route_nodes_set(mut router, current, node);
         if degree != 1u32 {
             return;
         }

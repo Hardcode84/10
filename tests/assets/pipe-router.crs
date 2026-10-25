@@ -115,7 +115,7 @@ fn asset_route_detour(seed: u32) -> bool {
     ) || error("pipe router failed to take the clear detour");
 }
 fn asset_test_pipe_router() -> bool {
-    return asset_route_sink() && asset_route_random_destinations() && asset_route_rejection(
+    return asset_route_optional_sink_branch() && asset_route_sink() && asset_route_random_destinations() && asset_route_rejection(
         false,
         false
     ) && asset_route_rejection(true, true) && asset_route_detour(1u32) && asset_route_detour(
@@ -228,4 +228,35 @@ fn asset_route_random_destinations() -> bool {
     return short_pair && long_pair || error(
         "pipe destinations were restricted to the nearest exit"
     );
+}
+fn asset_route_optional_sink_branch() -> bool {
+    var router: PipeRouter = pipe_router_new();
+    var graph: PipeGraph = pipe_graph_new();
+    var radial: Vec3 = vec(0f32, 0f32, 1f32);
+    var left: u32 = pipe_route_point(mut router, vec(-4f32, 0f32, 0f32), radial, 1u32);
+    var right: u32 = pipe_route_point(mut router, vec(4f32, 0f32, 0f32), radial, 2u32);
+    var junction: u32 = hub_lane_point(mut router, vec(0f32, 0f32, 0f32));
+    var sink: u32 = hub_lane_sink(mut router, vec(0f32, 4f32, 0f32));
+    if !pipe_route_link(mut router, left, junction) || !pipe_route_link(
+        mut router,
+        right,
+        junction
+    ) || !pipe_route_link(mut router, sink, junction) || !pipe_route_solve(
+        mut router,
+        mut graph,
+        0.5f32,
+        0.2f32,
+        1u32
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < pipe_node_count(read graph) {
+        var node: PipeNode = pipe_node(read graph, i);
+        if node.degree == 1u32 && node.exit_id == PIPE_NO_EXIT {
+            return error("optional sink claimed a shared routing junction");
+        }
+        i = i + 1u32;
+    }
+    return true;
 }
