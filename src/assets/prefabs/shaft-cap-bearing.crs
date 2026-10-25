@@ -57,7 +57,7 @@ fn prefab_shaft_cap_bearing_build(parameters: read AssetValues, asset: mut RoomA
     return room_asset_finish(mut asset);
 }
 fn prefab_shaft_cap_bearing_material_count() -> u32 {
-    return 7u32;
+    return 8u32;
 }
 fn prefab_shaft_cap_bearing_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     var material: PanelMaterial = shaft_surface_material(region);
@@ -79,6 +79,11 @@ fn prefab_shaft_cap_bearing_material(region: u32, parameters: read AssetValues) 
         material.colour = 0x252b29u32;
         material.finish = METAL_RIBBED;
         material.pitch = 0.25f32;
+    }
+    if region == 7u32 {
+        material = hex_tunnel_material();
+        material.colour = 0x141817u32;
+        material.finish = METAL_PLAIN;
     }
     if region == 6u32 {
         material = hex_tunnel_material();

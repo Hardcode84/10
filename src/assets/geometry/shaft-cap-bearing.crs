@@ -1,20 +1,34 @@
 fn bearing_cap_shell(asset: mut RoomAsset, radius: f32, depth: f32) -> bool {
     var profile: RegularProfile = shaft_profile(radius * 2f32).shape;
-    if !loft_allocate(mut asset.hull, profile, 3u32) {
+    if !loft_allocate(mut asset.hull, profile, 6u32) {
         return false;
     }
+    var shoulder: f32 = depth * 0.65f32;
+    var slope: f32 = radius * 0.3f32 / (depth - shoulder);
     loft_ring(mut asset.hull, profile, 0u32, 0f32, radius);
-    loft_ring(mut asset.hull, profile, 1u32, depth * 0.65f32, radius);
-    loft_ring(mut asset.hull, profile, 2u32, depth, radius * 0.7f32);
+    loft_ring(mut asset.hull, profile, 1u32, shoulder - 0.08f32, radius);
+    loft_ring(mut asset.hull, profile, 2u32, shoulder, radius);
+    loft_ring(mut asset.hull, profile, 3u32, shoulder + 0.08f32, radius - slope * 0.08f32);
+    loft_ring(
+        mut asset.hull,
+        profile,
+        4u32,
+        depth - 0.08f32,
+        radius * 0.7f32 + slope * 0.08f32
+    );
+    loft_ring(mut asset.hull, profile, 5u32, depth, radius * 0.7f32);
     loft_span(mut asset.hull, profile, 0u32, 0u32);
-    loft_span(mut asset.hull, profile, 1u32, 3u32);
-    loft_caps(mut asset.hull, profile, 3u32, 1u32, 3u32);
+    loft_span(mut asset.hull, profile, 1u32, 7u32);
+    loft_span(mut asset.hull, profile, 2u32, 7u32);
+    loft_span(mut asset.hull, profile, 3u32, 3u32);
+    loft_span(mut asset.hull, profile, 4u32, 7u32);
+    loft_caps(mut asset.hull, profile, 6u32, 1u32, 3u32);
     return asset_port_append(
         mut asset.ports,
         make RoomPort {
             id: asset_name("SHAFT"),
             profile: shaft_profile(radius * 2f32),
-            face: profile.sides * 2u32,
+            face: profile.sides * 5u32,
             position: vec(0f32, 0f32, 0f32),
             basis: cube_face_basis(2u32)
         }
@@ -80,6 +94,9 @@ fn bearing_cap_rib(asset: mut RoomAsset, radius: f32, core: f32, depth: f32, ind
     var angle: f32 = index as f32 * 0.785398163397f32;
     var basis: Basis = shaft_axis_basis(angle);
     var inner: f32 = core * 1.65f32;
+    if !bearing_cap_rib_mounts(mut asset, radius, core, depth, basis) {
+        return false;
+    }
     var span: f32 = radius - inner;
     var centre: Vec3 = add(
         scale(basis.right, (radius + inner) * 0.5f32),
@@ -138,4 +155,90 @@ fn bearing_cap_structure(asset: mut RoomAsset, radius: f32, core: f32, depth: f3
         i = i + 1u32;
     }
     return true;
+}
+
+fn bearing_cap_rib_mounts(
+    asset: mut RoomAsset,
+    radius: f32,
+    core: f32,
+    depth: f32,
+    basis: Basis
+) -> bool {
+    var inner: f32 = core * 1.65f32;
+    var wall: f32 = radius * cosf(3.14159265359f32 / 48f32);
+    var a: Vec3 = vec(inner, depth, 0f32);
+    var b: Vec3 = vec(wall * 0.7f32, depth, 0f32);
+    var c: Vec3 = vec(wall, depth * 0.65f32, 0f32);
+    if !bearing_cap_contact_strip(mut asset, a, b, basis) || !bearing_cap_contact_strip(
+        mut asset,
+        b,
+        c,
+        basis
+    ) {
+        return false;
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var centre: Vec3 = add(
+        scale(basis.right, core * 1.8f32),
+        vec(0f32, depth * 0.8f32, 0f32)
+    );
+    if !solid_box(
+        mut asset.geometry,
+        vec(0.3f32, depth * 0.35f32 + 0.12f32, 0.44f32),
+        7u32,
+        centre,
+        basis,
+        2f32
+    ) {
+        return false;
+    }
+    return bearing_cap_part(
+        mut asset,
+        first,
+        asset_name("rib-bearing-mount"),
+        vec(0f32, 0f32, 0f32)
+    );
+}
+
+fn bearing_cap_contact_strip(asset: mut RoomAsset, a: Vec3, b: Vec3, placement: Basis) -> bool {
+    var right: Vec3 = unit_vector(sub(b, a));
+    var up: Vec3 = cross(vec(0f32, 0f32, 1f32), right);
+    var frame: Basis = make Basis {
+        right: right,
+        up: up,
+        forward: vec(0f32, 0f32, 1f32)
+    };
+    var centre: Vec3 = sub(scale(add(a, b), 0.5f32), scale(up, 0.025f32));
+    var local: Mesh = mesh_new();
+    if !solid_box(
+        mut local,
+        vec(length(sub(b, a)), 0.05f32, 0.44f32),
+        7u32,
+        centre,
+        frame,
+        2f32
+    ) {
+        return false;
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read local) {
+        if !mesh_append(
+            mut asset.geometry,
+            placed_triangle(
+                mesh_triangle(read local, i),
+                vec(0f32, 0f32, 0f32),
+                placement
+            )
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return bearing_cap_part(
+        mut asset,
+        first,
+        asset_name("rib-wall-contact"),
+        vec(0f32, 0f32, 0f32)
+    );
 }

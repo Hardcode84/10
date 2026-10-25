@@ -4,7 +4,9 @@
 // depth is the total shell length in metres; no onward passage is present.
 // Amber rim marks are full-bright and emit no light. All props have solid collision.
 // Materials: 0 sleeve, 1 mouth closure, 2 spindle, 3 end panels,
-// 4 bearing and ribs, 5 spindle seal, 6 rim markers.
+// 4 bearing and ribs, 5 spindle seal, 6 rim markers, 7 joint outlines.
+// Dark bands follow the dished wall joints; rib backing plates and collars
+// mark the connections to the end wall and bearing housing.
 fn room_parameter_count() -> u32 {
     return prefab_shaft_cap_bearing_parameter_count();
 }
