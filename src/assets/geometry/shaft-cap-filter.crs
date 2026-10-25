@@ -1,0 +1,162 @@
+record FilterPlenumLayout {
+    radius: f32;
+    core: f32;
+    depth: f32;
+}
+fn filter_grate_height(layout: FilterPlenumLayout) -> f32 {
+    return layout.depth * 0.3f32;
+}
+fn filter_bearing_radius(layout: FilterPlenumLayout) -> f32 {
+    return layout.core * 1.8f32;
+}
+fn filter_plenum_shell(asset: mut RoomAsset, layout: FilterPlenumLayout) -> bool {
+    var profile: RegularProfile = shaft_profile(layout.radius * 2f32).shape;
+    if !loft_allocate(mut asset.hull, profile, 5u32) {
+        return false;
+    }
+    var station: f32 = filter_grate_height(layout);
+    loft_ring(mut asset.hull, profile, 0u32, 0f32, layout.radius);
+    loft_ring(
+        mut asset.hull,
+        profile,
+        1u32,
+        station - SHAFT_GRATE_FRAME_DEPTH * 0.5f32,
+        layout.radius
+    );
+    loft_ring(
+        mut asset.hull,
+        profile,
+        2u32,
+        station + SHAFT_GRATE_FRAME_DEPTH * 0.5f32,
+        layout.radius
+    );
+    loft_ring(mut asset.hull, profile, 3u32, layout.depth - 0.1f32, layout.radius);
+    loft_ring(mut asset.hull, profile, 4u32, layout.depth, layout.radius);
+    loft_span(mut asset.hull, profile, 0u32, 0u32);
+    loft_span(mut asset.hull, profile, 1u32, 7u32);
+    loft_span(mut asset.hull, profile, 2u32, 0u32);
+    loft_span(mut asset.hull, profile, 3u32, 7u32);
+    loft_caps(mut asset.hull, profile, 5u32, 1u32, 0u32);
+    return asset_port_append(
+        mut asset.ports,
+        make RoomPort {
+            id: asset_name("SHAFT"),
+            profile: shaft_profile(layout.radius * 2f32),
+            face: profile.sides * 4u32,
+            position: vec(0f32, 0f32, 0f32),
+            basis: cube_face_basis(2u32)
+        }
+    );
+}
+fn filter_plenum_grate(asset: mut RoomAsset, layout: FilterPlenumLayout) -> bool {
+    var material: PanelMaterial = filter_grate_material();
+    var grate: ShaftGrateLayout = make ShaftGrateLayout {
+        radius: layout.radius,
+        core: filter_bearing_radius(layout),
+        height: filter_grate_height(layout) * 2f32,
+        count: 1u32,
+        pitch: material.tile_metres,
+        bar: material.border
+    };
+    if !shaft_grate_geometry(mut asset, grate) {
+        return false;
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !bevelled_body(
+        mut asset.geometry,
+        make BevelledBody {
+            sides: 16u32,
+            radius: grate.core,
+            length: 1.2f32,
+            bevel: 0.1f32,
+            shell: 6u32,
+            rear: 6u32,
+            front: 6u32
+        },
+        vec(0f32, filter_grate_height(layout), 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    if !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("filter-bearing"),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    first = mesh_triangle_count(read asset.geometry);
+    if !annular_band_mesh(
+        mut asset.geometry,
+        layout.core * 0.98f32,
+        layout.core * 1.35f32,
+        0.2f32,
+        7u32,
+        2f32
+    ) {
+        return false;
+    }
+    return asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("bearing-seal"),
+        vec(0f32, filter_grate_height(layout) - 0.6f32, 0f32)
+    );
+}
+fn filter_plenum_box(
+    asset: mut RoomAsset,
+    dimensions: Vec3,
+    centre: Vec3,
+    basis: Basis,
+    region: u32,
+    name: AssetName
+) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !solid_box(mut asset.geometry, dimensions, region, centre, basis, 2f32) {
+        return false;
+    }
+    return asset_part_place_tail(mut asset, first, name, vec(0f32, 0f32, 0f32));
+}
+fn filter_plenum_cassette(asset: mut RoomAsset, layout: FilterPlenumLayout, index: u32) -> bool {
+    var bearing: f32 = filter_bearing_radius(layout);
+    var gap: f32 = layout.radius - bearing;
+    var width: f32 = 2f32 * mask_min(
+        gap * 0.375f32,
+        (layout.radius + bearing) * 0.35355339059f32 - filter_duct_half(layout) * 1.41421356237f32 - 0.3f32
+    );
+    var basis: Basis = shaft_axis_basis(index as f32 * 1.57079632679f32);
+    var centre: Vec3 = add(
+        scale(basis.right, (layout.radius + bearing) * 0.5f32),
+        vec(0f32, filter_grate_height(layout) + 2.2f32, 0f32)
+    );
+    return filter_plenum_box(
+        mut asset,
+        vec(gap * 0.55f32, 0.8f32, width),
+        centre,
+        basis,
+        7u32,
+        asset_name("filter-cassette-frame")
+    ) && filter_plenum_box(
+        mut asset,
+        vec(gap * 0.55f32 - 0.18f32, 0.14f32, width - 0.18f32),
+        sub(centre, vec(0f32, 0.4f32, 0f32)),
+        basis,
+        4u32,
+        asset_name("pleated-filter")
+    );
+}
+fn filter_plenum_equipment(asset: mut RoomAsset, layout: FilterPlenumLayout) -> bool {
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        if !filter_plenum_cassette(mut asset, layout, i) || !filter_plenum_duct(
+            mut asset,
+            layout,
+            i
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

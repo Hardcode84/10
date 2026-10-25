@@ -1,0 +1,142 @@
+fn filter_duct_half(layout: FilterPlenumLayout) -> f32 {
+    return mask_min(0.8f32, (layout.radius - filter_bearing_radius(layout)) * 0.15f32);
+}
+record FilterDuct {
+    origin: Vec3;
+    basis: Basis;
+    half: f32;
+    axial: f32;
+    radial: f32;
+}
+fn filter_duct_box(
+    asset: mut RoomAsset,
+    duct: FilterDuct,
+    centre: Vec3,
+    dimensions: Vec3,
+    region: u32
+) -> bool {
+    return filter_plenum_box(
+        mut asset,
+        dimensions,
+        add(duct.origin, basis_vector(duct.basis, centre)),
+        duct.basis,
+        region,
+        asset_name("filter-duct")
+    );
+}
+fn filter_duct_side(asset: mut RoomAsset, duct: FilterDuct, side: f32) -> bool {
+    var h: f32 = duct.half;
+    return filter_duct_box(
+        mut asset,
+        duct,
+        vec(0f32, (duct.axial + h) * 0.5f32, side * (h + 0.06f32)),
+        vec(h * 2f32, duct.axial + h, 0.12f32),
+        5u32
+    ) && filter_duct_box(
+        mut asset,
+        duct,
+        vec((h + duct.radial) * 0.5f32, duct.axial, side * (h + 0.06f32)),
+        vec(duct.radial - h, h * 2f32, 0.12f32),
+        5u32
+    );
+}
+fn filter_duct_shell(asset: mut RoomAsset, duct: FilterDuct) -> bool {
+    var h: f32 = duct.half;
+    return filter_duct_side(mut asset, duct, -1f32) && filter_duct_side(mut asset, duct, 1f32) && filter_duct_box(
+        mut asset,
+        duct,
+        vec(-h - 0.06f32, (duct.axial + h) * 0.5f32, 0f32),
+        vec(0.12f32, duct.axial + h, h * 2f32 + 0.24f32),
+        5u32
+    ) && filter_duct_box(
+        mut asset,
+        duct,
+        vec(h + 0.06f32, (duct.axial - h) * 0.5f32, 0f32),
+        vec(0.12f32, duct.axial - h, h * 2f32 + 0.24f32),
+        5u32
+    ) && filter_duct_box(
+        mut asset,
+        duct,
+        vec((duct.radial - h) * 0.5f32, duct.axial + h + 0.06f32, 0f32),
+        vec(duct.radial + h + 0.24f32, 0.12f32, h * 2f32 + 0.24f32),
+        5u32
+    ) && filter_duct_box(
+        mut asset,
+        duct,
+        vec((duct.radial + h) * 0.5f32, duct.axial - h - 0.06f32, 0f32),
+        vec(duct.radial - h, 0.12f32, h * 2f32 + 0.24f32),
+        5u32
+    );
+}
+fn filter_duct_lip(asset: mut RoomAsset, duct: FilterDuct) -> bool {
+    var h: f32 = duct.half;
+    var side: f32 = -1f32;
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        if !filter_duct_box(
+            mut asset,
+            duct,
+            vec(side * (h + 0.06f32), 0f32, 0f32),
+            vec(0.18f32, 0.18f32, h * 2f32 + 0.3f32),
+            7u32
+        ) || !filter_duct_box(
+            mut asset,
+            duct,
+            vec(0f32, 0f32, side * (h + 0.06f32)),
+            vec(h * 2f32, 0.18f32, 0.18f32),
+            7u32
+        ) {
+            return false;
+        }
+        side = 1f32;
+        i = i + 1u32;
+    }
+    return true;
+}
+fn filter_duct_louvers(asset: mut RoomAsset, duct: FilterDuct) -> bool {
+    var basis: Basis = make Basis {
+        right: duct.basis.right,
+        up: scale(add(duct.basis.up, duct.basis.forward), 0.70710678118f32),
+        forward: scale(sub(duct.basis.forward, duct.basis.up), 0.70710678118f32)
+    };
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var centre: Vec3 = add(
+            duct.origin,
+            basis_vector(
+                duct.basis,
+                vec(0f32, 0.35f32, ((i as f32 + 0.5f32) / 3f32 * 2f32 - 1f32) * duct.half)
+            )
+        );
+        if !filter_plenum_box(
+            mut asset,
+            vec(duct.half * 2f32, 0.08f32, duct.half * 0.7f32),
+            centre,
+            basis,
+            6u32,
+            asset_name("duct-louver")
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn filter_plenum_duct(asset: mut RoomAsset, layout: FilterPlenumLayout, index: u32) -> bool {
+    var bearing: f32 = filter_bearing_radius(layout);
+    var radial: f32 = (layout.radius + bearing) * 0.5f32;
+    var basis: Basis = shaft_axis_basis((index as f32 + 0.5f32) * 1.57079632679f32);
+    var y: f32 = filter_grate_height(layout) + 1.8f32;
+    var half: f32 = filter_duct_half(layout);
+    var duct: FilterDuct = make FilterDuct {
+        origin: add(scale(basis.right, radial), vec(0f32, y, 0f32)),
+        basis: basis,
+        half: half,
+        axial: layout.depth - 1.2f32 - y,
+        radial: layout.radius - radial + 0.3f32
+    };
+    return filter_duct_shell(mut asset, duct) && filter_duct_lip(mut asset, duct) && filter_duct_louvers(
+        mut asset,
+        duct
+    );
+}

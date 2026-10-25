@@ -1,0 +1,26 @@
+// Closed filter plenum. SHAFT is at Y=0 facing -Y; +Y enters the chamber.
+// Match diameter and core-diameter to the adjoining shaft. Depth is in metres.
+// A fixed annular grate blocks the drone. Its visible cells and solid bars match.
+// The spindle enters a large bearing at the grate and continues to the end wall.
+// Four pleated filter cassettes and four baffled elbow ducts sit behind the grate.
+// Ducts turn into the enclosed side wall. This asset has no onward passage.
+// Materials: 0 shell, 1 mouth closure, 2 spindle, 3 cutout grate, 4 filters,
+// 5 ducts, 6 bearing and louvers, 7 seams and frames, 8 grate sides.
+fn room_parameter_count() -> u32 {
+    return prefab_shaft_cap_filter_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_shaft_cap_filter_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_shaft_cap_filter_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_shaft_cap_filter_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return prefab_shaft_cap_filter_material_count();
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_shaft_cap_filter_material(region, read parameters);
+}

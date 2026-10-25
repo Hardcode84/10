@@ -1,0 +1,15 @@
+// Samples repeated pleated filter media. Pitch is the positive fold spacing.
+fn metal_filter_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var fold: f32 = mask_repeat(y, material.pitch) / material.pitch;
+    var shade: f32 = 90f32 + (fold - 0.5f32) * 70f32;
+    if fold < 0.5f32 {
+        shade = 190f32 - fold * 50f32;
+    }
+    if mask_min(fold, 1f32 - fold) < 0.04f32 {
+        shade = 48f32;
+    }
+    if absf(fold - 0.5f32) < 0.035f32 {
+        shade = 220f32;
+    }
+    return (shade + metal_grain(material, x, y)) as u32;
+}
