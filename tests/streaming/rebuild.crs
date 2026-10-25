@@ -7,6 +7,7 @@ resource StreamRebuild {
     space: u32;
     first_portal: u32;
     elapsed: u64;
+    revision: u64;
 }
 opaque drop stream_rebuild_drop;
 fn stream_rebuild_drop(work: mut StreamRebuild) -> unit {}
@@ -113,46 +114,117 @@ fn stream_rebuild_hook(scene: read CollisionScene, drone: mut Drone) -> bool {
 fn stream_rebuild_worker(
     scene: mut CollisionScene,
     loop: read GameLoop,
-    work: mut StreamRebuild
+    work: mut StreamRebuild,
+    session: mut GameSession,
+    config: GameConfig,
+    pixels: mut GenerationWords
 ) -> bool {
     var pool: TaskPool = task_pool_new();
-    if !task_pool_open(mut pool, 2u32, 2u32) {
+    var display: CollisionScene = collision_new();
+    var rooms: CollisionRooms = collision_rooms_new();
+    if !task_pool_open(mut pool, 2u32, 2u32) || !collision_snapshot(read scene, mut display) || !stream_rebuild_required(
+        read scene,
+        mut rooms
+    ) {
         return false;
     }
-    var doors: DoorSet = doors_new();
-    var context: PredictionContext = prediction_context(read pool, read scene, read doors);
+    var context: PredictionContext = prediction_context(
+        read pool,
+        read scene,
+        read session.control.graph.doors
+    );
     if !prediction_context_ready(read context) {
         return false;
     }
     var scratch: Drone = new_drone();
     var expected: Prediction = predict_paths(read scene, read loop.trial, mut scratch);
-    var before: u64 = collision_bytes(read scene);
     collision_room_unload(mut scene, work.space);
-    var build: PoolJob = pool_submit(read pool, stream_rebuild_execute, &work as *u8);
-    var forecast: PredictionTask = prediction_start(mut context, read scene, read loop.trial);
-    while pool_job_poll(read build) == 0i32 || prediction_task_poll(read forecast) == 0i32 {
-        pool_job_idle(read build);
+    if !stream_rebuild_blocked(read scene, mut display, read rooms, work.space) || !stream_rebuild_paused(
+        read scene,
+        read loop.trial.drone
+    ) {
+        return false;
     }
-    if pool_job_poll(read build) != 1i32 || prediction_task_poll(read forecast) != 1i32 {
-        return error("room reload worker failed");
+    work.revision = 1u64;
+    var build: PoolJob = pool_submit(read pool, stream_rebuild_execute, &work as *u8);
+    var revision: u64 = work.revision + 1u64;
+    var forecast: PredictionTask = prediction_start(mut context, read scene, read loop.trial);
+    if !stream_rebuild_display(read display, mut session, read loop, config, mut pixels) || !stream_rebuild_wait(
+        read build,
+        read forecast
+    ) {
+        return false;
     }
     var actual: Prediction = prediction_task_result(mut forecast);
     if !stream_prediction_equal(read actual, read expected) {
         return error("room reload changed pinned prediction");
     }
     drop forecast;
-    drop context;
     drop build;
-    puts("released_collision_bytes,worker_build_ns,new_chunk_bytes");
-    stream_number(before - collision_bytes(read scene), false);
-    stream_number(work.elapsed, false);
-    stream_number(collision_chunk_bytes(work.room.chunk), true);
-    if work.room.chunk -> references != 1i32 {
-        return error("rebuilt room has an unexpected owner");
+    if !stream_rebuild_obsolete(mut scene, mut display, read rooms, mut work, revision) {
+        return false;
     }
-    collision_room_restore(mut scene, read work.room);
-    actual = predict_paths(read scene, read loop.trial, mut scratch);
+    work.revision = revision;
+    return stream_rebuild_retry(
+        mut scene,
+        mut display,
+        read rooms,
+        read pool,
+        mut work,
+        read loop,
+        read expected,
+        revision
+    );
+}
+fn stream_rebuild_wait(build: read PoolJob, forecast: read PredictionTask) -> bool {
+    while pool_job_poll(read build) == 0i32 || prediction_task_poll(read forecast) == 0i32 {
+        pool_job_idle(read build);
+    }
+    return (
+        pool_job_poll(read build) == 1i32 && prediction_task_poll(read forecast) == 1i32
+    ) || error("room reload worker failed");
+}
+fn stream_rebuild_retry(
+    scene: mut CollisionScene,
+    display: mut CollisionScene,
+    rooms: read CollisionRooms,
+    pool: read TaskPool,
+    work: mut StreamRebuild,
+    loop: read GameLoop,
+    expected: read Prediction,
+    revision: u64
+) -> bool {
+    var build: PoolJob = pool_submit(read pool, stream_rebuild_execute, &work as *u8);
+    while pool_job_poll(read build) == 0i32 {
+        pool_job_idle(read build);
+    }
+    if pool_job_poll(read build) != 1i32 {
+        return error("room retry worker failed");
+    }
+    drop build;
+    var bytes: u64 = collision_chunk_bytes(work.room.chunk);
+    if work.room.chunk -> references != 1i32 || !stream_rebuild_publish(
+        mut scene,
+        read work,
+        revision
+    ) {
+        return error("fresh room result could not publish");
+    }
+    var admitted: CollisionAdmission = collision_snapshot_admit(
+        read scene,
+        mut display,
+        read rooms
+    );
+    if admitted.status != 0u32 {
+        return error("fresh room result did not unblock admission");
+    }
+    var scratch: Drone = new_drone();
+    var actual: Prediction = predict_paths(read display, read loop.trial, mut scratch);
+    puts("rejected_results,worker_build_ns,new_chunk_bytes");
+    stream_number(1u64, false);
+    stream_number(work.elapsed, false);
+    stream_number(bytes, true);
     return stream_prediction_equal(read actual, read expected) || error(
-        "rebuilt collision changed prediction"
+        "admitted rebuilt collision changed prediction"
     );
 }

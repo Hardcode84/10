@@ -109,6 +109,8 @@ while preserving collider IDs, then publish it for prediction and rendering.
 Course assembly records each builder and its parameter values, appended parts,
 and material edits. The same inputs regenerate the service network and shaft
 region exactly. See the [recipe checks](streaming-experiment.md#recorded-room-recipes).
-The full integrated ownership gate remains open: versioned publication,
+The reload witness also rejects obsolete requests and retains the previous
+display and prediction snapshots through missing-room admission and retry.
+The full integrated ownership gate remains open: transactional GPU publication,
 active-frame admission, and residency budgets must work together before normal
 play can unload rooms.

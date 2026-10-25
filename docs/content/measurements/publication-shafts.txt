@@ -1,0 +1,21 @@
+Shaft region base route / rooms / source triangles
+20
+107
+145850
+AMD Radeon PRO W7900 Dual Slot  (RADV NAVI31)
+hidden_room_pixel_changes
+476117
+target_room,render_triangles,rebuild_plan_bytes
+2,4200,320
+pending_pixel_changes
+0
+rejected_results,worker_build_ns,new_chunk_bytes
+1,117387607,494040
+rebuild_round,pixel_changes
+0,0
+pending_pixel_changes
+0
+rejected_results,worker_build_ns,new_chunk_bytes
+1,115886294,494040
+rebuild_round,pixel_changes
+1,0

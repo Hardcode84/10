@@ -301,3 +301,35 @@ until that check passes.
 Recipe callbacks refer to the running program. This format does not serialize
 recipes across program versions. Runtime publication must retain live controller
 state and reject a result if the room construction changed during the job.
+
+
+## Admission and obsolete completions
+
+The reload command also checks a pending room request against the resident image.
+It retains a display snapshot and a prediction snapshot, removes the source room,
+and requests all room collision chunks. Admission reports the missing room and
+leaves the display snapshot unchanged. A physics step on the incomplete source
+returns the missing room without advancing the ship clock, motion, or hook.
+
+The test submits a room build, then advances the requested revision before it
+consumes the result. The obsolete completion cannot restore collision. Its fresh
+mesh and collision chunk are released. A new request rebuilds the room, restores
+collision, and permits snapshot admission. The attached-hook forecast and final
+rendered pixels must match full residency. Both reload cycles pass, including
+zero changed pixels while each obsolete request is pending.
+
+These revisions belong to one retained scene construction. The test drains its
+jobs before that construction ends. It does not test requests that cross a level
+replacement. A general coordinator must bind requests to a construction identity
+as well as a room revision.
+
+Raw results: [admission and retry](measurements/publication-shafts.txt).
+
+The renderer still needs a transaction for this path. `stream_rebuild_upload`
+clears the live mesh list before it appends replacement slices. If a later
+allocation fails, the previous list is already lost. Collision admission alone
+cannot make that frame publication atomic. Stage the replacement in unused arena
+space, retain the old instance list, and publish the new instance list and
+collision snapshot together after all admission dependencies are ready. A failed
+upload must release the staged allocation and retain the published frame. Prove
+that failure path before enabling unloading in normal play.

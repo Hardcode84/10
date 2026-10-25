@@ -79,14 +79,15 @@ if run -> argc > 0i32 && (
         native_error(run -> context, "streaming needs a level recipe");
         return 2i32;
     }
-    var extra: [*u8; 7] = make [*u8; 7] {
+    var extra: [*u8; 8] = make [*u8; 8] {
         "tests/streaming/polygon.crs",
         "tests/streaming/visibility.crs",
         "tests/streaming/render.crs",
         "tests/streaming/waves.crs",
         "tests/streaming/prediction.crs",
         "tests/streaming/arena.crs",
-        "tests/streaming/rebuild.crs"
+        "tests/streaming/rebuild.crs",
+        "tests/streaming/publication.crs"
     };
     var entry: *u8 = "tests/streaming/entry.crs";
     if cache_strcmp(run -> argv[0usize], "arena") == 0i32 {
@@ -106,7 +107,7 @@ if run -> argc > 0i32 && (
         null(*u8),
         "build/streaming-experiment",
         &extra[0usize],
-        7usize
+        8usize
     ) || !build_render_shaders(run) {
         return 1i32;
     }

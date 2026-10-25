@@ -37,7 +37,8 @@ fn stream_rebuild_experiment(session: GameSession, config: GameConfig) -> bool {
         recipe: room_recipe_new(),
         space: target,
         first_portal: node.first,
-        elapsed: 0u64
+        elapsed: 0u64,
+        revision: 0u64
     };
     if !room_recipe_copy(
         mut work.recipe,
@@ -79,11 +80,14 @@ fn stream_rebuild_experiment(session: GameSession, config: GameConfig) -> bool {
     while round < 2u32 {
         work.mesh = mesh_new();
         work.room = collision_room_new();
-        if !stream_rebuild_worker(mut scene, read loop, mut work) || !stream_rebuild_upload(
+        if !stream_rebuild_worker(
+            mut scene,
+            read loop,
+            mut work,
             mut session,
-            target,
-            read work.mesh
-        ) {
+            config,
+            mut pixels
+        ) || !stream_rebuild_upload(mut session, target, read work.mesh) {
             return false;
         }
         var anchor: Vec3 = loop.trial.drone.cable.anchor;
@@ -136,5 +140,13 @@ fn stream_rebuild_negative(
     );
     puts("hidden_room_pixel_changes");
     stream_number(changed as u64, true);
-    return changed != 0u32 || error("reload witness cannot see its target room");
+    if changed == 0u32 {
+        return error("reload witness cannot see its target room");
+    }
+    var all: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut all, graph_count(read session.control.graph)) {
+        return false;
+    }
+    generation_words_fill(mut all, 1u32);
+    return stream_upload(mut session, read all);
 }

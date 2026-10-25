@@ -1,0 +1,99 @@
+// Request revisions belong to one retained scene construction. Compare before publication.
+fn stream_rebuild_publish(scene: mut CollisionScene, work: read StreamRebuild, revision: u64) -> bool {
+    if work.revision != revision {
+        return false;
+    }
+    collision_room_restore(mut scene, read work.room);
+    return true;
+}
+fn stream_rebuild_required(scene: read CollisionScene, rooms: mut CollisionRooms) -> bool {
+    if !collision_rooms_allocate(mut rooms, read scene) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < scene.chunk_count {
+        collision_rooms_require(mut rooms, read scene, scene.spaces[i as usize].id);
+        i = i + 1u32;
+    }
+    return true;
+}
+fn stream_rebuild_blocked(
+    scene: read CollisionScene,
+    display: mut CollisionScene,
+    rooms: read CollisionRooms,
+    target: u32
+) -> bool {
+    var before: u64 = collision_bytes(read display);
+    var slot: u32 = collision_space_slot(read display, target);
+    var old: *CollisionChunk = display.chunks[slot as usize];
+    var result: CollisionAdmission = collision_snapshot_admit(
+        read scene,
+        mut display,
+        read rooms
+    );
+    return (
+        result.status == COLLISION_UNRESOLVED && result.space == target && collision_bytes(
+            read display
+        ) == before && display.chunks[slot as usize] == old
+    ) || error("incomplete room admission changed the display snapshot");
+}
+fn stream_rebuild_display(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    pixels: mut GenerationWords
+) -> bool {
+    if !stream_draw(read scene, mut session, read loop, config) {
+        return false;
+    }
+    var changed: u32 = stream_pixels(
+        &session.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        false
+    );
+    puts("pending_pixel_changes");
+    stream_number(changed as u64, true);
+    return changed == 0u32 || error("pending room admission changed the displayed image");
+}
+// An obsolete result must release its storage and leave both published consumers intact.
+fn stream_rebuild_obsolete(
+    scene: mut CollisionScene,
+    display: mut CollisionScene,
+    rooms: read CollisionRooms,
+    work: mut StreamRebuild,
+    revision: u64
+) -> bool {
+    if stream_rebuild_publish(mut scene, read work, revision) || collision_room_resident(
+        read scene,
+        work.space
+    ) || !stream_rebuild_blocked(read scene, mut display, read rooms, work.space) {
+        return error("obsolete room result was published");
+    }
+    if work.room.chunk -> references != 1i32 {
+        return error("obsolete room result escaped its request");
+    }
+    work.room = collision_room_new();
+    work.mesh = mesh_new();
+    return true;
+}
+fn stream_rebuild_paused(scene: read CollisionScene, source: read Drone) -> bool {
+    var drone: Drone = clone_drone(read source);
+    var command: Command = idle_command();
+    command.tether = true;
+    var admission: CollisionAdmission = simulate_admitted(
+        read scene,
+        mut drone,
+        command,
+        false,
+        false
+    );
+    return (
+        admission.status == COLLISION_UNRESOLVED && admission.space == source.world && drone.clock == source.clock && length(
+            sub(drone.position, source.position)
+        ) == 0f32 && length(sub(drone.velocity, source.velocity)) == 0f32 && length(
+            sub(drone.cable.anchor, source.cable.anchor)
+        ) == 0f32 && drone.cable.phase == source.cable.phase
+    ) || error("missing room admission advanced ship or attached hook");
+}
