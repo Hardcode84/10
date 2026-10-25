@@ -218,10 +218,10 @@ fn shaft_region_build(
         return false;
     }
     generation_words_fill(mut rooms, SHAFT_GRID_NONE);
-    // Capacity includes fan chains and their side closures, lateral sleeves, and station caps.
+    // Capacity includes fan chains and their bypasses, lateral sleeves, and station caps.
     if !graph_allocate(
         mut graph,
-        shaft_grid_stations() * 7u32 + shaft_grid_axials() * 7u32 + 6u32 * shaft_grid_lateral_axis() + 1u32,
+        shaft_grid_stations() * 7u32 + shaft_grid_axials() * 8u32 + 6u32 * shaft_grid_lateral_axis() + 1u32,
         seed
     ) {
         return false;
@@ -266,7 +266,7 @@ fn shaft_region_build(
         return false;
     }
     graph_set_goal(mut graph, generation_word(read rooms, shaft_grid_exit(read grid)));
-    puts("Shaft region shortest route / rooms / source triangles");
+    puts("Shaft region base route / rooms / source triangles");
     print_number(shaft_grid_distance(read grid) as i64);
     print_number(graph_count(read graph) as i64);
     print_number(mesh_triangle_count(read mesh) as i64);

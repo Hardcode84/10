@@ -1,6 +1,7 @@
 // Short convex shaft collar. Local +Y runs from BOTTOM to TOP.
 // Both end ports use SHAFT and preserve the adjoining shaft's profile and spindle.
-// SIDE faces +X and uses HEX-6M. Its up axis is +Y.
+// SIDE faces +X and uses HEX-6M. Its right axis is +Y; its up axis is +Z.
+// This frame lets hex elbows turn along the shaft for a local bypass.
 // The flat side panel extends out of the cylinder; sloped metal joins it to the
 // round ends. Height sets the collar length; extension sets the panel projection.
 // Match diameter and core-diameter to the adjoining shaft recipes.

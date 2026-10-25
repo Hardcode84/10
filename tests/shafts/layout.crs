@@ -95,7 +95,7 @@ fn shaft_layout_side_connection(portal: CollisionPortal, from: u32, to: u32) -> 
         return to == PREFAB_SHAFT_COLLAR || error("fan end lacks its connection collar");
     }
     if from == PREFAB_SHAFT_COLLAR && portal.sides == service_hex_profile().shape.sides {
-        return to == PREFAB_HEX_STOPPER || error("unused fan bypass port lacks a hex stopper");
+        return to == PREFAB_HEX_ELBOW || error("fan bypass port lacks a hex elbow");
     }
     return true;
 }
@@ -133,6 +133,81 @@ fn shaft_layout_crossings(scene: read CollisionScene, graph: read RoomGraph) -> 
         i = i + 1u32;
     }
     return true;
+}
+fn shaft_layout_bypass(
+    scene: read CollisionScene,
+    graph: read RoomGraph,
+    first: LevelCursor,
+    last: LevelCursor
+) -> bool {
+    var socket: u32 = course_socket(read graph, first.room, first.exit);
+    var port: RoomPort = graph_socket(read graph, socket).port;
+    var drone: Drone = new_drone();
+    drone.world = first.room;
+    drone.position = sub(port.position, scale(port.basis.forward, 0.6f32));
+    var steps: u32 = 0u32;
+    while steps < graph_count(read graph) {
+        var outgoing: GraphSocket = graph_socket(read graph, socket);
+        var incoming: GraphSocket = graph_socket(read graph, outgoing.peer);
+        var end: Vec3 = add(
+            outgoing.port.position,
+            scale(outgoing.port.basis.forward, 0.6f32)
+        );
+        var expected: Vec3 = space_point(
+            connection_transform(outgoing.port, incoming.port, outgoing.roll),
+            end
+        );
+        move_drone(read scene, mut drone, sub(end, drone.position));
+        if drone.world != incoming.room || length(sub(drone.position, expected)) > 0.001f32 {
+            return error("drone cannot traverse the fan bypass interior");
+        }
+        if incoming.room == last.room {
+            return asset_names_equal(incoming.port.id, last.exit) || error(
+                "bypass returns through the wrong port"
+            );
+        }
+        var node: GraphNode = graph_node(read graph, incoming.room);
+        if node.count != 2u32 || (
+            node.kind != PREFAB_HEX_ELBOW && node.kind != PREFAB_HEX_TUNNEL_10M
+        ) {
+            return error("bypass must use a separate hex tunnel chain");
+        }
+        socket = node.first;
+        if socket == outgoing.peer {
+            socket = socket + 1u32;
+        }
+        steps = steps + 1u32;
+    }
+    return error("fan bypass does not reach the opposite collar");
+}
+fn shaft_layout_bypasses(scene: read CollisionScene, graph: read RoomGraph) -> bool {
+    var room: u32 = 0u32;
+    var found: bool = false;
+    while room < graph_count(read graph) {
+        if graph_node(read graph, room).kind == PREFAB_SHAFT_FAN {
+            found = true;
+            var lower: LevelCursor = shaft_region_fan_side(
+                read graph,
+                room,
+                asset_name("BOTTOM")
+            );
+            var upper: LevelCursor = shaft_region_fan_side(
+                read graph,
+                room,
+                asset_name("TOP")
+            );
+            if !shaft_layout_bypass(read scene, read graph, lower, upper) || !shaft_layout_bypass(
+                read scene,
+                read graph,
+                upper,
+                lower
+            ) {
+                return false;
+            }
+        }
+        room = room + 1u32;
+    }
+    return found || error("shaft assembly fixture needs a fan bypass");
 }
 fn shaft_layout_run() -> bool {
     var grid: ShaftGrid = shaft_grid_new();
@@ -182,11 +257,14 @@ fn shaft_layout_run() -> bool {
     if !collision_finish(move builder, mut scene) || !level_install(read graph, mut scene) {
         return false;
     }
-    if !shaft_layout_crossings(read scene, read graph) {
+    if !shaft_layout_crossings(read scene, read graph) || !shaft_layout_bypasses(
+        read scene,
+        read graph
+    ) {
         return false;
     }
     puts(
-        "shaft assembly: rigid loops, radial links, oblique links, closures and drone crossings passed"
+        "shaft assembly: rigid loops, radial links, oblique links, closures, drone crossings and bidirectional fan bypass flight passed"
     );
     return true;
 }

@@ -280,8 +280,10 @@ The `shaft-collar` prefab provides a convex connection from a round shaft to a
 hexagonal side tunnel. Its shaft end profiles and spindle remain unchanged.
 An outward side panel and sloped faces provide the flat portal surface. Use a
 collar on each side of the fan and connect their side ports with the bypass.
-The generator places a collar on each side of the compact fan room. Each side
-port has a closed hex stopper. Bypass tunnels require separate graph links.
+The generator connects the collars with two existing hex elbows and one
+straight hex tunnel. The straight length comes from the gap between the elbow
+ports. All joins share rigid global frames. The bypass is open in both
+directions and avoids the fan room.
 
 The bypass joins the shaft on both sides of one fan. Keep it short and close
 to the machine. Its entrance must be visible from the approach before suction

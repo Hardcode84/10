@@ -167,8 +167,9 @@ both directions. There are no shortcut or whole-grid attachment passes.
 
 The [fan design](room-catalogue.md#fans-supports-and-tether-flight) defines
 slow crossings, adjacent airflow sources, and fast or cycling fans with short
-hexagonal bypasses. These behaviours and bypasses are not part of the current
-static demo. Add them after construction of the base route and dead ends.
+hexagonal bypasses. The static demo connects a hex bypass around each fan.
+Fan motion and airflow require the controllers in the fan design. Add powered
+hazard rules after construction of the base route and dead ends.
 
 Keep the requested length as the base-route budget. A bypass joins both sides
 of a fan and creates a local loop. Record its passage costs in the expanded
@@ -210,8 +211,11 @@ A fan interval has five connected rooms: clear approach, side collar, compact
 fan, side collar, and clear approach. The approaches share the space that
 remains after the fan and collars. Their total length equals the passage
 between the station faces. The spindle continues through all five rooms.
-Each collar side port has a closed hex stopper. Small service pipes stay in
-the clear approaches. The fan remains static.
+The collar side ports connect through two hex elbows and a straight hex
+tunnel. Its length matches the gap between the elbows. This forms a local
+loop around the fan without changing station positions or the base route
+budget. The room graph contains all bypass rooms and connections. Small
+service pipes stay in the clear approaches. The fan remains static.
 
 Each unused radial port ends in a closed bearing, collector, or filter cap.
 Each unused lateral port has a closed octagonal stopper. The outlet has an
@@ -224,9 +228,10 @@ occur during loading. The graph output contains stable station and passage IDs,
 open passage states, selected stations, endpoints, the ordered main route,
 and its exact distance.
 
-The current static assembly must preserve the selected graph. Each fan leaves
-its passage traversable. Hazard expansion must register fast-fan closures and
-bypass connections before route validation. Do not create an unrecorded bypass. A grate can replace a closure only with a closed enclosure
+The current static assembly preserves the selected base graph and adds a
+local bypass loop at each fan. Each fan leaves its direct passage traversable.
+Powered route checks must include the bypass links and fast-fan closures.
+A grate can replace a closure only with a closed enclosure
 behind it. Visible but unreachable structures require explicit content; the
 generator does not fill unused columns with rooms.
 

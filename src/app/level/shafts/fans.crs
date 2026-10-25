@@ -112,5 +112,5 @@ fn shaft_region_fan_passages(
         }
         i = i + 1u32;
     }
-    return true;
+    return shaft_region_fan_bypasses(mut graph, mut builder, mut mesh);
 }

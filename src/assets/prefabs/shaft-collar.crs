@@ -108,8 +108,8 @@ fn shaft_collar_connections(
         face: asset_face_count(read asset.hull) - 1u32,
         position: vec(diameter * 0.5f32 + extension, height * 0.5f32, 0f32),
         basis: make Basis {
-            right: vec(0f32, 0f32, -1f32),
-            up: vec(0f32, 1f32, 0f32),
+            right: vec(0f32, 1f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
             forward: vec(1f32, 0f32, 0f32)
         }
     };
