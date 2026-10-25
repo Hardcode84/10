@@ -1,0 +1,67 @@
+fn shaft_grid_neighbour(grid: read ShaftGrid, node: u32, slot: u32) -> u32 {
+    if node < shaft_grid_stations() {
+        var other: u32 = shaft_grid_adjacent(node, slot);
+        if other == SHAFT_GRID_NONE {
+            return SHAFT_GRID_NONE;
+        }
+        var id: u32 = shaft_grid_between(node, other);
+        var edge: ShaftPassage = shaft_passage(read grid, id);
+        if !edge.open {
+            return SHAFT_GRID_NONE;
+        }
+        if edge.cost == 1u32 {
+            return other;
+        }
+        var middle: u32 = shaft_grid_stations() + id * (SHAFT_GRID_SUBDIVISIONS - 1u32);
+        if node == edge.a {
+            return middle;
+        }
+        return middle + SHAFT_GRID_SUBDIVISIONS - 2u32;
+    }
+    if slot >= 2u32 {
+        return SHAFT_GRID_NONE;
+    }
+    var index: u32 = node - shaft_grid_stations();
+    var edge: ShaftPassage = shaft_passage(read grid, index / (SHAFT_GRID_SUBDIVISIONS - 1u32));
+    if !edge.open {
+        return SHAFT_GRID_NONE;
+    }
+    var part: u32 = index % (SHAFT_GRID_SUBDIVISIONS - 1u32);
+    if slot == 0u32 {
+        if part == 0u32 {
+            return edge.a;
+        }
+        return node - 1u32;
+    }
+    if part + 2u32 == SHAFT_GRID_SUBDIVISIONS {
+        return edge.b;
+    }
+    return node + 1u32;
+}
+fn shaft_grid_bfs(
+    grid: read ShaftGrid,
+    source: u32,
+    distances: mut GenerationWords,
+    queue: mut GenerationWords
+) -> unit {
+    generation_words_fill(mut distances, SHAFT_GRID_NONE);
+    generation_word_set(mut distances, source, 0u32);
+    generation_word_set(mut queue, 0u32, source);
+    var head: u32 = 0u32;
+    var tail: u32 = 1u32;
+    while head < tail {
+        var node: u32 = generation_word(read queue, head);
+        head = head + 1u32;
+        var i: u32 = 0u32;
+        while i < 6u32 {
+            var next: u32 = shaft_grid_neighbour(read grid, node, i);
+            if next != SHAFT_GRID_NONE && generation_word(read distances, next) == SHAFT_GRID_NONE {
+                var distance: u32 = generation_word(read distances, node) + 1u32;
+                generation_word_set(mut distances, next, distance);
+                generation_word_set(mut queue, tail, next);
+                tail = tail + 1u32;
+            }
+            i = i + 1u32;
+        }
+    }
+}

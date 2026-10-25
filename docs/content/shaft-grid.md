@@ -6,11 +6,60 @@ This design defines the logical graph for the
 [shaft subbiome](room-catalogue.md#shafts-radial-shaft-grid).
 It specifies a finite construction that guarantees a minimum entrance-to-exit
 route distance. It does not use generation retries or reduce the requested
-minimum when a random choice fails. The generator is not implemented.
+minimum when a random choice fails. The graph generator and a standalone flight
+demo are implemented.
 
 Use the catalogue for appearance, machinery, flight, and the powered return.
 Use the [room format](room-format.md) for geometry and connection contracts.
 A graph station is a logical connection site. It need not be a separate room.
+
+## Playable demo
+
+Run:
+
+```sh
+crust demo.crs levels/shafts.crs --seed 1
+```
+
+The entrance is a bearing cap. The exit is the only offset outlet cap.
+Use the normal flight, tether, burst, and brake controls. The demo keeps the
+existing spin control. Fans remain stopped: this recipe creates static fan
+geometry and assigns no moving-body controller or airflow field.
+
+The shaft recipe passes its graph settings directly to the generator.
+The [graph model](../../src/app/level/shafts/model.crs) defines the default
+minimum and growth limits. Set `minimum`, `attachments`, and `shortcuts` in the
+recipe to change them. The shared demo runner supplies only the seed.
+An unlimited growth limit permits the complete pass. Zero disables that pass.
+Invalid minimum values produce an error.
+
+The [placement code](../../src/app/level/shafts/placement.crs) defines the inner
+radius and grid pitch. Grid `x` follows the circumference; grid `y` follows the
+drum axis. Grid `z` increases radial depth. Station centres keep their radial
+position and orientation. Side tunnels use rigid octagonal links with angled
+end faces and four continuous pipes. Their end frames match both stations.
+
+Only selected stations and open passages become rooms. Each unused radial
+port ends in a closed bearing, collector, or filter cap. Each unused lateral
+port has a closed octagonal stopper. The outlet has an octagonal stopper at
+its far end to enclose this standalone region. The demo does not change
+`main.crs`.
+
+Room recipes are built once per repeated type during assembly. Each placed
+room retains its own render and collision data. Graph search, recipe work,
+and allocation occur during loading.
+
+```mermaid
+flowchart LR
+    seed["Seed and route controls"] --> cycle["Block tree and station cycle"]
+    cycle --> path["Long entrance-to-exit arc"]
+    path --> forest["Forest attachments"]
+    forest --> joins["Distance-safe joins"]
+    joins --> placement["Radial station frames"]
+    placement --> rooms["Shafts, cross tunnels, and closures"]
+    rooms --> checks["Rigid port checks"]
+    checks --> flight["Shared flight and rendering"]
+```
 
 ## Grid and distance
 
@@ -68,9 +117,9 @@ steps. Its public supported range is derived below. Optional controls limit
 the number of additional stations attached to the initial path and the number
 of extra passages accepted during shortcut admission. Zero adds none; an omitted
 limit permits the complete pass. These are upper limits, not promised counts.
-Keep grid dimensions, subdivision count, and random-number rules in one owning
-component when the generator is implemented. Derive capacities and supported
-bounds from them.
+The graph model owns grid dimensions and subdivision count. The shared random
+helper owns the integer sequence. Capacities and supported bounds are derived
+from these definitions.
 
 The output contains stable station and passage IDs, entrance and exit IDs,
 open or closed passage states, and the retained entrance-to-exit path. It also
@@ -269,9 +318,8 @@ routes or a specific number of shaft changes needs an additional constructive
 rule; a graph cycle alone does not establish either property.
 
 After graph construction, geometry must preserve the admitted passage states.
-A grate closes an axial passage with visible and collision-matched structure.
-A closure seals a lateral passage. Fan placement must leave a physically usable
-powered return. Do not delete a required route edge to place a fan, or add an
+The demo uses closed shaft caps to close axial passages. A grate can replace
+a cap only with a closed enclosure behind it. A stopper seals a lateral passage. Fan placement must leave a physically usable route. Do not delete a required route edge to place a fan, or add an
 unrecorded maintenance bypass that defeats the distance bound. Apply any extra
 passage through the same admission check.
 
@@ -292,15 +340,14 @@ shuffles. Consume one graph random stream in this order: endpoints, block-tree
 shuffle, axial interval choices, arc tie, forest choices, shortcut shuffle.
 Draw the exit from the 63 shaft IDs other than the entrance, in increasing order.
 Process tree splices in tree-admission order. Keep geometry-detail randomness
-separate. Never depend on hash iteration or worker completion order. Add fixed
-seed/output fixtures when the owning generator is implemented.
+separate. Never depend on hash iteration or worker completion order. The graph tests check repeatable seed output.
 
 The block-tree and cycle operations are linear apart from candidate ordering.
 Each BFS is linear in expanded nodes plus open edges. Shortcut admission takes
 one initial pair of BFS passes and one pair per accepted candidate. Storage is
 linear in the full candidate graph. These are bounded load-time costs for this region.
 
-## Verification before implementation is accepted
+## Verification
 
 Use a focused graph fixture. It must not build rooms, start a renderer, or run
 a full expedition.
@@ -324,3 +371,10 @@ a full expedition.
 Small-graph exhaustive checks can verify the admission rule independently of
 this construction. Seed samples supplement the splice proof; they do not replace
 its coverage of every block tree.
+
+Run `crust tests.crs shaft-grid` for the graph checks. They include the two
+extremal block trees, all endpoint pairs on representative cycles, an independent
+expanded-graph BFS, forest distance checks, and shortcut recomputation.
+Run `crust tests.crs shaft-layout` for a small assembly fixture. It checks rigid
+loops, both lateral directions, different radial depths, real drone crossings,
+and closed stoppers. It starts no renderer.

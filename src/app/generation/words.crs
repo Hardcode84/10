@@ -1,0 +1,32 @@
+resource GenerationWords {
+    data: *u32;
+    count: u32;
+}
+opaque drop generation_words_drop;
+fn generation_words_new() -> GenerationWords {
+    return make GenerationWords {
+        data: null(*u32),
+        count: 0u32
+    };
+}
+fn generation_words_drop(words: mut GenerationWords) -> unit {
+    free(words.data as *u8);
+}
+fn generation_words_allocate(words: mut GenerationWords, count: u32) -> bool {
+    words.data = malloc(count as usize * sizeof(u32)) as *u32;
+    words.count = count;
+    return words.data != null(*u32) || error("generation workspace allocation failed");
+}
+fn generation_word(words: read GenerationWords, index: u32) -> u32 {
+    return words.data[index as usize];
+}
+fn generation_word_set(words: mut GenerationWords, index: u32, value: u32) -> unit {
+    words.data[index as usize] = value;
+}
+fn generation_words_fill(words: mut GenerationWords, value: u32) -> unit {
+    var i: u32 = 0u32;
+    while i < words.count {
+        words.data[i as usize] = value;
+        i = i + 1u32;
+    }
+}

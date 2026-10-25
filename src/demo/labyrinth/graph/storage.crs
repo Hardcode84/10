@@ -48,7 +48,7 @@ fn graph_allocate(graph: mut RoomGraph, capacity: u32, seed: u32) -> bool {
     graph.nodes = malloc(capacity as usize * sizeof(GraphNode)) as *GraphNode;
     graph.sockets = malloc(capacity as usize * 8usize * sizeof(GraphSocket)) as *GraphSocket;
     graph.capacity = capacity;
-    graph.random = seed ^ 0xa511e9b3u32;
+    graph.random = generation_seed(seed);
     return graph.nodes != null(*GraphNode) && graph.sockets != null(*GraphSocket) || error(
         "graph allocation failed"
     );
@@ -78,11 +78,8 @@ fn graph_set_goal(graph: mut RoomGraph, room: u32) -> unit {
     graph.goal = room;
 }
 fn graph_random(graph: mut RoomGraph, bound: u32) -> u32 {
-    graph.random = graph.random * 1664525u32 + 1013904223u32;
-    var value: u32 = graph.random;
-    value = (value ^ (value >> 16u32)) * 0x7feb352du32;
-    value = (value ^ (value >> 15u32)) * 0x846ca68bu32;
-    return (value ^ (value >> 16u32)) % bound;
+    graph.random = generation_next(graph.random);
+    return generation_draw(graph.random, bound);
 }
 fn graph_add(graph: mut RoomGraph, kind: u32, depth: u32, branch: u32) -> u32 {
     var count: u32 = 2u32;

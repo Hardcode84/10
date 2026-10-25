@@ -1,0 +1,95 @@
+const SHAFT_REGION_INNER_RADIUS: f32 = 500f32;
+const SHAFT_REGION_PITCH: f32 = 40f32;
+fn shaft_region_angle(station: u32) -> f32 {
+    return (station % SHAFT_GRID_WIDTH) as f32 * SHAFT_REGION_PITCH / SHAFT_REGION_INNER_RADIUS;
+}
+fn shaft_region_basis(angle: f32) -> Basis {
+    return make Basis {
+        right: vec(cosf(angle), -sinf(angle), 0f32),
+        up: vec(sinf(angle), cosf(angle), 0f32),
+        forward: vec(0f32, 0f32, 1f32)
+    };
+}
+fn shaft_region_radius(station: u32) -> f32 {
+    return SHAFT_REGION_INNER_RADIUS + (station / shaft_grid_columns()) as f32 * SHAFT_GRID_SPAN;
+}
+fn shaft_region_centre(station: u32) -> Vec3 {
+    var radial: Vec3 = shaft_region_basis(shaft_region_angle(station)).up;
+    return add(
+        scale(radial, shaft_region_radius(station)),
+        vec(
+            0f32,
+            0f32,
+            (station % shaft_grid_columns() / SHAFT_GRID_WIDTH) as f32 * SHAFT_REGION_PITCH
+        )
+    );
+}
+fn shaft_region_height() -> f32 {
+    return prefab_shaft_station_parameter(0u32).initial;
+}
+fn shaft_region_passage_height(terminal: bool) -> f32 {
+    var occupied: f32 = shaft_region_height();
+    if terminal {
+        occupied = occupied * 0.5f32;
+    }
+    return SHAFT_GRID_SPAN - occupied;
+}
+fn shaft_region_port(slot: u32) -> AssetName {
+    if slot == 0u32 {
+        return asset_name("WEST");
+    }
+    if slot == 1u32 {
+        return asset_name("EAST");
+    }
+    if slot == 2u32 {
+        return asset_name("SOUTH");
+    }
+    if slot == 3u32 {
+        return asset_name("NORTH");
+    }
+    if slot == 4u32 {
+        return asset_name("BOTTOM");
+    }
+    return asset_name("TOP");
+}
+fn shaft_region_place(graph: mut RoomGraph, room: u32, pose: SpaceTransform) -> unit {
+    var node: GraphNode = graph_node(read graph, room);
+    node.placement = pose;
+    graph_node_set(mut graph, room, node);
+}
+// Both rooms have fixed global frames. Choose the matching profile rotation.
+fn shaft_region_pair(graph: mut RoomGraph, a: LevelCursor, b: LevelCursor) -> bool {
+    var first: u32 = course_socket(read graph, a.room, a.exit);
+    var second: u32 = course_socket(read graph, b.room, b.exit);
+    var source: GraphSocket = graph_socket(read graph, first);
+    var target: GraphSocket = graph_socket(read graph, second);
+    var pose: SpaceTransform = graph_node(read graph, a.room).placement;
+    var other: SpaceTransform = graph_node(read graph, b.room).placement;
+    var roll: u32 = 0u32;
+    while roll < connection_rotations(source.port, target.port) {
+        var mapped: SpaceTransform = space_compose(
+            other,
+            connection_transform(source.port, target.port, roll)
+        );
+        if length(sub(pose.origin, mapped.origin)) < 0.002f32 && length(
+            sub(pose.basis.right, mapped.basis.right)
+        ) < 0.00001f32 && length(sub(pose.basis.up, mapped.basis.up)) < 0.00001f32 {
+            course_pair(mut graph, first, second);
+            source.peer = second;
+            source.roll = roll;
+            target.peer = first;
+            target.roll = roll;
+            graph_socket_set(mut graph, first, source);
+            graph_socket_set(mut graph, second, target);
+            return true;
+        }
+        roll = roll + 1u32;
+    }
+    return error("shaft region link has no matching rigid port rotation");
+}
+fn shaft_region_cursor(room: u32, name: AssetName) -> LevelCursor {
+    return make LevelCursor {
+        room: room,
+        exit: name
+    };
+}

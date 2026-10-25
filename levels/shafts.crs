@@ -1,0 +1,32 @@
+// Run: crust demo.crs levels/shafts.crs --seed N
+// A radial shaft region with a guaranteed minimum route distance.
+// The graph defaults set the minimum distance and branch limits.
+// The bearing cap is the entrance. The offset outlet is the exit.
+// Fans are stopped. Closed caps and octagonal doors seal unused connections.
+fn demo_room_build(
+    asset: mut RoomAsset,
+    collision: mut CollisionScene,
+    mesh: mut Mesh,
+    graph: mut RoomGraph,
+    seed: u32
+) -> bool {
+    return shaft_region_build(
+        mut asset,
+        mut collision,
+        mut mesh,
+        mut graph,
+        seed,
+        shaft_grid_defaults()
+    );
+}
+fn demo_room_ambient() -> Vec3 {
+    return vec(0.08f32, 0.09f32, 0.11f32);
+}
+fn demo_palette(input: mut FrameInput) -> bool {
+    return shaft_region_palette(mut input);
+}
+fn demo_room_lighting(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    anchors: mut RoomAnchors
+) -> unit {}

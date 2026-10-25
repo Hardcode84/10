@@ -1,0 +1,103 @@
+resource ShaftGrid {
+    edges: *ShaftPassage;
+    stations: *ShaftStation;
+    path: GenerationWords;
+    path_count: u32;
+    entrance: u32;
+    exit: u32;
+    distance: u32;
+    cycle_length: u32;
+    paired_splices: u32;
+    random: u32;
+}
+opaque drop shaft_grid_drop;
+fn shaft_grid_new() -> ShaftGrid {
+    return make ShaftGrid {
+        edges: null(*ShaftPassage),
+        stations: null(*ShaftStation),
+        path: generation_words_new(),
+        path_count: 0u32,
+        entrance: 0u32,
+        exit: 0u32,
+        distance: 0u32,
+        cycle_length: 0u32,
+        paired_splices: 0u32,
+        random: 0u32
+    };
+}
+fn shaft_grid_drop(grid: mut ShaftGrid) -> unit {
+    free(grid.edges as *u8);
+    free(grid.stations as *u8);
+}
+fn shaft_grid_allocate(grid: mut ShaftGrid, seed: u32) -> bool {
+    grid.edges = malloc(shaft_grid_edges() as usize * sizeof(ShaftPassage)) as *ShaftPassage;
+    grid.stations = malloc(shaft_grid_stations() as usize * sizeof(ShaftStation)) as *ShaftStation;
+    grid.random = generation_seed(seed);
+    if grid.edges == null(*ShaftPassage) || grid.stations == null(*ShaftStation) {
+        return error("shaft grid allocation failed");
+    }
+    var i: u32 = 0u32;
+    while i < shaft_grid_stations() {
+        grid.stations[i as usize] = make ShaftStation {
+            reached: false,
+            first: SHAFT_GRID_NONE,
+            second: SHAFT_GRID_NONE
+        };
+        i = i + 1u32;
+    }
+    return generation_words_allocate(mut grid.path, shaft_grid_stations());
+}
+fn shaft_passage(grid: read ShaftGrid, id: u32) -> ShaftPassage {
+    return grid.edges[id as usize];
+}
+fn shaft_passage_set(grid: mut ShaftGrid, id: u32, value: ShaftPassage) -> unit {
+    grid.edges[id as usize] = value;
+}
+fn shaft_station(grid: read ShaftGrid, id: u32) -> ShaftStation {
+    return grid.stations[id as usize];
+}
+fn shaft_station_set(grid: mut ShaftGrid, id: u32, value: ShaftStation) -> unit {
+    grid.stations[id as usize] = value;
+}
+fn shaft_grid_random(grid: mut ShaftGrid, bound: u32) -> u32 {
+    grid.random = generation_next(grid.random);
+    return generation_draw(grid.random, bound);
+}
+fn shaft_grid_entrance(grid: read ShaftGrid) -> u32 {
+    return grid.entrance;
+}
+fn shaft_grid_exit(grid: read ShaftGrid) -> u32 {
+    return grid.exit;
+}
+fn shaft_grid_distance(grid: read ShaftGrid) -> u32 {
+    return grid.distance;
+}
+fn shaft_grid_cycle_length(grid: read ShaftGrid) -> u32 {
+    return grid.cycle_length;
+}
+fn shaft_grid_paired_splices(grid: read ShaftGrid) -> u32 {
+    return grid.paired_splices;
+}
+fn shaft_grid_path_count(grid: read ShaftGrid) -> u32 {
+    return grid.path_count;
+}
+fn shaft_grid_path(grid: read ShaftGrid, index: u32) -> u32 {
+    return generation_word(read grid.path, index);
+}
+fn shaft_grid_set_endpoints(grid: mut ShaftGrid, entrance: u32, destination: u32) -> unit {
+    grid.entrance = entrance;
+    grid.exit = destination;
+}
+fn shaft_grid_set_distance(grid: mut ShaftGrid, distance: u32) -> unit {
+    grid.distance = distance;
+}
+fn shaft_grid_add_cycle_length(grid: mut ShaftGrid, cost: u32) -> unit {
+    grid.cycle_length = grid.cycle_length + cost;
+}
+fn shaft_grid_add_splice(grid: mut ShaftGrid) -> unit {
+    grid.paired_splices = grid.paired_splices + 1u32;
+}
+fn shaft_grid_record_path(grid: mut ShaftGrid, node: u32) -> unit {
+    generation_word_set(mut grid.path, grid.path_count, node);
+    grid.path_count = grid.path_count + 1u32;
+}

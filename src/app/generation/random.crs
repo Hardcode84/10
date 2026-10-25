@@ -1,0 +1,12 @@
+fn generation_seed(seed: u32) -> u32 {
+    return seed ^ 0xa511e9b3u32;
+}
+fn generation_next(state: u32) -> u32 {
+    return state * 1664525u32 + 1013904223u32;
+}
+// Bound is positive. The integer sequence is shared by seeded level generators.
+fn generation_draw(state: u32, bound: u32) -> u32 {
+    var value: u32 = (state ^ (state >> 16u32)) * 0x7feb352du32;
+    value = (value ^ (value >> 15u32)) * 0x846ca68bu32;
+    return (value ^ (value >> 16u32)) % bound;
+}

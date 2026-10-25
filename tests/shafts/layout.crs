@@ -1,0 +1,170 @@
+fn shaft_layout_cross(scene: read CollisionScene, portal: CollisionPortal) -> bool {
+    var i: u32 = 0u32;
+    while i < 16u32 {
+        var point: Vec3 = portal.origin;
+        if portal.radius > service_oct_profile().radius {
+            var angle: f32 = 6.28318530718f32 * i as f32 / 16f32;
+            point = add(
+                point,
+                add(
+                    scale(portal.basis.right, 4f32 * cosf(angle)),
+                    scale(portal.basis.up, 4f32 * sinf(angle))
+                )
+            );
+        }
+        var start: Vec3 = sub(point, scale(portal.basis.forward, 0.6f32));
+        var finish: Vec3 = add(point, scale(portal.basis.forward, 0.6f32));
+        var expected: Vec3 = space_point(portal.transform, finish);
+        if collision_position_valid(read scene, portal.space, start, DRONE_RADIUS) && collision_position_valid(
+            read scene,
+            portal.destination,
+            expected,
+            DRONE_RADIUS
+        ) {
+            var hit: CollisionSweep = collision_sweep_interval(
+                read scene,
+                portal.space,
+                start,
+                sub(finish, start),
+                DRONE_RADIUS,
+                0f32,
+                0f32
+            );
+            if hit.contact.hit.time > 1f32 {
+                var drone: Drone = new_drone();
+                drone.world = portal.space;
+                drone.position = start;
+                move_drone(read scene, mut drone, sub(finish, start));
+                if drone.world != portal.destination || length(
+                    sub(drone.position, expected)
+                ) > 0.001f32 {
+                    return error("shaft portal crossing disagrees with rigid placement");
+                }
+                return true;
+            }
+        }
+        i = i + 1u32;
+    }
+    return error("shaft portal has no clear drone crossing");
+}
+fn shaft_layout_edge(grid: mut ShaftGrid, a: u32, b: u32) -> unit {
+    var id: u32 = shaft_grid_between(a, b);
+    var edge: ShaftPassage = shaft_passage(read grid, id);
+    edge.open = true;
+    shaft_passage_set(mut grid, id, edge);
+    shaft_grid_reach(mut grid, a);
+    shaft_grid_reach(mut grid, b);
+}
+fn shaft_layout_fixture(grid: mut ShaftGrid) -> bool {
+    if !shaft_grid_allocate(mut grid, 1u32) {
+        return false;
+    }
+    shaft_grid_candidates(mut grid);
+    var a: u32 = shaft_grid_station(0u32, 0u32, 1u32);
+    var b: u32 = a + 1u32;
+    var c: u32 = a + SHAFT_GRID_WIDTH;
+    var d: u32 = c + 1u32;
+    shaft_layout_edge(mut grid, a, b);
+    shaft_layout_edge(mut grid, b, d);
+    shaft_layout_edge(mut grid, a, c);
+    shaft_layout_edge(mut grid, c, d);
+    var next: u32 = a + shaft_grid_columns();
+    var last: u32 = next + shaft_grid_columns();
+    shaft_layout_edge(mut grid, a, next);
+    shaft_layout_edge(mut grid, next, last);
+    shaft_layout_edge(mut grid, last, last + 1u32);
+    var entrance: u32 = a - shaft_grid_columns();
+    var destination: u32 = last + 1u32 + shaft_grid_columns();
+    shaft_layout_edge(mut grid, entrance, a);
+    shaft_layout_edge(mut grid, last + 1u32, destination);
+    shaft_grid_set_endpoints(mut grid, entrance, destination);
+    return true;
+}
+fn shaft_layout_crossings(scene: read CollisionScene, graph: read RoomGraph) -> bool {
+    var i: u32 = 0u32;
+    while i < collision_portal_count(read scene) {
+        var portal: CollisionPortal = collision_portal(read scene, i);
+        var from: u32 = graph_node(read graph, portal.space).kind;
+        var to: u32 = graph_node(read graph, portal.destination).kind;
+        if from != PREFAB_OCT_STOPPER && to != PREFAB_OCT_STOPPER {
+            if !shaft_layout_cross(read scene, portal) {
+                print_number(i as i64);
+                return false;
+            }
+        } else if to == PREFAB_OCT_STOPPER {
+            var drone: Drone = new_drone();
+            drone.world = portal.space;
+            drone.position = sub(portal.origin, portal.basis.forward);
+            move_drone(read scene, mut drone, scale(portal.basis.forward, 2f32));
+            var pose: SpaceTransform = graph_node(read graph, drone.world).placement;
+            var origin: Vec3 = space_point(
+                graph_node(read graph, portal.space).placement,
+                portal.origin
+            );
+            if length(sub(space_point(pose, drone.position), origin)) > 0.5f32 {
+                return error("closed oct connection leaks into void");
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_layout_run() -> bool {
+    var grid: ShaftGrid = shaft_grid_new();
+    var rooms: GenerationWords = generation_words_new();
+    var graph: RoomGraph = graph_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    var mesh: Mesh = mesh_new();
+    if !shaft_layout_fixture(mut grid) || !generation_words_allocate(
+        mut rooms,
+        shaft_grid_stations()
+    ) || !graph_allocate(mut graph, shaft_grid_stations() * 7u32, 1u32) {
+        return false;
+    }
+    generation_words_fill(mut rooms, SHAFT_GRID_NONE);
+    var start: RoomAsset = room_asset_new();
+    var ending: RoomAsset = room_asset_new();
+    if !shaft_region_terminal(
+        mut graph,
+        mut builder,
+        mut mesh,
+        shaft_grid_entrance(read grid),
+        PREFAB_SHAFT_CAP_BEARING,
+        mut rooms,
+        mut start
+    ) || !shaft_region_spawn(mut start) || !shaft_region_terminal(
+        mut graph,
+        mut builder,
+        mut mesh,
+        shaft_grid_exit(read grid),
+        PREFAB_SHAFT_CAP_OUTLET,
+        mut rooms,
+        mut ending
+    ) {
+        return false;
+    }
+
+    if !shaft_region_stations(read grid, mut graph, mut builder, mut mesh, mut rooms) || !shaft_region_passages(
+        read grid,
+        mut graph,
+        mut builder,
+        mut mesh,
+        read rooms
+    ) || !shaft_region_close(mut graph, mut builder, mut mesh) {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut scene) || !level_install(read graph, mut scene) {
+        return false;
+    }
+    if !shaft_layout_crossings(read scene, read graph) {
+        return false;
+    }
+    puts(
+        "shaft assembly: rigid loops, radial links, oblique links, closures and drone crossings passed"
+    );
+    return true;
+}
+fn main(argc: i32, argv: **u8) -> i32 {
+    return (!shaft_layout_run()) as i32;
+}

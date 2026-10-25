@@ -1,0 +1,41 @@
+fn run_shaft_checks(
+    root: *CrustRun,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> i32 {
+    var providers: [*u8; 3] = make [*u8; 3] {
+        host_path(root, "src/app/io.crs"),
+        host_path(root, "src/app/generation/words.crs"),
+        host_path(root, "src/app/level/shafts/storage.crs")
+    };
+    var args: [*u8; 12] = make [*u8; 12] {
+        host_path(root, "tests/shafts/graph.crs"),
+        host_path(root, "src/app/generation/random.crs"),
+        host_path(root, "src/app/level/shafts/model.crs"),
+        host_path(root, "src/app/level/shafts/candidates.crs"),
+        host_path(root, "src/app/level/shafts/cycle.crs"),
+        host_path(root, "src/app/level/shafts/path.crs"),
+        host_path(root, "src/app/level/shafts/distance.crs"),
+        host_path(root, "src/app/level/shafts/branches.crs"),
+        "-o",
+        host_path(root, "build/tests-shafts"),
+        "--cflag",
+        "-O2"
+    };
+    if ownership_sources(
+        root,
+        emit,
+        12i32,
+        &args[0usize],
+        &providers[0usize],
+        3usize,
+        null(*u8)
+    ) != 0i32 {
+        return 1i32;
+    }
+    var command: [*u8; 2] = make [*u8; 2] {
+        args[9usize],
+        null(*u8)
+    };
+    build_execv(command[0usize], &command[0usize]);
+    return 1i32;
+}

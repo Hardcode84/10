@@ -1,0 +1,353 @@
+fn shaft_test_cycle(grid: read ShaftGrid) -> bool {
+    var visited: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut visited, shaft_grid_stations()) {
+        return false;
+    }
+    generation_words_fill(mut visited, 0u32);
+    var start: u32 = shaft_grid_columns();
+    var previous: u32 = SHAFT_GRID_NONE;
+    var current: u32 = start;
+    var count: u32 = 0u32;
+    var cost: u32 = 0u32;
+    while true {
+        if !shaft_grid_internal(current) || generation_word(read visited, current) != 0u32 {
+            break;
+        }
+        generation_word_set(mut visited, current, 1u32);
+        count = count + 1u32;
+        var next: u32 = shaft_cycle_next(read grid, previous, current);
+        var edge: ShaftPassage = shaft_passage(read grid, shaft_grid_between(current, next));
+        if!(edge.cycle || error("cycle walk uses absent edge")) {
+            return false;
+        }
+        cost = cost + edge.cost;
+        previous = current;
+        current = next;
+    }
+    var internal: u32 = shaft_grid_columns() * (SHAFT_GRID_LAYERS - 2u32);
+    var axial: u32 = shaft_grid_blocks() * 2u32 * (SHAFT_GRID_LAYERS - 3u32) - 2u32 * shaft_grid_paired_splices(
+        read grid
+    );
+    return (current == start && count == internal || error("cycle misses stations")) && (
+        cost == internal + 2u32 * axial && cost == shaft_grid_cycle_length(read grid) || error(
+            "cycle cost formula"
+        )
+    );
+}
+fn shaft_test_arc(
+    adjacency: mut GenerationWords,
+    degree: mut GenerationWords,
+    a: u32,
+    b: u32
+) -> unit {
+    var count: u32 = generation_word(read degree, a);
+    generation_word_set(mut adjacency, a * 6u32 + count, b);
+    generation_word_set(mut degree, a, count + 1u32);
+}
+fn shaft_test_unit(
+    adjacency: mut GenerationWords,
+    degree: mut GenerationWords,
+    a: u32,
+    b: u32
+) -> unit {
+    shaft_test_arc(mut adjacency, mut degree, a, b);
+    shaft_test_arc(mut adjacency, mut degree, b, a);
+}
+// Build a separate unit-edge adjacency list from passage records.
+fn shaft_test_distances(grid: read ShaftGrid, source: u32, distances: mut GenerationWords) -> bool {
+    var adjacency: GenerationWords = generation_words_new();
+    var degree: GenerationWords = generation_words_new();
+    var queue: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut adjacency, shaft_grid_nodes() * 6u32) || !generation_words_allocate(
+        mut degree,
+        shaft_grid_nodes()
+    ) || !generation_words_allocate(mut queue, shaft_grid_nodes()) {
+        return false;
+    }
+    generation_words_fill(mut degree, 0u32);
+    generation_words_fill(mut distances, SHAFT_GRID_NONE);
+    var i: u32 = 0u32;
+    while i < shaft_grid_edges() {
+        var edge: ShaftPassage = shaft_passage(read grid, i);
+        if edge.open {
+            var previous: u32 = edge.a;
+            var part: u32 = 1u32;
+            while part < edge.cost {
+                var next: u32 = shaft_grid_stations() + i * (SHAFT_GRID_SUBDIVISIONS - 1u32) + part - 1u32;
+                shaft_test_unit(mut adjacency, mut degree, previous, next);
+                previous = next;
+                part = part + 1u32;
+            }
+            shaft_test_unit(mut adjacency, mut degree, previous, edge.b);
+        }
+        i = i + 1u32;
+    }
+    generation_word_set(mut distances, source, 0u32);
+    generation_word_set(mut queue, 0u32, source);
+    var head: u32 = 0u32;
+    var tail: u32 = 1u32;
+    while head < tail {
+        var node: u32 = generation_word(read queue, head);
+        head = head + 1u32;
+        var distance: u32 = generation_word(read distances, node) + 1u32;
+        i = 0u32;
+        while i < generation_word(read degree, node) {
+            var next: u32 = generation_word(read adjacency, node * 6u32 + i);
+            if generation_word(read distances, next) == SHAFT_GRID_NONE {
+                generation_word_set(mut distances, next, distance);
+                generation_word_set(mut queue, tail, next);
+                tail = tail + 1u32;
+            }
+            i = i + 1u32;
+        }
+    }
+    return true;
+}
+fn shaft_test_reached(grid: read ShaftGrid, distances: read GenerationWords) -> bool {
+    var i: u32 = 0u32;
+    while i < shaft_grid_stations() {
+        if shaft_station(read grid, i).reached != (
+            generation_word(read distances, i) != SHAFT_GRID_NONE
+        ) {
+            return error("selected station reachability");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_test_shortcut(
+    grid: mut ShaftGrid,
+    id: u32,
+    options: ShaftGridOptions,
+    ds: read GenerationWords,
+    dt: read GenerationWords
+) -> bool {
+    var edge: ShaftPassage = shaft_passage(read grid, id);
+    if edge.open || !shaft_station(read grid, edge.a).reached || !shaft_station(
+        read grid,
+        edge.b
+    ).reached {
+        return true;
+    }
+    var distance: u32 = generation_word(read ds, shaft_grid_exit(read grid));
+    var predicted: u32 = shaft_shortcut_distance(edge, read ds, read dt);
+    if predicted > distance {
+        predicted = distance;
+    }
+    var actual: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut actual, shaft_grid_nodes()) {
+        return false;
+    }
+    edge.open = true;
+    shaft_passage_set(mut grid, id, edge);
+    if !shaft_test_distances(read grid, shaft_grid_entrance(read grid), mut actual) {
+        return false;
+    }
+    edge.open = false;
+    shaft_passage_set(mut grid, id, edge);
+    if generation_word(read actual, shaft_grid_exit(read grid)) != predicted {
+        return error("whole-passage shortcut formula");
+    }
+    if options.shortcuts == SHAFT_GRID_NONE && predicted >= options.minimum {
+        return error("unlimited shortcuts must be maximal");
+    }
+    return true;
+}
+fn shaft_test_admission(
+    grid: mut ShaftGrid,
+    options: ShaftGridOptions,
+    ds: read GenerationWords,
+    dt: read GenerationWords
+) -> bool {
+    var i: u32 = 0u32;
+    while i < shaft_grid_edges() {
+        var edge: ShaftPassage = shaft_passage(read grid, i);
+        if edge.open && (!shaft_grid_internal(edge.a) || !shaft_grid_internal(edge.b)) {
+            if edge.a != shaft_grid_entrance(read grid) && edge.b != shaft_grid_exit(read grid) {
+                return error("unselected terminal opens");
+            }
+        }
+        if !shaft_test_shortcut(mut grid, i, options, read ds, read dt) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_test_routes(grid: mut ShaftGrid, options: ShaftGridOptions) -> bool {
+    var ds: GenerationWords = generation_words_new();
+    var dt: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut ds, shaft_grid_nodes()) || !generation_words_allocate(
+        mut dt,
+        shaft_grid_nodes()
+    ) {
+        return false;
+    }
+    if !shaft_test_distances(read grid, shaft_grid_entrance(read grid), mut ds) || !shaft_test_distances(
+        read grid,
+        shaft_grid_exit(read grid),
+        mut dt
+    ) {
+        return false;
+    }
+    var distance: u32 = generation_word(read ds, shaft_grid_exit(read grid));
+    if distance < options.minimum || distance != shaft_grid_distance(read grid) {
+        return error("minimum route distance");
+    }
+    return shaft_test_reached(read grid, read ds) && shaft_test_admission(
+        mut grid,
+        options,
+        read ds,
+        read dt
+    );
+}
+fn shaft_test_endpoints(grid: read ShaftGrid) -> bool {
+    var a: u32 = 0u32;
+    while a < shaft_grid_columns() {
+        var b: u32 = 0u32;
+        while b < shaft_grid_columns() {
+            if a != b {
+                var start: u32 = a + shaft_grid_columns();
+                var finish: u32 = b + (SHAFT_GRID_LAYERS - 2u32) * shaft_grid_columns();
+                var arc: u32 = shaft_cycle_arc(
+                    read grid,
+                    start,
+                    shaft_station(read grid, start).first,
+                    finish
+                );
+                var reverse: u32 = shaft_grid_cycle_length(read grid) - arc;
+                if reverse > arc {
+                    arc = reverse;
+                }
+                if!(
+                    arc + 2u32 * SHAFT_GRID_SUBDIVISIONS >= shaft_grid_minimum_max() || error(
+                        "endpoint pair breaks guaranteed bound"
+                    )
+                ) {
+                    return false;
+                }
+            }
+            b = b + 1u32;
+        }
+        a = a + 1u32;
+    }
+    return true;
+}
+fn shaft_test_seed(seed: u32) -> bool {
+    var options: ShaftGridOptions = shaft_grid_defaults();
+    options.minimum = 1u32 + seed % shaft_grid_minimum_max();
+    if seed == 1u32 {
+        options.minimum = 1u32;
+    }
+    if seed % 3u32 == 0u32 {
+        options.minimum = shaft_grid_minimum_max();
+    }
+    if seed % 4u32 == 0u32 {
+        options.attachments = SHAFT_GRID_NONE;
+        options.shortcuts = SHAFT_GRID_NONE;
+    }
+    var grid: ShaftGrid = shaft_grid_new();
+    var replay: ShaftGrid = shaft_grid_new();
+    if !shaft_grid_generate(mut grid, seed, options) || !shaft_grid_generate(
+        mut replay,
+        seed,
+        options
+    ) || !shaft_test_cycle(read grid) || !shaft_test_routes(mut grid, options) {
+        return false;
+    }
+    if seed < 4u32 && !shaft_test_endpoints(read grid) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < shaft_grid_edges() {
+        var a: ShaftPassage = shaft_passage(read grid, i);
+        var b: ShaftPassage = shaft_passage(read replay, i);
+        if!(
+            a.open == b.open && a.cycle == b.cycle && a.required == b.required || error(
+                "seed replay differs"
+            )
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_test_splices(grid: mut ShaftGrid, horizontal: bool) -> unit {
+    var block: u32 = 0u32;
+    var width: u32 = SHAFT_GRID_WIDTH / 2u32;
+    while block < shaft_grid_blocks() {
+        if block % width + 1u32 < width && (horizontal || block < width) {
+            shaft_cycle_splice(
+                mut grid,
+                block,
+                block + 1u32,
+                1u32 + block % (SHAFT_GRID_LAYERS - 3u32)
+            );
+        }
+        if block + width < shaft_grid_blocks() && (!horizontal || block % width == 0u32) {
+            shaft_cycle_splice(mut grid, block, block + width, 1u32);
+        }
+        block = block + 1u32;
+    }
+}
+fn shaft_test_extreme(horizontal: bool) -> bool {
+    var grid: ShaftGrid = shaft_grid_new();
+    if !shaft_grid_allocate(mut grid, 7u32) {
+        return false;
+    }
+    shaft_grid_candidates(mut grid);
+    shaft_cycle_blocks(mut grid);
+    shaft_test_splices(mut grid, horizontal);
+    shaft_cycle_finish(mut grid);
+    if !shaft_test_cycle(read grid) || !shaft_test_endpoints(read grid) {
+        return false;
+    }
+    shaft_grid_endpoints(mut grid);
+    shaft_grid_initial_path(mut grid);
+    var distances: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut distances, shaft_grid_nodes()) || !shaft_test_distances(
+        read grid,
+        shaft_grid_entrance(read grid),
+        mut distances
+    ) {
+        return false;
+    }
+    var before: u32 = generation_word(read distances, shaft_grid_exit(read grid));
+    if !shaft_grid_forest(mut grid, SHAFT_GRID_NONE) || !shaft_test_distances(
+        read grid,
+        shaft_grid_entrance(read grid),
+        mut distances
+    ) {
+        return false;
+    }
+    return generation_word(read distances, shaft_grid_exit(read grid)) == before || error(
+        "forest attachment shortens route"
+    );
+}
+fn shaft_test_invalid() -> bool {
+    var grid: ShaftGrid = shaft_grid_new();
+    var options: ShaftGridOptions = shaft_grid_defaults();
+    options.minimum = 0u32;
+    if shaft_grid_generate(mut grid, 1u32, options) {
+        return error("zero distance accepted");
+    }
+    options.minimum = shaft_grid_minimum_max() + 1u32;
+    return !shaft_grid_generate(mut grid, 1u32, options) || error("unsupported minimum accepted");
+}
+fn main(argc: i32, argv: **u8) -> i32 {
+    if !shaft_test_invalid() || !shaft_test_extreme(false) || !shaft_test_extreme(true) {
+        return 1i32;
+    }
+    var seed: u32 = 0u32;
+    while seed < 64u32 {
+        if !shaft_test_seed(seed) {
+            return 1i32;
+        }
+        seed = seed + 1u32;
+    }
+    puts(
+        "shaft graph: cycle, endpoint pairs, route bounds, reachability, shortcuts and replay passed"
+    );
+    return 0i32;
+}

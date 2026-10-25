@@ -11,6 +11,9 @@ program with the Crust ownership stage. Device programs use the shader stage.
 | `crust demo.crs levels/radial.crs` | Fly through the generated room with game controls and linked portals. |
 | `crust demo.crs levels/prefabs.crs` | Inspect all room presets in one connected flight course. |
 | `crust demo.crs levels/doors-64.crs` | Fly through a twisted chain of working hex doors. |
+| `crust demo.crs levels/shafts.crs --seed N` | Fly through the generated [shaft region](content/shaft-grid.md#playable-demo). |
+| `crust tests.crs shaft-grid` | Check shaft topology without geometry or a renderer. |
+| `crust tests.crs shaft-layout` | Check a small shaft assembly and drone crossings. |
 | `crust viewer.crs ROOM.crs` | Build and inspect a Crust room recipe. |
 | `crust tests.crs` | Run all automated checks. |
 
@@ -36,6 +39,8 @@ selecting another renderer.
 | `src/render/interface.crs` | Shared host and device data definitions |
 | `src/spatial/` | Object-to-room anchors and global room placement with local force frames |
 | `src/collision/` | Mesh storage, kinematic poses, spatial indices, sphere queries, and contact solving |
+| `src/app/generation/` | Shared seeded random sequence and owned generation buffers |
+| `src/app/level/shafts/` | Shaft topology, radial placement, and room assembly |
 | `src/app/` | Shared window, clock, capture, shader, and asset helpers |
 | `src/app/web/` | Browser launcher, window provider, and toolchain configuration |
 | `src/demo/course/` | Prefab selection, material upload, and course assembly |

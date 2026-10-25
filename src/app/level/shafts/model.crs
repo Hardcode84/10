@@ -1,0 +1,87 @@
+const SHAFT_GRID_WIDTH: u32 = 8u32;
+const SHAFT_GRID_LAYERS: u32 = 5u32;
+const SHAFT_GRID_SUBDIVISIONS: u32 = 3u32;
+const SHAFT_GRID_SPAN: f32 = 125f32;
+const SHAFT_GRID_NONE: u32 = 0xffffffffu32;
+fn shaft_grid_columns() -> u32 {
+    return SHAFT_GRID_WIDTH * SHAFT_GRID_WIDTH;
+}
+fn shaft_grid_stations() -> u32 {
+    return shaft_grid_columns() * SHAFT_GRID_LAYERS;
+}
+fn shaft_grid_axials() -> u32 {
+    return shaft_grid_columns() * (SHAFT_GRID_LAYERS - 1u32);
+}
+fn shaft_grid_lateral_axis() -> u32 {
+    return SHAFT_GRID_WIDTH * (SHAFT_GRID_WIDTH - 1u32) * (SHAFT_GRID_LAYERS - 2u32);
+}
+fn shaft_grid_edges() -> u32 {
+    return shaft_grid_axials() + 2u32 * shaft_grid_lateral_axis();
+}
+fn shaft_grid_nodes() -> u32 {
+    return shaft_grid_stations() + shaft_grid_axials() * (SHAFT_GRID_SUBDIVISIONS - 1u32);
+}
+fn shaft_grid_blocks() -> u32 {
+    return shaft_grid_columns() / 2u32;
+}
+fn shaft_grid_minimum_max() -> u32 {
+    var internal: u32 = shaft_grid_columns() * (SHAFT_GRID_LAYERS - 2u32);
+    var paired: u32 = (SHAFT_GRID_WIDTH / 2u32 - 1u32) * SHAFT_GRID_WIDTH;
+    var axial: u32 = shaft_grid_blocks() * 2u32 * (SHAFT_GRID_LAYERS - 3u32) - 2u32 * paired;
+    return (internal + axial * (SHAFT_GRID_SUBDIVISIONS - 1u32)) / 2u32 + 2u32 * SHAFT_GRID_SUBDIVISIONS;
+}
+record ShaftGridOptions {
+    minimum: u32;
+    attachments: u32;
+    shortcuts: u32;
+}
+fn shaft_grid_defaults() -> ShaftGridOptions {
+    return make ShaftGridOptions {
+        minimum: 60u32,
+        attachments: SHAFT_GRID_NONE,
+        shortcuts: SHAFT_GRID_NONE
+    };
+}
+record ShaftPassage {
+    a: u32;
+    b: u32;
+    cost: u32;
+    open: bool;
+    cycle: bool;
+    required: bool;
+}
+record ShaftStation {
+    reached: bool;
+    first: u32;
+    second: u32;
+}
+fn shaft_grid_station(x: u32, y: u32, z: u32) -> u32 {
+    return z * shaft_grid_columns() + y * SHAFT_GRID_WIDTH + x;
+}
+fn shaft_grid_internal(station: u32) -> bool {
+    return station >= shaft_grid_columns() && station < shaft_grid_columns() * (
+        SHAFT_GRID_LAYERS - 1u32
+    );
+}
+fn shaft_grid_between(a: u32, b: u32) -> u32 {
+    var low: u32 = a;
+    var high: u32 = b;
+    if low > high {
+        low = b;
+        high = a;
+    }
+    if high - low == shaft_grid_columns() {
+        return low;
+    }
+    var z: u32 = low / shaft_grid_columns();
+    var row: u32 = low % shaft_grid_columns() / SHAFT_GRID_WIDTH;
+    var x: u32 = low % SHAFT_GRID_WIDTH;
+    if high - low == 1u32 {
+        return shaft_grid_axials() + ((z - 1u32) * SHAFT_GRID_WIDTH + row) * (
+            SHAFT_GRID_WIDTH - 1u32
+        ) + x;
+    }
+    return shaft_grid_axials() + shaft_grid_lateral_axis() + (
+        (z - 1u32) * (SHAFT_GRID_WIDTH - 1u32) + row
+    ) * SHAFT_GRID_WIDTH + x;
+}

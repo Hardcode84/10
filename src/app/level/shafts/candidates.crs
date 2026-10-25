@@ -1,0 +1,109 @@
+fn shaft_grid_edge_add(grid: mut ShaftGrid, a: u32, b: u32, cost: u32) -> unit {
+    shaft_passage_set(
+        mut grid,
+        shaft_grid_between(a, b),
+        make ShaftPassage {
+            a: a,
+            b: b,
+            cost: cost,
+            open: false,
+            cycle: false,
+            required: false
+        }
+    );
+}
+fn shaft_grid_candidates(grid: mut ShaftGrid) -> unit {
+    var z: u32 = 0u32;
+    while z < SHAFT_GRID_LAYERS {
+        var column: u32 = 0u32;
+        while column < shaft_grid_columns() {
+            var a: u32 = z * shaft_grid_columns() + column;
+            if z + 1u32 < SHAFT_GRID_LAYERS {
+                shaft_grid_edge_add(
+                    mut grid,
+                    a,
+                    a + shaft_grid_columns(),
+                    SHAFT_GRID_SUBDIVISIONS
+                );
+            }
+            if shaft_grid_internal(a) {
+                if column % SHAFT_GRID_WIDTH + 1u32 < SHAFT_GRID_WIDTH {
+                    shaft_grid_edge_add(mut grid, a, a + 1u32, 1u32);
+                }
+                if column / SHAFT_GRID_WIDTH + 1u32 < SHAFT_GRID_WIDTH {
+                    shaft_grid_edge_add(mut grid, a, a + SHAFT_GRID_WIDTH, 1u32);
+                }
+            }
+            column = column + 1u32;
+        }
+        z = z + 1u32;
+    }
+}
+fn shaft_grid_adjacent(station: u32, slot: u32) -> u32 {
+    var x: u32 = station % SHAFT_GRID_WIDTH;
+    var y: u32 = station % shaft_grid_columns() / SHAFT_GRID_WIDTH;
+    var z: u32 = station / shaft_grid_columns();
+    if slot == 4u32 && z > 0u32 {
+        return station - shaft_grid_columns();
+    }
+    if slot == 5u32 && z + 1u32 < SHAFT_GRID_LAYERS {
+        return station + shaft_grid_columns();
+    }
+    if !shaft_grid_internal(station) {
+        return SHAFT_GRID_NONE;
+    }
+    if slot == 0u32 && x > 0u32 {
+        return station - 1u32;
+    }
+    if slot == 1u32 && x + 1u32 < SHAFT_GRID_WIDTH {
+        return station + 1u32;
+    }
+    if slot == 2u32 && y > 0u32 {
+        return station - SHAFT_GRID_WIDTH;
+    }
+    if slot == 3u32 && y + 1u32 < SHAFT_GRID_WIDTH {
+        return station + SHAFT_GRID_WIDTH;
+    }
+    return SHAFT_GRID_NONE;
+}
+fn shaft_grid_incident(station: u32) -> [u32; 6] {
+    var result: [u32; 6] = make [u32; 6] {
+        SHAFT_GRID_NONE,
+        SHAFT_GRID_NONE,
+        SHAFT_GRID_NONE,
+        SHAFT_GRID_NONE,
+        SHAFT_GRID_NONE,
+        SHAFT_GRID_NONE
+    };
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        var next: u32 = shaft_grid_adjacent(station, i);
+        if next != SHAFT_GRID_NONE {
+            result[i as usize] = shaft_grid_between(station, next);
+        }
+        i = i + 1u32;
+    }
+    i = 1u32;
+    while i < 6u32 {
+        var j: u32 = i;
+        while j > 0u32 && result[j as usize] < result[(j - 1u32) as usize] {
+            var swap: u32 = result[j as usize];
+            result[j as usize] = result[(j - 1u32) as usize];
+            result[(j - 1u32) as usize] = swap;
+            j = j - 1u32;
+        }
+        i = i + 1u32;
+    }
+    return result;
+}
+fn shaft_grid_shuffle(grid: mut ShaftGrid, list: mut GenerationWords, count: u32) -> unit {
+    var i: u32 = count;
+    while i > 1u32 {
+        var j: u32 = shaft_grid_random(mut grid, i);
+        i = i - 1u32;
+        var swap: u32 = generation_word(read list, i);
+        var other: u32 = generation_word(read list, j);
+        generation_word_set(mut list, i, other);
+        generation_word_set(mut list, j, swap);
+    }
+}

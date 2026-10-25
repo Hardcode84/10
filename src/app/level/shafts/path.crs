@@ -1,0 +1,76 @@
+fn shaft_cycle_next(grid: read ShaftGrid, previous: u32, station: u32) -> u32 {
+    var node: ShaftStation = shaft_station(read grid, station);
+    if node.first == previous {
+        return node.second;
+    }
+    return node.first;
+}
+fn shaft_cycle_arc(grid: read ShaftGrid, start: u32, next: u32, finish: u32) -> u32 {
+    var previous: u32 = start;
+    var node: u32 = next;
+    var distance: u32 = 0u32;
+    while previous != finish {
+        distance = distance + shaft_passage(read grid, shaft_grid_between(previous, node)).cost;
+        var after: u32 = shaft_cycle_next(read grid, previous, node);
+        previous = node;
+        node = after;
+    }
+    return distance;
+}
+fn shaft_grid_reach(grid: mut ShaftGrid, station: u32) -> unit {
+    var node: ShaftStation = shaft_station(read grid, station);
+    node.reached = true;
+    shaft_station_set(mut grid, station, node);
+}
+fn shaft_grid_path_append(grid: mut ShaftGrid, node: u32) -> unit {
+    if shaft_grid_path_count(read grid) != 0u32 {
+        var previous: u32 = shaft_grid_path(
+            read grid,
+            shaft_grid_path_count(read grid) - 1u32
+        );
+        var id: u32 = shaft_grid_between(previous, node);
+        var edge: ShaftPassage = shaft_passage(read grid, id);
+        edge.open = true;
+        edge.required = true;
+        shaft_passage_set(mut grid, id, edge);
+    }
+    shaft_grid_record_path(mut grid, node);
+    shaft_grid_reach(mut grid, node);
+}
+fn shaft_grid_initial_path(grid: mut ShaftGrid) -> unit {
+    var start: u32 = shaft_grid_entrance(read grid) + shaft_grid_columns();
+    var finish: u32 = shaft_grid_exit(read grid) - shaft_grid_columns();
+    var node: ShaftStation = shaft_station(read grid, start);
+    var arc: u32 = shaft_cycle_arc(read grid, start, node.first, finish);
+    var next: u32 = node.first;
+    if arc * 2u32 < shaft_grid_cycle_length(read grid) {
+        next = node.second;
+    }
+    if arc * 2u32 == shaft_grid_cycle_length(read grid) && shaft_grid_random(mut grid, 2u32) != 0u32 {
+        next = node.second;
+    }
+    var entrance: u32 = shaft_grid_entrance(read grid);
+    shaft_grid_path_append(mut grid, entrance);
+    shaft_grid_path_append(mut grid, start);
+    var previous: u32 = start;
+    while previous != finish {
+        shaft_grid_path_append(mut grid, next);
+        var after: u32 = shaft_cycle_next(read grid, previous, next);
+        previous = next;
+        next = after;
+    }
+    var destination: u32 = shaft_grid_exit(read grid);
+    shaft_grid_path_append(mut grid, destination);
+}
+fn shaft_grid_endpoints(grid: mut ShaftGrid) -> unit {
+    var entrance: u32 = shaft_grid_random(mut grid, shaft_grid_columns());
+    var exit_column: u32 = shaft_grid_random(mut grid, shaft_grid_columns() - 1u32);
+    if exit_column >= entrance {
+        exit_column = exit_column + 1u32;
+    }
+    shaft_grid_set_endpoints(
+        mut grid,
+        entrance,
+        (SHAFT_GRID_LAYERS - 1u32) * shaft_grid_columns() + exit_column
+    );
+}

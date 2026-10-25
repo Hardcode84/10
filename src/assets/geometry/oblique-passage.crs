@@ -1,0 +1,125 @@
+// Two octagonal ends have equal and opposite tilt. The side faces are planar.
+// Length exceeds the diameter times sin(tilt); tilt is less than a right angle.
+fn oblique_ring(
+    hull: mut AssetHull,
+    profile: RegularProfile,
+    ring: u32,
+    extent: f32,
+    radius: f32,
+    offset: Vec3,
+    tilt: f32
+) -> unit {
+    var i: u32 = 0u32;
+    while i < profile.sides {
+        var angle: f32 = profile.phase + 6.28318530718f32 * i as f32 / profile.sides as f32;
+        var x: f32 = offset.x + radius * cosf(angle);
+        var y: f32 = x * sinf(tilt);
+        if ring != 0u32 {
+            y = extent - y;
+        }
+        asset_vertex_set(
+            mut hull,
+            ring * profile.sides + i,
+            vec(x * cosf(tilt), y, offset.z + radius * sinf(angle))
+        );
+        i = i + 1u32;
+    }
+}
+fn oblique_hull(
+    hull: mut AssetHull,
+    profile: RegularProfile,
+    extent: f32,
+    radius: f32,
+    offset: Vec3,
+    tilt: f32,
+    material: u32
+) -> bool {
+    if !loft_allocate(mut hull, profile, 2u32) {
+        return false;
+    }
+    oblique_ring(mut hull, profile, 0u32, extent, radius, offset, tilt);
+    oblique_ring(mut hull, profile, 1u32, extent, radius, offset, tilt);
+    loft_span(mut hull, profile, 0u32, material);
+    loft_caps(mut hull, profile, 2u32, material, material);
+    return true;
+}
+fn oblique_oct_pipe(asset: mut RoomAsset, extent: f32, tilt: f32, index: u32) -> bool {
+    var angle: f32 = index as f32 * 1.57079632679f32;
+    var offset: Vec3 = vec(
+        oct_pipe_distance() * cosf(angle),
+        0f32,
+        oct_pipe_distance() * sinf(angle)
+    );
+    var hull: AssetHull = asset_hull_new();
+    var profile: RegularProfile = make RegularProfile {
+        sides: 8u32,
+        phase: 0f32
+    };
+    if !oblique_hull(mut hull, profile, extent, oct_pipe_radius(), offset, tilt, 1u32) {
+        return false;
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !hull_solid_mesh(
+        read hull,
+        mut asset.geometry,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        asset.tile_metres
+    ) {
+        return false;
+    }
+    return asset_part_place_tail(
+        mut asset,
+        first,
+        oct_pipe_name(index),
+        vec(0f32, 0f32, 0f32)
+    );
+}
+// Builds a rigid link between symmetrically angled OCT-8M ports with four pipes.
+fn oblique_oct_build(asset: mut RoomAsset, extent: f32, tilt: f32) -> bool {
+    var profile: ConnectionProfile = service_oct_profile();
+    if !oblique_hull(
+        mut asset.hull,
+        profile.shape,
+        extent,
+        profile.radius,
+        vec(0f32, 0f32, 0f32),
+        tilt,
+        0u32
+    ) {
+        return false;
+    }
+    hex_tunnel_surfaces(mut asset.hull, profile.shape.sides, extent);
+    var entry: RoomPort = make RoomPort {
+        id: asset_name("ENTRY"),
+        profile: profile,
+        face: profile.shape.sides,
+        position: vec(0f32, 0f32, 0f32),
+        basis: make Basis {
+            right: vec(cosf(tilt), sinf(tilt), 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(sinf(tilt), -cosf(tilt), 0f32)
+        }
+    };
+    var far: RoomPort = entry;
+    far.id = asset_name("EXIT");
+    far.face = far.face + 1u32;
+    far.position.y = extent;
+    far.basis.right.x = -far.basis.right.x;
+    far.basis.forward.y = -far.basis.forward.y;
+    if !asset_port_append(mut asset.ports, entry) || !asset_port_append(mut asset.ports, far) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        if !oblique_oct_pipe(mut asset, extent, tilt, i) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    asset.spawn = make AssetSpawn {
+        position: vec(0f32, extent * 0.5f32, 0f32),
+        basis: far.basis
+    };
+    return room_asset_finish(mut asset);
+}

@@ -53,7 +53,17 @@ fn build_demo_target_providers(
     sources[source_count + 6usize] = host_path(root, "src/app/level/pipe-plan.crs");
     sources[source_count + 7usize] = host_path(root, "src/app/level/tunnel-details.crs");
     sources[source_count + 8usize] = host_path(root, "src/app/level/emergency.crs");
-    source_count = source_count + 9usize;
+    sources[source_count + 9usize] = host_path(root, "src/assets/geometry/oblique-passage.crs");
+    sources[source_count + 10usize] = host_path(root, "src/app/level/shafts/placement.crs");
+    sources[source_count + 11usize] = host_path(root, "src/app/level/shafts/rooms.crs");
+    sources[source_count + 12usize] = host_path(root, "src/app/level/shafts/assemble.crs");
+    sources[source_count + 13usize] = host_path(root, "src/app/level/shafts/model.crs");
+    sources[source_count + 14usize] = host_path(root, "src/app/level/shafts/candidates.crs");
+    sources[source_count + 15usize] = host_path(root, "src/app/level/shafts/cycle.crs");
+    sources[source_count + 16usize] = host_path(root, "src/app/level/shafts/path.crs");
+    sources[source_count + 17usize] = host_path(root, "src/app/level/shafts/distance.crs");
+    sources[source_count + 18usize] = host_path(root, "src/app/level/shafts/branches.crs");
+    source_count = source_count + 19usize;
     if check != null(*u8) {
         sources[source_count] = host_path(root, check);
         source_count = source_count + 1usize;
@@ -75,6 +85,9 @@ fn build_demo_target_providers(
     }
     providers[provider_count] = host_path(root, "src/app/level/pipe-storage.crs");
     provider_count = provider_count + 1usize;
+    providers[provider_count] = host_path(root, "src/app/generation/words.crs");
+    providers[provider_count + 1usize] = host_path(root, "src/app/level/shafts/storage.crs");
+    provider_count = provider_count + 2usize;
     providers[provider_count] = host_path(root, entry);
     return build_application(
         root,

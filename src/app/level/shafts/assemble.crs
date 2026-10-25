@@ -1,0 +1,275 @@
+fn shaft_region_closure_kind(index: u32) -> u32 {
+    if index % 3u32 == 1u32 {
+        return PREFAB_SHAFT_CAP_COLLECTOR;
+    }
+    if index % 3u32 == 2u32 {
+        return PREFAB_SHAFT_CAP_FILTER;
+    }
+    return PREFAB_SHAFT_CAP_BEARING;
+}
+fn shaft_region_close_kind(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    kind: u32
+) -> bool {
+    var values: AssetValues = asset_values_new();
+    var asset: RoomAsset = room_asset_new();
+    if !shaft_region_values(kind, mut values) || !course_build(kind, read values, mut asset) {
+        return false;
+    }
+    var count: u32 = graph_ports(read graph);
+    var i: u32 = 0u32;
+    while i < count {
+        var socket: GraphSocket = graph_socket(read graph, i);
+        var radial: bool = asset_names_equal(
+            socket.port.profile.name,
+            shaft_profile(shaft_parameter(1u32).initial).name
+        );
+        var selected: u32 = PREFAB_OCT_STOPPER;
+        var entry: AssetName = asset_name("ENTRY");
+        if radial {
+            selected = shaft_region_closure_kind(i);
+            entry = asset_name("SHAFT");
+        }
+        if socket.peer == SHAFT_GRID_NONE && selected == kind {
+            var cursor: LevelCursor = shaft_region_cursor(socket.room, socket.port.id);
+            var room: u32 = graph_count(read graph);
+            if !course_room_mesh(read asset, mut graph, mut builder, mut mesh, kind, 0u32) {
+                return false;
+            }
+            level_attach(mut graph, mut cursor, room, entry, entry);
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_region_close(graph: mut RoomGraph, builder: mut CollisionBuilder, mesh: mut Mesh) -> bool {
+    var kinds: [u32; 4] = make [u32; 4] {
+        PREFAB_SHAFT_CAP_BEARING,
+        PREFAB_SHAFT_CAP_COLLECTOR,
+        PREFAB_SHAFT_CAP_FILTER,
+        PREFAB_OCT_STOPPER
+    };
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        if !shaft_region_close_kind(mut graph, mut builder, mut mesh, kinds[i as usize]) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return course_links(read graph, mut builder);
+}
+fn shaft_region_stations(
+    grid: read ShaftGrid,
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    rooms: mut GenerationWords
+) -> bool {
+    var asset: RoomAsset = room_asset_new();
+    var values: AssetValues = asset_values_new();
+    if !shaft_region_values(PREFAB_SHAFT_STATION, mut values) || !course_build(
+        PREFAB_SHAFT_STATION,
+        read values,
+        mut asset
+    ) {
+        return false;
+    }
+    var i: u32 = shaft_grid_columns();
+    while i < shaft_grid_stations() - shaft_grid_columns() {
+        if shaft_station(read grid, i).reached && !shaft_region_station(
+            mut graph,
+            mut builder,
+            mut mesh,
+            i,
+            mut rooms,
+            read asset
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_region_radials(
+    grid: read ShaftGrid,
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    rooms: read GenerationWords,
+    kind: u32
+) -> bool {
+    var asset: RoomAsset = room_asset_new();
+    var values: AssetValues = asset_values_new();
+    if !shaft_region_values(kind, mut values) || !course_build(kind, read values, mut asset) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < shaft_grid_axials() {
+        var edge: ShaftPassage = shaft_passage(read grid, i);
+        if edge.open && shaft_region_radial_kind(edge) == kind && !shaft_region_radial(
+            mut graph,
+            mut builder,
+            mut mesh,
+            edge,
+            read rooms,
+            read asset
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_region_passages(
+    grid: read ShaftGrid,
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    rooms: read GenerationWords
+) -> bool {
+    var kinds: [u32; 3] = make [u32; 3] {
+        PREFAB_SHAFT_PIPES,
+        PREFAB_SHAFT_GIRDERS,
+        PREFAB_SHAFT_FAN
+    };
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        if !shaft_region_radials(
+            read grid,
+            mut graph,
+            mut builder,
+            mut mesh,
+            read rooms,
+            kinds[i as usize]
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = shaft_grid_axials();
+    while i < shaft_grid_edges() {
+        var edge: ShaftPassage = shaft_passage(read grid, i);
+        if edge.open && !shaft_region_lateral(
+            mut graph,
+            mut builder,
+            mut mesh,
+            edge,
+            read rooms
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_region_spawn(asset: mut RoomAsset) -> bool {
+    asset.spawn.position.y = 1.2f32;
+    asset.spawn.basis = make Basis {
+        right: vec(1f32, 0f32, 0f32),
+        up: vec(0f32, 0f32, 1f32),
+        forward: vec(0f32, -1f32, 0f32)
+    };
+    return collision_position_valid(
+        read asset.collision,
+        0u32,
+        asset.spawn.position,
+        DRONE_RADIUS
+    ) || error("shaft entrance spawn overlaps geometry");
+}
+fn shaft_region_build(
+    asset: mut RoomAsset,
+    collision: mut CollisionScene,
+    mesh: mut Mesh,
+    graph: mut RoomGraph,
+    seed: u32,
+    options: ShaftGridOptions
+) -> bool {
+    var grid: ShaftGrid = shaft_grid_new();
+    var rooms: GenerationWords = generation_words_new();
+    if !shaft_grid_generate(mut grid, seed, options) || !generation_words_allocate(
+        mut rooms,
+        shaft_grid_stations()
+    ) {
+        return false;
+    }
+    generation_words_fill(mut rooms, SHAFT_GRID_NONE);
+    // One station per selected node, one room per passage, at most six closures per station.
+    if !graph_allocate(
+        mut graph,
+        shaft_grid_stations() * 7u32 + shaft_grid_edges() + 1u32,
+        seed
+    ) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    if !shaft_region_terminal(
+        mut graph,
+        mut builder,
+        mut mesh,
+        shaft_grid_entrance(read grid),
+        PREFAB_SHAFT_CAP_BEARING,
+        mut rooms,
+        mut asset
+    ) {
+        return false;
+    }
+    if !shaft_region_spawn(mut asset) {
+        return false;
+    }
+    var ending: RoomAsset = room_asset_new();
+    if !shaft_region_terminal(
+        mut graph,
+        mut builder,
+        mut mesh,
+        shaft_grid_exit(read grid),
+        PREFAB_SHAFT_CAP_OUTLET,
+        mut rooms,
+        mut ending
+    ) || !shaft_region_stations(read grid, mut graph, mut builder, mut mesh, mut rooms) || !shaft_region_passages(
+        read grid,
+        mut graph,
+        mut builder,
+        mut mesh,
+        read rooms
+    ) || !shaft_region_close(mut graph, mut builder, mut mesh) {
+        return false;
+    }
+    if !collision_finish(move builder, mut collision) || !level_install(
+        read graph,
+        mut collision
+    ) {
+        return false;
+    }
+    graph_set_goal(mut graph, generation_word(read rooms, shaft_grid_exit(read grid)));
+    puts("Shaft region shortest route / rooms / source triangles");
+    print_number(shaft_grid_distance(read grid) as i64);
+    print_number(graph_count(read graph) as i64);
+    print_number(mesh_triangle_count(read mesh) as i64);
+    return true;
+}
+fn shaft_region_palette(input: mut FrameInput) -> bool {
+    var configuration: AssetValues = asset_values_new();
+    if !course_material_defaults(mut configuration) {
+        return false;
+    }
+    var kinds: [u32; 3] = make [u32; 3] {
+        PREFAB_SHAFT_PIPES,
+        PREFAB_SHAFT_GIRDERS,
+        PREFAB_SHAFT_FAN
+    };
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var kind: u32 = kinds[i as usize];
+        var offset: u32 = course_material_parameter_offset(kind);
+        asset_value_set(
+            mut configuration,
+            offset,
+            shaft_region_passage_height(kind == PREFAB_SHAFT_PIPES)
+        );
+        asset_value_set(mut configuration, offset + 3u32, SHAFT_GRID_SUBDIVISIONS as f32);
+        i = i + 1u32;
+    }
+    return course_palette_configured(mut input, read configuration);
+}

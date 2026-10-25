@@ -1,0 +1,170 @@
+fn shaft_cycle_edge(grid: mut ShaftGrid, a: u32, b: u32, enabled: bool) -> unit {
+    var id: u32 = shaft_grid_between(a, b);
+    var edge: ShaftPassage = shaft_passage(read grid, id);
+    edge.cycle = enabled;
+    shaft_passage_set(mut grid, id, edge);
+}
+fn shaft_cycle_blocks(grid: mut ShaftGrid) -> unit {
+    var row: u32 = 0u32;
+    while row < SHAFT_GRID_WIDTH {
+        var x: u32 = 0u32;
+        while x < SHAFT_GRID_WIDTH {
+            var z: u32 = 1u32;
+            while z + 2u32 < SHAFT_GRID_LAYERS {
+                shaft_cycle_edge(
+                    mut grid,
+                    shaft_grid_station(x, row, z),
+                    shaft_grid_station(x, row, z + 1u32),
+                    true
+                );
+                shaft_cycle_edge(
+                    mut grid,
+                    shaft_grid_station(x + 1u32, row, z),
+                    shaft_grid_station(x + 1u32, row, z + 1u32),
+                    true
+                );
+                z = z + 1u32;
+            }
+            shaft_cycle_edge(
+                mut grid,
+                shaft_grid_station(x, row, 1u32),
+                shaft_grid_station(x + 1u32, row, 1u32),
+                true
+            );
+            shaft_cycle_edge(
+                mut grid,
+                shaft_grid_station(x, row, SHAFT_GRID_LAYERS - 2u32),
+                shaft_grid_station(x + 1u32, row, SHAFT_GRID_LAYERS - 2u32),
+                true
+            );
+            x = x + 2u32;
+        }
+        row = row + 1u32;
+    }
+}
+fn shaft_tree_edges(list: mut GenerationWords) -> u32 {
+    var count: u32 = 0u32;
+    var block: u32 = 0u32;
+    var width: u32 = SHAFT_GRID_WIDTH / 2u32;
+    while block < shaft_grid_blocks() {
+        if block % width + 1u32 < width {
+            generation_word_set(mut list, count, block * shaft_grid_blocks() + block + 1u32);
+            count = count + 1u32;
+        }
+        if block + width < shaft_grid_blocks() {
+            generation_word_set(mut list, count, block * shaft_grid_blocks() + block + width);
+            count = count + 1u32;
+        }
+        block = block + 1u32;
+    }
+    return count;
+}
+fn shaft_tree_root(parents: read GenerationWords, node: u32) -> u32 {
+    var root: u32 = node;
+    while generation_word(read parents, root) != root {
+        root = generation_word(read parents, root);
+    }
+    return root;
+}
+fn shaft_cycle_splice(grid: mut ShaftGrid, a: u32, b: u32, interval: u32) -> unit {
+    var width: u32 = SHAFT_GRID_WIDTH / 2u32;
+    var x: u32 = (a % width) * 2u32;
+    var y: u32 = a / width;
+    var u: u32 = 0u32;
+    var v: u32 = 0u32;
+    var w: u32 = 0u32;
+    var t: u32 = 0u32;
+    if b - a == width {
+        var z: u32 = 1u32 + (y % 2u32) * (SHAFT_GRID_LAYERS - 3u32);
+        u = shaft_grid_station(x, y, z);
+        v = u + 1u32;
+        w = u + SHAFT_GRID_WIDTH;
+        t = w + 1u32;
+    } else {
+        u = shaft_grid_station(x + 1u32, y, interval);
+        v = u + shaft_grid_columns();
+        w = u + 1u32;
+        t = v + 1u32;
+        shaft_grid_add_splice(mut grid);
+    }
+    shaft_cycle_edge(mut grid, u, v, false);
+    shaft_cycle_edge(mut grid, w, t, false);
+    shaft_cycle_edge(mut grid, u, w, true);
+    shaft_cycle_edge(mut grid, v, t, true);
+}
+fn shaft_cycle_tree(grid: mut ShaftGrid, tree: mut GenerationWords) -> bool {
+    var parents: GenerationWords = generation_words_new();
+    var candidates: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut parents, shaft_grid_blocks()) || !generation_words_allocate(
+        mut candidates,
+        shaft_grid_blocks() * 2u32
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < shaft_grid_blocks() {
+        generation_word_set(mut parents, i, i);
+        i = i + 1u32;
+    }
+    var count: u32 = shaft_tree_edges(mut candidates);
+    shaft_grid_shuffle(mut grid, mut candidates, count);
+    var selected: u32 = 0u32;
+    i = 0u32;
+    while i < count {
+        var edge: u32 = generation_word(read candidates, i);
+        var a: u32 = shaft_tree_root(read parents, edge / shaft_grid_blocks());
+        var b: u32 = shaft_tree_root(read parents, edge % shaft_grid_blocks());
+        if a != b {
+            generation_word_set(mut parents, a, b);
+            generation_word_set(mut tree, selected, edge);
+            selected = selected + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_cycle_neighbour(grid: mut ShaftGrid, a: u32, b: u32) -> unit {
+    var station: ShaftStation = shaft_station(read grid, a);
+    if station.first == SHAFT_GRID_NONE {
+        station.first = b;
+    } else {
+        station.second = b;
+    }
+    shaft_station_set(mut grid, a, station);
+}
+fn shaft_cycle_finish(grid: mut ShaftGrid) -> unit {
+    var i: u32 = 0u32;
+    while i < shaft_grid_edges() {
+        var edge: ShaftPassage = shaft_passage(read grid, i);
+        if edge.cycle {
+            shaft_cycle_neighbour(mut grid, edge.a, edge.b);
+            shaft_cycle_neighbour(mut grid, edge.b, edge.a);
+            shaft_grid_add_cycle_length(mut grid, edge.cost);
+        }
+        i = i + 1u32;
+    }
+}
+fn shaft_grid_cycle(grid: mut ShaftGrid) -> bool {
+    var tree: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut tree, shaft_grid_blocks() - 1u32) || !shaft_cycle_tree(
+        mut grid,
+        mut tree
+    ) {
+        return false;
+    }
+    shaft_cycle_blocks(mut grid);
+    var i: u32 = 0u32;
+    while i + 1u32 < shaft_grid_blocks() {
+        var edge: u32 = generation_word(read tree, i);
+        var a: u32 = edge / shaft_grid_blocks();
+        var b: u32 = edge % shaft_grid_blocks();
+        var interval: u32 = 1u32;
+        if b - a == 1u32 {
+            interval = interval + shaft_grid_random(mut grid, SHAFT_GRID_LAYERS - 3u32);
+        }
+        shaft_cycle_splice(mut grid, a, b, interval);
+        i = i + 1u32;
+    }
+    shaft_cycle_finish(mut grid);
+    return true;
+}
