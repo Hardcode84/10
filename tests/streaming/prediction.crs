@@ -1,5 +1,5 @@
 fn stream_prediction_equal(a: read Prediction, b: read Prediction) -> bool {
-    if a.count != b.count || a.attempt != b.attempt || a.source_tick != b.source_tick || a.full_spin != b.full_spin {
+    if a.admission.status != b.admission.status || a.admission.space != b.admission.space || a.count != b.count || a.attempt != b.attempt || a.source_tick != b.source_tick || a.full_spin != b.full_spin {
         return false;
     }
     var i: u32 = 0u32;

@@ -44,13 +44,26 @@ fn flight_brake(drone: mut Drone) -> unit {
         }
     }
 }
-fn simulate(
+// On incomplete coverage, discard the speculative drone and retry after admission.
+fn simulate_admitted(
     collision: read CollisionScene,
     drone: mut Drone,
     command: Command,
     full_spin: bool,
     auto_level: bool
-) -> unit {
+) -> CollisionAdmission {
+    var admission: CollisionAdmission = collision_require_room(read collision, drone.world);
+    if admission.status != 0u32 {
+        return admission;
+    }
+    if command.tether && (
+        drone.cable.phase == CABLE_FLYING || drone.cable.phase == CABLE_ATTACHED
+    ) {
+        admission = collision_require_room(read collision, drone.cable.space);
+        if admission.status != 0u32 {
+            return admission;
+        }
+    }
     drone.contact = flight_contact_empty();
     drone.step_frame = space_identity();
     orient(
@@ -84,8 +97,27 @@ fn simulate(
     var travel: Vec3 = scale(drone.velocity, STEP * drone_size(read drone));
     var end_time: f32 = (drone.clock + 1u32) as f32 * STEP;
     hook_follow(read collision, mut drone, end_time);
-    move_drone_interval(read collision, mut drone, travel, STEP);
-    hook_step(read collision, mut drone, full_spin);
+    admission = move_drone_interval_admitted(read collision, mut drone, travel, STEP);
+    if admission.status != 0u32 {
+        return admission;
+    }
+    admission = hook_step_admitted(read collision, mut drone, full_spin);
+    if admission.status != 0u32 {
+        return admission;
+    }
     drone.clock = drone.clock + 1u32;
-    powered_winch(read collision, mut drone);
+    return powered_winch(read collision, mut drone);
+}
+
+// Requires complete collision coverage for the tick.
+fn simulate(
+    collision: read CollisionScene,
+    drone: mut Drone,
+    command: Command,
+    full_spin: bool,
+    auto_level: bool
+) -> unit {
+    collision_require_complete(
+        simulate_admitted(read collision, mut drone, command, full_spin, auto_level)
+    );
 }

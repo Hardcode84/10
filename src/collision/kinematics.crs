@@ -109,6 +109,9 @@ fn collision_filtered_sweep_interval(
     anchors: read RoomAnchors,
     anchor_index: u32
 ) -> CollisionSweep {
+    if !collision_room_resident(read scene, space) {
+        return collision_required_sweep(space);
+    }
     var result: CollisionSweep = collision_sweep_result(
         collision_query_filtered(
             read scene,

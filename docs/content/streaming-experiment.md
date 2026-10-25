@@ -186,10 +186,40 @@ it. Collision queries into an unloaded room require admission to stop first;
 they cannot return an empty-room miss.
 
 This proves independent room lifetime through the current snapshot consumers.
-The next integration step is to select required rooms for each admitted physics,
-prediction, sound, and render snapshot. Current game contexts still retain all
+The next integration step is to maintain required-room sets for physics,
+prediction, sound, and render snapshots. Prediction admission is tested below. Current game contexts still retain all
 rooms. They must release unused references before GPU and CPU residency budgets
 can control actual memory use. Pins restored by this witness come from the same
 construction; new recipe versions require explicit versioned publication.
 
 Raw results: [collision snapshots](measurements/room-chunks-shafts.txt).
+
+
+## Collision admission witness
+
+Run `crust tests.crs collision --sanitize` and `crust tests.crs flight`.
+
+The room set selects an exact subset of the snapshot's collision chunks.
+The fixture requests a room absent from the source and checks that rejection
+preserves the target. It restores that room and repeats admission. The target
+then retains the requested room and releases the excluded room.
+
+Continuous sweeps, overlap contacts, correction sweeps, drone motion, and hook
+flight report missing geometry across a translated and rotated portal.
+They identify the destination room. Reeling and an attached hook also expose
+the missing room. Restoring the room makes normal portal motion and hook
+attachment succeed. A scaled-portal retry returns the same contact as the
+resident reference.
+
+The flight check runs the production prediction task against a selected snapshot.
+One case moves the drone through the portal. In a second case only the launched
+hook reaches it. Both return the missing room, with no markers or published door
+requests. After explicit admission, the repeated job matches the fully resident
+forecast's marker positions and door requests.
+
+This completes the prediction admission boundary. The game still creates all
+room geometry at load. Integrating asynchronous loading requires required-room
+selection for active simulation, sound, and rendering, plus a coordinator that
+loads reported rooms and retries from the original state before publication.
+The arena allocator still needs that production coordinator and GPU retirement
+integration before it can control game residency.

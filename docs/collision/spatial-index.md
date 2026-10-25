@@ -94,11 +94,23 @@ references. `collision_room_restore` restores a pin from the same construction;
 it preserves instance IDs and motion schedules. Geometry replacement still
 requires a new construction. Rooms without collider geometry need no chunk.
 
-Residency changes require an exclusive scene borrow. The caller checks
-`collision_room_resident` before admitting queries. A query into a known,
-unloaded room fails at room lookup. Direct instance queries require the caller
-to retain that instance's room. Missing geometry must never produce a collision
-miss. This API provides lifetime operations; the game still loads all rooms.
+Residency changes require an exclusive scene borrow. A `CollisionRooms` set
+selects chunks from the same scene construction. Allocate the set at scene load;
+clear and reuse it between admissions. `collision_snapshot_admit` first checks
+all requested source chunks. If one is absent, it returns that room ID and leaves
+the target unchanged. Success retains exactly the selected chunks and releases
+excluded references. Admission scans the room table and allocates no storage.
+
+Continuous sweeps, overlap contacts, and correction sweeps return
+`COLLISION_UNRESOLVED` with a room ID when required geometry is absent. Portal
+overlap checks all uncapped body anchors before querying their geometry.
+Direct instance queries still require the caller to retain the instance's room.
+The game still loads all rooms.
+
+`simulate_admitted` can stop during a speculative tick. Discard that scratch
+drone on an incomplete result. Admit the reported room, then retry from the
+original state. The ordinary `simulate` entry requires complete coverage and
+terminates on a missing room.
 
 The sanitizer test unloads and restores a room, keeps private motion separate,
 and queries an attached hook after destroying the source scene. The production

@@ -66,7 +66,7 @@ fn collision_interval_contacts(
 ) -> bool {
     var size: Rational = rational_new(1u64, 1u64);
     var body: CollisionBody = collision_body(radius, read size);
-    return collision_interval_contacts_body(
+    var admission: CollisionAdmission = collision_interval_contacts_body(
         read scene,
         space,
         p,
@@ -76,6 +76,7 @@ fn collision_interval_contacts(
         mut separate,
         mut speeds
     );
+    return admission.status == 0u32;
 }
 
 fn collision_interval_step(

@@ -1,0 +1,113 @@
+// The fixture has a transformed portal from an empty room to a room with a door.
+fn test_prediction_admission(scene: read CollisionScene, doors: read DoorSet) -> bool {
+    var pool: TaskPool = task_pool_new();
+    if !task_pool_open(mut pool, 1u32, 2u32) {
+        return false;
+    }
+    var context: PredictionContext = prediction_context(read pool, read scene, read doors);
+    var rooms: CollisionRooms = collision_rooms_new();
+    if !prediction_context_ready(read context) || !collision_rooms_allocate(
+        mut rooms,
+        read scene
+    ) {
+        return false;
+    }
+    var trial: Trial = new_trial();
+    trial.full_spin = false;
+    trial.auto_level = false;
+    trial.drone.world = 1u32;
+    trial.drone.position = vec(0f32, 0f32, -10f32);
+    trial.drone.velocity = vec(0f32, 0f32, 12f32);
+    if !test_prediction_frontier(mut context, read scene, read doors, mut rooms, read trial) {
+        return false;
+    }
+    // Only the launched hook reaches the portal during this forecast.
+    trial.drone.velocity = vec(0f32, 0f32, 0f32);
+    trial.preview_enabled = true;
+    return test_prediction_frontier(
+        mut context,
+        read scene,
+        read doors,
+        mut rooms,
+        read trial
+    );
+}
+fn test_prediction_frontier(
+    context: mut PredictionContext,
+    scene: read CollisionScene,
+    doors: read DoorSet,
+    rooms: mut CollisionRooms,
+    trial: read Trial
+) -> bool {
+    collision_rooms_clear(mut rooms);
+    collision_rooms_require(mut rooms, read scene, trial.drone.world);
+    var selected: CollisionAdmission = prediction_select(mut context, read scene, read rooms);
+    if selected.status != 0u32 {
+        return error("fixture initial admission failed");
+    }
+    var target: DoorSet = doors_new();
+    if !doors_copy(read doors, mut target) {
+        return false;
+    }
+    doors_clear_requests(mut target);
+    var work: PredictionTask = prediction_start(mut context, read scene, read trial);
+    while prediction_task_poll(read work) == 0i32 {
+        prediction_task_idle(read work);
+    }
+    var incomplete: Prediction = prediction_task_result(mut work);
+    prediction_task_doors(read work, mut target, trial.attempt);
+    if !game_check(
+        incomplete.admission.status == COLLISION_UNRESOLVED && incomplete.admission.space == 0u32 && incomplete.count == 0u32 && !door_get(
+            read target,
+            0u32
+        ).requested,
+        "incomplete worker published output or lost its frontier"
+    ) {
+        return false;
+    }
+    drop work;
+    collision_rooms_require(mut rooms, read scene, incomplete.admission.space);
+    selected = prediction_select(mut context, read scene, read rooms);
+    if selected.status != 0u32 {
+        return error("fixture retry admission failed");
+    }
+    var scratch: Drone = new_drone();
+    var expected: Prediction = predict_scene(read scene, read trial, mut scratch, mut target);
+    var retry: PredictionTask = prediction_start(mut context, read scene, read trial);
+    while prediction_task_poll(read retry) == 0i32 {
+        prediction_task_idle(read retry);
+    }
+    var actual: Prediction = prediction_task_result(mut retry);
+    if !game_check(
+        expected.admission.status == 0u32 && actual.admission.status == 0u32 && actual.count == expected.count && actual.count > 0u32,
+        "admitted worker retry did not finish"
+    ) {
+        return false;
+    }
+    if !test_prediction_markers(read actual, read expected) {
+        return false;
+    }
+    var requested: bool = door_get(read target, 0u32).requested;
+    doors_clear_requests(mut target);
+    prediction_task_doors(read retry, mut target, trial.attempt);
+    return game_check(
+        door_get(read target, 0u32).requested == requested,
+        "admitted worker door request differs"
+    );
+}
+
+fn test_prediction_markers(actual: read Prediction, expected: read Prediction) -> bool {
+    var i: u32 = 0u32;
+    while i < actual.count {
+        var a: PredictionMarker = actual.markers[i as usize];
+        var b: PredictionMarker = expected.markers[i as usize];
+        if !game_check(
+            length(sub(a.center, b.center)) == 0f32 && a.eye.world == b.eye.world && a.eye.factor == b.eye.factor && a.material == b.material,
+            "admitted worker differs from resident prediction"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

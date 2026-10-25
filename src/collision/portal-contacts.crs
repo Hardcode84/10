@@ -126,10 +126,13 @@ fn collision_interval_contacts_body(
     time: f32,
     separate: mut CollisionPlanes,
     speeds: mut CollisionPlanes
-) -> bool {
+) -> CollisionAdmission {
+    if !collision_room_resident(read scene, space) {
+        return collision_required(space);
+    }
     var radius: f32 = collision_body_radius(read body);
     if collision_portal_count(read scene) == 0u32 {
-        return collision_local_interval_contacts(
+        var success: bool = collision_local_interval_contacts(
             read scene,
             space,
             p,
@@ -139,6 +142,10 @@ fn collision_interval_contacts_body(
             mut separate,
             mut speeds
         );
+        return make CollisionAdmission {
+            status: (!success) as u32,
+            space: space
+        };
     }
     collision_planes_clear(mut separate);
     collision_planes_clear(mut speeds);
@@ -152,7 +159,14 @@ fn collision_interval_contacts_body(
         read body,
         true
     ) {
-        return false;
+        return make CollisionAdmission {
+            status: 1u32,
+            space: space
+        };
+    }
+    var admission: CollisionAdmission = collision_require_anchors(read scene, read anchors);
+    if admission.status != 0u32 {
+        return admission;
     }
     var i: u32 = 0u32;
     while i < room_anchor_count(read anchors) {
@@ -167,9 +181,12 @@ fn collision_interval_contacts_body(
             mut separate,
             mut speeds
         ) {
-            return false;
+            return make CollisionAdmission {
+                status: 1u32,
+                space: space
+            };
         }
         i = i + 1u32;
     }
-    return true;
+    return collision_ready();
 }

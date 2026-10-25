@@ -23,7 +23,10 @@ fn test_doors() -> bool {
     ) {
         return false;
     }
-    if !test_door_portal_sensor(read scene, mut doors) {
+    if !test_prediction_admission(read scene, read doors) || !test_door_portal_sensor(
+        read scene,
+        mut doors
+    ) {
         return false;
     }
     var door: DoorInstance = door_get(read doors, 0u32);

@@ -373,7 +373,7 @@ fn test_hidden_cap() -> bool {
     var planes: CollisionPlanes = collision_planes_new();
     var speeds: CollisionPlanes = collision_planes_new();
     var point: Vec3 = vec(0.8f32, 0f32, -0.2f32);
-    if !collision_interval_contacts_body(
+    var contacts_admitted: CollisionAdmission = collision_interval_contacts_body(
         read scene,
         0u32,
         point,
@@ -382,7 +382,8 @@ fn test_hidden_cap() -> bool {
         0f32,
         mut planes,
         mut speeds
-    ) {
+    );
+    if contacts_admitted.status != 0u32 {
         return false;
     }
     return collision_plane_count(read planes) == 0u32 || error(

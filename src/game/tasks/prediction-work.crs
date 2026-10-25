@@ -116,7 +116,20 @@ fn prediction_task_doors(task: read PredictionTask, target: mut DoorSet, attempt
     if prediction_task_poll(read task) != 1i32 {
         trap;
     }
-    if task.context.payload -> result.attempt == attempt {
+    if task.context.payload -> result.admission.status == 0u32 && task.context.payload -> result.attempt == attempt {
         doors_publish(read task.context.payload -> doors, mut target);
     }
+}
+
+// Requires an idle context and the same scene construction as its snapshot.
+fn prediction_select(
+    context: mut PredictionContext,
+    collision: read CollisionScene,
+    rooms: read CollisionRooms
+) -> CollisionAdmission {
+    return collision_snapshot_admit(
+        read collision,
+        mut context.payload -> collision,
+        read rooms
+    );
 }

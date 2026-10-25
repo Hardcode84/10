@@ -1,0 +1,73 @@
+resource CollisionRooms {
+    required: *u8;
+    count: u32;
+}
+opaque drop collision_rooms_drop;
+fn collision_rooms_new() -> CollisionRooms {
+    return make CollisionRooms {
+        required: null(*u8),
+        count: 0u32
+    };
+}
+fn collision_rooms_drop(rooms: mut CollisionRooms) -> unit {
+    free(rooms.required);
+}
+// Initializes an empty required-room set for this scene's construction.
+fn collision_rooms_allocate(rooms: mut CollisionRooms, scene: read CollisionScene) -> bool {
+    var data: *u8 = null(*u8);
+    if scene.chunk_count != 0u32 {
+        data = malloc(scene.chunk_count as usize);
+        if data == null(*u8) {
+            return error("collision admission set allocation failed");
+        }
+        zero(data, scene.chunk_count as usize);
+    }
+    free(rooms.required);
+    rooms.required = data;
+    rooms.count = scene.chunk_count;
+    return true;
+}
+fn collision_rooms_clear(rooms: mut CollisionRooms) -> unit {
+    if rooms.count != 0u32 {
+        zero(rooms.required, rooms.count as usize);
+    }
+}
+// Scene and set must come from the same construction. Empty rooms need no storage.
+fn collision_rooms_require(rooms: mut CollisionRooms, scene: read CollisionScene, space: u32) -> unit {
+    var slot: u32 = collision_space_slot(read scene, space);
+    if slot != 0xffffffffu32 {
+        rooms.required[slot as usize] = 1u8;
+    }
+}
+// Source, target, and set share one construction. Target must have no active readers.
+// Missing geometry leaves target unchanged. Success retains exactly the required chunks.
+fn collision_snapshot_admit(
+    source: read CollisionScene,
+    target: mut CollisionScene,
+    rooms: read CollisionRooms
+) -> CollisionAdmission {
+    var i: u32 = 0u32;
+    while i < rooms.count {
+        if rooms.required[i as usize] != 0u8 && source.chunks[i as usize] == null(
+            *CollisionChunk
+        ) {
+            return collision_required(source.spaces[i as usize].id);
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < rooms.count {
+        var desired: *CollisionChunk = null(*CollisionChunk);
+        if rooms.required[i as usize] != 0u8 {
+            desired = source.chunks[i as usize];
+        }
+        var previous: *CollisionChunk = target.chunks[i as usize];
+        if previous != desired {
+            collision_chunk_retain(desired);
+            target.chunks[i as usize] = desired;
+            collision_chunk_release(previous);
+        }
+        i = i + 1u32;
+    }
+    return collision_ready();
+}

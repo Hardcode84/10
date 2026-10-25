@@ -113,3 +113,202 @@ fn test_collision_residency() -> bool {
         "snapshot or attached hook lost geometry after source destruction"
     );
 }
+
+// Admission must release excluded rooms and preserve every reference on rejection.
+fn test_collision_admission() -> bool {
+    var source: CollisionScene = collision_new();
+    var target: CollisionScene = collision_new();
+    var rooms: CollisionRooms = collision_rooms_new();
+    if !residency_fixture(mut source) || !collision_snapshot(read source, mut target) || !collision_rooms_allocate(
+        mut rooms,
+        read source
+    ) {
+        return false;
+    }
+    collision_rooms_require(mut rooms, read source, 7u32);
+    var result: CollisionAdmission = collision_snapshot_admit(
+        read source,
+        mut target,
+        read rooms
+    );
+    if !game_check(
+        result.status == 0u32 && collision_room_resident(read target, 7u32) && !collision_room_resident(
+            read target,
+            42u32
+        ),
+        "admission did not retain exactly the requested rooms"
+    ) {
+        return false;
+    }
+    return test_collision_admission_retry(mut source, mut target, mut rooms);
+}
+fn test_collision_admission_retry(
+    source: mut CollisionScene,
+    target: mut CollisionScene,
+    rooms: mut CollisionRooms
+) -> bool {
+    var pin: CollisionRoom = collision_room_pin(read source, 42u32);
+    collision_room_unload(mut source, 42u32);
+    collision_rooms_clear(mut rooms);
+    collision_rooms_require(mut rooms, read source, 42u32);
+    var before: u64 = collision_bytes(read target);
+    var result: CollisionAdmission = collision_snapshot_admit(
+        read source,
+        mut target,
+        read rooms
+    );
+    if !game_check(
+        result.status == COLLISION_UNRESOLVED && result.space == 42u32 && collision_bytes(
+            read target
+        ) == before && collision_room_resident(read target, 7u32) && !collision_room_resident(
+            read target,
+            42u32
+        ),
+        "rejected admission changed the snapshot"
+    ) {
+        return false;
+    }
+    collision_room_restore(mut source, read pin);
+    result = collision_snapshot_admit(read source, mut target, read rooms);
+    var query: CollisionSweep = residency_hit(read target);
+    return game_check(
+        result.status == 0u32 && !collision_room_resident(read target, 7u32) && collision_room_resident(
+            read target,
+            42u32
+        ) && query.status == COLLISION_UNRESOLVED && query.contact.space == 7u32,
+        "admission retry or absent-room sweep failed"
+    );
+}
+fn test_collision_frontier() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !test_portal_scene(mut scene) {
+        return false;
+    }
+    var pin: CollisionRoom = collision_room_pin(read scene, 1u32);
+    collision_room_unload(mut scene, 1u32);
+    var body_size: Rational = rational_new(1u64, 1u64);
+    var body: CollisionBody = collision_body(DRONE_RADIUS, read body_size);
+    var p: Vec3 = vec(0f32, 0f32, -0.1f32);
+    var d: Vec3 = vec(0f32, 0f32, 2f32);
+    var sweep: CollisionSweep = collision_sweep_interval_body(
+        read scene,
+        0u32,
+        p,
+        d,
+        read body,
+        0f32,
+        STEP
+    );
+    var correction: CollisionSweep = collision_correction_blocked_body(
+        read scene,
+        0u32,
+        p,
+        d,
+        read body,
+        0f32
+    );
+    var planes: CollisionPlanes = collision_planes_new();
+    var speeds: CollisionPlanes = collision_planes_new();
+    var contacts: CollisionAdmission = collision_interval_contacts_body(
+        read scene,
+        0u32,
+        p,
+        read body,
+        0.001f32,
+        0f32,
+        mut planes,
+        mut speeds
+    );
+    var drone: Drone = new_drone();
+    drone.position = p;
+    var flight: CollisionAdmission = move_drone_interval_admitted(
+        read scene,
+        mut drone,
+        d,
+        STEP
+    );
+    hook_launch(mut drone);
+    var hook: CollisionAdmission = hook_step_admitted(read scene, mut drone, false);
+    if !game_check(
+        sweep.status == COLLISION_UNRESOLVED && sweep.contact.space == 1u32 && correction.status == COLLISION_UNRESOLVED && correction.contact.space == 1u32 && contacts.status == COLLISION_UNRESOLVED && contacts.space == 1u32 && flight.status == COLLISION_UNRESOLVED && flight.space == 1u32 && hook.status == COLLISION_UNRESOLVED && hook.space == 1u32,
+        "portal overlap did not expose missing geometry for each query"
+    ) {
+        return false;
+    }
+    if !test_collision_tether_frontier(read scene) {
+        return false;
+    }
+    collision_room_restore(mut scene, read pin);
+    return test_portal_motion(read scene) && test_portal_hook(read scene);
+}
+
+fn test_collision_tether_frontier(scene: read CollisionScene) -> bool {
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -0.1f32);
+    drone.cable.phase = CABLE_ATTACHED;
+    drone.cable.anchor = vec(0f32, 0f32, 2f32);
+    drone.cable.extent = 0.75f32;
+    var winch: CollisionAdmission = tether_winch_admitted(read scene, mut drone);
+    drone.cable.space = 1u32;
+    var command: Command = idle_command();
+    command.tether = true;
+    var tick: CollisionAdmission = simulate_admitted(
+        read scene,
+        mut drone,
+        command,
+        false,
+        false
+    );
+    return game_check(
+        winch.status == COLLISION_UNRESOLVED && winch.space == 1u32 && tick.status == COLLISION_UNRESOLVED && tick.space == 1u32 && drone.clock == 0u32,
+        "winch or attached hook lost the missing room"
+    );
+}
+fn test_collision_scaled_frontier() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !scaling_scene(mut scene, scale_ratio(2u64, 1u64), 0.1f32) {
+        return false;
+    }
+    var p: Vec3 = vec(0f32, 0f32, -1f32);
+    var d: Vec3 = vec(0f32, 0f32, 5f32);
+    var reference: CollisionSweep = collision_sweep_interval(
+        read scene,
+        0u32,
+        p,
+        d,
+        DRONE_RADIUS,
+        0f32,
+        STEP
+    );
+    var pin: CollisionRoom = collision_room_pin(read scene, 1u32);
+    collision_room_unload(mut scene, 1u32);
+    var missing: CollisionSweep = collision_sweep_interval(
+        read scene,
+        0u32,
+        p,
+        d,
+        DRONE_RADIUS,
+        0f32,
+        STEP
+    );
+    if !game_check(
+        missing.status == COLLISION_UNRESOLVED && missing.contact.space == 1u32,
+        "scaled overlap lost its missing room"
+    ) {
+        return false;
+    }
+    collision_room_restore(mut scene, read pin);
+    var retry: CollisionSweep = collision_sweep_interval(
+        read scene,
+        0u32,
+        p,
+        d,
+        DRONE_RADIUS,
+        0f32,
+        STEP
+    );
+    return game_check(
+        reference.status == 0u32 && reference.contact.hit.time <= 1f32 && retry.status == 0u32 && retry.contact.hit.time == reference.contact.hit.time && retry.contact.instance == reference.contact.instance && retry.contact.surface == reference.contact.surface,
+        "scaled admission retry changed the contact"
+    );
+}

@@ -58,6 +58,12 @@ each allocate an owned collision snapshot at scene load. Before each job, the
 application copies moving-body records into that snapshot. Immutable room geometry
 and query trees are shared through reference-counted chunks. Each context owns
 its metadata and motion records; frame updates allocate no snapshot storage.
+An idle prediction context can select its required collision rooms with
+`prediction_select`. Its exclusive task loan prevents selection during a job.
+A forecast that reaches missing geometry reports the room ID and clears its
+markers and door requests. Task completion still succeeds: the result records
+incomplete coverage. The caller must admit the room and start a new forecast
+from the original trial. Normal game contexts currently retain all rooms.
 See [room lifetime](../collision/spatial-index.md#room-lifetime).
 Crust checks structural transfer and sharing capabilities at `transfers` capture
 boundaries. Shared collision storage has a trusted `share` contract. Ordinary

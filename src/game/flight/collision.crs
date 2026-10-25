@@ -6,12 +6,12 @@ fn course_hit(collision: read CollisionScene, world: u32, p: Vec3, d: Vec3, radi
 fn move_drone(collision: read CollisionScene, drone: mut Drone, travel: Vec3) -> unit {
     move_drone_interval(read collision, mut drone, travel, 0f32);
 }
-fn move_drone_interval(
+fn move_drone_interval_admitted(
     collision: read CollisionScene,
     drone: mut Drone,
     travel: Vec3,
     duration: f32
-) -> unit {
+) -> CollisionAdmission {
     var time: f32 = drone.clock as f32 * STEP;
     var motion: CollisionMotion = collision_interval_begin(
         read collision,
@@ -54,12 +54,16 @@ fn move_drone_interval(
         }
         drone.position = motion.position;
     }
+    if motion.status == COLLISION_UNRESOLVED {
+        return collision_required(motion.contact.space);
+    }
     if motion.status != 0u32 {
         game_collision_failure(motion);
     }
     drone.velocity = scale(motion.velocity, 1f32 / drone_size(read drone));
     var factor: f32 = drone_size(read drone);
     drone.contact_work = drone.contact_work + motion.contact_work / (factor * factor);
+    return collision_ready();
 }
 
 fn drone_portal(scene: read CollisionScene, drone: mut Drone, index: u32) -> unit {
@@ -104,6 +108,9 @@ fn drone_portal_step(
     time: f32,
     duration: f32
 ) -> bool {
+    if motion.status != 0u32 {
+        return false;
+    }
     var crossing: PortalCrossing = portal_crossing(
         read collision,
         drone.world,
@@ -146,4 +153,16 @@ fn drone_portal_step(
         game_collision_failure(motion);
     }
     return true;
+}
+
+// Requires all rooms touched by this motion to be resident.
+fn move_drone_interval(
+    collision: read CollisionScene,
+    drone: mut Drone,
+    travel: Vec3,
+    duration: f32
+) -> unit {
+    collision_require_complete(
+        move_drone_interval_admitted(read collision, mut drone, travel, duration)
+    );
 }

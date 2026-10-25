@@ -124,3 +124,51 @@ fn collision_scaled_anchors(
     }
     return true;
 }
+
+const COLLISION_UNRESOLVED: u32 = 8u32;
+record CollisionAdmission {
+    status: u32;
+    space: u32;
+}
+fn collision_ready() -> CollisionAdmission {
+    return make CollisionAdmission {
+        status: 0u32,
+        space: 0u32
+    };
+}
+fn collision_required(space: u32) -> CollisionAdmission {
+    return make CollisionAdmission {
+        status: COLLISION_UNRESOLVED,
+        space: space
+    };
+}
+fn collision_require_room(scene: read CollisionScene, space: u32) -> CollisionAdmission {
+    if !collision_room_resident(read scene, space) {
+        return collision_required(space);
+    }
+    return collision_ready();
+}
+fn collision_require_anchors(scene: read CollisionScene, anchors: read RoomAnchors) -> CollisionAdmission {
+    var i: u32 = 0u32;
+    while i < room_anchor_count(read anchors) {
+        var anchor: RoomAnchor = room_anchor(read anchors, i);
+        if anchor.cap == 0xffffffffu32 && !collision_room_resident(read scene, anchor.space) {
+            return collision_required(anchor.space);
+        }
+        i = i + 1u32;
+    }
+    return collision_ready();
+}
+fn collision_required_sweep(space: u32) -> CollisionSweep {
+    var result: CollisionSweep = collision_sweep_result(collision_miss(space));
+    result.status = COLLISION_UNRESOLVED;
+    return move result;
+}
+
+// Requires complete coverage for a non-speculative operation.
+fn collision_require_complete(admission: CollisionAdmission) -> unit {
+    if admission.status != 0u32 {
+        error("collision operation requires resident rooms");
+        trap;
+    }
+}

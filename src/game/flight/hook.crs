@@ -26,10 +26,10 @@ fn hook_range_time(position: Vec3, travel: Vec3, origin: Vec3) -> f32 {
     var b: f32 = dot(offset, travel);
     return clamp((-b + sqrtf(b * b - a * c)) / a, 0f32, 1f32);
 }
-fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) -> unit {
+fn hook_step_admitted(collision: read CollisionScene, drone: mut Drone, full_spin: bool) -> CollisionAdmission {
     drone.hook_contact = flight_contact_empty();
     if drone.cable.phase != CABLE_FLYING {
-        return;
+        return collision_ready();
     }
     var inverse: SpaceTransform = space_inverse(drone.cable.frame);
     var acceleration: Vec3 = flight_acceleration(
@@ -48,14 +48,24 @@ fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) 
     var left: f32 = STEP;
     var crossings: u32 = 0u32;
     while left > 0f32 && drone.cable.phase == CABLE_FLYING {
-        left = hook_interval(read collision, mut drone, left);
+        var admission: CollisionAdmission = collision_ready();
+        left = hook_interval_admitted(read collision, mut drone, left, mut admission);
+        if admission.status != 0u32 {
+            return admission;
+        }
         crossings = crossings + 1u32;
         if crossings >= 1024u32 {
             scene_motion_failure();
         }
     }
+    return collision_ready();
 }
-fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) -> f32 {
+fn hook_interval_admitted(
+    collision: read CollisionScene,
+    drone: mut Drone,
+    left: f32,
+    admission: mut CollisionAdmission
+) -> f32 {
     var inverse: SpaceTransform = space_inverse(drone.cable.frame);
     var position: Vec3 = space_point(inverse, drone.cable.anchor);
     var travel: Vec3 = scale(drone.cable.velocity, left * drone_size(read drone));
@@ -84,6 +94,10 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
         drone.clock as f32 * STEP + STEP - left,
         left
     );
+    if query.status == COLLISION_UNRESOLVED {
+        admission = collision_required(query.contact.space);
+        return 0f32;
+    }
     if query.status != 0u32 {
         var failure: CollisionMotion = collision_motion_begin(
             read collision,
@@ -137,4 +151,14 @@ fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) ->
         drone.cable.anchor = add(drone.cable.anchor, travel);
     }
     return 0f32;
+}
+
+fn hook_step(collision: read CollisionScene, drone: mut Drone, full_spin: bool) -> unit {
+    collision_require_complete(hook_step_admitted(read collision, mut drone, full_spin));
+}
+fn hook_interval(collision: read CollisionScene, drone: mut Drone, left: f32) -> f32 {
+    var admission: CollisionAdmission = collision_ready();
+    var remaining: f32 = hook_interval_admitted(read collision, mut drone, left, mut admission);
+    collision_require_complete(admission);
+    return remaining;
 }

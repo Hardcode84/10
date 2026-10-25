@@ -124,6 +124,10 @@ fn collision_sweep_interval_body(
         result.status = 7u32;
         return move result;
     }
+    var admission: CollisionAdmission = collision_require_anchors(read scene, read anchors);
+    if admission.status != 0u32 {
+        return collision_required_sweep(admission.space);
+    }
     var i: u32 = 0u32;
     while i < room_anchor_count(read anchors) {
         var anchor: RoomAnchor = room_anchor(read anchors, i);
@@ -165,6 +169,9 @@ fn collision_correction_blocked_body(
     body: read CollisionBody,
     time: f32
 ) -> CollisionSweep {
+    if !collision_room_resident(read scene, space) {
+        return collision_required_sweep(space);
+    }
     var radius: f32 = collision_body_radius(read body);
     if collision_portal_count(read scene) == 0u32 {
         return collision_sweep_result(
@@ -177,6 +184,10 @@ fn collision_correction_blocked_body(
         var failure: CollisionSweep = collision_sweep_result(result);
         failure.status = 7u32;
         return move failure;
+    }
+    var admission: CollisionAdmission = collision_require_anchors(read scene, read anchors);
+    if admission.status != 0u32 {
+        return collision_required_sweep(admission.space);
     }
     var i: u32 = 0u32;
     while i < room_anchor_count(read anchors) {

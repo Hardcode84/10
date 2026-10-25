@@ -7,6 +7,10 @@ fn collision_interval_begin(
     time: f32
 ) -> CollisionMotion {
     var result: CollisionMotion = collision_motion_new(space, p, travel, velocity);
+    if !collision_room_resident(read scene, space) {
+        result.status = COLLISION_UNRESOLVED;
+        return result;
+    }
     var embedded: u32 = collision_embedded_at(read scene, space, p, time);
     if embedded != 0xffffffffu32 {
         result.status = 4u32;
@@ -26,7 +30,7 @@ fn collision_interval_resolve_body(
 ) -> unit {
     var radius: f32 = collision_body_radius(read body);
     var skin: f32 = collision_tolerance(result.position, radius);
-    if !collision_interval_contacts_body(
+    var admission: CollisionAdmission = collision_interval_contacts_body(
         read scene,
         space,
         result.position,
@@ -35,8 +39,10 @@ fn collision_interval_resolve_body(
         time,
         mut separate,
         mut speeds
-    ) {
-        result.status = 1u32;
+    );
+    if admission.status != 0u32 {
+        result.status = admission.status;
+        result.contact = collision_miss(admission.space);
         return;
     }
     var correction: CollisionProjection = collision_project(
@@ -59,6 +65,7 @@ fn collision_interval_resolve_body(
     );
     if blocked.status != 0u32 {
         result.status = blocked.status;
+        result.contact = blocked.contact;
         return;
     }
     if blocked.contact.hit.time <= 1f32 {
