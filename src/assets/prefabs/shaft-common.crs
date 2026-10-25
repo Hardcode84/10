@@ -211,3 +211,11 @@ fn shaft_room_shell(
 fn shaft_material_count() -> u32 {
     return 7u32;
 }
+
+fn shaft_axis_basis(angle: f32) -> Basis {
+    return make Basis {
+        right: vec(cosf(angle), 0f32, sinf(angle)),
+        up: vec(0f32, 1f32, 0f32),
+        forward: vec(-sinf(angle), 0f32, cosf(angle))
+    };
+}

@@ -10,20 +10,12 @@ fn prefab_shaft_rotor_parameter_name(index: u32) -> AssetName {
 fn prefab_shaft_rotor_parameter(index: u32) -> AssetParameter {
     return shaft_parameter(index);
 }
-fn prefab_shaft_rotor_basis(angle: f32) -> Basis {
-    return make Basis {
-        right: vec(cosf(angle), 0f32, sinf(angle)),
-        up: vec(0f32, 1f32, 0f32),
-        forward: vec(-sinf(angle), 0f32, cosf(angle))
-    };
-}
-
 fn prefab_shaft_rotor_wings(mesh: mut Mesh, radius: f32, core: f32) -> bool {
     var rim: f32 = radius * cosf(3.14159265359f32 / 48f32);
     var width: f32 = mask_min(1.2f32, rim * 0.12f32);
     var i: u32 = 0u32;
     while i < 4u32 {
-        var basis: Basis = prefab_shaft_rotor_basis(1.57079632679f32 * i as f32);
+        var basis: Basis = shaft_axis_basis(1.57079632679f32 * i as f32);
         var centre: Vec3 = scale(basis.right, (rim + core) * 0.5f32);
         if !solid_box_wrapped(
             mut mesh,
@@ -60,7 +52,7 @@ fn prefab_shaft_rotor_rotors(
                 first: first,
                 count: triangles,
                 origin: vec(0f32, height * (i + 1u32) as f32 / (count + 1u32) as f32, 0f32),
-                basis: prefab_shaft_rotor_basis(0.78539816339f32 + 0.39269908169f32 * i as f32)
+                basis: shaft_axis_basis(0.78539816339f32 + 0.39269908169f32 * i as f32)
             }
         ) {
             return false;

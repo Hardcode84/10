@@ -231,6 +231,15 @@ fn course_rotor_route(
         mut mesh,
         mut cursor,
         asset_name("TOP"),
+        PREFAB_SHAFT_FAN,
+        asset_name("BOTTOM"),
+        0u32
+    ) && course_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("TOP"),
         PREFAB_SHAFT_HUB,
         asset_name("SHAFT"),
         0u32

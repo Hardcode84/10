@@ -1,0 +1,220 @@
+fn prefab_shaft_fan_parameter_count() -> u32 {
+    return 7u32;
+}
+fn prefab_shaft_fan_parameter_name(index: u32) -> AssetName {
+    if index == 3u32 {
+        return asset_name("fan-count");
+    }
+    if index == 5u32 {
+        return asset_name("blade-count");
+    }
+    if index == 6u32 {
+        return asset_name("blade-depth");
+    }
+    return shaft_parameter_name(index);
+}
+fn prefab_shaft_fan_parameter(index: u32) -> AssetParameter {
+    if index == 5u32 {
+        return make AssetParameter {
+            minimum: 3f32,
+            maximum: 8f32,
+            initial: 4f32,
+            step: 1f32
+        };
+    }
+    if index == 6u32 {
+        return make AssetParameter {
+            minimum: 0.6f32,
+            maximum: 4f32,
+            initial: 2f32,
+            step: 0.2f32
+        };
+    }
+    var parameter: AssetParameter = shaft_parameter(index);
+    if index == 3u32 {
+        parameter.initial = 1f32;
+    }
+    return parameter;
+}
+fn shaft_fan_valid(parameters: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_shaft_fan_parameter_count() {
+        var value: f32 = asset_value(read parameters, i);
+        if !asset_parameter_valid(prefab_shaft_fan_parameter(i), value) {
+            return false;
+        }
+        if i >= 3u32 && i <= 5u32 && value != value as u32 as f32 {
+            return error("fan-count, blade-count and pipe-seed must be integers");
+        }
+        i = i + 1u32;
+    }
+    var gap: f32 = asset_value(read parameters, 0u32) / (
+        asset_value(read parameters, 3u32) + 1f32
+    );
+    if gap < asset_value(read parameters, 6u32) + 4f32 {
+        return error("fan stations need clear approach space and service pipe clearance");
+    }
+    if (asset_value(read parameters, 1u32) - asset_value(read parameters, 2u32)) * 0.5f32 < 2.2f32 {
+        return error("fan needs clearance between its bearing sleeve and the wall");
+    }
+    return true;
+}
+fn shaft_fan_part(
+    asset: mut RoomAsset,
+    name: AssetName,
+    first: u32,
+    count: u32,
+    height: f32,
+    angle: f32
+) -> bool {
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: name,
+            first: first,
+            count: count,
+            origin: vec(0f32, height, 0f32),
+            basis: shaft_axis_basis(angle)
+        }
+    );
+}
+fn shaft_fan_instances(
+    asset: mut RoomAsset,
+    parameters: read AssetValues,
+    first: u32,
+    count: u32,
+    housing: u32,
+    housing_count: u32
+) -> bool {
+    var stations: u32 = asset_value(read parameters, 3u32) as u32;
+    var blades: u32 = asset_value(read parameters, 5u32) as u32;
+    var spacing: f32 = asset_value(read parameters, 0u32) / (stations + 1u32) as f32;
+    var station: u32 = 0u32;
+    while station < stations {
+        var y: f32 = spacing * (station + 1u32) as f32;
+        if !shaft_fan_part(
+            mut asset,
+            asset_name("fan-bearing"),
+            housing,
+            housing_count,
+            y,
+            0f32
+        ) {
+            return false;
+        }
+        var blade: u32 = 0u32;
+        while blade < blades {
+            var angle: f32 = (blade as f32 + station as f32 * 0.25f32) * 6.28318530718f32 / blades as f32;
+            if !shaft_fan_part(mut asset, asset_name("fan-blade"), first, count, y, angle) {
+                return false;
+            }
+            blade = blade + 1u32;
+        }
+        station = station + 1u32;
+    }
+    return true;
+}
+fn shaft_fan_geometry(asset: mut RoomAsset, parameters: read AssetValues) -> bool {
+    var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
+    var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
+    var depth: f32 = asset_value(read parameters, 6u32);
+    var sector: f32 = 6.28318530718f32 / asset_value(read parameters, 5u32);
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !fan_blade_mesh(
+        mut asset.geometry,
+        make FanBlade {
+            inner: core,
+            outer: radius / cosf(sector / 24f32),
+            sector: sector,
+            depth: depth,
+            thickness: 0.25f32,
+            radial_steps: 5u32,
+            angular_steps: 6u32
+        }
+    ) {
+        return false;
+    }
+    var count: u32 = mesh_triangle_count(read asset.geometry) - first;
+    var housing: u32 = mesh_triangle_count(read asset.geometry);
+    if !fan_band_mesh(mut asset.geometry, core * 0.98f32, core + 0.35f32, depth + 0.6f32) || !fan_band_mesh(
+        mut asset.geometry,
+        radius - 0.35f32,
+        radius + 0.1f32,
+        depth + 0.6f32
+    ) {
+        return false;
+    }
+    var housing_count: u32 = mesh_triangle_count(read asset.geometry) - housing;
+    return shaft_fan_instances(
+        mut asset,
+        read parameters,
+        first,
+        count,
+        housing,
+        housing_count
+    );
+}
+fn shaft_fan_pipes(asset: mut RoomAsset, parameters: read AssetValues) -> bool {
+    var count: u32 = asset_value(read parameters, 3u32) as u32;
+    var spacing: f32 = asset_value(read parameters, 0u32) / (count + 1u32) as f32;
+    var clearance: f32 = (asset_value(read parameters, 6u32) + 0.6f32) * 0.5f32 + SHAFT_SERVICE_CLEARANCE;
+    var bay: u32 = 0u32;
+    while bay <= count {
+        if !shaft_service_bay(
+            mut asset,
+            make ShaftPipeBay {
+                radius: asset_value(read parameters, 1u32) * 0.5f32,
+                core: asset_value(read parameters, 2u32) * 0.5f32,
+                low: spacing * bay as f32 + clearance,
+                high: spacing * (bay + 1u32) as f32 - clearance,
+                station: bay,
+                seed: metal_hash(bay, 0u32, asset_value(read parameters, 4u32) as u32)
+            }
+        ) {
+            return false;
+        }
+        bay = bay + 1u32;
+    }
+    return true;
+}
+fn prefab_shaft_fan_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !shaft_fan_valid(read parameters) {
+        return false;
+    }
+    return shaft_room_shell(
+        mut asset,
+        asset_value(read parameters, 1u32) * 0.5f32,
+        asset_value(read parameters, 2u32) * 0.5f32,
+        asset_value(read parameters, 0u32),
+        asset_value(read parameters, 3u32) as u32
+    ) && shaft_fan_geometry(mut asset, read parameters) && shaft_fan_pipes(
+        mut asset,
+        read parameters
+    ) && room_asset_finish(mut asset);
+}
+fn prefab_shaft_fan_material_count() -> u32 {
+    return 8u32;
+}
+fn prefab_shaft_fan_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 0u32 || region == 2u32 {
+        var track: PanelMaterial = shaft_track_material(region, read parameters);
+        track.band_width = asset_value(read parameters, 6u32) + 0.6f32;
+        return track;
+    }
+    var material: PanelMaterial = shaft_surface_material(region);
+    if region == 3u32 {
+        material.colour = 0x3f718au32;
+        material.accent = 0x252d30u32;
+        material.finish = METAL_PLATE;
+        material.tile_metres = FAN_TEXTURE_METRES;
+        material.tile_height = FAN_TEXTURE_METRES;
+        material.panel_height = 1f32;
+    }
+    if region == 7u32 {
+        material.colour = 0x403c33u32;
+        material.accent = 0x201d16u32;
+        material.finish = METAL_RIBBED;
+        material.pitch = 0.25f32;
+    }
+    return material;
+}

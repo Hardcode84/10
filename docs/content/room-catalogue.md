@@ -230,11 +230,12 @@ to recognise from a distance.
 | Existing basis | Required extension |
 | --- | --- |
 | `shaft-pipes`, `shaft-girders`, `shaft-rotor` | Assemble long continuous columns with matched spindles and clear connection stations |
+| `shaft-fan` | Stopped pitched fan blades, fixed bearing housings, and clear service-pipe bays; match both shaft ends |
 | `shaft-station` | Rectangular through-shaft room with four OCT-8M side mouths, seeded wall pipe routes, and a continuous spindle; assemble these into the grid |
 | `oct-*` passages and closures | Fit cross tunnels to station frames and distinguish permanent closures from operating doors |
 | `shaft-hub` | Use only where its single shaft end and octagonal branches fit the layout; it cannot replace a through-shaft side station |
 | Fixed girder rails and cutout web | Add a separate grate recipe with matching visible and collision geometry |
-| Rotor part pivots | Add fan geometry, deterministic motion, and local airflow |
+| Fan blade pivots | Connect deterministic motion and local airflow to the fan assembly |
 | Moving collision and hook anchors | Apply the game design's machinery damage and checkpoint rules; share motion with rendering and prediction |
 
 Keep recipe dimensions and port details in source comments. Connect machine

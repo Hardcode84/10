@@ -1,0 +1,124 @@
+const FAN_TEXTURE_METRES: f32 = 2f32;
+// A closed swept blade around the Y axis. Angles are radians; lengths are metres.
+record FanBlade {
+    inner: f32;
+    outer: f32;
+    sector: f32;
+    depth: f32;
+    thickness: f32;
+    radial_steps: u32;
+    angular_steps: u32;
+}
+fn fan_blade_vertex(blade: FanBlade, radial: u32, angular: u32, top: bool) -> MeshVertex {
+    var t: f32 = radial as f32 / blade.radial_steps as f32;
+    var s: f32 = angular as f32 / blade.angular_steps as f32;
+    var radius: f32 = blade.inner + (blade.outer - blade.inner) * t;
+    var width: f32 = blade.sector * (0.38f32 + 0.12f32 * t);
+    var angle: f32 = blade.sector * 0.22f32 * t * t + (s - 0.5f32) * width;
+    var height: f32 = (s - 0.5f32) * blade.depth * (0.65f32 + 0.35f32 * t);
+    height = height + (top as u32 as f32 - 0.5f32) * blade.thickness;
+    return make MeshVertex {
+        x: radius * cosf(angle),
+        y: height,
+        z: radius * sinf(angle),
+        u: (radius - blade.inner) / FAN_TEXTURE_METRES,
+        v: (s - 0.5f32) * radius * width / FAN_TEXTURE_METRES
+    };
+}
+fn fan_quad(
+    mesh: mut Mesh,
+    a: MeshVertex,
+    b: MeshVertex,
+    c: MeshVertex,
+    d: MeshVertex,
+    region: u32
+) -> bool {
+    return tube_triangle(mut mesh, a, b, c, region) && tube_triangle(
+        mut mesh,
+        a,
+        c,
+        d,
+        region
+    );
+}
+fn fan_blade_cell(mesh: mut Mesh, blade: FanBlade, r: u32, a: u32) -> bool {
+    var p: MeshVertex = fan_blade_vertex(blade, r, a, true);
+    var q: MeshVertex = fan_blade_vertex(blade, r, a + 1u32, true);
+    var t: MeshVertex = fan_blade_vertex(blade, r + 1u32, a + 1u32, true);
+    var s: MeshVertex = fan_blade_vertex(blade, r + 1u32, a, true);
+    var pp: MeshVertex = fan_blade_vertex(blade, r, a, false);
+    var qq: MeshVertex = fan_blade_vertex(blade, r, a + 1u32, false);
+    var tt: MeshVertex = fan_blade_vertex(blade, r + 1u32, a + 1u32, false);
+    var ss: MeshVertex = fan_blade_vertex(blade, r + 1u32, a, false);
+    if !fan_quad(mut mesh, p, q, t, s, 3u32) || !fan_quad(mut mesh, pp, ss, tt, qq, 3u32) {
+        return false;
+    }
+    if r == 0u32 && !fan_quad(mut mesh, q, p, pp, qq, 7u32) {
+        return false;
+    }
+    if r + 1u32 == blade.radial_steps && !fan_quad(mut mesh, s, t, tt, ss, 7u32) {
+        return false;
+    }
+    if a == 0u32 && !fan_quad(mut mesh, p, s, ss, pp, 7u32) {
+        return false;
+    }
+    if a + 1u32 == blade.angular_steps && !fan_quad(mut mesh, t, q, qq, tt, 7u32) {
+        return false;
+    }
+    return true;
+}
+fn fan_blade_mesh(mesh: mut Mesh, blade: FanBlade) -> bool {
+    var r: u32 = 0u32;
+    while r < blade.radial_steps {
+        var a: u32 = 0u32;
+        while a < blade.angular_steps {
+            if !fan_blade_cell(mut mesh, blade, r, a) {
+                return false;
+            }
+            a = a + 1u32;
+        }
+        r = r + 1u32;
+    }
+    return true;
+}
+// A closed annular bearing housing centred on Y=0.
+fn fan_band_vertex(inner: f32, outer: f32, depth: f32, section: u32, corner: u32) -> MeshVertex {
+    var radius: f32 = inner;
+    if corner == 1u32 || corner == 2u32 {
+        radius = outer;
+    }
+    var height: f32 = -depth * 0.5f32;
+    if corner >= 2u32 {
+        height = -height;
+    }
+    var angle: f32 = (section % 48u32) as f32 * 6.28318530718f32 / 48f32;
+    return make MeshVertex {
+        x: radius * cosf(angle),
+        y: height,
+        z: radius * sinf(angle),
+        u: section as f32 / 4f32,
+        v: corner as f32 * 0.25f32
+    };
+}
+fn fan_band_mesh(mesh: mut Mesh, inner: f32, outer: f32, depth: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < 48u32 {
+        var c: u32 = 0u32;
+        while c < 4u32 {
+            var next: u32 = (c + 1u32) % 4u32;
+            if !fan_quad(
+                mut mesh,
+                fan_band_vertex(inner, outer, depth, i, c),
+                fan_band_vertex(inner, outer, depth, i, next),
+                fan_band_vertex(inner, outer, depth, i + 1u32, next),
+                fan_band_vertex(inner, outer, depth, i + 1u32, c),
+                7u32
+            ) {
+                return false;
+            }
+            c = c + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

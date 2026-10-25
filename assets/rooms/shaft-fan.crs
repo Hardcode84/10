@@ -1,0 +1,27 @@
+// Axial fan shaft. BOTTOM and TOP use the shared SHAFT profile; +Y is the axis.
+// The spindle remains fixed. One fan station is present by default.
+// Swept, pitched blades reach the wall bearing; fly through the open sectors.
+// Each blade shares a closed mesh and has its pivot on the shaft axis.
+// The bearing housings stay fixed. This prefab has no motion or airflow.
+// fan-count and blade-count are integers. blade-depth is the axial pitch span.
+// Service pipes stay outside the complete fan and bearing depth.
+// Materials: 0 wall, 1 caps, 2 spindle, 3 gold blades, 4 service pipes,
+// 5 pipe flanges, 6 leaks, 7 dark blade edges and bearing housings.
+fn room_parameter_count() -> u32 {
+    return prefab_shaft_fan_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_shaft_fan_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_shaft_fan_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_shaft_fan_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return prefab_shaft_fan_material_count();
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_shaft_fan_material(region, read parameters);
+}
