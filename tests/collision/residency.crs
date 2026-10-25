@@ -1,5 +1,11 @@
 fn residency_fixture(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
+    if !residency_build(mut builder, 0xffffffffu32) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn residency_build(builder: mut CollisionBuilder, space_filter: u32) -> bool {
     var mesh: Mesh = mesh_new();
     if !collision_test_box(
         mut mesh,
@@ -18,6 +24,10 @@ fn residency_fixture(scene: mut CollisionScene) -> bool {
         if i == 2u32 {
             origin.x = 10f32;
         }
+        if space_filter != 0xffffffffu32 && space_filter != space {
+            i = i + 1u32;
+            continue;
+        }
         if !collision_append_solid(mut builder, read mesh, space, origin, identity_basis()) {
             return false;
         }
@@ -26,7 +36,7 @@ fn residency_fixture(scene: mut CollisionScene) -> bool {
         }
         i = i + 1u32;
     }
-    return collision_finish(move builder, mut scene);
+    return true;
 }
 fn residency_hit(scene: read CollisionScene) -> CollisionSweep {
     return collision_sweep_interval(
@@ -310,5 +320,76 @@ fn test_collision_scaled_frontier() -> bool {
     return game_check(
         reference.status == 0u32 && reference.contact.hit.time <= 1f32 && retry.status == 0u32 && retry.contact.hit.time == reference.contact.hit.time && retry.contact.instance == reference.contact.instance && retry.contact.surface == reference.contact.surface,
         "scaled admission retry changed the contact"
+    );
+}
+
+// Rebuilt geometry must preserve interleaved IDs, active motion, and an attached hook.
+fn test_collision_rebuild() -> bool {
+    var source: CollisionScene = collision_new();
+    var snapshot: CollisionScene = collision_new();
+    var plan: CollisionRebuild = collision_rebuild_new();
+    if !residency_fixture(mut source) || !collision_snapshot(read source, mut snapshot) || !collision_rebuild_plan(
+        read source,
+        7u32,
+        mut plan
+    ) {
+        return false;
+    }
+    var reference: CollisionSweep = residency_hit(read source);
+    var drone: Drone = new_drone();
+    drone.world = 7u32;
+    drone.position = vec(0f32, 0f32, 3f32);
+    hook_attach(read source, mut drone, read reference, 0f32, 0f32);
+    collision_slide(mut source, 2u32, 0f32, 1f32, vec(0f32, 2f32, 0f32));
+    var moving: CollisionSweep = residency_moving_hit(read source);
+    var pin: CollisionRoom = collision_room_pin(read source, 7u32);
+    collision_room_unload(mut source, 7u32);
+    var builder: CollisionBuilder = collision_builder_new();
+    var rebuilt: CollisionRoom = collision_room_new();
+    if !residency_build(mut builder, 7u32) {
+        return false;
+    }
+    if !collision_rebuild_finish(read plan, move builder, mut rebuilt) {
+        return false;
+    }
+    if !game_check(
+        rebuilt.chunk != pin.chunk && rebuilt.chunk -> references == 1i32,
+        "room rebuild retained the old geometry"
+    ) {
+        return false;
+    }
+    drop pin;
+    snapshot = collision_new();
+    collision_room_restore(mut source, read rebuilt);
+    var hit: CollisionSweep = residency_hit(read source);
+    hook_follow(read source, mut drone, STEP);
+    if !residency_moving_equal(read source, read moving) {
+        return false;
+    }
+    return game_check(
+        hit.status == 0u32 && hit.contact.hit.time == reference.contact.hit.time && hit.contact.instance == reference.contact.instance && hit.contact.surface == reference.contact.surface && drone.cable.phase == CABLE_ATTACHED && collision_instance(
+            read source,
+            2u32
+        ).motion_duration == 1f32,
+        "room rebuild changed contact identities, hook, or motion"
+    );
+}
+
+fn residency_moving_hit(scene: read CollisionScene) -> CollisionSweep {
+    return collision_sweep_interval(
+        read scene,
+        7u32,
+        vec(10f32, 1f32, 3f32),
+        vec(0f32, 0f32, -4f32),
+        HOOK_RADIUS,
+        0.5f32,
+        0f32
+    );
+}
+fn residency_moving_equal(scene: read CollisionScene, reference: read CollisionSweep) -> bool {
+    var hit: CollisionSweep = residency_moving_hit(read scene);
+    return game_check(
+        reference.contact.instance == 2u32 && hit.status == 0u32 && hit.contact.instance == reference.contact.instance && hit.contact.hit.time == reference.contact.hit.time && hit.contact.surface == reference.contact.surface,
+        "rebuilt controlled collider lost its stable identity or motion"
     );
 }

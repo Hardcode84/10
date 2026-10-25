@@ -223,3 +223,48 @@ selection for active simulation, sound, and rendering, plus a coordinator that
 loads reported rooms and retries from the original state before publication.
 The arena allocator still needs that production coordinator and GPU retirement
 integration before it can control game residency.
+
+
+## Worker regeneration witness
+
+Run:
+
+```sh
+crust tests.crs reload levels/shafts.crs --width 960 --height 540
+```
+
+The witness selects a shaft side-port station. It saves the resident image and
+a forecast with an attached hook. A negative control hides the target mesh;
+the image must change.
+
+A pool worker runs the same station recipe and parameters, creates new render
+geometry, and builds a new collision chunk. A prediction task uses its retained
+snapshot while the source scene has no reference to the target room. The
+rebuild plan stores collider IDs and layout only.
+
+After both tasks complete, the witness drops the old prediction snapshot and
+publishes the regenerated collision. Existing motion records stay in place.
+It uploads the generated mesh and checks the forecast, hook position, and image
+against the resident reference. It repeats the cycle to exercise a revisit.
+
+The station has 4200 render triangles. Its collision chunk has 494040 bytes;
+its rebuild-plan items use 320 bytes. The two recorded worker builds
+took about 117 and 118 ms. These are single build samples on the machine named
+in the raw output, not loading-latency percentiles. Both restored images match
+exactly. The focused sanitizer check also preserves a controlled collider with
+an interleaved global ID.
+
+This passes the unchanged-room regeneration boundary. This witness rebuilds
+the retained render list. Use the separate arena witness to measure partial
+transfer and retirement.
+
+The normal game still builds all rooms at load. Before general asynchronous
+loading, persist exact recipe inputs and all generated-room modifications.
+`GraphNode.kind` and `style` alone do not encode arbitrary tunnel length,
+oblique tunnel tilt, cable settings, or material-region edits. Add those inputs
+at the room-construction boundary and use them for both initial generation and
+reload. The coordinator must also reject results from an old construction,
+preserve door state, and admit simulation, audio, and renderer dependencies
+before publishing a frame.
+
+Raw results: [worker regeneration](measurements/rebuild-shafts.txt).

@@ -1,0 +1,137 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var options: Launch = uninit;
+    if !game_options_scene(argc, argv, &options, true) {
+        return 2i32;
+    }
+    options.config.headless = true;
+    options.mute = true;
+    return (!stream_rebuild_experiment(game_session(&options), options.config)) as i32;
+}
+fn stream_rebuild_experiment(session: GameSession, config: GameConfig) -> bool {
+    var scene: CollisionScene = collision_new();
+    var loop: GameLoop = make GameLoop {
+        sparks: sparks_new(),
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    if !game_run_setup(mut session, mut scene, mut loop, config) {
+        return false;
+    }
+    var target: u32 = stream_rebuild_select(
+        read scene,
+        read session.control.graph,
+        mut loop.trial.drone
+    );
+    var node: GraphNode = graph_node(read session.control.graph, target);
+    loop.trial.drone.velocity = scale(loop.trial.drone.basis.forward, 8f32);
+    if !stream_rebuild_hook(read scene, mut loop.trial.drone) {
+        return false;
+    }
+    var work: StreamRebuild = make StreamRebuild {
+        plan: collision_rebuild_new(),
+        mesh: mesh_new(),
+        room: collision_room_new(),
+        kind: node.kind,
+        space: target,
+        first_portal: node.first,
+        elapsed: 0u64
+    };
+    if !collision_rebuild_plan(read scene, target, mut work.plan) {
+        return false;
+    }
+    session.renderer.state.read_pixels = true;
+    var pixels: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut pixels, config.width * config.height) || !stream_draw(
+        read scene,
+        mut session,
+        read loop,
+        config
+    ) {
+        return false;
+    }
+    stream_pixels(
+        &session.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        true
+    );
+    if !stream_rebuild_negative(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        target,
+        mut pixels
+    ) {
+        return false;
+    }
+    puts("target_room,render_triangles,rebuild_plan_bytes");
+    stream_number(target as u64, false);
+    stream_number(node.mesh.count as u64, false);
+    stream_number(work.plan.count as u64 * sizeof(CollisionRebuildItem) as u64, true);
+    var round: u32 = 0u32;
+    while round < 2u32 {
+        work.mesh = mesh_new();
+        work.room = collision_room_new();
+        if !stream_rebuild_worker(mut scene, read loop, mut work) || !stream_rebuild_upload(
+            mut session,
+            target,
+            read work.mesh
+        ) {
+            return false;
+        }
+        var anchor: Vec3 = loop.trial.drone.cable.anchor;
+        hook_follow(read scene, mut loop.trial.drone, STEP);
+        if length(sub(anchor, loop.trial.drone.cable.anchor)) != 0f32 {
+            return error("rebuilt room moved the attached hook");
+        }
+        if !stream_draw(read scene, mut session, read loop, config) {
+            return false;
+        }
+        var changed: u32 = stream_pixels(
+            &session.renderer.state,
+            mut pixels,
+            config.width * config.height,
+            false
+        );
+        puts("rebuild_round,pixel_changes");
+        stream_number(round as u64, false);
+        stream_number(changed as u64, true);
+        if changed != 0u32 {
+            return error("rebuilt room changed rendered pixels");
+        }
+        round = round + 1u32;
+    }
+    return game_finish(mut session);
+}
+
+fn stream_rebuild_negative(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    target: u32,
+    pixels: mut GenerationWords
+) -> bool {
+    var empty: Mesh = mesh_new();
+    if !stream_rebuild_upload(mut session, target, read empty) || !stream_draw(
+        read scene,
+        mut session,
+        read loop,
+        config
+    ) {
+        return false;
+    }
+    var changed: u32 = stream_pixels(
+        &session.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        false
+    );
+    puts("hidden_room_pixel_changes");
+    stream_number(changed as u64, true);
+    return changed != 0u32 || error("reload witness cannot see its target room");
+}

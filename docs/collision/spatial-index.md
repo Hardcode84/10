@@ -117,6 +117,29 @@ and queries an attached hook after destroying the source scene. The production
 [streaming witness](../content/streaming-experiment.md#collision-snapshot-witness)
 starts a prediction job while its source room is absent.
 
+## Room regeneration
+
+`collision_rebuild_plan` captures a room's collider IDs and immutable layout.
+It retains no face or tree storage. This is a cold loading operation. It scans
+the scene instance table and allocates one small record per room collider.
+
+Use the same recipe, parameters, static poses, and collider append order to
+build the room again. `collision_rebuild_finish` consumes that room builder and
+returns a new `CollisionRoom`. Allocation or construction failure preserves
+the previous output. A changed collider layout violates the unchanged-recipe
+contract and terminates the operation.
+
+Publish with `collision_room_restore` after the room is unloaded and the build
+task has finished. Existing instance records keep their IDs and motion state.
+Old snapshots keep their original geometry until their references end.
+A recipe or scene-construction change requires a separate publication version;
+this API requires the original construction.
+
+The [worker reload witness](../content/streaming-experiment.md#worker-regeneration-witness)
+checks new geometry with the production renderer and prediction task. The
+sanitizer fixture also checks interleaved global IDs, controlled motion, and an
+attached hook after the old geometry is released.
+
 ## Evidence and checks
 
 Run `crust tests.crs game`. Run only the scaling measurement with

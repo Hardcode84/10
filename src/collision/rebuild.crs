@@ -1,0 +1,129 @@
+// A rebuild uses the same recipe and parameters, with colliders in original append order.
+// The plan retains identity and layout only. It keeps no geometry alive.
+resource CollisionRebuild {
+    items: *CollisionRebuildItem;
+    count: u32;
+    space: CollisionSpace;
+}
+opaque share drop collision_rebuild_drop;
+record CollisionRebuildItem {
+    id: u32;
+    first: u32;
+    count: u32;
+    root: u32;
+    end: u32;
+}
+fn collision_rebuild_new() -> CollisionRebuild {
+    return make CollisionRebuild {
+        items: null(*CollisionRebuildItem),
+        count: 0u32,
+        space: make CollisionSpace {
+            chunk: 0xffffffffu32,
+            id: 0u32,
+            root: 0u32,
+            end: 0u32
+        }
+    };
+}
+fn collision_rebuild_drop(plan: mut CollisionRebuild) -> unit {
+    free(plan.items as *u8);
+}
+// Capture before unloading. Scene construction must remain fixed until publication.
+fn collision_rebuild_plan(scene: read CollisionScene, space: u32, plan: mut CollisionRebuild) -> bool {
+    var next: CollisionRebuild = collision_rebuild_new();
+    next.space.id = space;
+    var slot: u32 = collision_space_slot(read scene, space);
+    if slot != 0xffffffffu32 {
+        next.space = scene.spaces[slot as usize];
+    }
+    var i: u32 = 0u32;
+    while i < scene.data.instance_count {
+        if scene.data.instances[i as usize].space == space {
+            next.count = next.count + 1u32;
+        }
+        i = i + 1u32;
+    }
+    if next.count != 0u32 {
+        next.items = malloc(next.count as usize * sizeof(CollisionRebuildItem)) as *CollisionRebuildItem;
+        if next.items == null(*CollisionRebuildItem) {
+            return error("collision rebuild plan allocation failed");
+        }
+    }
+    var index: u32 = 0u32;
+    i = 0u32;
+    while i < scene.data.instance_count {
+        var item: CollisionInstance = scene.data.instances[i as usize];
+        if item.space == space {
+            next.items[index as usize] = make CollisionRebuildItem {
+                id: i,
+                first: item.first,
+                count: item.count,
+                root: item.root,
+                end: item.end
+            };
+            index = index + 1u32;
+        }
+        i = i + 1u32;
+    }
+    plan = move next;
+    return true;
+}
+fn collision_room_new() -> CollisionRoom {
+    return make CollisionRoom {
+        chunk: null(*CollisionChunk),
+        slot: 0xffffffffu32
+    };
+}
+// Builder contains only the planned room, with the original recipe and collider order.
+// Success returns a new room pin. Allocation failure preserves the previous output.
+fn collision_rebuild_finish(
+    plan: read CollisionRebuild,
+    builder: CollisionBuilder,
+    room: mut CollisionRoom
+) -> bool {
+    var built: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut built) {
+        return false;
+    }
+    if built.data.instance_count != plan.count {
+        trap;
+    }
+    if plan.count == 0u32 {
+        room = collision_room_new();
+        return true;
+    }
+    if built.space_count != 1u32 {
+        trap;
+    }
+    var layout: CollisionSpace = built.spaces[0usize];
+    if layout.id != plan.space.id || layout.root != plan.space.root || layout.end != plan.space.end {
+        trap;
+    }
+    collision_rebuild_layout(read plan, read built);
+    var chunk: *CollisionChunk = built.chunks[0usize];
+    var i: u32 = layout.root;
+    while i < layout.end {
+        var node: *CollisionNode = &chunk -> nodes[i as usize];
+        if node -> leaf != 0xffffffffu32 {
+            node -> leaf = plan.items[node -> leaf as usize].id;
+        }
+        i = i + 1u32;
+    }
+    built.chunks[0usize] = null(*CollisionChunk);
+    room = make CollisionRoom {
+        chunk: chunk,
+        slot: plan.space.chunk
+    };
+    return true;
+}
+fn collision_rebuild_layout(plan: read CollisionRebuild, built: read CollisionScene) -> unit {
+    var i: u32 = 0u32;
+    while i < plan.count {
+        var original: CollisionRebuildItem = plan.items[i as usize];
+        var item: CollisionInstance = built.data.instances[i as usize];
+        if original.first != item.first || original.count != item.count || original.root != item.root || original.end != item.end {
+            trap;
+        }
+        i = i + 1u32;
+    }
+}

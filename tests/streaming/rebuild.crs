@@ -1,0 +1,177 @@
+// Bounded worker witness for unchanged shaft-region recipes.
+resource StreamRebuild {
+    plan: CollisionRebuild;
+    mesh: Mesh;
+    room: CollisionRoom;
+    kind: u32;
+    space: u32;
+    first_portal: u32;
+    elapsed: u64;
+}
+opaque drop stream_rebuild_drop;
+fn stream_rebuild_drop(work: mut StreamRebuild) -> unit {}
+fn stream_rebuild_execute(data: *u8) -> bool {
+    var work: *StreamRebuild = data as *StreamRebuild;
+    var start: u64 = now();
+    var values: AssetValues = asset_values_new();
+    var asset: RoomAsset = room_asset_new();
+    if !shaft_region_values(work -> kind, mut values) || !course_build(
+        work -> kind,
+        read values,
+        mut asset
+    ) {
+        return false;
+    }
+    var walls: Mesh = mesh_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    if !room_linked_mesh(
+        read asset,
+        mut work -> mesh,
+        mut walls,
+        course_material_base(work -> kind)
+    ) || !collision_append(
+        mut builder,
+        read walls,
+        work -> space,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) || !room_parts_collision(read asset, mut builder, work -> space) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read work -> mesh) {
+        var t: MeshTriangle = mesh_triangle(read work -> mesh, i);
+        if t.portal != 0u32 {
+            t.portal = t.portal + work -> first_portal;
+        }
+        work -> mesh.triangles[i as usize] = t;
+        i = i + 1u32;
+    }
+    if !collision_rebuild_finish(read work -> plan, move builder, mut work -> room) {
+        return false;
+    }
+    work -> elapsed = now() - start;
+    return true;
+}
+fn stream_rebuild_select(scene: read CollisionScene, graph: read RoomGraph, drone: mut Drone) -> u32 {
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var node: GraphNode = graph_node(read graph, i);
+        if node.kind == PREFAB_SHAFT_STATION && stream_camera(
+            read scene,
+            read graph,
+            node.first,
+            mut drone
+        ) {
+            drone.basis.forward = scale(drone.basis.forward, -1f32);
+            drone.basis.right = scale(drone.basis.right, -1f32);
+            return i;
+        }
+        i = i + 1u32;
+    }
+    error("reload witness requires a shaft-region station");
+    trap;
+}
+fn stream_rebuild_upload(session: mut GameSession, target: u32, mesh: read Mesh) -> bool {
+    instances_clear(mut session.world);
+    var input: FrameInput = renderer_inputs(mut session.renderer);
+    input_clear_meshes(mut input);
+    var i: u32 = 0u32;
+    while i < graph_count(read session.control.graph) {
+        var range: MeshRange = mesh_empty_range();
+        var source: MeshRange = graph_node(read session.control.graph, i).mesh;
+        var good: bool = false;
+        if i == target {
+            good = input_mesh_slice(
+                mut input,
+                read mesh,
+                0u32,
+                mesh_triangle_count(read mesh),
+                mut range
+            );
+        } else {
+            good = input_mesh_slice(
+                mut input,
+                read session.room_mesh,
+                source.first,
+                source.count,
+                mut range
+            );
+        }
+        if !good || !instances_append(mut session.world, mesh_identity(range, i)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return graph_doors_upload(mut session.control.graph, mut input);
+}
+fn stream_rebuild_hook(scene: read CollisionScene, drone: mut Drone) -> bool {
+    var axis: u32 = 0u32;
+    while axis < 6u32 {
+        var direction: Vec3 = axis_vector(axis / 2u32);
+        if axis % 2u32 != 0u32 {
+            direction = scale(direction, -1f32);
+        }
+        var hit: CollisionSweep = collision_local_sweep_interval(
+            read scene,
+            drone.world,
+            drone.position,
+            scale(direction, 1000f32),
+            HOOK_RADIUS,
+            0f32,
+            STEP
+        );
+        if hit.status == 0u32 && hit.contact.hit.time <= 1f32 {
+            hook_attach(read scene, mut drone, read hit, 0f32, 0f32);
+            return true;
+        }
+        axis = axis + 1u32;
+    }
+    return error("reload witness could not attach a hook");
+}
+fn stream_rebuild_worker(
+    scene: mut CollisionScene,
+    loop: read GameLoop,
+    work: mut StreamRebuild
+) -> bool {
+    var pool: TaskPool = task_pool_new();
+    if !task_pool_open(mut pool, 2u32, 2u32) {
+        return false;
+    }
+    var doors: DoorSet = doors_new();
+    var context: PredictionContext = prediction_context(read pool, read scene, read doors);
+    if !prediction_context_ready(read context) {
+        return false;
+    }
+    var scratch: Drone = new_drone();
+    var expected: Prediction = predict_paths(read scene, read loop.trial, mut scratch);
+    var before: u64 = collision_bytes(read scene);
+    collision_room_unload(mut scene, work.space);
+    var build: PoolJob = pool_submit(read pool, stream_rebuild_execute, &work as *u8);
+    var forecast: PredictionTask = prediction_start(mut context, read scene, read loop.trial);
+    while pool_job_poll(read build) == 0i32 || prediction_task_poll(read forecast) == 0i32 {
+        pool_job_idle(read build);
+    }
+    if pool_job_poll(read build) != 1i32 || prediction_task_poll(read forecast) != 1i32 {
+        return error("room reload worker failed");
+    }
+    var actual: Prediction = prediction_task_result(mut forecast);
+    if !stream_prediction_equal(read actual, read expected) {
+        return error("room reload changed pinned prediction");
+    }
+    drop forecast;
+    drop context;
+    drop build;
+    puts("released_collision_bytes,worker_build_ns,new_chunk_bytes");
+    stream_number(before - collision_bytes(read scene), false);
+    stream_number(work.elapsed, false);
+    stream_number(collision_chunk_bytes(work.room.chunk), true);
+    if work.room.chunk -> references != 1i32 {
+        return error("rebuilt room has an unexpected owner");
+    }
+    collision_room_restore(mut scene, read work.room);
+    actual = predict_paths(read scene, read loop.trial, mut scratch);
+    return stream_prediction_equal(read actual, read expected) || error(
+        "rebuilt collision changed prediction"
+    );
+}

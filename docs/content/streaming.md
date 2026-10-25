@@ -1,6 +1,6 @@
 # Room streaming
 
-Status: proposed. The game currently builds all room assets before play.
+Status: bounded prototypes. The game currently builds all room assets before play.
 Design for the residency part of [W3](engine-gaps.md#w3-asset-residency-and-spatial-precision).
 The [portal renderer](../render/rendering.md#portal-views-and-visibility) keeps its visibility rules.
 
@@ -103,4 +103,9 @@ The [visibility experiment](streaming-experiment.md) measures selection, loading
 waves, retained-list replacement, and rendered output on production scenes. It
 includes a fixed-arena reuse witness with partial uploads and exact restored
 images. Room collision chunks also pass a retained-snapshot lifetime witness.
-Required-room admission and the full integrated ownership gate remain open.
+Collision snapshots can select required rooms. Incomplete prediction returns the
+missing room and suppresses output. A worker can regenerate an unchanged room
+while preserving collider IDs, then publish it for prediction and rendering.
+The full integrated ownership gate remains open: persistent recipe inputs,
+versioned publication, active-frame admission, and residency budgets must work
+together before normal play can unload rooms.

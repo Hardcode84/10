@@ -47,12 +47,13 @@ fn build_collision_checks(
         "src/game/flight/orientation.crs",
         "src/game/flight/physics.crs"
     };
-    var native: [*u8; 20] = make [*u8; 20] {
+    var native: [*u8; 21] = make [*u8; 21] {
         "src/app/io.crs",
         "src/render/host/mesh.crs",
         "src/collision/storage.crs",
         "src/collision/rooms.crs",
         "src/collision/residency.crs",
+        "src/collision/rebuild.crs",
         "src/collision/snapshot.crs",
         "tests/collision/residency.crs",
         "src/runtime/platform/reference-count.crs",
@@ -70,14 +71,14 @@ fn build_collision_checks(
         "src/game/host/collision-errors.crs"
     };
     var args: [*u8; 64] = uninit;
-    var providers: [*u8; 20] = uninit;
+    var providers: [*u8; 21] = uninit;
     var i: usize = 0usize;
     while i < 38usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     i = 0usize;
-    while i < 20usize {
+    while i < 21usize {
         providers[i] = host_path(root, native[i]);
         i = i + 1usize;
     }
@@ -106,7 +107,7 @@ fn build_collision_checks(
         count as i32,
         &args[0usize],
         &providers[0usize],
-        20usize,
+        21usize,
         null(*u8)
     ) == 0i32;
 }
