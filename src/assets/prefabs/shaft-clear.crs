@@ -1,0 +1,67 @@
+fn prefab_shaft_clear_parameter_count() -> u32 {
+    return 4u32;
+}
+fn prefab_shaft_clear_parameter_name(index: u32) -> AssetName {
+    if index == 3u32 {
+        return shaft_parameter_name(4u32);
+    }
+    return shaft_parameter_name(index);
+}
+fn prefab_shaft_clear_parameter(index: u32) -> AssetParameter {
+    if index == 3u32 {
+        return shaft_parameter(4u32);
+    }
+    return shaft_parameter(index);
+}
+fn prefab_shaft_clear_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_shaft_clear_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_shaft_clear_parameter(i),
+            asset_value(read parameters, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var seed: f32 = asset_value(read parameters, 3u32);
+    if seed != seed as u32 as f32 {
+        return error("pipe-seed must be an integer");
+    }
+    var height: f32 = asset_value(read parameters, 0u32);
+    var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
+    var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
+    if radius - core < 2f32 {
+        return error("clear shaft needs clearance around its spindle");
+    }
+    return shaft_room_shell(mut asset, radius, core, height, 0u32) && shaft_service_bay(
+        mut asset,
+        make ShaftPipeBay {
+            radius: radius,
+            core: core,
+            low: 2f32 * SHAFT_SERVICE_CLEARANCE,
+            high: height - 2f32 * SHAFT_SERVICE_CLEARANCE,
+            station: 0u32,
+            seed: seed as u32
+        }
+    ) && room_asset_finish(mut asset);
+}
+fn prefab_shaft_clear_material_count() -> u32 {
+    return shaft_material_count();
+}
+fn prefab_shaft_clear_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = shaft_surface_material(region);
+    if region == 0u32 || region == 2u32 {
+        var diameter: f32 = asset_value(read parameters, 1u32);
+        if region == 2u32 {
+            diameter = asset_value(read parameters, 2u32);
+            material.finish = METAL_PLAIN;
+        }
+        material.tile_metres = diameter * sinf(
+            3.14159265359f32 / shaft_profile(asset_value(read parameters, 1u32)).shape.sides as f32
+        );
+        material.tile_height = asset_value(read parameters, 0u32);
+        material.band_width = 0f32;
+    }
+    return material;
+}

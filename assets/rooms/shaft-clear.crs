@@ -1,0 +1,24 @@
+// Clear cylindrical shaft with a fixed spindle and small service pipes.
+// Local +Y runs from BOTTOM to TOP. Both ports use the shared SHAFT profile.
+// Use this section for fan approaches. It has no blades, grates, or thick spokes.
+// Match diameter and core-diameter to the adjoining shaft recipes.
+// pipe-seed selects wall runs and a spindle feed. Pipes stay clear of both ends.
+// Materials follow shaft-common: wall, caps, spindle, spare, pipes, flanges, leaks.
+fn room_parameter_count() -> u32 {
+    return prefab_shaft_clear_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_shaft_clear_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_shaft_clear_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_shaft_clear_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return prefab_shaft_clear_material_count();
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_shaft_clear_material(region, read parameters);
+}

@@ -91,7 +91,16 @@ fn shaft_layout_side_connection(portal: CollisionPortal, from: u32, to: u32) -> 
             "shaft side port lacks a stopper"
         );
     }
+    if from == PREFAB_SHAFT_FAN {
+        return to == PREFAB_SHAFT_COLLAR || error("fan end lacks its connection collar");
+    }
+    if from == PREFAB_SHAFT_COLLAR && portal.sides == service_hex_profile().shape.sides {
+        return to == PREFAB_HEX_STOPPER || error("unused fan bypass port lacks a hex stopper");
+    }
     return true;
+}
+fn shaft_layout_closed(kind: u32) -> bool {
+    return kind == PREFAB_OCT_STOPPER || kind == PREFAB_HEX_STOPPER;
 }
 fn shaft_layout_crossings(scene: read CollisionScene, graph: read RoomGraph) -> bool {
     var i: u32 = 0u32;
@@ -102,12 +111,12 @@ fn shaft_layout_crossings(scene: read CollisionScene, graph: read RoomGraph) -> 
         if !shaft_layout_side_connection(portal, from, to) {
             return false;
         }
-        if from != PREFAB_OCT_STOPPER && to != PREFAB_OCT_STOPPER {
+        if !shaft_layout_closed(from) && !shaft_layout_closed(to) {
             if !shaft_layout_cross(read scene, portal) {
                 print_number(i as i64);
                 return false;
             }
-        } else if to == PREFAB_OCT_STOPPER {
+        } else if shaft_layout_closed(to) {
             var drone: Drone = new_drone();
             drone.world = portal.space;
             drone.position = sub(portal.origin, portal.basis.forward);
@@ -118,7 +127,7 @@ fn shaft_layout_crossings(scene: read CollisionScene, graph: read RoomGraph) -> 
                 portal.origin
             );
             if length(sub(space_point(pose, drone.position), origin)) > 0.5f32 {
-                return error("closed oct connection leaks into void");
+                return error("closed tunnel connection leaks into void");
             }
         }
         i = i + 1u32;

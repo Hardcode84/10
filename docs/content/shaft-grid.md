@@ -206,6 +206,13 @@ pipes. An open octagonal stopper joins each end to its station. The tunnel
 spans the two stopper exit frames. Station positions and pipe connections stay
 aligned.
 
+A fan interval has five connected rooms: clear approach, side collar, compact
+fan, side collar, and clear approach. The approaches share the space that
+remains after the fan and collars. Their total length equals the passage
+between the station faces. The spindle continues through all five rooms.
+Each collar side port has a closed hex stopper. Small service pipes stay in
+the clear approaches. The fan remains static.
+
 Each unused radial port ends in a closed bearing, collector, or filter cap.
 Each unused lateral port has a closed octagonal stopper. The outlet has an
 additional stopper at its far end to enclose the standalone region. All closed

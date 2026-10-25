@@ -1,0 +1,116 @@
+fn shaft_region_fan_approach_height() -> f32 {
+    return (
+        shaft_region_passage_height(false) - prefab_shaft_fan_parameter(0u32).initial - 2f32 * prefab_shaft_collar_parameter(
+            0u32
+        ).initial
+    ) * 0.5f32;
+}
+fn shaft_region_fan_append(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut LevelCursor,
+    kind: u32,
+    asset: read RoomAsset
+) -> bool {
+    var room: u32 = graph_count(read graph);
+    if !course_room_mesh(read asset, mut graph, mut builder, mut mesh, kind, 0u32) {
+        return false;
+    }
+    level_attach(mut graph, mut cursor, room, asset_name("BOTTOM"), asset_name("TOP"));
+    return true;
+}
+fn shaft_region_fan_interval(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    edge: ShaftPassage,
+    rooms: read GenerationWords,
+    approach: read RoomAsset,
+    collar: read RoomAsset,
+    fan: read RoomAsset
+) -> bool {
+    var cursor: LevelCursor = shaft_region_cursor(
+        generation_word(read rooms, edge.a),
+        asset_name("TOP")
+    );
+    return shaft_region_fan_append(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        PREFAB_SHAFT_CLEAR,
+        read approach
+    ) && shaft_region_fan_append(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        PREFAB_SHAFT_COLLAR,
+        read collar
+    ) && shaft_region_fan_append(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        PREFAB_SHAFT_FAN,
+        read fan
+    ) && shaft_region_fan_append(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        PREFAB_SHAFT_COLLAR,
+        read collar
+    ) && shaft_region_fan_append(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        PREFAB_SHAFT_CLEAR,
+        read approach
+    ) && shaft_region_pair(
+        mut graph,
+        cursor,
+        shaft_region_cursor(generation_word(read rooms, edge.b), asset_name("BOTTOM"))
+    );
+}
+fn shaft_region_fan_asset(kind: u32, asset: mut RoomAsset) -> bool {
+    var values: AssetValues = asset_values_new();
+    return shaft_region_values(kind, mut values) && course_build(kind, read values, mut asset);
+}
+fn shaft_region_fan_passages(
+    grid: read ShaftGrid,
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    rooms: read GenerationWords
+) -> bool {
+    var approach: RoomAsset = room_asset_new();
+    var collar: RoomAsset = room_asset_new();
+    var fan: RoomAsset = room_asset_new();
+    if !shaft_region_fan_asset(PREFAB_SHAFT_CLEAR, mut approach) || !shaft_region_fan_asset(
+        PREFAB_SHAFT_COLLAR,
+        mut collar
+    ) || !shaft_region_fan_asset(PREFAB_SHAFT_FAN, mut fan) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < shaft_grid_axials() {
+        var edge: ShaftPassage = shaft_passage(read grid, i);
+        if edge.open && shaft_region_radial_kind(edge) == PREFAB_SHAFT_FAN && !shaft_region_fan_interval(
+            mut graph,
+            mut builder,
+            mut mesh,
+            edge,
+            read rooms,
+            read approach,
+            read collar,
+            read fan
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

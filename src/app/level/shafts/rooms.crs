@@ -2,13 +2,16 @@ fn shaft_region_values(kind: u32, values: mut AssetValues) -> bool {
     if !course_values(kind, 0u32, mut values) {
         return false;
     }
-    if kind == PREFAB_SHAFT_PIPES || kind == PREFAB_SHAFT_GIRDERS || kind == PREFAB_SHAFT_FAN {
+    if kind == PREFAB_SHAFT_PIPES || kind == PREFAB_SHAFT_GIRDERS {
         asset_value_set(
             mut values,
             0u32,
             shaft_region_passage_height(kind == PREFAB_SHAFT_PIPES)
         );
         asset_value_set(mut values, 3u32, SHAFT_GRID_SUBDIVISIONS as f32);
+    }
+    if kind == PREFAB_SHAFT_CLEAR {
+        asset_value_set(mut values, 0u32, shaft_region_fan_approach_height());
     }
     return true;
 }

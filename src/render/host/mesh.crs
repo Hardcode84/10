@@ -213,3 +213,17 @@ fn mesh_swap(a: mut Mesh, b: mut Mesh) -> unit {
     a.bounds = b.bounds;
     b.bounds = bounds;
 }
+
+// Offset all texture coordinates. Geometry and material indices stay unchanged.
+fn mesh_offset_uv(mesh: mut Mesh, u: f32, v: f32) -> unit {
+    var i: usize = 0usize;
+    while i < mesh.count as usize {
+        var j: usize = 0usize;
+        while j < 3usize {
+            mesh.triangles[i].vertices[j].u = mesh.triangles[i].vertices[j].u + u;
+            mesh.triangles[i].vertices[j].v = mesh.triangles[i].vertices[j].v + v;
+            j = j + 1usize;
+        }
+        i = i + 1usize;
+    }
+}
