@@ -24,6 +24,9 @@ application functions as the applications. All roots use the bounded tile-list
 renderer. The course benchmark can isolate geometry and textures without
 selecting another renderer.
 
+Room loading and GPU storage lifetime are specified in the
+[room streaming design](content/streaming.md).
+
 ## Source directories
 
 | Directory | Contents |

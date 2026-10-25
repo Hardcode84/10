@@ -63,7 +63,8 @@ attachment in [flight state](../../src/game/flight/drone.crs). The game builds
 the complete graph and its assets before play. There is no asset residency
 manager.
 
-**Change:** define which assets must remain resident for visible portals,
+**Change:** implement the [room streaming design](streaming.md). Define which
+assets must remain resident for visible portals,
 collision, asynchronous prediction, and active hooks. Keep their identities
 valid until all consumers release them. Measure local-coordinate and composed
 portal-transform error at the required room sizes and traversal depths before
