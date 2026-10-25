@@ -1,0 +1,26 @@
+// Rectangular shaft station. Local +Y runs from BOTTOM to TOP.
+// Both end ports use SHAFT; NORTH (+Z), EAST (+X), SOUTH (-Z), and WEST (-X)
+// use OCT-8M. Side ports are centred at half height with +Y as their up axis.
+// The fixed spindle runs continuously between the shaft ends.
+// Match diameter and core-diameter to the adjoining shaft recipes.
+// Width and depth must leave a solid rim around the shaft openings.
+// All ports retain closures until level assembly connects them.
+// Materials: 0 metal shell, 1 shaft caps, 2 spindle, 3 oct caps, 4 dark seams.
+fn room_parameter_count() -> u32 {
+    return prefab_shaft_station_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_shaft_station_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_shaft_station_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_shaft_station_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return prefab_shaft_station_material_count();
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_shaft_station_material(region, read parameters);
+}

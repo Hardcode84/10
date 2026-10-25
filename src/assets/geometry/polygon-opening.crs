@@ -126,3 +126,33 @@ fn hull_face_border(
     }
     return true;
 }
+
+// Adds face-edge and port-rim borders. The port and both borders must fit strictly
+// inside the convex face. The original face ID remains the port closure.
+fn hull_bordered_port(
+    hull: mut AssetHull,
+    next: mut AssetHull,
+    port: RoomPort,
+    closure: u32,
+    edge_width: f32,
+    rim_width: f32,
+    seam_region: u32
+) -> bool {
+    if !hull_face_border(read hull, mut next, port.face, edge_width, seam_region) {
+        return false;
+    }
+    asset_hull_swap(mut hull, mut next);
+    var surround: RoomPort = port;
+    surround.profile.radius = surround.profile.radius + rim_width / cosf(
+        3.14159265359f32 / port.profile.shape.sides as f32
+    );
+    if !hull_convex_partition(read hull, mut next, surround, seam_region) {
+        return false;
+    }
+    asset_hull_swap(mut hull, mut next);
+    if !hull_polygon_partition(read hull, mut next, port, closure) {
+        return false;
+    }
+    asset_hull_swap(mut hull, mut next);
+    return true;
+}

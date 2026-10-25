@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 166] = make [*u8; 166] {
+    var files: [*u8; 167] = make [*u8; 167] {
         "src/audio/api/model.crs",
         "src/audio/mix/voice.crs",
         "src/audio/synthesis/recipe.crs",
@@ -26,6 +26,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/materials/girder.crs",
         "src/assets/geometry/shaft-spokes.crs",
         "src/assets/prefabs/shaft-hex-adapter.crs",
+        "src/assets/prefabs/shaft-station.crs",
         "src/assets/prefabs/hex-stopper-open.crs",
         "src/assets/prefabs/oct-t-junction.crs",
         "src/assets/prefabs/oct-tunnel-10m.crs",
@@ -168,7 +169,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 166usize {
+    while i < 167usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

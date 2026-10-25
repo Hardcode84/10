@@ -20,7 +20,8 @@ const PREFAB_OCT_STOPPER_OPEN: u32 = 17u32;
 const PREFAB_SHAFT_HEX_ADAPTER: u32 = 18u32;
 const PREFAB_SHAFT_PIPES: u32 = 19u32;
 const PREFAB_SHAFT_GIRDERS: u32 = 20u32;
-const PREFAB_COUNT: u32 = 21u32;
+const PREFAB_SHAFT_STATION: u32 = 21u32;
+const PREFAB_COUNT: u32 = 22u32;
 fn course_parameter_count(kind: u32) -> u32 {
     if kind < 9u32 {
         return course_hex_parameter_count(kind);
@@ -66,6 +67,9 @@ fn course_service_parameter_count(kind: u32) -> u32 {
     }
     if kind == PREFAB_SHAFT_PIPES {
         return prefab_shaft_pipes_parameter_count();
+    }
+    if kind == PREFAB_SHAFT_STATION {
+        return prefab_shaft_station_parameter_count();
     }
     if kind == PREFAB_SHAFT_GIRDERS {
         return prefab_shaft_girders_parameter_count();
@@ -142,6 +146,9 @@ fn course_service_parameter(kind: u32, index: u32) -> AssetParameter {
     if kind == PREFAB_SHAFT_PIPES {
         return prefab_shaft_pipes_parameter(index);
     }
+    if kind == PREFAB_SHAFT_STATION {
+        return prefab_shaft_station_parameter(index);
+    }
     if kind == PREFAB_SHAFT_GIRDERS {
         return prefab_shaft_girders_parameter(index);
     }
@@ -216,6 +223,9 @@ fn course_service_build(kind: u32, parameters: read AssetValues, asset: mut Room
     }
     if kind == PREFAB_SHAFT_PIPES {
         return prefab_shaft_pipes_build(read parameters, mut asset);
+    }
+    if kind == PREFAB_SHAFT_STATION {
+        return prefab_shaft_station_build(read parameters, mut asset);
     }
     if kind == PREFAB_SHAFT_GIRDERS {
         return prefab_shaft_girders_build(read parameters, mut asset);
@@ -292,6 +302,9 @@ fn course_service_material_count(kind: u32) -> u32 {
     if kind == PREFAB_SHAFT_PIPES {
         return prefab_shaft_pipes_material_count();
     }
+    if kind == PREFAB_SHAFT_STATION {
+        return prefab_shaft_station_material_count();
+    }
     if kind == PREFAB_SHAFT_GIRDERS {
         return prefab_shaft_girders_material_count();
     }
@@ -366,6 +379,9 @@ fn course_service_material(kind: u32, region: u32, parameters: read AssetValues)
     }
     if kind == PREFAB_SHAFT_PIPES {
         return prefab_shaft_pipes_material(region, read parameters);
+    }
+    if kind == PREFAB_SHAFT_STATION {
+        return prefab_shaft_station_material(region, read parameters);
     }
     if kind == PREFAB_SHAFT_GIRDERS {
         return prefab_shaft_girders_material(region, read parameters);

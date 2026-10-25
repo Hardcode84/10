@@ -1,0 +1,186 @@
+const SHAFT_STATION_EDGE: f32 = 0.06f32;
+const SHAFT_STATION_RIM: f32 = 0.12f32;
+fn prefab_shaft_station_parameter_count() -> u32 {
+    return 5u32;
+}
+fn prefab_shaft_station_parameter_name(index: u32) -> AssetName {
+    if index == 3u32 {
+        return asset_name("width");
+    }
+    if index == 4u32 {
+        return asset_name("depth");
+    }
+    return shaft_parameter_name(index);
+}
+fn prefab_shaft_station_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 10f32,
+            maximum: 48f32,
+            initial: service_oct_profile().radius * 3f32,
+            step: 1f32
+        };
+    }
+    if index >= 3u32 {
+        return make AssetParameter {
+            minimum: 18f32,
+            maximum: 80f32,
+            initial: shaft_parameter(1u32).initial + 4f32,
+            step: 1f32
+        };
+    }
+    return shaft_parameter(index);
+}
+fn prefab_shaft_station_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_shaft_station_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_shaft_station_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var diameter: f32 = asset_value(read values, 1u32);
+    var margin: f32 = 2f32 * (SHAFT_STATION_EDGE + SHAFT_STATION_RIM);
+    if asset_value(read values, 3u32) <= diameter + margin || asset_value(read values, 4u32) <= diameter + margin {
+        return error("station width and depth must contain the shaft opening and its rim");
+    }
+    if diameter - asset_value(read values, 2u32) < 4f32 {
+        return error("station spindle needs clearance inside the shaft openings");
+    }
+    return true;
+}
+fn shaft_station_port_name(face: u32) -> AssetName {
+    if face == 0u32 {
+        return asset_name("NORTH");
+    }
+    if face == 1u32 {
+        return asset_name("WEST");
+    }
+    if face == 2u32 {
+        return asset_name("SOUTH");
+    }
+    if face == 3u32 {
+        return asset_name("EAST");
+    }
+    if face == 4u32 {
+        return asset_name("BOTTOM");
+    }
+    return asset_name("TOP");
+}
+fn shaft_station_port(hull: read AssetHull, face: u32, diameter: f32) -> RoomPort {
+    var polygon: HullFace = asset_face(read hull, face);
+    var normal: Vec3 = hull_frame(read hull, polygon).normal;
+    var right: Vec3 = cross(vec(0f32, 1f32, 0f32), normal);
+    var profile: ConnectionProfile = service_oct_profile();
+    if face >= 4u32 {
+        right = vec(1f32, 0f32, 0f32);
+        profile = shaft_profile(diameter);
+    }
+    return make RoomPort {
+        id: shaft_station_port_name(face),
+        profile: profile,
+        face: face,
+        position: hull_face_centre(read hull, polygon),
+        basis: make Basis {
+            right: right,
+            up: cross(normal, right),
+            forward: normal
+        }
+    };
+}
+fn shaft_station_connections(asset: mut RoomAsset, diameter: f32) -> bool {
+    var next: AssetHull = asset_hull_new();
+    var face: u32 = 0u32;
+    while face < 6u32 {
+        var port: RoomPort = shaft_station_port(read asset.hull, face, diameter);
+        asset_surface_set(
+            mut asset.hull,
+            face,
+            make SurfaceFrame {
+                origin: port.position,
+                right: port.basis.right,
+                up: port.basis.up,
+                normal: port.basis.forward
+            }
+        );
+        var closure: u32 = 3u32;
+        if face >= 4u32 {
+            closure = 1u32;
+        }
+        if !hull_bordered_port(
+            mut asset.hull,
+            mut next,
+            port,
+            closure,
+            SHAFT_STATION_EDGE,
+            SHAFT_STATION_RIM,
+            4u32
+        ) || !asset_port_append(mut asset.ports, port) {
+            return false;
+        }
+        face = face + 1u32;
+    }
+    return true;
+}
+fn prefab_shaft_station_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !prefab_shaft_station_valid(read parameters) {
+        return false;
+    }
+    var height: f32 = asset_value(read parameters, 0u32);
+    var diameter: f32 = asset_value(read parameters, 1u32);
+    var core: f32 = asset_value(read parameters, 2u32);
+    var width: f32 = asset_value(read parameters, 3u32);
+    var depth: f32 = asset_value(read parameters, 4u32);
+    if !solid_box_hull(mut asset.hull, vec(width, height, depth), 0u32) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < asset_vertex_count(read asset.hull) {
+        var point: Vec3 = asset_vertex(read asset.hull, i);
+        point.y = point.y + height * 0.5f32;
+        asset_vertex_set(mut asset.hull, i, point);
+        i = i + 1u32;
+    }
+    if !shaft_station_connections(mut asset, diameter) || !shaft_core(
+        mut asset,
+        core * 0.5f32,
+        height,
+        2f32
+    ) {
+        return false;
+    }
+    var eye: Vec3 = vec(width * 0.3f32, height * 0.5f32, -depth * 0.3f32);
+    var forward: Vec3 = unit_vector(vec(-eye.x, 0f32, -eye.z));
+    asset.spawn = make AssetSpawn {
+        position: eye,
+        basis: make Basis {
+            right: cross(vec(0f32, 1f32, 0f32), forward),
+            up: vec(0f32, 1f32, 0f32),
+            forward: forward
+        }
+    };
+    return room_asset_finish(mut asset);
+}
+fn prefab_shaft_station_material_count() -> u32 {
+    return 5u32;
+}
+fn prefab_shaft_station_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = shaft_surface_material(region);
+    if region == 2u32 {
+        material.tile_metres = asset_value(read parameters, 2u32) * sinf(3.14159265359f32 / 48f32);
+        material.tile_height = 2f32;
+    }
+    if region == 3u32 {
+        material = hex_bulkhead_material();
+        material.colour = 0x667985u32;
+    }
+    if region == 4u32 {
+        material = hex_tunnel_material();
+        material.colour = 0x11161bu32;
+        material.finish = METAL_PLAIN;
+    }
+    return material;
+}

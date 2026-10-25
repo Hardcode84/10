@@ -57,6 +57,7 @@ its inputs through a root Crust entry point.
 | Caps | Close both end profiles with convex polygons |
 | Polygon inset | Insert a smaller concentric port with the same side count and phase; retain a solid ring around the opening |
 | Convex face inset | Insert a regular port inside a convex face; keep boundary vertex IDs and surface coordinates |
+| Bordered port | Add face-edge and opening-rim seams around a regular port in a convex face; retain the port face ID |
 | Face sectors | Divide a convex face into equal edge runs around an interior point |
 | Surface conversion | Triangulate convex polygons; preserve region IDs; derive planar UV coordinates at a fixed physical scale |
 | Room bundle | Own the hull, render mesh, local solid-part geometry and placements, collision index, and spawn frame |
