@@ -114,7 +114,8 @@ fn asset_providers(root: *CrustRun, args: **u8) -> usize {
     args[4usize] = host_path(root, "src/assets/geometry/pipe-graph-storage.crs");
     args[5usize] = host_path(root, "src/assets/geometry/pipe-router-storage.crs");
     args[6usize] = host_path(root, "src/assets/light-storage.crs");
-    return 7usize;
+    args[7usize] = host_path(root, "src/assets/recipe.crs");
+    return 8usize;
 }
 fn asset_collision_sources(root: *CrustRun, args: **u8) -> usize {
     var files: [*u8; 22] = make [*u8; 22] {

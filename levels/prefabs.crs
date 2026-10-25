@@ -17,7 +17,8 @@ fn demo_room_build(
     seed: u32
 ) -> bool {
     var values: AssetValues = asset_values_new();
-    if !course_values(PREFAB_RADIAL_START, 0u32, mut values) || !room_build(
+    if !course_values(PREFAB_RADIAL_START, 0u32, mut values) || !asset_generate(
+        room_build,
         read values,
         mut asset
     ) || !graph_allocate(mut graph, 128u32, 0u32) {

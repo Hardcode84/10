@@ -30,6 +30,9 @@ fn render_providers(root: *CrustRun, args: **u8) -> usize {
         "src/render/host/lighting.crs",
         "src/render/host/transfers.crs"
     };
+    if args == null(**u8) {
+        return 29usize;
+    }
     var i: usize = 0usize;
     while i < 29usize {
         args[i] = host_path(root, files[i]);

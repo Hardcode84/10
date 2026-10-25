@@ -106,6 +106,9 @@ images. Room collision chunks also pass a retained-snapshot lifetime witness.
 Collision snapshots can select required rooms. Incomplete prediction returns the
 missing room and suppresses output. A worker can regenerate an unchanged room
 while preserving collider IDs, then publish it for prediction and rendering.
-The full integrated ownership gate remains open: persistent recipe inputs,
-versioned publication, active-frame admission, and residency budgets must work
-together before normal play can unload rooms.
+Course assembly records each builder and its parameter values, appended parts,
+and material edits. The same inputs regenerate the service network and shaft
+region exactly. See the [recipe checks](streaming-experiment.md#recorded-room-recipes).
+The full integrated ownership gate remains open: versioned publication,
+active-frame admission, and residency budgets must work together before normal
+play can unload rooms.

@@ -34,12 +34,15 @@ fn stream_rebuild_experiment(session: GameSession, config: GameConfig) -> bool {
         plan: collision_rebuild_new(),
         mesh: mesh_new(),
         room: collision_room_new(),
-        kind: node.kind,
+        recipe: room_recipe_new(),
         space: target,
         first_portal: node.first,
         elapsed: 0u64
     };
-    if !collision_rebuild_plan(read scene, target, mut work.plan) {
+    if !room_recipe_copy(
+        mut work.recipe,
+        graph_recipe(read session.control.graph, target)
+    ) || !collision_rebuild_plan(read scene, target, mut work.plan) {
         return false;
     }
     session.renderer.state.read_pixels = true;

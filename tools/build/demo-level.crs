@@ -42,7 +42,18 @@ fn build_demo_target_providers(
     extra_count: usize
 ) -> bool {
     var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 96] = uninit;
+    var capacity: usize = render_providers(root, null(**u8)) + game_providers(
+        root,
+        null(**u8)
+    ) + extra_count + 4usize;
+    var providers: **u8 = crust_try_alloc(
+        root -> context,
+        capacity * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if providers == null(**u8) {
+        return false;
+    }
     var source_count: usize = game_sources(root, &sources[0usize]);
     sources[source_count] = recipe;
     sources[source_count + 1usize] = host_path(root, "src/demo/room/tunnels.crs");
@@ -65,7 +76,8 @@ fn build_demo_target_providers(
     sources[source_count + 18usize] = host_path(root, "src/app/level/shafts/fans.crs");
     sources[source_count + 19usize] = host_path(root, "src/app/level/shafts/bypass.crs");
     sources[source_count + 20usize] = host_path(root, "src/app/level/shafts/grates.crs");
-    source_count = source_count + 21usize;
+    sources[source_count + 21usize] = host_path(root, "src/app/level/recipe.crs");
+    source_count = source_count + 22usize;
     if check != null(*u8) {
         sources[source_count] = host_path(root, check);
         source_count = source_count + 1usize;

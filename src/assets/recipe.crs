@@ -1,0 +1,52 @@
+// Recipes own their parameters. Builders must depend only on these values.
+resource AssetRecipe {
+    build: fn(read AssetValues, mut RoomAsset) -> bool;
+    values: AssetValues;
+}
+opaque share drop asset_recipe_drop;
+fn asset_recipe_drop(recipe: mut AssetRecipe) -> unit {}
+fn asset_recipe_missing(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    return error("asset has no recorded recipe");
+}
+fn asset_recipe_new() -> AssetRecipe {
+    return make AssetRecipe {
+        build: asset_recipe_missing,
+        values: asset_values_new()
+    };
+}
+fn asset_recipe_set(
+    recipe: mut AssetRecipe,
+    build: fn(read AssetValues, mut RoomAsset) -> bool,
+    values: read AssetValues
+) -> bool {
+    var next: AssetRecipe = make AssetRecipe {
+        build: build,
+        values: asset_values_new()
+    };
+    if !asset_values_allocate(mut next.values, values.count) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < values.count {
+        asset_value_set(mut next.values, i, asset_value(read values, i));
+        i = i + 1u32;
+    }
+    recipe = move next;
+    return true;
+}
+fn asset_recipe_copy(target: mut AssetRecipe, source: read AssetRecipe) -> bool {
+    return asset_recipe_set(mut target, source.build, read source.values);
+}
+fn asset_generate(
+    build: fn(read AssetValues, mut RoomAsset) -> bool,
+    values: read AssetValues,
+    asset: mut RoomAsset
+) -> bool {
+    if !build(read values, mut asset) {
+        return false;
+    }
+    return asset_recipe_set(mut asset.recipe, build, read values);
+}
+fn asset_regenerate(recipe: read AssetRecipe, asset: mut RoomAsset) -> bool {
+    return asset_generate(recipe.build, read recipe.values, mut asset);
+}

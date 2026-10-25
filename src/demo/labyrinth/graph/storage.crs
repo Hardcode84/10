@@ -16,6 +16,7 @@ record GraphSocket {
     port: RoomPort;
 }
 resource RoomGraph {
+    recipes: *RoomRecipe;
     lights: FixtureLights;
     doors: DoorSet;
     nodes: *GraphNode;
@@ -29,6 +30,7 @@ resource RoomGraph {
 opaque drop graph_drop;
 fn graph_new() -> RoomGraph {
     return make RoomGraph {
+        recipes: null(*RoomRecipe),
         lights: fixture_lights_new(),
         doors: doors_new(),
         nodes: null(*GraphNode),
@@ -41,17 +43,24 @@ fn graph_new() -> RoomGraph {
     };
 }
 fn graph_drop(graph: mut RoomGraph) -> unit {
+    var i: u32 = 0u32;
+    while i < graph.count {
+        drop graph.recipes[i as usize];
+        i = i + 1u32;
+    }
+    free(graph.recipes as *u8);
     free(graph.nodes as *u8);
     free(graph.sockets as *u8);
 }
 fn graph_allocate(graph: mut RoomGraph, capacity: u32, seed: u32) -> bool {
+    graph.recipes = malloc(capacity as usize * sizeof(RoomRecipe)) as *RoomRecipe;
     graph.nodes = malloc(capacity as usize * sizeof(GraphNode)) as *GraphNode;
     graph.sockets = malloc(capacity as usize * 8usize * sizeof(GraphSocket)) as *GraphSocket;
     graph.capacity = capacity;
     graph.random = generation_seed(seed);
-    return graph.nodes != null(*GraphNode) && graph.sockets != null(*GraphSocket) || error(
-        "graph allocation failed"
-    );
+    return graph.recipes != null(*RoomRecipe) && graph.nodes != null(*GraphNode) && graph.sockets != null(
+        *GraphSocket
+    ) || error("graph allocation failed");
 }
 fn graph_node(graph: read RoomGraph, index: u32) -> GraphNode {
     return graph.nodes[index as usize];
@@ -103,6 +112,7 @@ fn graph_add_ports(graph: mut RoomGraph, kind: u32, depth: u32, branch: u32, cou
     if id >= graph.capacity || graph.port_count + count > graph.capacity * 8u32 {
         trap;
     }
+    graph.recipes[id as usize] = room_recipe_new();
     graph.nodes[id as usize] = make GraphNode {
         placement: space_identity(),
         kind: kind,

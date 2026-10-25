@@ -258,13 +258,46 @@ This passes the unchanged-room regeneration boundary. This witness rebuilds
 the retained render list. Use the separate arena witness to measure partial
 transfer and retirement.
 
-The normal game still builds all rooms at load. Before general asynchronous
-loading, persist exact recipe inputs and all generated-room modifications.
-`GraphNode.kind` and `style` alone do not encode arbitrary tunnel length,
-oblique tunnel tilt, cable settings, or material-region edits. Add those inputs
-at the room-construction boundary and use them for both initial generation and
-reload. The coordinator must also reject results from an old construction,
-preserve door state, and admit simulation, audio, and renderer dependencies
-before publishing a frame.
+The normal game still builds all rooms at load. The coordinator must reject
+results from an old construction, preserve door state, and admit simulation,
+audio, and renderer dependencies before publishing a frame.
 
 Raw results: [worker regeneration](measurements/rebuild-shafts.txt).
+
+
+## Recorded room recipes
+
+Course assembly records each asset builder with an owned copy of its parameter
+values. Room records retain the base asset, appended cable and light assets,
+material bases, and material edits. An edit keeps the triangle range that existed
+when it was applied. Parts added later keep their own materials.
+
+Replay uses these recorded values. This includes custom tunnel lengths, oblique
+cross-links, cable routes, emergency lights, and mixed junction styles. Recipe
+storage contains no generated mesh or collision faces. The worker regeneration
+witness now uses this shared replay path.
+
+Run the geometry-only checks:
+
+```sh
+crust tests.crs recipes levels/shafts.crs
+crust tests.crs recipes levels/service.crs
+```
+
+Each check builds the level, copies each room recipe, and regenerates the room.
+It compares triangle positions, UVs, materials, portal IDs, collision faces and
+trees, connection profiles and frames, lights, and door geometry and collider IDs.
+All 107 shaft-region rooms and all 111 service-network rooms match exactly.
+See the raw [shaft](measurements/recipes-shafts.txt) and
+[service](measurements/recipes-service.txt) results.
+
+This covers levels built through course assembly. The older labyrinth and direct
+single-room demo builders use separate assembly paths and do not record these
+operations. A replay request for an unrecorded room reports an error. Before
+those builders can unload rooms, route their material mapping and supplemental
+colliders through recorded assembly operations. Keep their current full residency
+until that check passes.
+
+Recipe callbacks refer to the running program. This format does not serialize
+recipes across program versions. Runtime publication must retain live controller
+state and reject a result if the room construction changed during the job.

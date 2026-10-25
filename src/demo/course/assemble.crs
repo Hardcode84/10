@@ -16,6 +16,9 @@ fn course_room_mesh(
         0u32,
         asset_port_count(read asset.ports)
     );
+    if !graph_recipe_add(mut graph, id, read asset, course_material_base(kind), false) {
+        return false;
+    }
     var node: GraphNode = graph_node(read graph, id);
     node.style = variant;
     var render: Mesh = mesh_new();

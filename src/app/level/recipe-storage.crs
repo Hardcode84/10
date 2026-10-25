@@ -1,0 +1,162 @@
+record RoomRecipeStep {
+    recipe: AssetRecipe;
+    material: u32;
+    parts: bool;
+}
+record RoomRecipeEdit {
+    first: u32;
+    count: u32;
+    source: u32;
+    target: u32;
+}
+resource RoomRecipe {
+    steps: *RoomRecipeStep;
+    count: u32;
+    edits: *RoomRecipeEdit;
+    edit_count: u32;
+}
+opaque share drop room_recipe_drop;
+fn room_recipe_new() -> RoomRecipe {
+    return make RoomRecipe {
+        steps: null(*RoomRecipeStep),
+        count: 0u32,
+        edits: null(*RoomRecipeEdit),
+        edit_count: 0u32
+    };
+}
+fn room_recipe_drop(recipe: mut RoomRecipe) -> unit {
+    var i: u32 = 0u32;
+    while i < recipe.count {
+        drop recipe.steps[i as usize].recipe;
+        i = i + 1u32;
+    }
+    free(recipe.steps as *u8);
+    free(recipe.edits as *u8);
+}
+// Append a generation operation. Full-room operations include shell, ports and doors.
+fn room_recipe_append(
+    recipe: mut RoomRecipe,
+    asset: read AssetRecipe,
+    material: u32,
+    parts: bool
+) -> bool {
+    var next: AssetRecipe = asset_recipe_new();
+    if !asset_recipe_copy(mut next, read asset) {
+        return false;
+    }
+    var data: *RoomRecipeStep = malloc(
+        (recipe.count as usize + 1usize) * sizeof(RoomRecipeStep)
+    ) as *RoomRecipeStep;
+    if data == null(*RoomRecipeStep) {
+        return error("room recipe allocation failed");
+    }
+    if recipe.count != 0u32 {
+        memcpy(
+            data as *u8,
+            recipe.steps as *u8,
+            recipe.count as usize * sizeof(RoomRecipeStep)
+        );
+    }
+    data[recipe.count as usize] = make RoomRecipeStep {
+        recipe: move next,
+        material: material,
+        parts: parts
+    };
+    free(recipe.steps as *u8);
+    recipe.steps = data;
+    recipe.count = recipe.count + 1u32;
+    return true;
+}
+// Edits use room-local triangle ranges from the time of the original edit.
+fn room_recipe_edit(recipe: mut RoomRecipe, edit: RoomRecipeEdit) -> unit {
+    var data: *RoomRecipeEdit = malloc(
+        (recipe.edit_count as usize + 1usize) * sizeof(RoomRecipeEdit)
+    ) as *RoomRecipeEdit;
+    if data == null(*RoomRecipeEdit) {
+        error("room material recipe allocation failed");
+        trap;
+    }
+    if recipe.edit_count != 0u32 {
+        memcpy(
+            data as *u8,
+            recipe.edits as *u8,
+            recipe.edit_count as usize * sizeof(RoomRecipeEdit)
+        );
+    }
+    data[recipe.edit_count as usize] = edit;
+    free(recipe.edits as *u8);
+    recipe.edits = data;
+    recipe.edit_count = recipe.edit_count + 1u32;
+}
+fn room_recipe_copy(target: mut RoomRecipe, source: read RoomRecipe) -> bool {
+    var next: RoomRecipe = room_recipe_new();
+    var i: u32 = 0u32;
+    while i < source.count {
+        var step: read RoomRecipeStep = read source.steps[i as usize];
+        if !room_recipe_append(mut next, read step.recipe, step.material, step.parts) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < source.edit_count {
+        room_recipe_edit(mut next, source.edits[i as usize]);
+        i = i + 1u32;
+    }
+    target = move next;
+    return true;
+}
+fn graph_recipe(graph: read RoomGraph, room: u32) -> read RoomRecipe from graph {
+    return read graph.recipes[room as usize];
+}
+fn graph_recipe_add(
+    graph: mut RoomGraph,
+    room: u32,
+    asset: read RoomAsset,
+    material: u32,
+    parts: bool
+) -> bool {
+    return room_recipe_append(
+        mut graph.recipes[room as usize],
+        read asset.recipe,
+        material,
+        parts
+    );
+}
+fn graph_recipe_edit(
+    graph: mut RoomGraph,
+    room: u32,
+    count: u32,
+    source: u32,
+    target: u32
+) -> unit {
+    room_recipe_edit(
+        mut graph.recipes[room as usize],
+        make RoomRecipeEdit {
+            first: 0u32,
+            count: count,
+            source: source,
+            target: target
+        }
+    );
+}
+fn room_recipe_render_edits(recipe: read RoomRecipe, mesh: mut Mesh) -> unit {
+    var i: u32 = 0u32;
+    while i < recipe.edit_count {
+        var edit: RoomRecipeEdit = recipe.edits[i as usize];
+        mesh_replace_material(
+            mut mesh,
+            edit.first,
+            edit.count,
+            edit.source,
+            edit.target
+        );
+        i = i + 1u32;
+    }
+}
+fn room_recipe_count(recipe: read RoomRecipe) -> u32 {
+    return recipe.count;
+}
+fn room_recipe_step(recipe: read RoomRecipe, index: u32) -> read RoomRecipeStep from recipe {
+    return read recipe.steps[index as usize];
+}

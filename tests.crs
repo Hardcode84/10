@@ -70,7 +70,10 @@ if run -> argc > 0i32 && (
     cache_strcmp(run -> argv[0usize], "streaming") == 0i32 || cache_strcmp(
         run -> argv[0usize],
         "arena"
-    ) == 0i32 || cache_strcmp(run -> argv[0usize], "reload") == 0i32
+    ) == 0i32 || cache_strcmp(run -> argv[0usize], "reload") == 0i32 || cache_strcmp(
+        run -> argv[0usize],
+        "recipes"
+    ) == 0i32
 ) {
     if run -> argc < 2i32 {
         native_error(run -> context, "streaming needs a level recipe");
@@ -91,6 +94,9 @@ if run -> argc > 0i32 && (
     }
     if cache_strcmp(run -> argv[0usize], "reload") == 0i32 {
         entry = "tests/streaming/rebuild-entry.crs";
+    }
+    if cache_strcmp(run -> argv[0usize], "recipes") == 0i32 {
+        entry = "tests/streaming/recipes-entry.crs";
     }
     if !build_demo_target_providers(
         run,

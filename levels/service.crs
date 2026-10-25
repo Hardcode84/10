@@ -33,7 +33,8 @@ fn demo_room_build(
     seed: u32
 ) -> bool {
     var values: AssetValues = asset_values_new();
-    if !course_values(PREFAB_RADIAL_START, 0u32, mut values) || !room_build(
+    if !course_values(PREFAB_RADIAL_START, 0u32, mut values) || !asset_generate(
+        room_build,
         read values,
         mut asset
     ) || !graph_allocate(mut graph, 112u32, seed) {
@@ -236,7 +237,7 @@ fn service_connector(
         right
     ) && level_straight(mut graph, mut builder, mut mesh, mut cursor, 18f32);
 }
-fn service_pig_style(graph: read RoomGraph, mesh: mut Mesh, cursor: LevelCursor) -> unit {
+fn service_pig_style(graph: mut RoomGraph, mesh: mut Mesh, cursor: LevelCursor) -> unit {
     var node: GraphNode = graph_node(read graph, cursor.room);
     var count: u32 = 1u32;
     if node.kind == PREFAB_HEX_T_JUNCTION || node.kind == PREFAB_HEX_X_JUNCTION {
@@ -247,7 +248,7 @@ fn service_pig_style(graph: read RoomGraph, mesh: mut Mesh, cursor: LevelCursor)
         var port: RoomPort = graph_socket(read graph, node.first + i).port;
         if count == 1u32 || service_pig_entry(port) {
             level_room_material(
-                read graph,
+                mut graph,
                 mut mesh,
                 cursor.room,
                 i,
@@ -270,7 +271,7 @@ fn service_pig_straight(
     var node: GraphNode = graph_node(read graph, cursor.room);
     node.style = SERVICE_PIG_STYLE;
     graph_node_set(mut graph, cursor.room, node);
-    service_pig_style(read graph, mut mesh, cursor);
+    service_pig_style(mut graph, mut mesh, cursor);
     return true;
 }
 fn service_end_bay(
@@ -296,10 +297,10 @@ fn service_refuge(
         return false;
     }
     if asset_names_equal(port, asset_name("WEST")) {
-        service_branch_style(read graph, mut mesh, cursor, SERVICE_BRANCH_OUTER);
+        service_branch_style(mut graph, mut mesh, cursor, SERVICE_BRANCH_OUTER);
         branches.middle = cursor;
     } else {
-        service_branch_style(read graph, mut mesh, cursor, SERVICE_BRANCH_INNER);
+        service_branch_style(mut graph, mut mesh, cursor, SERVICE_BRANCH_INNER);
         branches.south = cursor;
     }
     return true;
@@ -336,7 +337,7 @@ fn service_pig_run(
     if last {
         end_kind = PREFAB_HEX_X_JUNCTION;
     }
-    service_pig_style(read graph, mut mesh, cursor);
+    service_pig_style(mut graph, mut mesh, cursor);
     if !service_end_bay(mut graph, mut builder, mut mesh, cursor, back) || !service_pig_span(
         mut graph,
         mut builder,
@@ -356,7 +357,7 @@ fn service_pig_run(
     ) {
         return false;
     }
-    service_pig_style(read graph, mut mesh, cursor);
+    service_pig_style(mut graph, mut mesh, cursor);
     if last {
         branches.last = cursor;
         branches.last.exit = asset_name("WEST");
@@ -393,7 +394,7 @@ fn service_pig_span(
     ) {
         return false;
     }
-    service_pig_style(read graph, mut mesh, cursor);
+    service_pig_style(mut graph, mut mesh, cursor);
     return service_refuge(
         mut graph,
         mut builder,
@@ -624,9 +625,10 @@ fn service_styled_junction(
     var values: AssetValues = asset_values_new();
     var asset: RoomAsset = room_asset_new();
     var room: u32 = graph_count(read graph);
-    if !course_values(kind, 0u32, mut values) || !course_build(kind, read values, mut asset) || !junction_style_seams(
-        mut asset,
-        styles
+    if !service_junction_values(kind, styles, mut values) || !asset_generate(
+        service_junction_recipe,
+        read values,
+        mut asset
     ) || !course_room_mesh(read asset, mut graph, mut builder, mut mesh, kind, 0u32) {
         return false;
     }
@@ -635,7 +637,7 @@ fn service_styled_junction(
     while i < asset_port_count(read asset.ports) {
         if styles[i as usize] != 0u32 {
             level_room_material(
-                read graph,
+                mut graph,
                 mut mesh,
                 room,
                 i,
@@ -655,7 +657,7 @@ fn service_pig_entry(port: RoomPort) -> bool {
 }
 
 fn service_branch_style(
-    graph: read RoomGraph,
+    graph: mut RoomGraph,
     mesh: mut Mesh,
     cursor: LevelCursor,
     style: u32
@@ -664,7 +666,7 @@ fn service_branch_style(
     var count: u32 = course_material_count(graph_node(read graph, cursor.room).kind);
     while i < count {
         level_room_material(
-            read graph,
+            mut graph,
             mut mesh,
             cursor.room,
             i,
@@ -684,7 +686,7 @@ fn service_route_straight(
     if !level_straight(mut graph, mut builder, mut mesh, mut cursor, metres) {
         return false;
     }
-    service_branch_style(read graph, mut mesh, cursor, style);
+    service_branch_style(mut graph, mut mesh, cursor, style);
     return true;
 }
 fn service_route_turn(
@@ -698,7 +700,7 @@ fn service_route_turn(
     if !service_turn(mut graph, mut builder, mut mesh, mut cursor, right) {
         return false;
     }
-    service_branch_style(read graph, mut mesh, cursor, style);
+    service_branch_style(mut graph, mut mesh, cursor, style);
     return true;
 }
 // Connect parallel outward ports with a U route in their horizontal plane.
@@ -1001,4 +1003,48 @@ fn service_route_span(
         cell = cell + 1u32;
     }
     return true;
+}
+
+fn service_junction_values(kind: u32, styles: [u32; 4], values: mut AssetValues) -> bool {
+    var count: u32 = course_parameter_count(kind);
+    if !asset_values_allocate(mut values, count + 5u32) {
+        return false;
+    }
+    asset_value_set(mut values, 0u32, kind as f32);
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        asset_value_set(mut values, i + 1u32, styles[i as usize] as f32);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < count {
+        asset_value_set(mut values, i + 5u32, course_parameter(kind, i).initial);
+        i = i + 1u32;
+    }
+    return true;
+}
+fn service_junction_recipe(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    var kind: u32 = asset_value(read values, 0u32) as u32;
+    var base: AssetValues = asset_values_new();
+    var count: u32 = course_parameter_count(kind);
+    if !asset_values_allocate(mut base, count) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        asset_value_set(mut base, i, asset_value(read values, i + 5u32));
+        i = i + 1u32;
+    }
+    var styles: [u32; 4] = make [u32; 4] {
+        0u32,
+        0u32,
+        0u32,
+        0u32
+    };
+    i = 0u32;
+    while i < 4u32 {
+        styles[i as usize] = asset_value(read values, i + 1u32) as u32;
+        i = i + 1u32;
+    }
+    return course_build(kind, read base, mut asset) && junction_style_seams(mut asset, styles);
 }

@@ -1,0 +1,238 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var options: Launch = uninit;
+    if !game_options_scene(argc, argv, &options, true) {
+        return 2i32;
+    }
+    var asset: RoomAsset = room_asset_new();
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    var graph: RoomGraph = graph_new();
+    if !demo_room_build(mut asset, mut scene, mut mesh, mut graph, options.config.seed) {
+        return 1i32;
+    }
+    var room: u32 = 0u32;
+    while room < graph_count(read graph) {
+        if !recipe_check_room(read scene, read mesh, read graph, room) {
+            puts("recipe mismatch room / kind");
+            print_number(room as i64);
+            print_number(graph_node(read graph, room).kind as i64);
+            return 1i32;
+        }
+        room = room + 1u32;
+    }
+    puts("exact room recipes: rooms / triangles");
+    print_number(room as i64);
+    print_number(mesh_triangle_count(read mesh) as i64);
+    return 0i32;
+}
+fn recipe_check_room(
+    scene: read CollisionScene,
+    mesh: read Mesh,
+    graph: read RoomGraph,
+    room: u32
+) -> bool {
+    var node: GraphNode = graph_node(read graph, room);
+    var recipe: RoomRecipe = room_recipe_new();
+    var replay: RoomReplay = room_replay_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    var plan: CollisionRebuild = collision_rebuild_new();
+    var rebuilt: CollisionRoom = collision_room_new();
+    if !room_recipe_copy(mut recipe, graph_recipe(read graph, room)) || !room_recipe_build(
+        read recipe,
+        room,
+        node.first,
+        mut builder,
+        mut replay
+    ) || !collision_rebuild_plan(read scene, room, mut plan) {
+        return false;
+    }
+    if !collision_rebuild_finish(read plan, move builder, mut rebuilt) {
+        return false;
+    }
+    return recipe_mesh_equal(
+        read mesh,
+        node.mesh.first,
+        node.mesh.count,
+        read replay.mesh,
+        0u32,
+        mesh_triangle_count(read replay.mesh)
+    ) && recipe_collision_equal(read scene, read rebuilt) && recipe_ports_equal(
+        read graph,
+        node,
+        read replay.ports
+    ) && recipe_lights_equal(read graph.lights, room, read replay.lights) && recipe_doors_equal(
+        read graph.doors,
+        room,
+        read replay.doors,
+        read plan
+    );
+}
+fn recipe_triangle_equal(a: MeshTriangle, b: MeshTriangle) -> bool {
+    if a.material != b.material || a.portal != b.portal || a.flags != b.flags {
+        return false;
+    }
+    var i: usize = 0usize;
+    while i < 3usize {
+        var x: MeshVertex = a.vertices[i];
+        var y: MeshVertex = b.vertices[i];
+        if x.x != y.x || x.y != y.y || x.z != y.z || x.u != y.u || x.v != y.v {
+            return false;
+        }
+        i = i + 1usize;
+    }
+    return true;
+}
+fn recipe_mesh_equal(
+    a: read Mesh,
+    first: u32,
+    count: u32,
+    b: read Mesh,
+    other: u32,
+    other_count: u32
+) -> bool {
+    if count != other_count {
+        return error("recipe triangle count changed");
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        if !recipe_triangle_equal(
+            mesh_triangle(read a, first + i),
+            mesh_triangle(read b, other + i)
+        ) {
+            return error("recipe triangle changed");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn recipe_collision_equal(scene: read CollisionScene, rebuilt: read CollisionRoom) -> bool {
+    if rebuilt.slot == 0xffffffffu32 {
+        return true;
+    }
+    var a: *CollisionChunk = scene.chunks[rebuilt.slot as usize];
+    var b: *CollisionChunk = rebuilt.chunk;
+    if a -> face_count != b -> face_count || a -> node_count != b -> node_count {
+        return error("recipe collision size changed");
+    }
+    var i: u32 = 0u32;
+    while i < a -> face_count {
+        var x: CollisionFace = a -> faces[i as usize];
+        var y: CollisionFace = b -> faces[i as usize];
+        if length(sub(x.a, y.a)) != 0f32 || length(sub(x.b, y.b)) != 0f32 || length(
+            sub(x.c, y.c)
+        ) != 0f32 || length(sub(x.normal, y.normal)) != 0f32 {
+            return error("recipe collision face changed");
+        }
+        var edge: usize = 0usize;
+        while edge < 3usize {
+            if x.neighbours[edge] != y.neighbours[edge] {
+                return error("recipe collision neighbours changed");
+            }
+            edge = edge + 1usize;
+        }
+        i = i + 1u32;
+    }
+    return recipe_nodes_equal(a, b);
+}
+fn recipe_nodes_equal(a: *CollisionChunk, b: *CollisionChunk) -> bool {
+    var i: u32 = 0u32;
+    while i < a -> node_count {
+        var x: CollisionNode = a -> nodes[i as usize];
+        var y: CollisionNode = b -> nodes[i as usize];
+        if length(sub(x.low, y.low)) != 0f32 || length(sub(x.high, y.high)) != 0f32 || x.skip != y.skip || x.leaf != y.leaf {
+            return error("recipe collision tree changed");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn recipe_ports_equal(graph: read RoomGraph, node: GraphNode, ports: read AssetPorts) -> bool {
+    if node.count != asset_port_count(read ports) {
+        return error("recipe port count changed");
+    }
+    var i: u32 = 0u32;
+    while i < node.count {
+        var a: RoomPort = graph_socket(read graph, node.first + i).port;
+        var b: RoomPort = asset_port(read ports, i);
+        if !asset_names_equal(a.id, b.id) || !asset_names_equal(
+            a.profile.name,
+            b.profile.name
+        ) || a.face != b.face || length(sub(a.position, b.position)) != 0f32 || !recipe_basis_equal(
+            a.basis,
+            b.basis
+        ) || !recipe_profile_equal(a.profile, b.profile) {
+            return error("recipe portal changed");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn recipe_profile_equal(a: ConnectionProfile, b: ConnectionProfile) -> bool {
+    return a.radius == b.radius && a.rotations == b.rotations && a.clearance == b.clearance && a.scale.numerator == b.scale.numerator && a.scale.denominator == b.scale.denominator && a.shape.sides == b.shape.sides && a.shape.phase == b.shape.phase;
+}
+fn recipe_basis_equal(a: Basis, b: Basis) -> bool {
+    return length(sub(a.right, b.right)) == 0f32 && length(sub(a.up, b.up)) == 0f32 && length(
+        sub(a.forward, b.forward)
+    ) == 0f32;
+}
+fn recipe_lights_equal(source: read FixtureLights, room: u32, target: read FixtureLights) -> bool {
+    var index: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < fixture_light_count(read source) {
+        var a: FixtureLight = fixture_light(read source, i);
+        if a.space == room {
+            if index == fixture_light_count(read target) {
+                return error("recipe light missing");
+            }
+            var b: FixtureLight = fixture_light(read target, index);
+            if a.space != b.space || a.radius != b.radius || length(
+                sub(a.position, b.position)
+            ) != 0f32 || length(sub(a.colour, b.colour)) != 0f32 {
+                return error("recipe light changed");
+            }
+            index = index + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return index == fixture_light_count(read target) || error("recipe added lights");
+}
+fn recipe_doors_equal(
+    source: read DoorSet,
+    room: u32,
+    target: read DoorSet,
+    plan: read CollisionRebuild
+) -> bool {
+    var index: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < doors_count(read source) {
+        var a: DoorInstance = door_get(read source, i);
+        if a.space == room {
+            if index == doors_count(read target) {
+                return error("recipe door missing");
+            }
+            var b: DoorInstance = door_get(read target, index);
+            if a.space != b.space || a.radius != b.radius || length(
+                sub(a.origin, b.origin)
+            ) != 0f32 {
+                return error("recipe door changed");
+            }
+            var leaf: usize = 0usize;
+            while leaf < 2usize {
+                if a.leaves[leaf] != plan.items[b.leaves[leaf] as usize].id || !recipe_mesh_equal(
+                    read source.mesh,
+                    a.sources[leaf].first,
+                    a.sources[leaf].count,
+                    read target.mesh,
+                    b.sources[leaf].first,
+                    b.sources[leaf].count
+                ) {
+                    return error("recipe door leaf changed");
+                }
+                leaf = leaf + 1usize;
+            }
+            index = index + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return index == doors_count(read target) || error("recipe added doors");
+}

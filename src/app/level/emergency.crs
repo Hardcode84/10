@@ -23,11 +23,31 @@ fn level_emergency_room(
     }
     var extent: f32 = graph_socket(read graph, node.first + 1u32).port.position.y;
     var asset: RoomAsset = room_asset_new();
-    return hex_emergency_lights(extent, count, mut asset) && level_parts_append(
+    var values: AssetValues = asset_values_new();
+    if !asset_values_allocate(mut values, 2u32) {
+        return false;
+    }
+    asset_value_set(mut values, 0u32, extent);
+    asset_value_set(mut values, 1u32, count as f32);
+    return asset_generate(level_emergency_recipe, read values, mut asset) && graph_recipe_add(
+        mut graph,
+        room,
+        read asset,
+        course_material_base(node.kind),
+        true
+    ) && level_parts_append(
         mut asset,
         room,
         course_material_base(node.kind),
         mut builder,
         mut mesh
     ) && graph_lights_append(mut graph, read asset.lights, room);
+}
+
+fn level_emergency_recipe(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    return hex_emergency_lights(
+        asset_value(read values, 0u32),
+        asset_value(read values, 1u32) as u32,
+        mut asset
+    );
 }

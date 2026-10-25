@@ -67,7 +67,12 @@ fn level_straight(
 ) -> bool {
     var asset: RoomAsset = room_asset_new();
     var room: u32 = graph_count(read graph);
-    if !hex_tunnel_build(metres, mut asset) || !course_room_mesh(
+    var values: AssetValues = asset_values_new();
+    if !asset_values_allocate(mut values, 1u32) {
+        return false;
+    }
+    asset_value_set(mut values, 0u32, metres);
+    if !asset_generate(level_hex_recipe, read values, mut asset) || !course_room_mesh(
         read asset,
         mut graph,
         mut builder,
@@ -124,7 +129,7 @@ fn level_install(graph: read RoomGraph, scene: mut CollisionScene) -> bool {
 
 // Replace one material region in an assembled room. Geometry and collision stay the same.
 fn level_room_material(
-    graph: read RoomGraph,
+    graph: mut RoomGraph,
     mesh: mut Mesh,
     room: u32,
     region: u32,
@@ -132,6 +137,7 @@ fn level_room_material(
 ) -> unit {
     var node: GraphNode = graph_node(read graph, room);
     var source: u32 = course_material_base(node.kind) + region;
+    graph_recipe_edit(mut graph, room, node.mesh.count, source, material);
     mesh_replace_material(
         mut mesh,
         node.mesh.first,
@@ -139,4 +145,8 @@ fn level_room_material(
         source,
         material
     );
+}
+
+fn level_hex_recipe(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    return hex_tunnel_build(asset_value(read values, 0u32), mut asset);
 }

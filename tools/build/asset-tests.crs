@@ -12,7 +12,7 @@ fn run_asset_checks(
         return 1i32;
     }
     var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 24] = uninit;
+    var providers: [*u8; 25] = uninit;
     var count: usize = asset_sources(root, &sources[0usize]);
     count = count + asset_collision_sources(root, &sources[count]);
     sources[count] = host_path(root, "assets/rooms/radial-start.crs");

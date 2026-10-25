@@ -1,0 +1,7 @@
+Shaft region base route / rooms / source triangles
+20
+107
+145850
+exact room recipes: rooms / triangles
+107
+145850

@@ -3,7 +3,7 @@ resource StreamRebuild {
     plan: CollisionRebuild;
     mesh: Mesh;
     room: CollisionRoom;
-    kind: u32;
+    recipe: RoomRecipe;
     space: u32;
     first_portal: u32;
     elapsed: u64;
@@ -13,40 +13,21 @@ fn stream_rebuild_drop(work: mut StreamRebuild) -> unit {}
 fn stream_rebuild_execute(data: *u8) -> bool {
     var work: *StreamRebuild = data as *StreamRebuild;
     var start: u64 = now();
-    var values: AssetValues = asset_values_new();
-    var asset: RoomAsset = room_asset_new();
-    if !shaft_region_values(work -> kind, mut values) || !course_build(
-        work -> kind,
-        read values,
-        mut asset
+    var replay: RoomReplay = room_replay_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    if !room_recipe_build(
+        read work -> recipe,
+        work -> space,
+        work -> first_portal,
+        mut builder,
+        mut replay
     ) {
         return false;
     }
-    var walls: Mesh = mesh_new();
-    var builder: CollisionBuilder = collision_builder_new();
-    if !room_linked_mesh(
-        read asset,
-        mut work -> mesh,
-        mut walls,
-        course_material_base(work -> kind)
-    ) || !collision_append(
-        mut builder,
-        read walls,
-        work -> space,
-        vec(0f32, 0f32, 0f32),
-        identity_basis()
-    ) || !room_parts_collision(read asset, mut builder, work -> space) {
-        return false;
-    }
-    var i: u32 = 0u32;
-    while i < mesh_triangle_count(read work -> mesh) {
-        var t: MeshTriangle = mesh_triangle(read work -> mesh, i);
-        if t.portal != 0u32 {
-            t.portal = t.portal + work -> first_portal;
-        }
-        work -> mesh.triangles[i as usize] = t;
-        i = i + 1u32;
-    }
+    mesh_swap(mut work -> mesh, mut replay.mesh);
+    return stream_rebuild_finish(work, move builder, start);
+}
+fn stream_rebuild_finish(work: *StreamRebuild, builder: CollisionBuilder, start: u64) -> bool {
     if !collision_rebuild_finish(read work -> plan, move builder, mut work -> room) {
         return false;
     }

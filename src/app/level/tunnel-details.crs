@@ -12,10 +12,8 @@ fn level_pipe_asset(
     if node.kind == PREFAB_HEX_ELBOW {
         var collar: f32 = -graph_socket(read graph, node.first).port.position.y - service_hex_profile().radius;
         asset_value_set(mut values, 3u32 + segment.wall, segment.count as f32);
-        return hex_junction_shape(prefab_hex_elbow_CONNECTIONS, collar, mut asset) && hex_elbow_pipes(
-            read values,
-            mut asset
-        );
+        asset_value_set(mut values, 0u32, collar);
+        return asset_generate(level_elbow_pipe_recipe, read values, mut asset);
     }
     var extent: f32 = graph_socket(read graph, node.first + 1u32).port.position.y;
     asset_value_set(mut values, 0u32, extent);
@@ -29,13 +27,10 @@ fn level_pipe_asset(
     if segment.exit {
         asset_value_set(mut values, base + 2u32, 1f32);
     }
-    return passage_shape(extent, true, service_hex_profile(), mut asset) && hex_tunnel_pipes(
-        read values,
-        mut asset
-    );
+    return asset_generate(level_straight_pipe_recipe, read values, mut asset);
 }
 fn level_pipe_room(
-    graph: read RoomGraph,
+    graph: mut RoomGraph,
     room: u32,
     segment: LevelPipeSegment,
     builder: mut CollisionBuilder,
@@ -45,7 +40,14 @@ fn level_pipe_room(
         return true;
     }
     var asset: RoomAsset = room_asset_new();
-    return level_pipe_asset(read graph, room, segment, mut asset) && level_parts_append(
+    var material: u32 = course_material_base(graph_node(read graph, room).kind);
+    return level_pipe_asset(read graph, room, segment, mut asset) && graph_recipe_add(
+        mut graph,
+        room,
+        read asset,
+        material,
+        true
+    ) && level_parts_append(
         mut asset,
         room,
         course_material_base(graph_node(read graph, room).kind),
@@ -107,7 +109,7 @@ fn level_tunnel_details(
             node.mesh.count,
             mut combined
         ) || !level_pipe_room(
-            read graph,
+            mut graph,
             room,
             level_pipe_segment(read plan, room),
             mut builder,
@@ -133,4 +135,20 @@ fn level_tunnel_details(
     }
     mesh_swap(mut mesh, mut result);
     return true;
+}
+
+fn level_elbow_pipe_recipe(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    return hex_junction_shape(
+        prefab_hex_elbow_CONNECTIONS,
+        asset_value(read values, 0u32),
+        mut asset
+    ) && hex_elbow_pipes(read values, mut asset);
+}
+fn level_straight_pipe_recipe(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    return passage_shape(
+        asset_value(read values, 0u32),
+        true,
+        service_hex_profile(),
+        mut asset
+    ) && hex_tunnel_pipes(read values, mut asset);
 }

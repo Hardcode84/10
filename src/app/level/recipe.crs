@@ -1,0 +1,105 @@
+record RoomReplay {
+    mesh: Mesh;
+    doors: DoorSet;
+    lights: FixtureLights;
+    ports: AssetPorts;
+}
+fn room_replay_new() -> RoomReplay {
+    return make RoomReplay {
+        mesh: mesh_new(),
+        doors: doors_new(),
+        lights: fixture_lights_new(),
+        ports: asset_ports_new()
+    };
+}
+// Requires the original room ID and first portal ID. Produces fresh geometry and controller definitions.
+fn room_recipe_build(
+    recipe: read RoomRecipe,
+    room: u32,
+    first_portal: u32,
+    builder: mut CollisionBuilder,
+    replay: mut RoomReplay
+) -> bool {
+    if room_recipe_count(read recipe) == 0u32 {
+        return error("room has no recorded generation recipe");
+    }
+    var i: u32 = 0u32;
+    while i < room_recipe_count(read recipe) {
+        var step: read RoomRecipeStep = room_recipe_step(read recipe, i);
+        var asset: RoomAsset = room_asset_new();
+        if !asset_regenerate(read step.recipe, mut asset) {
+            return false;
+        }
+        if step.parts {
+            if !level_parts_append(
+                mut asset,
+                room,
+                step.material,
+                mut builder,
+                mut replay.mesh
+            ) {
+                return false;
+            }
+        } else if !room_replay_base(
+            read asset,
+            room,
+            first_portal,
+            step.material,
+            mut builder,
+            mut replay
+        ) {
+            return false;
+        }
+        if !fixture_lights_place(read asset.lights, room, mut replay.lights) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    room_recipe_render_edits(read recipe, mut replay.mesh);
+    return true;
+}
+fn room_replay_base(
+    asset: read RoomAsset,
+    room: u32,
+    first_portal: u32,
+    material: u32,
+    builder: mut CollisionBuilder,
+    replay: mut RoomReplay
+) -> bool {
+    var render: Mesh = mesh_new();
+    var walls: Mesh = mesh_new();
+    if !room_linked_mesh(read asset, mut render, mut walls, material) || !collision_append(
+        mut builder,
+        read walls,
+        room,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) || !room_parts_collision(read asset, mut builder, room) || !doors_asset(
+        mut replay.doors,
+        read asset,
+        mut builder,
+        room,
+        material
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < asset_port_count(read asset.ports) {
+        if !asset_port_append(mut replay.ports, asset_port(read asset.ports, i)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < mesh_triangle_count(read render) {
+        var t: MeshTriangle = mesh_triangle(read render, i);
+        if t.portal != 0u32 {
+            t.portal = t.portal + first_portal;
+        }
+        if !mesh_append(mut replay.mesh, t) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

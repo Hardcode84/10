@@ -203,7 +203,13 @@ fn shaft_region_lateral(
     };
     var asset: RoomAsset = room_asset_new();
     var room: u32 = graph_count(read graph);
-    if !oblique_oct_build(mut asset, length(sub(last.origin, first.origin)), tilt) || !course_room_mesh(
+    var values: AssetValues = asset_values_new();
+    if !asset_values_allocate(mut values, 2u32) {
+        return false;
+    }
+    asset_value_set(mut values, 0u32, length(sub(last.origin, first.origin)));
+    asset_value_set(mut values, 1u32, tilt);
+    if !asset_generate(shaft_oblique_recipe, read values, mut asset) || !course_room_mesh(
         read asset,
         mut graph,
         mut builder,
@@ -219,4 +225,12 @@ fn shaft_region_lateral(
         a,
         shaft_region_cursor(room, asset_name("ENTRY"))
     ) && shaft_region_pair(mut graph, shaft_region_cursor(room, asset_name("EXIT")), b);
+}
+
+fn shaft_oblique_recipe(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    return oblique_oct_build(
+        mut asset,
+        asset_value(read values, 0u32),
+        asset_value(read values, 1u32)
+    );
 }
