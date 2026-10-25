@@ -1,5 +1,5 @@
 fn asset_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 83] = make [*u8; 83] {
+    var files: [*u8; 85] = make [*u8; 85] {
         "src/assets/prefabs/oct-stopper.crs",
         "src/assets/prefabs/hex-t-junction.crs",
         "src/assets/prefabs/hex-junction-common.crs",
@@ -12,6 +12,8 @@ fn asset_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/prefabs/oct-x-junction.crs",
         "src/assets/prefabs/shaft-rotor.crs",
         "src/assets/prefabs/shaft-fan.crs",
+        "src/assets/prefabs/shaft-cap-bearing.crs",
+        "src/assets/geometry/shaft-cap-bearing.crs",
         "src/assets/prefabs/shaft-grate.crs",
         "src/assets/geometry/shaft-grate.crs",
         "src/assets/geometry/annular-band.crs",
@@ -85,7 +87,7 @@ fn asset_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/materials/metal.crs"
     };
     var i: usize = 0usize;
-    while i < 83usize {
+    while i < 85usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

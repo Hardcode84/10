@@ -87,6 +87,31 @@ plane cannot supply this contract. The existing girder web has no collision;
 it cannot serve as a grate. Define hook contact from the actual solid bars and
 openings rather than giving the grate an invisible hook surface.
 
+##### Shaft end caps
+
+End caps accept the full shaft profile and the matching spindle. Keep their
+main shapes distinct: a shallow end plate, a deep cone, a recessed filter,
+and an offset outlet. Select the cap from the route graph before adding detail.
+A closed cap has one shaft connection. Only a boundary passage has an onward
+connection. The hub remains the option for several branches.
+
+| Variant | Shape and spindle end | Use and status |
+| --- | --- | --- |
+| Bearing cap | Dished end wall, large central bearing, eight radial ribs, and a dark spindle seal | Common closed end; implemented as `shaft-cap-bearing` |
+| Collector cone | Tapered chamber with wall pipes entering a ring manifold around the spindle housing | Proposed closed end with a deep profile |
+| Filter plenum | Annular grate around the spindle bearing; filter banks and short baffled ducts behind it | Proposed air passage that blocks drone travel; visible holes must match bar collision |
+| Offset outlet | End-wall spindle bearing beside one offset octagonal passage | Proposed single-route boundary connection |
+
+Keep the shell enclosed behind filters and duct bends. Use transparent texels
+for mesh openings where suitable, with matching solid collision. A closed cap
+must remain closed after power returns. These variants do not imply spindle
+rotation, new controls, or new objectives.
+
+Show a closed-end cue at the last branch before the cap. Small marks on the cap
+alone cannot identify a closed route from a distant station. Place full-bright
+marks on fixed structure; they emit no light. Use the bearing cap for ordinary
+ends and vary the other cap families where their machine role fits.
+
 ##### Route construction
 
 The [shaft-grid generator design](shaft-grid.md) specifies station layers,

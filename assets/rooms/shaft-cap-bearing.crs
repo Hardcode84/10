@@ -1,0 +1,25 @@
+// Closed bearing cap with a dished end wall and eight radial support ribs.
+// SHAFT is at Y=0, facing -Y. Match diameter and core-diameter to the shaft.
+// Local +Y enters the cap. The spindle ends inside a fixed bearing housing.
+// depth is the total shell length in metres; no onward passage is present.
+// Amber rim marks are full-bright and emit no light. All props have solid collision.
+// Materials: 0 sleeve, 1 mouth closure, 2 spindle, 3 end panels,
+// 4 bearing and ribs, 5 spindle seal, 6 rim markers.
+fn room_parameter_count() -> u32 {
+    return prefab_shaft_cap_bearing_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_shaft_cap_bearing_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_shaft_cap_bearing_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_shaft_cap_bearing_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return prefab_shaft_cap_bearing_material_count();
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_shaft_cap_bearing_material(region, read parameters);
+}
