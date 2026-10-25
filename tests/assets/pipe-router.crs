@@ -49,7 +49,7 @@ fn asset_route_fixture(router: mut PipeRouter, detour: bool, repeated: bool) -> 
     return true;
 }
 fn asset_route_rejection(detour: bool, repeated: bool) -> bool {
-    var router: PipeRouter = pipe_router_new();
+    var router: PipeRouter = pipe_router_new(0f32);
     var graph: PipeGraph = pipe_graph_new();
     if !asset_route_fixture(mut router, detour, repeated) {
         return false;
@@ -59,7 +59,7 @@ fn asset_route_rejection(detour: bool, repeated: bool) -> bool {
     ) == 0u32 || error("pipe router emitted crossing pipes or joined the same exit");
 }
 fn asset_route_detour(seed: u32) -> bool {
-    var router: PipeRouter = pipe_router_new();
+    var router: PipeRouter = pipe_router_new(0f32);
     var graph: PipeGraph = pipe_graph_new();
     if !asset_route_fixture(mut router, true, false) || !pipe_route_solve(
         mut router,
@@ -115,7 +115,7 @@ fn asset_route_detour(seed: u32) -> bool {
     ) || error("pipe router failed to take the clear detour");
 }
 fn asset_test_pipe_router() -> bool {
-    return asset_route_optional_sink_branch() && asset_route_sink() && asset_route_random_destinations() && asset_route_rejection(
+    return asset_route_turn_limit(0f32, false) && asset_route_turn_limit(-1f32, true) && asset_route_optional_sink_branch() && asset_route_sink() && asset_route_random_destinations() && asset_route_rejection(
         false,
         false
     ) && asset_route_rejection(true, true) && asset_route_detour(1u32) && asset_route_detour(
@@ -123,7 +123,7 @@ fn asset_test_pipe_router() -> bool {
     );
 }
 fn asset_route_sink() -> bool {
-    var router: PipeRouter = pipe_router_new();
+    var router: PipeRouter = pipe_router_new(0f32);
     var graph: PipeGraph = pipe_graph_new();
     var radial: Vec3 = vec(0f32, 0f32, 1f32);
     var mouth: u32 = pipe_route_point(mut router, vec(-2f32, 0f32, 0f32), radial, 9u32);
@@ -156,7 +156,7 @@ fn asset_route_sink() -> bool {
     ).used || error("pipe sink or retained waypoint route failed");
 }
 fn asset_route_random_pair(seed: u32) -> u32 {
-    var router: PipeRouter = pipe_router_new();
+    var router: PipeRouter = pipe_router_new(0f32);
     var graph: PipeGraph = pipe_graph_new();
     var i: u32 = 0u32;
     while i < 4u32 {
@@ -230,7 +230,7 @@ fn asset_route_random_destinations() -> bool {
     );
 }
 fn asset_route_optional_sink_branch() -> bool {
-    var router: PipeRouter = pipe_router_new();
+    var router: PipeRouter = pipe_router_new(0f32);
     var graph: PipeGraph = pipe_graph_new();
     var radial: Vec3 = vec(0f32, 0f32, 1f32);
     var left: u32 = pipe_route_point(mut router, vec(-4f32, 0f32, 0f32), radial, 1u32);
@@ -259,4 +259,51 @@ fn asset_route_optional_sink_branch() -> bool {
         i = i + 1u32;
     }
     return true;
+}
+fn asset_route_turn_limit(minimum_cosine: f32, expect_reverse: bool) -> bool {
+    var router: PipeRouter = pipe_router_new(minimum_cosine);
+    var graph: PipeGraph = pipe_graph_new();
+    var radial: Vec3 = vec(0f32, 0f32, 1f32);
+    var start: u32 = pipe_route_point(mut router, vec(-4f32, 0f32, 0f32), radial, 1u32);
+    var finish: u32 = pipe_route_point(mut router, vec(-2f32, 6f32, 0f32), radial, 2u32);
+    var entry: u32 = hub_lane_point(mut router, vec(0f32, 0f32, 0f32));
+    var reverse: u32 = hub_lane_point(mut router, vec(-2f32, 2f32, 0f32));
+    var corner: u32 = hub_lane_point(mut router, vec(0f32, 6f32, 0f32));
+    if !pipe_route_link(mut router, start, entry) || !pipe_route_link(
+        mut router,
+        entry,
+        reverse
+    ) || !pipe_route_link(mut router, reverse, finish) || !pipe_route_link(
+        mut router,
+        entry,
+        corner
+    ) || !pipe_route_link(mut router, corner, finish) || !pipe_route_solve(
+        mut router,
+        mut graph,
+        0.5f32,
+        0.2f32,
+        1u32
+    ) {
+        return false;
+    }
+    var reversed: bool = false;
+    var i: u32 = 0u32;
+    while i < pipe_node_count(read graph) {
+        var node: PipeNode = pipe_node(read graph, i);
+        if node.degree == 2u32 {
+            var a: Vec3 = sub(
+                pipe_node(read graph, node.links[0usize]).position,
+                node.position
+            );
+            var b: Vec3 = sub(
+                pipe_node(read graph, node.links[1usize]).position,
+                node.position
+            );
+            if dot(a, b) > 0f32 {
+                reversed = true;
+            }
+        }
+        i = i + 1u32;
+    }
+    return reversed == expect_reverse || error("pipe route ignored its bend limit");
 }

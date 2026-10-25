@@ -124,7 +124,7 @@ fn station_pipe_sinks(router: mut PipeRouter, layout: StationPipeLayout) -> bool
     return true;
 }
 fn station_service_pipes(asset: mut RoomAsset, layout: StationPipeLayout, seed: u32) -> bool {
-    var router: PipeRouter = pipe_router_new();
+    var router: PipeRouter = pipe_router_new(0f32);
     var graph: PipeGraph = pipe_graph_new();
     if !station_pipe_ring(mut router, layout, 0u32) || !station_pipe_ring(
         mut router,

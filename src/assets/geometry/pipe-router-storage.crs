@@ -34,6 +34,7 @@ record RoutePath {
     sink: bool;
 }
 resource PipeRouter {
+    minimum_turn_cosine: f32;
     conflicts: *RouteArc;
     conflicts_count: u32;
     conflicts_capacity: u32;
@@ -57,8 +58,11 @@ resource PipeRouter {
     walk_capacity: u32;
 }
 opaque drop pipe_router_drop;
-fn pipe_router_new() -> PipeRouter {
+// The minimum cosine sets the largest permitted bend. Zero permits right angles.
+// The value must be between -1 and 1. Exact reversals are always rejected.
+fn pipe_router_new(minimum_turn_cosine: f32) -> PipeRouter {
     return make PipeRouter {
+        minimum_turn_cosine: minimum_turn_cosine,
         conflicts: null(*RouteArc),
         conflicts_count: 0u32,
         conflicts_capacity: 0u32,
@@ -311,6 +315,9 @@ fn route_discard_search(router: mut PipeRouter) -> unit {
     router.conflicts_capacity = 0u32;
 }
 fn pipe_router_swap(a: mut PipeRouter, b: mut PipeRouter) -> unit {
+    var cosine: f32 = a.minimum_turn_cosine;
+    a.minimum_turn_cosine = b.minimum_turn_cosine;
+    b.minimum_turn_cosine = cosine;
     var old_nodes: *RouteNode = a.nodes;
     a.nodes = b.nodes;
     b.nodes = old_nodes;
@@ -374,4 +381,8 @@ fn pipe_router_swap(a: mut PipeRouter, b: mut PipeRouter) -> unit {
     var old_conflicts_capacity: u32 = a.conflicts_capacity;
     a.conflicts_capacity = b.conflicts_capacity;
     b.conflicts_capacity = old_conflicts_capacity;
+}
+
+fn route_minimum_turn_cosine(router: read PipeRouter) -> f32 {
+    return router.minimum_turn_cosine;
 }

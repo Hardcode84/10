@@ -27,7 +27,8 @@ fn route_walk_fits(router: read PipeRouter, bend: f32) -> bool {
                     route_walk_position(read router, i)
                 )
             );
-            if dot(incoming, outgoing) <= -1f32 {
+            var cosine: f32 = dot(incoming, outgoing);
+            if cosine <= -1f32 || cosine < route_minimum_turn_cosine(read router) {
                 return false;
             }
             trim = route_trim(incoming, outgoing, bend);
