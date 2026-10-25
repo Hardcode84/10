@@ -1,0 +1,109 @@
+fn hull_face_on_plane(hull: read AssetHull, face: HullFace, normal: Vec3, offset: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < face.count {
+        if dot(hull_corner(read hull, face, i), normal) != offset {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn hull_panel_edge(
+    hull: read AssetHull,
+    face: HullFace,
+    corner: u32,
+    normal: Vec3,
+    offset: f32
+) -> bool {
+    var a: u32 = asset_index(read hull, face.first + corner);
+    var b: u32 = asset_index(read hull, face.first + (corner + 1u32) % face.count);
+    var other: HullFace = asset_face(read hull, hull_reverse_face(read hull, a, b));
+    return !hull_face_on_plane(read hull, other, normal, offset);
+}
+fn hull_panel_size(hull: read AssetHull, normal: Vec3, offset: f32) -> [u32; 3] {
+    var kept: u32 = 0u32;
+    var indices: u32 = 0u32;
+    var boundary: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        var face: HullFace = asset_face(read hull, i);
+        if !hull_face_on_plane(read hull, face, normal, offset) {
+            kept = kept + 1u32;
+            indices = indices + face.count;
+        } else {
+            var j: u32 = 0u32;
+            while j < face.count {
+                if hull_panel_edge(read hull, face, j, normal, offset) {
+                    boundary = boundary + 1u32;
+                }
+                j = j + 1u32;
+            }
+        }
+        i = i + 1u32;
+    }
+    return make [u32; 3] {
+        kept,
+        indices,
+        boundary
+    };
+}
+// Joins subdivisions of one convex support face. Its vertices lie exactly on
+// the given plane. The merged face is last; other face order and surfaces stay
+// intact. Source and target are distinct. The plane's normal points outward.
+fn hull_merge_panel(
+    source: read AssetHull,
+    target: mut AssetHull,
+    normal: Vec3,
+    offset: f32,
+    region: u32
+) -> bool {
+    var size: [u32; 3] = hull_panel_size(read source, normal, offset);
+    if !asset_hull_allocate(
+        mut target,
+        asset_vertex_count(read source),
+        size[0usize] + 1u32,
+        size[1usize] + size[2usize]
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < asset_vertex_count(read source) {
+        asset_vertex_set(mut target, i, asset_vertex(read source, i));
+        i = i + 1u32;
+    }
+    var first: u32 = 0u32;
+    var output: u32 = 0u32;
+    var border: u32 = size[1usize];
+    i = 0u32;
+    while i < asset_face_count(read source) {
+        var face: HullFace = asset_face(read source, i);
+        if !hull_face_on_plane(read source, face, normal, offset) {
+            first = hull_copy_face(read source, mut target, i, output, first);
+            output = output + 1u32;
+        } else {
+            var j: u32 = 0u32;
+            while j < face.count {
+                if hull_panel_edge(read source, face, j, normal, offset) {
+                    asset_index_set(
+                        mut target,
+                        border,
+                        asset_index(read source, face.first + j)
+                    );
+                    border = border + 1u32;
+                }
+                j = j + 1u32;
+            }
+        }
+        i = i + 1u32;
+    }
+    var panel: HullFace = make HullFace {
+        first: size[1usize],
+        count: size[2usize],
+        region: region
+    };
+    hull_order_face(mut target, panel, hull_radial_basis(normal));
+    asset_face_set(mut target, output, panel);
+    var surface: SurfaceFrame = hull_frame(read target, panel);
+    asset_surface_set(mut target, output, surface);
+    return true;
+}

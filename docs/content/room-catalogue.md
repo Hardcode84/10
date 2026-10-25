@@ -276,6 +276,12 @@ the straight cable does not bend in the wind.
 
 ###### Hexagonal bypass
 
+The `shaft-collar` prefab provides a convex connection from a round shaft to a
+hexagonal side tunnel. Its shaft end profiles and spindle remain unchanged.
+An outward side panel and sloped faces provide the flat portal surface. Use a
+collar on each side of the fan and connect their side ports with the bypass.
+The collar is implemented; the generator does not yet assemble these bypasses.
+
 The bypass joins the shaft on both sides of one fan. Keep it short and close
 to the machine. Its entrance must be visible from the approach before suction
 commits the drone to the rotor. Its exit must provide room to recover on the
@@ -355,6 +361,7 @@ to recognise from a distance.
 | `shaft-pipes`, `shaft-girders`, `shaft-rotor` | Assemble long continuous columns with matched spindles and clear connection stations |
 | `shaft-fan` | Stopped pitched fan blades, fixed bearing housings, and clear service-pipe bays; match both shaft ends |
 | `shaft-station` | Rectangular through-shaft room with four OCT-8M side mouths, seeded wall pipe routes, and a continuous spindle; assemble these into the grid |
+| `shaft-collar` | Convex through-shaft collar with a HEX-6M side port and a continuous spindle; use paired collars for a local fan bypass |
 | `oct-*` passages and closures | Fit cross tunnels to station frames and distinguish permanent closures from operating doors |
 | `shaft-hub` | Use only where its single shaft end and octagonal branches fit the layout; it cannot replace a through-shaft side station |
 | `shaft-grate` | Fixed cutout grid with matching solid bars; place it on blocked axial edges |

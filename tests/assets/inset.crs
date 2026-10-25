@@ -155,3 +155,110 @@ fn asset_test_face_border(hull: mut AssetHull, next: mut AssetHull, id: u32) -> 
     asset_hull_swap(mut hull, mut next);
     return true;
 }
+
+fn asset_test_expanded_source(hull: mut AssetHull, sides: u32) -> bool {
+    if sides == 0u32 {
+        return solid_box_hull(mut hull, vec(16f32, 10f32, 16f32), 0u32);
+    }
+    var profile: RegularProfile = make RegularProfile {
+        sides: sides,
+        phase: 3.14159265359f32 / sides as f32
+    };
+    if !loft_allocate(mut hull, profile, 2u32) {
+        return false;
+    }
+    loft_ring(mut hull, profile, 0u32, -5f32, 8f32);
+    loft_ring(mut hull, profile, 1u32, 5f32, 8f32);
+    loft_span(mut hull, profile, 0u32, 0u32);
+    loft_caps(mut hull, profile, 2u32, 0u32, 0u32);
+    return true;
+}
+fn asset_test_expanded_port_variant(sides: u32) -> bool {
+    var asset: RoomAsset = room_asset_new();
+    var next: AssetHull = asset_hull_new();
+    if !asset_test_expanded_source(mut asset.hull, sides) {
+        return false;
+    }
+    var corner: u32 = 0u32;
+    while corner < 4u32 {
+        var point: Vec3 = vec(
+            10f32,
+            ((corner & 1u32) as f32 * 2f32 - 1f32) * 3.5f32,
+            ((corner >> 1u32) as f32 * 2f32 - 1f32) * 3.5f32
+        );
+        if !hull_expand_point(read asset.hull, mut next, point, 0u32) {
+            return false;
+        }
+        asset_hull_swap(mut asset.hull, mut next);
+        corner = corner + 1u32;
+    }
+    if !hull_merge_panel(read asset.hull, mut next, vec(1f32, 0f32, 0f32), 10f32, 0u32) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    var port: RoomPort = make RoomPort {
+        id: asset_name("SIDE"),
+        profile: service_hex_profile(),
+        face: asset_face_count(read asset.hull) - 1u32,
+        position: vec(10f32, 0f32, 0f32),
+        basis: make Basis {
+            right: vec(0f32, 0f32, -1f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(1f32, 0f32, 0f32)
+        }
+    };
+    if !hull_convex_partition(read asset.hull, mut next, port, 1u32) || !asset_port_append(
+        mut asset.ports,
+        port
+    ) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    if !room_asset_finish(mut asset) || !asset_test_shell(read asset) || !asset_test_ports(
+        read asset
+    ) {
+        return false;
+    }
+    var render: Mesh = mesh_new();
+    var walls: Mesh = mesh_new();
+    if !room_linked_mesh(read asset, mut render, mut walls, 0u32) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_append(
+        mut builder,
+        read walls,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var through: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        vec(9f32, 0f32, 0f32),
+        vec(2f32, 0f32, 0f32),
+        0.35f32
+    );
+    var wall: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        vec(9f32, 3.25f32, 0f32),
+        vec(2f32, 0f32, 0f32),
+        0.06f32
+    );
+    return through.hit.time > 1f32 && wall.hit.time < 1f32 || error(
+        "expanded support face must open only its portal"
+    );
+}
+
+fn asset_test_expanded_port() -> bool {
+    return asset_test_expanded_port_variant(0u32) && asset_test_expanded_port_variant(8u32) && asset_test_expanded_port_variant(
+        48u32
+    );
+}

@@ -1,0 +1,27 @@
+// Short convex shaft collar. Local +Y runs from BOTTOM to TOP.
+// Both end ports use SHAFT and preserve the adjoining shaft's profile and spindle.
+// SIDE faces +X and uses HEX-6M. Its up axis is +Y.
+// The flat side panel extends out of the cylinder; sloped metal joins it to the
+// round ends. Height sets the collar length; extension sets the panel projection.
+// Match diameter and core-diameter to the adjoining shaft recipes.
+// All ports retain closures until level assembly connects them.
+// Materials: 0 cylinder wall, 1 shaft caps, 2 spindle, 3 hex cap, 4 dark seams,
+// 5 sloped metal sheets, 6 side panel.
+fn room_parameter_count() -> u32 {
+    return prefab_shaft_collar_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_shaft_collar_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_shaft_collar_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_shaft_collar_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return prefab_shaft_collar_material_count();
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_shaft_collar_material(region, read parameters);
+}

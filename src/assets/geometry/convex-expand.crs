@@ -1,0 +1,137 @@
+fn hull_point_outside(hull: read AssetHull, face: HullFace, point: Vec3) -> bool {
+    var a: Vec3 = hull_corner(read hull, face, 0u32);
+    var b: Vec3 = hull_corner(read hull, face, 1u32);
+    var c: Vec3 = hull_corner(read hull, face, 2u32);
+    var bx: f32 = b.x - a.x;
+    var by: f32 = b.y - a.y;
+    var bz: f32 = b.z - a.z;
+    var cx: f32 = c.x - a.x;
+    var cy: f32 = c.y - a.y;
+    var cz: f32 = c.z - a.z;
+    return (by * cz - bz * cy) * (point.x - a.x) + (bz * cx - bx * cz) * (point.y - a.y) + (
+        bx * cy - by * cx
+    ) * (point.z - a.z) > 0f32;
+}
+fn hull_reverse_face(hull: read AssetHull, a: u32, b: u32) -> u32 {
+    var index: u32 = hull_edge_corner(read hull, b, a);
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        var face: HullFace = asset_face(read hull, i);
+        if index >= face.first && index < face.first + face.count {
+            return i;
+        }
+        i = i + 1u32;
+    }
+    trap;
+}
+fn hull_expansion_edge(hull: read AssetHull, face: HullFace, corner: u32, point: Vec3) -> bool {
+    var a: u32 = asset_index(read hull, face.first + corner);
+    var b: u32 = asset_index(read hull, face.first + (corner + 1u32) % face.count);
+    var other: HullFace = asset_face(read hull, hull_reverse_face(read hull, a, b));
+    return !hull_point_outside(read hull, other, point);
+}
+fn hull_copy_face(
+    source: read AssetHull,
+    target: mut AssetHull,
+    source_id: u32,
+    target_id: u32,
+    first: u32
+) -> u32 {
+    var face: HullFace = asset_face(read source, source_id);
+    var i: u32 = 0u32;
+    while i < face.count {
+        asset_index_set(mut target, first + i, asset_index(read source, face.first + i));
+        i = i + 1u32;
+    }
+    face.first = first;
+    asset_face_set(mut target, target_id, face);
+    asset_surface_set(mut target, target_id, asset_surface(read source, source_id));
+    return first + face.count;
+}
+fn hull_expansion_size(source: read AssetHull, point: Vec3) -> [u32; 2] {
+    var faces: u32 = 0u32;
+    var indices: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < asset_face_count(read source) {
+        var face: HullFace = asset_face(read source, i);
+        if !hull_point_outside(read source, face, point) {
+            faces = faces + 1u32;
+            indices = indices + face.count;
+        } else {
+            var j: u32 = 0u32;
+            while j < face.count {
+                if hull_expansion_edge(read source, face, j, point) {
+                    faces = faces + 1u32;
+                    indices = indices + 3u32;
+                }
+                j = j + 1u32;
+            }
+        }
+        i = i + 1u32;
+    }
+    return make [u32; 2] {
+        faces,
+        indices
+    };
+}
+// Encloses a closed convex hull and one strictly exterior point. Existing vertex
+// IDs and surviving face surfaces remain valid. Face IDs can change. New faces
+// are triangles in the specified region. Source and target are distinct hulls.
+fn hull_expand_point(
+    source: read AssetHull,
+    target: mut AssetHull,
+    point: Vec3,
+    region: u32
+) -> bool {
+    var size: [u32; 2] = hull_expansion_size(read source, point);
+    var vertices: u32 = asset_vertex_count(read source);
+    if !asset_hull_allocate(mut target, vertices + 1u32, size[0usize], size[1usize]) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < vertices {
+        asset_vertex_set(mut target, i, asset_vertex(read source, i));
+        i = i + 1u32;
+    }
+    asset_vertex_set(mut target, vertices, point);
+    var output: u32 = 0u32;
+    var first: u32 = 0u32;
+    i = 0u32;
+    while i < asset_face_count(read source) {
+        var face: HullFace = asset_face(read source, i);
+        if !hull_point_outside(read source, face, point) {
+            first = hull_copy_face(read source, mut target, i, output, first);
+            output = output + 1u32;
+        } else {
+            var j: u32 = 0u32;
+            while j < face.count {
+                if hull_expansion_edge(read source, face, j, point) {
+                    var a: u32 = asset_index(read source, face.first + j);
+                    var b: u32 = asset_index(
+                        read source,
+                        face.first + (j + 1u32) % face.count
+                    );
+                    first = hex_surround_face(
+                        mut target,
+                        output,
+                        first,
+                        region,
+                        a,
+                        b,
+                        vertices,
+                        vertices
+                    );
+                    var surface: SurfaceFrame = hull_frame(
+                        read target,
+                        asset_face(read target, output)
+                    );
+                    asset_surface_set(mut target, output, surface);
+                    output = output + 1u32;
+                }
+                j = j + 1u32;
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

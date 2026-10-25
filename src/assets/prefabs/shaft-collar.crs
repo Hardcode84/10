@@ -1,0 +1,215 @@
+const SHAFT_COLLAR_BORDER: f32 = 0.5f32;
+const SHAFT_COLLAR_SEAM: f32 = 0.06f32;
+const SHAFT_COLLAR_RIM: f32 = 0.12f32;
+fn prefab_shaft_collar_parameter_count() -> u32 {
+    return 4u32;
+}
+fn prefab_shaft_collar_parameter_name(index: u32) -> AssetName {
+    if index == 3u32 {
+        return asset_name("extension");
+    }
+    return shaft_parameter_name(index);
+}
+fn prefab_shaft_collar_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 8f32,
+            maximum: 24f32,
+            initial: 10f32,
+            step: 1f32
+        };
+    }
+    if index == 3u32 {
+        return make AssetParameter {
+            minimum: 0.5f32,
+            maximum: 6f32,
+            initial: 1.5f32,
+            step: 0.5f32
+        };
+    }
+    return shaft_parameter(index);
+}
+fn shaft_collar_valid(values: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_shaft_collar_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_shaft_collar_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if asset_value(read values, 0u32) <= 2f32 * (
+        service_hex_profile().radius + SHAFT_COLLAR_BORDER
+    ) {
+        return error("collar needs slope clearance above and below its side panel");
+    }
+    return asset_value(read values, 1u32) - asset_value(read values, 2u32) >= 4f32 || error(
+        "collar spindle needs clearance inside the shaft openings"
+    );
+}
+fn shaft_collar_hull(hull: mut AssetHull, height: f32, radius: f32, extension: f32) -> bool {
+    if !shaft_cylinder(mut hull, radius, height, 0u32, 1u32) {
+        return false;
+    }
+    shaft_track_surfaces(mut hull, 2f32, 2f32);
+    var next: AssetHull = asset_hull_new();
+    var half: f32 = service_hex_profile().radius + SHAFT_COLLAR_BORDER;
+    var corner: u32 = 0u32;
+    while corner < 4u32 {
+        var point: Vec3 = vec(
+            radius + extension,
+            height * 0.5f32 + (((corner & 1u32) as f32) * 2f32 - 1f32) * half,
+            (((corner >> 1u32) as f32) * 2f32 - 1f32) * half
+        );
+        if !hull_expand_point(read hull, mut next, point, 5u32) {
+            return false;
+        }
+        asset_hull_swap(mut hull, mut next);
+        corner = corner + 1u32;
+    }
+    if !hull_merge_panel(
+        read hull,
+        mut next,
+        vec(1f32, 0f32, 0f32),
+        radius + extension,
+        6u32
+    ) {
+        return false;
+    }
+    asset_hull_swap(mut hull, mut next);
+    return true;
+}
+fn shaft_collar_end_face(hull: read AssetHull, height: f32) -> u32 {
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        if hull_face_on_plane(
+            read hull,
+            asset_face(read hull, i),
+            vec(0f32, 1f32, 0f32),
+            height
+        ) {
+            return i;
+        }
+        i = i + 1u32;
+    }
+    trap;
+}
+fn shaft_collar_connections(
+    asset: mut RoomAsset,
+    height: f32,
+    diameter: f32,
+    extension: f32
+) -> bool {
+    var port: RoomPort = make RoomPort {
+        id: asset_name("SIDE"),
+        profile: service_hex_profile(),
+        face: asset_face_count(read asset.hull) - 1u32,
+        position: vec(diameter * 0.5f32 + extension, height * 0.5f32, 0f32),
+        basis: make Basis {
+            right: vec(0f32, 0f32, -1f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(1f32, 0f32, 0f32)
+        }
+    };
+    asset_surface_set(
+        mut asset.hull,
+        port.face,
+        make SurfaceFrame {
+            origin: port.position,
+            right: port.basis.right,
+            up: port.basis.up,
+            normal: port.basis.forward
+        }
+    );
+    var next: AssetHull = asset_hull_new();
+    if !hull_bordered_port(
+        mut asset.hull,
+        mut next,
+        port,
+        3u32,
+        SHAFT_COLLAR_SEAM,
+        SHAFT_COLLAR_RIM,
+        4u32
+    ) || !asset_port_append(mut asset.ports, port) {
+        return false;
+    }
+    return asset_port_append(
+        mut asset.ports,
+        make RoomPort {
+            id: asset_name("BOTTOM"),
+            profile: shaft_profile(diameter),
+            face: shaft_collar_end_face(read asset.hull, 0f32),
+            position: vec(0f32, 0f32, 0f32),
+            basis: cube_face_basis(2u32)
+        }
+    ) && asset_port_append(
+        mut asset.ports,
+        make RoomPort {
+            id: asset_name("TOP"),
+            profile: shaft_profile(diameter),
+            face: shaft_collar_end_face(read asset.hull, height),
+            position: vec(0f32, height, 0f32),
+            basis: cube_face_basis(3u32)
+        }
+    );
+}
+fn prefab_shaft_collar_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !shaft_collar_valid(read values) {
+        return false;
+    }
+    var height: f32 = asset_value(read values, 0u32);
+    var diameter: f32 = asset_value(read values, 1u32);
+    var core: f32 = asset_value(read values, 2u32) * 0.5f32;
+    var extension: f32 = asset_value(read values, 3u32);
+    if !shaft_collar_hull(mut asset.hull, height, diameter * 0.5f32, extension) || !shaft_collar_connections(
+        mut asset,
+        height,
+        diameter,
+        extension
+    ) || !shaft_core(mut asset, core, height, 2f32) {
+        return false;
+    }
+    asset.spawn = make AssetSpawn {
+        position: vec(core + (diameter * 0.5f32 - core) * 0.5f32, height * 0.5f32, 0f32),
+        basis: make Basis {
+            right: vec(0f32, 0f32, -1f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(1f32, 0f32, 0f32)
+        }
+    };
+    return room_asset_finish(mut asset);
+}
+fn prefab_shaft_collar_material_count() -> u32 {
+    return 7u32;
+}
+fn prefab_shaft_collar_material(region: u32, values: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = shaft_surface_material(region);
+    if region == 0u32 || region == 2u32 {
+        var diameter: f32 = asset_value(read values, 1u32);
+        if region == 2u32 {
+            diameter = asset_value(read values, 2u32);
+        }
+        material.tile_metres = diameter * sinf(
+            3.14159265359f32 / shaft_profile(asset_value(read values, 1u32)).shape.sides as f32
+        );
+        material.tile_height = 2f32;
+    }
+    if region == 3u32 {
+        return hex_bulkhead_material();
+    }
+    if region == 5u32 || region == 6u32 {
+        material = hex_tunnel_material();
+        material.colour = 0x807769u32;
+        if region == 5u32 {
+            material.finish = METAL_PLAIN;
+        }
+    }
+    if region == 4u32 {
+        material = hex_tunnel_material();
+        material.colour = 0x11161bu32;
+        material.finish = METAL_PLAIN;
+    }
+    return material;
+}
