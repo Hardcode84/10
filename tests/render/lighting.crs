@@ -133,9 +133,9 @@ fn lighting_test(base: *Options) -> bool {
     puts(
         "light occlusion, cutouts, space isolation, retained blockers, distant lights and 17 lights passed"
     );
-    return lighting_dynamic_growth(mut renderer) && lighting_capacity_reuse(mut renderer) && lighting_large_mesh_test(
-        base
-    );
+    return lighting_noncasters_growth(mut renderer) && lighting_dynamic_growth(mut renderer) && lighting_capacity_reuse(
+        mut renderer
+    ) && lighting_large_mesh_test(base);
 }
 fn lighting_model_switch(renderer: mut Renderer) -> bool {
     var frame: u32 = 0u32;
@@ -647,4 +647,84 @@ fn lighting_dynamic_growth(renderer: mut Renderer) -> bool {
     }
     var allocation: *u8 = renderer.state.mapped;
     return lighting_cache_check(mut renderer, false) && renderer.state.mapped == allocation;
+}
+
+// Overlay growth must preserve shadow storage; enabling real casters may grow it.
+fn lighting_noncasters_growth(renderer: mut Renderer) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        lighting_scene(mut input, 1u32);
+    }
+    if !renderer_draw(&renderer.state) {
+        return false;
+    }
+    var capacity: u32 = renderer.state.shadow_capacity;
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        var first: u32 = input_word(read input, 3usize);
+        while input_word(read input, 3usize) <= capacity * 2u32 {
+            lighting_shadow_tree(mut input);
+        }
+        var i: u32 = first;
+        while i < input_word(read input, 3usize) {
+            var flag: u32 = TRIANGLE_NO_SHADOW;
+            if i % 2u32 == 0u32 {
+                flag = TRIANGLE_INACTIVE;
+            }
+            input_set_word(
+                mut input,
+                (input_word(read input, META as usize) + i * 4u32 + 3u32) as usize,
+                flag
+            );
+            i = i + 1u32;
+        }
+    }
+    // Reserve projection work independently before checking the shadow admission.
+    var submitted: u32 = (renderer.state.mapped as *u32)[3usize];
+    if !projection_admit(&renderer.state, submitted) {
+        return false;
+    }
+    var allocation: *u8 = renderer.state.mapped;
+    if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
+        return false;
+    }
+    if renderer.state.mapped != allocation || renderer.state.shadow_capacity != capacity {
+        return error("non-shadow triangles replaced shadow storage");
+    }
+    return lighting_unshadowed_growth(mut renderer);
+}
+fn lighting_unshadowed_growth(renderer: mut Renderer) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        var i: u32 = 0u32;
+        while i < input_word(read input, LIGHT_COUNT as usize) {
+            var mode: u32 = LIGHT_UNSHADOWED;
+            if i % 2u32 == 0u32 {
+                mode = LIGHT_HEADLAMP;
+            }
+            input_set_float(
+                mut input,
+                (input_word(read input, LIGHT_DATA as usize) + i * 8u32 + 7u32) as usize,
+                mode as f32
+            );
+            i = i + 1u32;
+        }
+        i = 0u32;
+        while i < input_word(read input, 3usize) {
+            input_set_word(
+                mut input,
+                (input_word(read input, META as usize) + i * 4u32 + 3u32) as usize,
+                0u32
+            );
+            i = i + 1u32;
+        }
+    }
+    var allocation: *u8 = renderer.state.mapped;
+    var capacity: u32 = renderer.state.shadow_capacity;
+    if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
+        return false;
+    }
+    return renderer.state.mapped == allocation && renderer.state.shadow_capacity == capacity || error(
+        "unshadowed lights allocated shadow trees"
+    );
 }

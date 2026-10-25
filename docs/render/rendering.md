@@ -524,6 +524,12 @@ nodes build by depth with compute barriers between levels. Mesh trees survive
 camera, light, pose, and dynamic-count changes. Bounds are transformed for the
 query without requiring an invertible instance transform.
 
+Dynamic shadow capacity counts only active triangles that can cast shadows.
+Triangles marked `TRIANGLE_NO_SHADOW` or `TRIANGLE_INACTIVE` require no tree
+entries. With no active `LIGHT_ROOM` light, shadow storage does not grow.
+Prediction markers and sparks can increase visible geometry without replacing
+the scene buffers for shadow storage.
+
 A blocker must face the light unless it is two-sided. A cutout blocks only at
 opaque texture samples. Full-bright texels can block like other opaque texels.
 The receiver triangle is excluded. Segment fractions at or below 0.00001 and

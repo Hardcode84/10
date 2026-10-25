@@ -92,3 +92,34 @@ fn lighting_index(v: *RenderState) -> unit {
     );
     w[w[LIGHT_INDEX as usize] as usize] = global;
 }
+
+// Returns true when an active light needs scene shadow geometry.
+fn lighting_has_shadows(v: *RenderState) -> bool {
+    var w: *u32 = v -> mapped as *u32;
+    var f: *f32 = (v -> mapped + (v -> words as isize + 1isize) * 4isize) as *f32;
+    var i: u32 = 0u32;
+    while i < w[LIGHT_COUNT as usize] {
+        if f[(w[LIGHT_DATA as usize] + i * 8u32 + 7u32) as usize] == LIGHT_ROOM as f32 {
+            return true;
+        }
+        i = i + 1u32;
+    }
+    return false;
+}
+// Bounds the dynamic casters that any light can place in its shadow tree.
+fn shadow_dynamic_required(v: *RenderState) -> u32 {
+    if !lighting_has_shadows(v) {
+        return 0u32;
+    }
+    var w: *u32 = v -> mapped as *u32;
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < w[DYNAMIC_COUNT as usize] {
+        var flags: u32 = w[(w[META as usize] + i * 4u32 + 3u32) as usize];
+        if (flags & (TRIANGLE_NO_SHADOW | TRIANGLE_INACTIVE)) == 0u32 {
+            count = count + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return count;
+}

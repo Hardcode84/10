@@ -61,8 +61,10 @@ fn course_benchmark(
         return false;
     }
     loop.trial.drone.world = room;
-    loop.trial.drone.position = asset.spawn.position;
-    loop.trial.drone.basis = asset.spawn.basis;
+    if room != 0u32 || pose != 0u32 {
+        loop.trial.drone.position = asset.spawn.position;
+        loop.trial.drone.basis = asset.spawn.basis;
+    }
     if !course_camera(
         read scene,
         read session.control.graph,
