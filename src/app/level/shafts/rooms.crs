@@ -128,17 +128,11 @@ fn shaft_region_open_stopper(
     builder: mut CollisionBuilder,
     mesh: mut Mesh,
     cursor: mut LevelCursor,
-    asset: read RoomAsset
+    asset: read RoomAsset,
+    kind: u32
 ) -> bool {
     var room: u32 = graph_count(read graph);
-    if !course_room_mesh(
-        read asset,
-        mut graph,
-        mut builder,
-        mut mesh,
-        PREFAB_OCT_STOPPER_OPEN,
-        0u32
-    ) {
+    if !course_room_mesh(read asset, mut graph, mut builder, mut mesh, kind, 0u32) {
         return false;
     }
     level_attach(mut graph, mut cursor, room, asset_name("ENTRY"), asset_name("EXIT"));
@@ -165,12 +159,20 @@ fn shaft_region_lateral(
         generation_word(read rooms, edge.b),
         shaft_region_port(slot - 1u32)
     );
-    if !shaft_region_open_stopper(mut graph, mut builder, mut mesh, mut a, read stopper) || !shaft_region_open_stopper(
+    if !shaft_region_open_stopper(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut a,
+        read stopper,
+        PREFAB_OCT_STOPPER_OPEN
+    ) || !shaft_region_open_stopper(
         mut graph,
         mut builder,
         mut mesh,
         mut b,
-        read stopper
+        read stopper,
+        PREFAB_OCT_STOPPER_OPEN
     ) {
         return false;
     }

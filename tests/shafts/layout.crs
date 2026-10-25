@@ -27,11 +27,12 @@ fn shaft_layout_cross(scene: read CollisionScene, portal: CollisionPortal) -> bo
                 start,
                 sub(finish, start),
                 DRONE_RADIUS,
-                0f32,
+                shaft_layout_clock() as f32 * STEP,
                 0f32
             );
             if hit.contact.hit.time > 1f32 {
                 var drone: Drone = new_drone();
+                drone.clock = shaft_layout_clock();
                 drone.world = portal.space;
                 drone.position = start;
                 move_drone(read scene, mut drone, sub(finish, start));
@@ -95,7 +96,7 @@ fn shaft_layout_side_connection(portal: CollisionPortal, from: u32, to: u32) -> 
         return to == PREFAB_SHAFT_COLLAR || error("fan end lacks its connection collar");
     }
     if from == PREFAB_SHAFT_COLLAR && portal.sides == service_hex_profile().shape.sides {
-        return to == PREFAB_HEX_ELBOW || error("fan bypass port lacks a hex elbow");
+        return to == PREFAB_HEX_STOPPER_OPEN || error("fan bypass port lacks an open stopper");
     }
     return true;
 }
@@ -118,6 +119,7 @@ fn shaft_layout_crossings(scene: read CollisionScene, graph: read RoomGraph) -> 
             }
         } else if shaft_layout_closed(to) {
             var drone: Drone = new_drone();
+            drone.clock = shaft_layout_clock();
             drone.world = portal.space;
             drone.position = sub(portal.origin, portal.basis.forward);
             move_drone(read scene, mut drone, scale(portal.basis.forward, 2f32));
@@ -134,6 +136,52 @@ fn shaft_layout_crossings(scene: read CollisionScene, graph: read RoomGraph) -> 
     }
     return true;
 }
+fn shaft_layout_bypass_exit(graph: read RoomGraph, room: u32, incoming: u32) -> u32 {
+    var node: GraphNode = graph_node(read graph, room);
+    var next: u32 = SHAFT_GRID_NONE;
+    var caps: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < node.count {
+        var socket: u32 = node.first + i;
+        var link: GraphSocket = graph_socket(read graph, socket);
+        var peer: GraphSocket = graph_socket(read graph, link.peer);
+        if graph_node(read graph, peer.room).kind == PREFAB_HEX_STOPPER {
+            caps = caps + 1u32;
+        } else if socket != incoming {
+            if next != SHAFT_GRID_NONE {
+                error("fan bypass has an uncapped branch");
+                return SHAFT_GRID_NONE;
+            }
+            next = socket;
+        }
+        i = i + 1u32;
+    }
+    var expected_caps: u32 = 0u32;
+    if node.kind == PREFAB_HEX_T_JUNCTION {
+        expected_caps = 1u32;
+    } else if node.kind != PREFAB_HEX_STOPPER_OPEN && node.kind != PREFAB_HEX_TUNNEL_10M {
+        error("fan bypass uses an unexpected room");
+        return SHAFT_GRID_NONE;
+    }
+    if caps != expected_caps || next == SHAFT_GRID_NONE {
+        error("fan bypass needs one through route and capped T branches");
+        return SHAFT_GRID_NONE;
+    }
+    return next;
+}
+fn shaft_layout_open_doors(scene: mut CollisionScene, graph: mut RoomGraph) -> unit {
+    var trial: Trial = new_trial();
+    var doors: mut DoorSet = graph_doors_mut(mut graph);
+    var i: u32 = 0u32;
+    while i < doors_count(read doors) {
+        door_set_requested(mut doors, i, true);
+        i = i + 1u32;
+    }
+    doors_step(mut scene, mut doors, mut trial);
+}
+fn shaft_layout_clock() -> u32 {
+    return (DOOR_OPEN_SECONDS / STEP) as u32 + 1u32;
+}
 fn shaft_layout_bypass(
     scene: read CollisionScene,
     graph: read RoomGraph,
@@ -143,6 +191,7 @@ fn shaft_layout_bypass(
     var socket: u32 = course_socket(read graph, first.room, first.exit);
     var port: RoomPort = graph_socket(read graph, socket).port;
     var drone: Drone = new_drone();
+    drone.clock = shaft_layout_clock();
     drone.world = first.room;
     drone.position = sub(port.position, scale(port.basis.forward, 0.6f32));
     var steps: u32 = 0u32;
@@ -166,15 +215,9 @@ fn shaft_layout_bypass(
                 "bypass returns through the wrong port"
             );
         }
-        var node: GraphNode = graph_node(read graph, incoming.room);
-        if node.count != 2u32 || (
-            node.kind != PREFAB_HEX_ELBOW && node.kind != PREFAB_HEX_TUNNEL_10M
-        ) {
-            return error("bypass must use a separate hex tunnel chain");
-        }
-        socket = node.first;
-        if socket == outgoing.peer {
-            socket = socket + 1u32;
+        socket = shaft_layout_bypass_exit(read graph, incoming.room, outgoing.peer);
+        if socket == SHAFT_GRID_NONE {
+            return false;
         }
         steps = steps + 1u32;
     }
@@ -257,6 +300,7 @@ fn shaft_layout_run() -> bool {
     if !collision_finish(move builder, mut scene) || !level_install(read graph, mut scene) {
         return false;
     }
+    shaft_layout_open_doors(mut scene, mut graph);
     if !shaft_layout_crossings(read scene, read graph) || !shaft_layout_bypasses(
         read scene,
         read graph

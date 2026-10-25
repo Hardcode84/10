@@ -5,21 +5,21 @@ fn shaft_region_fan_side(graph: read RoomGraph, fan: u32, end: AssetName) -> Lev
         asset_name("SIDE")
     );
 }
-fn shaft_region_bypass_elbow(
+fn shaft_region_bypass_junction(
     graph: mut RoomGraph,
     builder: mut CollisionBuilder,
     mesh: mut Mesh,
     cursor: mut LevelCursor,
-    elbow: read RoomAsset,
+    junction: read RoomAsset,
     upper: bool
 ) -> bool {
     var room: u32 = graph_count(read graph);
     if !course_room_mesh(
-        read elbow,
+        read junction,
         mut graph,
         mut builder,
         mut mesh,
-        PREFAB_HEX_ELBOW,
+        PREFAB_HEX_T_JUNCTION,
         0u32
     ) {
         return false;
@@ -27,8 +27,7 @@ fn shaft_region_bypass_elbow(
     var entry: AssetName = asset_name("EAST");
     var exit_name: AssetName = asset_name("ENTRY");
     if upper {
-        entry = asset_name("ENTRY");
-        exit_name = asset_name("EAST");
+        exit_name = asset_name("EXIT");
     }
     level_attach(mut graph, mut cursor, room, entry, exit_name);
     return true;
@@ -38,23 +37,41 @@ fn shaft_region_fan_bypass(
     builder: mut CollisionBuilder,
     mesh: mut Mesh,
     fan: u32,
-    elbow: read RoomAsset
+    junction: read RoomAsset,
+    stopper: read RoomAsset
 ) -> bool {
     var lower: LevelCursor = shaft_region_fan_side(read graph, fan, asset_name("BOTTOM"));
     var upper: LevelCursor = shaft_region_fan_side(read graph, fan, asset_name("TOP"));
-    if !shaft_region_bypass_elbow(
+    if !shaft_region_open_stopper(
         mut graph,
         mut builder,
         mut mesh,
         mut lower,
-        read elbow,
-        false
-    ) || !shaft_region_bypass_elbow(
+        read stopper,
+        PREFAB_HEX_STOPPER_OPEN
+    ) || !shaft_region_open_stopper(
         mut graph,
         mut builder,
         mut mesh,
         mut upper,
-        read elbow,
+        read stopper,
+        PREFAB_HEX_STOPPER_OPEN
+    ) {
+        return false;
+    }
+    if !shaft_region_bypass_junction(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut lower,
+        read junction,
+        false
+    ) || !shaft_region_bypass_junction(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut upper,
+        read junction,
         true
     ) {
         return false;
@@ -63,7 +80,7 @@ fn shaft_region_fan_bypass(
     var finish: SpaceTransform = level_port_global(read graph, upper);
     var span: f32 = dot(sub(finish.origin, start.origin), start.basis.forward);
     if span <= 0f32 {
-        return error("fan collars leave no space between bypass elbows");
+        return error("fan collars leave no space between bypass junctions");
     }
     return level_straight(mut graph, mut builder, mut mesh, mut lower, span) && shaft_region_pair(
         mut graph,
@@ -76,8 +93,12 @@ fn shaft_region_fan_bypasses(
     builder: mut CollisionBuilder,
     mesh: mut Mesh
 ) -> bool {
-    var elbow: RoomAsset = room_asset_new();
-    if !shaft_region_fan_asset(PREFAB_HEX_ELBOW, mut elbow) {
+    var junction: RoomAsset = room_asset_new();
+    var stopper: RoomAsset = room_asset_new();
+    if !shaft_region_fan_asset(PREFAB_HEX_T_JUNCTION, mut junction) || !shaft_region_fan_asset(
+        PREFAB_HEX_STOPPER_OPEN,
+        mut stopper
+    ) {
         return false;
     }
     var count: u32 = graph_count(read graph);
@@ -88,7 +109,8 @@ fn shaft_region_fan_bypasses(
             mut builder,
             mut mesh,
             room,
-            read elbow
+            read junction,
+            read stopper
         ) {
             return false;
         }

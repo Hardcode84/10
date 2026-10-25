@@ -211,8 +211,9 @@ A fan interval has five connected rooms: clear approach, side collar, compact
 fan, side collar, and clear approach. The approaches share the space that
 remains after the fan and collars. Their total length equals the passage
 between the station faces. The spindle continues through all five rooms.
-The collar side ports connect through two hex elbows and a straight hex
-tunnel. Its length matches the gap between the elbows. This forms a local
+Each collar side port connects through an open hex stopper to a T-junction.
+A straight hex tunnel joins the junctions; its length matches their port gap.
+Closed hex stoppers seal the unused T branches. This forms a local
 loop around the fan without changing station positions or the base route
 budget. The room graph contains all bypass rooms and connections. Small
 service pipes stay in the clear approaches. The fan remains static.

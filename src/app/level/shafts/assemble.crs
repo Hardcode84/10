@@ -221,7 +221,7 @@ fn shaft_region_build(
     // Capacity includes fan chains and their bypasses, lateral sleeves, and station caps.
     if !graph_allocate(
         mut graph,
-        shaft_grid_stations() * 7u32 + shaft_grid_axials() * 8u32 + 6u32 * shaft_grid_lateral_axis() + 1u32,
+        shaft_grid_stations() * 7u32 + shaft_grid_axials() * 12u32 + 6u32 * shaft_grid_lateral_axis() + 1u32,
         seed
     ) {
         return false;
