@@ -1,0 +1,78 @@
+fn outlet_cap_pipe(asset: mut RoomAsset, port: RoomPort, slot: u32) -> bool {
+    var radial: Vec3 = hub_pipe_radial(port, slot);
+    var mouth: Vec3 = hub_pipe_mouth(port, slot);
+    var wall: Vec3 = add(port.position, scale(radial, outlet_pipe_target()));
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var sweep: TubeSweep = tube_sweep_begin(
+        mouth,
+        scale(port.basis.forward, -1f32),
+        radial,
+        make TubeStyle {
+            radius: oct_pipe_radius(),
+            sides: 8u32,
+            tile_metres: 2f32,
+            region: 4u32
+        }
+    );
+    var a: Vec3 = sub(mouth, scale(port.basis.forward, OUTLET_PIPE_LEG));
+    var b: Vec3 = sub(wall, scale(port.basis.forward, OUTLET_PIPE_LEG));
+    if !tube_sweep_corner(mut asset.geometry, mut sweep, a, radial, 0.5f32) || !tube_sweep_corner(
+        mut asset.geometry,
+        mut sweep,
+        b,
+        port.basis.forward,
+        0.5f32
+    ) || !tube_sweep_finish(
+        mut asset.geometry,
+        mut sweep,
+        add(wall, scale(port.basis.forward, 0.15f32))
+    ) {
+        return false;
+    }
+    if !asset_part_place_tail(
+        mut asset,
+        first,
+        oct_pipe_name(slot),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    first = mesh_triangle_count(read asset.geometry);
+    if !bevelled_body(
+        mut asset.geometry,
+        make BevelledBody {
+            sides: 8u32,
+            radius: oct_pipe_radius() * 1.45f32,
+            length: 0.2f32,
+            bevel: 0.025f32,
+            shell: 7u32,
+            rear: 7u32,
+            front: 7u32
+        },
+        sub(wall, scale(port.basis.forward, 0.05f32)),
+        make Basis {
+            right: radial,
+            up: port.basis.forward,
+            forward: cross(radial, port.basis.forward)
+        }
+    ) {
+        return false;
+    }
+    return asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("outlet-pipe-flange"),
+        vec(0f32, 0f32, 0f32)
+    );
+}
+fn outlet_cap_pipes(asset: mut RoomAsset, layout: OutletCapLayout) -> bool {
+    var port: RoomPort = outlet_cap_port(layout);
+    var slot: u32 = 0u32;
+    while slot < 4u32 {
+        if !outlet_cap_pipe(mut asset, port, slot) {
+            return false;
+        }
+        slot = slot + 1u32;
+    }
+    return true;
+}

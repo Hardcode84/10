@@ -100,7 +100,7 @@ connection. The hub remains the option for several branches.
 | Bearing cap | Dished end wall, large central bearing, eight radial ribs, and a dark spindle seal | Common closed end; implemented as `shaft-cap-bearing` |
 | Collector cone | Tapered chamber with wall pipes entering a ring manifold around the spindle housing | Closed end with a deep profile; implemented as `shaft-cap-collector` |
 | Filter plenum | Annular grate around the spindle bearing; filter banks and short baffled ducts behind it | Fixed grate with matching bar collision, filter cassettes, and baffled elbow ducts; implemented as `shaft-cap-filter` |
-| Offset outlet | End-wall spindle bearing beside one offset octagonal passage | Proposed single-route boundary connection |
+| Offset outlet | End-wall spindle bearing beside one offset octagonal passage | Single-route boundary connection; implemented as `shaft-cap-outlet` |
 
 Keep the shell enclosed behind filters and duct bends. Use transparent texels
 for mesh openings where suitable, with matching solid collision. A closed cap

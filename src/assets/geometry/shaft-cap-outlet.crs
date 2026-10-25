@@ -1,0 +1,156 @@
+const OUTLET_PIPE_LEG: f32 = 1.1f32;
+record OutletCapLayout {
+    radius: f32;
+    core: f32;
+    depth: f32;
+    offset: f32;
+    end_radius: f32;
+}
+fn outlet_pipe_target() -> f32 {
+    return service_oct_profile().radius * cosf(0.39269908169f32) + 0.75f32;
+}
+fn outlet_cap_layout(parameters: read AssetValues) -> OutletCapLayout {
+    var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
+    var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
+    var depth: f32 = asset_value(read parameters, 0u32);
+    var offset: f32 = core * 1.6f32 + service_oct_profile().radius * cosf(0.39269908169f32) + 1.5f32;
+    var fraction: f32 = (OUTLET_PIPE_LEG + oct_pipe_radius() + 0.15f32) / depth;
+    var clearance: f32 = (offset + outlet_pipe_target() + 0.6f32 - radius * fraction) / (
+        1f32 - fraction
+    ) - offset * 0.5f32;
+    var end_radius: f32 = -mask_min(-radius, -clearance);
+    end_radius = -mask_min(-end_radius, -(core * 1.6f32 + offset * 0.5f32 + 0.5f32));
+    return make OutletCapLayout {
+        radius: radius,
+        core: core,
+        depth: depth,
+        offset: offset,
+        end_radius: end_radius
+    };
+}
+fn outlet_cap_port(layout: OutletCapLayout) -> RoomPort {
+    return make RoomPort {
+        id: asset_name("OUTLET"),
+        profile: service_oct_profile(),
+        face: 49u32,
+        position: vec(layout.offset, layout.depth, 0f32),
+        basis: cube_face_basis(3u32)
+    };
+}
+fn outlet_cap_shell(asset: mut RoomAsset, layout: OutletCapLayout) -> bool {
+    var profile: RegularProfile = shaft_profile(layout.radius * 2f32).shape;
+    if !loft_allocate(mut asset.hull, profile, 2u32) {
+        return false;
+    }
+    loft_ring(mut asset.hull, profile, 0u32, 0f32, layout.radius);
+    loft_ring(mut asset.hull, profile, 1u32, layout.depth, layout.end_radius);
+    var i: u32 = 0u32;
+    while i < profile.sides {
+        var vertex: Vec3 = asset_vertex(read asset.hull, profile.sides + i);
+        vertex.x = vertex.x + layout.offset * 0.5f32;
+        asset_vertex_set(mut asset.hull, profile.sides + i, vertex);
+        i = i + 1u32;
+    }
+    loft_span(mut asset.hull, profile, 0u32, 0u32);
+    loft_caps(mut asset.hull, profile, 2u32, 1u32, 3u32);
+    if !outlet_cap_opening(mut asset, outlet_cap_port(layout)) {
+        return false;
+    }
+    return asset_port_append(
+        mut asset.ports,
+        make RoomPort {
+            id: asset_name("SHAFT"),
+            profile: shaft_profile(layout.radius * 2f32),
+            face: profile.sides,
+            position: vec(0f32, 0f32, 0f32),
+            basis: cube_face_basis(2u32)
+        }
+    ) && asset_port_append(mut asset.ports, outlet_cap_port(layout));
+}
+fn outlet_cap_opening(asset: mut RoomAsset, port: RoomPort) -> bool {
+    var next: AssetHull = asset_hull_new();
+    if !hull_face_border(read asset.hull, mut next, port.face, 0.08f32, 7u32) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    var rim: RoomPort = port;
+    rim.profile.radius = rim.profile.radius + 0.24f32 / cosf(0.39269908169f32);
+    if !hull_convex_partition(read asset.hull, mut next, rim, 7u32) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    rim = port;
+    rim.profile.radius = rim.profile.radius + 0.06f32 / cosf(0.39269908169f32);
+    if !hull_convex_partition(read asset.hull, mut next, rim, 6u32) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    if !hull_polygon_partition(read asset.hull, mut next, port, 8u32) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    return true;
+}
+fn outlet_cap_bearing(asset: mut RoomAsset, layout: OutletCapLayout) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !bevelled_body(
+        mut asset.geometry,
+        make BevelledBody {
+            sides: 16u32,
+            radius: layout.core * 1.6f32,
+            length: 2.4f32,
+            bevel: 0.1f32,
+            shell: 5u32,
+            rear: 5u32,
+            front: 5u32
+        },
+        vec(0f32, layout.depth - 0.9f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    if !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("outlet-bearing"),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    first = mesh_triangle_count(read asset.geometry);
+    if !annular_band_mesh(
+        mut asset.geometry,
+        layout.core * 0.98f32,
+        layout.core * 1.3f32,
+        0.2f32,
+        7u32,
+        2f32
+    ) {
+        return false;
+    }
+    if !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("spindle-seal"),
+        vec(0f32, layout.depth - 2.1f32, 0f32)
+    ) {
+        return false;
+    }
+    first = mesh_triangle_count(read asset.geometry);
+    if !annular_band_mesh(
+        mut asset.geometry,
+        layout.core * 1.55f32,
+        layout.core * 1.6f32 + 0.15f32,
+        0.2f32,
+        7u32,
+        2f32
+    ) {
+        return false;
+    }
+    return asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("bearing-wall-seal"),
+        vec(0f32, layout.depth - 0.05f32, 0f32)
+    );
+}

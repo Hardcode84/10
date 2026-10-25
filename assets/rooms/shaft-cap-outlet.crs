@@ -1,0 +1,26 @@
+// Offset outlet cap: SHAFT at Y=0 faces -Y; OUTLET is OCT-8M at Y=depth, facing +Y.
+// The outlet lies on +X beside the spindle bearing. The shell flares toward it.
+// diameter and core-diameter match the shaft. Depth is in metres.
+// End-wall size provides clearance for the bearing, passage, and pipe bends.
+// Four OCT pipes continue at the outlet and turn into flanges on the end wall.
+// A pale green full-bright rim marks the outlet. It emits no light.
+// Materials: 0 shell, 1 shaft closure, 2 spindle, 3 end wall, 4 pipes,
+// 5 bearing, 6 outlet rim, 7 seams and flanges, 8 outlet closure.
+fn room_parameter_count() -> u32 {
+    return prefab_shaft_cap_outlet_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_shaft_cap_outlet_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_shaft_cap_outlet_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_shaft_cap_outlet_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return prefab_shaft_cap_outlet_material_count();
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_shaft_cap_outlet_material(region, read parameters);
+}
