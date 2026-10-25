@@ -98,7 +98,7 @@ connection. The hub remains the option for several branches.
 | Variant | Shape and spindle end | Use and status |
 | --- | --- | --- |
 | Bearing cap | Dished end wall, large central bearing, eight radial ribs, and a dark spindle seal | Common closed end; implemented as `shaft-cap-bearing` |
-| Collector cone | Tapered chamber with wall pipes entering a ring manifold around the spindle housing | Proposed closed end with a deep profile |
+| Collector cone | Tapered chamber with wall pipes entering a ring manifold around the spindle housing | Closed end with a deep profile; implemented as `shaft-cap-collector` |
 | Filter plenum | Annular grate around the spindle bearing; filter banks and short baffled ducts behind it | Proposed air passage that blocks drone travel; visible holes must match bar collision |
 | Offset outlet | End-wall spindle bearing beside one offset octagonal passage | Proposed single-route boundary connection |
 

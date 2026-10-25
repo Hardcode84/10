@@ -34,18 +34,6 @@ fn bearing_cap_shell(asset: mut RoomAsset, radius: f32, depth: f32) -> bool {
         }
     );
 }
-fn bearing_cap_part(asset: mut RoomAsset, first: u32, name: AssetName, origin: Vec3) -> bool {
-    return asset_part_append(
-        mut asset.parts,
-        make AssetPart {
-            name: name,
-            first: first,
-            count: mesh_triangle_count(read asset.geometry) - first,
-            origin: origin,
-            basis: identity_basis()
-        }
-    );
-}
 fn bearing_cap_boss(asset: mut RoomAsset, core: f32, depth: f32) -> bool {
     var first: u32 = mesh_triangle_count(read asset.geometry);
     if !bevelled_body(
@@ -64,7 +52,7 @@ fn bearing_cap_boss(asset: mut RoomAsset, core: f32, depth: f32) -> bool {
     ) {
         return false;
     }
-    if !bearing_cap_part(
+    if !asset_part_place_tail(
         mut asset,
         first,
         asset_name("bearing-housing"),
@@ -83,7 +71,7 @@ fn bearing_cap_boss(asset: mut RoomAsset, core: f32, depth: f32) -> bool {
     ) {
         return false;
     }
-    return bearing_cap_part(
+    return asset_part_place_tail(
         mut asset,
         first,
         asset_name("spindle-seal"),
@@ -113,7 +101,7 @@ fn bearing_cap_rib(asset: mut RoomAsset, radius: f32, core: f32, depth: f32, ind
     ) {
         return false;
     }
-    if !bearing_cap_part(
+    if !asset_part_place_tail(
         mut asset,
         first,
         asset_name("radial-rib"),
@@ -136,7 +124,7 @@ fn bearing_cap_rib(asset: mut RoomAsset, radius: f32, core: f32, depth: f32, ind
     ) {
         return false;
     }
-    return bearing_cap_part(
+    return asset_part_place_tail(
         mut asset,
         first,
         asset_name("rim-marker"),
@@ -192,7 +180,7 @@ fn bearing_cap_rib_mounts(
     ) {
         return false;
     }
-    return bearing_cap_part(
+    return asset_part_place_tail(
         mut asset,
         first,
         asset_name("rib-bearing-mount"),
@@ -235,7 +223,7 @@ fn bearing_cap_contact_strip(asset: mut RoomAsset, a: Vec3, b: Vec3, placement: 
         }
         i = i + 1u32;
     }
-    return bearing_cap_part(
+    return asset_part_place_tail(
         mut asset,
         first,
         asset_name("rib-wall-contact"),

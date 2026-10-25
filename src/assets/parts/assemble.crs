@@ -58,3 +58,17 @@ fn room_parts_render(asset: mut RoomAsset) -> bool {
     }
     return true;
 }
+
+// Places all geometry appended since first as one named solid part.
+fn asset_part_place_tail(asset: mut RoomAsset, first: u32, name: AssetName, origin: Vec3) -> bool {
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: name,
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: origin,
+            basis: identity_basis()
+        }
+    );
+}

@@ -1,0 +1,288 @@
+fn collector_cap_shell(asset: mut RoomAsset, radius: f32, core: f32, depth: f32) -> bool {
+    var profile: RegularProfile = shaft_profile(radius * 2f32).shape;
+    var throat: f32 = collector_throat(core);
+    var slope: f32 = (radius - throat) / (depth - 2f32);
+    if !loft_allocate(mut asset.hull, profile, 8u32) {
+        return false;
+    }
+    loft_ring(mut asset.hull, profile, 0u32, 0f32, radius);
+    loft_ring(mut asset.hull, profile, 1u32, 1.92f32, radius);
+    loft_ring(mut asset.hull, profile, 2u32, 2f32, radius);
+    loft_ring(mut asset.hull, profile, 3u32, 2.08f32, radius - slope * 0.08f32);
+    var middle: f32 = (2f32 + depth) * 0.5f32;
+    loft_ring(
+        mut asset.hull,
+        profile,
+        4u32,
+        middle - 0.04f32,
+        (radius + throat) * 0.5f32 + slope * 0.04f32
+    );
+    loft_ring(
+        mut asset.hull,
+        profile,
+        5u32,
+        middle + 0.04f32,
+        (radius + throat) * 0.5f32 - slope * 0.04f32
+    );
+    loft_ring(mut asset.hull, profile, 6u32, depth - 0.08f32, throat + slope * 0.08f32);
+    loft_ring(mut asset.hull, profile, 7u32, depth, throat);
+    loft_span(mut asset.hull, profile, 0u32, 0u32);
+    loft_span(mut asset.hull, profile, 1u32, 6u32);
+    loft_span(mut asset.hull, profile, 2u32, 6u32);
+    loft_span(mut asset.hull, profile, 3u32, 3u32);
+    loft_span(mut asset.hull, profile, 4u32, 6u32);
+    loft_span(mut asset.hull, profile, 5u32, 3u32);
+    loft_span(mut asset.hull, profile, 6u32, 6u32);
+    loft_caps(mut asset.hull, profile, 8u32, 1u32, 3u32);
+    return asset_port_append(
+        mut asset.ports,
+        make RoomPort {
+            id: asset_name("SHAFT"),
+            profile: shaft_profile(radius * 2f32),
+            face: profile.sides * 7u32,
+            position: vec(0f32, 0f32, 0f32),
+            basis: cube_face_basis(2u32)
+        }
+    );
+}
+fn collector_cap_machine(asset: mut RoomAsset, core: f32, depth: f32) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !bevelled_body(
+        mut asset.geometry,
+        make BevelledBody {
+            sides: 16u32,
+            radius: core * 1.65f32,
+            length: 3.5f32,
+            bevel: 0.15f32,
+            shell: 5u32,
+            rear: 5u32,
+            front: 5u32
+        },
+        vec(0f32, depth - 1.5f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    if !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("collector-housing"),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    first = mesh_triangle_count(read asset.geometry);
+    if !annular_band_mesh(
+        mut asset.geometry,
+        core * 0.98f32,
+        core * 1.4f32,
+        0.22f32,
+        6u32,
+        2f32
+    ) {
+        return false;
+    }
+    if !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("spindle-seal"),
+        vec(0f32, depth - 3.25f32, 0f32)
+    ) {
+        return false;
+    }
+    first = mesh_triangle_count(read asset.geometry);
+    if !annular_band_mesh(
+        mut asset.geometry,
+        core * 1.6f32,
+        core * 1.8f32 + 0.5f32,
+        0.6f32,
+        4u32,
+        2f32
+    ) {
+        return false;
+    }
+    if !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("ring-manifold"),
+        vec(0f32, depth - 2f32, 0f32)
+    ) {
+        return false;
+    }
+    return collector_cap_back_seal(mut asset, core, depth);
+}
+fn collector_cap_back_seal(asset: mut RoomAsset, core: f32, depth: f32) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !annular_band_mesh(
+        mut asset.geometry,
+        core * 1.6f32,
+        core * 1.65f32 + 0.15f32,
+        0.2f32,
+        6u32,
+        2f32
+    ) {
+        return false;
+    }
+    return asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("housing-wall-seal"),
+        vec(0f32, depth - 0.05f32, 0f32)
+    );
+}
+fn collector_cap_pipe(
+    asset: mut RoomAsset,
+    radius: f32,
+    core: f32,
+    depth: f32,
+    index: u32
+) -> bool {
+    var angle: f32 = index as f32 * 0.785398163397f32;
+    var normal: Vec3 = shaft_pipe_normal(angle);
+    var wall: f32 = radius * cosf(3.14159265359f32 / 48f32);
+    var slope: f32 = (radius - collector_throat(core)) / (depth - 2f32);
+    var a: Vec3 = shaft_pipe_position(angle, wall - 0.65f32, 1f32);
+    var b: Vec3 = shaft_pipe_position(angle, wall - slope * 0.5f32 - 0.65f32, 2.5f32);
+    var c: Vec3 = shaft_pipe_position(
+        angle,
+        (collector_throat(core) + slope * 2f32) * cosf(3.14159265359f32 / 48f32) - 0.65f32,
+        depth - 2f32
+    );
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var sweep: TubeSweep = tube_sweep_begin(
+        shaft_pipe_position(angle, wall + 0.1f32, 1f32),
+        scale(normal, -1f32),
+        vec(0f32, 1f32, 0f32),
+        make TubeStyle {
+            radius: 0.18f32,
+            sides: 8u32,
+            tile_metres: 2f32,
+            region: 4u32
+        }
+    );
+    if !tube_sweep_corner(
+        mut asset.geometry,
+        mut sweep,
+        a,
+        unit_vector(sub(b, a)),
+        0.36f32
+    ) || !tube_sweep_corner(
+        mut asset.geometry,
+        mut sweep,
+        b,
+        unit_vector(sub(c, b)),
+        0.36f32
+    ) || !tube_sweep_corner(
+        mut asset.geometry,
+        mut sweep,
+        c,
+        scale(normal, -1f32),
+        0.36f32
+    ) || !tube_sweep_finish(
+        mut asset.geometry,
+        mut sweep,
+        shaft_pipe_position(angle, core * 1.8f32 + 0.35f32, depth - 2f32)
+    ) {
+        return false;
+    }
+    if !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("collector-feed"),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    return collector_cap_flange(mut asset, normal, wall, 1f32) && collector_cap_flange(
+        mut asset,
+        normal,
+        core * 1.8f32 + 0.5f32,
+        depth - 2f32
+    );
+}
+fn collector_cap_flange(asset: mut RoomAsset, normal: Vec3, radius: f32, height: f32) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !bevelled_body(
+        mut asset.geometry,
+        make BevelledBody {
+            sides: 8u32,
+            radius: 0.3f32,
+            length: 0.22f32,
+            bevel: 0.025f32,
+            shell: 6u32,
+            rear: 6u32,
+            front: 6u32
+        },
+        add(scale(normal, radius), vec(0f32, height, 0f32)),
+        make Basis {
+            right: vec(0f32, 1f32, 0f32),
+            up: normal,
+            forward: cross(vec(0f32, 1f32, 0f32), normal)
+        }
+    ) {
+        return false;
+    }
+    return asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("feed-flange"),
+        vec(0f32, 0f32, 0f32)
+    );
+}
+fn collector_cap_pipes(asset: mut RoomAsset, radius: f32, core: f32, depth: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < 8u32 {
+        if !collector_cap_seam(mut asset, radius, core, depth, i) || !collector_cap_pipe(
+            mut asset,
+            radius,
+            core,
+            depth,
+            i
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn collector_cap_seam(
+    asset: mut RoomAsset,
+    radius: f32,
+    core: f32,
+    depth: f32,
+    index: u32
+) -> bool {
+    var angle: f32 = (index as f32 + 0.5f32) * 0.785398163397f32;
+    var radial: Vec3 = shaft_pipe_normal(angle);
+    var tangent: Vec3 = scale(vec(-radial.z, 0f32, radial.x), 0.035f32);
+    var apothem: f32 = cosf(3.14159265359f32 / 48f32);
+    var slope: f32 = (radius - collector_throat(core)) * apothem / (depth - 2f32);
+    var inward: Vec3 = scale(
+        unit_vector(add(radial, vec(0f32, slope, 0f32))),
+        -0.004f32
+    );
+    var a: Vec3 = add(shaft_pipe_position(angle, radius * apothem, 2f32), inward);
+    var b: Vec3 = add(
+        shaft_pipe_position(angle, collector_throat(core) * apothem, depth),
+        inward
+    );
+    return solid_mesh_quad(
+        mut asset.decals,
+        collector_seam_vertex(add(a, tangent)),
+        collector_seam_vertex(add(b, tangent)),
+        collector_seam_vertex(sub(b, tangent)),
+        collector_seam_vertex(sub(a, tangent)),
+        6u32
+    );
+}
+
+fn collector_seam_vertex(point: Vec3) -> MeshVertex {
+    return make MeshVertex {
+        x: point.x,
+        y: point.y,
+        z: point.z,
+        u: 0.5f32,
+        v: 0.5f32
+    };
+}

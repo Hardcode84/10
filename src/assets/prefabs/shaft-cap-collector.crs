@@ -1,0 +1,92 @@
+fn prefab_shaft_cap_collector_parameter_count() -> u32 {
+    return 3u32;
+}
+fn prefab_shaft_cap_collector_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("depth");
+    }
+    return shaft_parameter_name(index);
+}
+fn prefab_shaft_cap_collector_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 12f32,
+            maximum: 32f32,
+            initial: 18f32,
+            step: 1f32
+        };
+    }
+    return shaft_parameter(index);
+}
+fn collector_throat(core: f32) -> f32 {
+    return core * 1.8f32 + 1.3f32;
+}
+fn prefab_shaft_cap_collector_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_shaft_cap_collector_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_shaft_cap_collector_parameter(i),
+            asset_value(read parameters, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var depth: f32 = asset_value(read parameters, 0u32);
+    var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
+    var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
+    if collector_throat(core) + 1.5f32 >= radius {
+        return error("collector cone needs clearance around its manifold");
+    }
+    if !collector_cap_shell(mut asset, radius, core, depth) || !shaft_core(
+        mut asset,
+        core,
+        depth,
+        2f32
+    ) || !collector_cap_machine(mut asset, core, depth) || !collector_cap_pipes(
+        mut asset,
+        radius,
+        core,
+        depth
+    ) {
+        return false;
+    }
+    var eye: Vec3 = vec((radius + core) * 0.5f32, 0.6f32, 0f32);
+    var forward: Vec3 = unit_vector(sub(vec(0f32, depth - 2f32, 0f32), eye));
+    var right: Vec3 = unit_vector(cross(forward, vec(0f32, 0f32, -1f32)));
+    asset.spawn = make AssetSpawn {
+        position: eye,
+        basis: make Basis {
+            right: right,
+            up: cross(forward, right),
+            forward: forward
+        }
+    };
+    return room_asset_finish(mut asset);
+}
+fn prefab_shaft_cap_collector_material_count() -> u32 {
+    return 7u32;
+}
+fn prefab_shaft_cap_collector_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = shaft_surface_material(region);
+    if region == 2u32 {
+        material.tile_metres = asset_value(read parameters, 2u32) * sinf(3.14159265359f32 / 48f32);
+        material.tile_height = 2f32;
+    }
+    if region == 3u32 {
+        material.colour = 0x647267u32;
+        material.finish = METAL_PLAIN;
+    }
+    if region == 5u32 {
+        material = hex_tunnel_material();
+        material.colour = 0x3c4943u32;
+        material.finish = METAL_RIBBED;
+        material.pitch = 0.4f32;
+    }
+    if region == 6u32 {
+        material = hex_tunnel_material();
+        material.colour = 0x141817u32;
+        material.finish = METAL_PLAIN;
+    }
+    return material;
+}

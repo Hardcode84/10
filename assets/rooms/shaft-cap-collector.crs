@@ -1,0 +1,25 @@
+// Closed collector cone. SHAFT is at Y=0 facing -Y; +Y enters the taper.
+// Match diameter and core-diameter to the adjoining shaft. Depth is in metres.
+// The spindle ends in a sealed housing. Eight wall feeds run along the cone
+// and enter a ring manifold through dark flanges. All pipes have solid collision.
+// Dark seams follow cone panel edges and the sleeve and end-wall joints.
+// Materials: 0 sleeve, 1 mouth closure, 2 spindle, 3 cone panels,
+// 4 pipes and manifold, 5 housing, 6 seams and flanges.
+fn room_parameter_count() -> u32 {
+    return prefab_shaft_cap_collector_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_shaft_cap_collector_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_shaft_cap_collector_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_shaft_cap_collector_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return prefab_shaft_cap_collector_material_count();
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_shaft_cap_collector_material(region, read parameters);
+}
