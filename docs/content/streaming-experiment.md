@@ -1,0 +1,113 @@
+# Room visibility experiment
+
+The experiment supports cached visibility and partial mesh uploads. Its scope is
+visibility selection and retained-list replacement. Collision and source meshes
+stay resident. GPU buffer capacity stays allocated.
+
+## Method
+
+Run the production scene builder and Vulkan renderer on three graph-backed levels:
+
+```sh
+crust tests.crs streaming levels/shafts.crs --width 960 --height 540
+crust tests.crs streaming levels/shaft-1km.crs --width 960 --height 540
+crust tests.crs streaming levels/doors-64.crs --width 960 --height 540
+```
+
+The runner disables sound and uses headless output. It compares full residency
+with three selection methods: portal-plane clipping, aperture separator clipping,
+and point-eye clipping. The room methods cover all camera positions in the source
+room. The point method covers all directions from one position. Each path uses
+its connection transforms and keeps separate clipping state.
+
+For each method, replace the retained mesh list, render, and compare every output
+pixel with full residency. A negative control removes all room meshes and must
+produce a different image. Render again to measure a warm frame. Sample the start
+and twelve portal approaches, then return to the start. The first sample includes
+pipeline startup; exclude it from timing summaries. Keep all door leaves resident.
+
+Start a worker forecast with a flying hook while replacing GPU meshes. Compare
+its markers with a serial forecast. This checks overlap with retained collision;
+it does not check collision eviction or an attached hook.
+
+The bounds are 128 polygon vertices, 64 path levels, and 4096 room visits per
+query. Exhaustion selects every room and records the event. These are experiment
+bounds. They do not change renderer limits. Floating-point clipping remains an
+experimental implementation; image agreement is evidence for the sampled views.
+
+## Measurements
+
+Hardware: Ryzen Threadripper PRO 7995WX, Radeon PRO W7900 Dual Slot, RADV.
+Resolution: 960 × 540. Times below are CPU wall times, including completion where
+applicable. These are single-run measurements, not Intel or browser results.
+MB means one million bytes. The raw records include every sample and query limit.
+
+| Shaft region, 107 rooms | Selected rooms | Query median / maximum, ms | Median upload, MB | Median replacement plus first frame, ms | Median warm frame, ms |
+|---|---:|---:|---:|---:|---:|
+| Full residency | 107 | — | 25.93 | 58.91 | 5.35 |
+| Portal planes | 25–64 | 0.279 / 0.528 | 11.34 | 32.04 | 5.25 |
+| Aperture separators | 10–31 | 75.860 / 115.982 | 6.04 | 18.46 | 5.24 |
+| Point eye | 9–21 | 0.567 / 1.562 | 4.70 | 15.12 | 5.26 |
+
+Query time is separate from replacement time. The renderer already rejects
+invisible geometry, so selection gives little warm-frame benefit in these views.
+The current replacement path uploads every selected mesh array and rebuilds its
+retained hierarchy. It retains 43.92 MB of mesh capacity in all four modes.
+
+The separator search considers each source edge with each passing vertex, then
+checks the polygons against each candidate plane. Shaft ports have 48 vertices.
+Repeating that search along long shafts explains the large CPU cost. Use the
+cheap plane result while a worker computes the tighter result. Cache the result;
+do not perform this search each frame.
+
+On the 1 km shaft, median uploads stay near 30.20 MB after aperture clipping,
+compared with 30.24 MB for full residency. Median warm time stays near 7 ms.
+A visible long shaft must retain most of its geometry. Visibility cannot replace
+asset sharing or a separate level-of-detail policy there.
+
+All 126 selected-set images matched their full-residency reference exactly.
+All three worker forecasts matched four serial markers. The door chain exercised
+the query depth limit: incomplete queries retained all rooms. Doors stayed at
+their initial closed state; this is not an open-door admission test.
+
+## Loading waves
+
+A second experiment builds a complete room-to-room aperture table, then expands
+three visibility waves from the start. This room table is a conservative, broader
+approximation of the proposed directed-entrance cache.
+
+| Scene | Rooms | Cache build, s | Table bytes | Wave 0 | Through wave 1 | Through wave 2 | Exhausted table rows |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Shaft region | 107 | 4.1 | 45796 | 13 | 44 | 68 | 0 |
+| 1 km shaft | 36 | 4.1 | 5184 | 34 | 36 | 36 | 0 |
+| Door chain | 73 | 0.11 | 21316 | 73 | 73 | 73 | 6 |
+
+Wave distance alone does not bound residency. Long sightlines and conservative
+query exhaustion can select the entire graph.
+
+## Decision and next gate
+
+Proceed with one bounded arena experiment. Keep shell and visibility work off
+frame admission. Preserve a cheap conservative result until tighter work finishes.
+Require partial uploads and GPU capacity reclamation; clearing the current mesh
+list achieves neither.
+
+Before broader integration, prove one room unload and reload across CPU snapshots,
+GPU retirement, an attached hook, and prediction. The current collision scene and
+worker snapshot own whole-scene arrays. They must use independently retained room
+chunks before that test can release collision storage. Rendering also requires
+arena-aware mesh references instead of one global mesh range.
+
+The image tests do not prove light/shadow dependency selection, transformed cycles,
+scale cycles, stale-result rejection, or memory-budget recovery. The radial and
+cylinder demos have no room graph; the runner rejects them explicitly. Complete
+these checks at the ownership gate in the [streaming design](streaming.md#implementation-gate).
+
+The experiment also found and fixed a repeat-upload defect: door upload replaced
+CPU source ranges with GPU ranges. Door records now keep both ranges separately.
+The door-chain run repeatedly uploads them after different room selections.
+
+Raw results: [shaft region](measurements/streaming-shafts.txt),
+[1 km shaft](measurements/streaming-shaft-1km.txt),
+[door chain](measurements/streaming-doors-64.txt).
+Runner: [tests/streaming](../../tests/streaming).

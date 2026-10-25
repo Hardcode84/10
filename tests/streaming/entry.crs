@@ -1,0 +1,109 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var options: Launch = uninit;
+    if !game_options_scene(argc, argv, &options, true) {
+        return 2i32;
+    }
+    options.config.headless = true;
+    options.mute = true;
+    return (!stream_experiment(game_session(&options), options.config)) as i32;
+}
+fn stream_experiment(session: GameSession, config: GameConfig) -> bool {
+    var scene: CollisionScene = collision_new();
+    var loop: GameLoop = make GameLoop {
+        sparks: sparks_new(),
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+    var start: u64 = now();
+    if !game_run_setup(mut session, mut scene, mut loop, config) {
+        return false;
+    }
+    if graph_count(read session.control.graph) == 0u32 {
+        return error("streaming experiment requires a room graph");
+    }
+    puts("full_setup_ns,collision_bytes,rooms,portals,triangles");
+    stream_number(now() - start, false);
+    stream_number(collision_bytes(read scene), false);
+    stream_number(graph_count(read session.control.graph) as u64, false);
+    stream_number(graph_ports(read session.control.graph) as u64, false);
+    stream_number(mesh_triangle_count(read session.room_mesh) as u64, true);
+    session.renderer.state.read_pixels = true;
+    var selected: GenerationWords = generation_words_new();
+    var pixels: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut selected, graph_count(read session.control.graph)) || !generation_words_allocate(
+        mut pixels,
+        config.width * config.height
+    ) {
+        return false;
+    }
+    puts(
+        "sample,room,mode,selected,visits,exhausted,query_ns,replace_ns,frame_ns,mesh_upload_bytes,mesh_capacity_bytes,pixel_changes,warm_frame_ns"
+    );
+    if !stream_sample(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        mut selected,
+        mut pixels,
+        0u32
+    ) {
+        return false;
+    }
+    if !stream_negative_control(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        mut selected,
+        mut pixels
+    ) {
+        return false;
+    }
+    var initial: Drone = new_drone();
+    assign_drone(mut initial, read loop.trial.drone);
+    var sample: u32 = 1u32;
+    while sample <= 12u32 {
+        var socket: u32 = (sample - 1u32) * (
+            graph_ports(read session.control.graph) - 1u32
+        ) / 11u32;
+        if stream_camera(
+            read scene,
+            read session.control.graph,
+            socket,
+            mut loop.trial.drone
+        ) {
+            if !stream_sample(
+                read scene,
+                mut session,
+                read loop,
+                config,
+                mut selected,
+                mut pixels,
+                sample
+            ) {
+                return false;
+            }
+        }
+        sample = sample + 1u32;
+    }
+    assign_drone(mut loop.trial.drone, read initial);
+    if !stream_sample(
+        read scene,
+        mut session,
+        read loop,
+        config,
+        mut selected,
+        mut pixels,
+        13u32
+    ) {
+        return false;
+    }
+    if !stream_prediction(read scene, mut session, mut loop, config, mut selected) {
+        return false;
+    }
+    return stream_waves(read session.control.graph) && game_finish(mut session);
+}

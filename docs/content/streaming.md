@@ -98,3 +98,7 @@ budgets, and stale completions. Require no missing geometry or invalid reference
 Measure worst-frame CPU work, loading latency, uploads, live and trapped bytes,
 and admission pauses. Check that steady frames allocate no application storage.
 Set numerical budgets from this baseline before extending the implementation.
+
+The [visibility experiment](streaming-experiment.md) measures selection, loading
+waves, retained-list replacement, and rendered output on production scenes. It
+supports a bounded arena prototype. It does not pass the full ownership gate above.

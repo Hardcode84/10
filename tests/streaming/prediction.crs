@@ -1,0 +1,81 @@
+fn stream_prediction_equal(a: read Prediction, b: read Prediction) -> bool {
+    if a.count != b.count || a.attempt != b.attempt || a.source_tick != b.source_tick || a.full_spin != b.full_spin {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < a.count {
+        var x: PredictionMarker = a.markers[i as usize];
+        var y: PredictionMarker = b.markers[i as usize];
+        if x.eye.world != y.eye.world || x.eye.factor != y.eye.factor || x.material != y.material || length(
+            sub(x.center, y.center)
+        ) != 0f32 || length(sub(x.eye.position, y.eye.position)) != 0f32 {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+// Collision stays resident while a worker forecast overlaps GPU mesh replacement.
+fn stream_prediction(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop,
+    config: GameConfig,
+    selected: mut GenerationWords
+) -> bool {
+    loop.trial.drone.velocity = scale(loop.trial.drone.basis.forward, 10f32);
+    hook_launch(mut loop.trial.drone);
+    var pool: TaskPool = task_pool_new();
+    if !task_pool_open(mut pool, 1u32, 2u32) {
+        return false;
+    }
+    var context: PredictionContext = prediction_context(
+        read pool,
+        read scene,
+        graph_doors(read session.control.graph)
+    );
+    if !prediction_context_ready(read context) {
+        return false;
+    }
+    var scratch: Drone = new_drone();
+    var doors: DoorSet = doors_new();
+    if !doors_copy(graph_doors(read session.control.graph), mut doors) {
+        return false;
+    }
+    var expected: Prediction = predict_scene(
+        read scene,
+        read loop.trial,
+        mut scratch,
+        mut doors
+    );
+    var work: PredictionTask = prediction_start(mut context, read scene, read loop.trial);
+    stream_visibility(
+        read session.control.graph,
+        loop.trial.drone.world,
+        loop.trial.drone.position,
+        2u32,
+        mut selected
+    );
+    if !stream_upload(mut session, read selected) || !stream_draw(
+        read scene,
+        mut session,
+        read loop,
+        config
+    ) {
+        return false;
+    }
+    while prediction_task_poll(read work) == 0i32 {
+        prediction_task_idle(read work);
+    }
+    if prediction_task_poll(read work) != 1i32 {
+        return error("streaming forecast task failed");
+    }
+    var actual: Prediction = prediction_task_result(mut work);
+    if expected.count == 0u32 || !stream_prediction_equal(read expected, read actual) {
+        return error("streaming forecast changed across mesh replacement");
+    }
+    puts("forecast_markers,hook_phase");
+    stream_number(actual.count as u64, false);
+    stream_number(loop.trial.drone.cable.phase as u64, true);
+    return true;
+}

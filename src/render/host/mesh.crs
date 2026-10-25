@@ -227,3 +227,8 @@ fn mesh_offset_uv(mesh: mut Mesh, u: f32, v: f32) -> unit {
         i = i + 1usize;
     }
 }
+
+// Removes all instance entries while retaining list storage for reuse.
+fn instances_clear(list: mut InstanceList) -> unit {
+    list.count = 0u32;
+}

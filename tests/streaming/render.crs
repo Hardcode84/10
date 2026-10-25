@@ -1,0 +1,199 @@
+extern fn stream_putchar(value: i32) -> i32 = "putchar";
+fn stream_number(value: u64, last: bool) -> unit {
+    var digits: [u8; 20] = uninit;
+    var count: usize = 0usize;
+    var remaining: u64 = value;
+    while true {
+        digits[count] = (remaining % 10u64) as u8 + 48u8;
+        count = count + 1usize;
+        remaining = remaining / 10u64;
+        if remaining == 0u64 {
+            break;
+        }
+    }
+    while count != 0usize {
+        count = count - 1usize;
+        stream_putchar(digits[count] as i32);
+    }
+    var delimiter: i32 = 44i32;
+    if last {
+        delimiter = 10i32;
+    }
+    stream_putchar(delimiter);
+}
+fn stream_upload(session: mut GameSession, selected: read GenerationWords) -> bool {
+    instances_clear(mut session.world);
+    var input: FrameInput = renderer_inputs(mut session.renderer);
+    input_clear_meshes(mut input);
+    var i: u32 = 0u32;
+    while i < graph_count(read session.control.graph) {
+        if generation_word(read selected, i) != 0u32 {
+            var source: MeshRange = graph_node(read session.control.graph, i).mesh;
+            var range: MeshRange = mesh_empty_range();
+            if !input_mesh_slice(
+                mut input,
+                read session.room_mesh,
+                source.first,
+                source.count,
+                mut range
+            ) || !instances_append(mut session.world, mesh_identity(range, i)) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return graph_doors_upload(mut session.control.graph, mut input);
+}
+fn stream_pixels(v: *RenderState, pixels: mut GenerationWords, count: u32, save: bool) -> u32 {
+    var words: *u32 = v -> mapped as *u32;
+    var offset: u32 = words[PRESENT_PIXELS as usize];
+    var different: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < count {
+        var value: u32 = words[(offset + i) as usize];
+        if save {
+            generation_word_set(mut pixels, i, value);
+        } else if generation_word(read pixels, i) != value {
+            different = different + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return different;
+}
+fn stream_draw(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig
+) -> bool {
+    var prediction: Prediction = prediction_new();
+    game_prepare(read scene, mut session, read loop, config, read prediction);
+    return game_draw(mut session) && game_present(mut session);
+}
+fn stream_camera(
+    scene: read CollisionScene,
+    graph: read RoomGraph,
+    socket: u32,
+    drone: mut Drone
+) -> bool {
+    var link: GraphSocket = graph_socket(read graph, socket);
+    var port: RoomPort = link.port;
+    var i: u32 = 0u32;
+    while i < 17u32 {
+        var point: Vec3 = sub(port.position, scale(port.basis.forward, 1f32));
+        if i != 0u32 {
+            var angle: f32 = (i - 1u32) as f32 * 6.28318530718f32 / 16f32;
+            point = add(
+                point,
+                scale(
+                    add(
+                        scale(port.basis.right, cosf(angle)),
+                        scale(port.basis.up, sinf(angle))
+                    ),
+                    port.profile.radius * 0.6f32
+                )
+            );
+        }
+        if collision_position_valid(read scene, link.room, point, DRONE_RADIUS) {
+            drone.world = link.room;
+            drone.position = point;
+            drone.basis = port.basis;
+            return true;
+        }
+        i = i + 1u32;
+    }
+    return false;
+}
+fn stream_sample(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    selected: mut GenerationWords,
+    pixels: mut GenerationWords,
+    sample: u32
+) -> bool {
+    var mode: u32 = 0u32;
+    while mode < 4u32 {
+        var start: u64 = now();
+        var stats: StreamStats = stream_visibility(
+            read session.control.graph,
+            loop.trial.drone.world,
+            loop.trial.drone.position,
+            mode,
+            mut selected
+        );
+        var query_ns: u64 = now() - start;
+        start = now();
+        if !stream_upload(mut session, read selected) {
+            return false;
+        }
+        var replace_ns: u64 = now() - start;
+        start = now();
+        if !stream_draw(read scene, mut session, read loop, config) {
+            return false;
+        }
+        var frame_ns: u64 = now() - start;
+        var different: u32 = stream_pixels(
+            &session.renderer.state,
+            mut pixels,
+            config.width * config.height,
+            mode == 0u32
+        );
+        stream_number(sample as u64, false);
+        stream_number(loop.trial.drone.world as u64, false);
+        stream_number(mode as u64, false);
+        stream_number(
+            stream_members(read selected, graph_count(read session.control.graph)) as u64,
+            false
+        );
+        stream_number(stats.visits as u64, false);
+        stream_number(stats.exhausted as u64, false);
+        stream_number(query_ns, false);
+        stream_number(replace_ns, false);
+        stream_number(frame_ns, false);
+        stream_number(session.renderer.state.mesh_upload_bytes, false);
+        stream_number(session.renderer.state.mesh_capacity as u64 * 176u64, false);
+        stream_number(different as u64, false);
+        start = now();
+        if !stream_draw(read scene, mut session, read loop, config) {
+            return false;
+        }
+        stream_number(now() - start, true);
+        if different != 0u32 {
+            return error("streaming visibility removed image contributions");
+        }
+        mode = mode + 1u32;
+    }
+    return true;
+}
+
+fn stream_negative_control(
+    scene: read CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    selected: mut GenerationWords,
+    pixels: mut GenerationWords
+) -> bool {
+    generation_words_fill(mut selected, 0u32);
+    if !stream_upload(mut session, read selected) || !stream_draw(
+        read scene,
+        mut session,
+        read loop,
+        config
+    ) {
+        return false;
+    }
+    var changed: u32 = stream_pixels(
+        &session.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        false
+    );
+    puts("negative_control_pixels");
+    stream_number(changed as u64, true);
+    return changed != 0u32 || error(
+        "streaming image comparison failed to detect missing room geometry"
+    );
+}

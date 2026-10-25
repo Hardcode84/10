@@ -1,0 +1,180 @@
+record StreamFlow {
+    source: StreamPolygon;
+    pass: StreamPolygon;
+    root: StreamPlane;
+    pose: SpaceTransform;
+    eye: Vec3;
+    room: u32;
+    incoming: u32;
+    depth: u32;
+    mode: u32;
+}
+record StreamStats {
+    visits: u32;
+    exhausted: bool;
+}
+fn stream_identity() -> SpaceTransform {
+    return make SpaceTransform {
+        factor: 1f32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis()
+    };
+}
+fn stream_port_plane(port: RoomPort, pose: SpaceTransform) -> StreamPlane {
+    return make StreamPlane {
+        normal: basis_vector(pose.basis, port.basis.forward),
+        origin: space_point(pose, port.position)
+    };
+}
+fn stream_child(graph: read RoomGraph, socket: u32, parent: StreamFlow) -> StreamFlow {
+    var a: GraphSocket = graph_socket(read graph, socket);
+    var b: GraphSocket = graph_socket(read graph, a.peer);
+    var result: StreamFlow = parent;
+    result.pose = space_compose(
+        parent.pose,
+        space_inverse(connection_transform(a.port, b.port, a.roll))
+    );
+    result.room = b.room;
+    result.incoming = a.peer;
+    result.depth = parent.depth + 1u32;
+    return result;
+}
+fn stream_flow_clip(
+    parent: read StreamFlow,
+    plane: StreamPlane,
+    source: mut StreamPolygon,
+    target: mut StreamPolygon
+) -> bool {
+    if !stream_clip(mut target, parent.root) || !stream_clip(
+        mut source,
+        make StreamPlane {
+            normal: scale(plane.normal, -1f32),
+            origin: plane.origin
+        }
+    ) {
+        return false;
+    }
+    if parent.mode == 2u32 && parent.pass.count != 0u32 {
+        return stream_separators(read source, read parent.pass, mut target, false) && stream_separators(
+            read parent.pass,
+            read source,
+            mut target,
+            true
+        );
+    }
+    if parent.mode == 3u32 {
+        return stream_eye_clip(parent.eye, read parent.pass, mut target);
+    }
+    return true;
+}
+fn stream_flow(
+    graph: read RoomGraph,
+    state: StreamFlow,
+    visible: mut GenerationWords,
+    stats: mut StreamStats
+) -> bool {
+    stats.visits = stats.visits + 1u32;
+    if stats.visits > STREAM_VIS_WORK || state.depth >= STREAM_VIS_DEPTH {
+        return false;
+    }
+    generation_word_set(mut visible, state.room, 1u32);
+    var node: GraphNode = graph_node(read graph, state.room);
+    var i: u32 = 0u32;
+    while i < node.count {
+        var socket: u32 = node.first + i;
+        if socket != state.incoming && !stream_flow_port(
+            read graph,
+            socket,
+            read state,
+            mut visible,
+            mut stats
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn stream_flow_port(
+    graph: read RoomGraph,
+    socket: u32,
+    parent: read StreamFlow,
+    visible: mut GenerationWords,
+    stats: mut StreamStats
+) -> bool {
+    var port: RoomPort = graph_socket(read graph, socket).port;
+    var target: StreamPolygon = stream_polygon_port(port, parent.pose);
+    if target.count == 0u32 {
+        return false;
+    }
+    var source: StreamPolygon = parent.source;
+    var plane: StreamPlane = stream_port_plane(port, parent.pose);
+    if !stream_flow_clip(read parent, plane, mut source, mut target) {
+        return false;
+    }
+    if source.count == 0u32 || target.count == 0u32 {
+        return true;
+    }
+    var child: StreamFlow = stream_child(read graph, socket, parent);
+    child.source = source;
+    child.pass = target;
+    return stream_flow(read graph, child, mut visible, mut stats);
+}
+fn stream_visibility(
+    graph: read RoomGraph,
+    room: u32,
+    eye: Vec3,
+    mode: u32,
+    visible: mut GenerationWords
+) -> StreamStats {
+    generation_words_fill(mut visible, 0u32);
+    generation_word_set(mut visible, room, 1u32);
+    var stats: StreamStats = make StreamStats {
+        visits: 0u32,
+        exhausted: false
+    };
+    if mode == 0u32 {
+        generation_words_fill(mut visible, 1u32);
+        return stats;
+    }
+    var node: GraphNode = graph_node(read graph, room);
+    var i: u32 = 0u32;
+    while i < node.count {
+        var socket: u32 = node.first + i;
+        var port: RoomPort = graph_socket(read graph, socket).port;
+        var state: StreamFlow = uninit;
+        state.pose = stream_identity();
+        state.source = stream_polygon_port(port, state.pose);
+        state.pass = state.source;
+        if mode != 3u32 {
+            state.pass.count = 0u32;
+        }
+        state.root = stream_port_plane(port, state.pose);
+        state.depth = 0u32;
+        state.mode = mode;
+        state.eye = eye;
+        state.room = room;
+        state.incoming = 0xffffffffu32;
+        if state.source.count == 0u32 || !stream_flow(
+            read graph,
+            stream_child(read graph, socket, state),
+            mut visible,
+            mut stats
+        ) {
+            stats.exhausted = true;
+            generation_words_fill(mut visible, 1u32);
+            return stats;
+        }
+        i = i + 1u32;
+    }
+    return stats;
+}
+fn stream_members(words: read GenerationWords, count: u32) -> u32 {
+    var total: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < count {
+        total = total + generation_word(read words, i);
+        i = i + 1u32;
+    }
+    return total;
+}

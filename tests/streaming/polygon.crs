@@ -1,0 +1,177 @@
+// Bounded experiment scratch. Exhaustion retains all candidates and is reported.
+const STREAM_VERTICES: usize = 128usize;
+const STREAM_VIS_WORK: u32 = 4096u32;
+const STREAM_VIS_DEPTH: u32 = 64u32;
+record StreamPolygon {
+    points: [Vec3; 128];
+    count: u32;
+}
+record StreamPlane {
+    normal: Vec3;
+    origin: Vec3;
+}
+fn stream_plane_distance(plane: StreamPlane, p: Vec3) -> f32 {
+    return dot(plane.normal, sub(p, plane.origin));
+}
+fn stream_polygon_port(port: RoomPort, pose: SpaceTransform) -> StreamPolygon {
+    var result: StreamPolygon = uninit;
+    result.count = port.profile.shape.sides;
+    if result.count > STREAM_VERTICES as u32 {
+        result.count = 0u32;
+        return result;
+    }
+    var i: u32 = 0u32;
+    while i < result.count {
+        result.points[i as usize] = space_point(pose, connection_point(port, i));
+        i = i + 1u32;
+    }
+    return result;
+}
+fn stream_polygon_push(polygon: mut StreamPolygon, point: Vec3) -> bool {
+    if polygon.count == STREAM_VERTICES as u32 {
+        return false;
+    }
+    polygon.points[polygon.count as usize] = point;
+    polygon.count = polygon.count + 1u32;
+    return true;
+}
+fn stream_clip(polygon: mut StreamPolygon, plane: StreamPlane) -> bool {
+    var out: StreamPolygon = uninit;
+    out.count = 0u32;
+    var i: u32 = 0u32;
+    while i < polygon.count {
+        var a: Vec3 = polygon.points[i as usize];
+        var b: Vec3 = polygon.points[((i + 1u32) % polygon.count) as usize];
+        var da: f32 = stream_plane_distance(plane, a);
+        var db: f32 = stream_plane_distance(plane, b);
+        if da >= 0f32 && !stream_polygon_push(mut out, a) {
+            return false;
+        }
+        if (da < 0f32) != (db < 0f32) {
+            if !stream_polygon_push(
+                mut out,
+                add(a, scale(sub(b, a), da / (da - db)))
+            ) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    polygon = out;
+    return true;
+}
+fn stream_separator(
+    source: read StreamPolygon,
+    pass: read StreamPolygon,
+    edge: u32,
+    vertex: u32,
+    plane: mut StreamPlane
+) -> bool {
+    var a: Vec3 = source.points[edge as usize];
+    var b: Vec3 = source.points[((edge + 1u32) % source.count) as usize];
+    var c: Vec3 = pass.points[vertex as usize];
+    var normal: Vec3 = cross(sub(b, a), sub(c, a));
+    if length(normal) == 0f32 {
+        return false;
+    }
+    plane.normal = unit_vector(normal);
+    plane.origin = a;
+    var side: f32 = 0f32;
+    var i: u32 = 0u32;
+    while i < source.count {
+        if i != edge && i != (edge + 1u32) % source.count {
+            side = side + stream_plane_distance(plane, source.points[i as usize]);
+        }
+        i = i + 1u32;
+    }
+    if side == 0f32 {
+        return false;
+    }
+    if side > 0f32 {
+        plane.normal = scale(plane.normal, -1f32);
+    }
+    return stream_separated(read source, read pass, plane);
+}
+fn stream_separated(source: read StreamPolygon, pass: read StreamPolygon, plane: StreamPlane) -> bool {
+    var i: u32 = 0u32;
+    while i < source.count {
+        if stream_plane_distance(plane, source.points[i as usize]) > collision_tolerance(
+            source.points[i as usize],
+            1f32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < pass.count {
+        if stream_plane_distance(plane, pass.points[i as usize]) < -collision_tolerance(
+            pass.points[i as usize],
+            1f32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn stream_separators(
+    source: read StreamPolygon,
+    pass: read StreamPolygon,
+    target: mut StreamPolygon,
+    flip: bool
+) -> bool {
+    var edge: u32 = 0u32;
+    while edge < source.count && target.count != 0u32 {
+        var vertex: u32 = 0u32;
+        while vertex < pass.count && target.count != 0u32 {
+            var plane: StreamPlane = uninit;
+            if stream_separator(read source, read pass, edge, vertex, mut plane) {
+                if flip {
+                    plane.normal = scale(plane.normal, -1f32);
+                }
+                // Expand the retained half-space by the engine's coordinate error bound.
+                plane.origin = sub(
+                    plane.origin,
+                    scale(plane.normal, collision_tolerance(plane.origin, 1f32))
+                );
+                if !stream_clip(mut target, plane) {
+                    return false;
+                }
+            }
+            vertex = vertex + 1u32;
+        }
+        edge = edge + 1u32;
+    }
+    return true;
+}
+fn stream_eye_clip(eye: Vec3, pass: read StreamPolygon, target: mut StreamPolygon) -> bool {
+    var centre: Vec3 = vec(0f32, 0f32, 0f32);
+    var i: u32 = 0u32;
+    while i < pass.count {
+        centre = add(centre, pass.points[i as usize]);
+        i = i + 1u32;
+    }
+    centre = scale(centre, 1f32 / pass.count as f32);
+    i = 0u32;
+    while i < pass.count && target.count != 0u32 {
+        var normal: Vec3 = cross(
+            sub(pass.points[i as usize], eye),
+            sub(pass.points[((i + 1u32) % pass.count) as usize], eye)
+        );
+        if dot(normal, sub(centre, eye)) < 0f32 {
+            normal = scale(normal, -1f32);
+        }
+        if !stream_clip(
+            mut target,
+            make StreamPlane {
+                normal: normal,
+                origin: eye
+            }
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

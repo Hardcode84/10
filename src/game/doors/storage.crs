@@ -5,6 +5,7 @@ record DoorInstance {
     origin: Vec3;
     radius: f32;
     leaves: [u32; 2];
+    sources: [MeshRange; 2];
     meshes: [MeshRange; 2];
 }
 resource DoorSet {
@@ -91,6 +92,10 @@ fn doors_asset(
             first,
             first + 1u32
         },
+        sources: make [MeshRange; 2] {
+            mesh_empty_range(),
+            mesh_empty_range()
+        },
         meshes: make [MeshRange; 2] {
             mesh_empty_range(),
             mesh_empty_range()
@@ -113,7 +118,7 @@ fn doors_asset(
             i = i + 1u32;
         }
         slice.bounds = local.bounds;
-        door.meshes[leaf as usize] = slice;
+        door.sources[leaf as usize] = slice;
         leaf = leaf + 1u32;
     }
     return door_add(mut doors, door);
@@ -123,7 +128,7 @@ fn doors_upload(doors: mut DoorSet, input: mut FrameInput) -> bool {
     while i < doors.count {
         var leaf: u32 = 0u32;
         while leaf < 2u32 {
-            var range: MeshRange = doors.data[i as usize].meshes[leaf as usize];
+            var range: MeshRange = doors.data[i as usize].sources[leaf as usize];
             if !input_mesh_slice(
                 mut input,
                 read doors.mesh,

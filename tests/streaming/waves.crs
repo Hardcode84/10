@@ -1,0 +1,73 @@
+// Measures complete room visibility sets before applying successive loading waves.
+fn stream_waves(graph: read RoomGraph) -> bool {
+    var count: u32 = graph_count(read graph);
+    var table: GenerationWords = generation_words_new();
+    var selected: GenerationWords = generation_words_new();
+    var reached: GenerationWords = generation_words_new();
+    var next: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut table, count * count) || !generation_words_allocate(
+        mut selected,
+        count
+    ) || !generation_words_allocate(mut reached, count) || !generation_words_allocate(
+        mut next,
+        count
+    ) {
+        return false;
+    }
+    var start: u64 = now();
+    var exhausted: u32 = 0u32;
+    var row: u32 = 0u32;
+    while row < count {
+        var stats: StreamStats = stream_visibility(
+            read graph,
+            row,
+            vec(0f32, 0f32, 0f32),
+            2u32,
+            mut selected
+        );
+        exhausted = exhausted + stats.exhausted as u32;
+        var col: u32 = 0u32;
+        while col < count {
+            generation_word_set(
+                mut table,
+                row * count + col,
+                generation_word(read selected, col)
+            );
+            col = col + 1u32;
+        }
+        row = row + 1u32;
+    }
+    puts("cache_ns,cache_bytes,exhausted_rows");
+    stream_number(now() - start, false);
+    stream_number(count as u64 * count as u64 * 4u64, false);
+    stream_number(exhausted as u64, true);
+    generation_words_fill(mut reached, 0u32);
+    generation_word_set(mut reached, 0u32, 1u32);
+    puts("wave,rooms");
+    var wave: u32 = 0u32;
+    while wave < 3u32 {
+        generation_words_fill(mut next, 0u32);
+        row = 0u32;
+        while row < count {
+            if generation_word(read reached, row) != 0u32 {
+                var col: u32 = 0u32;
+                while col < count {
+                    if generation_word(read table, row * count + col) != 0u32 {
+                        generation_word_set(mut next, col, 1u32);
+                    }
+                    col = col + 1u32;
+                }
+            }
+            row = row + 1u32;
+        }
+        row = 0u32;
+        while row < count {
+            generation_word_set(mut reached, row, generation_word(read next, row));
+            row = row + 1u32;
+        }
+        stream_number(wave as u64, false);
+        stream_number(stream_members(read reached, count) as u64, true);
+        wave = wave + 1u32;
+    }
+    return true;
+}
