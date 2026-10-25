@@ -31,22 +31,6 @@ fn fan_blade_vertex(blade: FanBlade, radial: u32, angular: u32, top: bool) -> Me
         v: s
     };
 }
-fn fan_quad(
-    mesh: mut Mesh,
-    a: MeshVertex,
-    b: MeshVertex,
-    c: MeshVertex,
-    d: MeshVertex,
-    region: u32
-) -> bool {
-    return tube_triangle(mut mesh, a, b, c, region) && tube_triangle(
-        mut mesh,
-        a,
-        c,
-        d,
-        region
-    );
-}
 fn fan_blade_edge(
     mesh: mut Mesh,
     a: MeshVertex,
@@ -69,7 +53,7 @@ fn fan_blade_edge(
     bb.v = 0f32;
     cc.v = thickness / FAN_TEXTURE_METRES;
     dd.v = cc.v;
-    return fan_quad(mut mesh, aa, bb, cc, dd, 7u32);
+    return solid_mesh_quad(mut mesh, aa, bb, cc, dd, 7u32);
 }
 fn fan_blade_cell(mesh: mut Mesh, blade: FanBlade, r: u32, a: u32) -> bool {
     var p: MeshVertex = fan_blade_vertex(blade, r, a, true);
@@ -80,7 +64,14 @@ fn fan_blade_cell(mesh: mut Mesh, blade: FanBlade, r: u32, a: u32) -> bool {
     var qq: MeshVertex = fan_blade_vertex(blade, r, a + 1u32, false);
     var tt: MeshVertex = fan_blade_vertex(blade, r + 1u32, a + 1u32, false);
     var ss: MeshVertex = fan_blade_vertex(blade, r + 1u32, a, false);
-    if !fan_quad(mut mesh, p, q, t, s, 3u32) || !fan_quad(mut mesh, pp, ss, tt, qq, 3u32) {
+    if !solid_mesh_quad(mut mesh, p, q, t, s, 3u32) || !solid_mesh_quad(
+        mut mesh,
+        pp,
+        ss,
+        tt,
+        qq,
+        3u32
+    ) {
         return false;
     }
     var width: f32 = blade.inner * fan_blade_width(blade, 0f32);
@@ -142,54 +133,6 @@ fn fan_blade_mesh(mesh: mut Mesh, blade: FanBlade) -> bool {
             a = a + 1u32;
         }
         r = r + 1u32;
-    }
-    return true;
-}
-// A closed annular bearing housing centred on Y=0.
-fn fan_band_vertex(inner: f32, outer: f32, depth: f32, section: u32, corner: u32) -> MeshVertex {
-    var radius: f32 = inner;
-    if corner % 4u32 == 1u32 || corner % 4u32 == 2u32 {
-        radius = outer;
-    }
-    var height: f32 = -depth * 0.5f32;
-    if corner % 4u32 >= 2u32 {
-        height = -height;
-    }
-    var angle: f32 = (section % 48u32) as f32 * 6.28318530718f32 / 48f32;
-    return make MeshVertex {
-        x: radius * cosf(angle),
-        y: height,
-        z: radius * sinf(angle),
-        u: section as f32 / 48f32 * panel_pixel_extent(
-            3.14159265359f32 * (inner + outer) / FAN_TEXTURE_METRES,
-            1u32
-        ) as f32,
-        v: (
-            (corner / 2u32) as f32 * (outer - inner + depth) + (corner % 2u32) as f32 * (
-                outer - inner
-            )
-        ) / FAN_TEXTURE_METRES
-    };
-}
-fn fan_band_mesh(mesh: mut Mesh, inner: f32, outer: f32, depth: f32) -> bool {
-    var i: u32 = 0u32;
-    while i < 48u32 {
-        var c: u32 = 0u32;
-        while c < 4u32 {
-            var next: u32 = c + 1u32;
-            if !fan_quad(
-                mut mesh,
-                fan_band_vertex(inner, outer, depth, i, c),
-                fan_band_vertex(inner, outer, depth, i, next),
-                fan_band_vertex(inner, outer, depth, i + 1u32, next),
-                fan_band_vertex(inner, outer, depth, i + 1u32, c),
-                7u32
-            ) {
-                return false;
-            }
-            c = c + 1u32;
-        }
-        i = i + 1u32;
     }
     return true;
 }

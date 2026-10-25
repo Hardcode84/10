@@ -40,10 +40,25 @@ fn asset_test_part_room(asset: mut RoomAsset) -> bool {
         }
         i = i + 1u32;
     }
+    if !asset_part_append(
+        mut asset.colliders,
+        make AssetPart {
+            name: asset_name("collision-only"),
+            first: 0u32,
+            count: 12u32,
+            origin: vec(0f32, 7f32, 3f32),
+            basis: identity_basis()
+        }
+    ) {
+        return false;
+    }
     asset.spawn.position = vec(0f32, 1f32, 0f32);
     return true;
 }
 fn asset_test_parts() -> bool {
+    return asset_test_cutout_collision() && asset_test_part_assembly();
+}
+fn asset_test_part_assembly() -> bool {
     var asset: RoomAsset = room_asset_new();
     if !asset_test_part_room(mut asset) || !asset_test_decal(mut asset) || !room_asset_finish(
         mut asset
@@ -126,6 +141,15 @@ fn asset_test_decal(asset: mut RoomAsset) -> bool {
 }
 
 fn asset_test_part_contacts(original: read CollisionScene, linked: read CollisionScene) -> bool {
+    if collision_position_valid(read original, 0u32, vec(0f32, 7f32, 3f32), 0.1f32) || collision_position_valid(
+        read linked,
+        0u32,
+        vec(0f32, 7f32, 3f32),
+        0.1f32
+    ) {
+        return error("collision-only part was lost during room assembly");
+    }
+
     var i: u32 = 0u32;
     while i < 2u32 {
         var centre: Vec3 = vec(-3f32 + 6f32 * i as f32, 5f32, 0f32);
@@ -198,4 +222,66 @@ fn asset_test_decal_contacts(
         return error("room decal lost its render data or entered collision");
     }
     return true;
+}
+fn asset_test_cutout_collision() -> bool {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.finish = METAL_GRATE;
+    material.tile_metres = 0.5f32;
+    material.tile_height = material.tile_metres;
+    material.border = grate_texel_bar_width(
+        material.tile_metres,
+        0.1f32,
+        material.texels_per_metre
+    );
+    var asset: RoomAsset = room_asset_new();
+    var layout: ShaftGrateLayout = make ShaftGrateLayout {
+        radius: 3f32,
+        core: 0.5f32,
+        height: 8f32,
+        count: 1u32,
+        pitch: material.tile_metres,
+        bar: material.border
+    };
+    if !grate_bars(mut asset, layout) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    if !room_parts_collision(read asset, mut builder, 0u32) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var clear: Vec3 = vec(layout.pitch * 2.5f32, 3f32, layout.pitch * 0.5f32);
+    var bar: Vec3 = vec(layout.pitch * 2f32, clear.y, clear.z);
+    var direction: Vec3 = vec(0f32, 2f32, 0f32);
+    var small: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        clear,
+        direction,
+        layout.pitch * 0.1f32
+    );
+    var large: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        clear,
+        direction,
+        layout.pitch * 0.75f32
+    );
+    var solid: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        bar,
+        direction,
+        layout.pitch * 0.1f32
+    );
+    return small.hit.time >= 1f32 && large.hit.time < 1f32 && solid.hit.time < 1f32 && panel_sample(
+        material,
+        layout.pitch * 0.5f32,
+        layout.pitch * 0.5f32
+    ) == 0u32 && panel_sample(material, 0f32, layout.pitch * 0.5f32) != 0u32 || error(
+        "cutout openings disagree with solid bar collision"
+    );
 }

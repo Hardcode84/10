@@ -1,3 +1,4 @@
+const METAL_GRATE: u32 = 15u32;
 const METAL_FULLBRIGHT: u32 = 14u32;
 const METAL_PLATE: u32 = 0u32;
 const METAL_TREAD: u32 = 1u32;
@@ -29,6 +30,7 @@ const METAL_GIRDER_MOUNT: u32 = 13u32;
 // METAL_PIPE_COATED uses exposed length, circumference, and face width as
 // tile_metres, tile_height, and panel_height. Exposed length is at least 0.5 m.
 // METAL_FULLBRIGHT fills the tile with the emission colour.
+// METAL_GRATE has a square cutout grid; border sets the bar width.
 // Colours use packed RGB.
 record PanelMaterial {
     colour: u32;
@@ -121,6 +123,9 @@ fn metal_fastener(material: PanelMaterial, x: f32, y: f32) -> u32 {
 }
 // Returns a palette index for a point within one repeated panel tile.
 fn panel_base_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
+    if material.finish == METAL_GRATE {
+        return metal_grate_sample(material, x, tile_y);
+    }
     if material.finish == METAL_GIRDER_MOUNT {
         return metal_girder_mount_sample(material, x, tile_y);
     }

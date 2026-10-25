@@ -1,0 +1,19 @@
+// Bar edges coincide with texel edges in the repeated square mask.
+fn grate_texel_bar_width(pitch: f32, width: f32, density: u32) -> f32 {
+    var pixels: u32 = panel_pixel_extent(pitch, density);
+    var half: u32 = panel_pixel_extent(width * 0.5f32 / pitch * pixels as f32, 1u32);
+    return 2f32 * half as f32 * pitch / pixels as f32;
+}
+fn metal_grate_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var distance: f32 = mask_min(
+        mask_min(x, material.tile_metres - x),
+        mask_min(y, material.tile_height - y)
+    );
+    if distance >= material.border * 0.5f32 {
+        return 0u32;
+    }
+    if distance > material.border * 0.5f32 - 0.018f32 {
+        return 90u32;
+    }
+    return (170f32 + metal_grain(material, x, y)) as u32;
+}

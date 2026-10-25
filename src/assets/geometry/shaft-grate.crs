@@ -1,0 +1,233 @@
+const SHAFT_GRATE_FACE_SIDES: u32 = 12u32;
+const SHAFT_GRATE_DEPTH: f32 = 0.08f32;
+const SHAFT_GRATE_FRAME_DEPTH: f32 = 0.35f32;
+record ShaftGrateLayout {
+    radius: f32;
+    core: f32;
+    height: f32;
+    count: u32;
+    pitch: f32;
+    bar: f32;
+}
+fn grate_bar_instance(asset: mut RoomAsset, first: u32, count: u32, height: f32) -> bool {
+    var origin: Vec3 = vec(0f32, height, 0f32);
+    if !asset_part_append(
+        mut asset.colliders,
+        make AssetPart {
+            name: asset_name("grate-bar"),
+            first: first,
+            count: count,
+            origin: origin,
+            basis: identity_basis()
+        }
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        var primitive: MeshTriangle = mesh_triangle(read asset.geometry, first + i);
+        if primitive.vertices[0usize].y != primitive.vertices[1usize].y || primitive.vertices[
+            0usize
+        ].y != primitive.vertices[2usize].y {
+            if !mesh_append(
+                mut asset.decals,
+                placed_triangle(primitive, origin, identity_basis())
+            ) {
+                return false;
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn grate_bar(
+    asset: mut RoomAsset,
+    layout: ShaftGrateLayout,
+    low: f32,
+    high: f32,
+    offset: f32,
+    axis: u32
+) -> bool {
+    var centre: Vec3 = vec((low + high) * 0.5f32, 0f32, offset);
+    var dimensions: Vec3 = vec(high - low, SHAFT_GRATE_DEPTH, layout.bar);
+    if axis != 0u32 {
+        centre = vec(offset, 0f32, (low + high) * 0.5f32);
+        dimensions = vec(layout.bar, SHAFT_GRATE_DEPTH, high - low);
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !solid_box(mut asset.geometry, dimensions, 8u32, centre, identity_basis(), 2f32) {
+        return false;
+    }
+    var count: u32 = mesh_triangle_count(read asset.geometry) - first;
+    var station: u32 = 0u32;
+    while station < layout.count {
+        if !grate_bar_instance(
+            mut asset,
+            first,
+            count,
+            layout.height * (station + 1u32) as f32 / (layout.count + 1u32) as f32
+        ) {
+            return false;
+        }
+        station = station + 1u32;
+    }
+    return true;
+}
+fn grate_row(asset: mut RoomAsset, layout: ShaftGrateLayout, offset: f32, axis: u32) -> bool {
+    var nearest_edge: f32 = -mask_min(0f32, -(absf(offset) - layout.bar * 0.5f32));
+    if nearest_edge >= layout.radius {
+        return true;
+    }
+    var outer: f32 = sqrtf(layout.radius * layout.radius - nearest_edge * nearest_edge);
+    if absf(offset) < layout.core {
+        var inner: f32 = sqrtf(layout.core * layout.core - offset * offset) - 0.1f32;
+        if inner > 0f32 {
+            return grate_bar(mut asset, layout, -outer, -inner, offset, axis) && grate_bar(
+                mut asset,
+                layout,
+                inner,
+                outer,
+                offset,
+                axis
+            );
+        }
+    }
+    return grate_bar(mut asset, layout, -outer, outer, offset, axis);
+}
+fn grate_bars(asset: mut RoomAsset, layout: ShaftGrateLayout) -> bool {
+    var extent: i32 = panel_pixel_extent(layout.radius / layout.pitch, 1u32) as i32;
+    var row: i32 = -extent;
+    while row <= extent {
+        var offset: f32 = row as f32 * layout.pitch;
+        if !grate_row(mut asset, layout, offset, 0u32) || !grate_row(
+            mut asset,
+            layout,
+            offset,
+            1u32
+        ) {
+            return false;
+        }
+        row = row + 1i32;
+    }
+    return true;
+}
+fn grate_face_vertex(radius: f32, side: u32, height: f32, pitch: f32) -> MeshVertex {
+    var angle: f32 = (side % SHAFT_GRATE_FACE_SIDES) as f32 * 6.28318530718f32 / SHAFT_GRATE_FACE_SIDES as f32;
+    var x: f32 = radius * cosf(angle);
+    var z: f32 = radius * sinf(angle);
+    return make MeshVertex {
+        x: x,
+        y: height,
+        z: z,
+        u: x / pitch,
+        v: z / pitch
+    };
+}
+fn grate_faces(asset: mut RoomAsset, layout: ShaftGrateLayout, height: f32) -> bool {
+    var outer: f32 = layout.radius / cosf(3.14159265359f32 / SHAFT_GRATE_FACE_SIDES as f32);
+    var side: u32 = 0u32;
+    while side < SHAFT_GRATE_FACE_SIDES {
+        var layer: u32 = 0u32;
+        while layer < 2u32 {
+            var y: f32 = height + (layer as f32 - 0.5f32) * SHAFT_GRATE_DEPTH;
+            var a: MeshVertex = grate_face_vertex(layout.core, side, y, layout.pitch);
+            var b: MeshVertex = grate_face_vertex(outer, side, y, layout.pitch);
+            var c: MeshVertex = grate_face_vertex(outer, side + 1u32, y, layout.pitch);
+            var d: MeshVertex = grate_face_vertex(
+                layout.core,
+                side + 1u32,
+                y,
+                layout.pitch
+            );
+            if layer == 0u32 {
+                if !grate_cutout_quad(mut asset.decals, a, b, c, d) {
+                    return false;
+                }
+            } else {
+                if !grate_cutout_quad(mut asset.decals, d, c, b, a) {
+                    return false;
+                }
+            }
+            layer = layer + 1u32;
+        }
+        side = side + 1u32;
+    }
+    return true;
+}
+fn shaft_grate_geometry(asset: mut RoomAsset, layout: ShaftGrateLayout) -> bool {
+    if !grate_bars(mut asset, layout) {
+        return false;
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !annular_band_mesh(
+        mut asset.geometry,
+        layout.core * 0.98f32,
+        layout.core + 0.25f32,
+        SHAFT_GRATE_FRAME_DEPTH,
+        7u32,
+        2f32
+    ) || !annular_band_mesh(
+        mut asset.geometry,
+        layout.radius - 0.25f32,
+        layout.radius + 0.1f32,
+        SHAFT_GRATE_FRAME_DEPTH,
+        7u32,
+        2f32
+    ) {
+        return false;
+    }
+    var count: u32 = mesh_triangle_count(read asset.geometry) - first;
+    var station: u32 = 0u32;
+    while station < layout.count {
+        var y: f32 = layout.height * (station + 1u32) as f32 / (layout.count + 1u32) as f32;
+        if !asset_part_append(
+            mut asset.parts,
+            make AssetPart {
+                name: asset_name("grate-frame"),
+                first: first,
+                count: count,
+                origin: vec(0f32, y, 0f32),
+                basis: identity_basis()
+            }
+        ) || !grate_faces(mut asset, layout, y) {
+            return false;
+        }
+        station = station + 1u32;
+    }
+    return true;
+}
+
+fn grate_cutout_quad(
+    mesh: mut Mesh,
+    a: MeshVertex,
+    b: MeshVertex,
+    c: MeshVertex,
+    d: MeshVertex
+) -> bool {
+    var points: [MeshVertex; 4] = make [MeshVertex; 4] {
+        a,
+        b,
+        c,
+        d
+    };
+    var i: u32 = 1u32;
+    while i < 3u32 {
+        if !mesh_append(
+            mut mesh,
+            make MeshTriangle {
+                vertices: make [MeshVertex; 3] {
+                    points[0usize],
+                    points[i as usize],
+                    points[(i + 1u32) as usize]
+                },
+                material: 3u32,
+                portal: 0u32,
+                flags: 3u32
+            }
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

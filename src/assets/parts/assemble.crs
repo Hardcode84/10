@@ -1,12 +1,25 @@
 // Append each placed part as a closed solid in the requested room space.
 fn room_parts_collision(asset: read RoomAsset, builder: mut CollisionBuilder, space: u32) -> bool {
+    return asset_parts_collision(read asset.geometry, read asset.parts, mut builder, space) && asset_parts_collision(
+        read asset.geometry,
+        read asset.colliders,
+        mut builder,
+        space
+    );
+}
+fn asset_parts_collision(
+    geometry: read Mesh,
+    parts: read AssetParts,
+    builder: mut CollisionBuilder,
+    space: u32
+) -> bool {
     var i: u32 = 0u32;
-    while i < asset_part_count(read asset.parts) {
-        var part: AssetPart = asset_part(read asset.parts, i);
+    while i < asset_part_count(read parts) {
+        var part: AssetPart = asset_part(read parts, i);
         var mesh: Mesh = mesh_new();
         var j: u32 = 0u32;
         while j < part.count {
-            if !mesh_append(mut mesh, mesh_triangle(read asset.geometry, part.first + j)) {
+            if !mesh_append(mut mesh, mesh_triangle(read geometry, part.first + j)) {
                 return false;
             }
             j = j + 1u32;

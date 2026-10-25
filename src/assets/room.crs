@@ -10,6 +10,8 @@ record RoomAsset {
     // Room-local visual surfaces, appended after solids and excluded from collision.
     decals: Mesh;
     parts: AssetParts;
+    // Collision-only solids use geometry ranges without adding render instances.
+    colliders: AssetParts;
     door_leaves: AssetParts;
     lights: FixtureLights;
     routes: PipeRouter;
@@ -26,6 +28,7 @@ fn room_asset_new() -> RoomAsset {
         geometry: mesh_new(),
         decals: mesh_new(),
         parts: asset_parts_new(),
+        colliders: asset_parts_new(),
         door_leaves: asset_parts_new(),
         lights: fixture_lights_new(),
         routes: pipe_router_new(-1f32, 0u32),

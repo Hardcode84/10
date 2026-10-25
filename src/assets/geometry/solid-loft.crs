@@ -269,3 +269,20 @@ fn solid_box_wrap_frame(normal: Vec3, dimensions: Vec3, tile: f32) -> SurfaceFra
         normal: normal
     };
 }
+
+fn solid_mesh_quad(
+    mesh: mut Mesh,
+    a: MeshVertex,
+    b: MeshVertex,
+    c: MeshVertex,
+    d: MeshVertex,
+    region: u32
+) -> bool {
+    return tube_triangle(mut mesh, a, b, c, region) && tube_triangle(
+        mut mesh,
+        a,
+        c,
+        d,
+        region
+    );
+}

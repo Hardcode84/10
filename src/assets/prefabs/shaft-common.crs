@@ -95,6 +95,9 @@ fn shaft_core(asset: mut RoomAsset, radius: f32, height: f32, spacing: f32) -> b
     );
 }
 fn shaft_track_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return shaft_track_material_band(region, read parameters, 0.8f32);
+}
+fn shaft_track_material_band(region: u32, parameters: read AssetValues, band_width: f32) -> PanelMaterial {
     var material: PanelMaterial = shaft_surface_material(region);
     var diameter: f32 = asset_value(read parameters, 1u32);
     if region == 2u32 {
@@ -104,7 +107,7 @@ fn shaft_track_material(region: u32, parameters: read AssetValues) -> PanelMater
     material.tile_height = asset_value(read parameters, 0u32) / (
         asset_value(read parameters, 3u32) + 1f32
     );
-    material.band_width = 0.8f32;
+    material.band_width = band_width;
     var span: f32 = material.tile_height - material.band_width;
     var rows: u32 = panel_pixel_extent(span, 1u32);
     material.panel_height = span / rows as f32;

@@ -1,0 +1,28 @@
+// A fixed grate across a shaft, with a continuous central spindle.
+// BOTTOM and TOP use the shared SHAFT profile. Local +Y is the shaft axis.
+// The grate blocks ordinary drone flight. Default cells admit a small hook.
+// Cell size and bar width are metres. Bar edges snap to generated texel edges.
+// Cutout faces, visible bar sides, and solid bar colliders use the same pattern.
+// A wall frame and spindle collar cover partial cells at the annulus boundaries.
+// One grate is present by default. Service pipes occupy the spaces on both sides.
+// This room is a blocked shaft section. Give the level a lateral route around it.
+// Materials: 0 wall, 1 caps, 2 spindle, 3 cutout grate, 4 pipes, 5 flanges,
+// 6 leaks, 7 fixed frames, 8 bar sides.
+fn room_parameter_count() -> u32 {
+    return prefab_shaft_grate_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_shaft_grate_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_shaft_grate_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_shaft_grate_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return prefab_shaft_grate_material_count();
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_shaft_grate_material(region, read parameters);
+}

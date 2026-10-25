@@ -28,7 +28,7 @@ problem below names the dive first and the climb second.
 | Subbiome | Spaces | Flight problem | Current recipes |
 | --- | --- | --- | --- |
 | Hex tunnels | Narrow hexagonal tunnels with long straight stretches, junctions and side alcoves | Coast and corner the straights; on the climb, reach a junction or alcove before a pig, or slide through at speed | `hex-*` |
-| Shafts | Square grid of radial shafts, with grates, fans, supports, and octagonal cross tunnels | Change shafts around blocked sections; on the climb, use the same network against rotating fans and airflow | `shaft-*`, `oct-*`; grates, fan motion, and airflow require implementation |
+| Shafts | Square grid of radial shafts, with grates, fans, supports, and octagonal cross tunnels | Change shafts around blocked sections; on the climb, use the same network against rotating fans and airflow | `shaft-*`, `oct-*`; grate and fan prefabs exist; fan motion and airflow require implementation |
 
 #### Shafts: radial shaft grid
 
@@ -234,7 +234,7 @@ to recognise from a distance.
 | `shaft-station` | Rectangular through-shaft room with four OCT-8M side mouths, seeded wall pipe routes, and a continuous spindle; assemble these into the grid |
 | `oct-*` passages and closures | Fit cross tunnels to station frames and distinguish permanent closures from operating doors |
 | `shaft-hub` | Use only where its single shaft end and octagonal branches fit the layout; it cannot replace a through-shaft side station |
-| Fixed girder rails and cutout web | Add a separate grate recipe with matching visible and collision geometry |
+| `shaft-grate` | Fixed cutout grid with matching solid bars; place it on blocked axial edges |
 | Fan blade pivots | Connect deterministic motion and local airflow to the fan assembly |
 | Moving collision and hook anchors | Apply the game design's machinery damage and checkpoint rules; share motion with rendering and prediction |
 

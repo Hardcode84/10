@@ -136,11 +136,20 @@ fn shaft_fan_geometry(asset: mut RoomAsset, parameters: read AssetValues) -> boo
     }
     var count: u32 = mesh_triangle_count(read asset.geometry) - first;
     var housing: u32 = mesh_triangle_count(read asset.geometry);
-    if !fan_band_mesh(mut asset.geometry, core * 0.98f32, core + 0.35f32, depth + 0.6f32) || !fan_band_mesh(
+    if !annular_band_mesh(
+        mut asset.geometry,
+        core * 0.98f32,
+        core + 0.35f32,
+        depth + 0.6f32,
+        7u32,
+        FAN_TEXTURE_METRES
+    ) || !annular_band_mesh(
         mut asset.geometry,
         radius - 0.35f32,
         radius + 0.1f32,
-        depth + 0.6f32
+        depth + 0.6f32,
+        7u32,
+        FAN_TEXTURE_METRES
     ) {
         return false;
     }
@@ -197,8 +206,11 @@ fn prefab_shaft_fan_material_count() -> u32 {
 }
 fn prefab_shaft_fan_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     if region == 0u32 || region == 2u32 {
-        var track: PanelMaterial = shaft_track_material(region, read parameters);
-        track.band_width = asset_value(read parameters, 6u32) + 0.6f32;
+        var track: PanelMaterial = shaft_track_material_band(
+            region,
+            read parameters,
+            asset_value(read parameters, 6u32) + 0.6f32
+        );
         return track;
     }
     var material: PanelMaterial = shaft_surface_material(region);

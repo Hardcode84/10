@@ -1,0 +1,146 @@
+fn prefab_shaft_grate_parameter_count() -> u32 {
+    return 7u32;
+}
+fn prefab_shaft_grate_parameter_name(index: u32) -> AssetName {
+    if index == 3u32 {
+        return asset_name("grate-count");
+    }
+    if index == 5u32 {
+        return asset_name("cell-size");
+    }
+    if index == 6u32 {
+        return asset_name("bar-width");
+    }
+    return shaft_parameter_name(index);
+}
+fn prefab_shaft_grate_parameter(index: u32) -> AssetParameter {
+    if index == 5u32 {
+        return make AssetParameter {
+            minimum: 0.3f32,
+            maximum: 0.6f32,
+            initial: 0.6f32,
+            step: 0.05f32
+        };
+    }
+    if index == 6u32 {
+        return make AssetParameter {
+            minimum: 0.08f32,
+            maximum: 0.2f32,
+            initial: 0.12f32,
+            step: 0.02f32
+        };
+    }
+    var result: AssetParameter = shaft_parameter(index);
+    if index == 3u32 {
+        result.initial = 1f32;
+    }
+    return result;
+}
+fn shaft_grate_mask(parameters: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = shaft_surface_material(3u32);
+    material.finish = METAL_GRATE;
+    material.colour = 0x777b70u32;
+    material.tile_metres = asset_value(read parameters, 5u32);
+    material.tile_height = material.tile_metres;
+    material.border = grate_texel_bar_width(
+        material.tile_metres,
+        asset_value(read parameters, 6u32),
+        material.texels_per_metre
+    );
+    return material;
+}
+fn shaft_grate_layout(parameters: read AssetValues) -> ShaftGrateLayout {
+    return make ShaftGrateLayout {
+        radius: asset_value(read parameters, 1u32) * 0.5f32,
+        core: asset_value(read parameters, 2u32) * 0.5f32,
+        height: asset_value(read parameters, 0u32),
+        count: asset_value(read parameters, 3u32) as u32,
+        pitch: asset_value(read parameters, 5u32),
+        bar: shaft_grate_mask(read parameters).border
+    };
+}
+fn shaft_grate_valid(parameters: read AssetValues) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_shaft_grate_parameter_count() {
+        var value: f32 = asset_value(read parameters, i);
+        if !asset_parameter_valid(prefab_shaft_grate_parameter(i), value) {
+            return false;
+        }
+        if (i == 3u32 || i == 4u32) && value != value as u32 as f32 {
+            return error("grate-count and pipe-seed must be integers");
+        }
+        i = i + 1u32;
+    }
+    var layout: ShaftGrateLayout = shaft_grate_layout(read parameters);
+    if layout.height / (layout.count + 1u32) as f32 < 4f32 {
+        return error("grates need at least 4 m between station centres");
+    }
+    if layout.radius - layout.core < 2f32 {
+        return error("shaft needs clearance between its spindle and wall");
+    }
+    if layout.bar >= layout.pitch {
+        return error("grate bars must leave open cells");
+    }
+    return true;
+}
+fn shaft_grate_pipes(asset: mut RoomAsset, layout: ShaftGrateLayout, seed: u32) -> bool {
+    var gap: f32 = layout.height / (layout.count + 1u32) as f32;
+    var clearance: f32 = SHAFT_GRATE_FRAME_DEPTH * 0.5f32 + SHAFT_SERVICE_CLEARANCE;
+    var i: u32 = 0u32;
+    while i <= layout.count {
+        if !shaft_service_bay(
+            mut asset,
+            make ShaftPipeBay {
+                radius: layout.radius,
+                core: layout.core,
+                low: gap * i as f32 + clearance,
+                high: gap * (i + 1u32) as f32 - clearance,
+                station: i,
+                seed: metal_hash(i, 0u32, seed)
+            }
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn prefab_shaft_grate_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if !shaft_grate_valid(read parameters) {
+        return false;
+    }
+    var layout: ShaftGrateLayout = shaft_grate_layout(read parameters);
+    return shaft_room_shell(
+        mut asset,
+        layout.radius,
+        layout.core,
+        layout.height,
+        layout.count
+    ) && shaft_grate_geometry(mut asset, layout) && shaft_grate_pipes(
+        mut asset,
+        layout,
+        asset_value(read parameters, 4u32) as u32
+    ) && room_asset_finish(mut asset);
+}
+fn prefab_shaft_grate_material_count() -> u32 {
+    return 9u32;
+}
+fn prefab_shaft_grate_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == 3u32 {
+        return shaft_grate_mask(read parameters);
+    }
+    if region == 0u32 || region == 2u32 {
+        return shaft_track_material_band(region, read parameters, SHAFT_GRATE_FRAME_DEPTH);
+    }
+    var material: PanelMaterial = shaft_surface_material(region);
+    if region == 7u32 {
+        material.colour = 0x43483fu32;
+        material.finish = METAL_RIBBED;
+        material.pitch = 0.25f32;
+    }
+    if region == 8u32 {
+        material.colour = shaft_grate_mask(read parameters).colour;
+        material.finish = METAL_PLAIN;
+    }
+    return material;
+}

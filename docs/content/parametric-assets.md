@@ -78,7 +78,9 @@ Room parts contain closed, outward-facing solid geometry in local coordinates.
 Each placement selects a triangle range, a label, and a rigid pivot frame.
 Several placements can share one geometry range. Part indices identify placements;
 labels can repeat. The room build appends placed triangles after the shell and
-creates one solid collider per placement. Connected rooms keep these solid
+creates one solid collider per placement. A separate collision-only placement
+list can pair solid bars with cutout render faces. Both outputs must use the same
+pattern and dimensions. Connected rooms keep these solid
 colliders when they open the shell ports. Spawn checks include solid parts. A room can disable player spawning and supply
 only a preview camera pose. Such rooms can be shallower than the player diameter.
 Game and demo entry points reject these rooms as starting locations.
