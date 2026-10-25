@@ -1,0 +1,42 @@
+fn shaft_region_grates(graph: mut RoomGraph, builder: mut CollisionBuilder, mesh: mut Mesh) -> bool {
+    var asset: RoomAsset = room_asset_new();
+    var values: AssetValues = asset_values_new();
+    if !shaft_region_values(PREFAB_SHAFT_GRATE, mut values) || !course_build(
+        PREFAB_SHAFT_GRATE,
+        read values,
+        mut asset
+    ) {
+        return false;
+    }
+    var count: u32 = graph_ports(read graph);
+    var i: u32 = 0u32;
+    while i < count {
+        var socket: GraphSocket = graph_socket(read graph, i);
+        if socket.peer == SHAFT_GRID_NONE && graph_node(read graph, socket.room).kind == PREFAB_SHAFT_STATION && asset_names_equal(
+            socket.port.profile.name,
+            shaft_profile(shaft_parameter(1u32).initial).name
+        ) {
+            var cursor: LevelCursor = shaft_region_cursor(socket.room, socket.port.id);
+            var room: u32 = graph_count(read graph);
+            if !course_room_mesh(
+                read asset,
+                mut graph,
+                mut builder,
+                mut mesh,
+                PREFAB_SHAFT_GRATE,
+                0u32
+            ) {
+                return false;
+            }
+            level_attach(
+                mut graph,
+                mut cursor,
+                room,
+                asset_name("BOTTOM"),
+                asset_name("TOP")
+            );
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

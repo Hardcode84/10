@@ -48,6 +48,9 @@ fn shaft_region_close_kind(
     return true;
 }
 fn shaft_region_close(graph: mut RoomGraph, builder: mut CollisionBuilder, mesh: mut Mesh) -> bool {
+    if !shaft_region_grates(mut graph, mut builder, mut mesh) {
+        return false;
+    }
     var kinds: [u32; 5] = make [u32; 5] {
         PREFAB_SHAFT_CAP_BEARING,
         PREFAB_SHAFT_CAP_COLLECTOR,
@@ -142,13 +145,14 @@ fn shaft_region_passages(
     mesh: mut Mesh,
     rooms: read GenerationWords
 ) -> bool {
-    var kinds: [u32; 3] = make [u32; 3] {
+    var kinds: [u32; 4] = make [u32; 4] {
         PREFAB_SHAFT_PIPES,
         PREFAB_SHAFT_GIRDERS,
+        PREFAB_SHAFT_ROTOR,
         PREFAB_SHAFT_FAN
     };
     var i: u32 = 0u32;
-    while i < 3u32 {
+    while i < 4u32 {
         if !shaft_region_radials(
             read grid,
             mut graph,
@@ -221,7 +225,7 @@ fn shaft_region_build(
     // Capacity includes fan chains and their bypasses, lateral sleeves, and station caps.
     if !graph_allocate(
         mut graph,
-        shaft_grid_stations() * 7u32 + shaft_grid_axials() * 12u32 + 6u32 * shaft_grid_lateral_axis() + 1u32,
+        shaft_grid_stations() * 9u32 + shaft_grid_axials() * 12u32 + 6u32 * shaft_grid_lateral_axis() + 1u32,
         seed
     ) {
         return false;
@@ -277,15 +281,17 @@ fn shaft_region_palette(input: mut FrameInput) -> bool {
     if !course_material_defaults(mut configuration) {
         return false;
     }
-    var kinds: [u32; 5] = make [u32; 5] {
+    var kinds: [u32; 7] = make [u32; 7] {
         PREFAB_SHAFT_PIPES,
         PREFAB_SHAFT_GIRDERS,
+        PREFAB_SHAFT_ROTOR,
         PREFAB_SHAFT_FAN,
         PREFAB_SHAFT_CLEAR,
-        PREFAB_SHAFT_COLLAR
+        PREFAB_SHAFT_COLLAR,
+        PREFAB_SHAFT_GRATE
     };
     var i: u32 = 0u32;
-    while i < 5u32 {
+    while i < 7u32 {
         var kind: u32 = kinds[i as usize];
         var values: AssetValues = asset_values_new();
         if !shaft_region_values(kind, mut values) {

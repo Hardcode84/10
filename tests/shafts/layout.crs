@@ -252,6 +252,74 @@ fn shaft_layout_bypasses(scene: read CollisionScene, graph: read RoomGraph) -> b
     }
     return found || error("shaft assembly fixture needs a fan bypass");
 }
+fn shaft_layout_grate(scene: read CollisionScene, graph: read RoomGraph, room: u32) -> bool {
+    var end: GraphSocket = graph_socket(
+        read graph,
+        course_socket(read graph, room, asset_name("TOP"))
+    );
+    var cap: u32 = graph_node(read graph, graph_socket(read graph, end.peer).room).kind;
+    if cap != PREFAB_SHAFT_CAP_BEARING && cap != PREFAB_SHAFT_CAP_COLLECTOR && cap != PREFAB_SHAFT_CAP_FILTER {
+        return error("blocked grate shaft needs a closed enclosure behind it");
+    }
+    var centre: f32 = end.port.position.y * 0.5f32;
+    var radius: f32 = (shaft_parameter(1u32).initial + shaft_parameter(2u32).initial) * 0.25f32;
+    var i: u32 = 0u32;
+    while i < 8u32 {
+        var angle: f32 = 6.28318530718f32 * i as f32 / 8f32;
+        var drone: Drone = new_drone();
+        drone.world = room;
+        drone.position = vec(radius * cosf(angle), centre - 1f32, radius * sinf(angle));
+        if !collision_position_valid_at(
+            read scene,
+            room,
+            drone.position,
+            DRONE_RADIUS,
+            0f32
+        ) {
+            return error("grate approach sample overlaps geometry");
+        }
+        move_drone(read scene, mut drone, vec(0f32, 2f32, 0f32));
+        if drone.world != room || drone.position.y >= centre {
+            return error("blocked grate shaft permits drone passage");
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn shaft_layout_variety(scene: read CollisionScene, graph: read RoomGraph) -> bool {
+    var grates: u32 = 0u32;
+    var rotors: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < graph_count(read graph) {
+        var kind: u32 = graph_node(read graph, i).kind;
+        if kind == PREFAB_SHAFT_GRATE {
+            grates = grates + 1u32;
+            if !shaft_layout_grate(read scene, read graph, i) {
+                return false;
+            }
+        }
+        if kind == PREFAB_SHAFT_ROTOR {
+            rotors = rotors + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return (grates != 0u32 && rotors != 0u32) || error("shaft assembly omits grates or rotors");
+}
+fn shaft_layout_default_rotors() -> bool {
+    var grid: ShaftGrid = shaft_grid_new();
+    if !shaft_grid_generate(mut grid, 1u32, shaft_grid_defaults()) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < shaft_grid_axials() {
+        var edge: ShaftPassage = shaft_passage(read grid, i);
+        if edge.open && edge.required && shaft_region_radial_kind(edge) == PREFAB_SHAFT_ROTOR {
+            return true;
+        }
+        i = i + 1u32;
+    }
+    return error("default shaft route has no rotor passage");
+}
 fn shaft_layout_run() -> bool {
     var grid: ShaftGrid = shaft_grid_new();
     var rooms: GenerationWords = generation_words_new();
@@ -300,6 +368,9 @@ fn shaft_layout_run() -> bool {
     if !collision_finish(move builder, mut scene) || !level_install(read graph, mut scene) {
         return false;
     }
+    if !shaft_layout_variety(read scene, read graph) {
+        return false;
+    }
     shaft_layout_open_doors(mut scene, mut graph);
     if !shaft_layout_crossings(read scene, read graph) || !shaft_layout_bypasses(
         read scene,
@@ -313,5 +384,5 @@ fn shaft_layout_run() -> bool {
     return true;
 }
 fn main(argc: i32, argv: **u8) -> i32 {
-    return (!shaft_layout_run()) as i32;
+    return (!shaft_layout_default_rotors() || !shaft_layout_run()) as i32;
 }

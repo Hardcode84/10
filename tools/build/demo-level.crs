@@ -64,7 +64,8 @@ fn build_demo_target_providers(
     sources[source_count + 17usize] = host_path(root, "src/app/level/shafts/branches.crs");
     sources[source_count + 18usize] = host_path(root, "src/app/level/shafts/fans.crs");
     sources[source_count + 19usize] = host_path(root, "src/app/level/shafts/bypass.crs");
-    source_count = source_count + 20usize;
+    sources[source_count + 20usize] = host_path(root, "src/app/level/shafts/grates.crs");
+    source_count = source_count + 21usize;
     if check != null(*u8) {
         sources[source_count] = host_path(root, check);
         source_count = source_count + 1usize;

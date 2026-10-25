@@ -218,7 +218,13 @@ loop around the fan without changing station positions or the base route
 budget. The room graph contains all bypass rooms and connections. Small
 service pipes stay in the clear approaches. The fan remains static.
 
-Each unused radial port ends in a closed bearing, collector, or filter cap.
+Internal traversable intervals use fans, girders, and rotor shafts. Non-fan
+intervals alternate between girders and rotors across neighbouring columns.
+Rotors remain static. Terminal intervals use pipe shafts.
+
+Each unused station radial port leads into a short grate shaft. The grate
+blocks ordinary drone flight. A closed bearing, collector, or filter cap
+seals its far end. This enclosed branch does not connect to another station.
 Each unused lateral port has a closed octagonal stopper. The outlet has an
 additional stopper at its far end to enclose the standalone region. All closed
 passages remain closed during the dive and return.

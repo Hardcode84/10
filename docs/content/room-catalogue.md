@@ -370,7 +370,7 @@ to recognise from a distance.
 | `shaft-collar` | Convex through-shaft collar with a HEX-6M side port and a continuous spindle; use paired collars for a local fan bypass |
 | `oct-*` passages and closures | Fit cross tunnels to station frames and distinguish permanent closures from operating doors |
 | `shaft-hub` | Use only where its single shaft end and octagonal branches fit the layout; it cannot replace a through-shaft side station |
-| `shaft-grate` | Fixed cutout grid with matching solid bars; place it on blocked axial edges |
+| `shaft-grate` | Fixed cutout grid with matching solid bars; generated at unused station shaft ports with a closed cap behind it |
 | Fan blade pivots | Connect deterministic motion and local airflow to the fan assembly |
 | Moving collision and hook anchors | Apply the game design's machinery damage and checkpoint rules; share motion with rendering and prediction |
 

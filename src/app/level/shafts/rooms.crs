@@ -2,13 +2,16 @@ fn shaft_region_values(kind: u32, values: mut AssetValues) -> bool {
     if !course_values(kind, 0u32, mut values) {
         return false;
     }
-    if kind == PREFAB_SHAFT_PIPES || kind == PREFAB_SHAFT_GIRDERS {
+    if kind == PREFAB_SHAFT_PIPES || kind == PREFAB_SHAFT_GIRDERS || kind == PREFAB_SHAFT_ROTOR {
         asset_value_set(
             mut values,
             0u32,
             shaft_region_passage_height(kind == PREFAB_SHAFT_PIPES)
         );
         asset_value_set(mut values, 3u32, SHAFT_GRID_SUBDIVISIONS as f32);
+    }
+    if kind == PREFAB_SHAFT_GRATE {
+        asset_value_set(mut values, 0u32, prefab_shaft_grate_parameter(0u32).minimum);
     }
     if kind == PREFAB_SHAFT_CLEAR {
         asset_value_set(mut values, 0u32, shaft_region_fan_approach_height());
@@ -88,6 +91,9 @@ fn shaft_region_radial_kind(edge: ShaftPassage) -> u32 {
     }
     if edge.a / shaft_grid_columns() % 2u32 == 0u32 {
         return PREFAB_SHAFT_FAN;
+    }
+    if (edge.a % SHAFT_GRID_WIDTH + edge.a / SHAFT_GRID_WIDTH % SHAFT_GRID_WIDTH) % 2u32 == 0u32 {
+        return PREFAB_SHAFT_ROTOR;
     }
     return PREFAB_SHAFT_GIRDERS;
 }
