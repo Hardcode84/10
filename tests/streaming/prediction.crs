@@ -15,9 +15,9 @@ fn stream_prediction_equal(a: read Prediction, b: read Prediction) -> bool {
     }
     return true;
 }
-// Collision stays resident while a worker forecast overlaps GPU mesh replacement.
+// Worker and display snapshots retain geometry while the source room unloads.
 fn stream_prediction(
-    scene: read CollisionScene,
+    scene: mut CollisionScene,
     session: mut GameSession,
     loop: mut GameLoop,
     config: GameConfig,
@@ -48,7 +48,6 @@ fn stream_prediction(
         mut scratch,
         mut doors
     );
-    var work: PredictionTask = prediction_start(mut context, read scene, read loop.trial);
     stream_visibility(
         read session.control.graph,
         loop.trial.drone.world,
@@ -56,14 +55,17 @@ fn stream_prediction(
         2u32,
         mut selected
     );
-    if !stream_upload(mut session, read selected) || !stream_draw(
-        read scene,
+    return stream_prediction_unload(
+        mut scene,
         mut session,
         read loop,
-        config
-    ) {
-        return false;
-    }
+        config,
+        read selected,
+        mut context,
+        read expected
+    );
+}
+fn stream_prediction_complete(work: mut PredictionTask, expected: read Prediction) -> bool {
     while prediction_task_poll(read work) == 0i32 {
         prediction_task_idle(read work);
     }
@@ -72,10 +74,71 @@ fn stream_prediction(
     }
     var actual: Prediction = prediction_task_result(mut work);
     if expected.count == 0u32 || !stream_prediction_equal(read expected, read actual) {
-        return error("streaming forecast changed across mesh replacement");
+        return error("streaming forecast changed across room unload");
     }
-    puts("forecast_markers,hook_phase");
-    stream_number(actual.count as u64, false);
-    stream_number(loop.trial.drone.cable.phase as u64, true);
+    puts("forecast_markers");
+    stream_number(actual.count as u64, true);
     return true;
+}
+
+fn stream_prediction_unload(
+    scene: mut CollisionScene,
+    session: mut GameSession,
+    loop: read GameLoop,
+    config: GameConfig,
+    selected: read GenerationWords,
+    context: mut PredictionContext,
+    expected: read Prediction
+) -> bool {
+    var pixels: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut pixels, config.width * config.height) || !stream_upload(
+        mut session,
+        read selected
+    ) || !stream_draw(read scene, mut session, read loop, config) {
+        return false;
+    }
+    stream_pixels(
+        &session.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        true
+    );
+    var display: CollisionScene = collision_new();
+    var start: u64 = now();
+    if !collision_snapshot(read scene, mut display) {
+        return false;
+    }
+    var elapsed: u64 = now() - start;
+    var pin: CollisionRoom = collision_room_pin(read scene, loop.trial.drone.world);
+    var bytes: u64 = collision_bytes(read scene);
+    collision_room_unload(mut scene, loop.trial.drone.world);
+    if collision_room_resident(read scene, loop.trial.drone.world) {
+        return error("forecast source room did not unload");
+    }
+    var released: u64 = bytes - collision_bytes(read scene);
+    var work: PredictionTask = prediction_start(mut context, read scene, read loop.trial);
+    var good: bool = stream_draw(read display, mut session, read loop, config);
+    var predicted: bool = stream_prediction_complete(mut work, read expected);
+    collision_room_restore(mut scene, read pin);
+    if !good || !predicted {
+        return false;
+    }
+    var changed: u32 = stream_pixels(
+        &session.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        false
+    );
+    puts(
+        "snapshot_ns,snapshot_private_bytes,referenced_geometry_bytes,unloaded_room_bytes,pixel_changes"
+    );
+    var geometry: u64 = collision_chunks_bytes(read display) - display.chunk_count as u64 * sizeof(
+        *CollisionChunk
+    ) as u64;
+    stream_number(elapsed, false);
+    stream_number(collision_bytes(read display) - geometry, false);
+    stream_number(geometry, false);
+    stream_number(released, false);
+    stream_number(changed as u64, true);
+    return changed == 0u32 || error("room unload changed a retained display snapshot");
 }

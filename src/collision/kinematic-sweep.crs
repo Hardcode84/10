@@ -9,7 +9,7 @@ fn collision_rotating_face(
     duration: f32
 ) -> CollisionSweep {
     var item: CollisionInstance = collision_instance(read scene, index);
-    var face_data: CollisionFace = collision_face(read scene, item.first + face);
+    var face_data: CollisionFace = collision_face(read scene, item.chunk, item.first + face);
     var bound: f32 = length(sub(d, scale(item.linear, duration))) + length(item.angular) * duration * collision_reach(
         item
     );

@@ -255,7 +255,7 @@ fn collision_exhaustive_instance(
         var next: CollisionContact = collision_surface(
             local_p,
             local_d,
-            collision_face(read scene, item.first + i),
+            collision_face(read scene, item.chunk, item.first + i),
             radius
         );
         if next.hit.time < result.hit.time || (

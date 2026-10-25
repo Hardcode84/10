@@ -1,0 +1,250 @@
+record CollisionChunk {
+    references: i32;
+    faces: *CollisionFace;
+    face_count: u32;
+    nodes: *CollisionNode;
+    node_count: u32;
+}
+opaque;
+resource CollisionRoom {
+    chunk: *CollisionChunk;
+    slot: u32;
+}
+opaque share drop collision_room_drop;
+fn collision_chunk_retain(chunk: *CollisionChunk) -> unit {
+    if chunk != null(*CollisionChunk) {
+        reference_retain(&chunk -> references);
+    }
+}
+fn collision_chunk_release(chunk: *CollisionChunk) -> unit {
+    if chunk != null(*CollisionChunk) && reference_release(&chunk -> references) {
+        free(chunk -> faces as *u8);
+        free(chunk -> nodes as *u8);
+        free(chunk as *u8);
+    }
+}
+fn collision_room_drop(room: mut CollisionRoom) -> unit {
+    collision_chunk_release(room.chunk);
+}
+fn collision_chunks_drop(scene: mut CollisionScene) -> unit {
+    var i: u32 = 0u32;
+    while i < scene.chunk_count {
+        collision_chunk_release(scene.chunks[i as usize]);
+        i = i + 1u32;
+    }
+    free(scene.chunks as *u8);
+}
+// Queries require a resident chunk. Admission must check residency before use.
+fn collision_chunk(scene: read CollisionScene, slot: u32) -> *CollisionChunk {
+    return scene.chunks[slot as usize];
+}
+fn collision_room_resident(scene: read CollisionScene, space: u32) -> bool {
+    var slot: u32 = collision_space_slot(read scene, space);
+    return slot == 0xffffffffu32 || scene.chunks[slot as usize] != null(*CollisionChunk);
+}
+// Keeps the room geometry alive independently of the scene and its snapshots.
+// The room must be resident.
+fn collision_room_pin(scene: read CollisionScene, space: u32) -> CollisionRoom {
+    var slot: u32 = collision_space_slot(read scene, space);
+    var chunk: *CollisionChunk = null(*CollisionChunk);
+    if slot != 0xffffffffu32 {
+        chunk = collision_chunk(read scene, slot);
+        if chunk == null(*CollisionChunk) {
+            trap;
+        }
+    }
+    collision_chunk_retain(chunk);
+    return make CollisionRoom {
+        chunk: chunk,
+        slot: slot
+    };
+}
+// Removes this scene's reference. Other snapshots and pins keep their references.
+// The caller must exclude this room from admitted physics and audio queries.
+fn collision_room_unload(scene: mut CollisionScene, space: u32) -> unit {
+    var slot: u32 = collision_space_slot(read scene, space);
+    if slot == 0xffffffffu32 {
+        return;
+    }
+    var chunk: *CollisionChunk = scene.chunks[slot as usize];
+    scene.chunks[slot as usize] = null(*CollisionChunk);
+    collision_chunk_release(chunk);
+}
+// Restores geometry from this scene's construction, or a snapshot of it.
+// The target room must be unloaded. Motion state and instance identities survive.
+fn collision_room_restore(scene: mut CollisionScene, room: read CollisionRoom) -> unit {
+    if room.slot == 0xffffffffu32 {
+        return;
+    }
+    if scene.chunks[room.slot as usize] != null(*CollisionChunk) {
+        trap;
+    }
+    collision_chunk_retain(room.chunk);
+    scene.chunks[room.slot as usize] = room.chunk;
+}
+fn collision_chunk_bytes(chunk: *CollisionChunk) -> u64 {
+    if chunk == null(*CollisionChunk) {
+        return 0u64;
+    }
+    return sizeof(CollisionChunk) as u64 + chunk -> face_count as u64 * sizeof(CollisionFace) as u64 + chunk -> node_count as u64 * sizeof(
+        CollisionNode
+    ) as u64;
+}
+fn collision_chunks_bytes(scene: read CollisionScene) -> u64 {
+    var bytes: u64 = scene.chunk_count as u64 * sizeof(*CollisionChunk) as u64;
+    var i: u32 = 0u32;
+    while i < scene.chunk_count {
+        bytes = bytes + collision_chunk_bytes(scene.chunks[i as usize]);
+        i = i + 1u32;
+    }
+    return bytes;
+}
+fn collision_chunks_allocate(scene: mut CollisionScene) -> bool {
+    if scene.space_count == 0u32 {
+        return true;
+    }
+    scene.chunks = malloc(scene.space_count as usize * sizeof(*CollisionChunk)) as **CollisionChunk;
+    if scene.chunks == null(**CollisionChunk) {
+        return error("collision room table allocation failed");
+    }
+    scene.chunk_count = scene.space_count;
+    zero(scene.chunks as *u8, scene.chunk_count as usize * sizeof(*CollisionChunk));
+    return true;
+}
+fn collision_chunk_allocate(faces: u32, nodes: u32) -> *CollisionChunk {
+    var chunk: *CollisionChunk = malloc(sizeof(CollisionChunk)) as *CollisionChunk;
+    if chunk == null(*CollisionChunk) {
+        return chunk;
+    }
+    chunk -> references = 1i32;
+    chunk -> face_count = faces;
+    chunk -> node_count = nodes;
+    chunk -> faces = null(*CollisionFace);
+    chunk -> nodes = null(*CollisionNode);
+    if faces != 0u32 {
+        chunk -> faces = malloc(faces as usize * sizeof(CollisionFace)) as *CollisionFace;
+    }
+    if nodes != 0u32 {
+        chunk -> nodes = malloc(nodes as usize * sizeof(CollisionNode)) as *CollisionNode;
+    }
+    if (faces != 0u32 && chunk -> faces == null(*CollisionFace)) || (
+        nodes != 0u32 && chunk -> nodes == null(*CollisionNode)
+    ) {
+        collision_chunk_release(chunk);
+        return null(*CollisionChunk);
+    }
+    return chunk;
+}
+fn collision_chunk_nodes(
+    scene: read CollisionScene,
+    chunk: *CollisionChunk,
+    source: u32,
+    end: u32,
+    target: u32
+) -> unit {
+    var i: u32 = source;
+    while i < end {
+        var node: CollisionNode = scene.nodes[i as usize];
+        node.skip = target + node.skip - source;
+        chunk -> nodes[(target + i - source) as usize] = node;
+        i = i + 1u32;
+    }
+}
+fn collision_chunk_instance(
+    scene: mut CollisionScene,
+    slot: u32,
+    id: u32,
+    face_offset: u32,
+    node_offset: u32
+) -> unit {
+    var item: *CollisionInstance = &scene.data.instances[id as usize];
+    var chunk: *CollisionChunk = scene.chunks[slot as usize];
+    var i: u32 = 0u32;
+    while i < item -> count {
+        var face: CollisionFace = scene.data.faces[(item -> first + i) as usize];
+        var edge: usize = 0usize;
+        while edge < 3usize {
+            if face.neighbours[edge] != 0xffffffffu32 {
+                face.neighbours[edge] = face_offset + face.neighbours[edge] - item -> first;
+            }
+            edge = edge + 1usize;
+        }
+        chunk -> faces[(face_offset + i) as usize] = face;
+        i = i + 1u32;
+    }
+    var count: u32 = item -> end - item -> root;
+    collision_chunk_nodes(read scene, chunk, item -> root, item -> end, node_offset);
+    item -> chunk = slot;
+    item -> first = face_offset;
+    item -> root = node_offset;
+    item -> end = node_offset + count;
+}
+fn collision_chunk_build(scene: mut CollisionScene, slot: u32) -> bool {
+    var space: CollisionSpace = scene.spaces[slot as usize];
+    var faces: u32 = 0u32;
+    var nodes: u32 = space.end - space.root;
+    var i: u32 = space.root;
+    while i < space.end {
+        var id: u32 = scene.nodes[i as usize].leaf;
+        if id != 0xffffffffu32 {
+            var item: CollisionInstance = scene.data.instances[id as usize];
+            faces = faces + item.count;
+            nodes = nodes + item.end - item.root;
+        }
+        i = i + 1u32;
+    }
+    var chunk: *CollisionChunk = collision_chunk_allocate(faces, nodes);
+    if chunk == null(*CollisionChunk) {
+        return error("collision room geometry allocation failed");
+    }
+    scene.chunks[slot as usize] = chunk;
+    faces = 0u32;
+    nodes = 0u32;
+    i = space.root;
+    while i < space.end {
+        var id: u32 = scene.nodes[i as usize].leaf;
+        if id != 0xffffffffu32 {
+            var item: CollisionInstance = scene.data.instances[id as usize];
+            collision_chunk_instance(mut scene, slot, id, faces, nodes);
+            faces = faces + item.count;
+            nodes = nodes + item.end - item.root;
+        }
+        i = i + 1u32;
+    }
+    collision_chunk_nodes(read scene, chunk, space.root, space.end, nodes);
+    space.end = nodes + space.end - space.root;
+    space.root = nodes;
+    scene.spaces[slot as usize] = space;
+    return true;
+}
+fn collision_chunks_build(scene: mut CollisionScene) -> bool {
+    if !collision_chunks_allocate(mut scene) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < scene.chunk_count {
+        if !collision_chunk_build(mut scene, i) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    free(scene.data.faces as *u8);
+    scene.data.faces = null(*CollisionFace);
+    scene.data.face_capacity = 0u32;
+    free(scene.nodes as *u8);
+    scene.nodes = null(*CollisionNode);
+    return true;
+}
+fn collision_chunks_snapshot(source: read CollisionScene, target: mut CollisionScene) -> bool {
+    if !collision_chunks_allocate(mut target) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < source.chunk_count {
+        var chunk: *CollisionChunk = source.chunks[i as usize];
+        collision_chunk_retain(chunk);
+        target.chunks[i as usize] = chunk;
+        i = i + 1u32;
+    }
+    return true;
+}

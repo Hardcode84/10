@@ -102,4 +102,5 @@ Set numerical budgets from this baseline before extending the implementation.
 The [visibility experiment](streaming-experiment.md) measures selection, loading
 waves, retained-list replacement, and rendered output on production scenes. It
 includes a fixed-arena reuse witness with partial uploads and exact restored
-images. The CPU snapshot and full ownership gate above remains open.
+images. Room collision chunks also pass a retained-snapshot lifetime witness.
+Required-room admission and the full integrated ownership gate remain open.

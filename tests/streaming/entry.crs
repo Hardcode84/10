@@ -102,7 +102,7 @@ fn stream_experiment(session: GameSession, config: GameConfig) -> bool {
     ) {
         return false;
     }
-    if !stream_prediction(read scene, mut session, mut loop, config, mut selected) {
+    if !stream_prediction(mut scene, mut session, mut loop, config, mut selected) {
         return false;
     }
     return stream_waves(read session.control.graph) && game_finish(mut session);

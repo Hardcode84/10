@@ -137,7 +137,7 @@ fn test_mesh_seam() -> bool {
         0.35f32
     );
     return game_check(
-        collision_face(read scene, 0u32).neighbours[2usize] == 1u32 && along.hit.time > 1f32 && near(
+        collision_face(read scene, 0u32, 0u32).neighbours[2usize] == 1u32 && along.hit.time > 1f32 && near(
             seam.hit.time,
             0.465f32,
             0.00001f32
@@ -229,7 +229,11 @@ fn test_mesh_elbow() -> bool {
     while ring < 12u32 {
         var side: u32 = 0u32;
         while side < 12u32 {
-            var face: CollisionFace = collision_face(read scene, ring * 24u32 + side * 2u32);
+            var face: CollisionFace = collision_face(
+                read scene,
+                0u32,
+                ring * 24u32 + side * 2u32
+            );
             var point: Vec3 = scale(add(add(face.a, face.b), face.c), 1f32 / 3f32);
             var hit: CollisionContact = collision_sweep(
                 read scene,
@@ -371,7 +375,7 @@ fn test_mesh_flight() -> bool {
     if !collision_finish(move builder, mut scene) {
         return false;
     }
-    var face: CollisionFace = collision_face(read scene, 56u32);
+    var face: CollisionFace = collision_face(read scene, 0u32, 56u32);
     var point: Vec3 = scale(add(add(face.a, face.b), face.c), 1f32 / 3f32);
     var drone: Drone = new_drone();
     drone.position = add(point, scale(face.normal, 0.8f32));

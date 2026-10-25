@@ -7,8 +7,8 @@ The index selects candidate instances and triangles for the
 The game uses it for movement, hook flight, reeling, and both predictions.
 
 A `CollisionBuilder` accepts generated meshes and static rigid poses.
-`collision_finish` consumes the builder and creates an immutable
-`CollisionScene`. A failed finish releases construction data and preserves
+`collision_finish` consumes the builder and creates a `CollisionScene` with
+immutable room geometry and private instance state. A failed finish releases construction data and preserves
 the previous scene. A successful finish replaces and releases the previous
 scene. Queries cannot receive a builder or change a scene.
 
@@ -41,7 +41,8 @@ expands these bounds by the radius and a binary32 precision allowance. That
 allowance changes candidate selection only. It does not change surface contact
 positions, clearance, or normals.
 
-Leaves retain append and surface IDs. Sorting does not move the face records.
+Leaves retain append and surface IDs. Packing faces into room chunks preserves
+these IDs.
 Equal-time contacts select the deeper initial overlap, then the lowest instance
 ID, then the lowest surface ID. The result therefore does not depend on tree
 traversal order. Queries do not prune at the current best time; equal-time
@@ -70,10 +71,39 @@ Meshes with many faces on one edge must split that topology or use a grouped
 plane/side index to reduce this specific cost; distant triangles no longer
 participate in it.
 
-Temporary sort items and edge records are released before the scene is used.
-`collision_bytes` reports persistent allocated bytes, including spare face and
-instance capacity, nodes, the space directory, portals, and the portal index. It excludes allocator
-metadata, temporary sort data, and the source mesh held by the caller.
+After construction, faces and both tree levels are packed into one immutable
+chunk per room. Packing walks each room's instance-tree leaves. It releases the
+combined face and node arrays. Temporary sort items and edge records are also
+released before the scene is used.
+
+`collision_bytes` reports scene metadata plus referenced chunk bytes. Metadata
+includes instance capacity, the space directory, room frames, portals, and the
+portal index. Shared geometry counts in each referencing scene. The count
+excludes allocator metadata, temporary sort data, and the caller's source mesh.
+
+## Room lifetime
+
+`collision_snapshot` copies private instance, motion, directory, portal, and
+frame data. It retains immutable room chunks through atomic reference counts.
+Dropping a scene releases its references. The final reference releases the
+chunk's faces and trees. Queries perform no reference-count operations.
+
+`collision_room_pin` retains one room independently. `collision_room_unload`
+removes only the calling scene's reference. Snapshots and pins retain their own
+references. `collision_room_restore` restores a pin from the same construction;
+it preserves instance IDs and motion schedules. Geometry replacement still
+requires a new construction. Rooms without collider geometry need no chunk.
+
+Residency changes require an exclusive scene borrow. The caller checks
+`collision_room_resident` before admitting queries. A query into a known,
+unloaded room fails at room lookup. Direct instance queries require the caller
+to retain that instance's room. Missing geometry must never produce a collision
+miss. This API provides lifetime operations; the game still loads all rooms.
+
+The sanitizer test unloads and restores a room, keeps private motion separate,
+and queries an attached hook after destroying the source scene. The production
+[streaming witness](../content/streaming-experiment.md#collision-snapshot-witness)
+starts a prediction job while its source room is absent.
 
 ## Evidence and checks
 

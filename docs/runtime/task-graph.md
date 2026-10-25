@@ -55,9 +55,10 @@ The native pool has bounded job storage, completion generations, and joined
 shutdown. A job retains its pool loan until cleanup. The prediction operation
 retains its exclusive result context until cleanup. Prediction and sound contexts
 each allocate an owned collision snapshot at scene load. Before each job, the
-application copies moving-body records into that snapshot. Static geometry and
-query indices are copied only at load. This adds two scene copies to host memory;
-frame updates allocate no snapshot storage.
+application copies moving-body records into that snapshot. Immutable room geometry
+and query trees are shared through reference-counted chunks. Each context owns
+its metadata and motion records; frame updates allocate no snapshot storage.
+See [room lifetime](../collision/spatial-index.md#room-lifetime).
 Crust checks structural transfer and sharing capabilities at `transfers` capture
 boundaries. Shared collision storage has a trusted `share` contract. Ordinary
 computation needs no execution annotation. The typed game adapter contains

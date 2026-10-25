@@ -3,7 +3,7 @@ fn collision_winding(scene: read CollisionScene, item: CollisionInstance, p: Vec
     var compensation: f32 = 0f32;
     var i: u32 = 0u32;
     while i < item.count {
-        var f: CollisionFace = collision_face(read scene, item.first + i);
+        var f: CollisionFace = collision_face(read scene, item.chunk, item.first + i);
         var a: Vec3 = collision_normal(sub(f.a, p));
         var b: Vec3 = collision_normal(sub(f.b, p));
         var c: Vec3 = collision_normal(sub(f.c, p));
@@ -38,7 +38,7 @@ fn collision_embedded(scene: read CollisionScene, space: u32, p: Vec3) -> u32 {
     var range: CollisionSpace = collision_space(read scene, space);
     var i: u32 = range.root;
     while i < range.end {
-        var node: CollisionNode = collision_node(read scene, i);
+        var node: CollisionNode = collision_node(read scene, range.chunk, i);
         if !collision_aabb(p, vec(0f32, 0f32, 0f32), 0f32, node.low, node.high) {
             i = node.skip;
         } else {

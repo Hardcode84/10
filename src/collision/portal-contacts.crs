@@ -66,7 +66,7 @@ fn collision_anchor_contacts(
     var range: CollisionSpace = collision_space(read scene, anchor.space);
     var i: u32 = range.root;
     while i < range.end {
-        var node: CollisionNode = collision_node(read scene, i);
+        var node: CollisionNode = collision_node(read scene, range.chunk, i);
         if !collision_aabb(
             p,
             vec(0f32, 0f32, 0f32),

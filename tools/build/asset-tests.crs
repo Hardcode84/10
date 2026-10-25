@@ -8,8 +8,11 @@ fn run_asset_checks(
         native_error(root -> context, "asset checks accept only --build-only");
         return 2i32;
     }
+    if !sdl_build(root) {
+        return 1i32;
+    }
     var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 20] = uninit;
+    var providers: [*u8; 22] = uninit;
     var count: usize = asset_sources(root, &sources[0usize]);
     count = count + asset_collision_sources(root, &sources[count]);
     sources[count] = host_path(root, "assets/rooms/radial-start.crs");
@@ -37,7 +40,7 @@ fn run_asset_checks(
     sources[count + 2usize] = "--cflag";
     sources[count + 3usize] = "-O2";
     sources[count + 4usize] = "--ldflag";
-    sources[count + 5usize] = "-lm";
+    sources[count + 5usize] = sdl_link(root);
     if ownership_sources(
         root,
         emit,

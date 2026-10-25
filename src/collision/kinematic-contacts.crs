@@ -62,7 +62,7 @@ fn collision_anchored_contacts(
     var local: Vec3 = collision_local(pose.basis, sub(p, pose.origin));
     var i: u32 = item.root;
     while i < item.end {
-        var node: CollisionNode = collision_node(read scene, i);
+        var node: CollisionNode = collision_node(read scene, item.chunk, i);
         if !collision_aabb(
             local,
             vec(0f32, 0f32, 0f32),
@@ -74,7 +74,7 @@ fn collision_anchored_contacts(
         } else {
             if node.leaf != 0xffffffffu32 {
                 var proximity: CollisionProximity = collision_proximity(
-                    collision_face(read scene, item.first + node.leaf),
+                    collision_face(read scene, item.chunk, item.first + node.leaf),
                     local
                 );
                 if proximity.distance <= radius + skin * 2f32 && collision_anchor_accept(

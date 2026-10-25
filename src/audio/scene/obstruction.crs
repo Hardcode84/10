@@ -32,7 +32,7 @@ fn acoustic_instance(
     var d: Vec3 = collision_local(item.basis, sub(end.position, start));
     var i: u32 = item.root;
     while i < item.end {
-        var node: CollisionNode = collision_node(read scene, i);
+        var node: CollisionNode = collision_node(read scene, item.chunk, i);
         if !collision_aabb(p, d, 0f32, node.low, node.high) {
             i = node.skip;
         } else {
@@ -40,7 +40,7 @@ fn acoustic_instance(
                 index == end.instance && node.leaf == end.surface
             ) {
                 if acoustic_triangle(
-                    collision_face(read scene, item.first + node.leaf),
+                    collision_face(read scene, item.chunk, item.first + node.leaf),
                     p,
                     d
                 ) {
@@ -62,7 +62,7 @@ fn acoustic_obstructed(
     var i: u32 = range.root;
     var d: Vec3 = sub(end.position, start);
     while i < range.end {
-        var node: CollisionNode = collision_node(read scene, i);
+        var node: CollisionNode = collision_node(read scene, range.chunk, i);
         if !collision_aabb(start, d, 0f32, node.low, node.high) {
             i = node.skip;
         } else {

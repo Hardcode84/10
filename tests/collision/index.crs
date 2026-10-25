@@ -56,7 +56,11 @@ fn test_collision_index_surfaces(scene: read CollisionScene, samples: u32) -> bo
             if count > 1u32 {
                 surface = i * (instance.count - 1u32) / (count - 1u32);
             }
-            var face: CollisionFace = collision_face(read scene, instance.first + surface);
+            var face: CollisionFace = collision_face(
+                read scene,
+                instance.chunk,
+                instance.first + surface
+            );
             var point: Vec3 = scale(add(add(face.a, face.b), face.c), 1f32 / 3f32);
             var p: Vec3 = add(
                 instance.origin,
@@ -236,13 +240,17 @@ fn test_collision_adjacency(scene: read CollisionScene) -> bool {
         var item: CollisionInstance = collision_instance(read scene, index);
         var i: u32 = 0u32;
         while i < item.count {
-            var a: CollisionFace = collision_face(read scene, item.first + i);
+            var a: CollisionFace = collision_face(read scene, item.chunk, item.first + i);
             var edge: u32 = 0u32;
             while edge < 3u32 {
                 var expected: u32 = 0xffffffffu32;
                 var j: u32 = 0u32;
                 while j < item.count {
-                    var b: CollisionFace = collision_face(read scene, item.first + j);
+                    var b: CollisionFace = collision_face(
+                        read scene,
+                        item.chunk,
+                        item.first + j
+                    );
                     if i != j && absf(dot(a.normal, b.normal)) > 0.999999f32 && collision_shared(
                         a,
                         edge,

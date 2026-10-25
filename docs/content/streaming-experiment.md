@@ -93,9 +93,9 @@ Require partial uploads and GPU capacity reclamation; clearing the current mesh
 list achieves neither.
 
 Before broader integration, prove one room unload and reload across CPU snapshots,
-GPU retirement, an attached hook, and prediction. The current collision scene and
-worker snapshot own whole-scene arrays. They must use independently retained room
-chunks before that test can release collision storage. Rendering also requires
+GPU retirement, an attached hook, and prediction. The collision scene and worker snapshots now retain independent room chunks, as
+measured below. Admission must select which chunks each job requires before the
+game can release unused rooms. Rendering also requires
 arena-aware mesh references instead of one global mesh range.
 
 The image tests do not prove light/shadow dependency selection, transformed cycles,
@@ -151,7 +151,7 @@ renderer regression edits an interior triangle in a multi-triangle mesh, checks
 the exact hierarchy upload size and rendered reference, then checks zero mesh
 uploads on the next frame. Buffer replacement still requires a full upload.
 
-Proceed to the CPU snapshot ownership boundary before a multi-arena renderer.
+The CPU snapshot ownership witness below extends this result.
 The allocator has no shipping consumer yet. Multiple independent GPU buffers,
 room collision reclamation, attached-hook pins, and asynchronous asset generation
 still require the complete gate above. Multiple separated edits currently merge
@@ -159,3 +159,37 @@ into one dirty interval; use per-arena intervals when adding independent arenas.
 
 Raw results: [shaft arena](measurements/arena-shafts.txt),
 [prefab arena](measurements/arena-prefabs.txt).
+
+
+## Collision snapshot witness
+
+The same `streaming` command now exercises room-owned collision chunks. The
+production scene and its worker snapshots share immutable geometry. Each snapshot
+owns its instance state and room residency table. Runtime reference counting is
+private to the platform layer.
+
+For the shaft scene, a snapshot references about 17.68 MB of geometry and allocates
+0.36 MB of private metadata. One measured snapshot took about 0.02 ms on the
+machine specified above. Geometry bytes are shared, not copied per context.
+
+The witness prepares a display snapshot, removes the current room from the source
+scene, and then starts the production prediction job. The worker uses its retained
+snapshot. Rendering uses the display snapshot while the source room is absent.
+The four forecast markers and every image pixel match the resident reference.
+The source scene releases its reference to 212464 bytes for that room. Its worker,
+display, and explicit pin keep the storage alive until their references end.
+
+A focused sanitizer fixture also checks an attached hook after source destruction,
+interleaved room instances, stable contact IDs, motion isolation, and restoration.
+It checks the final owning reference and lets normal resource destruction release
+it. Collision queries into an unloaded room require admission to stop first;
+they cannot return an empty-room miss.
+
+This proves independent room lifetime through the current snapshot consumers.
+The next integration step is to select required rooms for each admitted physics,
+prediction, sound, and render snapshot. Current game contexts still retain all
+rooms. They must release unused references before GPU and CPU residency budgets
+can control actual memory use. Pins restored by this witness come from the same
+construction; new recipe versions require explicit versioned publication.
+
+Raw results: [collision snapshots](measurements/room-chunks-shafts.txt).

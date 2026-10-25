@@ -14,12 +14,16 @@ fn collision_contacts_instance(
     var still: Vec3 = vec(0f32, 0f32, 0f32);
     var i: u32 = item.root;
     while i < item.end {
-        var node: CollisionNode = collision_node(read scene, i);
+        var node: CollisionNode = collision_node(read scene, item.chunk, i);
         if !collision_aabb(local, still, radius + skin * 2f32, node.low, node.high) {
             i = node.skip;
         } else {
             if node.leaf != 0xffffffffu32 {
-                var f: CollisionFace = collision_face(read scene, item.first + node.leaf);
+                var f: CollisionFace = collision_face(
+                    read scene,
+                    item.chunk,
+                    item.first + node.leaf
+                );
                 var proximity: CollisionProximity = collision_proximity(f, local);
                 var distance: f32 = proximity.distance;
                 if distance <= radius + skin * 2f32 {
@@ -51,7 +55,7 @@ fn collision_contacts(
     var range: CollisionSpace = collision_space(read scene, space);
     var i: u32 = range.root;
     while i < range.end {
-        var node: CollisionNode = collision_node(read scene, i);
+        var node: CollisionNode = collision_node(read scene, range.chunk, i);
         if !collision_aabb(
             p,
             vec(0f32, 0f32, 0f32),

@@ -201,6 +201,7 @@ fn collision_build_spaces(scene: *CollisionScene, items: *CollisionBuildItem) ->
         var root: u32 = scene -> node_count;
         collision_build_tree(scene, &items[start as usize], i - start);
         scene -> spaces[scene -> space_count as usize] = make CollisionSpace {
+            chunk: scene -> space_count,
             id: id,
             root: root,
             end: scene -> node_count
@@ -220,6 +221,7 @@ fn collision_index_build(scene: *CollisionScene) -> bool {
         return error("collision index exceeds address range");
     }
     scene -> nodes = malloc(total as usize * sizeof(CollisionNode)) as *CollisionNode;
+    scene -> space_capacity = scene -> data.instance_count + 1u32;
     scene -> spaces = malloc(
         (scene -> data.instance_count as usize + 1usize) * sizeof(CollisionSpace)
     ) as *CollisionSpace;

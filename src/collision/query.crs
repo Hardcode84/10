@@ -111,7 +111,7 @@ fn collision_query_pose_filtered(
     var result: CollisionContact = collision_miss(item.space);
     var i: u32 = item.root;
     while i < item.end {
-        var node: CollisionNode = collision_node(read scene, i);
+        var node: CollisionNode = collision_node(read scene, item.chunk, i);
         if !collision_aabb(local_p, local_d, radius, node.low, node.high) {
             i = node.skip;
         } else {
@@ -119,7 +119,7 @@ fn collision_query_pose_filtered(
                 var next: CollisionContact = collision_surface(
                     local_p,
                     local_d,
-                    collision_face(read scene, item.first + node.leaf),
+                    collision_face(read scene, item.chunk, item.first + node.leaf),
                     radius
                 );
                 next.instance = index;
@@ -179,7 +179,7 @@ fn collision_query_filtered(
     var range: CollisionSpace = collision_space(read scene, space);
     var i: u32 = range.root;
     while i < range.end {
-        var node: CollisionNode = collision_node(read scene, i);
+        var node: CollisionNode = collision_node(read scene, range.chunk, i);
         if !collision_aabb(p, d, radius, node.low, node.high) {
             i = node.skip;
         } else {

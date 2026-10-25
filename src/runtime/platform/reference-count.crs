@@ -1,0 +1,16 @@
+extern fn reference_add(pointer: *i32, value: i32) -> i32 = "SDL_AddAtomicInt";
+// Requires one live owning reference. Safe across worker threads.
+fn reference_retain(pointer: *i32) -> unit {
+    var previous: i32 = reference_add(pointer, 1i32);
+    if previous <= 0i32 || previous == 0x7fffffffi32 {
+        trap;
+    }
+}
+// Releases one owning reference and returns true for the final release.
+fn reference_release(pointer: *i32) -> bool {
+    var previous: i32 = reference_add(pointer, -1i32);
+    if previous <= 0i32 {
+        trap;
+    }
+    return previous == 1i32;
+}
