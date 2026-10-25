@@ -7,7 +7,8 @@
 // All ports retain closures until level assembly connects them.
 // Four pipes continue from each oct port. pipe-seed selects routes to other ports
 // along wall waypoints, with side-to-upper/lower paths and a perimeter bypass.
-// Bends turn at most 90 degrees. Pipes without a clear port route connect to the spindle.
+// Bends turn at most 90 degrees. The seed selects two or four required spindle
+// feeds. More pipes can join the spindle when exit routes are blocked.
 // Viewer waypoint mode shows the routing graph.
 // Materials: 0 metal shell, 1 shaft caps, 2 spindle, 3 oct caps, 4 dark seams,
 // 5 service pipes, 6 spindle flanges, 7 leaks.

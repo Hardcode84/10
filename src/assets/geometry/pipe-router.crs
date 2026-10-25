@@ -183,8 +183,9 @@ fn route_copy_path(router: read PipeRouter, graph: mut PipeGraph, path: RoutePat
     }
     return true;
 }
-// Pairs every mouth with a different exit. Reserves whole routes and rounded
-// bend clearance. An unsatisfiable graph returns an error before mesh emission.
+// Connects every mouth to a different exit or a sink. Meets the minimum sink
+// count and reserves rounded bend clearance. An unsatisfiable graph returns an
+// error before mesh emission.
 fn pipe_route_solve(
     router: mut PipeRouter,
     graph: mut PipeGraph,

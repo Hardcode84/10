@@ -28,7 +28,7 @@ fn room_asset_new() -> RoomAsset {
         parts: asset_parts_new(),
         door_leaves: asset_parts_new(),
         lights: fixture_lights_new(),
-        routes: pipe_router_new(-1f32),
+        routes: pipe_router_new(-1f32, 0u32),
         collision: collision_new(),
         spawn: make AssetSpawn {
             position: vec(0f32, 0f32, 0f32),

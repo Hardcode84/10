@@ -70,7 +70,7 @@ fn route_next_choice(router: read PipeRouter, mouth: u32, previous: u32) -> u32 
     var i: u32 = 0u32;
     while i < route_paths_count(read router) {
         var path: RoutePath = route_paths_get(read router, i);
-        if path.blocked == 0u32 && (path.source == mouth || path.target == mouth) && (
+        if !path.selected && path.blocked == 0u32 && route_choice_matches(path, mouth) && (
             previous == PIPE_NO_EXIT || route_precedes(read router, previous, i)
         ) && (result == PIPE_NO_EXIT || route_precedes(read router, i, result)) {
             result = i;
@@ -83,9 +83,12 @@ fn route_match(router: mut PipeRouter) -> bool {
     if !route_parity_possible(mut router) {
         return false;
     }
-    var mouth: u32 = route_next_mouth(read router);
-    if mouth == PIPE_NO_EXIT {
-        return true;
+    var mouth: u32 = PIPE_NO_EXIT;
+    if route_sink_requirement_met(read router) {
+        mouth = route_next_mouth(read router);
+        if mouth == PIPE_NO_EXIT {
+            return true;
+        }
     }
     var choice: u32 = route_next_choice(read router, mouth, PIPE_NO_EXIT);
     while choice != PIPE_NO_EXIT {
@@ -158,4 +161,24 @@ fn route_match_prepare(router: mut PipeRouter) -> bool {
         i = i + 1u32;
     }
     return true;
+}
+
+fn route_choice_matches(path: RoutePath, mouth: u32) -> bool {
+    if mouth == PIPE_NO_EXIT {
+        return path.sink;
+    }
+    return path.source == mouth || path.target == mouth;
+}
+fn route_sink_requirement_met(router: read PipeRouter) -> bool {
+    var required: u32 = route_minimum_sink_routes(read router);
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < route_nodes_count(read router) && count < required {
+        var node: RouteNode = route_nodes_get(read router, i);
+        if node.sink && node.matched {
+            count = count + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return count >= required;
 }

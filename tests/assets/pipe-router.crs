@@ -49,7 +49,7 @@ fn asset_route_fixture(router: mut PipeRouter, detour: bool, repeated: bool) -> 
     return true;
 }
 fn asset_route_rejection(detour: bool, repeated: bool) -> bool {
-    var router: PipeRouter = pipe_router_new(0f32);
+    var router: PipeRouter = pipe_router_new(0f32, 0u32);
     var graph: PipeGraph = pipe_graph_new();
     if !asset_route_fixture(mut router, detour, repeated) {
         return false;
@@ -59,7 +59,7 @@ fn asset_route_rejection(detour: bool, repeated: bool) -> bool {
     ) == 0u32 || error("pipe router emitted crossing pipes or joined the same exit");
 }
 fn asset_route_detour(seed: u32) -> bool {
-    var router: PipeRouter = pipe_router_new(0f32);
+    var router: PipeRouter = pipe_router_new(0f32, 0u32);
     var graph: PipeGraph = pipe_graph_new();
     if !asset_route_fixture(mut router, true, false) || !pipe_route_solve(
         mut router,
@@ -115,7 +115,9 @@ fn asset_route_detour(seed: u32) -> bool {
     ) || error("pipe router failed to take the clear detour");
 }
 fn asset_test_pipe_router() -> bool {
-    return asset_route_turn_limit(0f32, false) && asset_route_turn_limit(-1f32, true) && asset_route_optional_sink_branch() && asset_route_sink() && asset_route_random_destinations() && asset_route_rejection(
+    return asset_route_required_sinks(0u32) && asset_route_required_sinks(2u32) && asset_route_required_sinks(
+        3u32
+    ) && asset_route_turn_limit(0f32, false) && asset_route_turn_limit(-1f32, true) && asset_route_optional_sink_branch() && asset_route_sink() && asset_route_random_destinations() && asset_route_rejection(
         false,
         false
     ) && asset_route_rejection(true, true) && asset_route_detour(1u32) && asset_route_detour(
@@ -123,7 +125,7 @@ fn asset_test_pipe_router() -> bool {
     );
 }
 fn asset_route_sink() -> bool {
-    var router: PipeRouter = pipe_router_new(0f32);
+    var router: PipeRouter = pipe_router_new(0f32, 0u32);
     var graph: PipeGraph = pipe_graph_new();
     var radial: Vec3 = vec(0f32, 0f32, 1f32);
     var mouth: u32 = pipe_route_point(mut router, vec(-2f32, 0f32, 0f32), radial, 9u32);
@@ -156,7 +158,7 @@ fn asset_route_sink() -> bool {
     ).used || error("pipe sink or retained waypoint route failed");
 }
 fn asset_route_random_pair(seed: u32) -> u32 {
-    var router: PipeRouter = pipe_router_new(0f32);
+    var router: PipeRouter = pipe_router_new(0f32, 0u32);
     var graph: PipeGraph = pipe_graph_new();
     var i: u32 = 0u32;
     while i < 4u32 {
@@ -230,7 +232,7 @@ fn asset_route_random_destinations() -> bool {
     );
 }
 fn asset_route_optional_sink_branch() -> bool {
-    var router: PipeRouter = pipe_router_new(0f32);
+    var router: PipeRouter = pipe_router_new(0f32, 0u32);
     var graph: PipeGraph = pipe_graph_new();
     var radial: Vec3 = vec(0f32, 0f32, 1f32);
     var left: u32 = pipe_route_point(mut router, vec(-4f32, 0f32, 0f32), radial, 1u32);
@@ -261,7 +263,7 @@ fn asset_route_optional_sink_branch() -> bool {
     return true;
 }
 fn asset_route_turn_limit(minimum_cosine: f32, expect_reverse: bool) -> bool {
-    var router: PipeRouter = pipe_router_new(minimum_cosine);
+    var router: PipeRouter = pipe_router_new(minimum_cosine, 0u32);
     var graph: PipeGraph = pipe_graph_new();
     var radial: Vec3 = vec(0f32, 0f32, 1f32);
     var start: u32 = pipe_route_point(mut router, vec(-4f32, 0f32, 0f32), radial, 1u32);
@@ -306,4 +308,39 @@ fn asset_route_turn_limit(minimum_cosine: f32, expect_reverse: bool) -> bool {
         i = i + 1u32;
     }
     return reversed == expect_reverse || error("pipe route ignored its bend limit");
+}
+fn asset_route_required_sinks(required: u32) -> bool {
+    var router: PipeRouter = pipe_router_new(0f32, required);
+    var graph: PipeGraph = pipe_graph_new();
+    var radial: Vec3 = vec(0f32, 0f32, 1f32);
+    var left: u32 = pipe_route_point(mut router, vec(-4f32, 0f32, 0f32), radial, 1u32);
+    var right: u32 = pipe_route_point(mut router, vec(4f32, 0f32, 0f32), radial, 2u32);
+    var a: u32 = hub_lane_sink(mut router, vec(-4f32, 4f32, 0f32));
+    var b: u32 = hub_lane_sink(mut router, vec(4f32, 4f32, 0f32));
+    if !pipe_route_link(mut router, left, right) || !pipe_route_link(mut router, left, a) || !pipe_route_link(
+        mut router,
+        right,
+        b
+    ) {
+        return false;
+    }
+    var solved: bool = pipe_route_solve(mut router, mut graph, 0.5f32, 0.2f32, 7u32);
+    if required > 2u32 {
+        return !solved && pipe_node_count(read graph) == 0u32 || error(
+            "impossible sink requirement emitted pipes"
+        );
+    }
+    if !solved {
+        return false;
+    }
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < pipe_node_count(read graph) {
+        var node: PipeNode = pipe_node(read graph, i);
+        if node.degree == 1u32 && node.exit_id == PIPE_NO_EXIT {
+            count = count + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return count == required || error("pipe routing ignored required or optional sinks");
 }

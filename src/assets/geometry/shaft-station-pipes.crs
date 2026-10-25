@@ -115,8 +115,15 @@ fn station_pipe_sinks(router: mut PipeRouter, layout: StationPipeLayout) -> bool
             scale(direction, layout.core + 1.4f32),
             vec(0f32, height, 0f32)
         );
+        var stem: u32 = i;
+        if offset > 0f32 {
+            stem = hub_lane_point(mut router, vec(point.x, height, point.z));
+            if !pipe_route_link(mut router, 8u32 + i % 4u32, stem) {
+                return false;
+            }
+        }
         var sink: u32 = hub_lane_sink(mut router, end);
-        if !pipe_route_via(mut router, i, sink, approach) {
+        if !pipe_route_via(mut router, stem, sink, approach) {
             return false;
         }
         i = i + 1u32;
@@ -124,7 +131,10 @@ fn station_pipe_sinks(router: mut PipeRouter, layout: StationPipeLayout) -> bool
     return true;
 }
 fn station_service_pipes(asset: mut RoomAsset, layout: StationPipeLayout, seed: u32) -> bool {
-    var router: PipeRouter = pipe_router_new(0f32);
+    var router: PipeRouter = pipe_router_new(
+        0f32,
+        2u32 + 2u32 * (metal_hash(seed, 0u32, 0u32) % 2u32)
+    );
     var graph: PipeGraph = pipe_graph_new();
     if !station_pipe_ring(mut router, layout, 0u32) || !station_pipe_ring(
         mut router,
