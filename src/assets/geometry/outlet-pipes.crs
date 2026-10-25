@@ -1,43 +1,89 @@
-fn outlet_cap_pipe(asset: mut RoomAsset, port: RoomPort, slot: u32) -> bool {
+record OutletPipeRoute {
+    points: [Vec3; 5];
+    count: u32;
+    mount: Vec3;
+    normal: Vec3;
+}
+fn outlet_pipe_rail(layout: OutletCapLayout) -> f32 {
+    return -mask_min(-outlet_pipe_target(), -(layout.core * 1.6f32 + 1.2f32));
+}
+fn outlet_pipe_wall(hull: read AssetHull, start: Vec3) -> SurfaceFrame {
+    var distance: f32 = 1e30f32;
+    var selected: u32 = 0xffffffffu32;
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        var frame: SurfaceFrame = hull_frame(read hull, asset_face(read hull, i));
+        if frame.normal.x < 0f32 {
+            var t: f32 = dot(frame.normal, sub(frame.origin, start)) / -frame.normal.x;
+            if t >= 0f32 && t < distance {
+                distance = t;
+                selected = i;
+            }
+        }
+        i = i + 1u32;
+    }
+    if selected == 0xffffffffu32 {
+        trap;
+    }
+    var result: SurfaceFrame = hull_frame(read hull, asset_face(read hull, selected));
+    result.origin = sub(start, vec(distance, 0f32, 0f32));
+    return result;
+}
+fn outlet_pipe_route(asset: read RoomAsset, layout: OutletCapLayout, slot: u32) -> OutletPipeRoute {
+    var port: RoomPort = outlet_cap_port(layout);
     var radial: Vec3 = hub_pipe_radial(port, slot);
     var mouth: Vec3 = hub_pipe_mouth(port, slot);
-    var wall: Vec3 = add(port.position, scale(radial, outlet_pipe_target()));
-    var first: u32 = mesh_triangle_count(read asset.geometry);
-    var sweep: TubeSweep = tube_sweep_begin(
-        mouth,
-        scale(port.basis.forward, -1f32),
-        radial,
-        make TubeStyle {
-            radius: oct_pipe_radius(),
-            sides: 8u32,
-            tile_metres: 2f32,
-            region: 4u32
+    var y: f32 = layout.depth - OUTLET_PIPE_LEG;
+    var route: OutletPipeRoute = make OutletPipeRoute {
+        points: make [Vec3; 5] {
+            mouth,
+            sub(mouth, scale(port.basis.forward, OUTLET_PIPE_LEG)),
+            vec(0f32, 0f32, 0f32),
+            vec(0f32, 0f32, 0f32),
+            vec(0f32, 0f32, 0f32)
+        },
+        count: 5u32,
+        mount: vec(0f32, 0f32, 0f32),
+        normal: vec(0f32, 1f32, 0f32)
+    };
+    if slot == 2u32 {
+        route.count = 3u32;
+        route.normal = vec(-1f32, 0f32, 0f32);
+        route.mount = vec(layout.core * 1.6f32 * cosf(3.14159265359f32 / 16f32), y, 0f32);
+    } else if slot == 0u32 {
+        route.points[2usize] = vec(layout.offset + outlet_pipe_target(), y, 0f32);
+        route.points[3usize] = vec(layout.offset + outlet_pipe_target(), y, 2f32);
+        route.mount = vec(
+            route.points[3usize].x,
+            layout.depth,
+            route.points[3usize].z
+        );
+    } else {
+        var z: f32 = radial.z * outlet_pipe_rail(layout);
+        route.points[2usize] = vec(layout.offset, y, z);
+        if slot == 1u32 {
+            var wall: SurfaceFrame = outlet_pipe_wall(read asset.hull, vec(0f32, y, z));
+            route.normal = wall.normal;
+            route.mount = wall.origin;
+            route.points[3usize] = sub(wall.origin, scale(wall.normal, 1f32));
+        } else {
+            route.points[3usize] = vec(layout.core * 0.8f32, y, z);
+            route.mount = vec(route.points[3usize].x, layout.depth, z);
         }
+    }
+    route.points[(route.count - 1u32) as usize] = add(
+        route.mount,
+        scale(route.normal, 0.15f32)
     );
-    var a: Vec3 = sub(mouth, scale(port.basis.forward, OUTLET_PIPE_LEG));
-    var b: Vec3 = sub(wall, scale(port.basis.forward, OUTLET_PIPE_LEG));
-    if !tube_sweep_corner(mut asset.geometry, mut sweep, a, radial, 0.5f32) || !tube_sweep_corner(
-        mut asset.geometry,
-        mut sweep,
-        b,
-        port.basis.forward,
-        0.5f32
-    ) || !tube_sweep_finish(
-        mut asset.geometry,
-        mut sweep,
-        add(wall, scale(port.basis.forward, 0.15f32))
-    ) {
-        return false;
+    return route;
+}
+fn outlet_cap_flange(asset: mut RoomAsset, route: OutletPipeRoute) -> bool {
+    var reference: Vec3 = vec(0f32, 0f32, 1f32);
+    if absf(dot(reference, route.normal)) > 0.9f32 {
+        reference = vec(1f32, 0f32, 0f32);
     }
-    if !asset_part_place_tail(
-        mut asset,
-        first,
-        oct_pipe_name(slot),
-        vec(0f32, 0f32, 0f32)
-    ) {
-        return false;
-    }
-    first = mesh_triangle_count(read asset.geometry);
+    var right: Vec3 = unit_vector(cross(route.normal, reference));
+    var first: u32 = mesh_triangle_count(read asset.geometry);
     if !bevelled_body(
         mut asset.geometry,
         make BevelledBody {
@@ -49,11 +95,11 @@ fn outlet_cap_pipe(asset: mut RoomAsset, port: RoomPort, slot: u32) -> bool {
             rear: 7u32,
             front: 7u32
         },
-        sub(wall, scale(port.basis.forward, 0.05f32)),
+        sub(route.mount, scale(route.normal, 0.05f32)),
         make Basis {
-            right: radial,
-            up: port.basis.forward,
-            forward: cross(radial, port.basis.forward)
+            right: right,
+            up: route.normal,
+            forward: cross(right, route.normal)
         }
     ) {
         return false;
@@ -65,11 +111,120 @@ fn outlet_cap_pipe(asset: mut RoomAsset, port: RoomPort, slot: u32) -> bool {
         vec(0f32, 0f32, 0f32)
     );
 }
-fn outlet_cap_pipes(asset: mut RoomAsset, layout: OutletCapLayout) -> bool {
+fn outlet_cap_pipe(asset: mut RoomAsset, layout: OutletCapLayout, slot: u32) -> bool {
+    var route: OutletPipeRoute = outlet_pipe_route(read asset, layout, slot);
     var port: RoomPort = outlet_cap_port(layout);
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var sweep: TubeSweep = tube_sweep_begin(
+        route.points[0usize],
+        scale(port.basis.forward, -1f32),
+        hub_pipe_radial(port, slot),
+        make TubeStyle {
+            radius: oct_pipe_radius(),
+            sides: 8u32,
+            tile_metres: 2f32,
+            region: 4u32
+        }
+    );
+    var i: u32 = 1u32;
+    while i + 1u32 < route.count {
+        var outgoing: Vec3 = unit_vector(
+            sub(route.points[(i + 1u32) as usize], route.points[i as usize])
+        );
+        if !tube_sweep_corner(
+            mut asset.geometry,
+            mut sweep,
+            route.points[i as usize],
+            outgoing,
+            0.5f32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if !tube_sweep_finish(
+        mut asset.geometry,
+        mut sweep,
+        route.points[(route.count - 1u32) as usize]
+    ) || !asset_part_place_tail(
+        mut asset,
+        first,
+        oct_pipe_name(slot),
+        vec(0f32, 0f32, 0f32)
+    ) || !outlet_cap_flange(mut asset, route) {
+        return false;
+    }
+    if slot == 1u32 || slot == 3u32 {
+        return outlet_pipe_support(mut asset, layout, route);
+    }
+    return true;
+}
+fn outlet_pipe_support(asset: mut RoomAsset, layout: OutletCapLayout, route: OutletPipeRoute) -> bool {
+    var centre: Vec3 = scale(
+        add(route.points[2usize], route.points[3usize]),
+        0.5f32
+    );
+    var direction: Vec3 = unit_vector(
+        sub(route.points[3usize], route.points[2usize])
+    );
+    var right: Vec3 = unit_vector(cross(direction, vec(0f32, 1f32, 0f32)));
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !annular_band_mesh(
+        mut asset.geometry,
+        oct_pipe_radius() * 0.98f32,
+        oct_pipe_radius() + 0.12f32,
+        0.16f32,
+        7u32,
+        2f32
+    ) {
+        return false;
+    }
+    if !asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: asset_name("pipe-clamp"),
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: centre,
+            basis: make Basis {
+                right: right,
+                up: direction,
+                forward: cross(right, direction)
+            }
+        }
+    ) {
+        return false;
+    }
+    first = mesh_triangle_count(read asset.geometry);
+    var span: f32 = layout.depth - centre.y;
+    if !solid_box(
+        mut asset.geometry,
+        vec(0.18f32, span, 0.18f32),
+        7u32,
+        add(centre, vec(0f32, span * 0.5f32, 0f32)),
+        identity_basis(),
+        2f32
+    ) || !solid_box(
+        mut asset.geometry,
+        vec(0.7f32, 0.12f32, 0.7f32),
+        7u32,
+        vec(centre.x, layout.depth - 0.04f32, centre.z),
+        identity_basis(),
+        2f32
+    ) {
+        return false;
+    }
+    return asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("pipe-wall-bracket"),
+        vec(0f32, 0f32, 0f32)
+    );
+}
+fn outlet_cap_pipes(asset: mut RoomAsset, layout: OutletCapLayout) -> bool {
     var slot: u32 = 0u32;
     while slot < 4u32 {
-        if !outlet_cap_pipe(mut asset, port, slot) {
+        if !outlet_cap_pipe(mut asset, layout, slot) {
             return false;
         }
         slot = slot + 1u32;

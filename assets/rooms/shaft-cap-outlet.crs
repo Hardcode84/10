@@ -2,7 +2,9 @@
 // The outlet lies on +X beside the spindle bearing. The shell flares toward it.
 // diameter and core-diameter match the shaft. Depth is in metres.
 // End-wall size provides clearance for the bearing, passage, and pipe bends.
-// Four OCT pipes continue at the outlet and turn into flanges on the end wall.
+// Four OCT pipes continue at the outlet: one feeds the bearing, one reaches
+// the side wall, and two run to separate end-wall flanges. Long wall runs
+// have clamps and mounting plates. Rounded bends keep the passage clear.
 // A pale green full-bright rim marks the outlet. It emits no light.
 // Materials: 0 shell, 1 shaft closure, 2 spindle, 3 end wall, 4 pipes,
 // 5 bearing, 6 outlet rim, 7 seams and flanges, 8 outlet closure.
