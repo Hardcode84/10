@@ -4,6 +4,8 @@
 // Each blade shares a closed mesh and has its pivot on the shaft axis.
 // The bearing housings stay fixed. This prefab has no motion or airflow.
 // fan-count and blade-count are integers. blade-depth is the axial pitch span.
+// Blade panel rows meet the root, tip, and side edges. Edge and bearing textures
+// wrap continuously around their surfaces.
 // Service pipes stay outside the complete fan and bearing depth.
 // Materials: 0 wall, 1 caps, 2 spindle, 3 gold blades, 4 service pipes,
 // 5 pipe flanges, 6 leaks, 7 dark blade edges and bearing housings.

@@ -114,24 +114,24 @@ fn shaft_fan_instances(
     }
     return true;
 }
+fn shaft_fan_blade(parameters: read AssetValues) -> FanBlade {
+    var sector: f32 = 6.28318530718f32 / asset_value(read parameters, 5u32);
+    return make FanBlade {
+        inner: asset_value(read parameters, 2u32) * 0.5f32,
+        outer: asset_value(read parameters, 1u32) * 0.5f32 / cosf(sector / 24f32),
+        sector: sector,
+        depth: asset_value(read parameters, 6u32),
+        thickness: 0.25f32,
+        radial_steps: 5u32,
+        angular_steps: 6u32
+    };
+}
 fn shaft_fan_geometry(asset: mut RoomAsset, parameters: read AssetValues) -> bool {
     var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
     var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
     var depth: f32 = asset_value(read parameters, 6u32);
-    var sector: f32 = 6.28318530718f32 / asset_value(read parameters, 5u32);
     var first: u32 = mesh_triangle_count(read asset.geometry);
-    if !fan_blade_mesh(
-        mut asset.geometry,
-        make FanBlade {
-            inner: core,
-            outer: radius / cosf(sector / 24f32),
-            sector: sector,
-            depth: depth,
-            thickness: 0.25f32,
-            radial_steps: 5u32,
-            angular_steps: 6u32
-        }
-    ) {
+    if !fan_blade_mesh(mut asset.geometry, shaft_fan_blade(read parameters)) {
         return false;
     }
     var count: u32 = mesh_triangle_count(read asset.geometry) - first;
@@ -206,13 +206,16 @@ fn prefab_shaft_fan_material(region: u32, parameters: read AssetValues) -> Panel
         material.colour = 0x3f718au32;
         material.accent = 0x252d30u32;
         material.finish = METAL_PLATE;
-        material.tile_metres = FAN_TEXTURE_METRES;
-        material.tile_height = FAN_TEXTURE_METRES;
-        material.panel_height = 1f32;
+        var blade: FanBlade = shaft_fan_blade(read parameters);
+        material.tile_metres = (blade.outer - blade.inner) / fan_blade_panels(blade) as f32;
+        material.tile_height = blade.outer * fan_blade_width(blade, 1f32);
+        material.panel_height = material.tile_height;
     }
     if region == 7u32 {
         material.colour = 0x403c33u32;
         material.accent = 0x201d16u32;
+        material.tile_metres = FAN_TEXTURE_METRES;
+        material.tile_height = FAN_TEXTURE_METRES;
         material.finish = METAL_RIBBED;
         material.pitch = 0.25f32;
     }
