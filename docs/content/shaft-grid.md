@@ -4,6 +4,8 @@
 
 The [shaft subbiome](room-catalogue.md#shafts-radial-shaft-grid) has one main
 route of an exact requested length and a small number of short dead ends.
+This describes the implemented base graph. The approved
+[hazard expansion](#hazard-expansion-design) adds fan bypasses and powered routes.
 Construction has no random retries. Only selected stations and open passages
 become rooms. Other candidate stations have no render or collision geometry.
 
@@ -161,6 +163,37 @@ Every new passage adds one new station. The selected graph remains a tree.
 There is exactly one entrance-to-exit path, and its distance remains `L` in
 both directions. There are no shortcut or whole-grid attachment passes.
 
+## Hazard expansion design
+
+The [fan design](room-catalogue.md#fans-supports-and-tether-flight) defines
+slow crossings, adjacent airflow sources, and fast or cycling fans with short
+hexagonal bypasses. These behaviours and bypasses are not part of the current
+static demo. Add them after construction of the base route and dead ends.
+
+Keep the requested length as the base-route budget. A bypass joins both sides
+of a fan and creates a local loop. Record its passage costs in the expanded
+graph. Report the base distance and the measured stopped and powered route
+costs separately. The tree and exact-distance guarantees above apply before
+hazard expansion.
+
+A permanently fast fan blocks its direct passage while powered. Its bypass
+must remain usable. A cycling fan permits direct passage only during a usable
+slow window; its bypass remains available during all phases. A slow fan needs
+a crossing window checked against blade motion, airflow, and the drone shape.
+Check the return direction as well as the dive. Connectivity alone does not
+establish that opposing flow or a timed crossing can be passed.
+
+Select an adjacent airflow source together with the affected shaft interval,
+its flow direction, and its intake or exhaust path. Build only the required
+fan section and its visible enclosure. A solid cap cannot remain across a
+required air path. This content selection must not restore generation of all
+unused shaft columns.
+
+The first hazard placement uses one shaft affected by an adjacent airflow
+source and one cycling fan with a short hexagonal bypass. Preserve clear runs
+between encounters. Use the catalogue's flight checks before expanding the
+placement rules to more encounters.
+
 ## Placement and content
 
 The [placement code](../../src/app/level/shafts/placement.crs) defines the inner
@@ -184,9 +217,9 @@ occur during loading. The graph output contains stable station and passage IDs,
 open passage states, selected stations, endpoints, the ordered main route,
 and its exact distance.
 
-Geometry must preserve the selected graph. A fan must leave its passage
-traversable. Do not remove a required edge to place machinery or create an
-unrecorded bypass. A grate can replace a closure only with a closed enclosure
+The current static assembly must preserve the selected graph. Each fan leaves
+its passage traversable. Hazard expansion must register fast-fan closures and
+bypass connections before route validation. Do not create an unrecorded bypass. A grate can replace a closure only with a closed enclosure
 behind it. Visible but unreachable structures require explicit content; the
 generator does not fill unused columns with rooms.
 
@@ -198,7 +231,8 @@ this design does not require a uniform distribution over layouts.
 
 Initialize block candidates in coordinate order. Use descending Fisher-Yates
 for shuffles. Consume the graph random stream in this order: block tree,
-entrance and direction, layer lengths, branch root shuffle, and branch steps.
+entrance and direction, turn depth, layer lengths, branch root shuffle, and
+branch steps.
 Keep geometry-detail randomness separate. Do not depend on hash iteration or
 worker completion order.
 

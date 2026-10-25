@@ -182,10 +182,25 @@ geometry. A graph edge through a fan is insufficient evidence of a usable return
 
 ##### Fans, supports, and tether flight
 
-Fans are the moving axial obstacles and the source of airflow. The current
-`shaft-rotor` has X-shaped frames with wings that reach the wall. Keep that
-no-tip-gap rule, but give a fan a blade shape and housing that explain its work.
-Do not infer fan behaviour from an arbitrary decorative rotating part.
+Fans provide moving obstacles and airflow. The `shaft-fan` prefab has pitched
+blades, a fixed spindle, and a wall bearing. Blades reach the wall bearing;
+there is no passage around their tips. The current demo builds static fan
+geometry. The behaviour below defines the hazard implementation.
+
+Generate each fan together with the duct that carries its airflow. Use these
+three roles:
+
+| Role | Placement | Player action |
+| --- | --- | --- |
+| Airflow source | A fast fan in an adjacent shaft section above or below the travelled section | Resist suction, use a push, or control speed before a turn |
+| Slow crossing | A slow fan in the required shaft passage | Approach and cross through a moving blade opening |
+| Fan with bypass | A fast or cycling fan in the required passage, with a short hexagonal tunnel around it | Take the bypass, or wait for a slow phase and cross directly |
+
+Above and below refer to radial depth. Fan position and airflow direction are
+separate generation choices. A fan below the player can either pull toward
+itself or push away, according to its flow direction. Select these arrangements
+during generation. Entering a section does not activate or reset its fan.
+Do not put a fan at every shaft interval.
 
 The spindle housing and structural mounts stay fixed. Bearings and a visible
 rim separate the moving assembly from the wall and housing. Pipe and girder
@@ -193,34 +208,115 @@ stations occupy the spaces between machines. Their geometry must leave a clear
 approach, fixed hook targets, and room to recover on both sides of each fan.
 The outward recovery space becomes the inward approach on the return.
 
-In the dive, fans are stopped and the player can inspect their blade openings,
-bearing tracks, and adjacent cross tunnels. On the return, power starts their
-motion and airflow. Motion follows simulation time and the shared power state.
-It must not reset when the player enters a room or looks at a fan. If spin-up
-occurs in view, sound and motion show the change.
+###### Power, speed, and contact
 
-For the first powered route, fan flow acts outward along the main shaft and
-opposes the climb. Define air velocity in local duct volumes and keep it
-continuous across open mouths. Account for cross-tunnel openings and grate
-permeability when authoring those volumes. A solid closure stops a duct; a
-permeable grate need not stop airflow. No force passes through a solid wall
-because a fan happens to be nearby. A pressure or fluid simulation is not
-required, but the authored flow must follow the visible ducts.
+In the dive, fans are stopped. The player can inspect their blade openings,
+bearing tracks, and bypass entrances. Power starts their motion and airflow
+for the return. Motion follows simulation time and the shared power state.
+It does not reset when the player enters a room or looks at the fan.
 
-Player, launched hook, sparks, and prediction use the same air velocity. Drag
-uses velocity relative to that air. Keep fan flow separate from centrifugal,
+A fan can stay slow, stay fast, or alternate between sustained slow and fast
+phases. A cycling fan has visible and audible acceleration and deceleration.
+Its phase and duration are repeatable for the same seed and simulation time.
+Keep the slow phase long enough to approach and cross the full blade depth
+under the assigned airflow. The opening must remain usable for the drone's
+complete collision shape throughout the crossing.
+
+Slow fans use their moving blade surfaces for contact. Contact with an active
+blade crushes the drone; the gaps remain traversable. A fast fan has a lethal
+swept annulus across its rotor depth. Crossing that annulus always crushes the
+drone, including at high approach speed. The fixed spindle and wall remain
+separate surfaces. Airflow outside the rotor depth does not itself cause a
+crush. Rotation speed alone cannot establish this contact rule.
+
+The fast state must look distinct from a slow fan. Use a dense or blurred rotor
+appearance and a distinct sound. Rapid blade motion alone can appear stopped
+or reversed. Fixed housing marks and marked blades show phase during slow
+rotation. Changes to the contact state must agree with the visible and audible
+transition. A slow crossing window includes time to clear the rotor before the
+fast state resumes.
+
+###### Airflow and recovery
+
+Define a signed air velocity in each local duct volume. Its strength follows
+fan speed with a short, repeatable lag. Keep flow direction fixed through the
+initial speed-cycle implementation. A weak-flow phase permits recovery or
+approach; a strong-flow phase can help travel or make a turn harder.
+
+Keep the field continuous across open mouths. Account for cross tunnels and
+grate permeability when authoring the volumes. A solid closure stops a duct;
+a permeable grate can pass air. An adjacent fan needs a visible intake or
+exhaust path. Do not produce flow through a sealed cap or an unrelated room.
+A pressure or fluid simulation is not required. Authored flow must follow the
+visible ducts, and overlapping source fields must have a defined combined
+strength.
+
+The drone, launched hook, sparks, and prediction use the same air velocity.
+Drag uses velocity relative to that air. Keep airflow separate from centrifugal,
 Coriolis, and spin-up forces. Local shaft coordinates do not redefine gravity.
+Prediction must use the fan's future motion and flow phase during its forecast.
 
-Keep the existing physical hook and latched reel. A shot through a blade opening
-to a fixed mount is permitted. The cable can cross structure; the drone still
-has to clear the moving blades. Do not add automatic reel braking or apply the
+Strong suction is permitted. Before the dangerous approach to a fast rotor,
+provide a readable approach, usable fixed hook targets, and an exit or bypass
+mouth. Check escape from the intended entry positions and velocities, including
+entry while burst and brake are on cooldown. A hook target must be visible,
+within firing range, and reachable by the physical projectile under the flow.
+Its mere presence does not establish a usable escape.
+
+The player need not be able to hover at every point. A committed approach can
+be lethal. The approach must give time and space to choose a valid action.
+Check aiding flow too: it can carry the drone past a turn or bypass entrance.
+
+Keep the existing physical hook and latched reel. A shot through a slow fan's
+opening to a fixed mount is permitted. The cable can cross structure; the drone
+still has to clear the rotor. Do not add automatic reel braking or apply the
 door-specific hook-release rule to fans. A required route must remain usable
-without attaching to lethal moving blades.
+without attaching to moving blades. Show airflow with particles and sound;
+the straight cable does not bend in the wind.
 
-Start with one fan crossing in the first route. Use blade depth, open-sector
-width, speed, and approach clearance to obtain a readable moving passage.
-Test a continuous crossing before adding repeated fan stations. Do not fill a
-shaft with independent gates that reduce flight to repeated waiting.
+###### Hexagonal bypass
+
+The bypass joins the shaft on both sides of one fan. Keep it short and close
+to the machine. Its entrance must be visible from the approach before suction
+commits the drone to the rotor. Its exit must provide room to recover on the
+other side. Both entrances must work for the return direction.
+
+A permanently fast fan makes the bypass mandatory while powered. A cycling
+fan offers a choice between waiting for a direct crossing and taking the longer
+route. Keep the bypass usable throughout the fan cycle. Do not make it a chain
+of additional waiting gates. The stopped fan can permit a direct dive even
+when the powered return requires the bypass.
+
+Register the bypass in the generated connectivity graph. It creates a local
+loop and changes the powered route cost. Follow the
+[hazard expansion rules](shaft-grid.md#hazard-expansion-design) instead of
+reporting the base route length as the final powered distance.
+
+###### First encounters and checks
+
+Start with one shaft affected by an adjacent airflow source and one cycling
+fan with a short hexagonal bypass. Keep other shaft runs clear. This tests
+control under flow and the choice between a timed crossing and a bypass
+without filling the region with repeated gates.
+
+Airflow particles are a separate implementation step. Particles move along the
+shaft with the shared air field and show its direction and strength. Initial
+checks use sound, visible fan state, and the trajectory preview. Particle
+motion must not claim a different direction from the force on the drone.
+
+Check the stopped dive and the powered return in the actual flight simulation:
+
+- Cross the slow fan at different phases, with airflow in each direction.
+- Verify that high-speed crossings cannot pass through a fast rotor.
+- Clear a slow crossing before the fast state resumes.
+- Enter suction and aiding flow with burst and brake on cooldown. Reach an
+  exit or protected approach from the intended entry conditions.
+- Enter and leave the bypass from both sides during the complete fan cycle.
+- Compare hook and drone predictions with their actual paths under changing flow.
+- Leave a fan's room and return. Its phase must continue on the shared timeline.
+
+Graph reachability alone does not prove a powered passage is usable. Tune the
+first encounters from these checks before adding more fans.
 
 ##### Structure beyond the visible route
 
