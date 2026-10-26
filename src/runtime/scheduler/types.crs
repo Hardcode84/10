@@ -19,7 +19,10 @@ record SchedulerRuntime {
     workers: *SchedulerWorker;
     width: u32;
     started: u32;
+    callbacks: u32;
     stopping: bool;
+    closing: bool;
+    outstanding: u64;
     scopes: u32;
     tls: i32;
     injection: SchedulerDeque;

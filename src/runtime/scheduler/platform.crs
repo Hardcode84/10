@@ -86,6 +86,7 @@ fn scheduler_stop_workers(runtime: *SchedulerRuntime) -> unit {
         service_thread_join(runtime -> workers[i as usize].thread, null(*i32));
         i = i + 1u32;
     }
+    runtime -> started = 0u32;
 }
 fn scheduler_signal(runtime: *SchedulerRuntime) -> unit {
     service_post(runtime -> wake);

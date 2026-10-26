@@ -15,8 +15,15 @@ fn renderer_new() -> Renderer {
     };
 }
 fn renderer_drop(renderer: mut Renderer) -> unit {
+    renderer_shutdown(mut renderer);
     storage_close(&renderer.state);
     device_close(&renderer.state);
+}
+// Ends GPU activity and joins completion services. Retains renderer storage.
+// Call after the last frame borrow, before shutting down the background scheduler.
+fn renderer_shutdown(renderer: mut Renderer) -> unit {
+    storage_finish(&renderer.state);
+    device_shutdown(&renderer.state);
 }
 // Requires successful renderer setup. The input borrow keeps the renderer alive.
 fn renderer_inputs(renderer: mut Renderer) -> FrameInput from renderer {

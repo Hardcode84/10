@@ -173,10 +173,12 @@ fn game_run(session: GameSession, config: GameConfig) -> i32 {
         credit: 0u64,
         running: true
     };
-    if !game_run_setup(mut session, mut collision, mut loop, config) {
-        return 1i32;
+    var result: i32 = 1i32;
+    if game_run_setup(mut session, mut collision, mut loop, config) {
+        result = game_run_ready(mut collision, mut session, mut loop, config);
     }
-    return game_run_ready(mut collision, mut session, mut loop, config);
+    game_session_shutdown(mut session);
+    return result;
 }
 fn game_run_ready(
     collision: mut CollisionScene,

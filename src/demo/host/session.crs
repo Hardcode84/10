@@ -6,6 +6,7 @@ fn demo_window_drop(window: mut DemoWindow) -> unit {
     window_close(window.handle);
 }
 record DemoSession {
+    platform: ApplicationPlatform;
     window: DemoWindow;
     renderer: Renderer;
     options: Options;
@@ -17,6 +18,7 @@ fn session_new(source: *Options) -> DemoSession {
     var samples: [u64; 4096] = uninit;
     zero(&samples as *u8, sizeof([u64; 4096]));
     return make DemoSession {
+        platform: application_platform(),
         window: make DemoWindow {
             handle: null(*u8)
         },

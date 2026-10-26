@@ -89,11 +89,19 @@ fn residency_new() -> RoomResidency {
         missing: ROOM_NONE
     };
 }
-fn residency_drop(state: mut RoomResidency) -> unit {
+fn residency_shutdown(state: mut RoomResidency) -> unit {
     if state.scope.state != null(*SchedulerScope) {
         var end: Event = scope_finish(mut state.scope);
         event_join(read end);
     }
+    if state.jobs.state != null(*RoomJobsState) {
+        var end: Event = scope_finish(mut state.jobs.state -> scope);
+        event_join(read end);
+    }
+    scheduler_shutdown(mut state.scheduler);
+}
+fn residency_drop(state: mut RoomResidency) -> unit {
+    residency_shutdown(mut state);
     var i: u32 = 0u32;
     while i < state.count {
         drop state.rooms[i as usize].mesh;

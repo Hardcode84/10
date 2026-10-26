@@ -9,6 +9,9 @@ fn scope_open(scope: mut Scope, scheduler: read Scheduler) -> bool {
     }
     var runtime: *SchedulerRuntime = scheduler.runtime;
     scheduler_require_caller(runtime);
+    if runtime -> closing {
+        return false;
+    }
     var state: *SchedulerScope = scheduler_allocate(runtime, sizeof(SchedulerScope)) as *SchedulerScope;
     if state == null(*SchedulerScope) {
         return false;
@@ -63,6 +66,9 @@ fn scheduler_context_valid(context: read Context) -> unit {
 fn scheduler_admit(context: read Context) -> u32 {
     scheduler_context_valid(read context);
     var scope: *SchedulerScope = context.scope;
+    if scope -> runtime -> closing && !context.child {
+        return SCHED_CLOSED;
+    }
     if scope -> cancelled {
         return SCHED_CANCELLED;
     }
@@ -70,6 +76,7 @@ fn scheduler_admit(context: read Context) -> u32 {
         return SCHED_CLOSED;
     }
     scope -> outstanding = scope -> outstanding + 1u32;
+    scope -> runtime -> outstanding = scope -> runtime -> outstanding + 1u64;
     reference_retain(&scope -> references);
     return 0u32;
 }
@@ -88,6 +95,12 @@ fn scheduler_scope_done(scope: *SchedulerScope, outcome: u32) -> unit {
     if finish {
         scheduler_resolve(event, result);
     }
+    service_lock(runtime -> gate);
+    runtime -> outstanding = runtime -> outstanding - 1u64;
+    if runtime -> outstanding == 0u64 {
+        scheduler_condition_wake(runtime -> changed);
+    }
+    service_unlock(runtime -> gate);
 }
 fn scope_finish(scope: mut Scope) -> Event {
     var state: *SchedulerScope = scope.state;

@@ -81,9 +81,14 @@ fn cancelled(context: read Context) -> bool;
   Dropping an unfinished scope cancels and drains it on a non-worker thread.
   An unfinished scope has a nonterminal finish event. Draining it on a worker
   traps. Scope and scheduler owners cannot transfer into task state.
+- `scheduler_shutdown` closes root and scope admission, drains accepted tasks,
+  their children, and external completions, then joins all workers. Call it from
+  a non-worker thread. External completion providers must remain available until
+  their accepted operations complete. Repeated calls are safe. Completed results
+  and scope owners remain valid after worker join.
 - Scheduler drop requires no live scopes and a non-worker caller; otherwise it
-  traps. Shutdown wakes and joins the workers. Retired result handles can outlive
-  the workers through retained storage ownership.
+  traps. It shuts down the pool before it releases storage. Retired result handles
+  can outlive the workers through retained storage ownership.
 
 ## Launch, wait, and read a result
 
@@ -401,8 +406,17 @@ executing a task callback.
 
 The room job owner retains generated data until all prediction and sound owners
 release it. A room task can be reset only after it completes and its consumers
-release the room. Shutdown closes scopes and waits for their accepted work before
-it releases snapshots, room storage, or renderer resources.
+release the room. Application shutdown has three phases:
+
+1. End GPU work. Wait for buffer allocation and retirement tasks. Join GPU
+   completion services while the scheduler can still execute their dependents.
+2. Finish room scopes, drain the scheduler, and join its workers. The browser
+   drains scheduled executor callbacks before it returns from this phase.
+3. Release snapshots, room storage, renderer resources, and scheduler storage.
+   Close audio, input, and windows. Release the application platform owner last.
+
+Normal exit and startup failure use this order. Resource destructors also call
+the shutdown operations, so repeated shutdown calls are safe.
 
 An upload task holds exclusive renderer storage through a retained frame-input
 borrow. The application waits for this task before it submits a frame. GPU buffer

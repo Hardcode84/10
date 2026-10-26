@@ -69,16 +69,32 @@ fn scheduler_drop(scheduler: mut Scheduler) -> unit {
     if runtime -> scopes != 0u32 {
         scheduler_panic("scheduler dropped with live scopes");
     }
+    scheduler_shutdown(mut scheduler);
+    scheduler_pool_storage_drop(runtime);
+    scheduler_runtime_release(runtime);
+}
+// Closes root admission, drains accepted work and its children, then joins workers.
+// Requires a non-worker caller. External completions must still be serviced.
+// Resources and completed task results remain valid until their owners drop them.
+fn scheduler_shutdown(scheduler: mut Scheduler) -> unit {
+    var runtime: *SchedulerRuntime = scheduler.runtime;
+    if runtime == null(*SchedulerRuntime) || runtime -> stopping {
+        return;
+    }
+    scheduler_require_caller(runtime);
     if runtime -> gate != null(*u8) {
         service_lock(runtime -> gate);
+        runtime -> closing = true;
+        scheduler_condition_wake(runtime -> changed);
+        while runtime -> outstanding != 0u64 {
+            scheduler_condition_wait(runtime -> changed, runtime -> gate);
+        }
     }
     runtime -> stopping = true;
     if runtime -> gate != null(*u8) {
         service_unlock(runtime -> gate);
     }
     scheduler_stop_workers(runtime);
-    scheduler_pool_storage_drop(runtime);
-    scheduler_runtime_release(runtime);
 }
 fn scheduler_pool_storage_drop(runtime: *SchedulerRuntime) -> unit {
     if runtime -> workers != null(*SchedulerWorker) {

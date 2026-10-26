@@ -1,5 +1,23 @@
 extern fn SDL_Init(flags: u32) -> bool = "SDL_Init";
 extern fn SDL_QuitSubSystem(flags: u32) -> unit = "SDL_QuitSubSystem";
+extern fn SDL_Quit() -> unit = "SDL_Quit";
+// Owns the process-wide platform lifetime. Drop after all application resources.
+resource ApplicationPlatform {
+    thread: u64;
+}
+opaque drop application_platform_drop;
+extern fn application_thread_id() -> u64 = "SDL_GetCurrentThreadID";
+fn application_platform() -> ApplicationPlatform {
+    return make ApplicationPlatform {
+        thread: application_thread_id()
+    };
+}
+fn application_platform_drop(platform: mut ApplicationPlatform) -> unit {
+    if platform.thread != application_thread_id() {
+        trap;
+    }
+    SDL_Quit();
+}
 extern fn SDL_GetError() -> *u8 = "SDL_GetError";
 extern fn SDL_CreateWindow(title: *u8, width: i32, height: i32, flags: u64) -> *u8 = "SDL_CreateWindow";
 extern fn SDL_DestroyWindow(window: *u8) -> unit = "SDL_DestroyWindow";

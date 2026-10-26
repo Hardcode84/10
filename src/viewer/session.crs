@@ -6,6 +6,7 @@ fn asset_window_drop(window: mut AssetWindow) -> unit {
     window_close(window.handle);
 }
 record AssetSession {
+    platform: ApplicationPlatform;
     window: AssetWindow;
     renderer: Renderer;
     launch: ViewerLaunch;
@@ -15,6 +16,7 @@ record AssetSession {
 opaque;
 fn asset_session(launch: *ViewerLaunch) -> AssetSession {
     return make AssetSession {
+        platform: application_platform(),
         window: make AssetWindow {
             handle: null(*u8)
         },

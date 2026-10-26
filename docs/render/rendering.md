@@ -820,6 +820,10 @@ the old, preserves inputs, and updates descriptors. Peak memory includes both
 allocations. Rejected planning or allocation preserves the active allocation.
 Command or swapchain failure stops submission and the caller closes the renderer.
 Shutdown also waits for presentation use before releasing its resources.
+`renderer_shutdown` drains GPU submissions, presentation, and background storage
+tasks, then joins completion services. It retains buffers and device resources.
+The application then drains and joins its scheduler. Renderer destruction releases
+the retained resources after that join. Both backends use this shutdown order.
 
 ## Backends and presentation
 

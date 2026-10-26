@@ -58,11 +58,31 @@ fn game_run_tasks(
     var prediction: Prediction = prediction_new();
     var context: PredictionContext = game_prediction_context(read session, read collision);
     prediction_game_streaming(mut context, read session);
-    if !prediction_context_ready(read context) {
-        return 1i32;
-    }
     var sound: SoundContext = game_sound_context(read session, read collision);
-    if !sound_game_streaming(mut sound, read session) || !sound_context_ready(read sound) {
+    var result: i32 = game_run_task_loop(
+        mut collision,
+        mut session,
+        mut loop,
+        config,
+        mut prediction,
+        mut context,
+        mut sound
+    );
+    game_session_shutdown(mut session);
+    return result;
+}
+fn game_run_task_loop(
+    collision: mut CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop,
+    config: GameConfig,
+    prediction: mut Prediction,
+    context: mut PredictionContext,
+    sound: mut SoundContext
+) -> i32 {
+    if !prediction_context_ready(read context) || !sound_game_streaming(mut sound, read session) || !sound_context_ready(
+        read sound
+    ) {
         return 1i32;
     }
     var previous: u64 = now();

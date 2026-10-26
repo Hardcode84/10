@@ -54,6 +54,7 @@ fn device_wait_idle(v: *RenderState) -> bool {
     return true;
 }
 fn device_close(v: *RenderState) -> unit {
+    device_shutdown(v);
     render_bounds_close(v);
     retirement_wait(v);
     buffers_close(v);
@@ -65,6 +66,13 @@ fn device_close(v: *RenderState) -> unit {
     if v -> gpu.id != 0u32 {
         web_close(v -> gpu.id);
         v -> gpu.id = 0u32;
+    }
+}
+extern fn web_shutdown(id: u32) -> unit = "web_shutdown";
+fn device_shutdown(v: *RenderState) -> unit {
+    retirement_wait(v);
+    if v -> gpu.id != 0u32 {
+        web_shutdown(v -> gpu.id);
     }
 }
 fn buffers_allocate(v: *RenderState, size: u64, staging_size: u64) -> bool {

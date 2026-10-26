@@ -7,16 +7,17 @@ resource GameWindow {
 }
 opaque drop game_window_drop;
 record GameControl {
+    window: GameWindow;
     residency: RoomResidency;
     graph: RoomGraph;
-    window: GameWindow;
     launch: Launch;
     stream: Recording;
     latency: LatencyLog;
     sound: GameSound;
 }
 opaque;
-record GameSession {
+resource GameSession {
+    platform: ApplicationPlatform;
     forecast: Drone;
     view_anchors: RoomAnchors;
     control: GameControl;
@@ -27,6 +28,14 @@ record GameSession {
     fixture_mesh: Mesh;
     renderer: Renderer;
     world: InstanceList;
+}
+drop game_session_drop;
+fn game_session_drop(session: mut GameSession) -> unit {
+    game_session_shutdown(mut session);
+}
+fn game_session_shutdown(session: mut GameSession) -> unit {
+    renderer_shutdown(mut session.renderer);
+    residency_shutdown(mut session.control.residency);
 }
 fn game_window_drop(window: mut GameWindow) -> unit {
     audio_close(mut window.audio);
@@ -41,6 +50,7 @@ fn game_window_drop(window: mut GameWindow) -> unit {
 fn game_session(o: *Launch) -> GameSession {
     var renderer: Renderer = renderer_new();
     return make GameSession {
+        platform: application_platform(),
         forecast: new_drone(),
         view_anchors: room_anchors_new(),
         control: make GameControl {

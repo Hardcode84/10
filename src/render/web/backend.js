@@ -204,6 +204,14 @@ mergeInto(LibraryManager.library, {
     if(s.profile)SWGPUProfile.yield(s);
     const result=await s.pending.completion; if(s.profile)SWGPUProfile.observed(s);s.pending=null; return result===1;
   }),
+  web_shutdown__deps: ['$SWGPU', '$Asyncify'], web_shutdown: id => Asyncify.handleAsync(async()=> {
+    const s=SWGPU.get(id);
+    if(s.presentation)await s.presentation.completion;
+    if(s.pending)await s.pending.completion;
+    await Promise.all(s.allocations);
+    s.allocations.length=0;
+    await s.device.queue.onSubmittedWorkDone();
+  }),
   web_idle__deps: ['$SWGPU', '$Asyncify'], web_idle: id => Asyncify.handleAsync(async()=> {
     const s=SWGPU.get(id);
     if(s.profile)SWGPUProfile.yield(s);

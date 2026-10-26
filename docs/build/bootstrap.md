@@ -59,6 +59,9 @@ Each platform owner releases only the SDL subsystems that it initialized. Window
 close releases video; input close releases gamepad support. Global SDL shutdown
 must occur after all worker threads have joined. It invalidates thread handles,
 so it must not run from window close while a scheduler is alive.
+The application owns the global platform lifetime. It releases that owner after
+GPU shutdown, scheduler join, and resource cleanup. See the
+[shutdown order](../runtime/scheduler.md).
 
 ## Shared application setup
 

@@ -120,7 +120,7 @@ fn storage_collect(v: *RenderState, wait: bool) -> bool {
     }
     return true;
 }
-fn storage_close(v: *RenderState) -> unit {
+fn storage_finish(v: *RenderState) -> unit {
     var g: *StorageGrowth = v -> growth;
     if g == null(*StorageGrowth) {
         return;
@@ -129,7 +129,16 @@ fn storage_close(v: *RenderState) -> unit {
     if !storage_retire_drain(v) {
         exit(1i32);
     }
-    storage_collect(v, true);
+    if !storage_collect(v, true) {
+        exit(1i32);
+    }
+}
+fn storage_close(v: *RenderState) -> unit {
+    storage_finish(v);
+    var g: *StorageGrowth = v -> growth;
+    if g == null(*StorageGrowth) {
+        return;
+    }
     if g -> phase != 0u32 {
         buffers_close(&g -> next);
     }

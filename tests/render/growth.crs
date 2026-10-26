@@ -16,6 +16,15 @@ fn transfer_growth(renderer: mut Renderer) -> bool {
         return false;
     }
     var good: bool = transfer_growth_frames(mut renderer);
+    if good {
+        good = transfer_shutdown(&renderer.state);
+    }
+    var buffer: *u8 = renderer.state.buffer;
+    renderer_shutdown(mut renderer);
+    scheduler_shutdown(mut scheduler);
+    if renderer.state.submitted || renderer.state.gpu.observer != null(*ExternalService) || renderer.state.buffer != buffer || renderer.state.growth -> phase == 1u32 || renderer.state.growth -> retired_phase != 0u32 {
+        return error("shutdown must drain GPU tasks and retain resources until workers join");
+    }
     storage_close(&renderer.state);
     return good;
 }

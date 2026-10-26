@@ -36,6 +36,8 @@ fn run_scheduler_suite() -> i32 {
     test_retained_result();
     test_capacity();
     test_external_thread();
+    test_shutdown(1u32);
+    test_shutdown(4u32);
     test_empty_await();
     test_child(8u32);
     var scheduler: Scheduler = scheduler_new();

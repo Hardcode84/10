@@ -205,7 +205,7 @@ fn web_link(root: *CrustRun) -> bool {
         "-O2",
         "-sMALLOC=emmalloc",
         "-sASYNCIFY",
-        "-sASYNCIFY_IMPORTS=[\"web_open\",\"web_pipeline\",\"web_wait\",\"web_idle\",\"web_present_idle\",\"web_times\",\"web_present\"]",
+        "-sASYNCIFY_IMPORTS=[\"web_open\",\"web_pipeline\",\"web_wait\",\"web_shutdown\",\"web_idle\",\"web_present_idle\",\"web_times\",\"web_present\"]",
         "-sALLOW_MEMORY_GROWTH",
         "-sMAXIMUM_MEMORY=2147483648",
         "-sSTACK_SIZE=4194304",

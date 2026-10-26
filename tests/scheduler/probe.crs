@@ -175,3 +175,44 @@ fn scheduler_test_deaths(argv: **u8) -> unit {
         i = i + 1usize;
     }
 }
+
+record ShutdownCompletion {
+    runtime: *SchedulerRuntime;
+    token: Completion;
+}
+opaque;
+fn shutdown_completion_run(data: *u8) -> i32 {
+    var work: *ShutdownCompletion = data as *ShutdownCompletion;
+    var runtime: *SchedulerRuntime = work -> runtime;
+    service_lock(runtime -> gate);
+    while !runtime -> closing {
+        scheduler_condition_wait(runtime -> changed, runtime -> gate);
+    }
+    service_unlock(runtime -> gate);
+    complete(move work -> token);
+    service_free(data);
+    return 0i32;
+}
+fn shutdown_completion(scheduler: read Scheduler, token: Completion) -> CompletionThread transfers(
+    token
+) {
+    var work: *ShutdownCompletion = service_allocate(1usize, sizeof(ShutdownCompletion)) as *ShutdownCompletion;
+    if work == null(*ShutdownCompletion) {
+        trap;
+    }
+    * work = make ShutdownCompletion {
+        runtime: scheduler.runtime,
+        token: move token
+    };
+    var thread: *u8 = service_thread_create(
+        shutdown_completion_run,
+        "shutdown completion",
+        work as *u8
+    );
+    if thread == null(*u8) {
+        trap;
+    }
+    return make CompletionThread {
+        thread: thread
+    };
+}

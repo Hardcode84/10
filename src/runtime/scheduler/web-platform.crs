@@ -53,7 +53,11 @@ fn scheduler_start(runtime: *SchedulerRuntime) -> bool {
     };
     return runtime -> workers[0usize].queue.mutex != null(*u8);
 }
-fn scheduler_stop_workers(runtime: *SchedulerRuntime) -> unit {}
+fn scheduler_stop_workers(runtime: *SchedulerRuntime) -> unit {
+    while runtime -> callbacks != 0u32 {
+        scheduler_sleep(1u32);
+    }
+}
 fn scheduler_browser_turn(data: *u8) -> unit {
     var runtime: *SchedulerRuntime = data as *SchedulerRuntime;
     if !runtime -> stopping {
@@ -64,9 +68,11 @@ fn scheduler_browser_turn(data: *u8) -> unit {
             runtime -> tls = 0i32;
         }
     }
+    runtime -> callbacks = runtime -> callbacks - 1u32;
     scheduler_runtime_release(runtime);
 }
 fn scheduler_signal(runtime: *SchedulerRuntime) -> unit {
     scheduler_retain(runtime);
+    runtime -> callbacks = runtime -> callbacks + 1u32;
     scheduler_async(scheduler_browser_turn, runtime as *u8, 0i32);
 }

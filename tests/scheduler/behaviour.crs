@@ -467,6 +467,7 @@ fn test_external_thread() -> unit {
     );
     probe_entered(read probe);
     probe_release(read probe);
+    scheduler_shutdown(mut scheduler);
     var end: Event = scope_finish(mut scope);
     check(event_join(read end), "external producer wake");
     check(probe_count(read probe) == 1i32, "external producer continuation");
@@ -495,4 +496,57 @@ fn test_empty_await() -> unit {
     var end: Event = scope_finish(mut scope);
     check(event_join(read end), "empty await completion");
     check(probe_count(read probe) == 32i32, "empty await repeated resume");
+}
+
+fn test_shutdown(width: u32) -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, width), "shutdown open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "shutdown scope");
+    var context: Context = scope_context(read scope);
+    var pair: ExternalPair = external_begin(read context);
+    var deps: Dependencies = deps_new();
+    deps_add(mut deps, external_event(read pair));
+    var producer: CompletionThread = shutdown_completion(
+        read scheduler,
+        external_completion(move pair)
+    );
+    var task: Task!(ChildWork) = spawn!(ChildWork)(
+        read context,
+        make ChildWork {
+            child: task_empty!(Sum)(),
+            phase: 0u32,
+            value: 0u64
+        },
+        child_step,
+        move deps
+    );
+    scheduler_shutdown(mut scheduler);
+    var event: Event = task_event!(ChildWork)(read task);
+    check(event_status(read event) == SCHED_OK, "shutdown drains child continuations");
+    var result: ChildWork = task_take!(ChildWork)(mut task);
+    check(result.value == 499500u64, "result survives worker join");
+    var rejected: Task!(Sum) = spawn!(Sum)(
+        read context,
+        make Sum {
+            next: 0u64,
+            end: 1u64,
+            result: 0u64
+        },
+        sum_step,
+        deps_new()
+    );
+    var reject_event: Event = task_event!(Sum)(read rejected);
+    check(event_status(read reject_event) == SCHED_CLOSED, "shutdown closes admission");
+    var external: ExternalPair = external_begin(read context);
+    var closed_event: Event = external_event(read external);
+    check(
+        event_status(read closed_event) == SCHED_CLOSED,
+        "shutdown closes external admission"
+    );
+    var late: Scope = scope_new();
+    check(!scope_open(mut late, read scheduler), "shutdown closes scope admission");
+    scheduler_shutdown(mut scheduler);
+    var finish: Event = scope_finish(mut scope);
+    check(event_join(read finish), "scope and results survive shutdown");
 }
