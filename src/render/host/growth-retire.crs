@@ -1,0 +1,49 @@
+fn storage_release_step(work: mut StorageAllocation, context: read Context) -> Step {
+    buffers_close(&work.state);
+    buffers_forget(&work.state);
+    return done();
+}
+fn storage_retire_start(v: *RenderState) -> unit {
+    var g: *StorageGrowth = v -> growth;
+    if g == null(*StorageGrowth) || g -> retired_phase != 1u32 {
+        return;
+    }
+    var work: StorageAllocation = make StorageAllocation {
+        state: g -> retired,
+        cleared: 0usize,
+        allocated: true
+    };
+    task_replace!(StorageAllocation)(
+        mut g -> release,
+        spawn!(StorageAllocation)(read g -> context, work, storage_release_step, deps_new())
+    );
+    g -> retired_phase = 2u32;
+}
+fn storage_retire_collect(v: *RenderState, wait: bool) -> bool {
+    var g: *StorageGrowth = v -> growth;
+    if g -> retired_phase != 2u32 {
+        return true;
+    }
+    var event: Event = task_event!(StorageAllocation)(read g -> release);
+    if wait {
+        event_join(read event);
+    } else if event_status(read event) == 0u32 {
+        return true;
+    }
+    var work: StorageAllocation = task_take!(StorageAllocation)(mut g -> release);
+    g -> retired_phase = 0u32;
+    if event_status(read event) != SCHED_OK {
+        buffers_close(&work.state);
+        return error("renderer storage release task failed");
+    }
+    return true;
+}
+fn storage_retire_drain(v: *RenderState) -> bool {
+    if v -> growth -> retired_phase == 1u32 {
+        if !device_wait_idle(v) {
+            return false;
+        }
+        storage_retire_start(v);
+    }
+    return storage_retire_collect(v, true);
+}

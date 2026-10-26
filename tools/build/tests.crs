@@ -46,6 +46,8 @@ fn build_render_tests(
     var source_count: usize = demo_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + demo_providers(root, &providers[provider_count]);
+    providers[provider_count] = host_path(root, "tests/render/growth.crs");
+    provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/render/transfers.crs");
     provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/render/portable-lights.crs");

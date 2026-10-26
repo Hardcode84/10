@@ -1,5 +1,5 @@
 fn render_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 41] = make [*u8; 41] {
+    var files: [*u8; 45] = make [*u8; 45] {
         "src/render/host/vulkan.crs",
         "src/render/host/io.crs",
         "src/app/io.crs",
@@ -8,6 +8,10 @@ fn render_providers(root: *CrustRun, args: **u8) -> usize {
         "src/render/shader-names.crs",
         "src/render/host/resources.crs",
         "src/render/host/geometry.crs",
+        "src/render/host/growth.crs",
+        "src/render/host/growth-copy.crs",
+        "src/render/host/growth-transfer.crs",
+        "src/render/host/growth-retire.crs",
         "src/render/host/projection.crs",
         "src/render/host/mesh-tree.crs",
         "src/render/host/numeric-bounds.crs",
@@ -43,17 +47,17 @@ fn render_providers(root: *CrustRun, args: **u8) -> usize {
         "src/render/host/transfers.crs"
     };
     if args == null(**u8) {
-        return 41usize;
+        return 45usize;
     }
     var i: usize = 0usize;
-    while i < 41usize {
+    while i < 45usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn check_renderer(root: *CrustRun) -> bool {
-    var providers: [*u8; 41] = uninit;
+    var providers: [*u8; 45] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
     var args: [*u8; 3] = make [*u8; 3] {
         "--check",

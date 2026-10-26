@@ -15,11 +15,15 @@ fn renderer_new() -> Renderer {
     };
 }
 fn renderer_drop(renderer: mut Renderer) -> unit {
+    storage_close(&renderer.state);
     device_close(&renderer.state);
 }
 // Requires successful renderer setup. The input borrow keeps the renderer alive.
 fn renderer_inputs(renderer: mut Renderer) -> FrameInput from renderer {
     retirement_wait(&renderer.state);
+    if !storage_boundary(&renderer.state) {
+        exit(1i32);
+    }
     return make FrameInput {
         storage: mut renderer.state,
         triangle_limit: ~0u32

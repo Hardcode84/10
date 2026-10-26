@@ -294,3 +294,29 @@ fn retirement_event(v: *RenderState, context: read Context) -> Event {
 fn presentation_event(v: *RenderState, context: read Context) -> Event {
     return web_completion(v, read context, true);
 }
+fn storage_memory_take(v: *RenderState, source: *RenderState) -> unit {}
+fn storage_snapshot_begin(v: *RenderState) -> unit {}
+extern fn web_storage_copy(
+    id: u32,
+    buffer: u32,
+    memory: *u8,
+    source: u32,
+    destination: u32,
+    size: u32
+) -> unit = "web_storage_copy";
+fn storage_copy_gpu(
+    v: *RenderState,
+    next: *RenderState,
+    source: u64,
+    destination: u64,
+    size: u64
+) -> unit {
+    web_storage_copy(
+        v -> gpu.id,
+        next -> buffer as usize as u32,
+        next -> mapped - 4isize,
+        source as u32,
+        destination as u32,
+        size as u32
+    );
+}

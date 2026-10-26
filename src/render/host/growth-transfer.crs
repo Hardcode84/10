@@ -1,0 +1,79 @@
+const STORAGE_COPY_WORDS: u64 = 1048576u64;
+fn storage_snapshot_complete(g: *StorageGrowth) -> bool {
+    return g -> cursor == g -> snapshot_meshes as u64 * 44u64 + g -> snapshot_assets as u64;
+}
+fn storage_snapshot_region(
+    v: *RenderState,
+    slot: u32,
+    first: u64,
+    count: u64,
+    floats: bool
+) -> unit {
+    var next: *RenderState = &v -> growth -> next;
+    var source: u64 = (v -> mapped as *u32)[slot as usize] as u64 + 1u64 + first;
+    var destination: u64 = (next -> mapped as *u32)[slot as usize] as u64 + 1u64 + first;
+    if floats {
+        source = source + v -> words as u64 + 1u64;
+        destination = destination + next -> words as u64 + 1u64;
+    }
+    v -> frame_readback_bytes = v -> frame_readback_bytes + count * 4u64;
+    storage_copy_gpu(v, next, source * 4u64, destination * 4u64, count * 4u64);
+}
+fn storage_snapshot(v: *RenderState) -> unit {
+    var g: *StorageGrowth = v -> growth;
+    if g == null(*StorageGrowth) || (g -> phase != 2u32 && g -> phase != 3u32) {
+        return;
+    }
+    if g -> phase == 2u32 {
+        g -> phase = 3u32;
+        g -> mesh_begin = 0u32;
+        g -> mesh_end = 0u32;
+        g -> asset_begin = 0u32;
+        g -> asset_end = 0u32;
+        g -> snapshot_meshes = v -> mesh_count;
+        g -> snapshot_assets = v -> asset_capacity;
+        g -> cursor = 0u64;
+    }
+    storage_snapshot_begin(v);
+    storage_snapshot_batch(v);
+}
+fn storage_snapshot_batch(v: *RenderState) -> unit {
+    var g: *StorageGrowth = v -> growth;
+    var slots: [u32; 6] = make [u32; 6] {
+        MESH_META,
+        MESH_FLOAT,
+        MESH_INDEX,
+        MESH_NODES,
+        MESH_BOUNDS,
+        ASSET_OFFSET
+    };
+    var sizes: [u32; 6] = make [u32; 6] {
+        4u32,
+        15u32,
+        1u32,
+        10u32,
+        14u32,
+        0u32
+    };
+    var base: u64 = 0u64;
+    var budget: u64 = STORAGE_COPY_WORDS;
+    var i: usize = 0usize;
+    while i < 6usize && budget != 0u64 {
+        var size: u64 = g -> snapshot_meshes as u64 * sizes[i] as u64;
+        if i == 5usize {
+            size = g -> snapshot_assets as u64;
+        }
+        if g -> cursor < base + size {
+            var first: u64 = g -> cursor - base;
+            var count: u64 = size - first;
+            if count > budget {
+                count = budget;
+            }
+            storage_snapshot_region(v, slots[i], first, count, i == 1usize || i == 4usize);
+            budget = budget - count;
+            g -> cursor = g -> cursor + count;
+        }
+        base = base + size;
+        i = i + 1usize;
+    }
+}

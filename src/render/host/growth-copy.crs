@@ -1,0 +1,106 @@
+fn storage_layout_take(v: *RenderState, allocated: *RenderState) -> unit {
+    v -> width = allocated -> width;
+    v -> height = allocated -> height;
+    v -> output_width = allocated -> output_width;
+    v -> output_height = allocated -> output_height;
+    v -> mesh_capacity = allocated -> mesh_capacity;
+    v -> instance_capacity = allocated -> instance_capacity;
+    v -> triangle_capacity = allocated -> triangle_capacity;
+    v -> projection_capacity = allocated -> projection_capacity;
+    v -> shadow_capacity = allocated -> shadow_capacity;
+    v -> light_capacity = allocated -> light_capacity;
+    v -> asset_capacity = allocated -> asset_capacity;
+    v -> view_capacity = allocated -> view_capacity;
+    v -> portal_capacity = allocated -> portal_capacity;
+    v -> task_capacity = allocated -> task_capacity;
+    v -> words = allocated -> words;
+    v -> floats = allocated -> floats;
+    v -> tile_words = allocated -> tile_words;
+    v -> buffer = allocated -> buffer;
+    v -> staging = allocated -> staging;
+    v -> mapped = allocated -> mapped;
+    v -> device_bytes = allocated -> device_bytes;
+    v -> staging_bytes = allocated -> staging_bytes;
+    storage_memory_take(v, allocated);
+}
+fn storage_copy_span(
+    v: *RenderState,
+    old: *RenderState,
+    slot: u32,
+    first: u32,
+    count: u32,
+    floats: bool
+) -> unit {
+    var destination: u32 = (v -> mapped as *u32)[slot as usize] + first;
+    var source: u32 = (old -> mapped as *u32)[slot as usize] + first;
+    if floats {
+        destination = destination + v -> words + 1u32;
+        source = source + old -> words + 1u32;
+    }
+    memcpy(
+        v -> mapped + destination as isize * 4isize,
+        old -> mapped + source as isize * 4isize,
+        count as usize * 4usize
+    );
+}
+fn storage_patch(v: *RenderState, old: *RenderState) -> unit {
+    var g: *StorageGrowth = old -> growth;
+    var first: u32 = g -> mesh_begin;
+    var count: u32 = g -> mesh_end - first;
+    storage_copy_span(v, old, MESH_FLOAT, first * 15u32, count * 15u32, true);
+    storage_copy_span(v, old, MESH_META, first * 4u32, count * 4u32, false);
+    storage_copy_span(v, old, MESH_INDEX, first, count, false);
+    storage_copy_span(v, old, MESH_NODES, first * 10u32, count * 10u32, false);
+    storage_copy_span(v, old, MESH_BOUNDS, first * 14u32, count * 14u32, true);
+    storage_copy_span(
+        v,
+        old,
+        ASSET_OFFSET,
+        g -> asset_begin,
+        g -> asset_end - g -> asset_begin,
+        false
+    );
+    retained_copy_region(v, old, MESH_META, old -> mesh_count * 4u32, false);
+    retained_copy_region(v, old, INSTANCE_META, old -> instance_capacity * 5u32, false);
+    retained_copy_region(v, old, INSTANCE_FLOAT, old -> instance_capacity * 18u32, true);
+    v -> mesh_dirty = count != 0u32;
+    v -> mesh_dirty_begin = first;
+    v -> mesh_dirty_end = g -> mesh_end;
+    v -> asset_dirty_begin = g -> asset_begin;
+    v -> asset_dirty_end = g -> asset_end;
+}
+fn storage_adopt(v: *RenderState, allocated: *RenderState, snapshot: bool) -> bool {
+    var next: RenderState = *v;
+    storage_layout_take(&next, allocated);
+    var peak: u64 = next.device_bytes + next.staging_bytes + v -> device_bytes + v -> staging_bytes;
+    if peak > next.peak_buffer_bytes {
+        next.peak_buffer_bytes = peak;
+    }
+    if snapshot {
+        geometry_copy_frame(&next, v, true);
+        storage_patch(&next, v);
+    } else {
+        geometry_copy(&next, v);
+        next.mesh_dirty = true;
+        next.mesh_dirty_begin = 0u32;
+        next.mesh_dirty_end = next.mesh_count;
+        next.asset_dirty_begin = 0u32;
+        next.asset_dirty_end = next.asset_capacity;
+    }
+    next.font_dirty = true;
+    next.instance_dirty = true;
+    next.instance_map_dirty = true;
+    if v -> growth != null(*StorageGrowth) {
+        v -> growth -> retired = *v;
+        v -> growth -> retired_phase = 1u32;
+    } else {
+        if !device_wait_idle(v) {
+            buffers_close(&next);
+            return false;
+        }
+        buffers_close(v);
+    }
+    * v = next;
+    descriptors_update(v);
+    return command_reset(v);
+}

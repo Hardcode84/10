@@ -606,8 +606,45 @@ browser test harness described in [the web build guide](../build/web.md).
 Collision queries still create temporary anchor lists and contact results.
 Large exact-scale arithmetic still creates temporary integers. These paths need
 caller-owned query and arithmetic workspaces before the complete frame loop can
-have an allocation-free contract. Capacity growth must occur with frame admission
-paused. Repeated creation of the same temporary storage is not capacity growth.
+have an allocation-free contract. Renderer storage growth starts before capacity
+is exhausted. Other capacity changes require an explicit admission pause.
+Repeated creation of the same temporary storage is not capacity growth.
+
+### Background storage growth
+
+The game enables `renderer_background` with its scheduler context. The scope must
+remain open until renderer shutdown. Setup can use synchronous allocation before
+this call. Renderer code owns the allocation and copy tasks; game code has no
+platform memory handles.
+
+When live use reaches the threshold in
+[the growth policy](../../src/render/host/growth.crs), a scheduler task allocates a
+larger device buffer and staging buffer. It clears staging memory in bounded
+steps. Frames continue to use the old buffers. The task never reads live inputs.
+
+After allocation completes, frames copy retained meshes, mesh trees, and assets
+from the old device buffer to the new device buffer and staging buffer. Each
+frame has the byte limit in [the copy policy](../../src/render/host/growth-transfer.crs).
+The existing GPU completion event covers each batch. No worker waits for the
+GPU. Input edits during the copy remain in a separate dirty range.
+
+After the last copy frame retires, the next input boundary transfers current frame inputs
+and edits made after the snapshot. It preserves CPU mesh-hole records, which
+need not exist on the GPU. It updates descriptor bindings before another frame
+is submitted. The old buffers stay alive through the first frame on the new buffers. Its
+completion also covers a presentation copy queued before the switch. A scheduler
+task then frees the old buffers. Unchanged retained data needs no full upload.
+
+Capacity admission runs outside scheduler callbacks. Room upload reserves its
+required storage before its worker task starts. A capacity request waits only if
+the active buffers cannot hold the request.
+It uses the pending replacement when that replacement is large enough. A larger
+request or an image resize replaces an obsolete plan. Shutdown drains pending
+work before it destroys the device. Allocation errors reject the operation and
+preserve active storage.
+
+`crust tests.crs render 12` checks rendered output during growth, input preservation,
+capacity exhaustion, and shutdown with a pending allocation.
 
 ### Independent bounds
 
@@ -660,8 +697,8 @@ instances without duplicating the mesh into dynamic shadow storage.
 
 Dynamic shadow capacity grows from the submitted dynamic triangle count during
 frame preparation. Retained instances use shared mesh trees and a separate
-per-light instance tree. Growth preserves frame inputs and marks retained data
-for upload. Rejected growth preserves the live allocation and rejects the frame.
+per-light instance tree. Growth preserves frame inputs. Rejected growth preserves
+the live allocation and rejects the frame.
 Steady frames reuse storage. `crust tests.crs render 11` checks full images,
 retained-scene growth at fixed dynamic capacity, and allocation rejection.
 

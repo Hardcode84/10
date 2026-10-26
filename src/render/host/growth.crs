@@ -1,0 +1,258 @@
+const STORAGE_HEADROOM_DENOMINATOR: u32 = 4u32;
+const STORAGE_CLEAR_CHUNK: usize = 4194304usize;
+record StorageAllocation {
+    state: RenderState;
+    cleared: usize;
+    allocated: bool;
+}
+opaque send;
+record StorageGrowth {
+    context: Context;
+    task: Task!(StorageAllocation);
+    release: Task!(StorageAllocation);
+    retired: RenderState;
+    retired_phase: u32;
+    next: RenderState;
+    phase: u32;
+    mesh_begin: u32;
+    mesh_end: u32;
+    asset_begin: u32;
+    asset_end: u32;
+    snapshot_meshes: u32;
+    snapshot_assets: u32;
+    cursor: u64;
+}
+opaque;
+// Enables storage preparation on the caller's scheduler. The scope must stay open
+// until the renderer is closed. Call between frames, after renderer setup.
+fn renderer_background(renderer: mut Renderer, context: Context) -> bool {
+    if renderer.state.growth != null(*StorageGrowth) {
+        return error("renderer background storage is already enabled");
+    }
+    var growth: *StorageGrowth = malloc(sizeof(StorageGrowth)) as *StorageGrowth;
+    if growth == null(*StorageGrowth) {
+        return error("renderer growth allocation failed");
+    }
+    * growth = make StorageGrowth {
+        context: move context,
+        task: task_empty!(StorageAllocation)(),
+        release: task_empty!(StorageAllocation)(),
+        retired: renderer.state,
+        retired_phase: 0u32,
+        next: renderer.state,
+        phase: 0u32,
+        mesh_begin: 0u32,
+        mesh_end: 0u32,
+        asset_begin: 0u32,
+        asset_end: 0u32,
+        snapshot_meshes: 0u32,
+        snapshot_assets: 0u32,
+        cursor: 0u64
+    };
+    renderer.state.growth = growth;
+    return true;
+}
+fn storage_allocate_step(work: mut StorageAllocation, context: read Context) -> Step {
+    var v: *RenderState = &work.state;
+    if !work.allocated {
+        var bytes: u64 = status_buffer_offset(v);
+        if !buffers_allocate(
+            v,
+            bytes + v -> shader_checks as u64 * MAX_INVOCATIONS as u64 * 4u64,
+            bytes
+        ) {
+            return fail(
+                make TaskError {
+                    code: 16u32
+                }
+            );
+        }
+        work.allocated = true;
+    }
+    var bytes: usize = status_buffer_offset(v) as usize;
+    var count: usize = bytes - work.cleared;
+    if count > STORAGE_CLEAR_CHUNK {
+        count = STORAGE_CLEAR_CHUNK;
+    }
+    zero(v -> mapped + work.cleared as isize, count);
+    work.cleared = work.cleared + count;
+    if work.cleared < bytes {
+        return yield_task();
+    }
+    buffer_initialize(v);
+    return done();
+}
+fn storage_start(v: *RenderState, planned: *RenderState) -> unit {
+    var g: *StorageGrowth = v -> growth;
+    var next: RenderState = *planned;
+    buffers_forget(&next);
+    next.growth = null(*StorageGrowth);
+    next.submitted = false;
+    var work: StorageAllocation = make StorageAllocation {
+        state: next,
+        cleared: 0usize,
+        allocated: false
+    };
+    task_replace!(StorageAllocation)(
+        mut g -> task,
+        spawn!(StorageAllocation)(read g -> context, work, storage_allocate_step, deps_new())
+    );
+    g -> phase = 1u32;
+}
+fn storage_collect(v: *RenderState, wait: bool) -> bool {
+    var g: *StorageGrowth = v -> growth;
+    if g -> phase != 1u32 {
+        return true;
+    }
+    var event: Event = task_event!(StorageAllocation)(read g -> task);
+    if wait {
+        event_join(read event);
+    } else if event_status(read event) == 0u32 {
+        return true;
+    }
+    var work: StorageAllocation = task_take!(StorageAllocation)(mut g -> task);
+    g -> next = work.state;
+    g -> phase = 2u32;
+    if event_status(read event) != SCHED_OK {
+        buffers_close(&g -> next);
+        g -> phase = 0u32;
+        return error("background renderer allocation failed");
+    }
+    return true;
+}
+fn storage_close(v: *RenderState) -> unit {
+    var g: *StorageGrowth = v -> growth;
+    if g == null(*StorageGrowth) {
+        return;
+    }
+    retirement_wait(v);
+    if !storage_retire_drain(v) {
+        exit(1i32);
+    }
+    storage_collect(v, true);
+    if g -> phase != 0u32 {
+        buffers_close(&g -> next);
+    }
+    drop g -> task;
+    drop g -> release;
+    drop g -> context;
+    free(g as *u8);
+    v -> growth = null(*StorageGrowth);
+}
+fn storage_headroom(used: u32, capacity: u32) -> u32 {
+    if used == 0u32 || used as u64 * STORAGE_HEADROOM_DENOMINATOR as u64 < capacity as u64 * (
+        STORAGE_HEADROOM_DENOMINATOR - 1u32
+    ) as u64 {
+        return capacity;
+    }
+    if capacity > 0x7fffffffu32 {
+        return capacity;
+    }
+    return capacity * 2u32;
+}
+fn storage_prefetch(v: *RenderState) -> bool {
+    if v -> growth == null(*StorageGrowth) {
+        return true;
+    }
+    if !storage_retire_collect(v, false) || !storage_collect(v, false) {
+        return false;
+    }
+    if v -> growth -> phase != 0u32 || v -> growth -> retired_phase != 0u32 {
+        return true;
+    }
+    var w: *u32 = v -> mapped as *u32;
+    var next: RenderState = *v;
+    next.mesh_capacity = storage_headroom(v -> mesh_count, v -> mesh_capacity);
+    next.instance_capacity = storage_headroom(
+        w[INSTANCE_COUNT as usize],
+        v -> instance_capacity
+    );
+    next.triangle_capacity = storage_headroom(w[3usize], v -> triangle_capacity);
+    next.projection_capacity = storage_headroom(
+        w[PROJECTION_CAPACITY as usize],
+        v -> projection_capacity
+    );
+    var projection_limit: u32 = v -> batch_triangle_limit;
+    if projection_limit == 0u32 {
+        projection_limit = GEOMETRY_BATCH_TRIANGLES;
+    }
+    if next.projection_capacity > projection_limit {
+        next.projection_capacity = v -> projection_capacity;
+    }
+    next.shadow_capacity = storage_headroom(shadow_dynamic_required(v), v -> shadow_capacity);
+    next.light_capacity = storage_headroom(w[LIGHT_COUNT as usize], v -> light_capacity);
+    next.asset_capacity = storage_headroom(w[ASSET_WORDS as usize], v -> asset_capacity);
+    if storage_same(v, &next) || geometry_limit(&next) < next.triangle_capacity {
+        return true;
+    }
+    if !geometry_layout(&next, next.triangle_capacity) {
+        return false;
+    }
+    storage_start(v, &next);
+    return true;
+}
+fn storage_same(a: *RenderState, b: *RenderState) -> bool {
+    return a -> mesh_capacity == b -> mesh_capacity && a -> instance_capacity == b -> instance_capacity && a -> triangle_capacity == b -> triangle_capacity && a -> projection_capacity == b -> projection_capacity && a -> shadow_capacity == b -> shadow_capacity && a -> light_capacity == b -> light_capacity && a -> asset_capacity == b -> asset_capacity;
+}
+fn storage_boundary(v: *RenderState) -> bool {
+    var g: *StorageGrowth = v -> growth;
+    if g == null(*StorageGrowth) {
+        return true;
+    }
+    if g -> phase == 4u32 {
+        if !storage_adopt(v, &g -> next, true) {
+            return false;
+        }
+        g -> phase = 0u32;
+    }
+    return storage_collect(v, false);
+}
+fn storage_fits(a: *RenderState, b: *RenderState) -> bool {
+    return a -> width == b -> width && a -> height == b -> height && a -> output_width == b -> output_width && a -> output_height == b -> output_height && a -> mesh_capacity >= b -> mesh_capacity && a -> instance_capacity >= b -> instance_capacity && a -> triangle_capacity >= b -> triangle_capacity && a -> projection_capacity >= b -> projection_capacity && a -> shadow_capacity >= b -> shadow_capacity && a -> light_capacity >= b -> light_capacity && a -> asset_capacity >= b -> asset_capacity && a -> view_capacity >= b -> view_capacity && a -> portal_capacity >= b -> portal_capacity && a -> task_capacity >= b -> task_capacity;
+}
+fn storage_required(v: *RenderState, planned: *RenderState) -> bool {
+    var g: *StorageGrowth = v -> growth;
+    if !storage_retire_drain(v) || !storage_collect(v, true) {
+        return false;
+    }
+    if g -> phase != 0u32 && !storage_fits(&g -> next, planned) {
+        buffers_close(&g -> next);
+        g -> phase = 0u32;
+    }
+    if g -> phase == 0u32 {
+        storage_start(v, planned);
+        if !storage_collect(v, true) {
+            return false;
+        }
+    }
+    var snapshot: bool = g -> phase >= 3u32 && storage_snapshot_complete(g);
+    if !storage_adopt(v, &g -> next, snapshot) {
+        return false;
+    }
+    g -> phase = 0u32;
+    return true;
+}
+fn storage_mesh_dirty(v: *RenderState, begin: u32, end: u32) -> unit {
+    var g: *StorageGrowth = v -> growth;
+    if g == null(*StorageGrowth) || g -> phase < 3u32 {
+        return;
+    }
+    if g -> mesh_end == 0u32 || begin < g -> mesh_begin {
+        g -> mesh_begin = begin;
+    }
+    if end > g -> mesh_end {
+        g -> mesh_end = end;
+    }
+}
+fn storage_asset_dirty(v: *RenderState, offset: u32) -> unit {
+    var g: *StorageGrowth = v -> growth;
+    if g == null(*StorageGrowth) || g -> phase < 3u32 {
+        return;
+    }
+    if g -> asset_end == 0u32 || offset < g -> asset_begin {
+        g -> asset_begin = offset;
+    }
+    if offset >= g -> asset_end {
+        g -> asset_end = offset + 1u32;
+    }
+}

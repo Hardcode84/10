@@ -1,0 +1,144 @@
+fn transfer_growth(renderer: mut Renderer) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        var materials: u32 = input_word(read input, MATERIAL_COUNT as usize);
+        var payload: u32 = input_word(read input, ASSET_WORDS as usize) - materials * MATERIAL_WORDS;
+        if !input_assets(mut input, materials, payload + (STORAGE_COPY_WORDS * 2u64) as u32) {
+            return false;
+        }
+    }
+    var scheduler: Scheduler = scheduler_new();
+    var scope: Scope = scope_new();
+    if !scheduler_open(mut scheduler, 2u32) || !scope_open(mut scope, read scheduler) || !renderer_background(
+        mut renderer,
+        scope_context(read scope)
+    ) {
+        return false;
+    }
+    var good: bool = transfer_growth_frames(mut renderer);
+    storage_close(&renderer.state);
+    return good;
+}
+fn transfer_growth_frames(renderer: mut Renderer) -> bool {
+    var v: *RenderState = &renderer.state;
+    var old: *u8 = v -> buffer;
+    var planned: RenderState = *v;
+    planned.triangle_capacity = planned.triangle_capacity * 2u32;
+    if !geometry_layout(&planned, planned.triangle_capacity) {
+        return false;
+    }
+    var baseline: RenderState = planned;
+    buffers_forget(&baseline);
+    var baseline_begin: u64 = render_now();
+    if !buffer_create(&baseline) {
+        buffers_close(&baseline);
+        return false;
+    }
+    geometry_copy(&baseline, v);
+    var baseline_time: u64 = render_now() - baseline_begin;
+    buffers_close(&baseline);
+    storage_start(v, &planned);
+    var frames: u32 = transfer_growth_wait(mut renderer);
+    if frames == 0u32 {
+        return false;
+    }
+    var expected: f32 = transfer_growth_edit(mut renderer);
+    var switch_begin: u64 = render_now();
+    if !storage_boundary(&renderer.state) {
+        return false;
+    }
+    var switch_time: u64 = render_now() - switch_begin;
+    if renderer.state.growth -> retired_phase != 1u32 || renderer.state.growth -> retired.buffer != old {
+        return error("storage released before presentation readers retired");
+    }
+    if !transfer_growth_verify(mut renderer, expected) {
+        return false;
+    }
+    if renderer.state.buffer == old || !renderer_draw(&renderer.state) || !reference_check(
+        renderer.state.mapped
+    ) {
+        return error("background storage snapshot did not preserve the rendered scene");
+    }
+    puts("synchronous allocation+copy / background adoption (us):");
+    print_number((baseline_time / 1000u64) as i64);
+    print_number((switch_time / 1000u64) as i64);
+    puts("frames rendered during background storage growth:");
+    print_number(frames as i64);
+    return transfer_growth_exhaustion(mut renderer);
+}
+fn transfer_growth_exhaustion(renderer: mut Renderer) -> bool {
+    var next: RenderState = renderer.state;
+    next.triangle_capacity = next.triangle_capacity * 2u32;
+    if !geometry_layout(&next, next.triangle_capacity) {
+        return false;
+    }
+    storage_start(&renderer.state, &next);
+    if !geometry_reserve(&renderer.state, next.triangle_capacity) || !renderer_draw(
+        &renderer.state
+    ) || !reference_check(renderer.state.mapped) {
+        return error("storage exhaustion did not preserve the rendered scene");
+    }
+    // Close with a live allocation task.
+    next = renderer.state;
+    next.triangle_capacity = next.triangle_capacity * 2u32;
+    if !geometry_layout(&next, next.triangle_capacity) {
+        return false;
+    }
+    storage_start(&renderer.state, &next);
+    return true;
+}
+
+fn transfer_growth_edit(renderer: mut Renderer) -> f32 {
+    var input: FrameInput = make FrameInput {
+        storage: mut renderer.state,
+        triangle_limit: ~0u32
+    };
+    var palette: u32 = input_asset_word(read input, 4u32);
+    input_asset_set(mut input, palette, 0xff00ff00u32);
+    var index: usize = input_word(read input, MESH_FLOAT as usize) as usize;
+    var value: f32 = input_float(read input, index) + 0.125f32;
+    input_set_float(mut input, index, value);
+    return value;
+}
+
+fn transfer_growth_verify(renderer: mut Renderer, expected: f32) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        var index: usize = input_word(read input, MESH_FLOAT as usize) as usize;
+        if input_float(read input, index) != expected || input_asset_word(
+            read input,
+            input_asset_word(read input, 4u32)
+        ) != 0xff00ff00u32 {
+            return error("snapshot adoption lost later input edits");
+        }
+    }
+    return true;
+}
+
+fn transfer_growth_wait(renderer: mut Renderer) -> u32 {
+    var v: *RenderState = &renderer.state;
+    var old: *u8 = v -> buffer;
+    var begin: u64 = render_now();
+    var frames: u32 = 0u32;
+    var edited: bool = false;
+    while v -> growth -> phase != 4u32 {
+        if render_now() - begin > 10000000000u64 {
+            error("background storage did not finish");
+            return 0u32;
+        }
+        if !renderer_draw(v) || v -> buffer != old || !reference_check(v -> mapped) {
+            error("background storage changed the active frame");
+            return 0u32;
+        }
+        if v -> growth -> phase == 3u32 && !edited {
+            transfer_growth_edit(mut renderer);
+            edited = true;
+        }
+        frames = frames + 1u32;
+    }
+    if !edited {
+        error("growth fixture did not span multiple copy frames");
+        return 0u32;
+    }
+    return frames;
+}

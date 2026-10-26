@@ -1,4 +1,5 @@
 record RenderState {
+    growth: *StorageGrowth;
     command_dispatch_base: u32;
     bounds_portals: *u8;
     bounds_bytes: usize;
@@ -98,6 +99,10 @@ fn buffer_create(v: *RenderState) -> bool {
         return false;
     }
     zero(v -> mapped, (staging_size) as usize);
+    buffer_initialize(v);
+    return true;
+}
+fn buffer_initialize(v: *RenderState) -> unit {
     (v -> mapped as *u32)[0usize] = v -> words;
     (v -> mapped as *u32)[(v -> words + 1u32) as usize] = v -> floats;
     ((v -> mapped + tile_buffer_offset(v) as isize) as *u32)[0usize] = v -> tile_words;
@@ -111,7 +116,6 @@ fn buffer_create(v: *RenderState) -> bool {
     if bytes > v -> peak_buffer_bytes {
         v -> peak_buffer_bytes = bytes;
     }
-    return true;
 }
 record ShaderCode {
     bytes: *u8;

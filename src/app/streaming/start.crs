@@ -39,10 +39,7 @@ fn residency_seed_room(
     return true;
 }
 fn game_residency_open(session: mut GameSession, scene: mut CollisionScene, world: u32) -> bool {
-    if !residency_runtime_open(
-        mut session.control.residency,
-        session.control.launch.config.workers
-    ) {
+    if !game_residency_runtime(mut session) {
         return false;
     }
     var count: u32 = graph_count(read session.control.graph);
@@ -168,4 +165,17 @@ fn game_residency_frame(
 
 fn game_residency_enable(session: mut GameSession) -> unit {
     session.control.residency.enabled = true;
+}
+
+fn game_residency_runtime(session: mut GameSession) -> bool {
+    if !residency_runtime_open(
+        mut session.control.residency,
+        session.control.launch.config.workers
+    ) || !renderer_background(
+        mut session.renderer,
+        scope_context(read session.control.residency.scope)
+    ) {
+        return false;
+    }
+    return true;
 }

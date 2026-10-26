@@ -31,7 +31,7 @@ fn transfer_test(base: *Options) -> bool {
     if !transfer_admission(mut renderer) {
         return false;
     }
-    return transfer_shutdown(&renderer.state);
+    return transfer_growth(mut renderer) && transfer_shutdown(&renderer.state);
 }
 fn transfer_measure(v: *RenderState) -> bool {
     var wait: u64 = 0u64;

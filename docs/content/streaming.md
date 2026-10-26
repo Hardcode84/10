@@ -97,9 +97,12 @@ Meshes use fixed-size arena pieces within the shared renderer buffer. Multiple
 meshes can share an arena. Empty arenas reuse their extent. Startup admission reserves mesh storage, instance
 records, and triangle address space for the arena budget. A new room within
 that budget does not replace the renderer buffers during a crossing.
-Frame scratch shares this buffer. Growth beyond an admitted frame capacity
-replaces the shared buffer and copies resident data. The current arenas do not
-have independent GPU allocations.
+Frame scratch shares this device allocation. The renderer starts growth before
+capacity is exhausted. Scheduler tasks allocate and clear replacement storage.
+Bounded GPU copies preserve resident data while frames use the old buffer. A
+frame boundary switches storage; a later GPU completion permits release of the
+old buffer. A request that exceeds active capacity can wait for the replacement.
+See [background storage growth](../render/rendering.md#background-storage-growth).
 Device binding limits still apply. Cache or arena exhaustion produces an error.
 GPU diagnostics report live, trapped, requested, and budget bytes.
 

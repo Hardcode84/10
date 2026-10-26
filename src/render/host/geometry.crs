@@ -85,22 +85,36 @@ fn geometry_header(v: *RenderState) -> unit {
         portal = portal + 1u32;
     }
 }
-fn geometry_copy(v: *RenderState, old: *RenderState) -> unit {
+fn geometry_copy_frame(v: *RenderState, old: *RenderState, live: bool) -> unit {
+    var w: *u32 = old -> mapped as *u32;
+    var count: u32 = w[3usize];
+    if w[26usize] == 0u32 && w[INSTANCE_COUNT as usize] != 0u32 {
+        count = w[DYNAMIC_COUNT as usize];
+    }
+    if !live {
+        count = old -> triangle_capacity;
+    }
     memcpy(v -> mapped, old -> mapped, PIXELS as usize * 4usize);
     memcpy(
         v -> mapped + image_words(v) as isize * 4isize,
         old -> mapped + image_words(old) as isize * 4isize,
-        old -> triangle_capacity as usize * 16usize
+        count as usize * 16usize
     );
     memcpy(
         v -> mapped + (v -> words as isize + 1isize) * 4isize,
         old -> mapped + (old -> words as isize + 1isize) * 4isize,
-        (GEOMETRY as usize + old -> triangle_capacity as usize * 15usize) * 4usize
+        (GEOMETRY as usize + count as usize * 15usize) * 4usize
     );
     geometry_header(v);
-    retained_copy(v, old);
-    retained_copy_region(v, old, SPACE_TRIANGLES, old -> triangle_capacity * 4u32, false);
-    retained_copy_region(v, old, SPACE_META, old -> triangle_capacity * 4u32, false);
+
+    retained_copy_region(
+        v,
+        old,
+        SPACE_TRIANGLES,
+        w[SPACE_RANGE_COUNT as usize] * 4u32,
+        false
+    );
+    retained_copy_region(v, old, SPACE_META, w[SPACE_COUNT as usize] * 4u32, false);
     retained_copy_region(v, old, LIGHT_DATA, old -> light_capacity * 8u32, true);
     retained_copy_region(v, old, LIGHT_SPACE, old -> light_capacity, false);
     retained_copy_region(v, old, PORTAL_META, old -> portal_capacity * 4u32, false);
@@ -111,6 +125,10 @@ fn geometry_copy(v: *RenderState, old: *RenderState) -> unit {
         old -> portal_capacity * PORTAL_TRANSFORM_WORDS,
         true
     );
+}
+fn geometry_copy(v: *RenderState, old: *RenderState) -> unit {
+    geometry_copy_frame(v, old, false);
+    retained_copy(v, old);
     memcpy(
         v -> mapped + (v -> mapped as *u32)[ASSET_OFFSET as usize] as isize * 4isize,
         old -> mapped + (old -> mapped as *u32)[ASSET_OFFSET as usize] as isize * 4isize,
@@ -134,8 +152,8 @@ fn geometry_reserve(v: *RenderState, required: u32) -> bool {
 }
 fn storage_replace(v: *RenderState, planned: *RenderState) -> bool {
     retirement_wait(v);
-    if !device_wait_idle(v) {
-        return false;
+    if v -> growth != null(*StorageGrowth) {
+        return storage_required(v, planned);
     }
     var next: RenderState = *planned;
     next.submitted = false;
@@ -144,18 +162,7 @@ fn storage_replace(v: *RenderState, planned: *RenderState) -> bool {
         buffers_close(&next);
         return false;
     }
-    var peak: u64 = next.device_bytes + next.staging_bytes + v -> device_bytes + v -> staging_bytes;
-    if peak > next.peak_buffer_bytes {
-        next.peak_buffer_bytes = peak;
-    }
-    geometry_copy(&next, v);
-    buffers_close(v);
-    next.mesh_dirty = true;
-    next.mesh_dirty_begin = 0u32;
-    next.mesh_dirty_end = next.mesh_count;
-    *v = next;
-    descriptors_update(v);
-    return command_reset(v) && commands_record(v);
+    return storage_adopt(v, &next, false);
 }
 fn geometry_limit(v: *RenderState) -> u32 {
     if v -> storage_limit < 256u32 {

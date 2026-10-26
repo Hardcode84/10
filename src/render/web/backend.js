@@ -137,6 +137,17 @@ mergeInto(LibraryManager.library, {
     slot.ptr=(memory>>>0)+offset; slot.size=size;
     s.encoder.copyBufferToBuffer(s.buffer,offset,b,0,size);
   },
+  web_storage_copy__deps: ['$SWGPU'], web_storage_copy: (id, handle, memory, source, destination, size) => {
+    const s=SWGPU.get(id);
+    s.encoder.copyBufferToBuffer(s.buffer,source,s.buffers.get(handle),destination,size);
+    if(s.profile?.current){s.profile.current.readbackBytes+=size;s.profile.current.readbackBuffers++;}
+    const index=s.readCount++;
+    let slot=s.reads[index];
+    if(!slot){slot={buffer:null,capacity:0,ptr:0,size:0};s.reads.push(slot);}
+    const buffer=SWGPU.reserve(s,slot,size,GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ);
+    slot.ptr=(memory>>>0)+destination;slot.size=size;
+    s.encoder.copyBufferToBuffer(s.buffer,source,buffer,0,size);
+  },
   web_submit__deps: ['$SWGPU'], web_submit: id => {
     const s=SWGPU.get(id);
     try {

@@ -280,6 +280,7 @@ fn retained_dirty(v: *RenderState, begin: u32, end: u32) -> unit {
     if begin == end {
         return;
     }
+    storage_mesh_dirty(v, begin, end);
     if !v -> mesh_dirty || begin < v -> mesh_dirty_begin {
         v -> mesh_dirty_begin = begin;
     }

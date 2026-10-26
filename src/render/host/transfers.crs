@@ -49,6 +49,7 @@ fn upload_scene(v: *RenderState) -> unit {
         true
     );
     persistent_upload(v);
+    storage_snapshot(v);
     copy_region(
         v,
         v -> staging,
@@ -181,6 +182,7 @@ fn input_word_dirty(input: mut FrameInput, index: u32) -> unit {
     var first: u32 = input_word(read input, ASSET_OFFSET as usize);
     if index >= first && index - first < input.storage.asset_capacity {
         var offset: u32 = index - first;
+        storage_asset_dirty(&input.storage, offset);
         if input.storage.asset_dirty_end == 0u32 || offset < input.storage.asset_dirty_begin {
             input.storage.asset_dirty_begin = offset;
         }

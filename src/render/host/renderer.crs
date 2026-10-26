@@ -126,6 +126,9 @@ fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
     if !shadow_reserve(v, shadow_dynamic_required(v)) || !projection_admit(v, extra) {
         return false;
     }
+    if !storage_prefetch(v) {
+        return false;
+    }
     lighting_index(v);
     mesh_trees_prepare(v);
     if !render_numeric_bounds(v) {
@@ -145,9 +148,9 @@ fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
     return true;
 }
 fn renderer_begin(v: *RenderState) -> bool {
-    if !renderer_prepare(v, 0u32) || !command_reset(v) || !commands_record(v) || !renderer_submit(
+    if !storage_boundary(v) || !renderer_prepare(v, 0u32) || !command_reset(v) || !commands_record(
         v
-    ) {
+    ) || !renderer_submit(v) {
         return false;
     }
     return true;
@@ -159,6 +162,12 @@ fn renderer_complete(v: *RenderState) -> bool {
     if !frame_valid(v) {
         return false;
     }
+    if v -> growth != null(*StorageGrowth) && v -> growth -> phase == 3u32 && storage_snapshot_complete(
+        v -> growth
+    ) {
+        v -> growth -> phase = 4u32;
+    }
+    storage_retire_start(v);
     v -> mesh_dirty = false;
     v -> mesh_dirty_begin = 0u32;
     v -> mesh_dirty_end = 0u32;
