@@ -1,24 +1,3 @@
-fn scheduler_thread(data: *u8) -> i32 {
-    var worker: *SchedulerWorker = data as *SchedulerWorker;
-    var runtime: *SchedulerRuntime = worker -> runtime;
-    if !scheduler_tls_set(&runtime -> tls, data, null(fn(*u8) -> unit)) {
-        scheduler_panic("scheduler TLS failed");
-    }
-    while true {
-        var node: *SchedulerNode = scheduler_find(worker);
-        if node != null(*SchedulerNode) {
-            scheduler_run(node);
-        } else {
-            service_lock(runtime -> gate);
-            var stop: bool = runtime -> stopping;
-            service_unlock(runtime -> gate);
-            if stop {
-                return 0i32;
-            }
-            service_wait(runtime -> wake);
-        }
-    }
-}
 fn scheduler_new() -> Scheduler {
     return make Scheduler {
         runtime: null(*SchedulerRuntime)
@@ -35,7 +14,11 @@ fn scheduler_open_auto(scheduler: mut Scheduler) -> bool {
     if count < 1i32 {
         count = 1i32;
     }
-    return scheduler_open(mut scheduler, count as u32);
+    var width: u32 = count as u32;
+    if width > scheduler_worker_limit() {
+        width = scheduler_worker_limit();
+    }
+    return scheduler_open(mut scheduler, width);
 }
 fn scheduler_open_capacity(scheduler: mut Scheduler, workers: u32, bytes: usize) -> bool {
     if scheduler.runtime != null(*SchedulerRuntime) {
@@ -77,31 +60,6 @@ fn scheduler_storage_ready(runtime: *SchedulerRuntime) -> bool {
         *SchedulerWorker
     );
 }
-fn scheduler_start(runtime: *SchedulerRuntime) -> bool {
-    var i: u32 = 0u32;
-    while i < runtime -> width {
-        runtime -> workers[i as usize] = make SchedulerWorker {
-            runtime: runtime,
-            queue: scheduler_deque_new(),
-            thread: null(*u8),
-            index: i,
-            turns: 0u32
-        };
-        if runtime -> workers[i as usize].queue.mutex == null(*u8) {
-            return false;
-        }
-        i = i + 1u32;
-    }
-    while runtime -> started < runtime -> width {
-        var worker: *SchedulerWorker = &runtime -> workers[runtime -> started as usize];
-        worker -> thread = service_thread_create(scheduler_thread, "scheduler", worker as *u8);
-        if worker -> thread == null(*u8) {
-            return false;
-        }
-        runtime -> started = runtime -> started + 1u32;
-    }
-    return true;
-}
 fn scheduler_drop(scheduler: mut Scheduler) -> unit {
     var runtime: *SchedulerRuntime = scheduler.runtime;
     if runtime == null(*SchedulerRuntime) {
@@ -118,16 +76,7 @@ fn scheduler_drop(scheduler: mut Scheduler) -> unit {
     if runtime -> gate != null(*u8) {
         service_unlock(runtime -> gate);
     }
-    var i: u32 = 0u32;
-    while i < runtime -> started {
-        service_post(runtime -> wake);
-        i = i + 1u32;
-    }
-    i = 0u32;
-    while i < runtime -> started {
-        service_thread_join(runtime -> workers[i as usize].thread, null(*i32));
-        i = i + 1u32;
-    }
+    scheduler_stop_workers(runtime);
     scheduler_pool_storage_drop(runtime);
     scheduler_runtime_release(runtime);
 }

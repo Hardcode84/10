@@ -18,6 +18,8 @@ fn sum_step(state: mut Sum, context: read Context) -> Step {
     return done();
 }
 fn run_scheduler_suite() -> i32 {
+    check(check_native_service(), "native completion service");
+    check(check_service_events(), "completion service events");
     test_child(1u32);
     test_child(4u32);
     test_external(1u32);

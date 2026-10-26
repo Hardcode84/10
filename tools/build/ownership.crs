@@ -59,7 +59,7 @@ fn ownership_sources_target(
         argc: total as i32,
         argv: &args[0usize]
     };
-    var result: i32 = ownership_program(&request, &trusted[0usize], count, emit);
+    var result: i32 = ownership_generics_program(&request, &trusted[0usize], count, emit);
     result = ownership_result(root, &context, result, expected);
     crust_context_destroy(&context);
     return result;

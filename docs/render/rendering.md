@@ -6,7 +6,7 @@ The application uses GPU compute for image generation on Vulkan and WebGPU.
 Crust supplies the host and device code. The rendering core has no game rules,
 room recipes, input handling, animation frame numbers, or palette generator.
 
-Related contracts: [task graph](../runtime/task-graph.md),
+Related contracts: [task graph](../runtime/scheduler.md),
 [scaling portals](../game/scaling-portals.md),
 [parametric assets](../content/parametric-assets.md),
 [room format](../content/room-format.md), [bootstrap](../build/bootstrap.md),
@@ -697,7 +697,7 @@ keeps its window alive until renderer destruction.
 
 The synchronous `renderer_draw` waits for rendering and selected readback.
 The game's default task path uses asynchronous operations with one GPU frame
-in flight. `--serial` selects the synchronous loop. Native completion uses a
+in flight. Native completion uses a
 dedicated service; browser completion uses promises. Game code sees neither
 pthread objects nor Vulkan synchronization handles.
 

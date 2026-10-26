@@ -18,7 +18,7 @@ fn build_reference(
         "--cflag",
         "-O2"
     };
-    return ownership_build(
+    return ownership_generics_build(
         null(*CrustSource),
         0usize,
         9i32,

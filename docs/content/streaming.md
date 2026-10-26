@@ -36,10 +36,9 @@ crossing. Polygon or traversal exhaustion conservatively includes all candidates
 
 The current visibility row and further waves provide generation and retention
 hints. They do not require a frame to wait. Audio range, prediction, the hook,
-and particles can also request geometry. Background requests have lower priority
-than frame dependencies. The scheduler reserves foreground worker capacity when
-its pool has more than one worker. Default pool width is defined in
-`src/runtime/platform/native-pool.crs`.
+and particles can also request geometry. All requests use the same work-stealing scheduler. Callbacks release their worker
+when they await a dependency. The automatic worker cap is defined in
+`src/game/tasks/runtime.crs`.
 
 A room request shares one generation task with all consumers. A consumer that
 finds missing collision geometry returns a dependency on that task. The worker
@@ -101,7 +100,7 @@ Device binding limits still apply. Cache or arena exhaustion produces an error.
 GPU diagnostics report live, trapped, requested, and budget bytes.
 
 Desktop background work uses the common worker pool. The browser uses the same
-continuation scheduler with its application-lane pool provider. That provider
+scheduler with its event-loop provider. That provider
 has no background CPU workers; task execution itself occupies the application
 lane. Moving browser computation to workers requires a worker-capable WebAssembly
 pool and the corresponding browser memory and deployment contract. Dependency
@@ -110,7 +109,7 @@ waits themselves occupy no pool worker on either provider.
 ## Checks
 
 ```sh
-crust tests.crs runtime
+crust tests.crs scheduler
 crust tests.crs residency levels/shafts.crs --width 640 --height 480
 crust tests.crs residency levels/service.crs --width 640 --height 480
 crust tests.crs residency-budget levels/shafts.crs --width 640 --height 480 --room-memory 9
@@ -120,7 +119,7 @@ crust main.crs --web
 ```
 
 Runtime checks use one worker to complete a consumer through a generated
-dependency. They also check foreground progress while background work is busy.
+dependency. Scheduler checks cover fairness and dependency resumption while other work is busy.
 The residency check removes destination geometry, resumes prediction through
 real generation, and compares its output with full residency. It compares
 physics and rendered pixels across portal crossings and return visits. The

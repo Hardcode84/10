@@ -1,5 +1,4 @@
-fn residency_execute(data: *u8) -> TaskStep {
-    var work: *ResidentBuild = data as *ResidentBuild;
+fn residency_execute(work: *ResidentBuild) -> bool {
     var replay: RoomReplay = room_replay_new();
     var builder: CollisionBuilder = collision_builder_new();
     if !room_recipe_build(
@@ -9,13 +8,13 @@ fn residency_execute(data: *u8) -> TaskStep {
         mut builder,
         mut replay
     ) {
-        return task_done(false);
+        return false;
     }
     if !collision_rebuild_finish(read work -> plan, move builder, mut work -> collision) {
-        return task_done(false);
+        return false;
     }
     mesh_swap(mut work -> mesh, mut replay.mesh);
-    return task_done(true);
+    return true;
 }
 fn residency_jobs(
     state: mut RoomResidency,
@@ -33,17 +32,15 @@ fn residency_jobs(
         ) {
             return false;
         }
-        schedule_define(read state.schedule, i, residency_execute, work as *u8);
         i = i + 1u32;
     }
     return true;
 }
 // Publish completed immutable room chunks between readers.
 fn residency_poll(state: mut RoomResidency, scene: mut CollisionScene) -> bool {
-    schedule_poll(read state.schedule);
     var i: u32 = 0u32;
     while i < state.count {
-        var status: i32 = schedule_status(read state.schedule, i);
+        var status: i32 = room_status(read state.jobs, i);
         if status < 0i32 {
             return error("room generation task failed");
         }
@@ -68,7 +65,7 @@ fn residency_request(
     if state.rooms[room as usize].ready && !residency_asset_ready(read state, room) {
         residency_forget(mut state, room);
     }
-    schedule_background(read state.schedule, room);
+    room_request(read state.jobs, room, false);
     return true;
 }
 fn residency_prefetch(
@@ -84,15 +81,14 @@ fn residency_prefetch(
                 read state.wanted,
                 room
             ) != 0u32
-        ) && !schedule_requested(read state.schedule, room) {
+        ) && !room_requested(read state.jobs, room) {
             if bytes + state.rooms[room as usize].cost <= state.cpu_budget {
-                schedule_background(read state.schedule, room);
+                room_request(read state.jobs, room, false);
                 bytes = bytes + state.rooms[room as usize].cost;
             }
         }
         room = room + 1u32;
     }
-    schedule_poll(read state.schedule);
     return true;
 }
 fn game_residency_require(
@@ -106,7 +102,7 @@ fn game_residency_require(
         return false;
     }
     var start: u64 = now();
-    if !residency_request(mut control.residency, read scene, read control.graph, room) || !game_schedule_wait(
+    if !residency_request(mut control.residency, read scene, read control.graph, room) || !game_room_wait(
         mut control,
         mut input,
         room
@@ -155,7 +151,7 @@ fn residency_forget(state: mut RoomResidency, room: u32) -> unit {
     var work: *ResidentBuild = &state.builds[room as usize];
     work -> mesh = mesh_new();
     work -> collision = collision_room_new();
-    schedule_reset(read state.schedule, room);
+    room_reset(read state.jobs, room);
     state.rooms[room as usize].ready = false;
 }
 fn residency_cache_limit(state: mut RoomResidency, scene: mut CollisionScene) -> bool {
@@ -163,7 +159,7 @@ fn residency_cache_limit(state: mut RoomResidency, scene: mut CollisionScene) ->
     var room: u32 = 0u32;
     while bytes > state.cpu_budget && room < state.count {
         var item: *ResidentRoom = &state.rooms[room as usize];
-        if item -> ready && !item -> pinned && !schedule_demanded(read state.schedule, room) && generation_word(
+        if item -> ready && !item -> pinned && !room_demanded(read state.jobs, room) && generation_word(
             read state.wanted,
             room
         ) == 0u32 {
@@ -186,7 +182,7 @@ fn residency_prefetch_bytes(state: read RoomResidency) -> u64 {
     var bytes: u64 = residency_cpu_bytes(read state);
     var room: u32 = 0u32;
     while room < state.count {
-        if !state.rooms[room as usize].ready && schedule_requested(read state.schedule, room) {
+        if !state.rooms[room as usize].ready && room_requested(read state.jobs, room) {
             bytes = bytes + state.rooms[room as usize].cost;
         }
         room = room + 1u32;

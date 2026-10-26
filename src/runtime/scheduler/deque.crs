@@ -46,7 +46,7 @@ fn scheduler_enqueue(node: *SchedulerNode, yield: bool) -> unit {
     } else {
         scheduler_push(&worker -> queue, node);
     }
-    service_post(runtime -> wake);
+    scheduler_signal(runtime);
 }
 fn scheduler_find(worker: *SchedulerWorker) -> *SchedulerNode {
     var runtime: *SchedulerRuntime = worker -> runtime;

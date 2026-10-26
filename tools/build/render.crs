@@ -1,5 +1,5 @@
 fn render_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 29] = make [*u8; 29] {
+    var files: [*u8; 41] = make [*u8; 41] {
         "src/render/host/vulkan.crs",
         "src/render/host/io.crs",
         "src/app/io.crs",
@@ -20,6 +20,18 @@ fn render_providers(root: *CrustRun, args: **u8) -> usize {
         "src/render/host/timing.crs",
         "src/render/host/completion.crs",
         "src/runtime/platform/native-service.crs",
+        "src/runtime/platform/primitives.crs",
+        "src/runtime/platform/reference-count.crs",
+        "src/runtime/scheduler/types.crs",
+        "src/runtime/scheduler/platform.crs",
+        "src/runtime/scheduler/memory.crs",
+        "src/runtime/scheduler/deque.crs",
+        "src/runtime/scheduler/event.crs",
+        "src/runtime/scheduler/scope.crs",
+        "src/runtime/scheduler/node.crs",
+        "src/runtime/scheduler/pool.crs",
+        "src/runtime/scheduler/task.crs",
+        "src/runtime/scheduler/external.crs",
         "src/render/host/present.crs",
         "src/render/host/renderer.crs",
         "src/render/api/frame.crs",
@@ -31,17 +43,17 @@ fn render_providers(root: *CrustRun, args: **u8) -> usize {
         "src/render/host/transfers.crs"
     };
     if args == null(**u8) {
-        return 29usize;
+        return 41usize;
     }
     var i: usize = 0usize;
-    while i < 29usize {
+    while i < 41usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn check_renderer(root: *CrustRun) -> bool {
-    var providers: [*u8; 29] = uninit;
+    var providers: [*u8; 41] = uninit;
     var count: usize = render_providers(root, &providers[0usize]);
     var args: [*u8; 3] = make [*u8; 3] {
         "--check",

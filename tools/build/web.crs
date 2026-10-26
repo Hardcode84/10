@@ -1,6 +1,9 @@
 fn web_provider(root: *CrustRun, path: *u8) -> *u8 {
-    if cache_strcmp(path, host_path(root, "src/runtime/platform/native-pool.crs")) == 0i32 {
-        return host_path(root, "src/runtime/platform/web-pool.crs");
+    if cache_strcmp(path, host_path(root, "src/runtime/scheduler/platform.crs")) == 0i32 {
+        return host_path(root, "src/runtime/scheduler/web-platform.crs");
+    }
+    if cache_strcmp(path, host_path(root, "src/runtime/platform/primitives.crs")) == 0i32 {
+        return host_path(root, "src/runtime/platform/web-primitives.crs");
     }
     var native: [*u8; 9] = make [*u8; 9] {
         "src/render/host/vulkan.crs",
@@ -202,7 +205,7 @@ fn web_link(root: *CrustRun) -> bool {
         "-O2",
         "-sMALLOC=emmalloc",
         "-sASYNCIFY",
-        "-sASYNCIFY_IMPORTS=[\"web_open\",\"web_buffer\",\"web_pipeline\",\"web_wait\",\"web_idle\",\"web_present_idle\",\"web_times\",\"web_present\"]",
+        "-sASYNCIFY_IMPORTS=[\"web_open\",\"web_pipeline\",\"web_wait\",\"web_idle\",\"web_present_idle\",\"web_times\",\"web_present\"]",
         "-sALLOW_MEMORY_GROWTH",
         "-sMAXIMUM_MEMORY=2147483648",
         "-sSTACK_SIZE=4194304",

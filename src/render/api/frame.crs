@@ -121,3 +121,10 @@ fn presentation_drop(operation: mut Presentation) -> unit {
 fn input_batch_limit(input: mut FrameInput, triangles: u32) -> unit {
     input.storage.batch_triangle_limit = triangles;
 }
+// Returns completion of the current GPU chunk. Frame storage remains borrowed through retirement.
+fn frame_completion(frame: read SubmittedFrame, context: read Context) -> Event {
+    return retirement_event(&frame.storage, read context);
+}
+fn presentation_completion(operation: read Presentation, context: read Context) -> Event {
+    return presentation_event(&operation.storage, read context);
+}

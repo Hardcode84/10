@@ -39,11 +39,7 @@ fn presentation_measure(session: GameSession, config: GameConfig) -> i32 {
             mut forecast
         );
         game_prepare(read collision, mut session, read loop, config, read prediction);
-        if config.tasks {
-            if !presentation_async(mut session) {
-                return 1i32;
-            }
-        } else if !game_draw(mut session) || !game_present(mut session) {
+        if !presentation_async(mut session) {
             return 1i32;
         }
         iteration = iteration + 1u32;

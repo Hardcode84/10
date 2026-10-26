@@ -1,0 +1,4 @@
+record TaskRunTimes {
+    start: u64;
+    finish: u64;
+}

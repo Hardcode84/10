@@ -34,7 +34,11 @@ resource RoomResidency {
     planner: *ResidentPlanner;
     planning: bool;
     count: u32;
-    schedule: TaskSchedule;
+    scheduler: Scheduler;
+    scope: Scope;
+    jobs: RoomJobs;
+    plan_task: Task!(PlannerWork);
+    simulation_task: Task!(SimulationWork);
     builds: *ResidentBuild;
     wanted: GenerationWords;
     keep: GenerationWords;
@@ -62,7 +66,11 @@ fn residency_new() -> RoomResidency {
         planner: null(*ResidentPlanner),
         planning: false,
         count: 0u32,
-        schedule: schedule_new(),
+        scheduler: scheduler_new(),
+        scope: scope_new(),
+        jobs: room_jobs_new(),
+        plan_task: task_empty!(PlannerWork)(),
+        simulation_task: task_empty!(SimulationWork)(),
         builds: null(*ResidentBuild),
         wanted: generation_words_new(),
         keep: generation_words_new(),
@@ -78,21 +86,23 @@ fn residency_new() -> RoomResidency {
         enabled: false,
         paused_ns: 0u64,
         cpu_budget: 0u64,
-        missing: TASK_NONE
+        missing: ROOM_NONE
     };
 }
 fn residency_drop(state: mut RoomResidency) -> unit {
-    while schedule_busy(read state.schedule) {
-        schedule_poll(read state.schedule);
-        schedule_idle(read state.schedule);
+    if state.scope.state != null(*SchedulerScope) {
+        var end: Event = scope_finish(mut state.scope);
+        event_join(read end);
     }
     var i: u32 = 0u32;
     while i < state.count {
         drop state.rooms[i as usize].mesh;
-        drop state.builds[i as usize].recipe;
-        drop state.builds[i as usize].plan;
-        drop state.builds[i as usize].mesh;
-        drop state.builds[i as usize].collision;
+        if state.jobs.state == null(*RoomJobsState) {
+            drop state.builds[i as usize].recipe;
+            drop state.builds[i as usize].plan;
+            drop state.builds[i as usize].mesh;
+            drop state.builds[i as usize].collision;
+        }
         drop state.plans[i as usize].wanted;
         drop state.plans[i as usize].keep;
         drop state.plans[i as usize].ahead;
@@ -100,7 +110,9 @@ fn residency_drop(state: mut RoomResidency) -> unit {
         i = i + 1u32;
     }
     free(state.rooms as *u8);
-    free(state.builds as *u8);
+    if state.jobs.state == null(*RoomJobsState) {
+        free(state.builds as *u8);
+    }
     free(state.plans as *u8);
     if state.planner != null(*ResidentPlanner) {
         drop state.planner -> graph;
@@ -116,6 +128,9 @@ fn residency_drop(state: mut RoomResidency) -> unit {
     }
 }
 fn residency_allocate(state: mut RoomResidency, count: u32, workers: u32, memory: u32) -> bool {
+    if !residency_runtime_open(mut state, workers) {
+        return false;
+    }
     state.rooms = malloc(count as usize * sizeof(ResidentRoom)) as *ResidentRoom;
     if state.rooms == null(*ResidentRoom) {
         return error("room residency allocation failed");
@@ -170,11 +185,20 @@ fn residency_allocate(state: mut RoomResidency, count: u32, workers: u32, memory
     ) && generation_words_allocate(mut state.keep, count) && generation_words_allocate(
         mut state.ahead,
         count
-    ) && schedule_open(mut state.schedule, workers, count + 5u32);
+    ) && room_jobs_open(mut state.jobs, read state.scheduler, state.builds, count);
 }
 
 fn residency_polygon_new() -> ResidencyPolygon {
     var polygon: ResidencyPolygon = uninit;
     zero(&polygon as *u8, sizeof(ResidencyPolygon));
     return polygon;
+}
+fn residency_runtime_open(state: mut RoomResidency, workers: u32) -> bool {
+    if state.scheduler.runtime != null(*SchedulerRuntime) {
+        return true;
+    }
+    return game_scheduler_open(mut state.scheduler, workers) && scope_open(
+        mut state.scope,
+        read state.scheduler
+    );
 }

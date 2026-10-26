@@ -1,64 +1,15 @@
 fn check_frame_order() -> unit {
+    if game_worker_count(-1i32, 99u32) != 1u32 || game_worker_count(0i32, 99u32) != 1u32 || game_worker_count(
+        2i32,
+        99u32
+    ) != 2u32 || game_worker_count(999i32, 99u32) != GAME_WORKER_CAP || game_worker_count(
+        999i32,
+        1u32
+    ) != 1u32 {
+        trap;
+    }
     check_prediction_visibility();
-    var graph: TaskGraph = task_graph_new();
-    if !game_frame_graph(mut graph) {
-        trap;
-    }
-    var mode: u32 = 0u32;
-    while mode < 4u32 {
-        task_graph_start(mut graph);
-        if task_next(mut graph) != 1u32 {
-            trap;
-        }
-        task_complete(mut graph, 1u32, true);
-        if task_next(mut graph) != 6u32 {
-            trap;
-        }
-        task_complete(mut graph, 6u32, true);
-        if !check_frame_ready(mut graph) {
-            trap;
-        }
-        if mode == 1u32 {
-            task_complete(mut graph, 2u32, true);
-        }
-        task_complete(mut graph, 4u32, true);
-        if task_next(mut graph) != 0u32 {
-            trap;
-        }
-        task_submission_returned(mut graph, 0u32, true);
-        if mode == 2u32 {
-            task_cancel(mut graph);
-        }
-        if task_drained(read graph) {
-            trap;
-        }
-        task_external_complete(mut graph, 0u32, mode != 3u32);
-        if mode < 2u32 {
-            check_prediction_independent_output(mut graph);
-        }
-        if mode != 1u32 {
-            if task_drained(read graph) {
-                trap;
-            }
-            task_complete(mut graph, 2u32, true);
-        }
-        task_complete(mut graph, 5u32, true);
-        if !task_drained(read graph) || task_succeeded(read graph) != (mode < 2u32) {
-            trap;
-        }
-        mode = mode + 1u32;
-    }
-    puts("render and presentation complete independently of prediction; cancellation drains both");
 }
-
-fn check_prediction_independent_output(graph: mut TaskGraph) -> unit {
-    if task_next(mut graph) != 3u32 {
-        trap;
-    }
-    task_submission_returned(mut graph, 3u32, true);
-    task_external_complete(mut graph, 3u32, true);
-}
-
 fn check_prediction_visibility() -> unit {
     var trial: Trial = new_trial();
     trial.preview_enabled = true;
@@ -94,8 +45,4 @@ fn check_prediction_visibility() -> unit {
     if shown.count != 0u32 {
         trap;
     }
-}
-
-fn check_frame_ready(graph: mut TaskGraph) -> bool {
-    return task_next(mut graph) == 2u32 && task_next(mut graph) == 5u32 && task_next(mut graph) == 4u32;
 }

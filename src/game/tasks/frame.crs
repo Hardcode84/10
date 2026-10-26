@@ -1,5 +1,4 @@
 fn game_task_frame(
-    graph: mut TaskGraph,
     context: mut PredictionContext,
     sound: mut SoundContext,
     collision: mut CollisionScene,
@@ -9,68 +8,28 @@ fn game_task_frame(
     previous: mut u64,
     prediction: mut Prediction
 ) -> bool {
-    task_graph_start(mut graph);
-    if task_next(mut graph) != 1u32 {
-        trap;
-    }
-    game_simulation_task(
-        mut graph,
-        mut collision,
-        mut session.control,
-        mut loop,
-        config,
-        mut previous
-    );
-    if task_has_error(read graph) {
+    var current: u64 = now();
+    var elapsed: u64 = current - previous;
+    previous = current;
+    if !game_advance(mut collision, mut session.control, mut loop, config, elapsed) {
         return false;
-    }
-    if task_next(mut graph) != 6u32 {
-        trap;
     }
     if loop.input.quit {
         loop.running = false;
-        task_complete(mut graph, 6u32, false);
         return true;
     }
-    return game_task_render(
-        mut graph,
-        mut context,
-        mut sound,
-        mut collision,
-        mut session,
-        mut loop,
-        config,
-        mut prediction
-    );
-}
-fn game_task_render(
-    graph: mut TaskGraph,
-    context: mut PredictionContext,
-    sound: mut SoundContext,
-    collision: mut CollisionScene,
-    session: mut GameSession,
-    loop: mut GameLoop,
-    config: GameConfig,
-    prediction: mut Prediction
-) -> bool {
     while true {
         game_residency_prediction(mut session.control, read prediction);
         if !game_residency_frame(mut collision, mut session, mut loop) {
-            task_complete(mut graph, 6u32, false);
             if loop.input.quit {
                 loop.running = false;
                 return true;
             }
             return false;
         }
-        task_complete(mut graph, 6u32, true);
-        if task_next(mut graph) != 2u32 {
-            trap;
-        }
         prediction_context_residency(mut context, read collision);
         sound_context_residency(mut sound, read collision);
         if !game_root_frame(
-            mut graph,
             mut context,
             mut sound,
             read collision,
@@ -87,17 +46,8 @@ fn game_task_render(
         if !game_residency_visible(mut collision, mut session.control, mut loop.input) {
             return false;
         }
-        task_graph_start(mut graph);
-        if task_next(mut graph) != 1u32 {
-            trap;
-        }
-        task_complete(mut graph, 1u32, true);
-        if task_next(mut graph) != 6u32 {
-            trap;
-        }
     }
 }
-
 fn game_run_tasks(
     collision: mut CollisionScene,
     session: mut GameSession,
@@ -105,32 +55,19 @@ fn game_run_tasks(
     config: GameConfig
 ) -> i32 {
     game_task_mode(config.workers);
-    var graph: TaskGraph = task_graph_new();
-    if !game_frame_graph(mut graph) {
-        return 1i32;
-    }
     var prediction: Prediction = prediction_new();
-    var pool: TaskPool = game_task_pool(read session, config.workers);
-    if !game_task_pool_ready(read pool) {
-        return 1i32;
-    }
-    var context: PredictionContext = prediction_context(
-        read pool,
-        read collision,
-        graph_doors(game_graph(read session.control))
-    );
+    var context: PredictionContext = game_prediction_context(read session, read collision);
     prediction_game_streaming(mut context, read session);
     if !prediction_context_ready(read context) {
         return 1i32;
     }
-    var sound: SoundContext = sound_context(read pool, read collision);
+    var sound: SoundContext = game_sound_context(read session, read collision);
     if !sound_game_streaming(mut sound, read session) || !sound_context_ready(read sound) {
         return 1i32;
     }
     var previous: u64 = now();
     while loop.running {
         if !game_task_frame(
-            mut graph,
             mut context,
             mut sound,
             mut collision,
@@ -148,99 +85,4 @@ fn game_run_tasks(
     }
     game_summary(read loop.trial);
     return (!game_finish(mut session)) as i32;
-}
-
-fn game_frame_graph(graph: mut TaskGraph) -> bool {
-    return task_graph_open(mut graph, 7u32, 6u32) && task_graph_external(mut graph, 0u32) && task_graph_external(
-        mut graph,
-        3u32
-    ) && task_graph_edge(mut graph, 1u32, 6u32) && task_graph_edge(mut graph, 6u32, 4u32) && task_graph_edge(
-        mut graph,
-        6u32,
-        5u32
-    ) && task_graph_edge(mut graph, 6u32, 2u32) && task_graph_edge(mut graph, 4u32, 0u32) && task_graph_edge(
-        mut graph,
-        0u32,
-        3u32
-    ) && task_graph_seal(mut graph);
-}
-fn game_simulation_task(
-    graph: mut TaskGraph,
-    collision: mut CollisionScene,
-    control: mut GameControl,
-    loop: mut GameLoop,
-    config: GameConfig,
-    previous: mut u64
-) -> unit {
-    var current: u64 = now();
-    var elapsed: u64 = current - previous;
-    previous = current;
-    task_complete(
-        mut graph,
-        1u32,
-        game_advance(mut collision, mut control, mut loop, config, elapsed)
-    );
-}
-fn game_frame_execute(
-    graph: mut TaskGraph,
-    frame: mut SubmittedFrame,
-    control: mut GameControl,
-    input: mut InputState,
-    config: GameConfig
-) -> unit {
-    while task_pending(read graph, 0u32) || task_pending(read graph, 3u32) {
-        if task_pending(read graph, 0u32) {
-            var status: i32 = frame_poll(mut frame);
-            if status == 2i32 {
-                game_residency_missing(mut control, frame_missing_portal(read frame));
-                task_external_complete(mut graph, 0u32, true);
-                if task_next(mut graph) != 3u32 {
-                    trap;
-                }
-                task_submission_returned(mut graph, 3u32, true);
-                task_external_complete(mut graph, 3u32, true);
-                return;
-            }
-            if status != 0i32 {
-                task_external_complete(mut graph, 0u32, status > 0i32);
-            }
-        }
-        var ready: u32 = task_next(mut graph);
-        if ready == 3u32 {
-            game_present_task(mut graph, mut frame, mut control, mut input, config);
-            return;
-        } else if task_pending(read graph, 0u32) {
-            frame_idle(mut frame);
-            if !task_has_error(read graph) && !game_poll(mut control, mut input) {
-                task_cancel(mut graph);
-            }
-        }
-    }
-}
-fn game_present_task(
-    graph: mut TaskGraph,
-    frame: mut SubmittedFrame,
-    control: mut GameControl,
-    input: mut InputState,
-    config: GameConfig
-) -> unit {
-    if config.headless {
-        task_submission_returned(mut graph, 3u32, true);
-        task_external_complete(mut graph, 3u32, true);
-        return;
-    }
-    var image: ValidatedImage = frame_image(mut frame);
-    var operation: Presentation = image_present(mut image);
-    task_submission_returned(mut graph, 3u32, presentation_accepted(read operation));
-    while task_pending(read graph, 3u32) {
-        var status: i32 = presentation_poll(mut operation);
-        if status != 0i32 {
-            task_external_complete(mut graph, 3u32, status > 0i32);
-        } else {
-            presentation_idle(mut operation);
-            if !task_has_error(read graph) && !game_poll(mut control, mut input) {
-                task_cancel(mut graph);
-            }
-        }
-    }
 }

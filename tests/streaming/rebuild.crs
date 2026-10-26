@@ -11,8 +11,14 @@ resource StreamRebuild {
 }
 opaque drop stream_rebuild_drop;
 fn stream_rebuild_drop(work: mut StreamRebuild) -> unit {}
-fn stream_rebuild_execute(data: *u8) -> bool {
-    var work: *StreamRebuild = data as *StreamRebuild;
+record RebuildWork {
+    value: *StreamRebuild;
+}
+opaque send;
+fn stream_rebuild_step(state: mut RebuildWork, context: read Context) -> Step {
+    return game_step(stream_rebuild_execute(state.value));
+}
+fn stream_rebuild_execute(work: *StreamRebuild) -> bool {
     var start: u64 = now();
     var replay: RoomReplay = room_replay_new();
     var builder: CollisionBuilder = collision_builder_new();
@@ -119,10 +125,10 @@ fn stream_rebuild_worker(
     config: GameConfig,
     pixels: mut GenerationWords
 ) -> bool {
-    var pool: TaskPool = task_pool_new();
+    var pool: Scheduler = scheduler_new();
     var display: CollisionScene = collision_new();
     var rooms: CollisionRooms = collision_rooms_new();
-    if !task_pool_open(mut pool, 2u32, 2u32) || !collision_snapshot(read scene, mut display) || !stream_rebuild_required(
+    if !scheduler_open(mut pool, 2u32) || !collision_snapshot(read scene, mut display) || !stream_rebuild_required(
         read scene,
         mut rooms
     ) {
@@ -146,7 +152,19 @@ fn stream_rebuild_worker(
         return false;
     }
     work.revision = 1u64;
-    var build: PoolJob = pool_submit(read pool, stream_rebuild_execute, &work as *u8);
+    var scope: Scope = scope_new();
+    if !scope_open(mut scope, read pool) {
+        return false;
+    }
+    var submit: Context = scope_context(read scope);
+    var build: Task!(RebuildWork) = spawn!(RebuildWork)(
+        read submit,
+        make RebuildWork {
+            value: &work
+        },
+        stream_rebuild_step,
+        deps_new()
+    );
     var revision: u64 = work.revision + 1u64;
     var forecast: PredictionTask = prediction_start(mut context, read scene, read loop.trial);
     if !stream_rebuild_display(read display, mut session, read loop, config, mut pixels) || !stream_rebuild_wait(
@@ -176,29 +194,41 @@ fn stream_rebuild_worker(
         revision
     );
 }
-fn stream_rebuild_wait(build: read PoolJob, forecast: read PredictionTask) -> bool {
-    while pool_job_poll(read build) == 0i32 || prediction_task_poll(read forecast) == 0i32 {
-        pool_job_idle(read build);
+fn stream_rebuild_wait(build: read Task!(RebuildWork), forecast: read PredictionTask) -> bool {
+    while rebuild_status(read build) == 0i32 || prediction_task_poll(read forecast) == 0i32 {
+        rebuild_pause(read build);
     }
     return (
-        pool_job_poll(read build) == 1i32 && prediction_task_poll(read forecast) == 1i32
+        rebuild_status(read build) == 1i32 && prediction_task_poll(read forecast) == 1i32
     ) || error("room reload worker failed");
 }
 fn stream_rebuild_retry(
     scene: mut CollisionScene,
     display: mut CollisionScene,
     rooms: read CollisionRooms,
-    pool: read TaskPool,
+    pool: read Scheduler,
     work: mut StreamRebuild,
     loop: read GameLoop,
     expected: read Prediction,
     revision: u64
 ) -> bool {
-    var build: PoolJob = pool_submit(read pool, stream_rebuild_execute, &work as *u8);
-    while pool_job_poll(read build) == 0i32 {
-        pool_job_idle(read build);
+    var scope: Scope = scope_new();
+    if !scope_open(mut scope, read pool) {
+        return false;
     }
-    if pool_job_poll(read build) != 1i32 {
+    var submit: Context = scope_context(read scope);
+    var build: Task!(RebuildWork) = spawn!(RebuildWork)(
+        read submit,
+        make RebuildWork {
+            value: &work
+        },
+        stream_rebuild_step,
+        deps_new()
+    );
+    while rebuild_status(read build) == 0i32 {
+        rebuild_pause(read build);
+    }
+    if rebuild_status(read build) != 1i32 {
         return error("room retry worker failed");
     }
     drop build;
@@ -227,4 +257,12 @@ fn stream_rebuild_retry(
     return stream_prediction_equal(read actual, read expected) || error(
         "admitted rebuilt collision changed prediction"
     );
+}
+fn rebuild_status(task: read Task!(RebuildWork)) -> i32 {
+    var event: Event = task_event!(RebuildWork)(read task);
+    return game_event_status(read event);
+}
+fn rebuild_pause(task: read Task!(RebuildWork)) -> unit {
+    var event: Event = task_event!(RebuildWork)(read task);
+    event_pause(read event);
 }

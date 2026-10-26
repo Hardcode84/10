@@ -192,16 +192,16 @@ fn natural_divide(a: read Natural, b: read Natural, quotient: mut Natural) -> Na
         natural_shift(mut divisor, shift);
         natural_reserve(mut quotient, shift / 32usize + 1usize);
         quotient.count = shift / 32usize + 1usize;
-        var done: bool = false;
-        while !done {
+        var finished: bool = false;
+        while !finished {
             if natural_compare(read remainder, read divisor) >= 0i32 {
                 natural_subtract(mut remainder, read divisor);
                 quotient.words[shift / 32usize] = quotient.words[shift / 32usize] | (
                     1u32 << (shift % 32usize) as u32
                 );
             }
-            done = shift == 0usize;
-            if !done {
+            finished = shift == 0usize;
+            if !finished {
                 shift = shift - 1usize;
                 natural_half(mut divisor);
             }

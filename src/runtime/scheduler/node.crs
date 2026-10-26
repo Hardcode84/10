@@ -54,8 +54,8 @@ fn scheduler_register(node: *SchedulerNode, deps: Dependencies) -> unit {
     service_lock(runtime -> gate);
     node -> state = 4u32;
     node -> pending = node -> pending + 1u32;
-    if deps.error != 0u32 && node -> outcome == 0u32 {
-        node -> outcome = deps.error;
+    if deps.fault != 0u32 && node -> outcome == 0u32 {
+        node -> outcome = deps.fault;
     }
     service_unlock(runtime -> gate);
     var edge: *SchedulerEdge = deps.first;
@@ -96,13 +96,13 @@ fn scheduler_run(node: *SchedulerNode) -> unit {
     var scope: *SchedulerScope = node -> scope;
     service_lock(scope -> runtime -> gate);
     node -> state = 2u32;
-    var error: u32 = node -> outcome;
+    var fault: u32 = node -> outcome;
     if scope -> cancelled {
-        error = SCHED_CANCELLED;
+        fault = SCHED_CANCELLED;
     }
     service_unlock(scope -> runtime -> gate);
-    if error != 0u32 {
-        scheduler_retire(node, error);
+    if fault != 0u32 {
+        scheduler_retire(node, fault);
         return;
     }
     reference_retain(&scope -> references);
@@ -114,9 +114,9 @@ fn scheduler_run(node: *SchedulerNode) -> unit {
     var step: Step = node -> execute(node -> payload, read context);
     drop context;
     if step.kind == 0u32 {
-        scheduler_retire(node, step.error);
+        scheduler_retire(node, step.fault);
     } else if step.kind == 1u32 || (
-        step.dependencies.first == null(*SchedulerEdge) && step.dependencies.error == 0u32
+        step.dependencies.first == null(*SchedulerEdge) && step.dependencies.fault == 0u32
     ) {
         service_lock(scope -> runtime -> gate);
         node -> state = 1u32;

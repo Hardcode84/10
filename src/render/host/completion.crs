@@ -59,3 +59,9 @@ fn presentation_status(v: *RenderState) -> i32 {
 fn presentation_pause(v: *RenderState) -> unit {
     service_idle(v -> gpu.observer);
 }
+fn retirement_event(v: *RenderState, context: read Context) -> Event {
+    return service_completion(v -> gpu.observer, read context);
+}
+fn presentation_event(v: *RenderState, context: read Context) -> Event {
+    return service_completion(v -> gpu.observer, read context);
+}

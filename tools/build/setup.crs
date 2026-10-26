@@ -12,8 +12,8 @@ fn project_open(root: *CrustRun, backend: *ApplicationBackend) -> *StageSession 
         return null(*StageSession);
     }
     var paths: [*u8; 5] = make [*u8; 5] {
-        "crust/stages/ownership/api.crs",
-        "crust/stages/ownership/build.crs",
+        "crust/stages/generics/ownership/api.crs",
+        "crust/stages/generics/ownership/build.crs",
         "tools/build/ownership.crs",
         "tools/build/sdl.crs",
         "tools/build/common.crs"
@@ -25,7 +25,7 @@ fn project_open(root: *CrustRun, backend: *ApplicationBackend) -> *StageSession 
         }
         i = i + 1usize;
     }
-    if !application_load(stages, backend, "stages/ownership/package.crs") {
+    if !application_load(stages, backend, "stages/generics/ownership/package.crs") {
         return null(*StageSession);
     }
     return stages;

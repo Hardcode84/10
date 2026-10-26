@@ -1,0 +1,18 @@
+extern fn service_allocate(count: usize, bytes: usize) -> *u8 = "calloc";
+extern fn service_free(pointer: *u8) -> unit = "free";
+extern fn service_print(message: *u8) -> i32 = "puts";
+extern fn service_sdl_error() -> *u8 = "SDL_GetError";
+fn service_mutex_create() -> *u8 {
+    return service_allocate(1usize, 1usize);
+}
+fn service_mutex_destroy(mutex: *u8) -> unit {
+    service_free(mutex);
+}
+fn service_lock(mutex: *u8) -> unit {}
+fn service_unlock(mutex: *u8) -> unit {}
+fn service_sem_create(count: u32) -> *u8 {
+    return service_allocate(1usize, 1usize);
+}
+fn service_sem_destroy(sem: *u8) -> unit {
+    service_free(sem);
+}

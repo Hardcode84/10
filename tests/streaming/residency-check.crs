@@ -157,7 +157,7 @@ fn residency_test_render(
         }
         var prediction: Prediction = prediction_new();
         game_prepare(read scene, mut session, read loop, config, read prediction);
-        var missing: u32 = TASK_NONE;
+        var missing: u32 = ROOM_NONE;
         {
             var frame: SubmittedFrame = frame_submit(mut session.renderer);
             var status: i32 = frame_poll(mut frame);
@@ -170,7 +170,7 @@ fn residency_test_render(
             }
             missing = frame_missing_portal(read frame);
         }
-        if missing == TASK_NONE {
+        if missing == ROOM_NONE {
             return true;
         }
         game_residency_missing(mut session.control, missing);
@@ -190,7 +190,7 @@ fn residency_test_prediction(
         graph_node(read session.control.graph, loop.trial.drone.world).first
     );
     var target: u32 = graph_socket(read session.control.graph, socket.peer).room;
-    if !game_schedule_wait(mut session.control, mut loop.input, target) || !residency_poll(
+    if !game_room_wait(mut session.control, mut loop.input, target) || !residency_poll(
         mut session.control.residency,
         mut scene
     ) {
@@ -209,7 +209,7 @@ fn residency_test_prediction(
     }
     var expected: Prediction = predict_scene(read full, read trial, mut scratch, mut doors);
     var context: PredictionContext = prediction_context(
-        read session.control.residency.schedule.state -> pool,
+        read session.control.residency.scheduler,
         read scene,
         graph_doors(read session.control.graph)
     );
@@ -228,13 +228,10 @@ fn residency_test_prediction(
     if !stream_prediction_equal(read expected, read actual) {
         return error("resumed prediction differs from full geometry");
     }
-    var waits: u32 = schedule_wait_count(
-        read session.control.residency.schedule,
-        session.control.residency.count
-    );
-    puts("prediction geometry dependencies");
-    print_number(waits as i64);
-    return waits != 0u32 || error("prediction did not suspend on missing geometry");
+    return room_requested(read session.control.residency.jobs, target) && room_status(
+        read session.control.residency.jobs,
+        target
+    ) == 1i32 || error("prediction did not complete the missing room task");
 }
 fn residency_test_coverage(visits: u32, live: u32, count: u32, crossings: u32) -> bool {
     return visits == 4u32 && live < count && crossings != 0u32;
@@ -302,7 +299,7 @@ fn residency_test_visible(
     }
     var prediction: Prediction = prediction_new();
     game_prepare(read scene, mut session, read loop, config, read prediction);
-    var portal: u32 = TASK_NONE;
+    var portal: u32 = ROOM_NONE;
     {
         var frame: SubmittedFrame = frame_submit(mut session.renderer);
         var status: i32 = frame_poll(mut frame);

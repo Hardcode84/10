@@ -60,10 +60,10 @@ fn latency_flush(log: *LatencyLog, config: GameConfig) -> bool {
     }
     var header: [u32; 8] = make [u32; 8] {
         0x53574c54u32,
-        1u32,
+        2u32,
         sizeof(LatencyEvent) as u32,
         log -> count,
-        config.tasks as u32,
+        config.workers,
         config.width,
         config.height,
         config.room_demo as u32

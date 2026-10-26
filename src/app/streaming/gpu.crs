@@ -215,13 +215,10 @@ record ResidentUpload {
     renderer: *Renderer;
     world: *InstanceList;
 }
-opaque;
-fn residency_upload_execute(data: *u8) -> TaskStep {
-    var work: *ResidentUpload = data as *ResidentUpload;
-    var input: FrameInput = renderer_inputs(mut * work -> renderer);
-    return task_done(
-        residency_gpu_world(mut * work -> state, mut input, mut * work -> world)
-    );
+opaque send;
+fn residency_upload_execute(work: mut ResidentUpload, context: read Context) -> Step {
+    var input: FrameInput = renderer_inputs(mut * work.renderer);
+    return game_step(residency_gpu_world(mut * work.state, mut input, mut * work.world));
 }
 // Requires a retired renderer. Returns after the upload preparation task retires.
 fn game_residency_upload(session: mut GameSession, input: mut InputState) -> bool {
@@ -230,13 +227,13 @@ fn game_residency_upload(session: mut GameSession, input: mut InputState) -> boo
         renderer: &session.renderer,
         world: &session.world
     };
-    var slot: u32 = session.control.residency.count + 4u32;
-    schedule_reset(read session.control.residency.schedule, slot);
-    schedule_define(
-        read session.control.residency.schedule,
-        slot,
+    var context: Context = scope_context(read session.control.residency.scope);
+    var task: Task!(ResidentUpload) = spawn!(ResidentUpload)(
+        read context,
+        work,
         residency_upload_execute,
-        &work as *u8
+        deps_new()
     );
-    return game_schedule_wait(mut session.control, mut input, slot);
+    var event: Event = task_event!(ResidentUpload)(read task);
+    return game_event_wait(mut session.control, mut input, read event);
 }

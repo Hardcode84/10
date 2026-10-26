@@ -9,8 +9,9 @@ fn run_scheduler_checks(
     if !application_load(stages, backend, "stages/generics/ownership/package.crs") {
         return 1i32;
     }
-    var paths: [*u8; 14] = make [*u8; 14] {
+    var paths: [*u8; 16] = make [*u8; 16] {
         "src/runtime/platform/native-service.crs",
+        "src/runtime/platform/primitives.crs",
         "src/runtime/platform/reference-count.crs",
         "src/runtime/scheduler/types.crs",
         "src/runtime/scheduler/platform.crs",
@@ -23,11 +24,12 @@ fn run_scheduler_checks(
         "src/runtime/scheduler/task.crs",
         "src/runtime/scheduler/external.crs",
         "tests/scheduler/probe.crs",
+        "tests/scheduler/service.crs",
         "tests/scheduler/driver.crs"
     };
-    var providers: [CrustSource; 14] = uninit;
+    var providers: [CrustSource; 16] = uninit;
     var i: usize = 0usize;
-    while i < 14usize {
+    while i < 16usize {
         var source: *CrustSource = host_input(root, paths[i], 100u64 + i as u64);
         if source == null(*CrustSource) {
             return 1i32;
@@ -35,7 +37,7 @@ fn run_scheduler_checks(
         providers[i] = *source;
         i = i + 1usize;
     }
-    if !scheduler_check_rejections(root, &providers[0usize], 13usize, backend -> emit) {
+    if !scheduler_check_rejections(root, &providers[0usize], 15usize, backend -> emit) {
         return 1i32;
     }
     var args: [*u8; 16] = make [*u8; 16] {
@@ -86,7 +88,7 @@ fn run_scheduler_checks(
         count,
         &args[0usize],
         &providers[0usize],
-        14usize,
+        16usize,
         backend -> emit
     ) != 0i32 {
         return 1i32;

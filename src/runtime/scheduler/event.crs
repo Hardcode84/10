@@ -101,13 +101,13 @@ fn scheduler_resolve(event: *SchedulerEvent, outcome: u32) -> unit {
 fn deps_new() -> Dependencies {
     return make Dependencies {
         first: null(*SchedulerEdge),
-        error: 0u32
+        fault: 0u32
     };
 }
 fn deps_add(deps: mut Dependencies, event: Event) -> unit {
     if event.state == null(*SchedulerEvent) {
-        if event.outcome != SCHED_OK && deps.error == 0u32 {
-            deps.error = event.outcome;
+        if event.outcome != SCHED_OK && deps.fault == 0u32 {
+            deps.fault = event.outcome;
         }
         return;
     }
@@ -116,7 +116,7 @@ fn deps_add(deps: mut Dependencies, event: Event) -> unit {
         sizeof(SchedulerEdge)
     ) as *SchedulerEdge;
     if edge == null(*SchedulerEdge) {
-        deps.error = SCHED_CAPACITY;
+        deps.fault = SCHED_CAPACITY;
         return;
     }
     * edge = make SchedulerEdge {
@@ -140,31 +140,31 @@ fn deps_drop(deps: mut Dependencies) -> unit {
 fn done() -> Step {
     return make Step {
         kind: 0u32,
-        error: SCHED_OK,
+        fault: SCHED_OK,
         dependencies: deps_new()
     };
 }
-fn fail(error: TaskError) -> Step {
-    if error.code < SCHED_CANCELLED {
-        scheduler_panic("invalid task error");
+fn fail(fault: TaskError) -> Step {
+    if fault.code < SCHED_CANCELLED {
+        scheduler_panic("invalid task fault");
     }
     return make Step {
         kind: 0u32,
-        error: error.code,
+        fault: fault.code,
         dependencies: deps_new()
     };
 }
 fn yield_task() -> Step {
     return make Step {
         kind: 1u32,
-        error: 0u32,
+        fault: 0u32,
         dependencies: deps_new()
     };
 }
 fn await_tasks(deps: Dependencies) -> Step {
     return make Step {
         kind: 2u32,
-        error: 0u32,
+        fault: 0u32,
         dependencies: move deps
     };
 }
@@ -172,8 +172,21 @@ fn step_drop(step: mut Step) -> unit {}
 fn step_dependencies(step: mut Step) -> Dependencies {
     var result: Dependencies = make Dependencies {
         first: step.dependencies.first,
-        error: step.dependencies.error
+        fault: step.dependencies.fault
     };
     step.dependencies.first = null(*SchedulerEdge);
     return move result;
+}
+// Waits for completion or one input-service interval. Requires a non-worker caller.
+fn event_pause(event: read Event) -> unit {
+    if event.state == null(*SchedulerEvent) {
+        return;
+    }
+    var runtime: *SchedulerRuntime = event.state -> runtime;
+    scheduler_require_caller(runtime);
+    service_lock(runtime -> gate);
+    if event.state -> outcome == 0u32 {
+        scheduler_condition_pause(runtime -> changed, runtime -> gate);
+    }
+    service_unlock(runtime -> gate);
 }

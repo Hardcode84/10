@@ -151,8 +151,8 @@ fn audio_scene_worker(
     loop: read GameLoop,
     config: GameConfig
 ) -> bool {
-    var pool: TaskPool = task_pool_new();
-    if !task_pool_open(mut pool, 1u32, 1u32) {
+    var pool: Scheduler = scheduler_new();
+    if !scheduler_open(mut pool, 1u32) {
         return false;
     }
     var context: SoundContext = sound_context(read pool, read scene);
@@ -165,7 +165,8 @@ fn audio_scene_worker(
         game_sound_snapshot(mut session.control, read loop, config)
     );
     while sound_task_poll(read task) == 0i32 {
-        schedule_idle(read task.context.schedule);
+        var event: Event = sound_event(read task);
+        event_pause(read event);
     }
     if sound_task_poll(read task) != 1i32 {
         return false;

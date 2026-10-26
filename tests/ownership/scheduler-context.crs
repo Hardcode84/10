@@ -1,0 +1,8 @@
+fn retained_worker_pool(pool: Scheduler, collision: read CollisionScene) -> bool {
+    var doors: DoorSet = doors_new();
+    var context: PredictionContext = prediction_context(read pool, read collision, read doors);
+    var ready: bool = prediction_context_ready(read context);
+    drop context;
+    drop pool;
+    return ready;
+}

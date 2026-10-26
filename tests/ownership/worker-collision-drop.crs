@@ -1,4 +1,4 @@
-fn valid_worker_collision_snapshot(pool: read TaskPool, collision: CollisionScene) -> unit {
+fn valid_worker_collision_snapshot(pool: read Scheduler, collision: CollisionScene) -> unit {
     var doors: DoorSet = doors_new();
     var context: PredictionContext = prediction_context(read pool, read collision, read doors);
     drop collision;

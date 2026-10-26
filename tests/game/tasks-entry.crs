@@ -1,12 +1,8 @@
 record FlightTiming {
     start: u64;
-    cpu_begin: u64;
-    cpu_end: u64;
-    prepared: u64;
     submitted: u64;
     finish: u64;
     worker: TaskRunTimes;
-    scene: TaskRunTimes;
 }
 fn main(argc: i32, argv: **u8) -> i32 {
     var launch: Launch = uninit;
@@ -15,11 +11,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     }
     launch.config.headless = true;
     launch.config.ticks = 80u32;
-    if launch.config.tasks {
-        puts("frame timing mode: tasks");
-    } else {
-        puts("frame timing mode: serial");
-    }
+    puts("frame timing mode: scheduler");
     return task_frame_check(game_session(&launch), launch.config);
 }
 fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
@@ -37,23 +29,11 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
     }
     task_check_stale_reservation(mut session.renderer);
     check_frame_order();
-    var graph: TaskGraph = task_graph_new();
-    if !game_frame_graph(mut graph) || !task_trace_enable(mut graph, now) {
-        return 1i32;
-    }
     var prediction: Prediction = prediction_new();
-    var pool: TaskPool = task_pool_new();
-    if !task_pool_open(mut pool, config.workers, 2u32) {
-        return 1i32;
-    }
-    task_pool_trace(mut pool, now);
-    var context: PredictionContext = prediction_context(
-        read pool,
-        read collision,
-        graph_doors(game_graph(read session.control))
-    );
-    var sound: SoundContext = sound_context(read pool, read collision);
-    if !prediction_context_ready(read context) {
+    var context: PredictionContext = game_prediction_context(read session, read collision);
+    prediction_game_streaming(mut context, read session);
+    var sound: SoundContext = game_sound_context(read session, read collision);
+    if !sound_game_streaming(mut sound, read session) || !prediction_context_ready(read context) {
         return 1i32;
     }
     var previous: u64 = now();
@@ -72,9 +52,8 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
         var displayed: Prediction = prediction;
         var start: u64 = now();
         timings[frame as usize].start = start;
-        if config.tasks {
+        {
             if !game_task_frame(
-                mut graph,
                 mut context,
                 mut sound,
                 mut collision,
@@ -86,36 +65,7 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
             ) {
                 return 1i32;
             }
-            var gpu: TaskSpan = task_span(read graph, 0u32);
-            var cpu: TaskSpan = task_span(read graph, 2u32);
-            var simulation: TaskSpan = task_span(read graph, 1u32);
-            var scene: TaskSpan = task_span(read graph, 4u32);
             timings[frame as usize].worker = prediction_context_times(read context);
-            timings[frame as usize].scene = make TaskRunTimes {
-                start: scene.start,
-                finish: scene.finish
-            };
-            timings[frame as usize].cpu_begin = simulation.start;
-            timings[frame as usize].cpu_end = cpu.finish;
-            timings[frame as usize].prepared = gpu.start;
-        } else {
-            timings[frame as usize].cpu_begin = now();
-            if !game_next_snapshot(
-                mut collision,
-                mut session.control,
-                mut loop,
-                config,
-                mut previous,
-                mut prediction
-            ) {
-                return 1i32;
-            }
-            timings[frame as usize].cpu_end = now();
-            game_prepare(read collision, mut session, read loop, config, read prediction);
-            timings[frame as usize].prepared = now();
-            if !game_draw(mut session) || !game_present(mut session) {
-                return 1i32;
-            }
         }
         timings[frame as usize].submitted = session.renderer.state.frame_submit_ns;
         timings[frame as usize].finish = now();
@@ -136,33 +86,21 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
     puts("measured frame ns");
     task_print_samples(read samples);
     task_print_timings(read timings);
-    task_print_overlap(read timings);
+
     if !game_render(read collision, mut session, read loop, config) {
         return 1i32;
     }
     game_summary(read loop.trial);
     return (!game_finish(mut session)) as i32;
 }
-fn task_print_overlap(timings: read[FlightTiming; 80]) -> unit {
-    puts("prediction overlap timestamps: worker_start worker_finish scene_start scene_finish");
-    var i: usize = 0usize;
-    while i < 80usize {
-        print_number(timings[i].worker.start as i64);
-        print_number(timings[i].worker.finish as i64);
-        print_number(timings[i].scene.start as i64);
-        print_number(timings[i].scene.finish as i64);
-        i = i + 1usize;
-    }
-}
 fn task_print_timings(timings: read[FlightTiming; 80]) -> unit {
-    puts("frame timestamps: start cpu_begin cpu_end prepared submitted finish");
+    puts("frame timestamps: start prediction_start prediction_finish submitted finish");
     var i: usize = 0usize;
     while i < 80usize {
         var t: FlightTiming = timings[i];
         print_number(t.start as i64);
-        print_number(t.cpu_begin as i64);
-        print_number(t.cpu_end as i64);
-        print_number(t.prepared as i64);
+        print_number(t.worker.start as i64);
+        print_number(t.worker.finish as i64);
         print_number(t.submitted as i64);
         print_number(t.finish as i64);
         i = i + 1usize;
@@ -174,25 +112,6 @@ fn task_print_samples(samples: read[u64; 80]) -> unit {
         print_number(samples[frame as usize] as i64);
         frame = frame + 1u32;
     }
-}
-
-fn game_next_snapshot(
-    collision: mut CollisionScene,
-    control: mut GameControl,
-    loop: mut GameLoop,
-    config: GameConfig,
-    previous: mut u64,
-    prediction: mut Prediction
-) -> bool {
-    var forecast: Drone = new_drone();
-    var current: u64 = now();
-    var elapsed: u64 = current - previous;
-    previous = current;
-    if !game_advance(mut collision, mut control, mut loop, config, elapsed) {
-        return false;
-    }
-    prediction = predict_paths(read collision, read loop.trial, mut forecast);
-    return true;
 }
 
 fn task_check_split_pixels(
@@ -207,7 +126,7 @@ fn task_check_split_pixels(
         return error("timing fixture requires one simulation tick per command");
     }
     var v: *RenderState = &session.renderer.state;
-    if !config.tasks || !v -> read_pixels {
+    if !v -> read_pixels {
         return true;
     }
     var size: usize = (

@@ -35,8 +35,8 @@ async function evaluate(fn, argument, url=origin+'/') {
   return result.result.value;
 }
 async function browser(options) {
-  const value=await evaluate(flight,{...options,scaling,tasks:process.argv.includes("--tasks")});
-  if(options.deviceLoss) {
+  const value=await evaluate(flight,{...options,scaling,symmetric:mainGame || scaling});
+  if(options.deviceLoss || options.allocationFailure) {
     require(value.status==='Run failed. See the log.' && value.errors.length>0,JSON.stringify(value));
   } else {
     require(value.status==='Run ended.' && value.errors.length===0, JSON.stringify(value));
@@ -73,20 +73,27 @@ function compareImage(a, b) {
 function checkCommands(encoded) {
   const bytes=Buffer.from(encoded,'base64');
   let flags=0,reel=false,thrust=false,look=false;
-  const ticks=(bytes.length-64)/40;
-  require(ticks>0 && bytes.readUInt32LE(bytes.length-36)===ticks,'Flight recording has an invalid tick count');
-  for(let offset=24;offset<bytes.length-40;offset+=40) {
+  require(bytes.length>=68 && bytes.readUInt32LE(0)===0x53504e30 && bytes.readUInt32LE(4)===20,'Invalid flight recording header');
+  let ticks=0,offset=24;
+  while(offset+44<=bytes.length && bytes.readUInt32LE(offset)!==0xffffffff) {
+    require(bytes.readUInt32LE(offset)===ticks,'Invalid flight tick sequence');
     thrust ||= bytes.readUInt32LE(offset+12)!==0;
     look ||= bytes.readUInt32LE(offset+24)!==0;
     reel ||= bytes.readUInt32LE(offset+28)!==0;
     flags |= bytes.readUInt32LE(offset+32);
+    const doors=bytes.readUInt32LE(offset+40);
+    require(offset+44+doors<=bytes.length,'Truncated door requests');
+    for(let i=0;i<doors;i++)require(bytes[offset+44+i]<=1,'Invalid door request');
+    offset+=44+doors;
+    ticks++;
   }
+  require(ticks>0 && offset+44===bytes.length && bytes.readUInt32LE(offset+4)===ticks,'Flight recording has an invalid tick count');
   require(thrust&&look&&reel&&(flags&7)===7,'SDL did not record thrust, roll, tether, reel, boost and brake');
 }
 async function native(recording, tag) {
   const path=`build/web-check-${tag}`;
   await Bun.write(path+'.swr', Buffer.from(recording,'base64'));
-  const child=Bun.spawn([mainGame ? 'build/main-game' : 'build/game',...(scaling ? ['--scaling'] : []),'--headless','--seed','42','--complexity','2','--width',scaling ? '640' : '641','--height',scaling ? '360' : '359','--replay',path+'.swr','--capture',path+'.ppm'],{stdout:'pipe',stderr:'pipe'});
+  const child=Bun.spawn([mainGame ? 'build/main-game' : 'build/game',...(scaling ? ['--scaling'] : []),'--headless','--seed','42','--complexity','2','--width',(scaling || mainGame) ? '640' : '641','--height',(scaling || mainGame) ? '360' : '359','--replay',path+'.swr','--capture',path+'.ppm'],{stdout:'pipe',stderr:'pipe'});
   const [stdout,stderr,code]=await Promise.all([new Response(child.stdout).text(),new Response(child.stderr).text(),child.exited]);
   require(code===0,stdout+stderr);
   return {log:stdout, capture:Buffer.from(await Bun.file(path+'.ppm').arrayBuffer()).toString('base64')};
@@ -99,7 +106,7 @@ try {
     try {console.log(await evaluate(presentation,180,server.url.href));}
     finally {server.stop();}
   } else {
-  require(process.argv.slice(2).every(arg => ['--tasks','--scaling','--main'].includes(arg)), 'Use --main, --tasks, --scaling, or --presentation');
+  require(process.argv.slice(2).every(arg => ['--scaling','--main'].includes(arg)), 'Use --main, --scaling, or --presentation');
   const raw=await browser({}),checked=await browser({checked:true});
   await Bun.write('build/web-check-raw.ppm',Buffer.from(raw.capture,'base64'));await Bun.write('build/web-check-checked.ppm',Buffer.from(checked.capture,'base64'));compareImage(raw.capture,checked.capture);
   const initial=await native(raw.recording,'initial');
@@ -116,7 +123,8 @@ try {
   const fullscreen=await browser({controls:true,fullscreen:true});
   require(fullscreen.fullscreen,'Fullscreen did not open');
   await browser({controls:true,deviceLoss:true});
+  await browser({allocationFailure:true});
   await browser({controls:true,hidden:true});
-  console.log('Web: raw/checked capture, SDL flight and pause, fullscreen, recording/replay, native tick hashes and images, device loss, and controlled visibility shutdown passed'+(scaling ? ' (scaled crossing)' : ' (odd row width)'));
+  console.log('Web: raw/checked capture, SDL flight and pause, fullscreen, recording/replay, native tick hashes and images, device loss, and controlled visibility shutdown passed'+(scaling ? ' (scaled crossing)' : mainGame ? ' (service network)' : ' (odd row width)'));
   }
 } finally {clearTimeout(timeout);socket.close();}

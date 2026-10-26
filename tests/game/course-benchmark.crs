@@ -155,17 +155,14 @@ fn course_benchmark_frames(
     config: GameConfig,
     samples: u32
 ) -> bool {
-    var graph: TaskGraph = task_graph_new();
-    var pool: TaskPool = task_pool_new();
-    if !course_frame_open(mut graph, mut pool, mut session.control, config.workers) {
+    if !course_audio_open(mut session.control) || !residency_runtime_open(
+        mut session.control.residency,
+        config.workers
+    ) {
         return false;
     }
-    var context: PredictionContext = prediction_context(
-        read pool,
-        read scene,
-        graph_doors(game_graph(read session.control))
-    );
-    var sound: SoundContext = sound_context(read pool, read scene);
+    var context: PredictionContext = game_prediction_context(read session, read scene);
+    var sound: SoundContext = game_sound_context(read session, read scene);
     if !prediction_context_ready(read context) {
         return false;
     }
@@ -203,7 +200,6 @@ fn course_benchmark_frames(
         }
         if benchmark_environment("SPINWARD_TASKS") != null(*u8) {
             if !course_task_frame(
-                mut graph,
                 mut context,
                 mut sound,
                 read scene,
@@ -277,7 +273,6 @@ fn course_benchmark_frames(
         session.renderer.state.read_pixels = true;
         (session.renderer.state.mapped as *u32)[26usize] = 1u32;
         return course_task_frame(
-            mut graph,
             mut context,
             mut sound,
             read scene,
@@ -486,7 +481,6 @@ fn game_defer_prediction(session: mut GameSession) -> DeferredGeometry {
 }
 
 fn course_task_frame(
-    graph: mut TaskGraph,
     context: mut PredictionContext,
     sound: mut SoundContext,
     scene: read CollisionScene,
@@ -495,20 +489,7 @@ fn course_task_frame(
     config: GameConfig,
     prediction: mut Prediction
 ) -> bool {
-    task_graph_start(mut graph);
-    if task_next(mut graph) != 1u32 {
-        trap;
-    }
-    task_complete(mut graph, 1u32, true);
-    if task_next(mut graph) != 6u32 {
-        trap;
-    }
-    task_complete(mut graph, 6u32, true);
-    if task_next(mut graph) != 2u32 {
-        trap;
-    }
     return game_root_frame(
-        mut graph,
         mut context,
         mut sound,
         read scene,
@@ -516,18 +497,5 @@ fn course_task_frame(
         mut loop,
         config,
         mut prediction
-    );
-}
-
-fn course_frame_open(
-    graph: mut TaskGraph,
-    pool: mut TaskPool,
-    control: mut GameControl,
-    workers: u32
-) -> bool {
-    return course_audio_open(mut control) && game_frame_graph(mut graph) && task_pool_open(
-        mut pool,
-        workers,
-        2u32
     );
 }

@@ -1,5 +1,4 @@
 fn game_root_frame(
-    graph: mut TaskGraph,
     context: mut PredictionContext,
     sound: mut SoundContext,
     collision: read CollisionScene,
@@ -8,9 +7,6 @@ fn game_root_frame(
     config: GameConfig,
     prediction: mut Prediction
 ) -> bool {
-    if task_next(mut graph) != 5u32 {
-        trap;
-    }
     var sound_work: SoundTask = sound_start(
         mut sound,
         read collision,
@@ -18,81 +14,38 @@ fn game_root_frame(
     );
     var surface: i32 = game_surface(mut session);
     if surface <= 0i32 {
-        game_sound_join(mut graph, mut sound_work, mut session.control, mut loop.input);
-        task_complete(mut graph, 2u32, false);
+        var good: bool = game_sound_join(
+            mut sound_work,
+            mut session.control,
+            mut loop.input
+        );
         if surface == 0i32 {
             game_wait();
         }
-        return surface == 0i32;
+        return good && surface == 0i32;
     }
     var visible: Prediction = prediction_visible(prediction, read loop.trial);
-    if config.workers > 0u32 {
-        var work: PredictionTask = prediction_start(
-            mut context,
-            read collision,
-            read loop.trial
-        );
-        game_prediction_scene(
-            mut graph,
-            read collision,
-            mut session,
-            read loop,
-            config,
-            read visible
-        );
-        {
-            var frame: SubmittedFrame = frame_submit(mut session.renderer);
-            task_submission_returned(mut graph, 0u32, frame_accepted(read frame));
-            game_frame_execute(
-                mut graph,
-                mut frame,
-                mut session.control,
-                mut loop.input,
-                config
-            );
-        }
-        game_prediction_join(
-            mut graph,
-            mut work,
-            mut session.control,
-            mut loop.input,
-            mut prediction,
-            loop.trial.attempt
-        );
-    } else {
-        game_prediction_scene(
-            mut graph,
-            read collision,
-            mut session,
-            read loop,
-            config,
-            read visible
-        );
+    var work: PredictionTask = prediction_start(mut context, read collision, read loop.trial);
+    game_prepare(read collision, mut session, read loop, config, read visible);
+    var rendered: bool = false;
+    {
         var frame: SubmittedFrame = frame_submit(mut session.renderer);
-        task_submission_returned(mut graph, 0u32, frame_accepted(read frame));
-        var work: PredictionTask = prediction_start(
-            mut context,
-            read collision,
-            read loop.trial
-        );
-        game_frame_execute(
-            mut graph,
+        rendered = game_frame_execute(
             mut frame,
             mut session.control,
             mut loop.input,
             config
         );
-        game_prediction_join(
-            mut graph,
-            mut work,
-            mut session.control,
-            mut loop.input,
-            mut prediction,
-            loop.trial.attempt
-        );
     }
-    game_sound_join(mut graph, mut sound_work, mut session.control, mut loop.input);
-    if !task_succeeded(read graph) {
+    var forecast: bool = game_prediction_join(
+        mut work,
+        mut session.control,
+        mut loop.input,
+        mut prediction,
+        loop.trial.attempt
+    );
+    var audio: bool = game_sound_join(mut sound_work, mut session.control, mut loop.input);
+    if !rendered || !forecast || !audio {
         return false;
     }
     if !game_residency_incomplete(read session.control) {
@@ -100,44 +53,59 @@ fn game_root_frame(
     }
     return true;
 }
-
-fn game_prediction_scene(
-    graph: mut TaskGraph,
-    collision: read CollisionScene,
-    session: mut GameSession,
-    loop: read GameLoop,
-    config: GameConfig,
-    visible: read Prediction
-) -> unit {
-    if task_next(mut graph) != 4u32 {
-        trap;
-    }
-    game_prepare(read collision, mut session, read loop, config, read visible);
-    task_complete(mut graph, 4u32, true);
-    if task_next(mut graph) != 0u32 {
-        trap;
-    }
-}
-
 fn game_prediction_join(
-    graph: mut TaskGraph,
     work: mut PredictionTask,
     control: mut GameControl,
     input: mut InputState,
     prediction: mut Prediction,
     attempt: u32
-) -> unit {
-    var status: i32 = prediction_task_poll(read work);
-    while status == 0i32 {
-        prediction_task_idle(read work);
-        if !game_poll(mut control, mut input) {
-            task_cancel(mut graph);
+) -> bool {
+    var event: Event = prediction_event(read work);
+    if !game_event_wait(mut control, mut input, read event) {
+        return false;
+    }
+    prediction = prediction_task_result(mut work);
+    prediction_task_doors(read work, game_doors_mut(mut control), attempt);
+    return true;
+}
+fn game_frame_execute(
+    frame: mut SubmittedFrame,
+    control: mut GameControl,
+    input: mut InputState,
+    config: GameConfig
+) -> bool {
+    if !frame_accepted(read frame) {
+        return false;
+    }
+    var context: Context = game_task_context(read control);
+    while true {
+        var event: Event = frame_completion(read frame, read context);
+        if !game_event_wait(mut control, mut input, read event) {
+            return false;
         }
-        status = prediction_task_poll(read work);
+        var status: i32 = frame_poll(mut frame);
+        if status < 0i32 {
+            return false;
+        }
+        if status == 2i32 {
+            game_residency_missing(mut control, frame_missing_portal(read frame));
+            return true;
+        }
+        if status == 1i32 {
+            break;
+        }
     }
-    if status > 0i32 {
-        prediction = prediction_task_result(mut work);
-        prediction_task_doors(read work, game_doors_mut(mut control), attempt);
+    if config.headless {
+        return true;
     }
-    task_complete(mut graph, 2u32, status > 0i32);
+    var image: ValidatedImage = frame_image(mut frame);
+    var operation: Presentation = image_present(mut image);
+    if !presentation_accepted(read operation) {
+        return false;
+    }
+    var event: Event = presentation_completion(read operation, read context);
+    if !game_event_wait(mut control, mut input, read event) {
+        return false;
+    }
+    return presentation_poll(mut operation) > 0i32;
 }

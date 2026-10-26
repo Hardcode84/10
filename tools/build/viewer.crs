@@ -5,7 +5,18 @@ fn build_viewer(
     checks: bool
 ) -> bool {
     var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 64] = uninit;
+    var capacity: usize = render_providers(root, null(**u8)) + asset_collision_providers(
+        root,
+        null(**u8)
+    ) + asset_providers(root, null(**u8)) + 11usize;
+    var providers: **u8 = crust_try_alloc(
+        root -> context,
+        capacity * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if providers == null(**u8) {
+        return false;
+    }
     var source_count: usize = asset_sources(root, &sources[0usize]);
     source_count = source_count + asset_collision_sources(root, &sources[source_count]);
     var provider_count: usize = render_providers(root, &providers[0usize]);

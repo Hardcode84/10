@@ -27,7 +27,7 @@ fn residency_selection_new() -> ResidencySelection {
     return make ResidencySelection {
         visibility: null(*GenerationWords),
         count: 0u32,
-        home: TASK_NONE,
+        home: ROOM_NONE,
         wanted: generation_words_new(),
         keep: generation_words_new(),
         ahead: generation_words_new(),
@@ -88,12 +88,6 @@ fn residency_planner_open(state: mut RoomResidency, graph: read RoomGraph, audio
         next -> count = next -> count + 1u32;
         i = i + 1u32;
     }
-    schedule_define(
-        read state.schedule,
-        state.count + 2u32,
-        residency_plan_execute,
-        state.planner as *u8
-    );
     return generation_words_allocate(mut next -> wanted, state.count) && generation_words_allocate(
         mut next -> keep,
         state.count
@@ -105,9 +99,13 @@ fn residency_planner_open(state: mut RoomResidency, graph: read RoomGraph, audio
         state.count
     );
 }
-fn residency_plan_execute(data: *u8) -> TaskStep {
-    var work: *ResidentPlanner = data as *ResidentPlanner;
-    return task_done(
+record PlannerWork {
+    planner: *ResidentPlanner;
+}
+opaque send;
+fn residency_plan_execute(state: mut PlannerWork, context: read Context) -> Step {
+    var work: *ResidentPlanner = state.planner;
+    return game_step(
         residency_selection_compute(
             mut work -> selection,
             read work -> graph,
@@ -120,7 +118,8 @@ fn residency_plan_collect(state: mut RoomResidency) -> bool {
     if !state.planning {
         return true;
     }
-    var status: i32 = schedule_status(read state.schedule, state.count + 2u32);
+    var event: Event = task_event!(PlannerWork)(read state.plan_task);
+    var status: i32 = game_event_status(read event);
     if status == 0i32 {
         return true;
     }
@@ -158,8 +157,18 @@ fn residency_plan_request(state: mut RoomResidency, room: u32) -> unit {
         return;
     }
     state.planner -> room = room;
-    schedule_reset(read state.schedule, state.count + 2u32);
-    schedule_background(read state.schedule, state.count + 2u32);
+    var context: Context = scope_context(read state.scope);
+    task_replace!(PlannerWork)(
+        mut state.plan_task,
+        spawn!(PlannerWork)(
+            read context,
+            make PlannerWork {
+                planner: state.planner
+            },
+            residency_plan_execute,
+            deps_new()
+        )
+    );
     state.planning = true;
 }
 fn residency_select(
@@ -195,7 +204,7 @@ fn residency_select(
         generation_words_fill(mut state.visible, 0u32);
         var released: u32 = 0u32;
         while released < state.count {
-            schedule_release_demand(read state.schedule, released);
+            room_release_demand(read state.jobs, released);
             released = released + 1u32;
         }
     }
@@ -223,9 +232,9 @@ fn residency_plan_initial(
         return false;
     }
     residency_plan_request(mut state, room);
-    while schedule_status(read state.schedule, state.count + 2u32) == 0i32 {
-        schedule_poll(read state.schedule);
-        schedule_idle(read state.schedule);
+    var event: Event = task_event!(PlannerWork)(read state.plan_task);
+    if !event_join(read event) {
+        return false;
     }
     return residency_select(mut state, read graph, room, audio);
 }

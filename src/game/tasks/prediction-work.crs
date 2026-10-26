@@ -6,11 +6,13 @@ record PredictionPayload {
     doors: DoorSet;
     rooms: *ResidentBuild;
     waiting: u32;
+    jobs: RoomJobs;
+    times: TaskRunTimes;
 }
 opaque;
 resource PredictionContext {
-    schedule: TaskSchedule;
-    slot: u32;
+    scope: Scope;
+    task: Task!(PredictionWork);
     payload: *PredictionPayload;
     times: TaskRunTimes;
 }
@@ -20,13 +22,13 @@ resource PredictionTask {
 }
 opaque drop prediction_task_drop;
 fn prediction_context(
-    pool: read TaskPool,
+    scheduler: read Scheduler,
     collision: read CollisionScene,
     doors: read DoorSet
 ) -> PredictionContext {
-    var payload: *PredictionPayload = task_allocate(sizeof(PredictionPayload)) as *PredictionPayload;
+    var payload: *PredictionPayload = malloc(sizeof(PredictionPayload)) as *PredictionPayload;
     if payload == null(*PredictionPayload) {
-        task_error("prediction task allocation failed");
+        error("prediction task allocation failed");
     } else {
         payload -> collision = collision_new();
         payload -> doors = doors_new();
@@ -36,7 +38,7 @@ fn prediction_context(
         ) {
             drop payload -> collision;
             drop payload -> doors;
-            task_release(payload as *u8);
+            free(payload as *u8);
             payload = null(*PredictionPayload);
         }
     }
@@ -44,22 +46,27 @@ fn prediction_context(
         payload -> trial = new_trial();
         payload -> forecast = new_drone();
         payload -> rooms = null(*ResidentBuild);
-        payload -> waiting = TASK_NONE;
+        payload -> waiting = ROOM_NONE;
+        payload -> jobs = room_jobs_new();
+        payload -> times = make TaskRunTimes {
+            start: 0u64,
+            finish: 0u64
+        };
     }
-    var schedule: TaskSchedule = schedule_new();
-    if !schedule_on(mut schedule, read pool, 1u32) {
+    var scope: Scope = scope_new();
+    if !scope_open(mut scope, read scheduler) {
         if payload != null(*PredictionPayload) {
             drop payload -> collision;
             drop payload -> doors;
             drop payload -> trial;
             drop payload -> forecast;
-            task_release(payload as *u8);
+            free(payload as *u8);
             payload = null(*PredictionPayload);
         }
     }
     return make PredictionContext {
-        schedule: move schedule,
-        slot: 0u32,
+        scope: move scope,
+        task: task_empty!(PredictionWork)(),
         payload: payload,
         times: make TaskRunTimes {
             start: 0u64,
@@ -71,24 +78,36 @@ fn prediction_context_ready(context: read PredictionContext) -> bool {
     return context.payload != null(*PredictionPayload);
 }
 fn prediction_context_drop(context: mut PredictionContext) -> unit {
+    if context.scope.state != null(*SchedulerScope) {
+        var end: Event = scope_finish(mut context.scope);
+        event_join(read end);
+    }
     if context.payload != null(*PredictionPayload) {
+        drop context.payload -> jobs;
         drop context.payload -> collision;
         drop context.payload -> doors;
         drop context.payload -> trial;
         drop context.payload -> forecast;
     }
-    task_release(context.payload as *u8);
+    free(context.payload as *u8);
 }
-fn prediction_execute(data: *u8) -> TaskStep {
-    var payload: *PredictionPayload = data as *PredictionPayload;
-    if payload -> waiting != TASK_NONE {
+record PredictionWork {
+    payload: *PredictionPayload;
+}
+opaque send;
+fn prediction_execute(work: mut PredictionWork, context: read Context) -> Step {
+    var payload: *PredictionPayload = work.payload;
+    if payload -> times.start == 0u64 {
+        payload -> times.start = now();
+    }
+    if payload -> waiting != ROOM_NONE {
         if !collision_room_resident(read payload -> collision, payload -> waiting) {
             collision_room_restore(
                 mut payload -> collision,
                 read payload -> rooms[payload -> waiting as usize].collision
             );
         }
-        payload -> waiting = TASK_NONE;
+        payload -> waiting = ROOM_NONE;
     }
     payload -> result = predict_scene(
         read payload -> collision,
@@ -100,9 +119,10 @@ fn prediction_execute(data: *u8) -> TaskStep {
         *ResidentBuild
     ) {
         payload -> waiting = payload -> result.admission.space;
-        return task_await(payload -> waiting);
+        return room_await(read payload -> jobs, payload -> waiting);
     }
-    return task_done(true);
+    payload -> times.finish = now();
+    return done();
 }
 fn prediction_start(
     context: mut PredictionContext,
@@ -111,31 +131,39 @@ fn prediction_start(
 ) -> PredictionTask from context {
     collision_snapshot_motion(read collision, mut context.payload -> collision);
     assign_trial(mut context.payload -> trial, read trial);
-    schedule_reset(read context.schedule, context.slot);
-    schedule_define(
-        read context.schedule,
-        context.slot,
-        prediction_execute,
-        context.payload as *u8
+    context.payload -> times = make TaskRunTimes {
+        start: 0u64,
+        finish: 0u64
+    };
+    var submit: Context = scope_context(read context.scope);
+    task_replace!(PredictionWork)(
+        mut context.task,
+        spawn!(PredictionWork)(
+            read submit,
+            make PredictionWork {
+                payload: context.payload
+            },
+            prediction_execute,
+            deps_new()
+        )
     );
-    schedule_request(read context.schedule, context.slot);
-    schedule_poll(read context.schedule);
     return make PredictionTask {
         context: mut context
     };
 }
 fn prediction_task_poll(task: read PredictionTask) -> i32 {
-    schedule_poll(read task.context.schedule);
-    return schedule_status(read task.context.schedule, task.context.slot);
+    var event: Event = task_event!(PredictionWork)(read task.context.task);
+    return game_event_status(read event);
 }
 fn prediction_task_idle(task: read PredictionTask) -> unit {
-    schedule_idle(read task.context.schedule);
+    var event: Event = task_event!(PredictionWork)(read task.context.task);
+    event_pause(read event);
 }
 fn prediction_task_result(task: mut PredictionTask) -> Prediction {
     if prediction_task_poll(read task) != 1i32 {
         trap;
     }
-    task.context.times = schedule_times(read task.context.schedule, task.context.slot);
+    task.context.times = task.context.payload -> times;
     return task.context.payload -> result;
 }
 fn prediction_context_times(context: read PredictionContext) -> TaskRunTimes {
@@ -175,12 +203,21 @@ fn prediction_context_residency(context: mut PredictionContext, collision: read 
 }
 // Requires an idle context. The room owner must outlive this context and all its tasks.
 fn prediction_streaming(context: mut PredictionContext, state: read RoomResidency) -> unit {
-    context.schedule = schedule_clone(read state.schedule);
-    context.slot = state.count;
+    context.payload -> jobs = room_jobs_clone(read state.jobs);
     context.payload -> rooms = state.builds;
 }
 fn prediction_game_streaming(context: mut PredictionContext, session: read GameSession) -> unit {
     if session.control.residency.count != 0u32 {
         prediction_streaming(mut context, read session.control.residency);
     }
+}
+fn prediction_event(task: read PredictionTask) -> Event {
+    return task_event!(PredictionWork)(read task.context.task);
+}
+fn game_prediction_context(session: read GameSession, collision: read CollisionScene) -> PredictionContext {
+    return prediction_context(
+        read session.control.residency.scheduler,
+        read collision,
+        graph_doors(game_graph(read session.control))
+    );
 }

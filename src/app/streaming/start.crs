@@ -39,6 +39,12 @@ fn residency_seed_room(
     return true;
 }
 fn game_residency_open(session: mut GameSession, scene: mut CollisionScene, world: u32) -> bool {
+    if !residency_runtime_open(
+        mut session.control.residency,
+        session.control.launch.config.workers
+    ) {
+        return false;
+    }
     var count: u32 = graph_count(read session.control.graph);
     if !session.control.residency.enabled || count == 0u32 {
         return true;
@@ -95,7 +101,7 @@ fn game_residency_open(session: mut GameSession, scene: mut CollisionScene, worl
                 read scene,
                 room
             );
-            schedule_seed(read session.control.residency.schedule, room);
+            room_seed(read session.control.residency.jobs, room);
         }
         room = room + 1u32;
     }

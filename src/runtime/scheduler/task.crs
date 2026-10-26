@@ -9,7 +9,7 @@ opaque;
 resource Task!(State) {
     work: *SchedulerWork!(State);
     mode: u32;
-    error: u32;
+    fault: u32;
     rejected: State;
 }
 opaque send manual drop task_drop!(State);
@@ -42,7 +42,7 @@ fn task_event!(State)(task: read Task!(State)) -> Event {
         scheduler_panic("empty task event");
     }
     if task.mode == 2u32 {
-        return event_failed(task.error);
+        return event_failed(task.fault);
     }
     return scheduler_event_handle(task.work -> event);
 }
@@ -71,11 +71,11 @@ fn scheduler_callback!(State)(data: *u8, context: read Context) -> Step {
     var work: *SchedulerWork!(State) = data as *SchedulerWork!(State);
     return work -> callback(mut work -> state, read context);
 }
-fn scheduler_task_rejected!(State)(state: State, error: u32) -> Task!(State) {
+fn scheduler_task_rejected!(State)(state: State, fault: u32) -> Task!(State) {
     return make Task!(State) {
         work: null(*SchedulerWork!(State)),
         mode: 2u32,
-        error: error,
+        fault: fault,
         rejected: move state
     };
 }
@@ -102,16 +102,16 @@ fn spawn!(State)(
         return scheduler_task_rejected!(State)(move state, SCHED_CAPACITY);
     }
     service_lock(runtime -> gate);
-    var error: u32 = scheduler_admit(read context);
-    if error == 0u32 {
+    var fault: u32 = scheduler_admit(read context);
+    if fault == 0u32 {
         scheduler_node_init(node, context.scope, event);
     }
     service_unlock(runtime -> gate);
-    if error != 0u32 {
+    if fault != 0u32 {
         scheduler_release(node as *u8);
         scheduler_release(work as *u8);
         scheduler_event_release(event);
-        return scheduler_task_rejected!(State)(move state, error);
+        return scheduler_task_rejected!(State)(move state, fault);
     }
     * work = make SchedulerWork!(State) {
         references: 2i32,
@@ -159,7 +159,7 @@ fn scheduler_node_init(
 fn scheduler_task_init!(State)(task: *Task!(State)) -> unit initializes(task) {
     task -> work = null(*SchedulerWork!(State));
     task -> mode = 0u32;
-    task -> error = 0u32;
+    task -> fault = 0u32;
 }
 // Replaces a handle; an accepted task continues if its old handle is released.
 fn task_replace!(State)(target: mut Task!(State), replacement: Task!(State)) -> unit {

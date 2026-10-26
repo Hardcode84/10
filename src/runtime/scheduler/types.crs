@@ -115,12 +115,12 @@ resource Event {
 opaque send share drop event_drop;
 resource Dependencies {
     first: *SchedulerEdge;
-    error: u32;
+    fault: u32;
 }
 opaque send drop deps_drop;
 resource Step {
     kind: u32;
-    error: u32;
+    fault: u32;
     dependencies: Dependencies;
 }
 opaque send drop step_drop;

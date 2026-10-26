@@ -1,0 +1,193 @@
+record RoomBuildWork {
+    build: *ResidentBuild;
+}
+opaque send;
+record RoomJob {
+    task: Task!(RoomBuildWork);
+    seeded: bool;
+    demanded: bool;
+}
+opaque;
+record RoomJobsState {
+    references: i32;
+    mutex: *u8;
+    scope: Scope;
+    context: Context;
+    builds: *ResidentBuild;
+    jobs: *RoomJob;
+    count: u32;
+}
+opaque;
+resource RoomJobs {
+    state: *RoomJobsState;
+}
+opaque share drop room_jobs_drop;
+fn room_jobs_new() -> RoomJobs {
+    return make RoomJobs {
+        state: null(*RoomJobsState)
+    };
+}
+fn room_jobs_clone(jobs: read RoomJobs) -> RoomJobs {
+    if jobs.state != null(*RoomJobsState) {
+        reference_retain(&jobs.state -> references);
+    }
+    return make RoomJobs {
+        state: jobs.state
+    };
+}
+fn room_jobs_drop(jobs: mut RoomJobs) -> unit {
+    var state: *RoomJobsState = jobs.state;
+    if state == null(*RoomJobsState) || !reference_release(&state -> references) {
+        return;
+    }
+    var end: Event = scope_finish(mut state -> scope);
+    event_join(read end);
+    var i: u32 = 0u32;
+    while i < state -> count {
+        drop state -> jobs[i as usize].task;
+        drop state -> builds[i as usize].recipe;
+        drop state -> builds[i as usize].plan;
+        drop state -> builds[i as usize].mesh;
+        drop state -> builds[i as usize].collision;
+        i = i + 1u32;
+    }
+    drop state -> context;
+    drop state -> scope;
+    free(state -> jobs as *u8);
+    free(state -> builds as *u8);
+    service_mutex_destroy(state -> mutex);
+    free(state as *u8);
+}
+fn room_jobs_open(
+    jobs: mut RoomJobs,
+    scheduler: read Scheduler,
+    builds: *ResidentBuild,
+    count: u32
+) -> bool {
+    var state: *RoomJobsState = malloc(sizeof(RoomJobsState)) as *RoomJobsState;
+    if state == null(*RoomJobsState) {
+        return error("room task owner allocation failed");
+    }
+    var scope: Scope = scope_new();
+    if !scope_open(mut scope, read scheduler) {
+        free(state as *u8);
+        return false;
+    }
+    var entries: *RoomJob = malloc(count as usize * sizeof(RoomJob)) as *RoomJob;
+    var mutex: *u8 = service_mutex_create();
+    if entries == null(*RoomJob) || mutex == null(*u8) {
+        free(entries as *u8);
+        service_mutex_destroy(mutex);
+        free(state as *u8);
+        return error("room job table allocation failed");
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        entries[i as usize] = make RoomJob {
+            task: task_empty!(RoomBuildWork)(),
+            seeded: false,
+            demanded: false
+        };
+        i = i + 1u32;
+    }
+    var context: Context = scope_context(read scope);
+    *state = make RoomJobsState {
+        references: 1i32,
+        mutex: mutex,
+        scope: move scope,
+        context: move context,
+        builds: builds,
+        jobs: entries,
+        count: count
+    };
+    jobs.state = state;
+    return true;
+}
+fn room_build_step(work: mut RoomBuildWork, context: read Context) -> Step {
+    return game_step(residency_execute(work.build));
+}
+// Coalesces concurrent requests and returns the completion of the retained room build.
+fn room_request(jobs: read RoomJobs, room: u32, demanded: bool) -> Event {
+    var state: *RoomJobsState = jobs.state;
+    service_lock(state -> mutex);
+    var entry: *RoomJob = &state -> jobs[room as usize];
+    entry -> demanded = entry -> demanded || demanded;
+    if entry -> seeded {
+        service_unlock(state -> mutex);
+        return event_failed(SCHED_OK);
+    }
+    if entry -> task.mode == 0u32 {
+        task_replace!(RoomBuildWork)(
+            mut entry -> task,
+            spawn!(RoomBuildWork)(
+                read state -> context,
+                make RoomBuildWork {
+                    build: &state -> builds[room as usize]
+                },
+                room_build_step,
+                deps_new()
+            )
+        );
+    }
+    var event: Event = task_event!(RoomBuildWork)(read entry -> task);
+    service_unlock(state -> mutex);
+    return move event;
+}
+fn room_status(jobs: read RoomJobs, room: u32) -> i32 {
+    var state: *RoomJobsState = jobs.state;
+    service_lock(state -> mutex);
+    var entry: *RoomJob = &state -> jobs[room as usize];
+    var result: i32 = 0i32;
+    if entry -> seeded {
+        result = 1i32;
+    } else if entry -> task.mode != 0u32 {
+        var event: Event = task_event!(RoomBuildWork)(read entry -> task);
+        result = game_event_status(read event);
+    }
+    service_unlock(state -> mutex);
+    return result;
+}
+fn room_requested(jobs: read RoomJobs, room: u32) -> bool {
+    service_lock(jobs.state -> mutex);
+    var result: bool = jobs.state -> jobs[room as usize].seeded || jobs.state -> jobs[
+        room as usize
+    ].task.mode != 0u32;
+    service_unlock(jobs.state -> mutex);
+    return result;
+}
+fn room_demanded(jobs: read RoomJobs, room: u32) -> bool {
+    service_lock(jobs.state -> mutex);
+    var result: bool = jobs.state -> jobs[room as usize].demanded;
+    service_unlock(jobs.state -> mutex);
+    return result;
+}
+fn room_release_demand(jobs: read RoomJobs, room: u32) -> unit {
+    service_lock(jobs.state -> mutex);
+    jobs.state -> jobs[room as usize].demanded = false;
+    service_unlock(jobs.state -> mutex);
+}
+// Requires retired consumers of the room's immutable storage.
+fn room_reset(jobs: read RoomJobs, room: u32) -> unit {
+    service_lock(jobs.state -> mutex);
+    var entry: *RoomJob = &jobs.state -> jobs[room as usize];
+    if entry -> task.mode != 0u32 {
+        var event: Event = task_event!(RoomBuildWork)(read entry -> task);
+        if event_status(read event) == 0u32 {
+            scheduler_panic("reset of pending room");
+        }
+    }
+    task_replace!(RoomBuildWork)(mut entry -> task, task_empty!(RoomBuildWork)());
+    entry -> seeded = false;
+    entry -> demanded = false;
+    service_unlock(jobs.state -> mutex);
+}
+fn room_seed(jobs: read RoomJobs, room: u32) -> unit {
+    service_lock(jobs.state -> mutex);
+    jobs.state -> jobs[room as usize].seeded = true;
+    service_unlock(jobs.state -> mutex);
+}
+fn room_await(jobs: read RoomJobs, room: u32) -> Step {
+    var deps: Dependencies = deps_new();
+    deps_add(mut deps, room_request(read jobs, room, true));
+    return await_tasks(move deps);
+}

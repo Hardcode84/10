@@ -27,7 +27,7 @@ selecting another renderer.
 Room loading and GPU storage lifetime are specified in the
 [room streaming design](content/streaming.md).
 
-See the [autonomous scheduler design](runtime/scheduler.md) for the independent native
+See the [autonomous scheduler design](runtime/scheduler.md) for the shared
 task API, callback examples, and external completion contract.
 
 ## Source directories
@@ -36,10 +36,8 @@ task API, callback examples, and external completion contract.
 | --- | --- |
 | `src/render/host/` | Renderer resources, uploads, and Vulkan commands |
 | `src/render/api/` | Checked frame, validated image, and presentation leases |
-| `src/runtime/task/` | Owned graph storage and dependency declarations |
-| `src/runtime/executor/` | Serial ready queue and external completion protocol |
+| `src/runtime/scheduler/` | Typed tasks, work stealing, dependencies, and external events |
 | `src/runtime/platform/` | Native completion service and private thread primitives |
-| `src/runtime/trace/` | Optional per-node execution spans |
 | `src/render/web/` | WebGPU resources, commands, and presentation |
 | `src/render/device/` | Compute shaders |
 | `src/render/interface.crs` | Shared host and device data definitions |
@@ -71,13 +69,11 @@ task API, callback examples, and external completion contract.
 | `tests/viewer/` | Viewer instance visibility checks |
 | `tests/assets/` | Generated room topology, spawn, and collision checks |
 | `tests/ownership/` | Ownership acceptance and rejection cases |
-| `tests/runtime/` | Game executor and completion service checks |
 | `tests/scheduler/` | Independent scheduler API, concurrency, and ownership checks |
 
 ## Documents
 
-- Runtime: [task graph architecture](runtime/task-graph.md). This is the target
-  design and measured experiment for scheduling and asynchronous services.
+- Runtime: [scheduler and game integration](runtime/scheduler.md).
 - Build: [bootstrap](build/bootstrap.md), [web game](build/web.md), [shader compiler](build/crust-spirv.md).
 - Render: [architecture, data flow, contracts, and checks](render/rendering.md).
 - Sound: [mixer, device output, portal acoustics, and delivery gates](audio/sound.md).
@@ -97,8 +93,8 @@ task API, callback examples, and external completion contract.
 ```sh
 crust tests.crs
 crust tests.crs ownership
-crust tests.crs runtime
-crust tests.crs tasks --tasks --width 640 --height 480
+crust tests.crs scheduler
+crust tests.crs tasks --width 640 --height 480
 crust tests.crs portals --width 320 --height 180
 crust tests.crs collision
 crust tests.crs assets

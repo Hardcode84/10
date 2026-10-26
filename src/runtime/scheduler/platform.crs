@@ -22,3 +22,75 @@ fn scheduler_require_caller(runtime: *SchedulerRuntime) -> unit {
         scheduler_panic("scheduler blocking operation on worker");
     }
 }
+extern fn scheduler_condition_timed(condition: *u8, mutex: *u8, ms: i32) -> bool = "SDL_WaitConditionTimeout";
+fn scheduler_condition_pause(condition: *u8, mutex: *u8) -> unit {
+    scheduler_condition_timed(condition, mutex, 1i32);
+}
+
+fn scheduler_thread(data: *u8) -> i32 {
+    var worker: *SchedulerWorker = data as *SchedulerWorker;
+    var runtime: *SchedulerRuntime = worker -> runtime;
+    if !scheduler_tls_set(&runtime -> tls, data, null(fn(*u8) -> unit)) {
+        scheduler_panic("scheduler TLS failed");
+    }
+    while true {
+        var node: *SchedulerNode = scheduler_find(worker);
+        if node != null(*SchedulerNode) {
+            scheduler_run(node);
+        } else {
+            service_lock(runtime -> gate);
+            var stop: bool = runtime -> stopping;
+            service_unlock(runtime -> gate);
+            if stop {
+                return 0i32;
+            }
+            service_wait(runtime -> wake);
+        }
+    }
+}
+
+fn scheduler_start(runtime: *SchedulerRuntime) -> bool {
+    var i: u32 = 0u32;
+    while i < runtime -> width {
+        runtime -> workers[i as usize] = make SchedulerWorker {
+            runtime: runtime,
+            queue: scheduler_deque_new(),
+            thread: null(*u8),
+            index: i,
+            turns: 0u32
+        };
+        if runtime -> workers[i as usize].queue.mutex == null(*u8) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    while runtime -> started < runtime -> width {
+        var worker: *SchedulerWorker = &runtime -> workers[runtime -> started as usize];
+        worker -> thread = service_thread_create(scheduler_thread, "scheduler", worker as *u8);
+        if worker -> thread == null(*u8) {
+            return false;
+        }
+        runtime -> started = runtime -> started + 1u32;
+    }
+    return true;
+}
+
+fn scheduler_stop_workers(runtime: *SchedulerRuntime) -> unit {
+    var i: u32 = 0u32;
+    while i < runtime -> started {
+        service_post(runtime -> wake);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < runtime -> started {
+        service_thread_join(runtime -> workers[i as usize].thread, null(*i32));
+        i = i + 1u32;
+    }
+}
+fn scheduler_signal(runtime: *SchedulerRuntime) -> unit {
+    service_post(runtime -> wake);
+}
+
+fn scheduler_worker_limit() -> u32 {
+    return 0xffffffffu32;
+}

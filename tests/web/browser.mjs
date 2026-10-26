@@ -11,6 +11,17 @@ export async function flight(options) {
   await until(() => !document.querySelector('#start').disabled);
   const form = document.querySelector('#setup');
   let device;
+  if (options.allocationFailure) {
+    const create = GPUDevice.prototype.createBuffer;
+    let injected = false;
+    GPUDevice.prototype.createBuffer = function(descriptor) {
+      if (!injected && (descriptor.usage & GPUBufferUsage.STORAGE)) {
+        injected = true;
+        return create.call(this, {...descriptor, size:this.limits.maxBufferSize+4});
+      }
+      return create.call(this, descriptor);
+    };
+  }
   if (options.deviceLoss) {
     const request = GPUAdapter.prototype.requestDevice;
     GPUAdapter.prototype.requestDevice = async function(...args) {
@@ -18,9 +29,9 @@ export async function flight(options) {
     };
   }
   Object.assign(form.elements.seed, {value: '42'});
-  // Keep symmetry planes between samples for the scaled image comparison.
+  // Keep symmetry planes between samples for symmetric room image comparisons.
   // The ordinary course retains odd width and height to check row addressing.
-  for (const [name, value] of Object.entries({complexity: 2, width: options.scaling ? 640 : 641, height: options.scaling ? 360 : 359, ticks: options.controls ? 0 : 1})) form.elements[name].value = value;
+  for (const [name, value] of Object.entries({complexity: 2, width: options.symmetric ? 640 : 641, height: options.symmetric ? 360 : 359, ticks: options.controls ? 0 : 1})) form.elements[name].value = value;
   form.elements.scaling.checked = !!options.scaling;
   form.elements.record.checked = !options.replay;
   form.elements.capture.checked = !options.controls;
@@ -38,20 +49,6 @@ export async function flight(options) {
   const getTexture = GPUCanvasContext.prototype.getCurrentTexture;
   GPUCanvasContext.prototype.getCurrentTexture = function() { frames++; return getTexture.call(this); };
   const key = (type, code, key, n) => window.dispatchEvent(new KeyboardEvent(type, {code, key, keyCode:n, which:n, bubbles:true}));
-  if (options.tasks) {
-    const call = spinward.ccall;
-    spinward.ccall = async function(name, type, types, values, settings) {
-      if (name !== 'main') return call(name, type, types, values, settings);
-      const [count, original] = values, argument = spinward.stringToNewUTF8('--tasks');
-      const argv = spinward._malloc((count + 2) * 4);
-      if (!argument || !argv) throw Error('Cannot allocate task-mode arguments');
-      spinward.HEAPU32.set(spinward.HEAPU32.subarray(original >>> 2, (original >>> 2) + count), argv >>> 2);
-      spinward.HEAPU32[(argv >>> 2) + count] = argument;
-      spinward.HEAPU32[(argv >>> 2) + count + 1] = 0;
-      try { return await call(name, type, types, [count + 1, argv], settings); }
-      finally { spinward._free(argv); spinward._free(argument); }
-    };
-  }
   form.requestSubmit();
   const inputFrame = async () => {
     const target = frames + 2;

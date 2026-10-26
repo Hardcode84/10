@@ -4,7 +4,6 @@ record GameConfig {
     complexity: u32;
     room_demo: bool;
     scaling: bool;
-    tasks: bool;
     workers: u32;
     width: u32;
     height: u32;
@@ -90,6 +89,9 @@ fn game_numeric(o: *Launch, key: *u8, value: *u8) -> bool {
     }
     if strcmp(key, "--workers") == 0i32 {
         o -> config.workers = n;
+        if n == 0u32 {
+            o -> config.workers = game_default_workers();
+        }
         return true;
     }
     if strcmp(key, "--seed") == 0i32 {
@@ -141,15 +143,6 @@ fn game_flag(o: *Launch, key: *u8) -> bool {
         o -> config.scaling = true;
         return true;
     }
-    if strcmp(key, "--tasks") == 0i32 {
-        o -> config.tasks = true;
-        return true;
-    }
-    if strcmp(key, "--serial") == 0i32 {
-        o -> config.tasks = false;
-        o -> config.workers = 0u32;
-        return true;
-    }
     if strcmp(key, "--fullscreen") == 0i32 {
         o -> config.fullscreen = true;
         return true;
@@ -179,8 +172,7 @@ fn game_options_scene(argc: i32, argv: **u8, o: *Launch, room_demo: bool) -> boo
             complexity: 3u32,
             room_demo: room_demo,
             scaling: false,
-            tasks: true,
-            workers: TASK_DEFAULT_WORKERS,
+            workers: game_default_workers(),
             width: 960u32,
             height: 540u32,
             fov: 90f32,

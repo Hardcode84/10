@@ -1,0 +1,72 @@
+extern fn scheduler_async(callback: fn(*u8) -> unit, data: *u8, ms: i32) -> unit = "emscripten_async_call";
+extern fn scheduler_sleep(ms: u32) -> unit = "emscripten_sleep";
+extern fn scheduler_abort() -> unit = "abort";
+extern fn scheduler_flush(stream: *u8) -> i32 = "fflush";
+fn scheduler_panic(message: *u8) -> unit {
+    service_print(message);
+    scheduler_flush(null(*u8));
+    scheduler_abort();
+    trap;
+}
+fn scheduler_thread_id() -> u64 {
+    return 1u64;
+}
+extern fn scheduler_cpu_count() -> i32 = "SDL_GetNumLogicalCPUCores";
+fn scheduler_worker_limit() -> u32 {
+    return 1u32;
+}
+fn scheduler_condition_new() -> *u8 {
+    return service_allocate(1usize, 1usize);
+}
+fn scheduler_condition_drop(value: *u8) -> unit {
+    service_free(value);
+}
+fn scheduler_condition_wake(value: *u8) -> unit {}
+fn scheduler_condition_wait(value: *u8, mutex: *u8) -> unit {
+    scheduler_sleep(1u32);
+}
+fn scheduler_condition_pause(value: *u8, mutex: *u8) -> unit {
+    scheduler_sleep(1u32);
+}
+fn scheduler_worker_on(runtime: *SchedulerRuntime) -> *SchedulerWorker {
+    if runtime -> tls != 0i32 {
+        return runtime -> workers;
+    }
+    return null(*SchedulerWorker);
+}
+fn scheduler_require_caller(runtime: *SchedulerRuntime) -> unit {
+    if runtime -> tls != 0i32 {
+        scheduler_panic("scheduler blocking operation on worker");
+    }
+}
+fn scheduler_start(runtime: *SchedulerRuntime) -> bool {
+    if runtime -> width != 1u32 {
+        service_print("browser scheduler requires one event-loop executor");
+        return false;
+    }
+    runtime -> workers[0usize] = make SchedulerWorker {
+        runtime: runtime,
+        queue: scheduler_deque_new(),
+        thread: null(*u8),
+        index: 0u32,
+        turns: 0u32
+    };
+    return runtime -> workers[0usize].queue.mutex != null(*u8);
+}
+fn scheduler_stop_workers(runtime: *SchedulerRuntime) -> unit {}
+fn scheduler_browser_turn(data: *u8) -> unit {
+    var runtime: *SchedulerRuntime = data as *SchedulerRuntime;
+    if !runtime -> stopping {
+        var node: *SchedulerNode = scheduler_find(runtime -> workers);
+        if node != null(*SchedulerNode) {
+            runtime -> tls = 1i32;
+            scheduler_run(node);
+            runtime -> tls = 0i32;
+        }
+    }
+    scheduler_runtime_release(runtime);
+}
+fn scheduler_signal(runtime: *SchedulerRuntime) -> unit {
+    scheduler_retain(runtime);
+    scheduler_async(scheduler_browser_turn, runtime as *u8, 0i32);
+}

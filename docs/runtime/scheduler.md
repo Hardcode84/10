@@ -2,13 +2,19 @@
 
 ## Status
 
-The independent native library is in [src/runtime/scheduler](../../src/runtime/scheduler/).
-Run its checked API, concurrency, rejection, and fatal-contract tests with
-`crust tests.crs scheduler`; add `--sanitize` for AddressSanitizer and
-UndefinedBehaviorSanitizer. Use `--thread-sanitize` for ThreadSanitizer.
-The game still uses [task-graph.md](task-graph.md).
-The room and GPU examples below specify the consumer integration. That integration
-must pass the delivery gate before the game changes executors.
+The game uses [the scheduler](../../src/runtime/scheduler/) for prediction,
+sound propagation, room planning, room generation, simulation continuations, and
+geometry upload preparation. GPU and presentation operations return scheduler
+events. The application thread handles window input and renderer leases.
+
+Native startup selects one worker per logical processor, up to the
+[game worker cap](../../src/game/tasks/runtime.crs). `--workers N` selects an
+explicit count. Zero selects the automatic count. The browser uses one event-loop
+executor because this build has no shared WebAssembly memory or worker module.
+
+Run `crust tests.crs scheduler` for API, concurrency, rejection, and fatal-contract
+tests. Add `--sanitize` for AddressSanitizer and UndefinedBehaviorSanitizer, or
+`--thread-sanitize` for ThreadSanitizer.
 
 ## Public types and operations
 
@@ -354,23 +360,89 @@ bounded callbacks through the browser event loop; it provides no CPU parallelism
 pool. `scheduler_reserve(read scheduler, bytes)` adds storage while no scopes
 are live. Task admission uses that storage. Exhaustion produces a failed task
 that retains its input state. Ordinary completion returns slots to the pool.
-`scheduler_open_auto` uses the platform logical CPU count.
+`scheduler_open_auto` uses the logical CPU count within the platform worker limit.
 
-## Delivery gate
+## Game frame and room ownership
 
-First implement one production chain: cold room build, suspended prediction,
-real GPU submission, completion callback, dependent CPU task, final image.
-The application thread must not poll the scheduler to make that chain progress.
+```mermaid
+flowchart TD
+    Input[Poll input and advance fixed ticks] --> Rooms[Publish completed room data]
+    Rooms --> Predict[Prediction task for next frame]
+    Rooms --> Sound[Sound propagation task]
+    Rooms --> Scene[Prepare current scene with previous prediction]
+    Scene --> GPU[Submit GPU chunk]
+    GPU --> Event[External completion event]
+    Event --> Chunk{Traversal complete?}
+    Chunk -->|No| GPU
+    Chunk -->|Yes| Present[Present validated image]
+    Predict --> Join[Publish prediction and door triggers]
+    Sound --> Audio[Submit sound commands]
+    Present --> Next[Next frame]
+    Join --> Next
+    Audio --> Next
+    Predict -->|Missing room| Build[Shared room generation task]
+    Sound -->|Missing room| Build
+    Build -->|Dependency completes| Predict
+    Build -->|Dependency completes| Sound
+```
 
-Test with one, two, and several workers. Force completion before, during, and after
-waiter registration. Test fan-in, stealing, repeated yield, nested submission,
-allocation failure, cancellation during GPU execution, and shutdown. Compare the
-final image with the reference. Record runnable-to-start delay, task overhead,
-worker occupancy, application allocations, and presented frame time against the
-current shaft witness before migrating the remaining consumers.
+Simulation uses a fixed step. Prediction reads a copied trial and retained
+collision data. Rendering uses the previous completed prediction. A prediction
+result includes its source tick and attempt. The consumer rejects stale results.
+No live simulation state is writable from prediction or sound callbacks.
 
-Then remove the current graph executor, continuation scheduler, manual node
-selection, and game-owned CPU/GPU join loops in the same migration.
+Each session owns one scheduler. Room jobs, prediction, and sound have scopes.
+A room cache maps a room identifier to one build task. Concurrent requests use the
+same event. A callback that needs missing geometry returns `await_tasks`; its
+worker can execute other work. Planner and generation callbacks do not require
+application polling. The application publishes completed meshes and collision
+owners at a frame boundary. This publication can inspect room status without
+executing a task callback.
+
+The room job owner retains generated data until all prediction and sound owners
+release it. A room task can be reset only after it completes and its consumers
+release the room. Shutdown closes scopes and waits for their accepted work before
+it releases snapshots, room storage, or renderer resources.
+
+An upload task holds exclusive renderer storage through a retained frame-input
+borrow. The application waits for this task before it submits a frame. GPU buffer
+creation in the browser returns immediately. Its error-scope promises join the
+next GPU completion event; allocation failure rejects that operation.
+
+Each GPU chunk has a completion event. Native completion services resolve tokens
+after actual retirement. Browser promises resolve tokens after queue completion,
+readback, and allocation validation. The application consumes the retired chunk
+and can submit another chunk. Presentation has a separate completion event.
+Only one GPU frame uses a renderer at a time. An accepted operation retains its
+resources through retirement, including cancellation and failure.
+
+`game_event_wait` services window input while the root waits for a required
+event. Its timed wait does not execute callbacks or advance the scheduler.
+Workers use dependencies rather than this root wait. A missing visible portal
+prevents frame presentation until its destination is ready. Prediction can wait
+for an unfinished room independently, then delay the next frame at its result
+join.
+
+## Verification
+
+`crust tests.crs tasks --workers 1` runs scripted flight and compares prediction
+and final pixels with synchronous reference operations. Repeat with the default
+worker count to exercise parallel execution. The reference operations are test
+oracles; production has one scheduler path.
+
+`crust tests.crs residency levels/shafts.crs --width 640 --height 480` checks
+room unload, asynchronous rebuild, resumed prediction, and portal traversal.
+`bun tests/web/check.mjs --main` checks browser capture, input, replay, native
+agreement, fullscreen, device loss, and shutdown with an isolated browser.
+
+Scheduler tests cover fan-in, nested submission, yielding, waiting on external
+events, cancellation, bounded storage exhaustion, and retirement. Native service
+tests register completion both before and after the operation retires.
+
+For timing, run `crust tests.crs tasks` with output redirected to a build log,
+then pass that log to `bun tests/game/task-timings.mjs`. The report separates
+prediction duration, submission delay, and whole-frame duration. It does not
+infer CPU execution time from a root wait.
 
 ## References
 

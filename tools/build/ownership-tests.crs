@@ -77,7 +77,7 @@ fn check_collision_ownership(root: *CrustRun) -> bool {
         "collision-copy.crs",
         "collision-consumed.crs",
         "worker-reuse.crs",
-        "worker-pool-retained.crs",
+        "scheduler-context.crs",
         "worker-collision-drop.crs",
         "worker-valid.crs",
         "control-transfer.crs",

@@ -34,7 +34,11 @@ fn run_asset_checks(
     providers[provider_count] = host_path(root, "src/app/io.crs");
     providers[provider_count + 1usize] = host_path(root, "src/render/host/mesh.crs");
     providers[provider_count + 2usize] = host_path(root, "tests/assets/entry.crs");
-    provider_count = provider_count + 3usize;
+    providers[provider_count + 3usize] = host_path(
+        root,
+        "src/runtime/platform/reference-count.crs"
+    );
+    provider_count = provider_count + 4usize;
     sources[count] = "-o";
     sources[count + 1usize] = host_path(root, "build/tests-assets");
     sources[count + 2usize] = "--cflag";

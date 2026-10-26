@@ -1,7 +1,7 @@
 // The fixture has a transformed portal from an empty room to a room with a door.
 fn test_prediction_admission(scene: read CollisionScene, doors: read DoorSet) -> bool {
-    var pool: TaskPool = task_pool_new();
-    if !task_pool_open(mut pool, 1u32, 2u32) {
+    var pool: Scheduler = scheduler_new();
+    if !scheduler_open(mut pool, 1u32) {
         return false;
     }
     var context: PredictionContext = prediction_context(read pool, read scene, read doors);

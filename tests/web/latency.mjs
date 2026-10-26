@@ -1,5 +1,5 @@
 // Run against tools/web/serve.mjs and a browser with remote debugging enabled.
-async function measure(tasks) {
+async function measure() {
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const until = async test => {
     const deadline = performance.now() + 30000;
@@ -16,7 +16,7 @@ async function measure(tasks) {
   const call = spinward.ccall;
   spinward.ccall = async function(name, type, types, values, settings) {
     if (name !== 'main') return call(name, type, types, values, settings);
-    const extra = ['--latency-log', '/latency.swlt', ...(tasks ? ['--tasks'] : ['--serial'])].map(s => spinward.stringToNewUTF8(s));
+    const extra = ['--latency-log', '/latency.swlt'].map(s => spinward.stringToNewUTF8(s));
     const [count, original] = values, argv = spinward._malloc((count + extra.length + 1) * 4);
     if (!argv || extra.some(p => !p)) throw Error('Cannot allocate measurement arguments');
     spinward.HEAPU32.set(spinward.HEAPU32.subarray(original >>> 2, (original >>> 2) + count), argv >>> 2);
@@ -90,12 +90,11 @@ try {
   await call('Page.navigate', {url: origin + '/?latency=' + Date.now()});
   await load;
   await call('Page.bringToFront');
-  const tasks = process.argv.includes('--tasks');
-  const result = await call('Runtime.evaluate', {expression: `(${measure})(${tasks})`, awaitPromise: true, returnByValue: true, userGesture: true});
+  const result = await call('Runtime.evaluate', {expression: `(${measure})()`, awaitPromise: true, returnByValue: true, userGesture: true});
   if (result.exceptionDetails) throw Error(JSON.stringify(result.exceptionDetails));
   const value = result.result.value;
   if (value.status !== 'Run ended.') throw Error(JSON.stringify(value));
-  const path = `build/latency-web-${tasks ? 'tasks' : 'serial'}`;
+  const path = 'build/latency-web-scheduler';
   await Bun.write(path + '.swlt', Buffer.from(value.trace, 'base64'));
   await Bun.write(path + '.txt', value.producer);
   console.log(`Saved ${path}.swlt and .txt`);

@@ -10,8 +10,8 @@ fn residency_dependents(
     residency_pin(mut state, loop.trial.drone.world);
     var visible: u32 = 0u32;
     while visible < state.count {
-        if generation_word(read state.visible, visible) != 0u32 || schedule_demanded(
-            read state.schedule,
+        if generation_word(read state.visible, visible) != 0u32 || room_demanded(
+            read state.jobs,
             visible
         ) {
             residency_pin(mut state, visible);
@@ -62,10 +62,10 @@ fn game_residency_missing(control: mut GameControl, portal: u32) -> unit {
     control.residency.missing = graph_socket(read control.graph, socket.peer).room;
     residency_pin(mut control.residency, control.residency.missing);
     generation_word_set(mut control.residency.visible, control.residency.missing, 1u32);
-    schedule_request(read control.residency.schedule, control.residency.missing);
+    room_request(read control.residency.jobs, control.residency.missing, true);
 }
 fn game_residency_incomplete(control: read GameControl) -> bool {
-    return control.residency.missing != TASK_NONE;
+    return control.residency.missing != ROOM_NONE;
 }
 fn game_residency_visible(
     scene: mut CollisionScene,
@@ -73,23 +73,16 @@ fn game_residency_visible(
     input: mut InputState
 ) -> bool {
     var room: u32 = control.residency.missing;
-    if room == TASK_NONE {
+    if room == ROOM_NONE {
         return true;
     }
     if !game_residency_require(mut control, mut scene, mut input, room) {
         return false;
     }
-    control.residency.missing = TASK_NONE;
+    control.residency.missing = ROOM_NONE;
     return true;
 }
-fn game_task_pool(session: read GameSession, workers: u32) -> TaskPool {
-    if session.control.residency.count != 0u32 {
-        return task_pool_clone(read session.control.residency.schedule.state -> pool);
-    }
-    var pool: TaskPool = task_pool_new();
-    task_pool_open(mut pool, workers, 2u32);
-    return move pool;
-}
-fn game_task_pool_ready(pool: read TaskPool) -> bool {
-    return pool.state != null(*PoolState);
+fn game_room_wait(control: mut GameControl, input: mut InputState, room: u32) -> bool {
+    var event: Event = room_request(read control.residency.jobs, room, true);
+    return game_event_wait(mut control, mut input, read event);
 }

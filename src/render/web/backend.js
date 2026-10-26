@@ -61,7 +61,7 @@ mergeInto(LibraryManager.library, {
         maxBufferSize: adapter.limits.maxBufferSize,
         maxComputeWorkgroupsPerDimension: 65535,
       }});
-      const s = {device, buffers:new Map(), next:1, pipelines:[], pipelineNames:[], profile:Module.profileGPU ? SWGPUProfile.create() : null, operation:{result:0,completion:null,sample:null}, presentOperation:{result:0,completion:null}, commandList:[null], readPromises:[], wordChunks:[], wordCount:0, reads:[], readCount:0, packed:{buffer:null,capacity:0}, times:{buffer:null,capacity:0}, error:null};
+      const s = {device, buffers:new Map(), next:1, pipelines:[], pipelineNames:[], profile:Module.profileGPU ? SWGPUProfile.create() : null, operation:{result:0,completion:null,sample:null}, presentOperation:{result:0,completion:null}, commandList:[null], readPromises:[], wordChunks:[], wordCount:0, reads:[], readCount:0, packed:{buffer:null,capacity:0}, times:{buffer:null,capacity:0}, error:null, allocations:[]};
       device.addEventListener('uncapturederror', event => { s.error = event.error; SWGPU.failure(event.error); });
       device.lost.then(info => { if (!s.closed) { s.error = new Error('WebGPU device lost: '+info.message); SWGPU.failure(s.error); } });
       const id = SWGPU.next++; SWGPU.devices.set(id, s); return id;
@@ -69,17 +69,20 @@ mergeInto(LibraryManager.library, {
   }),
   web_limit__deps: ['$SWGPU'], web_limit: id => Math.min(SWGPU.get(id).device.limits.maxStorageBufferBindingSize, 0xffffffff),
   web_close__deps: ['$SWGPU'], web_close: id => SWGPU.close(id),
-  web_buffer__deps: ['$SWGPU', '$Asyncify'],
-  web_buffer: (id, size) => Asyncify.handleAsync(async()=> {
+  web_buffer__deps: ['$SWGPU'],
+  web_buffer: (id, size) => {
     const s=SWGPU.get(id); let b;
     try {
       s.device.pushErrorScope('out-of-memory'); s.device.pushErrorScope('validation');
       b=SWGPU.buffer(s, size>>>0, GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC|GPUBufferUsage.COPY_DST);
-      const validation=await s.device.popErrorScope(), memory=await s.device.popErrorScope();
-      if(validation||memory) throw validation||memory;
+      const validation=s.device.popErrorScope(), memory=s.device.popErrorScope();
+      s.allocations.push(Promise.all([validation,memory]).then(errors => {
+        const error=errors.find(Boolean);
+        if(error){s.error=error;SWGPU.failure(error);}
+      }));
       const handle=s.next++; s.buffers.set(handle,b); return handle;
-    } catch(error) { b?.destroy(); return SWGPU.failure(error); }
-  }),
+    } catch(error) { b?.destroy(); s.error=error; return SWGPU.failure(error); }
+  },
   web_buffer_close__deps: ['$SWGPU'], web_buffer_close: (id, handle) => { const s=SWGPU.get(id); s.buffers.get(handle).destroy(); s.buffers.delete(handle); },
   web_layout__deps: ['$SWGPU'], web_layout: (id, checked) => {
     const s=SWGPU.get(id); s.layout=s.device.createBindGroupLayout({entries:Array.from({length:3+checked},(_,binding)=>({binding,visibility:GPUShaderStage.COMPUTE,buffer:{type:'storage'}}))});
@@ -158,6 +161,8 @@ mergeInto(LibraryManager.library, {
         reads.push(done.then(()=> { sample.queueMs=performance.now()-sample.submitted; }));
       }
       reads.push(done);
+      for(const allocation of s.allocations)reads.push(allocation);
+      s.allocations.length=0;
       operation.completion=Promise.allSettled(reads).then(results=>{
         const failure=results.find(result=>result.status==='rejected');
         SWGPU.releaseCommands(s);
@@ -168,6 +173,12 @@ mergeInto(LibraryManager.library, {
       });
       return 1;
     }catch(error){return SWGPU.failure(error);}
+  },
+  web_notify__deps: ['$SWGPU'],
+  web_notify: (id, callback, data, presentation) => {
+    const s=SWGPU.get(id), operation=presentation ? s.presentation : s.pending;
+    if(!operation)throw new Error('No external operation for completion registration');
+    operation.completion.then(status=>{{{ makeDynCall('vii', 'callback') }}}(data,status>0));
   },
   web_poll__deps: ['$SWGPU'], web_poll: id => {
     const s=SWGPU.get(id); if(!s.pending)return 1;

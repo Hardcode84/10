@@ -203,7 +203,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 68] = make [*u8; 68] {
+    var files: [*u8; 64] = make [*u8; 64] {
         "src/runtime/channel/spsc.crs",
         "src/audio/platform/bank.crs",
         "src/audio/platform/mixer.crs",
@@ -213,9 +213,8 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/audio/control.crs",
         "src/game/audio/task.crs",
         "src/game/effects/storage.crs",
-        "src/runtime/task/pool.crs",
-        "src/runtime/executor/continuation.crs",
-        "src/runtime/platform/native-pool.crs",
+        "src/app/streaming/tasks.crs",
+        "src/game/tasks/runtime.crs",
         "src/game/tasks/prediction-work.crs",
         "src/assets/geometry/storage.crs",
         "src/assets/parts/storage.crs",
@@ -243,7 +242,6 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/collision/rooms.crs",
         "src/collision/residency.crs",
         "src/collision/rebuild.crs",
-        "src/runtime/platform/reference-count.crs",
         "src/collision/snapshot.crs",
         "src/spatial/room-frame.crs",
         "src/collision/portal-storage.crs",
@@ -269,15 +267,13 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/host/bindings.crs",
         "src/app/capture.crs",
         "src/game/view/text.crs",
-        "src/runtime/task/graph.crs",
-        "src/runtime/executor/serial.crs",
-        "src/runtime/trace/frame.crs"
+        "src/game/tasks/timing.crs"
     };
     if args == null(**u8) {
-        return 68usize;
+        return 64usize;
     }
     var i: usize = 0usize;
-    while i < 68usize {
+    while i < 64usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

@@ -25,8 +25,8 @@ fn stream_prediction(
 ) -> bool {
     loop.trial.drone.velocity = scale(loop.trial.drone.basis.forward, 10f32);
     hook_launch(mut loop.trial.drone);
-    var pool: TaskPool = task_pool_new();
-    if !task_pool_open(mut pool, 1u32, 2u32) {
+    var pool: Scheduler = scheduler_new();
+    if !scheduler_open(mut pool, 1u32) {
         return false;
     }
     var context: PredictionContext = prediction_context(

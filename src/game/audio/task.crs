@@ -2,14 +2,15 @@ record SoundPayload {
     collision: CollisionScene;
     frame: GameSoundFrame;
     rooms: *ResidentBuild;
+    jobs: RoomJobs;
     distances: GenerationWords;
     waiting: u32;
     prepared: bool;
 }
 opaque;
 resource SoundContext {
-    schedule: TaskSchedule;
-    slot: u32;
+    scope: Scope;
+    task: Task!(SoundWork);
     payload: *SoundPayload;
 }
 opaque drop sound_context_drop;
@@ -17,35 +18,36 @@ resource SoundTask {
     context: mut SoundContext;
 }
 opaque drop sound_task_drop;
-fn sound_context(pool: read TaskPool, collision: read CollisionScene) -> SoundContext {
-    var payload: *SoundPayload = task_allocate(sizeof(SoundPayload)) as *SoundPayload;
+fn sound_context(scheduler: read Scheduler, collision: read CollisionScene) -> SoundContext {
+    var payload: *SoundPayload = malloc(sizeof(SoundPayload)) as *SoundPayload;
     if payload == null(*SoundPayload) {
-        task_error("sound preparation allocation failed");
+        error("sound preparation allocation failed");
     }
     if payload != null(*SoundPayload) {
         payload -> collision = collision_new();
         payload -> rooms = null(*ResidentBuild);
+        payload -> jobs = room_jobs_new();
         payload -> distances = generation_words_new();
-        payload -> waiting = TASK_NONE;
+        payload -> waiting = ROOM_NONE;
         payload -> prepared = false;
         if !collision_snapshot(read collision, mut payload -> collision) {
             drop payload -> collision;
-            task_release(payload as *u8);
+            free(payload as *u8);
             payload = null(*SoundPayload);
         }
     }
-    var schedule: TaskSchedule = schedule_new();
-    if !schedule_on(mut schedule, read pool, 1u32) {
+    var scope: Scope = scope_new();
+    if !scope_open(mut scope, read scheduler) {
         if payload != null(*SoundPayload) {
             drop payload -> collision;
             drop payload -> distances;
-            task_release(payload as *u8);
+            free(payload as *u8);
             payload = null(*SoundPayload);
         }
     }
     return make SoundContext {
-        schedule: move schedule,
-        slot: 0u32,
+        scope: move scope,
+        task: task_empty!(SoundWork)(),
         payload: payload
     };
 }
@@ -53,20 +55,29 @@ fn sound_context_ready(context: read SoundContext) -> bool {
     return context.payload != null(*SoundPayload);
 }
 fn sound_context_drop(context: mut SoundContext) -> unit {
+    if context.scope.state != null(*SchedulerScope) {
+        var end: Event = scope_finish(mut context.scope);
+        event_join(read end);
+    }
     if context.payload != null(*SoundPayload) {
+        drop context.payload -> jobs;
         drop context.payload -> collision;
         drop context.payload -> distances;
     }
-    task_release(context.payload as *u8);
+    free(context.payload as *u8);
 }
-fn sound_execute(data: *u8) -> TaskStep {
-    var payload: *SoundPayload = data as *SoundPayload;
+record SoundWork {
+    payload: *SoundPayload;
+}
+opaque send;
+fn sound_execute(work: mut SoundWork, context: read Context) -> Step {
+    var payload: *SoundPayload = work.payload;
     var dependency: u32 = sound_geometry(payload);
-    if dependency != TASK_NONE {
-        return task_await(dependency);
+    if dependency != ROOM_NONE {
+        return room_await(read payload -> jobs, dependency);
     }
     game_sound_prepare(read payload -> collision, mut payload -> frame);
-    return task_done(true);
+    return done();
 }
 fn sound_start(
     context: mut SoundContext,
@@ -76,44 +87,35 @@ fn sound_start(
     collision_snapshot_motion(read collision, mut context.payload -> collision);
     context.payload -> frame = frame;
     context.payload -> prepared = false;
-    context.payload -> waiting = TASK_NONE;
-    schedule_reset(read context.schedule, context.slot);
-    schedule_define(
-        read context.schedule,
-        context.slot,
-        sound_execute,
-        context.payload as *u8
+    context.payload -> waiting = ROOM_NONE;
+    var submit: Context = scope_context(read context.scope);
+    task_replace!(SoundWork)(
+        mut context.task,
+        spawn!(SoundWork)(
+            read submit,
+            make SoundWork {
+                payload: context.payload
+            },
+            sound_execute,
+            deps_new()
+        )
     );
-    schedule_request(read context.schedule, context.slot);
-    schedule_poll(read context.schedule);
     return make SoundTask {
         context: mut context
     };
 }
 fn sound_task_drop(task: mut SoundTask) -> unit {
     while sound_task_poll(read task) == 0i32 {
-        schedule_idle(read task.context.schedule);
+        var event: Event = sound_event(read task);
+        event_pause(read event);
     }
 }
-fn game_sound_join(
-    graph: mut TaskGraph,
-    task: mut SoundTask,
-    control: mut GameControl,
-    input: mut InputState
-) -> unit {
-    var status: i32 = sound_task_poll(read task);
-    while status == 0i32 {
-        schedule_idle(read task.context.schedule);
-        if !game_poll(mut control, mut input) {
-            task_cancel(mut graph);
-        }
-        status = sound_task_poll(read task);
-    }
-    var good: bool = status > 0i32;
-    if good {
-        good = game_sound_submit(mut control, read task.context.payload -> frame);
-    }
-    task_complete(mut graph, 5u32, good);
+fn game_sound_join(task: mut SoundTask, control: mut GameControl, input: mut InputState) -> bool {
+    var event: Event = sound_event(read task);
+    return game_event_wait(mut control, mut input, read event) && game_sound_submit(
+        mut control,
+        read task.context.payload -> frame
+    );
 }
 
 // Requires all readers of the context to have retired.
@@ -121,29 +123,28 @@ fn sound_context_residency(context: mut SoundContext, collision: read CollisionS
     collision_snapshot_residency(read collision, mut context.payload -> collision);
 }
 fn sound_task_poll(task: read SoundTask) -> i32 {
-    schedule_poll(read task.context.schedule);
-    return schedule_status(read task.context.schedule, task.context.slot);
+    var event: Event = sound_event(read task);
+    return game_event_status(read event);
 }
 fn sound_game_streaming(context: mut SoundContext, session: read GameSession) -> bool {
     var state: read RoomResidency = read session.control.residency;
     if state.count == 0u32 {
         return true;
     }
-    context.schedule = schedule_clone(read state.schedule);
-    context.slot = state.count + 1u32;
+    context.payload -> jobs = room_jobs_clone(read state.jobs);
     context.payload -> rooms = state.builds;
     return generation_words_allocate(mut context.payload -> distances, state.count);
 }
 fn sound_geometry(payload: *SoundPayload) -> u32 {
     if payload -> rooms == null(*ResidentBuild) {
-        return TASK_NONE;
+        return ROOM_NONE;
     }
-    if payload -> waiting != TASK_NONE {
+    if payload -> waiting != ROOM_NONE {
         collision_room_restore(
             mut payload -> collision,
             read payload -> rooms[payload -> waiting as usize].collision
         );
-        payload -> waiting = TASK_NONE;
+        payload -> waiting = ROOM_NONE;
     }
     if !payload -> prepared {
         sound_geometry_set(payload);
@@ -151,7 +152,7 @@ fn sound_geometry(payload: *SoundPayload) -> u32 {
     }
     var i: u32 = 0u32;
     while i < payload -> distances.count {
-        if generation_word(read payload -> distances, i) != TASK_NONE && !collision_room_resident(
+        if generation_word(read payload -> distances, i) != ROOM_NONE && !collision_room_resident(
             read payload -> collision,
             i
         ) {
@@ -160,10 +161,10 @@ fn sound_geometry(payload: *SoundPayload) -> u32 {
         }
         i = i + 1u32;
     }
-    return TASK_NONE;
+    return ROOM_NONE;
 }
 fn sound_geometry_set(payload: *SoundPayload) -> unit {
-    generation_words_fill(mut payload -> distances, TASK_NONE);
+    generation_words_fill(mut payload -> distances, ROOM_NONE);
     var spatial: bool = false;
     var i: u32 = 0u32;
     while i < payload -> frame.batch.count {
@@ -189,7 +190,7 @@ fn sound_geometry_set(payload: *SoundPayload) -> unit {
                     if gain * ACOUSTIC_TRANSMISSION >= ACOUSTIC_THRESHOLD && generation_word(
                         read payload -> distances,
                         portal.destination
-                    ) == TASK_NONE {
+                    ) == ROOM_NONE {
                         generation_word_set(
                             mut payload -> distances,
                             portal.destination,
@@ -204,4 +205,10 @@ fn sound_geometry_set(payload: *SoundPayload) -> unit {
         depth = depth + 1u32;
         gain = gain * ACOUSTIC_TRANSMISSION;
     }
+}
+fn sound_event(task: read SoundTask) -> Event {
+    return task_event!(SoundWork)(read task.context.task);
+}
+fn game_sound_context(session: read GameSession, collision: read CollisionScene) -> SoundContext {
+    return sound_context(read session.control.residency.scheduler, read collision);
 }

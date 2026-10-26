@@ -1,0 +1,58 @@
+const GAME_WORKER_CAP: u32 = 8u32;
+const ROOM_NONE: u32 = 0xffffffffu32;
+fn game_default_workers() -> u32 {
+    return game_worker_count(scheduler_cpu_count(), scheduler_worker_limit());
+}
+fn game_worker_count(count: i32, limit: u32) -> u32 {
+    if count < 1i32 {
+        return 1u32;
+    }
+    var workers: u32 = count as u32;
+    if workers > GAME_WORKER_CAP {
+        workers = GAME_WORKER_CAP;
+    }
+    if workers > limit {
+        workers = limit;
+    }
+    return workers;
+}
+fn game_scheduler_open(scheduler: mut Scheduler, workers: u32) -> bool {
+    if workers == 0u32 {
+        workers = game_default_workers();
+    }
+    return scheduler_open(mut scheduler, workers);
+}
+fn game_step(good: bool) -> Step {
+    if good {
+        return done();
+    }
+    return fail(
+        make TaskError {
+            code: 16u32
+        }
+    );
+}
+fn game_event_status(event: read Event) -> i32 {
+    var status: u32 = event_status(read event);
+    if status == 0u32 {
+        return 0i32;
+    }
+    if status == SCHED_OK {
+        return 1i32;
+    }
+    return -1i32;
+}
+// Keeps window input responsive while an autonomous task owns the dependency.
+fn game_event_wait(control: mut GameControl, input: mut InputState, event: read Event) -> bool {
+    var good: bool = true;
+    while event_status(read event) == 0u32 {
+        if !game_poll(mut control, mut input) {
+            good = false;
+        }
+        event_pause(read event);
+    }
+    return good && event_status(read event) == SCHED_OK;
+}
+fn game_task_context(control: read GameControl) -> Context {
+    return scope_context(read control.residency.scope);
+}

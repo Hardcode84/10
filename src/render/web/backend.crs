@@ -1,6 +1,8 @@
 record RenderBackend {
     id: u32;
+    completion: *Completion;
 }
+opaque;
 extern fn web_open() -> u32 = "web_open";
 extern fn web_limit(id: u32) -> u32 = "web_limit";
 extern fn web_close(id: u32) -> unit = "web_close";
@@ -32,6 +34,11 @@ extern fn web_queries(id: u32, count: u32) -> bool = "web_queries";
 extern fn web_stamp(id: u32, index: u32) -> unit = "web_stamp";
 extern fn web_times(id: u32, values: *u64) -> bool = "web_times";
 fn device_open(v: *RenderState) -> bool {
+    v -> gpu.completion = malloc(sizeof(Completion)) as *Completion;
+    if v -> gpu.completion == null(*Completion) {
+        return error("WebGPU completion allocation failed");
+    }
+    * v -> gpu.completion = completion_empty();
     v -> gpu.id = web_open();
     if v -> gpu.id == 0u32 {
         return error("cannot open WebGPU device");
@@ -49,6 +56,11 @@ fn device_close(v: *RenderState) -> unit {
     render_bounds_close(v);
     retirement_wait(v);
     buffers_close(v);
+    if v -> gpu.completion != null(*Completion) {
+        drop * v -> gpu.completion;
+        free(v -> gpu.completion as *u8);
+        v -> gpu.completion = null(*Completion);
+    }
     if v -> gpu.id != 0u32 {
         web_close(v -> gpu.id);
         v -> gpu.id = 0u32;
@@ -245,4 +257,40 @@ fn presentation_pause(v: *RenderState) -> unit {
 
 fn command_resume(v: *RenderState) -> bool {
     return command_continue(v);
+}
+extern fn web_notify(
+    id: u32,
+    callback: fn(*u8, bool) -> unit,
+    data: *u8,
+    presentation: bool
+) -> unit = "web_notify";
+fn web_completion_resolve(data: *u8, success: bool) -> unit {
+    var target: *Completion = data as *Completion;
+    var token: Completion = move * target;
+    *target = completion_empty();
+    completion_result(move token, success);
+}
+fn web_completion(v: *RenderState, context: read Context, presentation: bool) -> Event {
+    var pair: ExternalPair = external_begin(read context);
+    var event: Event = external_event(read pair);
+    if !external_admitted(read pair) {
+        return move event;
+    }
+    if v -> gpu.completion -> state != null(*SchedulerEvent) {
+        scheduler_panic("duplicate WebGPU completion registration");
+    }
+    * v -> gpu.completion = external_completion(move pair);
+    web_notify(
+        v -> gpu.id,
+        web_completion_resolve,
+        v -> gpu.completion as *u8,
+        presentation
+    );
+    return move event;
+}
+fn retirement_event(v: *RenderState, context: read Context) -> Event {
+    return web_completion(v, read context, false);
+}
+fn presentation_event(v: *RenderState, context: read Context) -> Event {
+    return web_completion(v, read context, true);
 }

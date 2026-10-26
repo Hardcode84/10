@@ -15,8 +15,8 @@ fn game_world_open(session: mut GameSession, collision: mut CollisionScene, tria
     return true;
 }
 fn demo_room_start(asset: read RoomAsset, trial: mut Trial) -> unit {
-    var spawn: Drone = new_drone();
-    assign_drone(mut trial.spawn, read spawn);
+    var spawn_drone: Drone = new_drone();
+    assign_drone(mut trial.spawn, read spawn_drone);
     trial.spawn.position = asset.spawn.position;
     trial.spawn.basis = asset.spawn.basis;
     trial.auto_level = false;

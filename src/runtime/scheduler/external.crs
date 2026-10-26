@@ -5,11 +5,11 @@ fn external_begin(context: read Context) -> ExternalPair {
         return external_rejected(SCHED_CAPACITY);
     }
     service_lock(context.scope -> runtime -> gate);
-    var error: u32 = scheduler_admit(read context);
+    var fault: u32 = scheduler_admit(read context);
     service_unlock(context.scope -> runtime -> gate);
-    if error != 0u32 {
+    if fault != 0u32 {
         scheduler_event_release(event);
-        return external_rejected(error);
+        return external_rejected(fault);
     }
     return make ExternalPair {
         event: scheduler_event_handle(event),
@@ -19,9 +19,9 @@ fn external_begin(context: read Context) -> ExternalPair {
         }
     };
 }
-fn external_rejected(error: u32) -> ExternalPair {
+fn external_rejected(fault: u32) -> ExternalPair {
     return make ExternalPair {
-        event: event_failed(error),
+        event: event_failed(fault),
         completion: make Completion {
             state: null(*SchedulerEvent),
             scope: null(*SchedulerScope)
@@ -55,11 +55,11 @@ fn external_pair_drop(pair: mut ExternalPair) -> unit {}
 fn complete(token: Completion) -> unit {
     scheduler_complete(move token, SCHED_OK);
 }
-fn complete_failed(token: Completion, error: TaskError) -> unit {
-    if error.code < SCHED_CANCELLED {
-        scheduler_panic("invalid external error");
+fn complete_failed(token: Completion, fault: TaskError) -> unit {
+    if fault.code < SCHED_CANCELLED {
+        scheduler_panic("invalid external fault");
     }
-    scheduler_complete(move token, error.code);
+    scheduler_complete(move token, fault.code);
 }
 fn scheduler_complete(token: Completion, outcome: u32) -> unit {
     if token.state == null(*SchedulerEvent) {
@@ -72,4 +72,22 @@ fn scheduler_complete(token: Completion, outcome: u32) -> unit {
     scheduler_resolve(event, outcome);
     scheduler_event_release(event);
     scheduler_scope_done(scope, outcome);
+}
+fn completion_empty() -> Completion {
+    return make Completion {
+        state: null(*SchedulerEvent),
+        scope: null(*SchedulerScope)
+    };
+}
+fn completion_result(token: Completion, success: bool) -> unit {
+    if success {
+        complete(move token);
+    } else {
+        complete_failed(
+            move token,
+            make TaskError {
+                code: 16u32
+            }
+        );
+    }
 }

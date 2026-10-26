@@ -66,3 +66,46 @@ fn check_native_service() -> bool {
     service_sem_destroy(witness.release);
     return good;
 }
+fn check_service_events() -> bool {
+    var scheduler: Scheduler = scheduler_new();
+    if !scheduler_open(mut scheduler, 1u32) {
+        return false;
+    }
+    var scope: Scope = scope_new();
+    if !scope_open(mut scope, read scheduler) {
+        return false;
+    }
+    var context: Context = scope_context(read scope);
+    var service: *ExternalService = service_new();
+    if service == null(*ExternalService) {
+        return false;
+    }
+    var witness: ServiceWitness = make ServiceWitness {
+        ready: service_sem_create(0u32),
+        release: service_sem_create(0u32),
+        completed: 0u32,
+        success: true
+    };
+    var i: u32 = 0u32;
+    var good: bool = true;
+    while i < 4u32 {
+        witness.success = i % 2u32 == 0u32;
+        service_submit(service, witness_execute, &witness as *u8);
+        service_wait(witness.ready);
+        if i >= 2u32 {
+            service_post(witness.release);
+            service_wait(service -> complete);
+        }
+        var event: Event = service_completion(service, read context);
+        if i < 2u32 {
+            service_post(witness.release);
+        }
+        good = (event_join(read event) == witness.success) && good;
+        good = (service_poll(service) == (1i32 - 2i32 * (!witness.success) as i32)) && good;
+        i = i + 1u32;
+    }
+    service_destroy(service);
+    service_sem_destroy(witness.ready);
+    service_sem_destroy(witness.release);
+    return good;
+}

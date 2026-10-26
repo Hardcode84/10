@@ -17,6 +17,9 @@ fn demo_sources(root: *CrustRun, args: **u8) -> usize {
     return i;
 }
 fn demo_providers(root: *CrustRun, args: **u8) -> usize {
+    if args == null(**u8) {
+        return 11usize;
+    }
     var files: [*u8; 11] = make [*u8; 11] {
         "src/app/shaders.crs",
         "src/app/window.crs",
@@ -42,7 +45,18 @@ fn build_demo(
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
     var sources: [*u8; 64] = uninit;
-    var providers: [*u8; 48] = uninit;
+    var capacity: usize = render_providers(root, null(**u8)) + demo_providers(
+        root,
+        null(**u8)
+    ) + 1usize;
+    var providers: **u8 = crust_try_alloc(
+        root -> context,
+        capacity * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if providers == null(**u8) {
+        return false;
+    }
     var source_count: usize = demo_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + demo_providers(root, &providers[provider_count]);

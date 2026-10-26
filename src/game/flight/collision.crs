@@ -23,14 +23,14 @@ fn move_drone_interval_admitted(
     );
     var planes: CollisionPlanes = collision_planes_new();
     var speeds: CollisionPlanes = collision_planes_new();
-    var done: bool = false;
-    while !done {
+    var finished: bool = false;
+    while !finished {
         if drone_portal_step(read collision, mut drone, mut motion, time, duration) {
             continue;
         }
         var body: CollisionBody = flight_body(read drone);
         var incoming: Vec3 = motion.velocity;
-        done = collision_interval_step_body(
+        finished = collision_interval_step_body(
             read collision,
             drone.world,
             read body,
