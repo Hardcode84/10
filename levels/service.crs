@@ -11,9 +11,9 @@
 // The finish changes across the middle pig intersection. Branch materials have no full-bright texels.
 // Ochre walls and amber full-bright strips identify the pig lanes. Pigs are not installed.
 // Port-derived placements form a continuous rigid layout. The terminal door face is
-// at radius SERVICE_END_RADIUS from the spin axis.
+// at radius SHAFT_REGION_INNER_RADIUS from the spin axis. An open hex door and adapter
+// connect to the seeded shaft region. Its outlet ends the current route.
 const SERVICE_PIG_STYLE: u32 = 1u32;
-const SERVICE_END_RADIUS: f32 = 500f32;
 const SERVICE_END_BAY: f32 = 8f32;
 const SERVICE_BRANCH_INNER: u32 = 2u32;
 const SERVICE_BRANCH_OUTER: u32 = 3u32;
@@ -32,12 +32,57 @@ fn demo_room_build(
     graph: mut RoomGraph,
     seed: u32
 ) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var cursor: LevelCursor = shaft_region_cursor(0u32, asset_name("SIDE-0"));
+    if !graph_allocate(
+        mut graph,
+        service_network_capacity() + shaft_region_capacity(),
+        seed
+    ) || !service_network_build(
+        mut asset,
+        mut builder,
+        mut cursor,
+        mut mesh,
+        mut graph,
+        seed
+    ) || !shaft_region_append(
+        mut graph,
+        mut builder,
+        mut mesh,
+        cursor,
+        seed,
+        shaft_grid_defaults()
+    ) || !shaft_region_close(mut graph, mut builder, mut mesh) || !level_tunnel_details(
+        mut graph,
+        mut builder,
+        mut mesh,
+        SERVICE_PIG_STYLE,
+        seed
+    ) {
+        return false;
+    }
+    return collision_finish(move builder, mut collision) && level_install(
+        read graph,
+        mut collision
+    );
+}
+fn service_network_capacity() -> u32 {
+    return 112u32;
+}
+fn service_network_build(
+    asset: mut RoomAsset,
+    builder: mut CollisionBuilder,
+    cursor: mut LevelCursor,
+    mesh: mut Mesh,
+    graph: mut RoomGraph,
+    seed: u32
+) -> bool {
     var values: AssetValues = asset_values_new();
     if !course_values(PREFAB_RADIAL_START, 0u32, mut values) || !asset_generate(
         room_build,
         read values,
         mut asset
-    ) || !graph_allocate(mut graph, 112u32, seed) {
+    ) {
         return false;
     }
     var port: RoomPort = asset_port(read asset.ports, 0u32);
@@ -48,7 +93,6 @@ fn demo_room_build(
         up: cross(forward, right),
         forward: forward
     };
-    var builder: CollisionBuilder = collision_builder_new();
     if !course_room_mesh(
         read asset,
         mut graph,
@@ -76,7 +120,7 @@ fn demo_room_build(
     };
     node.placement = space_compose(desired, space_inverse(local));
     graph_node_set(mut graph, 0u32, node);
-    var cursor: LevelCursor = make LevelCursor {
+    cursor = make LevelCursor {
         room: 0u32,
         exit: asset_name("SIDE-0")
     };
@@ -99,20 +143,10 @@ fn demo_room_build(
         mut builder,
         mut mesh,
         mut cursor
-    ) || !service_build_branches(mut graph, mut builder, mut mesh, branches, seed) || !level_close(
-        mut graph,
-        mut builder,
-        mut mesh
-    ) {
+    ) || !service_build_branches(mut graph, mut builder, mut mesh, branches, seed) {
         return false;
     }
-    if !level_tunnel_details(mut graph, mut builder, mut mesh, SERVICE_PIG_STYLE, seed) {
-        return false;
-    }
-    return collision_finish(move builder, mut collision) && level_install(
-        read graph,
-        mut collision
-    );
+    return true;
 }
 fn service_approach(
     graph: mut RoomGraph,
@@ -490,7 +524,9 @@ fn service_terminal(
     var along: f32 = dot(p, d);
     var length_metres: f32 = (
         -along + sqrtf(
-            along * along + dot(d, d) * (SERVICE_END_RADIUS * SERVICE_END_RADIUS - dot(p, p))
+            along * along + dot(d, d) * (
+                SHAFT_REGION_INNER_RADIUS * SHAFT_REGION_INNER_RADIUS - dot(p, p)
+            )
         )
     ) / dot(d, d);
     var depth: f32 = prefab_hex_stopper_parameter(0u32).initial;
@@ -499,9 +535,9 @@ fn service_terminal(
         mut builder,
         mut mesh,
         mut cursor,
-        PREFAB_HEX_STOPPER,
+        PREFAB_HEX_STOPPER_OPEN,
         asset_name("ENTRY"),
-        asset_name("ENTRY")
+        asset_name("EXIT")
     );
 }
 fn demo_room_ambient() -> Vec3 {
@@ -542,7 +578,7 @@ fn demo_palette(input: mut FrameInput) -> bool {
         words = words + panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
         style = style + 1u32;
     }
-    if !course_material_defaults(mut configuration) || !course_palette_reserved(
+    if !course_material_defaults(mut configuration) || !shaft_region_materials(mut configuration) || !course_palette_reserved(
         mut input,
         read configuration,
         SERVICE_BRANCH_OUTER,

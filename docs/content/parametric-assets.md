@@ -398,6 +398,9 @@ current expedition's ordinary doors do not implement it.
 The build returns one owned asset bundle with immutable meshes, texture data,
 collision data, sockets, and bounds. Instances hold asset references and poses.
 Runtime door leaves use separate solid parts in `RoomAsset.door_leaves`.
+Each leaf supplies its opening translation in room coordinates. The asset also
+supplies the regular-polygon aperture for the prediction trigger. Leaf storage
+grows during construction; the runtime has no fixed leaf-count limit.
 The viewer draws their closed pose. Room assembly keeps them out of the static
 room mesh and assigns each leaf a retained mesh range and collider identity.
 The game changes their poses with a bounded translation schedule. See

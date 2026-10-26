@@ -1,0 +1,52 @@
+const DOOR_LEAF_CLEARANCE: f32 = 0.05f32;
+fn room_leaf_triangles(asset: read RoomAsset) -> u32 {
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < asset_door_leaf_count(read asset.door_leaves) {
+        count = count + asset_door_leaf(read asset.door_leaves, i).part.count;
+        i = i + 1u32;
+    }
+    return count;
+}
+fn room_leaf_render(asset: mut RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_door_leaf_count(read asset.door_leaves) {
+        var part: AssetPart = asset_door_leaf(read asset.door_leaves, i).part;
+        var j: u32 = 0u32;
+        while j < part.count {
+            if !mesh_append(
+                mut asset.mesh,
+                placed_triangle(
+                    mesh_triangle(read asset.geometry, part.first + j),
+                    part.origin,
+                    part.basis
+                )
+            ) {
+                return false;
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn room_leaf_collision(asset: read RoomAsset, builder: mut CollisionBuilder, space: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_door_leaf_count(read asset.door_leaves) {
+        var part: AssetPart = asset_door_leaf(read asset.door_leaves, i).part;
+        var mesh: Mesh = mesh_new();
+        var j: u32 = 0u32;
+        while j < part.count {
+            if !mesh_append(mut mesh, mesh_triangle(read asset.geometry, part.first + j)) {
+                return false;
+            }
+            j = j + 1u32;
+        }
+        if !collision_append_solid(mut builder, read mesh, space, part.origin, part.basis) {
+            return false;
+        }
+        collision_controlled(mut builder);
+        i = i + 1u32;
+    }
+    return true;
+}

@@ -22,8 +22,14 @@ crust demo.crs levels/shafts.crs --seed 1
 The entrance is a bearing cap. The exit is the only offset outlet cap.
 Use the normal flight, tether, burst, and brake controls. The demo keeps the
 existing spin control. Fans remain stopped: the recipe creates static geometry
-and assigns no moving-body controller or airflow field. It does not change
-`main.crs`.
+and assigns no moving-body controller or airflow field.
+
+`main.crs` uses the same generator after the service tunnels. Its entrance is
+a hex-to-shaft adapter, reached through an open hex door. The shared default
+options select this route; the standalone demo selects its own route options.
+The adapter places the complete region against the service exit. Portal pairs
+and global room frames remain aligned. Closed stoppers seal the unused adapter
+ports. Both entries use the same shaft materials and streaming recipes.
 
 The [graph model](../../src/app/level/shafts/model.crs) owns the default settings:
 `length`, `climb`, `branches`, and `branch_length`. The

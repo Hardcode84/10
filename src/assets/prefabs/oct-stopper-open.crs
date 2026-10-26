@@ -18,11 +18,17 @@ fn prefab_oct_stopper_open_build(parameters: read AssetValues, asset: mut RoomAs
     }
     var depth: f32 = asset_value(read parameters, 0u32);
     asset.spawn_enabled = false;
-    return stopper_open_shell(mut asset, depth, service_oct_profile(), 3u32) && oct_stopper_pipes(
-        mut asset,
-        depth,
-        depth
-    ) && oct_stopper_plates(mut asset, depth * 0.5f32) && room_asset_finish(mut asset);
+    if!(
+        stopper_open_shell(mut asset, depth, service_oct_profile(), 3u32) && oct_stopper_pipes(
+            mut asset,
+            depth,
+            depth
+        ) && oct_stopper_plates(mut asset, depth * 0.5f32)
+    ) {
+        return false;
+    }
+    asset.spawn.position.y = (depth - DOOR_THICKNESS) * 0.25f32;
+    return oct_door_leaves(depth, mut asset) && room_asset_finish(mut asset);
 }
 fn prefab_oct_stopper_open_material_count() -> u32 {
     return 4u32;
@@ -35,7 +41,9 @@ fn prefab_oct_stopper_open_material(region: u32, parameters: read AssetValues) -
         return service_pipe_material();
     }
     if region == 1u32 {
-        return oct_stopper_door_material();
+        var material: PanelMaterial = oct_stopper_door_material();
+        material.emission = 0x00ff00u32;
+        return material;
     }
     return stopper_wall_material(
         oct_service_material(0u32),

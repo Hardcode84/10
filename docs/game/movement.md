@@ -234,7 +234,12 @@ light. The tunnel prefab exposes the count as `emergency-lights` (zero to three)
 
 It also runs through `demo.crs`. Use `--seed N` to vary its detour paths.
 The same seed produces the same layout. The route connections and pig lanes
-stay fixed.
+stay fixed. After the terminal hex door, an adapter connects to the seeded
+shaft region. The region uses the shared shaft generator and its default route
+options. The adapter places the region as one rigid group. Room frames and
+portal connections agree across the transition. Unused adapter exits are capped.
+The route ends at the shaft outlet. Shaft materials and service materials share
+one palette build. The standalone shaft demo remains available.
 
 `levels/prefabs.crs` connects the hexagonal and octagonal prefab sets through
 the rotor, pipe, and girder shafts, then the hub. Its source comments specify

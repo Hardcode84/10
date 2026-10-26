@@ -105,7 +105,7 @@ fn layout_proof(seed: u32, proof: mut ServiceLayoutProof) -> bool {
     var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     var graph: RoomGraph = graph_new();
-    if !demo_room_build(mut asset, mut scene, mut mesh, mut graph, seed) || !layout_clearance(
+    if !service_layout_build(mut asset, mut scene, mut mesh, mut graph, seed) || !layout_clearance(
         read graph,
         read mesh
     ) {
@@ -159,6 +159,9 @@ fn main(argc: i32, argv: **u8) -> i32 {
         }
         changed = changed || a.geometry != reference.geometry;
         seed = seed + 1u32;
+    }
+    if !layout_integrated(0u32) || !layout_integrated(1u32) {
+        return 1i32;
     }
     if !changed {
         error("Seeds did not change tunnel geometry");
@@ -226,4 +229,96 @@ fn layout_emergency_check(graph: read RoomGraph, mesh: read Mesh) -> bool {
         room = room + 1u32;
     }
     return true;
+}
+
+fn service_layout_build(
+    asset: mut RoomAsset,
+    scene: mut CollisionScene,
+    mesh: mut Mesh,
+    graph: mut RoomGraph,
+    seed: u32
+) -> bool {
+    var builder: CollisionBuilder = collision_builder_new();
+    var cursor: LevelCursor = shaft_region_cursor(0u32, asset_name("SIDE-0"));
+    if !graph_allocate(mut graph, service_network_capacity(), seed) || !service_network_build(
+        mut asset,
+        mut builder,
+        mut cursor,
+        mut mesh,
+        mut graph,
+        seed
+    ) || !level_close(mut graph, mut builder, mut mesh) || !level_tunnel_details(
+        mut graph,
+        mut builder,
+        mut mesh,
+        SERVICE_PIG_STYLE,
+        seed
+    ) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene) && level_install(read graph, mut scene);
+}
+
+fn layout_region_connected(graph: mut RoomGraph) -> bool {
+    var queue: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut queue, graph_count(read graph)) {
+        return false;
+    }
+    generation_word_set(mut queue, 0u32, 0u32);
+    graph_visit(mut graph, 0u32);
+    var head: u32 = 0u32;
+    var tail: u32 = 1u32;
+    while head < tail {
+        var node: GraphNode = graph_node(read graph, generation_word(read queue, head));
+        var i: u32 = 0u32;
+        while i < node.count {
+            var link: GraphSocket = graph_socket(read graph, node.first + i);
+            var room: u32 = graph_socket(read graph, link.peer).room;
+            if !graph_node(read graph, room).visited {
+                graph_visit(mut graph, room);
+                generation_word_set(mut queue, tail, room);
+                tail = tail + 1u32;
+            }
+            i = i + 1u32;
+        }
+        head = head + 1u32;
+    }
+    return tail == graph_count(read graph) || error("main level has disconnected rooms");
+}
+fn layout_shaft_entry(scene: read CollisionScene, graph: read RoomGraph) -> bool {
+    var i: u32 = 0u32;
+    while i < collision_portal_count(read scene) {
+        var portal: CollisionPortal = collision_portal(read scene, i);
+        if graph_node(read graph, portal.space).kind == PREFAB_SHAFT_HEX_ADAPTER && portal.sides > service_oct_profile().shape.sides {
+            var drone: Drone = new_drone();
+            drone.world = portal.space;
+            drone.position = add(
+                sub(portal.origin, scale(portal.basis.forward, 0.5f32)),
+                scale(portal.basis.right, portal.radius * 0.6f32)
+            );
+            var step: Vec3 = portal.basis.forward;
+            var expected: Vec3 = space_point(portal.transform, add(drone.position, step));
+            move_drone(read scene, mut drone, step);
+            return drone.world == portal.destination && length(
+                sub(drone.position, expected)
+            ) < 0.001f32 || error("main shaft entrance blocks drone crossing");
+        }
+        i = i + 1u32;
+    }
+    return error("main level lacks a shaft adapter");
+}
+fn layout_integrated(seed: u32) -> bool {
+    var asset: RoomAsset = room_asset_new();
+    var scene: CollisionScene = collision_new();
+    var mesh: Mesh = mesh_new();
+    var graph: RoomGraph = graph_new();
+    if !demo_room_build(mut asset, mut scene, mut mesh, mut graph, seed) || !layout_region_connected(
+        mut graph
+    ) || !layout_shaft_entry(read scene, read graph) {
+        return false;
+    }
+    return graph_node(read graph, 0u32).kind == PREFAB_RADIAL_START && graph_node(
+        read graph,
+        graph_goal(read graph)
+    ).kind == PREFAB_SHAFT_CAP_OUTLET || error("main level lost its start or shaft outlet");
 }

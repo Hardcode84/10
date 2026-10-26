@@ -173,6 +173,10 @@ so a completed closing movement returns exactly to the reference pose.
 The open hex stopper contains two separate solid leaves. Each leaf has a retained
 render mesh and a collider. Both use the same translation schedule. The jagged
 leaf edges and the face texture use one joint profile.
+The open octagonal stopper has four leaves. Their edges follow the texture's
+central cross and the fixed triangular pipe plates. Each leaf moves diagonally
+outward and has a green full-bright indicator. Both door types use the same
+controller, prediction trigger, closing delay, and hook-release rules.
 
 A ship forecast requests a door when a predicted segment enters its finite
 approach volume from either side. The volume is in the door room's local space.

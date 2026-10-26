@@ -13,7 +13,7 @@ record RoomAsset {
     parts: AssetParts;
     // Collision-only solids use geometry ranges without adding render instances.
     colliders: AssetParts;
-    door_leaves: AssetParts;
+    door_leaves: AssetDoorLeaves;
     lights: FixtureLights;
     routes: PipeRouter;
     collision: CollisionScene;
@@ -31,7 +31,7 @@ fn room_asset_new() -> RoomAsset {
         decals: mesh_new(),
         parts: asset_parts_new(),
         colliders: asset_parts_new(),
-        door_leaves: asset_parts_new(),
+        door_leaves: asset_door_leaves_new(),
         lights: fixture_lights_new(),
         routes: pipe_router_new(-1f32, 0u32),
         collision: collision_new(),

@@ -70,6 +70,12 @@ fn metal_oct_door_led(x: f32, y: f32) -> u32 {
     }
     return 0u32;
 }
+fn oct_door_wide(radius: f32) -> f32 {
+    return radius * cosf(service_oct_profile().shape.phase);
+}
+fn oct_door_narrow(radius: f32) -> f32 {
+    return radius * sinf(service_oct_profile().shape.phase);
+}
 // An octagonal four-leaf door has a + joint and four fixed triangular pipe plates.
 // Each leaf has one full-bright indicator near the centre. Tile size is diameter.
 fn metal_oct_door_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
@@ -82,8 +88,8 @@ fn metal_oct_door_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     if led != 0u32 {
         return led;
     }
-    var wide: f32 = radius * cosf(0.39269908169f32);
-    var narrow: f32 = radius * sinf(0.39269908169f32);
+    var wide: f32 = oct_door_wide(radius);
+    var narrow: f32 = oct_door_narrow(radius);
     var edge: f32 = mask_min(wide - along, (wide + narrow - px - py) * 0.70710678f32);
     if edge < 0.07f32 {
         return 22u32;

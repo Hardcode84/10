@@ -1,10 +1,12 @@
 // Open OCT-8M stopper, 1 m deep along +Y. ENTRY and EXIT have four mating rolls.
 // Four solid triangular plates and service pipes remain around the clear opening.
-// Door leaves and LEDs are absent. Plates are 0.2 m thick, centred in the sleeve.
+// Four door leaves share the texture's + joint and slide outward on diagonals.
+// Each leaf has a green full-bright LED. The viewer shows the closed pose.
+// Fixed plates and door leaves are 0.2 m thick, centred in the sleeve.
 // The default leaves 0.4 m on each side. A black band marks the door seat.
 // Pipes end flush with both ports. Both sides have equal clearance. +Z is up.
 // This room has no player spawn; its centre pose is for inspection.
-// Regions: 0 sleeve, 1 fixed plates, 2 pipes, 3 door seat and plate edges.
+// Regions: 0 sleeve, 1 door and fixed plates, 2 pipes, 3 door seat and edges.
 fn room_parameter_count() -> u32 {
     return prefab_oct_stopper_open_parameter_count();
 }

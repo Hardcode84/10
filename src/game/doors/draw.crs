@@ -8,18 +8,29 @@ fn doors_draw(
     while i < doors_count(read doors) {
         var door: DoorInstance = door_get(read doors, i);
         var leaf: u32 = 0u32;
-        while leaf < 2u32 {
+        while leaf < door.count {
             var pose: CollisionInstance = collision_pose(
-                collision_instance(read scene, door.leaves[leaf as usize]),
+                collision_instance(read scene, door.collision_first + leaf),
                 time
             );
             var instance: MeshInstance = mesh_identity(
-                door.meshes[leaf as usize],
+                door_leaf(read doors, door.first + leaf).mesh,
                 door.space
             );
-            instance.transform[3usize] = pose.origin.x;
-            instance.transform[7usize] = pose.origin.y;
-            instance.transform[11usize] = pose.origin.z;
+            instance.transform = make [f32; 12] {
+                pose.basis.right.x,
+                pose.basis.up.x,
+                pose.basis.forward.x,
+                pose.origin.x,
+                pose.basis.right.y,
+                pose.basis.up.y,
+                pose.basis.forward.y,
+                pose.origin.y,
+                pose.basis.right.z,
+                pose.basis.up.z,
+                pose.basis.forward.z,
+                pose.origin.z
+            };
             if !input_instance(mut input, instance) {
                 scene_overflow();
             }

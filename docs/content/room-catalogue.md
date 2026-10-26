@@ -44,8 +44,8 @@ explores a connected part of a larger machine.
 
 The inner boundary connects to the terminal placement in
 [the hex service level](../../levels/service.crs). The outer boundary leads to
-the power conduits. This is a layout proposal; the current level does not yet
-contain this shaft grid.
+the offset outlet, where the current playable route ends. The main level joins
+the hex tunnels to this grid through an open hex door and shaft adapter.
 
 The shaft exit leads onward through the other strata. Power returns when the
 player activates the hull beacon, as specified by the game design. Reaching the

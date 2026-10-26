@@ -76,69 +76,26 @@ fn hex_door_leaf(depth: f32, side: u32, asset: mut RoomAsset) -> bool {
     ) {
         return false;
     }
-    return asset_part_append(
+    var distance: f32 = radius + DOOR_JOINT_WIDTH + DOOR_LEAF_CLEARANCE;
+    if side == 0u32 {
+        distance = -distance;
+    }
+    return asset_door_leaf_append(
         mut asset.door_leaves,
-        make AssetPart {
-            name: asset_name("DOOR-LEAF"),
-            first: first,
-            count: mesh_triangle_count(read asset.geometry) - first,
-            origin: vec(0f32, depth * 0.5f32, 0f32),
-            basis: identity_basis()
+        make AssetDoorLeaf {
+            travel: vec(distance, 0f32, 0f32),
+            part: make AssetPart {
+                name: asset_name("DOOR-LEAF"),
+                first: first,
+                count: mesh_triangle_count(read asset.geometry) - first,
+                origin: vec(0f32, depth * 0.5f32, 0f32),
+                basis: identity_basis()
+            }
         }
     );
 }
 // Two solid leaves meet on the texture's jagged joint and occupy the central seat.
 fn hex_door_leaves(depth: f32, asset: mut RoomAsset) -> bool {
+    asset_door_shape(mut asset.door_leaves, service_hex_profile());
     return hex_door_leaf(depth, 0u32, mut asset) && hex_door_leaf(depth, 1u32, mut asset);
-}
-fn room_leaf_triangles(asset: read RoomAsset) -> u32 {
-    var count: u32 = 0u32;
-    var i: u32 = 0u32;
-    while i < asset_part_count(read asset.door_leaves) {
-        count = count + asset_part(read asset.door_leaves, i).count;
-        i = i + 1u32;
-    }
-    return count;
-}
-fn room_leaf_render(asset: mut RoomAsset) -> bool {
-    var i: u32 = 0u32;
-    while i < asset_part_count(read asset.door_leaves) {
-        var part: AssetPart = asset_part(read asset.door_leaves, i);
-        var j: u32 = 0u32;
-        while j < part.count {
-            if !mesh_append(
-                mut asset.mesh,
-                placed_triangle(
-                    mesh_triangle(read asset.geometry, part.first + j),
-                    part.origin,
-                    part.basis
-                )
-            ) {
-                return false;
-            }
-            j = j + 1u32;
-        }
-        i = i + 1u32;
-    }
-    return true;
-}
-fn room_leaf_collision(asset: read RoomAsset, builder: mut CollisionBuilder, space: u32) -> bool {
-    var i: u32 = 0u32;
-    while i < asset_part_count(read asset.door_leaves) {
-        var part: AssetPart = asset_part(read asset.door_leaves, i);
-        var mesh: Mesh = mesh_new();
-        var j: u32 = 0u32;
-        while j < part.count {
-            if !mesh_append(mut mesh, mesh_triangle(read asset.geometry, part.first + j)) {
-                return false;
-            }
-            j = j + 1u32;
-        }
-        if !collision_append_solid(mut builder, read mesh, space, part.origin, part.basis) {
-            return false;
-        }
-        collision_controlled(mut builder);
-        i = i + 1u32;
-    }
-    return true;
 }

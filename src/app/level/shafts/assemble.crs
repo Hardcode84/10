@@ -1,3 +1,6 @@
+fn shaft_region_capacity() -> u32 {
+    return shaft_grid_stations() * 9u32 + shaft_grid_axials() * 12u32 + 6u32 * shaft_grid_lateral_axis() + 1u32;
+}
 fn shaft_region_closure_kind(index: u32) -> u32 {
     if index % 3u32 == 1u32 {
         return PREFAB_SHAFT_CAP_COLLECTOR;
@@ -223,11 +226,7 @@ fn shaft_region_build(
     }
     generation_words_fill(mut rooms, SHAFT_GRID_NONE);
     // Capacity includes fan chains and their bypasses, lateral sleeves, and station caps.
-    if !graph_allocate(
-        mut graph,
-        shaft_grid_stations() * 9u32 + shaft_grid_axials() * 12u32 + 6u32 * shaft_grid_lateral_axis() + 1u32,
-        seed
-    ) {
+    if !graph_allocate(mut graph, shaft_region_capacity(), seed) {
         return false;
     }
     var builder: CollisionBuilder = collision_builder_new();
@@ -245,6 +244,33 @@ fn shaft_region_build(
     if !shaft_region_spawn(mut asset) {
         return false;
     }
+    if !shaft_region_sections(read grid, mut graph, mut builder, mut mesh, mut rooms) || !shaft_region_close(
+        mut graph,
+        mut builder,
+        mut mesh
+    ) {
+        return false;
+    }
+    if !collision_finish(move builder, mut collision) || !level_install(
+        read graph,
+        mut collision
+    ) {
+        return false;
+    }
+    puts("Shaft region base route / rooms / source triangles");
+    print_number(shaft_grid_distance(read grid) as i64);
+    print_number(graph_count(read graph) as i64);
+    print_number(mesh_triangle_count(read mesh) as i64);
+    return true;
+}
+
+fn shaft_region_sections(
+    grid: read ShaftGrid,
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    rooms: mut GenerationWords
+) -> bool {
     var ending: RoomAsset = room_asset_new();
     if !shaft_region_terminal(
         mut graph,
@@ -260,27 +286,81 @@ fn shaft_region_build(
         mut builder,
         mut mesh,
         read rooms
-    ) || !shaft_region_close(mut graph, mut builder, mut mesh) {
-        return false;
-    }
-    if !collision_finish(move builder, mut collision) || !level_install(
-        read graph,
-        mut collision
     ) {
         return false;
     }
     graph_set_goal(mut graph, generation_word(read rooms, shaft_grid_exit(read grid)));
-    puts("Shaft region base route / rooms / source triangles");
-    print_number(shaft_grid_distance(read grid) as i64);
-    print_number(graph_count(read graph) as i64);
-    print_number(mesh_triangle_count(read mesh) as i64);
     return true;
 }
+
+// Appends a shaft region at a hex connection. All room frames share one rigid placement.
+// The caller closes unused ports and installs collision links after assembly.
+fn shaft_region_append(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: LevelCursor,
+    seed: u32,
+    options: ShaftGridOptions
+) -> bool {
+    var grid: ShaftGrid = shaft_grid_new();
+    var rooms: GenerationWords = generation_words_new();
+    if !shaft_grid_generate(mut grid, seed, options) || !generation_words_allocate(
+        mut rooms,
+        shaft_grid_stations()
+    ) {
+        return false;
+    }
+    generation_words_fill(mut rooms, SHAFT_GRID_NONE);
+    var first: u32 = graph_count(read graph);
+    var entrance: RoomAsset = room_asset_new();
+    if !shaft_region_terminal(
+        mut graph,
+        mut builder,
+        mut mesh,
+        shaft_grid_entrance(read grid),
+        PREFAB_SHAFT_HEX_ADAPTER,
+        mut rooms,
+        mut entrance
+    ) || !shaft_region_sections(read grid, mut graph, mut builder, mut mesh, mut rooms) {
+        return false;
+    }
+    var source: u32 = course_socket(read graph, cursor.room, cursor.exit);
+    var target: u32 = course_socket(
+        read graph,
+        first,
+        prefab_shaft_hex_adapter_port_name(0u32)
+    );
+    var before: SpaceTransform = graph_node(read graph, first).placement;
+    course_pair(mut graph, source, target);
+    level_place_child(mut graph, source, target);
+    var placement: SpaceTransform = space_compose(
+        graph_node(read graph, first).placement,
+        space_inverse(before)
+    );
+    var room: u32 = first + 1u32;
+    while room < graph_count(read graph) {
+        var pose: SpaceTransform = space_compose(
+            placement,
+            graph_node(read graph, room).placement
+        );
+        shaft_region_place(mut graph, room, pose);
+        room = room + 1u32;
+    }
+    return true;
+}
+
 fn shaft_region_palette(input: mut FrameInput) -> bool {
     var configuration: AssetValues = asset_values_new();
     if !course_material_defaults(mut configuration) {
         return false;
     }
+    return shaft_region_materials(mut configuration) && course_palette_configured(
+        mut input,
+        read configuration
+    );
+}
+fn shaft_region_materials(configuration: mut AssetValues) -> bool {
     var kinds: [u32; 7] = make [u32; 7] {
         PREFAB_SHAFT_PIPES,
         PREFAB_SHAFT_GIRDERS,
@@ -309,5 +389,5 @@ fn shaft_region_palette(input: mut FrameInput) -> bool {
         }
         i = i + 1u32;
     }
-    return course_palette_configured(mut input, read configuration);
+    return true;
 }

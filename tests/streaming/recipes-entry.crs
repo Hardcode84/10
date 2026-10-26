@@ -211,24 +211,28 @@ fn recipe_doors_equal(
                 return error("recipe door missing");
             }
             var b: DoorInstance = door_get(read target, index);
-            if a.space != b.space || a.radius != b.radius || length(
+            if a.space != b.space || a.radius != b.radius || a.count != b.count || a.shape.sides != b.shape.sides || a.shape.phase != b.shape.phase || length(
                 sub(a.origin, b.origin)
             ) != 0f32 {
                 return error("recipe door changed");
             }
-            var leaf: usize = 0usize;
-            while leaf < 2usize {
-                if a.leaves[leaf] != plan.items[b.leaves[leaf] as usize].id || !recipe_mesh_equal(
+            var leaf: u32 = 0u32;
+            while leaf < a.count {
+                var left: DoorLeaf = door_leaf(read source, a.first + leaf);
+                var right: DoorLeaf = door_leaf(read target, b.first + leaf);
+                if a.collision_first + leaf != plan.items[(b.collision_first + leaf) as usize].id || length(
+                    sub(left.travel, right.travel)
+                ) != 0f32 || !recipe_mesh_equal(
                     read source.mesh,
-                    a.sources[leaf].first,
-                    a.sources[leaf].count,
+                    left.source.first,
+                    left.source.count,
                     read target.mesh,
-                    b.sources[leaf].first,
-                    b.sources[leaf].count
+                    right.source.first,
+                    right.source.count
                 ) {
                     return error("recipe door leaf changed");
                 }
-                leaf = leaf + 1usize;
+                leaf = leaf + 1u32;
             }
             index = index + 1u32;
         }

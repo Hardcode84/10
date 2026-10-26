@@ -6,8 +6,8 @@ const DOOR_OPENING: u32 = 1u32;
 const DOOR_OPEN: u32 = 2u32;
 const DOOR_CLOSING: u32 = 3u32;
 fn door_state(scene: read CollisionScene, door: DoorInstance, time: f32) -> u32 {
-    var item: CollisionInstance = collision_instance(read scene, door.leaves[0usize]);
-    var opening: bool = item.motion_target.x < 0f32;
+    var item: CollisionInstance = collision_instance(read scene, door.collision_first);
+    var opening: bool = dot(item.motion_target, item.motion_target) > 0f32;
     if time < item.motion_start + item.motion_duration && length(item.linear) != 0f32 {
         if opening {
             return DOOR_OPENING;
@@ -20,32 +20,26 @@ fn door_state(scene: read CollisionScene, door: DoorInstance, time: f32) -> u32 
     return DOOR_CLOSED;
 }
 // A new target preserves the current leaf positions. Moving leaves release their hook.
-fn door_move(scene: mut CollisionScene, door: DoorInstance, trial: mut Trial, open: bool) -> unit {
+fn door_move(
+    scene: mut CollisionScene,
+    doors: read DoorSet,
+    door: DoorInstance,
+    trial: mut Trial,
+    open: bool
+) -> unit {
     var time: f32 = trial.drone.clock as f32 * STEP;
-    var distance: f32 = 0f32;
-    if open {
-        distance = door.radius + DOOR_JOINT_WIDTH + 0.05f32;
-    }
-    collision_retarget(
-        mut scene,
-        door.leaves[0usize],
-        time,
-        DOOR_OPEN_SECONDS,
-        vec(-distance, 0f32, 0f32)
-    );
-    collision_retarget(
-        mut scene,
-        door.leaves[1usize],
-        time,
-        DOOR_OPEN_SECONDS,
-        vec(distance, 0f32, 0f32)
-    );
-    if trial.drone.cable.phase == CABLE_ATTACHED && (
-        trial.drone.cable.instance == door.leaves[0usize] || trial.drone.cable.instance == door.leaves[
-            1usize
-        ]
-    ) {
-        hook_disconnect(mut trial.drone);
+    var leaf: u32 = 0u32;
+    while leaf < door.count {
+        var target: Vec3 = vec(0f32, 0f32, 0f32);
+        if open {
+            target = door_leaf(read doors, door.first + leaf).travel;
+        }
+        var instance: u32 = door.collision_first + leaf;
+        collision_retarget(mut scene, instance, time, DOOR_OPEN_SECONDS, target);
+        if trial.drone.cable.phase == CABLE_ATTACHED && trial.drone.cable.instance == instance {
+            hook_disconnect(mut trial.drone);
+        }
+        leaf = leaf + 1u32;
     }
 }
 // Forecast requests hold doors open. An occupied approach volume also prevents closing.
@@ -77,14 +71,15 @@ fn doors_step(scene: mut CollisionScene, doors: mut DoorSet, trial: mut Trial) -
             read trial.drone
         );
         var hold: bool = door.requested || occupied;
-        var opening: bool = collision_instance(read scene, door.leaves[0usize]).motion_target.x < 0f32;
+        var state: u32 = door_state(read scene, door, time);
+        var opening: bool = state == DOOR_OPEN || state == DOOR_OPENING;
         if hold {
             door_set_hold(mut doors, i, time + DOOR_CLOSE_DELAY);
             if !opening {
-                door_move(mut scene, door, mut trial, true);
+                door_move(mut scene, read doors, door, mut trial, true);
             }
         } else if opening && time >= door.hold_until {
-            door_move(mut scene, door, mut trial, false);
+            door_move(mut scene, read doors, door, mut trial, false);
         }
         i = i + 1u32;
     }

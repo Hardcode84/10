@@ -31,7 +31,7 @@ fn asset_part(parts: read AssetParts, index: u32) -> AssetPart {
 fn asset_part_append(parts: mut AssetParts, part: AssetPart) -> bool {
     if parts.count == parts.capacity {
         var capacity: u64 = parts.capacity as u64 * 2u64 + 1u64;
-        if capacity > 0xffffffffu64 {
+        if capacity > 0xffffffffu64 || capacity > (~0usize) as u64 / sizeof(AssetPart) as u64 {
             return error("part count exceeds address range");
         }
         var data: *AssetPart = malloc(capacity as usize * sizeof(AssetPart)) as *AssetPart;
@@ -52,4 +52,78 @@ fn asset_part_append(parts: mut AssetParts, part: AssetPart) -> bool {
     parts.data[parts.count as usize] = part;
     parts.count = parts.count + 1u32;
     return true;
+}
+
+record DoorAperture {
+    radius: f32;
+    shape: RegularProfile;
+}
+record AssetDoorLeaf {
+    part: AssetPart;
+    travel: Vec3;
+}
+resource AssetDoorLeaves {
+    aperture: DoorAperture;
+    data: *AssetDoorLeaf;
+    count: u32;
+    capacity: u32;
+}
+opaque drop asset_door_leaves_drop;
+fn asset_door_leaves_new() -> AssetDoorLeaves {
+    return make AssetDoorLeaves {
+        aperture: make DoorAperture {
+            radius: 0f32,
+            shape: make RegularProfile {
+                sides: 0u32,
+                phase: 0f32
+            }
+        },
+        data: null(*AssetDoorLeaf),
+        count: 0u32,
+        capacity: 0u32
+    };
+}
+fn asset_door_leaves_drop(parts: mut AssetDoorLeaves) -> unit {
+    free(parts.data as *u8);
+}
+fn asset_door_leaf_count(parts: read AssetDoorLeaves) -> u32 {
+    return parts.count;
+}
+fn asset_door_leaf(parts: read AssetDoorLeaves, index: u32) -> AssetDoorLeaf {
+    return parts.data[index as usize];
+}
+fn asset_door_leaf_append(parts: mut AssetDoorLeaves, part: AssetDoorLeaf) -> bool {
+    if parts.count == parts.capacity {
+        var capacity: u64 = parts.capacity as u64 * 2u64 + 1u64;
+        if capacity > 0xffffffffu64 || capacity > (~0usize) as u64 / sizeof(AssetDoorLeaf) as u64 {
+            return error("part count exceeds address range");
+        }
+        var data: *AssetDoorLeaf = malloc(capacity as usize * sizeof(AssetDoorLeaf)) as *AssetDoorLeaf;
+        if data == null(*AssetDoorLeaf) {
+            return error("part allocation failed");
+        }
+        if parts.count != 0u32 {
+            memcpy(
+                data as *u8,
+                parts.data as *u8,
+                parts.count as usize * sizeof(AssetDoorLeaf)
+            );
+        }
+        free(parts.data as *u8);
+        parts.data = data;
+        parts.capacity = capacity as u32;
+    }
+    parts.data[parts.count as usize] = part;
+    parts.count = parts.count + 1u32;
+    return true;
+}
+
+fn asset_door_shape(leaves: mut AssetDoorLeaves, profile: ConnectionProfile) -> unit {
+    leaves.aperture = make DoorAperture {
+        radius: profile.radius,
+        shape: profile.shape
+    };
+}
+fn asset_door_aperture(leaves: read AssetDoorLeaves) -> DoorAperture {
+    return leaves.aperture;
 }

@@ -73,15 +73,28 @@ fn shaft_region_terminal(
         basis.up = scale(basis.up, -1f32);
         basis.forward = scale(basis.forward, -1f32);
     }
-    shaft_region_place(
-        mut graph,
-        room,
+    var port: RoomPort = graph_socket(
+        read graph,
+        course_socket(read graph, room, asset_name("SHAFT"))
+    ).port;
+    var desired: SpaceTransform = space_compose(
         make SpaceTransform {
             factor: 1f32,
             origin: shaft_region_centre(station),
             basis: basis
+        },
+        make SpaceTransform {
+            factor: 1f32,
+            origin: vec(0f32, 0f32, 0f32),
+            basis: cube_face_basis(2u32)
         }
     );
+    var local: SpaceTransform = make SpaceTransform {
+        factor: 1f32,
+        origin: port.position,
+        basis: port.basis
+    };
+    shaft_region_place(mut graph, room, space_compose(desired, space_inverse(local)));
     generation_word_set(mut rooms, station, room);
     return true;
 }

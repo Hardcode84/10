@@ -1,0 +1,85 @@
+// Quarter turns preserve the shared edges of adjacent leaves exactly.
+fn oct_door_turn(point: Vec3, quarter: u32) -> Vec3 {
+    var i: u32 = 0u32;
+    while i < quarter {
+        point = vec(-point.z, point.y, point.x);
+        i = i + 1u32;
+    }
+    return point;
+}
+fn oct_door_leaf(depth: f32, quarter: u32, asset: mut RoomAsset) -> bool {
+    var profile: ConnectionProfile = service_oct_profile();
+    var wide: f32 = oct_door_wide(profile.radius);
+    var narrow: f32 = oct_door_narrow(profile.radius);
+    var points: [Vec3; 5] = make [Vec3; 5] {
+        vec(0f32, 0f32, 0f32),
+        vec(wide - narrow, 0f32, 0f32),
+        vec(wide, 0f32, narrow),
+        vec(narrow, 0f32, wide),
+        vec(0f32, 0f32, wide - narrow)
+    };
+    var shape: RegularProfile = make RegularProfile {
+        sides: 5u32,
+        phase: 0f32
+    };
+    var hull: AssetHull = asset_hull_new();
+    if !loft_allocate(mut hull, shape, 2u32) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 10u32 {
+        var point: Vec3 = oct_door_turn(points[(i % 5u32) as usize], quarter);
+        point.y = (i / 5u32) as f32 * DOOR_THICKNESS - DOOR_THICKNESS * 0.5f32;
+        asset_vertex_set(mut hull, i, point);
+        i = i + 1u32;
+    }
+    loft_span(mut hull, shape, 0u32, 3u32);
+    loft_caps(mut hull, shape, 2u32, 1u32, 1u32);
+    var plate: Mesh = mesh_new();
+    if !hull_solid_mesh(
+        read hull,
+        mut plate,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        2f32
+    ) {
+        return false;
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !stopper_surface_uvs(
+        mut asset.geometry,
+        read plate,
+        vec(0f32, 0f32, 0f32),
+        identity_basis(),
+        profile.radius * 2f32,
+        3u32
+    ) {
+        return false;
+    }
+    var distance: f32 = wide + DOOR_LEAF_CLEARANCE;
+    return asset_door_leaf_append(
+        mut asset.door_leaves,
+        make AssetDoorLeaf {
+            travel: oct_door_turn(vec(distance, 0f32, distance), quarter),
+            part: make AssetPart {
+                name: asset_name("DOOR-LEAF"),
+                first: first,
+                count: mesh_triangle_count(read asset.geometry) - first,
+                origin: vec(0f32, depth * 0.5f32, 0f32),
+                basis: identity_basis()
+            }
+        }
+    );
+}
+// Four solid quadrants share the texture's + joint and clear the fixed pipe plates.
+fn oct_door_leaves(depth: f32, asset: mut RoomAsset) -> bool {
+    asset_door_shape(mut asset.door_leaves, service_oct_profile());
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        if !oct_door_leaf(depth, i, mut asset) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
