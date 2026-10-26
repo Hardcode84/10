@@ -93,9 +93,13 @@ default budget are defined in `src/app/streaming/storage.crs`. The CPU cache use
 a budget derived from that value. Persistent topology, visibility plans, worker
 scratch, snapshot references, and other renderer storage are separate costs.
 
-Meshes use fixed-size arena pieces. Multiple meshes can share an arena. Empty
-arenas reuse their extent. The renderer admits the bounded backing storage at
-startup, so a new room does not replace the renderer buffers during a crossing.
+Meshes use fixed-size arena pieces within the shared renderer buffer. Multiple
+meshes can share an arena. Empty arenas reuse their extent. Startup admission reserves mesh storage, instance
+records, and triangle address space for the arena budget. A new room within
+that budget does not replace the renderer buffers during a crossing.
+Frame scratch shares this buffer. Growth beyond an admitted frame capacity
+replaces the shared buffer and copies resident data. The current arenas do not
+have independent GPU allocations.
 Device binding limits still apply. Cache or arena exhaustion produces an error.
 GPU diagnostics report live, trapped, requested, and budget bytes.
 

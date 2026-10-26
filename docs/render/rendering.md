@@ -654,6 +654,10 @@ with a minimum of one for an empty root. Significant storage terms are:
 | Shadow storage | `84 * L * (D + I)` bytes. Retained triangle capacity does not enter this term. |
 | Timestamp queries | Eight entries for setup, traversal, composition, readback, and the deferred-input gap. |
 
+The game uploads the drone mesh once. Body anchors submit scaled retained
+instances, including multiple placements in the same room. Portal overlap adds
+instances without duplicating the mesh into dynamic shadow storage.
+
 Dynamic shadow capacity grows from the submitted dynamic triangle count during
 frame preparation. Retained instances use shared mesh trees and a separate
 per-light instance tree. Growth preserves frame inputs and marks retained data

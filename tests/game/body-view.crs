@@ -38,7 +38,7 @@ fn body_portals(scene: mut CollisionScene) -> bool {
 fn body_input(
     scene: read CollisionScene,
     input: mut FrameInput,
-    mesh: read Mesh,
+    mesh: MeshRange,
     mode: u32
 ) -> unit {
     var anchors: RoomAnchors = room_anchors_new();
@@ -54,9 +54,6 @@ fn body_input(
     camera_row(mut input, 0usize, drone.basis.right, drone.position);
     camera_row(mut input, 4usize, drone.basis.up, drone.position);
     camera_row(mut input, 8usize, drone.basis.forward, drone.position);
-    if mode != 2u32 && mode != 5u32 {
-        draw_drone(read scene, mut input, read mesh, read drone, mut anchors);
-    }
     if mode == 1u32 || mode == 5u32 {
         render_portals(mut input, read scene);
         quad(
@@ -84,6 +81,9 @@ fn body_input(
     }
     if mode == 4u32 {
         body_exterior_input(mut input);
+    }
+    if mode != 2u32 && mode != 5u32 {
+        draw_drone(read scene, mut input, mesh, read drone, mut anchors);
     }
 }
 fn body_shadow_input(input: mut FrameInput) -> unit {
@@ -117,16 +117,19 @@ fn body_exterior_input(input: mut FrameInput) -> unit {
     camera_row(mut input, 8usize, forward, eye);
 }
 
-fn body_overlap_check(scene: read CollisionScene, input: mut FrameInput, mesh: read Mesh) -> bool {
+fn body_overlap_check(scene: read CollisionScene, input: mut FrameInput, mesh: MeshRange) -> bool {
     var anchors: RoomAnchors = room_anchors_new();
     input_frame(mut input);
     var drone: Drone = new_drone();
     drone.world = 0u32;
     drone.position = vec(0f32, 0f32, 0.9f32);
     drone.basis = turn_basis(identity_basis(), vec(1f32, 0f32, 0f32), 0.3f32);
-    draw_drone(read scene, mut input, read mesh, read drone, mut anchors);
-    var count: u32 = mesh_triangle_count(read mesh);
-    if input_word(read input, 3usize) != count * 2u32 {
+    draw_drone(read scene, mut input, mesh, read drone, mut anchors);
+    var count: u32 = mesh.count;
+    if input_word(read input, DYNAMIC_COUNT as usize) != 0u32 || input_word(
+        read input,
+        INSTANCE_COUNT as usize
+    ) != 2u32 || input_word(read input, 3usize) != count * 2u32 {
         return false;
     }
     var transform: SpaceTransform = collision_portal(read scene, 0u32).transform;
@@ -142,10 +145,32 @@ fn body_overlap_check(scene: read CollisionScene, input: mut FrameInput, mesh: r
     return true;
 }
 fn body_input_vertex(input: read FrameInput, vertex: u32) -> Vec3 {
-    var address: usize = (GEOMETRY + vertex * 5u32) as usize;
-    return vec(
+    var metadata: usize = input_word(read input, INSTANCE_META as usize) as usize;
+    var count: u32 = input_word(read input, metadata + 1usize) * 3u32;
+    var instance: u32 = vertex / count;
+    var first: u32 = input_word(read input, metadata + instance as usize * 5usize);
+    var address: usize = (
+        input_word(read input, MESH_FLOAT as usize) + first * 15u32 + (vertex % count) * 5u32
+    ) as usize;
+    var point: Vec3 = vec(
         input_float(read input, address),
         input_float(read input, address + 1usize),
         input_float(read input, address + 2usize)
     );
+    var matrix: usize = (input_word(read input, INSTANCE_FLOAT as usize) + instance * 18u32) as usize;
+    var result: Vec3 = vec(0f32, 0f32, 0f32);
+    var row: u32 = 0u32;
+    while row < 3u32 {
+        var base: usize = matrix + row as usize * 4usize;
+        var value: f32 = input_float(read input, base) * point.x + input_float(
+            read input,
+            base + 1usize
+        ) * point.y + input_float(read input, base + 2usize) * point.z + input_float(
+            read input,
+            base + 3usize
+        );
+        result = add(result, scale(axis_vector(row), value));
+        row = row + 1u32;
+    }
+    return result;
 }

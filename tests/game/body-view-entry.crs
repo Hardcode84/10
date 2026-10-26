@@ -18,12 +18,19 @@ fn main(argc: i32, argv: **u8) -> i32 {
     ) {
         return 1i32;
     }
+    var range: MeshRange = mesh_empty_range();
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !input_mesh(mut input, read mesh, mut range) {
+            return 1i32;
+        }
+    }
     var mode: u32 = 0u32;
     var lit: u32 = 0u32;
     var portal_pixels: u64 = 0u64;
     {
         var input: FrameInput = renderer_inputs(mut renderer);
-        if !body_overlap_check(read scene, mut input, read mesh) {
+        if !body_overlap_check(read scene, mut input, range) {
             error("body overlap lost its rotated same-room placement");
             return 1i32;
         }
@@ -31,7 +38,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
     while mode < 6u32 {
         {
             var input: FrameInput = renderer_inputs(mut renderer);
-            body_input(read scene, mut input, read mesh, mode);
+            body_input(read scene, mut input, range, mode);
         }
         if !renderer_draw(&renderer.state) || !body_image_check(
             &renderer.state,

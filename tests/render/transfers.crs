@@ -28,6 +28,9 @@ fn transfer_test(base: *Options) -> bool {
     ) || !transfer_mesh_edit(mut renderer) || !transfer_debug(base) {
         return false;
     }
+    if !transfer_admission(mut renderer) {
+        return false;
+    }
     return transfer_shutdown(&renderer.state);
 }
 fn transfer_measure(v: *RenderState) -> bool {
@@ -262,4 +265,45 @@ fn transfer_mesh_edit(renderer: mut Renderer) -> bool {
         return error("mesh edit did not upload exactly its complete hierarchy");
     }
     return renderer_draw(&renderer.state) && renderer.state.mesh_upload_bytes == 0u64;
+}
+
+fn transfer_admission(renderer: mut Renderer) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        if !transfer_admission_input(mut input) {
+            return false;
+        }
+    }
+    return renderer_draw(&renderer.state);
+}
+fn transfer_admission_input(input: mut FrameInput) -> bool {
+    var mesh: Mesh = mesh_new();
+    if !mesh_append(mut mesh, retained_source_face(read input, 0u32)) {
+        return false;
+    }
+    var required: u32 = input.storage.triangle_capacity + 17u32;
+    if !retained_admit(
+        &input.storage,
+        input.storage.mesh_count + 1u32,
+        required,
+        required
+    ) {
+        return false;
+    }
+    var backing: *u8 = input.storage.mapped;
+    var range: MeshRange = mesh_empty_range();
+    if !input_mesh(mut input, read mesh, mut range) {
+        return false;
+    }
+    input_frame(mut input);
+    var i: u32 = 0u32;
+    while i < required {
+        if !input_instance(mut input, mesh_identity(range, 0u32)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return input.storage.mapped == backing && input_word(read input, 3usize) == required || error(
+        "admitted instances replaced renderer storage"
+    );
 }

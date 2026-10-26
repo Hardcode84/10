@@ -204,10 +204,12 @@ fn residency_gpu_admit(state: read RoomResidency, input: mut FrameInput) -> bool
         count = count + state.rooms[i as usize].piece_count;
         i = i + 1u32;
     }
+    var triangles: u32 = input.storage.mesh_count + state.arena_limit * RESIDENT_ARENA_TRIANGLES;
     return retained_admit(
         &input.storage,
-        input.storage.mesh_count + state.arena_limit * RESIDENT_ARENA_TRIANGLES,
-        count + input.storage.instance_capacity
+        triangles,
+        count + input.storage.instance_capacity,
+        triangles
     );
 }
 record ResidentUpload {

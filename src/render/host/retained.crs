@@ -288,9 +288,9 @@ fn retained_dirty(v: *RenderState, begin: u32, end: u32) -> unit {
     }
     v -> mesh_dirty = true;
 }
-// Admits a fixed retained-storage budget before frame submission.
-fn retained_admit(v: *RenderState, meshes: u32, instances: u32) -> bool {
-    if meshes <= v -> mesh_capacity && instances <= v -> instance_capacity {
+// Reserves mesh storage, instance records, and triangle address space before submission.
+fn retained_admit(v: *RenderState, meshes: u32, instances: u32, triangles: u32) -> bool {
+    if meshes <= v -> mesh_capacity && instances <= v -> instance_capacity && triangles <= v -> triangle_capacity {
         return true;
     }
     var next: RenderState = *v;
@@ -299,6 +299,9 @@ fn retained_admit(v: *RenderState, meshes: u32, instances: u32) -> bool {
     }
     if instances > next.instance_capacity {
         next.instance_capacity = instances;
+    }
+    if triangles > next.triangle_capacity {
+        next.triangle_capacity = triangles;
     }
     if !geometry_layout(&next, next.triangle_capacity) {
         return false;

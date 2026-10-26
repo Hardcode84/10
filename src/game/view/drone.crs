@@ -2,7 +2,7 @@
 fn draw_drone(
     scene: read CollisionScene,
     input: mut FrameInput,
-    mesh: read Mesh,
+    mesh: MeshRange,
     drone: read Drone,
     anchors: mut RoomAnchors
 ) -> unit {
@@ -36,7 +36,24 @@ fn draw_drone(
         );
         pose.factor = rational_float(read size);
         if anchor.cap == 0xffffffffu32 {
-            draw_mesh(mut input, read mesh, anchor.space, pose);
+            var instance: MeshInstance = mesh_identity(mesh, anchor.space);
+            instance.transform = make [f32; 12] {
+                pose.basis.right.x * pose.factor,
+                pose.basis.up.x * pose.factor,
+                pose.basis.forward.x * pose.factor,
+                pose.origin.x,
+                pose.basis.right.y * pose.factor,
+                pose.basis.up.y * pose.factor,
+                pose.basis.forward.y * pose.factor,
+                pose.origin.y,
+                pose.basis.right.z * pose.factor,
+                pose.basis.up.z * pose.factor,
+                pose.basis.forward.z * pose.factor,
+                pose.origin.z
+            };
+            if !input_instance(mut input, instance) {
+                scene_overflow();
+            }
         }
         i = i + 1u32;
     }
