@@ -27,6 +27,9 @@ selecting another renderer.
 Room loading and GPU storage lifetime are specified in the
 [room streaming design](content/streaming.md).
 
+See the [autonomous scheduler design](runtime/scheduler.md) for the proposed
+task API, callback examples, and external completion contract.
+
 ## Source directories
 
 | Directory | Contents |

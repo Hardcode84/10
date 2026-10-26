@@ -2,6 +2,10 @@
 
 ## Status and purpose
 
+The [autonomous scheduler proposal](scheduler.md) defines the replacement API
+and its delivery gate. This document records the current runtime and earlier
+experiments. The proposal takes precedence for new scheduler implementation.
+
 This document defines the target architecture and the current implementation.
 The default game loop runs next-frame prediction in parallel with rendering and asynchronous render
 and presentation operations. Normal play uses this graph in both worker and
