@@ -1,6 +1,6 @@
 // Run: crust demo.crs levels/shafts.crs --seed N
 // A radial shaft region with an exact route distance.
-// The graph defaults set the exact distance and short dead-end limits.
+// A longer upward detour extends the route. Short dead ends use the graph defaults.
 // The bearing cap is the entrance. The offset outlet is the exit.
 // Fans are stopped. Closed caps and octagonal doors seal unused connections.
 fn demo_room_build(
@@ -10,14 +10,10 @@ fn demo_room_build(
     graph: mut RoomGraph,
     seed: u32
 ) -> bool {
-    return shaft_region_build(
-        mut asset,
-        mut collision,
-        mut mesh,
-        mut graph,
-        seed,
-        shaft_grid_defaults()
-    );
+    var options: ShaftGridOptions = shaft_grid_defaults();
+    options.length = 32u32;
+    options.climb = 2u32;
+    return shaft_region_build(mut asset, mut collision, mut mesh, mut graph, seed, options);
 }
 fn demo_room_ambient() -> Vec3 {
     return vec(0.08f32, 0.09f32, 0.11f32);

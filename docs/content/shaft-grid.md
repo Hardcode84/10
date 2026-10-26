@@ -26,7 +26,8 @@ and assigns no moving-body controller or airflow field. It does not change
 `main.crs`.
 
 The [graph model](../../src/app/level/shafts/model.crs) owns the default settings:
-`length`, `climb`, `branches`, and `branch_length`. The recipe can change these settings
+`length`, `climb`, `branches`, and `branch_length`. The
+[demo recipe](../../levels/shafts.crs) selects a longer route and upward detour
 before it calls the generator. The shared demo runner supplies the seed.
 
 - `length` is the exact entrance-to-exit distance in graph steps.
