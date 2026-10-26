@@ -6,6 +6,7 @@ resource GameWindow {
 }
 opaque drop game_window_drop;
 record GameControl {
+    residency: RoomResidency;
     graph: RoomGraph;
     window: GameWindow;
     launch: Launch;
@@ -39,6 +40,7 @@ fn game_session(o: *Launch) -> GameSession {
         forecast: new_drone(),
         view_anchors: room_anchors_new(),
         control: make GameControl {
+            residency: residency_new(),
             graph: graph_new(),
             window: make GameWindow {
                 handle: null(*u8),
@@ -138,6 +140,9 @@ fn game_initial_spin(session: read GameSession) -> bool {
 fn game_static_open(session: mut GameSession, world: u32) -> bool {
     if !player_drone_mesh(mut session.drone_mesh, DRONE_RADIUS) {
         return false;
+    }
+    if session.control.residency.count != 0u32 {
+        return game_residency_static(mut session);
     }
     var input: FrameInput = renderer_inputs(mut session.renderer);
     if graph_count(read session.control.graph) == 0u32 {

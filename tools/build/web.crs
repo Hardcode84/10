@@ -27,25 +27,52 @@ fn web_provider(root: *CrustRun, path: *u8) -> *u8 {
 }
 fn build_web_game(
     root: *CrustRun,
-    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
+    recipe: *u8
 ) -> bool {
     var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 96] = uninit;
+    var providers: **u8 = crust_try_alloc(
+        root -> context,
+        (
+            render_providers(root, null(**u8)) + game_providers(root, null(**u8)) + 16usize
+        ) * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if providers == null(**u8) {
+        return false;
+    }
     var source_count: usize = game_sources(root, &sources[0usize]);
+    if recipe != null(*u8) {
+        source_count = demo_level_sources(root, &sources[0usize], recipe);
+    }
     var count: usize = render_providers(root, &providers[0usize]);
     count = count + game_providers(root, &providers[count]);
     var i: usize = 0usize;
     var selected: usize = 0usize;
     while i < count {
         var path: *u8 = web_provider(root, providers[i]);
+        if path != null(*u8) && recipe != null(*u8) && cache_strcmp(
+            path,
+            host_path(root, "src/demo/labyrinth/world.crs")
+        ) == 0i32 {
+            path = host_path(root, "src/demo/room/world.crs");
+        }
         if path != null(*u8) {
             providers[selected] = path;
             selected = selected + 1usize;
         }
         i = i + 1usize;
     }
+    if recipe != null(*u8) {
+        providers[selected] = host_path(root, "src/app/level/pipe-storage.crs");
+        providers[selected + 1usize] = host_path(root, "src/app/level/shafts/storage.crs");
+        selected = selected + 2usize;
+    }
     providers[selected] = host_path(root, "src/render/web/backend.crs");
     providers[selected + 1usize] = host_path(root, "src/demo/labyrinth/entry.crs");
+    if recipe != null(*u8) {
+        providers[selected + 1usize] = host_path(root, "src/game/host/entry.crs");
+    }
     var args: **u8 = crust_try_alloc(
         root -> context,
         (source_count + 4usize) * sizeof(*u8),
@@ -230,14 +257,34 @@ fn web_shader_files(root: *CrustRun, args: **u8, first: usize) -> usize {
 }
 fn build_web(
     root: *CrustRun,
-    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
+    recipe: *u8
 ) -> bool {
-    return build_web_game(root, emit) && cache_directory(
+    return build_web_game(root, emit, recipe) && cache_directory(
         root -> context,
         host_path(root, "build/web/shaders")
     ) && build_render_shaders_target(root, true) && web_toolchain(root) && web_link(root) && web_copy(
         root,
         "src/app/web/index.html",
         "build/web/index.html"
-    ) && web_copy(root, "src/app/web/launcher.js", "build/web/launcher.js");
+    ) && web_launcher(root, recipe == null(*u8));
+}
+fn web_launcher(root: *CrustRun, scaling: bool) -> bool {
+    var data: CrustSource = uninit;
+    if !cache_read(root -> context, host_path(root, "src/app/web/launcher.js"), &data) {
+        return false;
+    }
+    var prefix: *u8 = "'use strict';\nconst scalingCourse = false;\n";
+    if scaling {
+        prefix = "'use strict';\nconst scalingCourse = true;\n";
+    }
+    var script: *u8 = native_join(root -> context, prefix, data.bytes);
+    if crust0_host_write_file(
+        host_path(root, "build/web/launcher.js"),
+        script,
+        native_strlen(script)
+    ) != 0i32 {
+        return native_error(root -> context, "cannot write web launcher");
+    }
+    return true;
 }

@@ -27,6 +27,16 @@ fn game_task_frame(
     if task_next(mut graph) != 2u32 {
         trap;
     }
+    game_residency_prediction(mut session.control, read prediction);
+    if !game_residency_frame(mut collision, mut session, mut loop) {
+        if loop.input.quit {
+            loop.running = false;
+            return true;
+        }
+        return false;
+    }
+    prediction_context_residency(mut context, read collision);
+    sound_context_residency(mut sound, read collision);
     return game_root_frame(
         mut graph,
         mut context,

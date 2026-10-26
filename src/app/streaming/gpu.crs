@@ -1,0 +1,199 @@
+fn residency_hole(input: mut FrameInput, first: u32, count: u32) -> unit {
+    if count == 0u32 {
+        return;
+    }
+    var words: *u32 = input.storage.mapped as *u32;
+    var header: usize = (words[MESH_META as usize] + first * 4u32) as usize;
+    words[header] = count;
+    words[header + 3usize] = 0u32;
+}
+fn residency_arena(state: mut RoomResidency, input: mut FrameInput, count: u32) -> u32 {
+    var i: u32 = 0u32;
+    while i < state.arena_count {
+        if count <= RESIDENT_ARENA_TRIANGLES - state.arenas[i as usize].used {
+            return i;
+        }
+        i = i + 1u32;
+    }
+    if state.arena_count == state.arena_limit {
+        residency_gpu_trim(mut state, mut input);
+        i = 0u32;
+        while i < state.arena_count {
+            if count <= RESIDENT_ARENA_TRIANGLES - state.arenas[i as usize].used {
+                return i;
+            }
+            i = i + 1u32;
+        }
+        residency_gpu_budget(read state, count);
+        error("room GPU budget exhausted: increase --room-memory (MiB)");
+        return 0xffffffffu32;
+    }
+    var first: u32 = input.storage.mesh_count;
+    if !retained_reserve(
+        &input.storage,
+        first + RESIDENT_ARENA_TRIANGLES,
+        input.storage.instance_capacity
+    ) {
+        return 0xffffffffu32;
+    }
+    input.storage.mesh_count = first + RESIDENT_ARENA_TRIANGLES;
+    state.arenas[i as usize] = make ResidentArena {
+        first: first,
+        used: 0u32,
+        live: 0u32
+    };
+    residency_hole(mut input, first, RESIDENT_ARENA_TRIANGLES);
+    state.arena_count = state.arena_count + 1u32;
+    return i;
+}
+fn residency_gpu_release(state: mut RoomResidency, input: mut FrameInput, room: u32) -> unit {
+    var item: *ResidentRoom = &state.rooms[room as usize];
+    var i: u32 = 0u32;
+    while i < item -> piece_count {
+        var piece: *ResidentPiece = &item -> pieces[i as usize];
+        if piece -> arena != 0xffffffffu32 {
+            var arena: *ResidentArena = &state.arenas[piece -> arena as usize];
+            arena -> live = arena -> live - piece -> range.count;
+            residency_hole(mut input, piece -> range.first, piece -> range.count);
+            if arena -> live == 0u32 {
+                arena -> used = 0u32;
+                residency_hole(mut input, arena -> first, RESIDENT_ARENA_TRIANGLES);
+            }
+            piece -> arena = 0xffffffffu32;
+        }
+        i = i + 1u32;
+    }
+    item -> uploaded = false;
+    input.storage.instance_map_dirty = true;
+}
+fn residency_gpu_load(state: mut RoomResidency, input: mut FrameInput, room: u32) -> bool {
+    var item: *ResidentRoom = &state.rooms[room as usize];
+    if item -> uploaded {
+        item -> mesh = mesh_new();
+        return true;
+    }
+    var i: u32 = 0u32;
+    var first: u32 = 0u32;
+    while i < item -> piece_count {
+        var count: u32 = item -> mesh.count - first;
+        if count > RESIDENT_ARENA_TRIANGLES {
+            count = RESIDENT_ARENA_TRIANGLES;
+        }
+        var index: u32 = residency_arena(mut state, mut input, count);
+        if index == 0xffffffffu32 {
+            residency_gpu_release(mut state, mut input, room);
+            return false;
+        }
+        var arena: *ResidentArena = &state.arenas[index as usize];
+        var piece: *ResidentPiece = &item -> pieces[i as usize];
+        piece -> arena = index;
+        input_mesh_write(
+            mut input,
+            read item -> mesh,
+            first,
+            count,
+            arena -> first + arena -> used,
+            mut piece -> range
+        );
+        arena -> used = arena -> used + count;
+        arena -> live = arena -> live + count;
+        residency_hole(
+            mut input,
+            arena -> first + arena -> used,
+            RESIDENT_ARENA_TRIANGLES - arena -> used
+        );
+        first = first + count;
+        i = i + 1u32;
+    }
+    item -> uploaded = true;
+    item -> mesh = mesh_new();
+    return true;
+}
+fn residency_gpu_world(
+    state: mut RoomResidency,
+    input: mut FrameInput,
+    world: mut InstanceList
+) -> bool {
+    instances_clear(mut state.next);
+    var room: u32 = 0u32;
+    while room < state.count {
+        var item: *ResidentRoom = &state.rooms[room as usize];
+        if generation_word(read state.wanted, room) != 0u32 || item -> pinned {
+            if !residency_gpu_load(mut state, mut input, room) {
+                return false;
+            }
+            var i: u32 = 0u32;
+            while i < item -> piece_count {
+                if !instances_append(
+                    mut state.next,
+                    mesh_identity(item -> pieces[i as usize].range, room)
+                ) {
+                    return false;
+                }
+                i = i + 1u32;
+            }
+        }
+        room = room + 1u32;
+    }
+    if !retained_reserve(&input.storage, input.storage.mesh_count, state.next.count) {
+        return false;
+    }
+    instances_swap(mut world, mut state.next);
+    room = 0u32;
+    while room < state.count {
+        state.rooms[room as usize].active = generation_word(read state.wanted, room) != 0u32 || state.rooms[
+            room as usize
+        ].pinned;
+        room = room + 1u32;
+    }
+    return true;
+}
+fn residency_gpu_collect(
+    state: mut RoomResidency,
+    input: mut FrameInput,
+    scene: mut CollisionScene
+) -> unit {
+    var room: u32 = 0u32;
+    while room < state.count {
+        var item: *ResidentRoom = &state.rooms[room as usize];
+        if !item -> pinned && generation_word(read state.keep, room) == 0u32 {
+            if item -> uploaded {
+                residency_gpu_release(mut state, mut input, room);
+            }
+            item -> mesh = mesh_new();
+            collision_room_unload(mut scene, room);
+            item -> ready = false;
+        }
+        room = room + 1u32;
+    }
+}
+
+fn residency_gpu_budget(state: read RoomResidency, requested: u32) -> unit {
+    var used: u64 = 0u64;
+    var live: u64 = 0u64;
+    var i: u32 = 0u32;
+    while i < state.arena_count {
+        used = used + state.arenas[i as usize].used as u64;
+        live = live + state.arenas[i as usize].live as u64;
+        i = i + 1u32;
+    }
+    puts("room GPU arenas: live / trapped / requested / budget bytes");
+    print_number((live * 176u64) as i64);
+    print_number(((used - live) * 176u64) as i64);
+    print_number((requested as u64 * 176u64) as i64);
+    print_number((state.arena_limit as u64 * RESIDENT_ARENA_TRIANGLES as u64 * 176u64) as i64);
+}
+
+fn residency_gpu_trim(state: mut RoomResidency, input: mut FrameInput) -> unit {
+    var room: u32 = 0u32;
+    while room < state.count {
+        var item: *ResidentRoom = &state.rooms[room as usize];
+        if item -> uploaded && !item -> pinned && !item -> active && generation_word(
+            read state.wanted,
+            room
+        ) == 0u32 {
+            residency_gpu_release(mut state, mut input, room);
+        }
+        room = room + 1u32;
+    }
+}

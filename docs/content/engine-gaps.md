@@ -55,25 +55,24 @@ interaction, and strong Coriolis curvature. Retain the moving-contact checks.
 
 ## World structure and tools
 
-### W3. Asset residency and spatial precision
+### W3. Construction cost and spatial precision
 
-Player and hook state use room-local `f32` coordinates and explicit room
-identities. The cable retains its portal path, scale, frame, and mesh-local
-attachment in [flight state](../../src/game/flight/drone.crs). The game builds
-the complete graph and its assets before play. There is no asset residency
-manager.
+The [room residency manager](streaming.md) loads and evicts recorded room assets
+in normal play. It retains physics, audio, prediction, hook, and visible-room
+dependencies. Renderer publication preserves the previous instance list until
+staging succeeds. Reader snapshots retain collision chunks through retirement.
 
-**Change:** implement the [room streaming design](streaming.md). Define which
-assets must remain resident for visible portals,
-collision, asynchronous prediction, and active hooks. Keep their identities
-valid until all consumers release them. Measure local-coordinate and composed
-portal-transform error at the required room sizes and traversal depths before
-changing numeric precision. Persistent identities are part of T2.
+Initial construction still builds geometry to assign collider IDs and capture
+layouts for exact replay. Hull-only startup requires collider identities that
+can be registered without those generated layouts, plus separate shell and
+geometry entry points for room builders. This changes construction and snapshot
+metadata, not the runtime cache policy.
 
-**Check:** compare local motion, seams, and hook contacts across long portal
-chains, cycles, and large individual rooms. Test loading and unloading while
-an active cable, prediction task, or portal view refers to an asset. A release
-must wait for CPU and GPU consumers.
+Player and hook state use room-local `f32` coordinates. Measure coordinate and
+composed portal-transform error at the required room sizes and traversal depths
+before changing numeric precision. Check local motion, seams, and hook contacts
+across long portal chains, cycles, and large rooms. Persistent identities are
+part of T2.
 
 ### T1. Viewer inspection, asset caching, and source reload
 

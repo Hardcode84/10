@@ -97,6 +97,8 @@ jobs:
           crust tests.crs body-view
           crust tests.crs scaling
           crust tests.crs particles
+      - name: Check room residency and portal traversal
+        run: crust tests.crs residency levels/shafts.crs --width 640 --height 480
       - name: Build native application entry points
         run: |
           crust main.crs --build-only
@@ -128,8 +130,8 @@ jobs:
         run: |
           make -C crust all CC=cc
           echo "$PWD/crust/build" >> "$GITHUB_PATH"
-      - name: Build the web labyrinth demo from its root
-        run: crust labyrinth.crs --web
+      - name: Build the web game from its root
+        run: crust main.crs --web
       - name: Check WebAssembly C backend and ABI
         working-directory: crust
         run: |

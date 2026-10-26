@@ -54,6 +54,44 @@ fn build_demo_target_providers(
     if providers == null(**u8) {
         return false;
     }
+    var source_count: usize = demo_level_sources(root, &sources[0usize], recipe);
+    if check != null(*u8) {
+        sources[source_count] = host_path(root, check);
+        source_count = source_count + 1usize;
+    }
+    var provider_count: usize = render_providers(root, &providers[0usize]);
+    provider_count = provider_count + game_providers(root, &providers[provider_count]);
+    var i: usize = 0usize;
+    while i < provider_count {
+        if cache_strcmp(providers[i], host_path(root, "src/demo/labyrinth/world.crs")) == 0i32 {
+            providers[i] = host_path(root, "src/demo/room/world.crs");
+        }
+        i = i + 1usize;
+    }
+    i = 0usize;
+    while i < extra_count {
+        providers[provider_count] = host_path(root, extra[i]);
+        provider_count = provider_count + 1usize;
+        i = i + 1usize;
+    }
+    providers[provider_count] = host_path(root, "src/app/level/pipe-storage.crs");
+    provider_count = provider_count + 1usize;
+    providers[provider_count] = host_path(root, "src/app/level/shafts/storage.crs");
+    provider_count = provider_count + 1usize;
+    providers[provider_count] = host_path(root, entry);
+    return build_application(
+        root,
+        emit,
+        output,
+        &sources[0usize],
+        source_count,
+        &providers[0usize],
+        provider_count + 1usize,
+        false
+    );
+}
+
+fn demo_level_sources(root: *CrustRun, sources: **u8, recipe: *u8) -> usize {
     var source_count: usize = game_sources(root, &sources[0usize]);
     sources[source_count] = recipe;
     sources[source_count + 1usize] = host_path(root, "src/demo/room/tunnels.crs");
@@ -76,41 +114,6 @@ fn build_demo_target_providers(
     sources[source_count + 18usize] = host_path(root, "src/app/level/shafts/fans.crs");
     sources[source_count + 19usize] = host_path(root, "src/app/level/shafts/bypass.crs");
     sources[source_count + 20usize] = host_path(root, "src/app/level/shafts/grates.crs");
-    sources[source_count + 21usize] = host_path(root, "src/app/level/recipe.crs");
-    source_count = source_count + 22usize;
-    if check != null(*u8) {
-        sources[source_count] = host_path(root, check);
-        source_count = source_count + 1usize;
-    }
-    var provider_count: usize = render_providers(root, &providers[0usize]);
-    provider_count = provider_count + game_providers(root, &providers[provider_count]);
-    var i: usize = 0usize;
-    while i < provider_count {
-        if cache_strcmp(providers[i], host_path(root, "src/demo/labyrinth/world.crs")) == 0i32 {
-            providers[i] = host_path(root, "src/demo/room/world.crs");
-        }
-        i = i + 1usize;
-    }
-    i = 0usize;
-    while i < extra_count {
-        providers[provider_count] = host_path(root, extra[i]);
-        provider_count = provider_count + 1usize;
-        i = i + 1usize;
-    }
-    providers[provider_count] = host_path(root, "src/app/level/pipe-storage.crs");
-    provider_count = provider_count + 1usize;
-    providers[provider_count] = host_path(root, "src/app/generation/words.crs");
-    providers[provider_count + 1usize] = host_path(root, "src/app/level/shafts/storage.crs");
-    provider_count = provider_count + 2usize;
-    providers[provider_count] = host_path(root, entry);
-    return build_application(
-        root,
-        emit,
-        output,
-        &sources[0usize],
-        source_count,
-        &providers[0usize],
-        provider_count + 1usize,
-        false
-    );
+    source_count = source_count + 21usize;
+    return source_count;
 }

@@ -13,9 +13,10 @@ if !project_render(run, stages, &backend) {
 };
 
 host_source(run, "tools/build/game.crs");
+host_source(run, "tools/build/demo-level.crs");
 host_source(run, "tools/build/web.crs");
 if run -> argc == 1i32 && cache_strcmp(run -> argv[0usize], "--web") == 0i32 {
-    return (!build_web(run, backend.emit)) as i32;
+    return (!build_web(run, backend.emit, null(*u8))) as i32;
 };
 if !check_renderer(run) || !build_game(run, backend.emit) || !build_render_shaders(run) {
     return 1i32;

@@ -248,3 +248,18 @@ fn collision_chunks_snapshot(source: read CollisionScene, target: mut CollisionS
     }
     return true;
 }
+
+// Refresh geometry membership between jobs. Both scenes have the same construction.
+fn collision_snapshot_residency(source: read CollisionScene, target: mut CollisionScene) -> unit {
+    var i: u32 = 0u32;
+    while i < source.chunk_count {
+        var next: *CollisionChunk = source.chunks[i as usize];
+        var old: *CollisionChunk = target.chunks[i as usize];
+        if next != old {
+            collision_chunk_retain(next);
+            target.chunks[i as usize] = next;
+            collision_chunk_release(old);
+        }
+        i = i + 1u32;
+    }
+}

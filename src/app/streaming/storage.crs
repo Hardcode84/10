@@ -1,0 +1,164 @@
+// Assets without a replay recipe remain pinned. Recorded assets may leave the cache.
+record ResidentRoom {
+    mesh: Mesh;
+    pieces: *ResidentPiece;
+    piece_count: u32;
+    uploaded: bool;
+    pinned: bool;
+    ready: bool;
+    cost: u64;
+    active: bool;
+}
+opaque;
+record ResidentPiece {
+    range: MeshRange;
+    arena: u32;
+}
+record ResidentArena {
+    first: u32;
+    used: u32;
+    live: u32;
+}
+record ResidentBuild {
+    recipe: RoomRecipe;
+    plan: CollisionRebuild;
+    mesh: Mesh;
+    collision: CollisionRoom;
+    room: u32;
+    portal: u32;
+}
+opaque;
+resource RoomResidency {
+    rooms: *ResidentRoom;
+    visibility: *GenerationWords;
+    count: u32;
+    pool: TaskPool;
+    job: u32;
+    generation: u64;
+    build: *ResidentBuild;
+    wanted: GenerationWords;
+    keep: GenerationWords;
+    ahead: GenerationWords;
+    base: GenerationWords;
+    retained: GenerationWords;
+    predicted: u32;
+    distance: GenerationWords;
+    home: u32;
+    trial: Trial;
+    arenas: *ResidentArena;
+    arena_count: u32;
+    arena_limit: u32;
+    next: InstanceList;
+    enabled: bool;
+    paused_ns: u64;
+    cpu_budget: u64;
+}
+opaque drop residency_drop;
+const RESIDENT_ARENA_TRIANGLES: u32 = 16384u32;
+const RESIDENT_GPU_BYTES: u64 = 67108864u64;
+fn residency_new() -> RoomResidency {
+    return make RoomResidency {
+        rooms: null(*ResidentRoom),
+        visibility: null(*GenerationWords),
+        count: 0u32,
+        pool: task_pool_new(),
+        job: TASK_NONE,
+        generation: 0u64,
+        build: null(*ResidentBuild),
+        wanted: generation_words_new(),
+        keep: generation_words_new(),
+        ahead: generation_words_new(),
+        base: generation_words_new(),
+        retained: generation_words_new(),
+        predicted: 0xffffffffu32,
+        distance: generation_words_new(),
+        home: 0xffffffffu32,
+        trial: new_trial(),
+        arenas: null(*ResidentArena),
+        arena_count: 0u32,
+        arena_limit: 0u32,
+        next: instances_new(),
+        enabled: false,
+        paused_ns: 0u64,
+        cpu_budget: 0u64
+    };
+}
+fn residency_build_drop(build: *ResidentBuild) -> unit {
+    if build == null(*ResidentBuild) {
+        return;
+    }
+    drop build -> recipe;
+    drop build -> plan;
+    drop build -> mesh;
+    drop build -> collision;
+    free(build as *u8);
+}
+fn residency_drop(state: mut RoomResidency) -> unit {
+    if state.job != TASK_NONE {
+        while pool_status(state.pool.state, state.job, state.generation) == 0i32 {
+            pool_pause(state.pool.state);
+        }
+        pool_release(state.pool.state, state.job, state.generation);
+    }
+    residency_build_drop(state.build);
+    var i: u32 = 0u32;
+    while i < state.count {
+        drop state.rooms[i as usize].mesh;
+        drop state.visibility[i as usize];
+        free(state.rooms[i as usize].pieces as *u8);
+        i = i + 1u32;
+    }
+    free(state.rooms as *u8);
+    free(state.visibility as *u8);
+    free(state.arenas as *u8);
+}
+fn residency_allocate(state: mut RoomResidency, count: u32, workers: u32, memory: u32) -> bool {
+    state.rooms = malloc(count as usize * sizeof(ResidentRoom)) as *ResidentRoom;
+    if state.rooms == null(*ResidentRoom) {
+        return error("room residency allocation failed");
+    }
+    state.visibility = malloc(count as usize * sizeof(GenerationWords)) as *GenerationWords;
+    if state.visibility == null(*GenerationWords) {
+        return error("visibility cache allocation failed");
+    }
+    var i: u32 = 0u32;
+    while i < count {
+        state.visibility[i as usize] = generation_words_new();
+        state.rooms[i as usize] = make ResidentRoom {
+            mesh: mesh_new(),
+            pieces: null(*ResidentPiece),
+            piece_count: 0u32,
+            uploaded: false,
+            pinned: false,
+            ready: false,
+            cost: 0u64,
+            active: false
+        };
+        i = i + 1u32;
+    }
+    state.count = count;
+    state.cpu_budget = memory as u64 * 1048576u64 * 4u64;
+    state.arena_limit = (
+        memory as u64 * 1048576u64 / (RESIDENT_ARENA_TRIANGLES as u64 * 176u64)
+    ) as u32;
+    state.arenas = malloc(state.arena_limit as usize * sizeof(ResidentArena)) as *ResidentArena;
+    if state.arenas == null(*ResidentArena) {
+        return error("room arena table allocation failed");
+    }
+    return generation_words_allocate(mut state.wanted, count) && generation_words_allocate(
+        mut state.keep,
+        count
+    ) && generation_words_allocate(mut state.ahead, count) && generation_words_allocate(
+        mut state.base,
+        count
+    ) && generation_words_allocate(mut state.retained, count) && generation_words_allocate(
+        mut state.distance,
+        count
+    ) && task_pool_open(mut state.pool, workers, 1u32);
+}
+
+fn residency_polygon_new() -> ResidencyPolygon {
+    var polygon: ResidencyPolygon = uninit;
+    zero(&polygon as *u8, sizeof(ResidencyPolygon));
+    return polygon;
+}

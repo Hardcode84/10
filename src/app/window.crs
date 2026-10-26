@@ -68,3 +68,14 @@ extern fn SDL_SetWindowFullscreen(window: *u8, enabled: bool) -> bool = "SDL_Set
 fn window_fullscreen(window: *u8) -> bool {
     return SDL_SetWindowFullscreen(window, true) || error(SDL_GetError());
 }
+extern fn app_set_window_title(window: *u8, title: *u8) -> bool = "SDL_SetWindowTitle";
+fn window_loading(window: *u8, loading: bool) -> bool {
+    if window == null(*u8) {
+        return true;
+    }
+    var title: *u8 = "SPINWARD | compute portal renderer";
+    if loading {
+        title = "SPINWARD | Loading rooms";
+    }
+    return app_set_window_title(window, title) || error(SDL_GetError());
+}

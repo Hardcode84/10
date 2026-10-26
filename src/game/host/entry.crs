@@ -9,6 +9,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
         puts("--fullscreen: borderless desktop window; width/height set render resolution");
         puts("--seed N: vary tunnel paths within the service-network layout");
         puts("--width N --height N --fov 70..110 --bindings FILE");
+        puts("--room-memory N: room geometry arena budget in MiB");
         puts("--headless --ticks N --capture FILE --record FILE --replay FILE");
         return 0i32;
     }

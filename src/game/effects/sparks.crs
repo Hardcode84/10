@@ -73,7 +73,18 @@ fn sparks_contact(sparks: mut Sparks, impact: FlightContact, scrape: FlightConta
         sparks.scrape = sparks.scrape - 1f32;
     }
 }
+record SparkStep {
+    item: Spark;
+    admission: CollisionAdmission;
+}
 fn spark_step(scene: read CollisionScene, item: Spark, full_spin: bool, time: f32) -> Spark {
+    var result: SparkStep = spark_step_admitted(read scene, item, full_spin, time);
+    if result.admission.status != 0u32 {
+        scene_motion_failure();
+    }
+    return result.item;
+}
+fn spark_step_admitted(scene: read CollisionScene, item: Spark, full_spin: bool, time: f32) -> SparkStep {
     item.age = item.age + 1u32;
     item.velocity = scale(
         add(
@@ -110,16 +121,28 @@ fn spark_step(scene: read CollisionScene, item: Spark, full_spin: bool, time: f3
             left
         );
         if query.status != 0u32 {
-            scene_motion_failure();
+            return make SparkStep {
+                item: item,
+                admission: make CollisionAdmission {
+                    status: query.status,
+                    space: query.contact.space
+                }
+            };
         }
         var hit: CollisionContact = query.contact;
         if hit.hit.time <= 1f32 && hit.hit.time <= portal.time {
             item.age = item.lifetime;
-            return item;
+            return make SparkStep {
+                item: item,
+                admission: collision_ready()
+            };
         }
         if portal.time > 1f32 {
             item.position = add(item.position, travel);
-            return item;
+            return make SparkStep {
+                item: item,
+                admission: collision_ready()
+            };
         }
         var link: CollisionPortal = collision_portal(read scene, portal.index);
         item.position = space_point(
@@ -134,7 +157,10 @@ fn spark_step(scene: read CollisionScene, item: Spark, full_spin: bool, time: f3
         crossings = crossings + 1u32;
     }
     scene_motion_failure();
-    return item;
+    return make SparkStep {
+        item: item,
+        admission: collision_ready()
+    };
 }
 fn sparks_step(scene: read CollisionScene, sparks: mut Sparks, full_spin: bool, time: f32) -> unit {
     var i: u32 = 0u32;

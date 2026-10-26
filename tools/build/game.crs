@@ -1,6 +1,10 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 190] = make [*u8; 190] {
+    var files: [*u8; 194] = make [*u8; 194] {
         "src/app/generation/random.crs",
+        "src/app/level/parts.crs",
+        "src/app/level/recipe.crs",
+        "src/app/streaming/polygon.crs",
+        "src/app/streaming/visibility.crs",
         "src/audio/api/model.crs",
         "src/audio/mix/voice.crs",
         "src/audio/synthesis/recipe.crs",
@@ -192,14 +196,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 190usize {
+    while i < 194usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 58] = make [*u8; 58] {
+    var files: [*u8; 65] = make [*u8; 65] {
         "src/runtime/channel/spsc.crs",
         "src/audio/platform/bank.crs",
         "src/audio/platform/mixer.crs",
@@ -219,6 +223,13 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/assets/parameter-storage.crs",
         "src/assets/recipe.crs",
         "src/app/level/recipe-storage.crs",
+        "src/app/generation/words.crs",
+        "src/app/streaming/storage.crs",
+        "src/app/streaming/loader.crs",
+        "src/app/streaming/gpu.crs",
+        "src/app/streaming/start.crs",
+        "src/app/streaming/selection.crs",
+        "src/app/streaming/dependencies.crs",
         "src/assets/light-storage.crs",
         "src/assets/connections/storage.crs",
         "src/app/window.crs",
@@ -260,10 +271,10 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/runtime/trace/frame.crs"
     };
     if args == null(**u8) {
-        return 58usize;
+        return 65usize;
     }
     var i: usize = 0usize;
-    while i < 58usize {
+    while i < 65usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
@@ -291,7 +302,16 @@ fn build_game_target(
     check: *u8
 ) -> bool {
     var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 96] = uninit;
+    var providers: **u8 = crust_try_alloc(
+        root -> context,
+        (
+            render_providers(root, null(**u8)) + game_providers(root, null(**u8)) + 16usize
+        ) * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if providers == null(**u8) {
+        return false;
+    }
     var source_count: usize = game_sources(root, &sources[0usize]);
     if check != null(*u8) {
         sources[source_count] = host_path(root, check);

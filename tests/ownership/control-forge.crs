@@ -6,6 +6,7 @@ fn invalid_control_forge(
     latency: LatencyLog
 ) -> unit {
     var control: GameControl = make GameControl {
+        residency: residency_new(),
         graph: move graph,
         window: move window,
         launch: launch,

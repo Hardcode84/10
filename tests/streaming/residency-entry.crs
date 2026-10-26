@@ -1,0 +1,15 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var options: Launch = uninit;
+    if !game_options_scene(argc, argv, &options, true) {
+        return 2i32;
+    }
+    options.config.headless = true;
+    options.mute = true;
+    return (
+        !residency_test(
+            game_session(&options),
+            game_session(&options),
+            options.config
+        )
+    ) as i32;
+}

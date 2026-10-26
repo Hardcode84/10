@@ -55,27 +55,6 @@ fn level_pipe_room(
         mut mesh
     );
 }
-fn level_parts_append(
-    asset: mut RoomAsset,
-    room: u32,
-    base: u32,
-    builder: mut CollisionBuilder,
-    mesh: mut Mesh
-) -> bool {
-    if !room_parts_collision(read asset, mut builder, room) || !room_parts_render(mut asset) {
-        return false;
-    }
-    var i: u32 = 0u32;
-    while i < mesh_triangle_count(read asset.mesh) {
-        var primitive: MeshTriangle = mesh_triangle(read asset.mesh, i);
-        primitive.material = primitive.material + base;
-        if !mesh_append(mut mesh, primitive) {
-            return false;
-        }
-        i = i + 1u32;
-    }
-    return true;
-}
 fn level_pipe_mesh_copy(source: read Mesh, first: u32, count: u32, target: mut Mesh) -> bool {
     var i: u32 = 0u32;
     while i < count {

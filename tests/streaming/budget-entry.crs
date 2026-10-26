@@ -1,0 +1,79 @@
+fn main(argc: i32, argv: **u8) -> i32 {
+    var options: Launch = uninit;
+    if !game_options_scene(argc, argv, &options, true) {
+        return 2i32;
+    }
+    options.config.headless = true;
+    options.mute = true;
+    return (!residency_budget_test(game_session(&options), options.config)) as i32;
+}
+fn residency_budget_test(session: GameSession, config: GameConfig) -> bool {
+    var scene: CollisionScene = collision_new();
+    var loop: GameLoop = residency_test_loop();
+    game_residency_enable(mut session);
+    if !game_run_setup(mut session, mut scene, mut loop, config) {
+        return false;
+    }
+    var admitted: CollisionScene = collision_new();
+    if !collision_snapshot(read scene, mut admitted) {
+        return false;
+    }
+    var old: Trial = clone_trial(read loop.trial);
+    var pixels: GenerationWords = generation_words_new();
+    session.renderer.state.read_pixels = true;
+    if !generation_words_allocate(mut pixels, config.width * config.height) || !stream_draw(
+        read admitted,
+        mut session,
+        read loop,
+        config
+    ) {
+        return false;
+    }
+    stream_pixels(
+        &session.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        true
+    );
+    var instances: *MeshInstance = session.world.values;
+    var count: u32 = session.world.count;
+    var node: GraphNode = graph_node(
+        read session.control.graph,
+        graph_count(read session.control.graph) - 1u32
+    );
+    // Portal placement needs metadata only. Query the complete room before selecting its view.
+    if !game_residency_require(
+        mut session.control,
+        mut scene,
+        mut loop.input,
+        graph_count(read session.control.graph) - 1u32
+    ) || !stream_camera(
+        read scene,
+        read session.control.graph,
+        node.first,
+        mut loop.trial.drone
+    ) {
+        return false;
+    }
+    if game_residency_frame(mut scene, mut session, mut loop) {
+        return error("budget fixture did not exhaust its configured arena budget");
+    }
+    if session.world.values != instances || session.world.count != count {
+        return error("failed staging published a partial instance list");
+    }
+    assign_trial(mut loop.trial, read old);
+    if !stream_draw(read admitted, mut session, read loop, config) {
+        return false;
+    }
+    var changed: u32 = stream_pixels(
+        &session.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        false
+    );
+    puts("capacity rejection image differences");
+    print_number(changed as i64);
+    return (changed == 0u32 || error("failed staging changed the published image")) && game_finish(
+        mut session
+    );
+}

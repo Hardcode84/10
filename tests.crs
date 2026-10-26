@@ -72,6 +72,9 @@ if run -> argc > 0i32 && (
         "arena"
     ) == 0i32 || cache_strcmp(run -> argv[0usize], "reload") == 0i32 || cache_strcmp(
         run -> argv[0usize],
+        "residency"
+    ) == 0i32 || cache_strcmp(run -> argv[0usize], "residency-budget") == 0i32 || cache_strcmp(
+        run -> argv[0usize],
         "recipes"
     ) == 0i32
 ) {
@@ -79,7 +82,7 @@ if run -> argc > 0i32 && (
         native_error(run -> context, "streaming needs a level recipe");
         return 2i32;
     }
-    var extra: [*u8; 8] = make [*u8; 8] {
+    var extra: [*u8; 9] = make [*u8; 9] {
         "tests/streaming/polygon.crs",
         "tests/streaming/visibility.crs",
         "tests/streaming/render.crs",
@@ -87,7 +90,8 @@ if run -> argc > 0i32 && (
         "tests/streaming/prediction.crs",
         "tests/streaming/arena.crs",
         "tests/streaming/rebuild.crs",
-        "tests/streaming/publication.crs"
+        "tests/streaming/publication.crs",
+        "tests/streaming/residency-check.crs"
     };
     var entry: *u8 = "tests/streaming/entry.crs";
     if cache_strcmp(run -> argv[0usize], "arena") == 0i32 {
@@ -95,6 +99,12 @@ if run -> argc > 0i32 && (
     }
     if cache_strcmp(run -> argv[0usize], "reload") == 0i32 {
         entry = "tests/streaming/rebuild-entry.crs";
+    }
+    if cache_strcmp(run -> argv[0usize], "residency") == 0i32 {
+        entry = "tests/streaming/residency-entry.crs";
+    }
+    if cache_strcmp(run -> argv[0usize], "residency-budget") == 0i32 {
+        entry = "tests/streaming/budget-entry.crs";
     }
     if cache_strcmp(run -> argv[0usize], "recipes") == 0i32 {
         entry = "tests/streaming/recipes-entry.crs";
@@ -107,7 +117,7 @@ if run -> argc > 0i32 && (
         null(*u8),
         "build/streaming-experiment",
         &extra[0usize],
-        8usize
+        9usize
     ) || !build_render_shaders(run) {
         return 1i32;
     }

@@ -114,7 +114,7 @@ terminates on a missing room.
 
 The sanitizer test unloads and restores a room, keeps private motion separate,
 and queries an attached hook after destroying the source scene. The production
-[streaming witness](../content/streaming-experiment.md#collision-snapshot-witness)
+[streaming witness](../content/streaming.md#collision-snapshot-witness)
 starts a prediction job while its source room is absent.
 
 ## Room regeneration
@@ -135,7 +135,7 @@ Old snapshots keep their original geometry until their references end.
 A recipe or scene-construction change requires a separate publication version;
 this API requires the original construction.
 
-The [worker reload witness](../content/streaming-experiment.md#worker-regeneration-witness)
+The [worker reload witness](../content/streaming.md#worker-regeneration-witness)
 checks new geometry with the production renderer and prediction task. The
 sanitizer fixture also checks interleaved global IDs, controlled motion, and an
 attached hook after the old geometry is released.

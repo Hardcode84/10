@@ -4,6 +4,8 @@ import {presentation} from './presentation.mjs';
 // Use a separate browser profile with remote debugging enabled.
 const endpoint = process.env.BROWSER_CDP || 'http://127.0.0.1:9227';
 const scaling = process.argv.includes('--scaling');
+const mainGame = process.argv.includes('--main');
+if (mainGame && scaling) throw Error('The service-network game does not use the scaling fixture');
 const origin = process.env.GAME_URL || 'http://127.0.0.1:8000';
 const pages = await (await fetch(endpoint + '/json')).json();
 const page = pages.find(page => page.type === 'page');
@@ -84,7 +86,7 @@ function checkCommands(encoded) {
 async function native(recording, tag) {
   const path=`build/web-check-${tag}`;
   await Bun.write(path+'.swr', Buffer.from(recording,'base64'));
-  const child=Bun.spawn(['build/game',...(scaling ? ['--scaling'] : []),'--headless','--seed','42','--complexity','2','--width',scaling ? '640' : '641','--height',scaling ? '360' : '359','--replay',path+'.swr','--capture',path+'.ppm'],{stdout:'pipe',stderr:'pipe'});
+  const child=Bun.spawn([mainGame ? 'build/main-game' : 'build/game',...(scaling ? ['--scaling'] : []),'--headless','--seed','42','--complexity','2','--width',scaling ? '640' : '641','--height',scaling ? '360' : '359','--replay',path+'.swr','--capture',path+'.ppm'],{stdout:'pipe',stderr:'pipe'});
   const [stdout,stderr,code]=await Promise.all([new Response(child.stdout).text(),new Response(child.stderr).text(),child.exited]);
   require(code===0,stdout+stderr);
   return {log:stdout, capture:Buffer.from(await Bun.file(path+'.ppm').arrayBuffer()).toString('base64')};
@@ -97,7 +99,7 @@ try {
     try {console.log(await evaluate(presentation,180,server.url.href));}
     finally {server.stop();}
   } else {
-  require(process.argv.slice(2).every(arg => ['--tasks','--scaling'].includes(arg)), 'Use --tasks, --scaling, or --presentation');
+  require(process.argv.slice(2).every(arg => ['--tasks','--scaling','--main'].includes(arg)), 'Use --main, --tasks, --scaling, or --presentation');
   const raw=await browser({}),checked=await browser({checked:true});
   await Bun.write('build/web-check-raw.ppm',Buffer.from(raw.capture,'base64'));await Bun.write('build/web-check-checked.ppm',Buffer.from(checked.capture,'base64'));compareImage(raw.capture,checked.capture);
   const initial=await native(raw.recording,'initial');

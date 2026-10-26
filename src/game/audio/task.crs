@@ -87,3 +87,8 @@ fn game_sound_join(
     }
     task_complete(mut graph, 5u32, good);
 }
+
+// Requires all readers of the context to have retired.
+fn sound_context_residency(context: mut SoundContext, collision: read CollisionScene) -> unit {
+    collision_snapshot_residency(read collision, mut context.payload -> collision);
+}

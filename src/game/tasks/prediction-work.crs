@@ -133,3 +133,8 @@ fn prediction_select(
         read rooms
     );
 }
+
+// Requires all readers of the context to have retired.
+fn prediction_context_residency(context: mut PredictionContext, collision: read CollisionScene) -> unit {
+    collision_snapshot_residency(read collision, mut context.payload -> collision);
+}

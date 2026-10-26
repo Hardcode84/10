@@ -1,116 +1,126 @@
 # Room streaming
 
-Status: bounded prototypes. The game currently builds all room assets before play.
-Design for the residency part of [W3](engine-gaps.md#w3-asset-residency-and-spatial-precision).
-The [portal renderer](../render/rendering.md#portal-views-and-visibility) keeps its visibility rules.
+Normal play uses room residency on desktop and in the browser. The loader lives
+in `src/app/streaming/`. It uses the shared task pool, collision snapshots, and
+renderer inputs. Game code does not use platform synchronization objects.
 
-## Persistent data and visibility
+## Construction and persistent state
 
-Keep room identities, recipe parameters, connections, and game state resident.
-Generate convex hulls and portal polygons before detailed geometry. Retain these
-small visibility shells when meshes, textures, and collision structures unload.
-Rebuilding assets must not reset objects or doors. Share immutable assets by
-recipe version, parameters, and material configuration. Keep instance state separate.
+Level construction records asset builders, owned parameter values, added parts,
+and material edits. It assigns room, portal, and collider identities. Graph
+connections, room frames, controller state, lights, and collision instance records
+stay resident. Door motion survives room eviction and regeneration.
 
-Cache potentially visible destination portals per directed entrance portal.
-Start at the current room. Visible connections request missing shells, which
-permit further visibility work. Assume automatic doors can open; ignore props.
+Construction currently builds geometry once to establish collider identities and
+layouts. After startup admission, the combined render mesh is released. A missing
+room is rebuilt from its recorded inputs. The worker returns a render mesh and
+an immutable collision chunk. It does not replace live door or object state.
+Assets supplied without a replay recipe are explicitly pinned for the lifetime
+of the level. This includes the older labyrinth and direct room fixtures.
 
-Clip apertures through actual connection transforms. Preserve distinct path
-states, including recursive visits to the same room. Merge destination identities
-only in the result. Logical global room positions do not determine visibility.
+A loader owns its jobs and copied recipe inputs. Shutdown joins its last job
+before releasing storage. Results cannot cross a level replacement. Within a
+construction, a result outside the retention set is discarded. Changes to a
+room recipe require a new construction; immutable visibility and collider layouts
+belong to that construction.
 
-Entries are unknown, partial, or complete. Track all shell and connection version
-dependencies, including intermediate shells, with reverse links for invalidation.
-Results may include extra portals but must not exclude visible ones. At a work
-limit, include all graph-reachable destinations from unresolved branches. This
-bounds work on recursive connections without treating unfinished work as invisible.
+## Visibility and loading
 
-## Loading waves
+Room visibility uses convex portal polygons and the actual connection transforms,
+including rotation and scale. Traversal retains distinct recursive path states.
+Only the result merges room identities. Logical global room positions do not
+determine visibility. Doors are treated as open for visibility.
 
-Wave zero contains rooms potentially visible from anywhere in the current room.
-Each subsequent wave expands visibility from the directed entrances reached by
-the previous wave, permitting a new sightline. Use minimum wave distance per room.
-Renderer traversal preserves its original sightline and exact masks.
+Visibility rows are cached on demand. A row includes rooms potentially visible
+from anywhere in its source room. Polygon or traversal work exhaustion keeps all
+room candidates. An incomplete geometric calculation cannot hide a room.
 
-Request assets within X waves. Retain them through Y waves, with Y greater than
-X, plus a short interval after use. Waves do not bound bytes or arrival time.
-Prioritize admission dependencies first, then predicted arrival urgency, wave
-distance, and stable room ID. Compare urgency with high-percentile build and
-upload latency. Apply memory and upload budgets to all requests.
+The current row is mandatory. The next visibility wave is prefetched. A further
+wave retains cached assets. One asset construction job runs at a time. Required
+rooms take priority when the current job retires. Optional prefetch stops at the
+CPU cache budget. Loading does not advance simulation time.
 
-Wave requests are speculative. Frame admission requires conservative current-view
-portal traversal under renderer limits, plus simulation, light, shadow, and audio
-dependencies. Resolve missing shells before declaring that traversal complete.
-Renderer limits must not remove physics dependencies. Preload behind doors before
-opening them. Incomplete wave results cannot prove a room safe to evict.
-Prefetch retention is soft under memory pressure; admission and in-flight
-references are hard requirements.
+The required set also includes the hook, tether path, live particles, and an
+unresolved prediction frontier. Audio retains all rooms that its portal search
+can visit above the transmission threshold. These dependencies are independent
+of renderer visibility.
 
-## Tasks and lifetime
+## Admission and publication
 
-Shell generation, visibility, asset construction, and upload are separate tasks.
-GPU completion releases dependencies without occupying a worker. Publish ready
-handles through immutable scene snapshots. Reject stale results by identity and
-version. Release storage only after CPU readers and GPU submissions finish.
+```mermaid
+flowchart LR
+    Graph[Persistent graph and recipes] --> Visibility[Cached portal visibility]
+    Visibility --> Required[Required and retained rooms]
+    Required --> Build[Room construction task]
+    Build --> Cache[CPU mesh and collision cache]
+    Cache --> Stage[Stage mesh in unused arena space]
+    Stage --> Publish[Publish instance list at frame boundary]
+    Cache --> Physics[Admit simulation and snapshot readers]
+    Physics --> Prediction[Prediction and audio tasks]
+    Publish --> GPU[Upload and compute rendering]
+    GPU --> Retire[GPU retirement]
+    Prediction --> Retire
+    Retire --> Reuse[Release chunks and reuse empty arenas]
+```
 
-Prediction jobs pin their input snapshot. On missing collision, return an explicit
-unresolved frontier and request assets. Never publish that forecast as complete.
-Active bodies and attachments retain collision for their next step. Persist
-inactive object state; time-driven controllers preserve their simulation-time
-reference across unloading.
+A simulation step runs against reusable speculative state. If collision is
+missing, the loader requests that room and retries the same command. Only a
+complete step changes the player's state or clock. Particle motion uses the
+same retry rule. Input events continue to be processed during admission waits. The window title
+shows loading status. Escape cancels the run.
 
-If admission resources are missing, pause frame admission and simulation time
-with loading status. Never display missing geometry or simulate through absent
-collision. Resume with a complete snapshot. A capacity failure leaves the
-published snapshot intact and ends that request with an explicit error.
+Prediction and audio refresh their snapshot membership only between jobs. Their
+immutable chunks remain alive until readers release them. An incomplete
+prediction suppresses its markers and requests its unresolved room. Loading time
+is removed from the next frame's simulation credit.
 
-## GPU arenas
+GPU meshes are written into unused arena ranges. The next instance list is built
+separately. Capacity checks finish before it replaces the current list. Failed
+staging leaves the published list intact. Transfers precede rendering in the same
+GPU submission. A GPU submission failure is reported and ends the run.
 
-Use fixed-size bump arenas. Add an arena when the budget permits; split large
-meshes into chunks. Handles contain an arena generation and offset. Separate
-shared long-lived assets, streamed geometry, and transient frame data.
+The application changes residency between frames, after prediction, audio, and
+GPU work has retired. It then releases excluded collision chunks and mesh ranges.
+Other collision snapshots retain their own references. Texture banks and door
+render assets remain shared and resident.
 
-Keep allocation occupancy separate from the active-mesh bitmap. The bitmap marks
-assets used by a scene snapshot; instance records select placements. Inactive
-allocations may remain cached. Reset an empty arena only after all CPU and GPU
-references retire. Never modify submitted bitmaps or descriptor tables in place.
+## Memory
 
-Use partial uploads and bounded buffer bindings on Vulkan and WebGPU. Group work
-by bound arenas. Resolve every arena contribution to a view before emitting child
-portal masks. Preserve depth and source-ID tie rules. Game code sees resource
-handles; platform bindings and completion objects remain private.
+`--room-memory N` sets the room geometry arena budget in MiB. Defaults and arena
+size are defined in `src/app/streaming/storage.crs`. The CPU asset cache uses a
+budget derived from that value. Persistent topology, visibility rows, controllers,
+worker construction scratch, snapshot pins, and other renderer storage are
+separate costs.
 
-Reclaim unreferenced cache allocations, preferring whole arenas. Never evict pins
-held by jobs, physics, or GPU work. Before reporting failure, measure live bytes,
-trapped space, largest contiguous extent, and requested capacity. Distinguish
-conservative over-inclusion from live-byte exhaustion. Never retry indefinitely.
-Relocation requires reserved copy space, new handle publication, and retirement
-of old storage. Measure fragmentation before adding that mechanism.
+A mesh is split into fixed-size arena pieces. Multiple meshes can share an arena.
+An empty arena reuses its reserved extent. Allocation occupancy is separate from
+the published instance list. The renderer uses bounded retained storage and
+partial dirty-range uploads on both backends; its device binding limits still
+apply to the backing store.
 
-## Implementation gate
+Under pressure, inactive GPU cache entries and optional CPU entries are released
+first. A mandatory set that exceeds the available capacity produces an explicit
+error. GPU diagnostics report live, trapped, requested, and budget bytes. CPU
+cache diagnostics report live, requested, and budget bytes. The loader does not
+retry an impossible allocation indefinitely.
 
-Prove load, traversal, unload, and revisit with the production renderer, collision,
-active hook, and asynchronous prediction. Compare images and motion against full
-residency. Exercise long shafts, doors, branches, transformed cycles, exhausted
-budgets, and stale completions. Require no missing geometry or invalid references.
+## Checks
 
-Measure worst-frame CPU work, loading latency, uploads, live and trapped bytes,
-and admission pauses. Check that steady frames allocate no application storage.
-Set numerical budgets from this baseline before extending the implementation.
+```sh
+crust tests.crs residency levels/shafts.crs --width 640 --height 480
+crust tests.crs residency levels/service.crs --width 640 --height 480
+crust tests.crs residency-budget levels/shafts.crs --width 640 --height 480 --room-memory 9
+crust tests.crs recipes levels/shafts.crs
+crust tests.crs collision --sanitize
+crust main.crs --web
+```
 
-The [visibility experiment](streaming-experiment.md) measures selection, loading
-waves, retained-list replacement, and rendered output on production scenes. It
-includes a fixed-arena reuse witness with partial uploads and exact restored
-images. Room collision chunks also pass a retained-snapshot lifetime witness.
-Collision snapshots can select required rooms. Incomplete prediction returns the
-missing room and suppresses output. A worker can regenerate an unchanged room
-while preserving collider IDs, then publish it for prediction and rendering.
-Course assembly records each builder and its parameter values, appended parts,
-and material edits. The same inputs regenerate the service network and shaft
-region exactly. See the [recipe checks](streaming-experiment.md#recorded-room-recipes).
-The reload witness also rejects obsolete requests and retains the previous
-display and prediction snapshots through missing-room admission and retry.
-The full integrated ownership gate remains open: transactional GPU publication,
-active-frame admission, and residency budgets must work together before normal
-play can unload rooms.
+The residency check uses production loading and rendering. It compares flight
+state and images with full residency across remote visits and a return visit,
+with an attached hook. Recipe checks compare regenerated triangles, UVs,
+collision, portals, lights, and door identities. The collision suite checks
+snapshot retention, missing-room admission, and retry. Test output belongs in
+ignored build storage.
+
+The budget check fills the production arenas, rejects the next required set,
+and compares the retained frame with its previous image.

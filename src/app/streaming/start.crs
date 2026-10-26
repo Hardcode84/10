@@ -1,0 +1,162 @@
+fn residency_seed_room(
+    state: mut RoomResidency,
+    graph: read RoomGraph,
+    mesh: read Mesh,
+    room: u32
+) -> bool {
+    var item: *ResidentRoom = &state.rooms[room as usize];
+    var node: GraphNode = graph_node(read graph, room);
+    item -> pinned = room_recipe_count(graph_recipe(read graph, room)) == 0u32;
+    item -> piece_count = node.mesh.count / RESIDENT_ARENA_TRIANGLES;
+    if node.mesh.count % RESIDENT_ARENA_TRIANGLES != 0u32 {
+        item -> piece_count = item -> piece_count + 1u32;
+    }
+    if item -> piece_count != 0u32 {
+        item -> pieces = malloc(item -> piece_count as usize * sizeof(ResidentPiece)) as *ResidentPiece;
+        if item -> pieces == null(*ResidentPiece) {
+            return error("room mesh handles allocation failed");
+        }
+    }
+    var i: u32 = 0u32;
+    while i < item -> piece_count {
+        item -> pieces[i as usize] = make ResidentPiece {
+            range: mesh_empty_range(),
+            arena: 0xffffffffu32
+        };
+        i = i + 1u32;
+    }
+    if !item -> pinned && generation_word(read state.wanted, room) == 0u32 {
+        return true;
+    }
+    item -> ready = true;
+    i = 0u32;
+    while i < node.mesh.count {
+        if !mesh_append(mut item -> mesh, mesh_triangle(read mesh, node.mesh.first + i)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn game_residency_open(session: mut GameSession, scene: mut CollisionScene, world: u32) -> bool {
+    var count: u32 = graph_count(read session.control.graph);
+    if !session.control.residency.enabled || count == 0u32 {
+        return true;
+    }
+    if !residency_allocate(
+        mut session.control.residency,
+        count,
+        session.control.launch.config.workers,
+        session.control.launch.config.room_memory
+    ) {
+        return false;
+    }
+    if !residency_select(
+        mut session.control.residency,
+        read session.control.graph,
+        world,
+        !session.control.launch.mute
+    ) {
+        return false;
+    }
+    var room: u32 = 0u32;
+    while room < count {
+        var slot: u32 = collision_space_slot(read scene, room);
+        var cost: u64 = graph_node(read session.control.graph, room).mesh.count as u64 * sizeof(
+            MeshTriangle
+        ) as u64;
+        if slot != 0xffffffffu32 {
+            cost = cost + collision_chunk_bytes(scene.chunks[slot as usize]);
+        }
+        session.control.residency.rooms[room as usize].cost = cost;
+        if !residency_seed_room(
+            mut session.control.residency,
+            read session.control.graph,
+            read session.room_mesh,
+            room
+        ) {
+            return false;
+        }
+        if !session.control.residency.rooms[room as usize].pinned && generation_word(
+            read session.control.residency.wanted,
+            room
+        ) == 0u32 {
+            collision_room_unload(mut scene, room);
+        }
+        room = room + 1u32;
+    }
+    return residency_cpu_bytes(read session.control.residency) <= session.control.residency.cpu_budget || error(
+        "mandatory room assets exceed CPU cache budget"
+    );
+}
+fn game_residency_static(session: mut GameSession) -> bool {
+    var input: FrameInput = renderer_inputs(mut session.renderer);
+    if !graph_doors_upload(mut session.control.graph, mut input) || !residency_gpu_world(
+        mut session.control.residency,
+        mut input,
+        mut session.world
+    ) {
+        return false;
+    }
+    session.room_mesh = mesh_new();
+    return true;
+}
+// Called with no submitted frame or running prediction/audio reader on the application lane.
+fn game_residency_frame(
+    scene: mut CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop
+) -> bool {
+    if session.control.residency.count == 0u32 {
+        return true;
+    }
+    if !residency_poll(mut session.control.residency, mut scene) {
+        return false;
+    }
+    var start: u64 = now();
+    if !residency_select(
+        mut session.control.residency,
+        read session.control.graph,
+        loop.trial.drone.world,
+        !session.control.launch.mute
+    ) {
+        return false;
+    }
+    session.control.residency.paused_ns = session.control.residency.paused_ns + now() - start;
+    residency_dependents(mut session.control.residency, read scene, read loop);
+    var room: u32 = 0u32;
+    while room < session.control.residency.count {
+        if generation_word(read session.control.residency.wanted, room) != 0u32 && !game_residency_require(
+            mut session.control,
+            mut scene,
+            mut loop.input,
+            room
+        ) {
+            return false;
+        }
+        room = room + 1u32;
+    }
+    {
+        var input: FrameInput = renderer_inputs(mut session.renderer);
+        if !residency_gpu_world(
+            mut session.control.residency,
+            mut input,
+            mut session.world
+        ) {
+            return false;
+        }
+        residency_gpu_collect(mut session.control.residency, mut input, mut scene);
+    }
+    var begin: u64 = now();
+    var good: bool = residency_prefetch(
+        mut session.control.residency,
+        read scene,
+        read session.control.graph
+    );
+    session.control.residency.paused_ns = session.control.residency.paused_ns + now() - begin;
+    return good;
+}
+
+fn game_residency_enable(session: mut GameSession) -> unit {
+    session.control.residency.enabled = true;
+}

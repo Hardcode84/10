@@ -232,3 +232,15 @@ fn mesh_offset_uv(mesh: mut Mesh, u: f32, v: f32) -> unit {
 fn instances_clear(list: mut InstanceList) -> unit {
     list.count = 0u32;
 }
+
+fn instances_swap(a: mut InstanceList, b: mut InstanceList) -> unit {
+    var values: *MeshInstance = a.values;
+    a.values = b.values;
+    b.values = values;
+    var count: u32 = a.count;
+    a.count = b.count;
+    b.count = count;
+    var capacity: u32 = a.capacity;
+    a.capacity = b.capacity;
+    b.capacity = capacity;
+}

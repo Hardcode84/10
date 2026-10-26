@@ -28,31 +28,16 @@ fn game_tick(
     var finished: bool = loop.trial.finished;
     var attempt: u32 = loop.trial.attempt;
     var clock: u32 = loop.trial.drone.clock;
-    trial_step(read collision, mut loop.trial, command);
-    if loop.trial.attempt != attempt {
-        sparks_clear(mut loop.sparks);
-        collision_controlled_reset(mut collision);
-        doors_reset(game_doors_mut(mut session));
-    }
-    var advanced: bool = loop.trial.drone.clock != clock || loop.trial.attempt != attempt;
-    if loop.trial.drone.clock != 0u32 && advanced {
-        sparks_step(
-            read collision,
-            mut loop.sparks,
-            loop.trial.full_spin,
-            (loop.trial.drone.clock - 1u32) as f32 * STEP
-        );
-        sparks_impact(mut loop.sparks, loop.trial.drone.hook_contact);
-        sparks_contact(
-            mut loop.sparks,
-            loop.trial.drone.contact,
-            flight_scrape(read collision, read loop.trial.drone)
-        );
-    }
-    if advanced {
-        if !game_sound_tick(mut session, read loop.trial, loop.ticks + 1u32, config) {
-            return false;
+    if !game_residency_trial(mut collision, mut session, mut loop, command) {
+        if loop.input.quit {
+            loop.running = false;
+            return true;
         }
+        return false;
+    }
+    if !game_tick_effects(mut collision, mut session, mut loop, config, attempt, clock) {
+        loop.running = !loop.input.quit;
+        return loop.input.quit;
     }
     game_trace_tick(mut session, loop.ticks + 1u32, command);
     game_graph_visit(mut session, read loop.trial, reset);
@@ -144,6 +129,7 @@ fn game_advance(
     config: GameConfig,
     elapsed: u64
 ) -> bool {
+    elapsed = game_residency_elapsed(mut session, elapsed);
     if !game_poll(mut session, mut loop.input) {
         return false;
     }
@@ -175,6 +161,7 @@ fn game_advance(
     return true;
 }
 fn game_run(session: GameSession, config: GameConfig) -> i32 {
+    game_residency_enable(mut session);
     var collision: CollisionScene = collision_new();
 
     var loop: GameLoop = make GameLoop {
@@ -218,12 +205,20 @@ fn game_run_active(
         if !game_advance(mut collision, mut session.control, mut loop, config, elapsed) {
             return 1i32;
         }
+        if !game_residency_frame(mut collision, mut session, mut loop) {
+            if loop.input.quit {
+                loop.running = false;
+                break;
+            }
+            return 1i32;
+        }
         var prediction: Prediction = predict_scene(
             read collision,
             read loop.trial,
             mut session.forecast,
             game_doors_mut(mut session.control)
         );
+        game_residency_prediction(mut session.control, read prediction);
         if !game_sound_serial(read collision, mut session.control, read loop, config) {
             return 1i32;
         }
@@ -278,8 +273,46 @@ fn game_run_setup(
     if !game_materials_open(mut session, config) {
         return false;
     }
-    if !game_static_open(mut session, loop.trial.drone.world) {
+    var spawn_world: u32 = loop.trial.drone.world;
+    if !game_residency_open(mut session, mut collision, spawn_world) || !game_static_open(
+        mut session,
+        spawn_world
+    ) {
         return false;
+    }
+    return true;
+}
+
+fn game_tick_effects(
+    collision: mut CollisionScene,
+    session: mut GameControl,
+    loop: mut GameLoop,
+    config: GameConfig,
+    attempt: u32,
+    clock: u32
+) -> bool {
+    if loop.trial.attempt != attempt {
+        sparks_clear(mut loop.sparks);
+        collision_controlled_reset(mut collision);
+        doors_reset(game_doors_mut(mut session));
+    }
+    var advanced: bool = loop.trial.drone.clock != clock || loop.trial.attempt != attempt;
+    if loop.trial.drone.clock != 0u32 && advanced {
+        var spark_time: f32 = (loop.trial.drone.clock - 1u32) as f32 * STEP;
+        if !game_residency_sparks(mut collision, mut session, mut loop, spark_time) {
+            return false;
+        }
+        sparks_impact(mut loop.sparks, loop.trial.drone.hook_contact);
+        sparks_contact(
+            mut loop.sparks,
+            loop.trial.drone.contact,
+            flight_scrape(read collision, read loop.trial.drone)
+        );
+    }
+    if advanced {
+        if !game_sound_tick(mut session, read loop.trial, loop.ticks + 1u32, config) {
+            return false;
+        }
     }
     return true;
 }

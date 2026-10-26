@@ -1,0 +1,71 @@
+// Particle motion is speculative until every collision query is admitted.
+fn game_residency_sparks(
+    scene: mut CollisionScene,
+    control: mut GameControl,
+    loop: mut GameLoop,
+    time: f32
+) -> bool {
+    var i: u32 = 0u32;
+    while i < spark_count(read loop.sparks.storage) {
+        var item: Spark = spark_get(read loop.sparks.storage, i);
+        if item.age < item.lifetime {
+            while true {
+                var result: SparkStep = spark_step_admitted(
+                    read scene,
+                    item,
+                    loop.trial.full_spin,
+                    time
+                );
+                if result.admission.status == 0u32 {
+                    spark_set(mut loop.sparks.storage, i, result.item);
+                    break;
+                }
+                if result.admission.status != COLLISION_UNRESOLVED || !game_residency_require(
+                    mut control,
+                    mut scene,
+                    mut loop.input,
+                    result.admission.space
+                ) {
+                    return false;
+                }
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn residency_pin(state: mut RoomResidency, room: u32) -> unit {
+    generation_word_set(mut state.wanted, room, 1u32);
+    generation_word_set(mut state.keep, room, 1u32);
+}
+fn residency_dependents(
+    state: mut RoomResidency,
+    scene: read CollisionScene,
+    loop: read GameLoop
+) -> unit {
+    if state.predicted != 0xffffffffu32 {
+        residency_pin(mut state, state.predicted);
+    }
+    if loop.trial.drone.cable.phase == CABLE_FLYING || loop.trial.drone.cable.phase == CABLE_ATTACHED {
+        residency_pin(mut state, loop.trial.drone.cable.space);
+        var i: u32 = 0u32;
+        while i < portal_path_count(read loop.trial.drone.cable.path) {
+            var portal: CollisionPortal = collision_portal(
+                read scene,
+                portal_path_at(read loop.trial.drone.cable.path, i)
+            );
+            residency_pin(mut state, portal.space);
+            residency_pin(mut state, portal.destination);
+            i = i + 1u32;
+        }
+    }
+    var i: u32 = 0u32;
+    while i < spark_count(read loop.sparks.storage) {
+        var item: Spark = spark_get(read loop.sparks.storage, i);
+        if item.age < item.lifetime {
+            residency_pin(mut state, item.space);
+        }
+        i = i + 1u32;
+    }
+}

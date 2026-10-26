@@ -7,7 +7,7 @@ fn reset_trial(trial: mut Trial) -> unit {
     trial.started = false;
     trial.attempt = trial.attempt + 1u32;
 }
-fn trial_step(collision: read CollisionScene, trial: mut Trial, command: Command) -> unit {
+fn trial_step_admitted(collision: read CollisionScene, trial: mut Trial, command: Command) -> CollisionAdmission {
     if command.spin {
         trial.full_spin = !trial.full_spin;
         reset_trial(mut trial);
@@ -22,7 +22,7 @@ fn trial_step(collision: read CollisionScene, trial: mut Trial, command: Command
         trial.preview_enabled = !trial.preview_enabled;
     }
     if trial.finished {
-        return;
+        return collision_ready();
     }
     if command.brake || command.tether || length(command.thrust) > 0f32 {
         trial.started = true;
@@ -34,19 +34,29 @@ fn trial_step(collision: read CollisionScene, trial: mut Trial, command: Command
             command.look,
             trial.auto_level
         );
-        return;
+        return collision_ready();
     }
     var before: Vec3 = trial.drone.position;
-    simulate(
+    var admission: CollisionAdmission = simulate_admitted(
         read collision,
         mut trial.drone,
         command,
         trial.full_spin,
         trial.auto_level
     );
+    if admission.status != 0u32 {
+        return admission;
+    }
     advance_preview_phase(mut trial, before);
     trial.tick = trial.tick + 1u32;
     if trial.graph_run {
         graph_progress(mut trial);
+    }
+    return collision_ready();
+}
+fn trial_step(collision: read CollisionScene, trial: mut Trial, command: Command) -> unit {
+    var admission: CollisionAdmission = trial_step_admitted(read collision, mut trial, command);
+    if admission.status != 0u32 {
+        scene_motion_failure();
     }
 }

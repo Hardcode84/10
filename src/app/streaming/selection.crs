@@ -1,0 +1,121 @@
+fn residency_visibility_cached(state: mut RoomResidency, graph: read RoomGraph, room: u32) -> bool {
+    if state.visibility[room as usize].count != 0u32 {
+        return true;
+    }
+    if !generation_words_allocate(mut state.visibility[room as usize], state.count) {
+        return false;
+    }
+    residency_visibility(
+        read graph,
+        room,
+        vec(0f32, 0f32, 0f32),
+        2u32,
+        mut state.visibility[room as usize]
+    );
+    return true;
+}
+fn residency_expand(
+    state: mut RoomResidency,
+    graph: read RoomGraph,
+    source: read GenerationWords,
+    target: mut GenerationWords
+) -> bool {
+    generation_words_fill(mut target, 0u32);
+    var i: u32 = 0u32;
+    while i < state.count {
+        if generation_word(read source, i) != 0u32 {
+            if !residency_visibility_cached(mut state, read graph, i) {
+                return false;
+            }
+            var j: u32 = 0u32;
+            while j < state.count {
+                if generation_word(read state.visibility[i as usize], j) != 0u32 {
+                    generation_word_set(mut target, j, 1u32);
+                }
+                j = j + 1u32;
+            }
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+// Wave zero is mandatory, wave one is prefetched, and wave two retains cache entries.
+fn residency_select(
+    state: mut RoomResidency,
+    graph: read RoomGraph,
+    room: u32,
+    audio: bool
+) -> bool {
+    if state.home != room {
+        if !residency_visibility_cached(mut state, read graph, room) {
+            return false;
+        }
+        memcpy(
+            state.wanted.data as *u8,
+            state.visibility[room as usize].data as *u8,
+            state.count as usize * 4usize
+        );
+        if !residency_expand(mut state, read graph, read state.wanted, mut state.ahead) || !residency_expand(
+            mut state,
+            read graph,
+            read state.ahead,
+            mut state.keep
+        ) {
+            return false;
+        }
+        if audio {
+            residency_audio(mut state, read graph, room);
+        }
+        memcpy(
+            state.base.data as *u8,
+            state.wanted.data as *u8,
+            state.count as usize * 4usize
+        );
+        memcpy(
+            state.retained.data as *u8,
+            state.keep.data as *u8,
+            state.count as usize * 4usize
+        );
+        state.home = room;
+    }
+    memcpy(
+        state.wanted.data as *u8,
+        state.base.data as *u8,
+        state.count as usize * 4usize
+    );
+    memcpy(
+        state.keep.data as *u8,
+        state.retained.data as *u8,
+        state.count as usize * 4usize
+    );
+    return true;
+}
+// Sound obstruction can visit any path above the transmission threshold.
+fn residency_audio(state: mut RoomResidency, graph: read RoomGraph, room: u32) -> unit {
+    generation_words_fill(mut state.distance, 0xffffffffu32);
+    generation_word_set(mut state.distance, room, 0u32);
+    var depth: u32 = 0u32;
+    var gain: f32 = 1f32;
+    while gain >= ACOUSTIC_THRESHOLD {
+        var i: u32 = 0u32;
+        while i < state.count {
+            if generation_word(read state.distance, i) == depth {
+                generation_word_set(mut state.wanted, i, 1u32);
+                generation_word_set(mut state.keep, i, 1u32);
+                var node: GraphNode = graph_node(read graph, i);
+                var p: u32 = 0u32;
+                while p < node.count {
+                    var link: GraphSocket = graph_socket(read graph, node.first + p);
+                    var next: u32 = graph_socket(read graph, link.peer).room;
+                    if generation_word(read state.distance, next) == 0xffffffffu32 {
+                        generation_word_set(mut state.distance, next, depth + 1u32);
+                    }
+                    p = p + 1u32;
+                }
+            }
+            i = i + 1u32;
+        }
+        gain = gain * ACOUSTIC_TRANSMISSION;
+        depth = depth + 1u32;
+    }
+}

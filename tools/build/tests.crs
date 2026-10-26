@@ -33,7 +33,16 @@ fn build_render_tests(
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
     var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 96] = uninit;
+    var providers: **u8 = crust_try_alloc(
+        root -> context,
+        (
+            render_providers(root, null(**u8)) + game_providers(root, null(**u8)) + 16usize
+        ) * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if providers == null(**u8) {
+        return false;
+    }
     var source_count: usize = demo_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + demo_providers(root, &providers[provider_count]);
@@ -91,7 +100,16 @@ fn build_game_tests(
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
     var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 96] = uninit;
+    var providers: **u8 = crust_try_alloc(
+        root -> context,
+        (
+            render_providers(root, null(**u8)) + game_providers(root, null(**u8)) + 16usize
+        ) * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if providers == null(**u8) {
+        return false;
+    }
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + game_providers(root, &providers[provider_count]);
@@ -173,7 +191,16 @@ fn build_viewer_tests(
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
     var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 96] = uninit;
+    var providers: **u8 = crust_try_alloc(
+        root -> context,
+        (
+            render_providers(root, null(**u8)) + game_providers(root, null(**u8)) + 16usize
+        ) * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if providers == null(**u8) {
+        return false;
+    }
     var source_count: usize = game_sources(root, &sources[0usize]);
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + game_providers(root, &providers[provider_count]);

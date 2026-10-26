@@ -1,6 +1,6 @@
 # Web labyrinth demo
 
-The browser runs the labyrinth demo. Rules, generated assets, collision, flight,
+The browser runs the main service-network game. Rules, generated assets, collision, flight,
 tether, portal traversal, HUD, and shader sources are shared with the native demo.
 The selected-level demo and asset viewer keep their native entry points.
 
@@ -11,7 +11,7 @@ Build on Linux x86-64. First follow the seed bootstrap in the
 support, and sha256sum. Do not install Node.js or npm.
 
 ```sh
-crust labyrinth.crs --web
+crust main.crs --web
 bun tools/web/serve.mjs
 ```
 
@@ -159,9 +159,9 @@ open. Use the browser's normal GPU configuration. For a local headless Chromium
 check, Vulkan and unsafe WebGPU flags can be required by that browser build.
 
 ```sh
-crust labyrinth.crs --build-only
-crust labyrinth.crs --web
-bun tests/web/check.mjs
+crust main.crs --build-only
+crust main.crs --web
+bun tests/web/check.mjs --main
 ```
 
 Set `BROWSER_CDP` and `GAME_URL` to select different local endpoints. The check

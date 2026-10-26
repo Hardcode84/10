@@ -1,0 +1,180 @@
+record ResidencyFlow {
+    source: ResidencyPolygon;
+    pass: ResidencyPolygon;
+    root: ResidencyPlane;
+    pose: SpaceTransform;
+    eye: Vec3;
+    room: u32;
+    incoming: u32;
+    depth: u32;
+    mode: u32;
+}
+record ResidencyStats {
+    visits: u32;
+    exhausted: bool;
+}
+fn residency_identity() -> SpaceTransform {
+    return make SpaceTransform {
+        factor: 1f32,
+        origin: vec(0f32, 0f32, 0f32),
+        basis: identity_basis()
+    };
+}
+fn residency_port_plane(port: RoomPort, pose: SpaceTransform) -> ResidencyPlane {
+    return make ResidencyPlane {
+        normal: basis_vector(pose.basis, port.basis.forward),
+        origin: space_point(pose, port.position)
+    };
+}
+fn residency_child(graph: read RoomGraph, socket: u32, parent: ResidencyFlow) -> ResidencyFlow {
+    var a: GraphSocket = graph_socket(read graph, socket);
+    var b: GraphSocket = graph_socket(read graph, a.peer);
+    var result: ResidencyFlow = parent;
+    result.pose = space_compose(
+        parent.pose,
+        space_inverse(connection_transform(a.port, b.port, a.roll))
+    );
+    result.room = b.room;
+    result.incoming = a.peer;
+    result.depth = parent.depth + 1u32;
+    return result;
+}
+fn residency_flow_clip(
+    parent: read ResidencyFlow,
+    plane: ResidencyPlane,
+    source: mut ResidencyPolygon,
+    target: mut ResidencyPolygon
+) -> bool {
+    if !residency_clip(mut target, parent.root) || !residency_clip(
+        mut source,
+        make ResidencyPlane {
+            normal: scale(plane.normal, -1f32),
+            origin: plane.origin
+        }
+    ) {
+        return false;
+    }
+    if parent.mode == 2u32 && parent.pass.count != 0u32 {
+        return residency_separators(read source, read parent.pass, mut target, false) && residency_separators(
+            read parent.pass,
+            read source,
+            mut target,
+            true
+        );
+    }
+    if parent.mode == 3u32 {
+        return residency_eye_clip(parent.eye, read parent.pass, mut target);
+    }
+    return true;
+}
+fn residency_flow(
+    graph: read RoomGraph,
+    state: ResidencyFlow,
+    visible: mut GenerationWords,
+    stats: mut ResidencyStats
+) -> bool {
+    stats.visits = stats.visits + 1u32;
+    if stats.visits > RESIDENCY_VIS_WORK || state.depth >= RESIDENCY_VIS_DEPTH {
+        return false;
+    }
+    generation_word_set(mut visible, state.room, 1u32);
+    var node: GraphNode = graph_node(read graph, state.room);
+    var i: u32 = 0u32;
+    while i < node.count {
+        var socket: u32 = node.first + i;
+        if socket != state.incoming && !residency_flow_port(
+            read graph,
+            socket,
+            read state,
+            mut visible,
+            mut stats
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn residency_flow_port(
+    graph: read RoomGraph,
+    socket: u32,
+    parent: read ResidencyFlow,
+    visible: mut GenerationWords,
+    stats: mut ResidencyStats
+) -> bool {
+    var port: RoomPort = graph_socket(read graph, socket).port;
+    var target: ResidencyPolygon = residency_polygon_port(port, parent.pose);
+    if target.count == 0u32 {
+        return false;
+    }
+    var source: ResidencyPolygon = parent.source;
+    var plane: ResidencyPlane = residency_port_plane(port, parent.pose);
+    if !residency_flow_clip(read parent, plane, mut source, mut target) {
+        return false;
+    }
+    if source.count == 0u32 || target.count == 0u32 {
+        return true;
+    }
+    var child: ResidencyFlow = residency_child(read graph, socket, parent);
+    child.source = source;
+    child.pass = target;
+    return residency_flow(read graph, child, mut visible, mut stats);
+}
+fn residency_visibility(
+    graph: read RoomGraph,
+    room: u32,
+    eye: Vec3,
+    mode: u32,
+    visible: mut GenerationWords
+) -> ResidencyStats {
+    generation_words_fill(mut visible, 0u32);
+    generation_word_set(mut visible, room, 1u32);
+    var stats: ResidencyStats = make ResidencyStats {
+        visits: 0u32,
+        exhausted: false
+    };
+    if mode == 0u32 {
+        generation_words_fill(mut visible, 1u32);
+        return stats;
+    }
+    var node: GraphNode = graph_node(read graph, room);
+    var i: u32 = 0u32;
+    while i < node.count {
+        var socket: u32 = node.first + i;
+        var port: RoomPort = graph_socket(read graph, socket).port;
+        var state: ResidencyFlow = uninit;
+        state.pose = residency_identity();
+        state.source = residency_polygon_port(port, state.pose);
+        state.pass = state.source;
+        if mode != 3u32 {
+            state.pass.count = 0u32;
+        }
+        state.root = residency_port_plane(port, state.pose);
+        state.depth = 0u32;
+        state.mode = mode;
+        state.eye = eye;
+        state.room = room;
+        state.incoming = 0xffffffffu32;
+        if state.source.count == 0u32 || !residency_flow(
+            read graph,
+            residency_child(read graph, socket, state),
+            mut visible,
+            mut stats
+        ) {
+            stats.exhausted = true;
+            generation_words_fill(mut visible, 1u32);
+            return stats;
+        }
+        i = i + 1u32;
+    }
+    return stats;
+}
+fn residency_members(words: read GenerationWords, count: u32) -> u32 {
+    var total: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < count {
+        total = total + generation_word(read words, i);
+        i = i + 1u32;
+    }
+    return total;
+}

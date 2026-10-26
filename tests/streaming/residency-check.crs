@@ -1,0 +1,139 @@
+fn residency_test_loop() -> GameLoop {
+    return make GameLoop {
+        sparks: sparks_new(),
+        trial: new_trial(),
+        input: input_new(),
+        ticks: 0u32,
+        credit: 0u64,
+        running: true
+    };
+}
+fn residency_test(reference: GameSession, streamed: GameSession, config: GameConfig) -> bool {
+    var full: CollisionScene = collision_new();
+    var scene: CollisionScene = collision_new();
+    var before: GameLoop = residency_test_loop();
+    var after: GameLoop = residency_test_loop();
+    game_residency_enable(mut streamed);
+    if !game_run_setup(mut reference, mut full, mut before, config) || !game_run_setup(
+        mut streamed,
+        mut scene,
+        mut after,
+        config
+    ) {
+        return false;
+    }
+    reference.renderer.state.read_pixels = true;
+    streamed.renderer.state.read_pixels = true;
+    var pixels: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut pixels, config.width * config.height) {
+        return false;
+    }
+    var count: u32 = graph_count(read reference.control.graph);
+    var stops: [u32; 4] = make [u32; 4] {
+        0u32,
+        count - 1u32,
+        count / 2u32,
+        0u32
+    };
+    var step: usize = 0usize;
+    var visits: u32 = 0u32;
+    var crossings: u32 = 0u32;
+    while step < 4usize {
+        var node: GraphNode = graph_node(read reference.control.graph, stops[step]);
+        if node.count != 0u32 && stream_camera(
+            read full,
+            read reference.control.graph,
+            node.first,
+            mut before.trial.drone
+        ) {
+            visits = visits + 1u32;
+            hook_disconnect(mut before.trial.drone);
+            before.trial.drone.velocity = scale(before.trial.drone.basis.forward, 8f32);
+            before.trial.started = true;
+            if !stream_rebuild_hook(read full, mut before.trial.drone) {
+                return false;
+            }
+            assign_trial(mut after.trial, read before.trial);
+            if !game_residency_frame(mut scene, mut streamed, mut after) || !residency_test_motion(
+                mut full,
+                mut scene,
+                mut reference,
+                mut streamed,
+                mut before,
+                mut after,
+                config,
+                mut pixels
+            ) {
+                return false;
+            }
+            crossings = crossings + (after.trial.drone.world != stops[step]) as u32;
+        }
+        step = step + 1usize;
+    }
+    var live: u32 = 0u32;
+    var room: u32 = 0u32;
+    while room < count {
+        live = live + streamed.control.residency.rooms[room as usize].ready as u32;
+        room = room + 1u32;
+    }
+    puts("room residency: current / total / arenas");
+    print_number(live as i64);
+    print_number(count as i64);
+    print_number(streamed.control.residency.arena_count as i64);
+    puts("visits with portal crossings");
+    print_number(crossings as i64);
+    if visits != 4u32 || live == count || crossings == 0u32 {
+        return error(
+            "residency check needs four valid visits, portal traversal, and evicted rooms"
+        );
+    }
+    return game_finish(mut reference) && game_finish(mut streamed);
+}
+fn residency_test_motion(
+    full: mut CollisionScene,
+    scene: mut CollisionScene,
+    reference: mut GameSession,
+    streamed: mut GameSession,
+    before: mut GameLoop,
+    after: mut GameLoop,
+    config: GameConfig,
+    pixels: mut GenerationWords
+) -> bool {
+    var tick: u32 = 0u32;
+    while tick < 24u32 {
+        var command: Command = idle_command();
+        trial_step(read full, mut before.trial, command);
+        if !game_residency_trial(mut scene, mut streamed.control, mut after, command) || trial_hash(
+            read before.trial
+        ) != trial_hash(read after.trial) {
+            return error("streamed flight differs from full residency");
+        }
+        tick = tick + 1u32;
+    }
+    if !game_residency_frame(mut scene, mut streamed, mut after) || !stream_draw(
+        read full,
+        mut reference,
+        read before,
+        config
+    ) {
+        return false;
+    }
+    stream_pixels(
+        &reference.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        true
+    );
+    if !stream_draw(read scene, mut streamed, read after, config) {
+        return false;
+    }
+    var changed: u32 = stream_pixels(
+        &streamed.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        false
+    );
+    puts("resident image differences");
+    print_number(changed as i64);
+    return changed == 0u32 || error("streamed frame differs from full residency");
+}

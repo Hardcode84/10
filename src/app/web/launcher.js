@@ -1,5 +1,7 @@
 'use strict';
 const form = document.querySelector('#setup');
+form.elements.scaling.disabled = !scalingCourse;
+form.elements.scaling.parentElement.hidden = !scalingCourse;
 const canvas = document.querySelector('#canvas');
 const start = document.querySelector('#start');
 const status = document.querySelector('#status');
@@ -76,7 +78,7 @@ form.addEventListener('submit', event => {
   game.profileGPU = form.elements['profile-gpu'].checked;
   const args = [];
   for (const name of ['seed','complexity','width','height','fov','ticks','volume']) args.push('--'+name, form.elements[name].value);
-  for (const name of ['fullscreen','slow','full-spin','headless','scaling','mute']) if(form.elements[name].checked) args.push('--'+name);
+  for (const name of ['fullscreen','slow','full-spin','headless','scaling','mute']) if(!form.elements[name].disabled && form.elements[name].checked) args.push('--'+name);
   if(form.elements['debug-shaders'].checked) args.push('--debug-shaders','1');
   if(form.elements.record.checked) args.push('--record','/flight.swr');
   if(form.elements.capture.checked) args.push('--capture','/capture.ppm');

@@ -15,6 +15,10 @@ if !project_render(run, stages, &backend) {
 host_source(run, "tools/build/game.crs");
 host_source(run, "tools/build/demo-level.crs");
 var recipe: *u8 = host_path(run, "levels/service.crs");
+host_source(run, "tools/build/web.crs");
+if run -> argc == 1i32 && cache_strcmp(run -> argv[0usize], "--web") == 0i32 {
+    return (!build_web(run, backend.emit, recipe)) as i32;
+};
 if !check_renderer(run) || !build_demo_target(
     run,
     backend.emit,
