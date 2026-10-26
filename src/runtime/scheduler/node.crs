@@ -1,0 +1,128 @@
+fn scheduler_node_release(node: *SchedulerNode) -> unit {
+    if !reference_release(&node -> references) {
+        return;
+    }
+    var scope: *SchedulerScope = node -> scope;
+    scheduler_event_release(node -> event);
+    scheduler_release(node as *u8);
+    scheduler_scope_release(scope);
+}
+fn scheduler_ready_locked(node: *SchedulerNode) -> unit {
+    if node -> state != 0u32 {
+        return;
+    }
+    if node -> pending != 0u32 && node -> outcome == 0u32 && !node -> scope -> cancelled {
+        return;
+    }
+    node -> state = 1u32;
+    scheduler_enqueue(node, false);
+}
+fn scheduler_notify(edge: *SchedulerEdge, outcome: u32) -> unit {
+    var node: *SchedulerNode = edge -> target;
+    service_lock(node -> scope -> runtime -> gate);
+    node -> pending = node -> pending - 1u32;
+    if outcome != SCHED_OK && node -> outcome == 0u32 {
+        node -> outcome = outcome;
+    }
+    scheduler_ready_locked(node);
+    service_unlock(node -> scope -> runtime -> gate);
+}
+fn scheduler_subscribe(node: *SchedulerNode, edge: *SchedulerEdge) -> unit {
+    var event: *SchedulerEvent = edge -> event;
+    var runtime: *SchedulerRuntime = node -> scope -> runtime;
+    edge -> target = node;
+    reference_retain(&node -> references);
+    service_lock(runtime -> gate);
+    node -> pending = node -> pending + 1u32;
+    service_unlock(runtime -> gate);
+    service_lock(event -> runtime -> gate);
+    var outcome: u32 = event -> outcome;
+    if outcome == 0u32 {
+        edge -> next = event -> waiters;
+        event -> waiters = edge;
+    }
+    service_unlock(event -> runtime -> gate);
+    if outcome != 0u32 {
+        scheduler_notify(edge, outcome);
+        scheduler_release(edge as *u8);
+        scheduler_event_release(event);
+        scheduler_node_release(node);
+    }
+}
+fn scheduler_register(node: *SchedulerNode, deps: Dependencies) -> unit {
+    var runtime: *SchedulerRuntime = node -> scope -> runtime;
+    service_lock(runtime -> gate);
+    node -> state = 4u32;
+    node -> pending = node -> pending + 1u32;
+    if deps.error != 0u32 && node -> outcome == 0u32 {
+        node -> outcome = deps.error;
+    }
+    service_unlock(runtime -> gate);
+    var edge: *SchedulerEdge = deps.first;
+    deps.first = null(*SchedulerEdge);
+    while edge != null(*SchedulerEdge) {
+        var next: *SchedulerEdge = edge -> next;
+        scheduler_subscribe(node, edge);
+        edge = next;
+    }
+    service_lock(runtime -> gate);
+    node -> pending = node -> pending - 1u32;
+    node -> state = 0u32;
+    scheduler_ready_locked(node);
+    service_unlock(runtime -> gate);
+}
+fn scheduler_scope_unlink(node: *SchedulerNode) -> unit {
+    if node -> scope_prev == null(*SchedulerNode) {
+        node -> scope -> tasks = node -> scope_next;
+    } else {
+        node -> scope_prev -> scope_next = node -> scope_next;
+    }
+    if node -> scope_next != null(*SchedulerNode) {
+        node -> scope_next -> scope_prev = node -> scope_prev;
+    }
+}
+fn scheduler_retire(node: *SchedulerNode, outcome: u32) -> unit {
+    var scope: *SchedulerScope = node -> scope;
+    service_lock(scope -> runtime -> gate);
+    node -> state = 3u32;
+    scheduler_scope_unlink(node);
+    service_unlock(scope -> runtime -> gate);
+    scheduler_resolve(node -> event, outcome);
+    node -> release(node -> payload);
+    scheduler_node_release(node);
+    scheduler_scope_done(scope, outcome);
+}
+fn scheduler_run(node: *SchedulerNode) -> unit {
+    var scope: *SchedulerScope = node -> scope;
+    service_lock(scope -> runtime -> gate);
+    node -> state = 2u32;
+    var error: u32 = node -> outcome;
+    if scope -> cancelled {
+        error = SCHED_CANCELLED;
+    }
+    service_unlock(scope -> runtime -> gate);
+    if error != 0u32 {
+        scheduler_retire(node, error);
+        return;
+    }
+    reference_retain(&scope -> references);
+    var context: Context = make Context {
+        scope: scope,
+        child: true,
+        thread: scheduler_thread_id()
+    };
+    var step: Step = node -> execute(node -> payload, read context);
+    drop context;
+    if step.kind == 0u32 {
+        scheduler_retire(node, step.error);
+    } else if step.kind == 1u32 || (
+        step.dependencies.first == null(*SchedulerEdge) && step.dependencies.error == 0u32
+    ) {
+        service_lock(scope -> runtime -> gate);
+        node -> state = 1u32;
+        service_unlock(scope -> runtime -> gate);
+        scheduler_enqueue(node, true);
+    } else {
+        scheduler_register(node, step_dependencies(mut step));
+    }
+}

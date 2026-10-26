@@ -1,0 +1,14 @@
+record Borrowed {
+    value: read Context;
+}
+fn reject_callback(state: mut Borrowed, context: read Context) -> Step {
+    return done();
+}
+fn bad(context: read Context, state: Borrowed) -> unit {
+    var task: Task!(Borrowed) = spawn!(Borrowed)(
+        read context,
+        move state,
+        reject_callback,
+        deps_new()
+    );
+}

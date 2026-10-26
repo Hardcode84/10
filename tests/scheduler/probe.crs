@@ -1,0 +1,177 @@
+record ProbeData {
+    references: i32;
+    count: i32;
+    drops: i32;
+    entered: *u8;
+    release: *u8;
+}
+opaque;
+resource Probe {
+    data: *ProbeData;
+}
+opaque send share drop probe_drop;
+fn probe_new() -> Probe {
+    var data: *ProbeData = service_allocate(1usize, sizeof(ProbeData)) as *ProbeData;
+    if data == null(*ProbeData) {
+        trap;
+    }
+    data -> references = 1i32;
+    data -> entered = service_sem_create(0u32);
+    data -> release = service_sem_create(0u32);
+    if data -> entered == null(*u8) || data -> release == null(*u8) {
+        trap;
+    }
+    return make Probe {
+        data: data
+    };
+}
+fn probe_clone(probe: read Probe) -> Probe {
+    reference_retain(&probe.data -> references);
+    return make Probe {
+        data: probe.data
+    };
+}
+fn probe_drop(probe: mut Probe) -> unit {
+    if !reference_release(&probe.data -> references) {
+        return;
+    }
+    service_sem_destroy(probe.data -> entered);
+    service_sem_destroy(probe.data -> release);
+    service_free(probe.data as *u8);
+}
+fn probe_count(probe: read Probe) -> i32 {
+    return reference_add(&probe.data -> count, 0i32);
+}
+fn probe_add(probe: read Probe) -> unit {
+    reference_add(&probe.data -> count, 1i32);
+}
+fn probe_dropped(probe: read Probe) -> unit {
+    reference_add(&probe.data -> drops, 1i32);
+}
+fn probe_drops(probe: read Probe) -> i32 {
+    return reference_add(&probe.data -> drops, 0i32);
+}
+fn probe_enter(probe: read Probe) -> unit {
+    service_post(probe.data -> entered);
+}
+fn probe_entered(probe: read Probe) -> unit {
+    service_wait(probe.data -> entered);
+}
+fn probe_release(probe: read Probe) -> unit {
+    service_post(probe.data -> release);
+}
+fn probe_wait(probe: read Probe) -> unit {
+    service_wait(probe.data -> release);
+}
+fn check(value: bool, message: *u8) -> unit {
+    if !value {
+        service_print(message);
+        scheduler_flush(null(*u8));
+        scheduler_abort();
+    }
+}
+fn scheduler_test_slots(scheduler: read Scheduler) -> u64 {
+    service_lock(scheduler.runtime -> memory);
+    var count: u64 = 0u64;
+    var chunk: *SchedulerChunk = scheduler.runtime -> chunks;
+    while chunk != null(*SchedulerChunk) {
+        count = count + chunk -> used as u64;
+        chunk = chunk -> next;
+    }
+    service_unlock(scheduler.runtime -> memory);
+    return count;
+}
+record CompletionWork {
+    token: Completion;
+    gate: Probe;
+}
+opaque;
+resource CompletionThread {
+    thread: *u8;
+}
+opaque drop completion_thread_drop;
+fn completion_thread_run(data: *u8) -> i32 {
+    var work: *CompletionWork = data as *CompletionWork;
+    probe_wait(read work -> gate);
+    complete(move work -> token);
+    drop work -> gate;
+    service_free(data);
+    return 0i32;
+}
+fn completion_thread(token: Completion, gate: read Probe) -> CompletionThread transfers(token) {
+    var work: *CompletionWork = service_allocate(1usize, sizeof(CompletionWork)) as *CompletionWork;
+    if work == null(*CompletionWork) {
+        trap;
+    }
+    * work = make CompletionWork {
+        token: move token,
+        gate: probe_clone(read gate)
+    };
+    var thread: *u8 = service_thread_create(
+        completion_thread_run,
+        "external test",
+        work as *u8
+    );
+    if thread == null(*u8) {
+        trap;
+    }
+    return make CompletionThread {
+        thread: thread
+    };
+}
+fn completion_thread_drop(thread: mut CompletionThread) -> unit {
+    service_thread_join(thread.thread, null(*i32));
+}
+extern fn scheduler_test_compare(a: *u8, b: *u8) -> i32 = "strcmp";
+extern fn scheduler_test_contains(a: *u8, b: *u8) -> *u8 = "strstr";
+extern fn scheduler_test_process(args: **u8, pipe: bool) -> *u8 = "SDL_CreateProcess";
+extern fn scheduler_test_read(process: *u8, size: *usize, result: *i32) -> *u8 = "SDL_ReadProcess";
+extern fn scheduler_test_process_drop(process: *u8) -> unit = "SDL_DestroyProcess";
+extern fn scheduler_test_free(data: *u8) -> unit = "SDL_free";
+fn scheduler_test_mode(argc: i32, argv: **u8) -> u32 {
+    if argc < 2i32 {
+        return 0u32;
+    }
+    return (argv[1usize][0usize] - 48u8) as u32;
+}
+fn scheduler_test_deaths(argv: **u8) -> unit {
+    var modes: [*u8; 7] = make [*u8; 7] {
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7"
+    };
+    var messages: [*u8; 7] = make [*u8; 7] {
+        "taking empty task",
+        "unresolved external completion",
+        "unresolved external completion",
+        "scheduler dropped with live scopes",
+        "event_error requires",
+        "taking pending task",
+        "scheduler blocking operation on worker"
+    };
+    var i: usize = 0usize;
+    while i < 7usize {
+        var args: [*u8; 3] = make [*u8; 3] {
+            argv[0usize],
+            modes[i],
+            null(*u8)
+        };
+        var process: *u8 = scheduler_test_process(&args[0usize], true);
+        check(process != null(*u8), "death test start");
+        var size: usize = 0usize;
+        var code: i32 = 0i32;
+        var output: *u8 = scheduler_test_read(process, &size, &code);
+        check(code != 0i32 && output != null(*u8), "death test did not fail");
+        check(
+            scheduler_test_contains(output, messages[i]) != null(*u8),
+            "wrong contract diagnostic"
+        );
+        scheduler_test_free(output);
+        scheduler_test_process_drop(process);
+        i = i + 1usize;
+    }
+}

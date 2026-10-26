@@ -1,0 +1,179 @@
+fn scheduler_event_new(runtime: *SchedulerRuntime) -> *SchedulerEvent {
+    var event: *SchedulerEvent = scheduler_allocate(runtime, sizeof(SchedulerEvent)) as *SchedulerEvent;
+    if event == null(*SchedulerEvent) {
+        return event;
+    }
+    scheduler_retain(runtime);
+    *event = make SchedulerEvent {
+        references: 1i32,
+        runtime: runtime,
+        outcome: 0u32,
+        waiters: null(*SchedulerEdge)
+    };
+    return event;
+}
+fn scheduler_event_release(event: *SchedulerEvent) -> unit {
+    if event == null(*SchedulerEvent) || !reference_release(&event -> references) {
+        return;
+    }
+    var runtime: *SchedulerRuntime = event -> runtime;
+    scheduler_release(event as *u8);
+    scheduler_runtime_release(runtime);
+}
+fn event_drop(event: mut Event) -> unit {
+    scheduler_event_release(event.state);
+}
+fn event_clone(event: read Event) -> Event {
+    if event.state != null(*SchedulerEvent) {
+        reference_retain(&event.state -> references);
+    }
+    return make Event {
+        state: event.state,
+        outcome: event.outcome
+    };
+}
+fn scheduler_event_handle(event: *SchedulerEvent) -> Event {
+    reference_retain(&event -> references);
+    return make Event {
+        state: event,
+        outcome: 0u32
+    };
+}
+fn event_failed(code: u32) -> Event {
+    return make Event {
+        state: null(*SchedulerEvent),
+        outcome: code
+    };
+}
+fn event_status(event: read Event) -> u32 {
+    if event.state == null(*SchedulerEvent) {
+        return event.outcome;
+    }
+    service_lock(event.state -> runtime -> gate);
+    var result: u32 = event.state -> outcome;
+    service_unlock(event.state -> runtime -> gate);
+    return result;
+}
+fn event_join(event: read Event) -> bool {
+    if event.state == null(*SchedulerEvent) {
+        return event.outcome == SCHED_OK;
+    }
+    var runtime: *SchedulerRuntime = event.state -> runtime;
+    scheduler_require_caller(runtime);
+    service_lock(runtime -> gate);
+    while event.state -> outcome == 0u32 {
+        scheduler_condition_wait(runtime -> changed, runtime -> gate);
+    }
+    var result: bool = event.state -> outcome == SCHED_OK;
+    service_unlock(runtime -> gate);
+    return result;
+}
+fn event_error(event: read Event) -> TaskError {
+    var status: u32 = event_status(read event);
+    if status < SCHED_CANCELLED {
+        scheduler_panic("event_error requires unsuccessful completion");
+    }
+    return make TaskError {
+        code: status
+    };
+}
+fn scheduler_resolve(event: *SchedulerEvent, outcome: u32) -> unit {
+    var runtime: *SchedulerRuntime = event -> runtime;
+    service_lock(runtime -> gate);
+    if event -> outcome != 0u32 {
+        scheduler_panic("event completed twice");
+    }
+    event -> outcome = outcome;
+    var edges: *SchedulerEdge = event -> waiters;
+    event -> waiters = null(*SchedulerEdge);
+    scheduler_condition_wake(runtime -> changed);
+    service_unlock(runtime -> gate);
+    while edges != null(*SchedulerEdge) {
+        var next: *SchedulerEdge = edges -> next;
+        scheduler_notify(edges, outcome);
+        scheduler_node_release(edges -> target);
+        var owner: *SchedulerEvent = edges -> event;
+        scheduler_release(edges as *u8);
+        scheduler_event_release(owner);
+        edges = next;
+    }
+}
+fn deps_new() -> Dependencies {
+    return make Dependencies {
+        first: null(*SchedulerEdge),
+        error: 0u32
+    };
+}
+fn deps_add(deps: mut Dependencies, event: Event) -> unit {
+    if event.state == null(*SchedulerEvent) {
+        if event.outcome != SCHED_OK && deps.error == 0u32 {
+            deps.error = event.outcome;
+        }
+        return;
+    }
+    var edge: *SchedulerEdge = scheduler_allocate(
+        event.state -> runtime,
+        sizeof(SchedulerEdge)
+    ) as *SchedulerEdge;
+    if edge == null(*SchedulerEdge) {
+        deps.error = SCHED_CAPACITY;
+        return;
+    }
+    * edge = make SchedulerEdge {
+        event: event.state,
+        target: null(*SchedulerNode),
+        next: deps.first
+    };
+    event.state = null(*SchedulerEvent);
+    deps.first = edge;
+}
+fn deps_drop(deps: mut Dependencies) -> unit {
+    var edge: *SchedulerEdge = deps.first;
+    while edge != null(*SchedulerEdge) {
+        var next: *SchedulerEdge = edge -> next;
+        var event: *SchedulerEvent = edge -> event;
+        scheduler_release(edge as *u8);
+        scheduler_event_release(event);
+        edge = next;
+    }
+}
+fn done() -> Step {
+    return make Step {
+        kind: 0u32,
+        error: SCHED_OK,
+        dependencies: deps_new()
+    };
+}
+fn fail(error: TaskError) -> Step {
+    if error.code < SCHED_CANCELLED {
+        scheduler_panic("invalid task error");
+    }
+    return make Step {
+        kind: 0u32,
+        error: error.code,
+        dependencies: deps_new()
+    };
+}
+fn yield_task() -> Step {
+    return make Step {
+        kind: 1u32,
+        error: 0u32,
+        dependencies: deps_new()
+    };
+}
+fn await_tasks(deps: Dependencies) -> Step {
+    return make Step {
+        kind: 2u32,
+        error: 0u32,
+        dependencies: move deps
+    };
+}
+fn step_drop(step: mut Step) -> unit {}
+fn step_dependencies(step: mut Step) -> Dependencies {
+    var result: Dependencies = make Dependencies {
+        first: step.dependencies.first,
+        error: step.dependencies.error
+    };
+    step.dependencies.first = null(*SchedulerEdge);
+    return move result;
+}

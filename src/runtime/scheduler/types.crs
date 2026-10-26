@@ -1,0 +1,136 @@
+const SCHED_OK: u32 = 1u32;
+const SCHED_CANCELLED: u32 = 2u32;
+const SCHED_CLOSED: u32 = 3u32;
+const SCHED_CAPACITY: u32 = 4u32;
+record TaskError {
+    code: u32;
+}
+fn task_cancelled() -> TaskError {
+    return make TaskError {
+        code: SCHED_CANCELLED
+    };
+}
+record SchedulerRuntime {
+    references: i32;
+    gate: *u8;
+    memory: *u8;
+    wake: *u8;
+    changed: *u8;
+    workers: *SchedulerWorker;
+    width: u32;
+    started: u32;
+    stopping: bool;
+    scopes: u32;
+    tls: i32;
+    injection: SchedulerDeque;
+    chunks: *SchedulerChunk;
+    free: [*SchedulerBlock; 32];
+}
+opaque;
+record SchedulerBlock {
+    next: *SchedulerBlock;
+    runtime: *SchedulerRuntime;
+    bin: u32;
+    padding: u32;
+}
+opaque;
+record SchedulerChunk {
+    next: *SchedulerChunk;
+    bytes: usize;
+    used: usize;
+}
+opaque;
+record SchedulerDeque {
+    mutex: *u8;
+    first: *SchedulerNode;
+    last: *SchedulerNode;
+}
+opaque;
+record SchedulerWorker {
+    runtime: *SchedulerRuntime;
+    queue: SchedulerDeque;
+    thread: *u8;
+    index: u32;
+    turns: u32;
+}
+opaque;
+record SchedulerScope {
+    references: i32;
+    runtime: *SchedulerRuntime;
+    closed: bool;
+    cancelled: bool;
+    outstanding: u32;
+    outcome: u32;
+    finish: *SchedulerEvent;
+    tasks: *SchedulerNode;
+}
+opaque;
+record SchedulerEvent {
+    references: i32;
+    runtime: *SchedulerRuntime;
+    outcome: u32;
+    waiters: *SchedulerEdge;
+}
+opaque;
+record SchedulerEdge {
+    event: *SchedulerEvent;
+    target: *SchedulerNode;
+    next: *SchedulerEdge;
+}
+opaque;
+record SchedulerNode {
+    references: i32;
+    scope: *SchedulerScope;
+    event: *SchedulerEvent;
+    execute: fn(*u8, read Context) -> Step;
+    release: fn(*u8) -> unit;
+    payload: *u8;
+    pending: u32;
+    outcome: u32;
+    state: u32;
+    next: *SchedulerNode;
+    prev: *SchedulerNode;
+    scope_next: *SchedulerNode;
+    scope_prev: *SchedulerNode;
+}
+opaque;
+resource Scheduler {
+    runtime: *SchedulerRuntime;
+}
+opaque drop scheduler_drop;
+resource Scope {
+    state: *SchedulerScope;
+}
+opaque drop scope_drop;
+resource Context {
+    scope: *SchedulerScope;
+    child: bool;
+    thread: u64;
+}
+opaque share drop context_drop;
+resource Event {
+    state: *SchedulerEvent;
+    outcome: u32;
+}
+opaque send share drop event_drop;
+resource Dependencies {
+    first: *SchedulerEdge;
+    error: u32;
+}
+opaque send drop deps_drop;
+resource Step {
+    kind: u32;
+    error: u32;
+    dependencies: Dependencies;
+}
+opaque send drop step_drop;
+resource Completion {
+    state: *SchedulerEvent;
+    scope: *SchedulerScope;
+}
+opaque send drop completion_drop;
+resource ExternalPair {
+    event: Event;
+    completion: Completion;
+}
+opaque send drop external_pair_drop;

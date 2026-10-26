@@ -1,0 +1,24 @@
+extern fn scheduler_tls_get(id: *i32) -> *u8 = "SDL_GetTLS";
+extern fn scheduler_tls_set(id: *i32, value: *u8, destroy: fn(*u8) -> unit) -> bool = "SDL_SetTLS";
+extern fn scheduler_thread_id() -> u64 = "SDL_GetCurrentThreadID";
+extern fn scheduler_condition_new() -> *u8 = "SDL_CreateCondition";
+extern fn scheduler_condition_drop(condition: *u8) -> unit = "SDL_DestroyCondition";
+extern fn scheduler_condition_wait(condition: *u8, mutex: *u8) -> unit = "SDL_WaitCondition";
+extern fn scheduler_condition_wake(condition: *u8) -> unit = "SDL_BroadcastCondition";
+extern fn scheduler_cpu_count() -> i32 = "SDL_GetNumLogicalCPUCores";
+extern fn scheduler_abort() -> unit = "abort";
+extern fn scheduler_flush(stream: *u8) -> i32 = "fflush";
+fn scheduler_panic(message: *u8) -> unit {
+    service_print(message);
+    scheduler_flush(null(*u8));
+    scheduler_abort();
+    trap;
+}
+fn scheduler_worker_on(runtime: *SchedulerRuntime) -> *SchedulerWorker {
+    return scheduler_tls_get(&runtime -> tls) as *SchedulerWorker;
+}
+fn scheduler_require_caller(runtime: *SchedulerRuntime) -> unit {
+    if scheduler_worker_on(runtime) != null(*SchedulerWorker) {
+        scheduler_panic("scheduler blocking operation on worker");
+    }
+}

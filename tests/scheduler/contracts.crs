@@ -1,0 +1,65 @@
+fn join_step(state: mut WaitWork, context: read Context) -> Step {
+    event_join(read state.event);
+    return done();
+}
+fn test_contract(mode: u32) -> i32 {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, 1u32), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    if mode == 1u32 {
+        var task: Task!(Sum) = task_empty!(Sum)();
+        task_take!(Sum)(mut task);
+    }
+    if mode == 2u32 {
+        var pair: ExternalPair = external_begin(read context);
+        drop pair;
+    }
+    if mode == 3u32 {
+        var pair: ExternalPair = external_begin(read context);
+        var token: Completion = external_completion(move pair);
+        drop token;
+    }
+    if mode == 4u32 {
+        drop scheduler;
+        return 9i32;
+    }
+    if mode == 5u32 {
+        var event: Event = event_failed(1u32);
+        event_error(read event);
+    }
+    var pair: ExternalPair = external_begin(read context);
+    var deps: Dependencies = deps_new();
+    deps_add(mut deps, external_event(read pair));
+    if mode == 6u32 {
+        var task: Task!(Sum) = spawn!(Sum)(
+            read context,
+            make Sum {
+                next: 0u64,
+                end: 1u64,
+                result: 0u64
+            },
+            sum_step,
+            move deps
+        );
+        task_take!(Sum)(mut task);
+        return 9i32;
+    } else {
+        var probe: Probe = probe_new();
+        var task: Task!(WaitWork) = spawn!(WaitWork)(
+            read context,
+            make WaitWork {
+                event: external_event(read pair),
+                probe: move probe,
+                phase: 0u32,
+                hold: false
+            },
+            join_step,
+            deps_new()
+        );
+        var event: Event = task_event!(WaitWork)(read task);
+        event_join(read event);
+        return 9i32;
+    }
+}

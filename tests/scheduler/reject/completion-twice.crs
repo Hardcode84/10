@@ -1,0 +1,4 @@
+fn bad(token: Completion) -> unit {
+    complete(move token);
+    complete(move token);
+}

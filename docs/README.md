@@ -27,7 +27,7 @@ selecting another renderer.
 Room loading and GPU storage lifetime are specified in the
 [room streaming design](content/streaming.md).
 
-See the [autonomous scheduler design](runtime/scheduler.md) for the proposed
+See the [autonomous scheduler design](runtime/scheduler.md) for the independent native
 task API, callback examples, and external completion contract.
 
 ## Source directories
@@ -71,7 +71,8 @@ task API, callback examples, and external completion contract.
 | `tests/viewer/` | Viewer instance visibility checks |
 | `tests/assets/` | Generated room topology, spawn, and collision checks |
 | `tests/ownership/` | Ownership acceptance and rejection cases |
-| `tests/runtime/` | Focused scheduler and completion service checks |
+| `tests/runtime/` | Game executor and completion service checks |
+| `tests/scheduler/` | Independent scheduler API, concurrency, and ownership checks |
 
 ## Documents
 

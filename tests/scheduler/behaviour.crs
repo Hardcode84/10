@@ -1,0 +1,498 @@
+resource CountWork {
+    probe: Probe;
+    phase: u32;
+    gate: bool;
+}
+drop count_work_drop;
+fn count_work_drop(work: mut CountWork) -> unit {
+    probe_dropped(read work.probe);
+}
+fn count_work(probe: read Probe) -> CountWork {
+    return make CountWork {
+        probe: probe_clone(read probe),
+        phase: 0u32,
+        gate: false
+    };
+}
+fn count_step(state: mut CountWork, context: read Context) -> Step {
+    if state.gate {
+        probe_enter(read state.probe);
+        probe_wait(read state.probe);
+    }
+    probe_add(read state.probe);
+    return done();
+}
+fn test_external(width: u32) -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, width), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var probe: Probe = probe_new();
+    var pair: ExternalPair = external_begin(read context);
+    check(external_admitted(read pair), "external admitted");
+    var event: Event = external_event(read pair);
+    var token: Completion = external_completion(move pair);
+    var deps: Dependencies = deps_new();
+    deps_add(mut deps, event_clone(read event));
+    var task: Task!(CountWork) = spawn!(CountWork)(
+        read context,
+        count_work(read probe),
+        count_step,
+        move deps
+    );
+    var end: Event = scope_finish(mut scope);
+    check(probe_count(read probe) == 0i32, "ran before external");
+    complete(move token);
+    check(event_join(read end), "external scope");
+    check(probe_count(read probe) == 1i32, "external run once");
+    drop task;
+    check(probe_drops(read probe) == 1i32, "resource destructor once");
+}
+resource ChildWork {
+    child: Task!(Sum);
+    phase: u32;
+    value: u64;
+}
+drop child_work_drop;
+fn child_work_drop(work: mut ChildWork) -> unit {}
+fn child_step(state: mut ChildWork, context: read Context) -> Step {
+    if state.phase == 0u32 {
+        task_replace!(Sum)(
+            mut state.child,
+            spawn!(Sum)(
+                read context,
+                make Sum {
+                    next: 0u64,
+                    end: 1000u64,
+                    result: 0u64
+                },
+                sum_step,
+                deps_new()
+            )
+        );
+        var deps: Dependencies = deps_new();
+        deps_add(mut deps, task_event!(Sum)(read state.child));
+        state.phase = 1u32;
+        return await_tasks(move deps);
+    }
+    var result: Sum = task_take!(Sum)(mut state.child);
+    state.value = result.result;
+    return done();
+}
+fn test_child(width: u32) -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, width), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var task: Task!(ChildWork) = spawn!(ChildWork)(
+        read context,
+        make ChildWork {
+            child: task_empty!(Sum)(),
+            phase: 0u32,
+            value: 0u64
+        },
+        child_step,
+        deps_new()
+    );
+    var end: Event = scope_finish(mut scope);
+    check(event_join(read end), "child after root close");
+    var state: ChildWork = task_take!(ChildWork)(mut task);
+    check(state.value == 499500u64, "child result");
+}
+fn test_fanin(width: u32) -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, width), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var a: ExternalPair = external_begin(read context);
+    var b: ExternalPair = external_begin(read context);
+    var deps: Dependencies = deps_new();
+    deps_add(mut deps, external_event(read a));
+    deps_add(mut deps, external_event(read b));
+    var probe: Probe = probe_new();
+    var task: Task!(CountWork) = spawn!(CountWork)(
+        read context,
+        count_work(read probe),
+        count_step,
+        move deps
+    );
+    complete(external_completion(move a));
+    check(probe_count(read probe) == 0i32, "fanin early execution");
+    complete(external_completion(move b));
+    var end: Event = scope_finish(mut scope);
+    check(event_join(read end), "fanin result");
+    check(probe_count(read probe) == 1i32, "fanin once");
+}
+fn test_failed_dependency() -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, 1u32), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var probe: Probe = probe_new();
+    var pair: ExternalPair = external_begin(read context);
+    var deps: Dependencies = deps_new();
+    deps_add(mut deps, external_event(read pair));
+    var task: Task!(CountWork) = spawn!(CountWork)(
+        read context,
+        count_work(read probe),
+        count_step,
+        move deps
+    );
+    var event: Event = task_event!(CountWork)(read task);
+    complete_failed(
+        external_completion(move pair),
+        make TaskError {
+            code: 17u32
+        }
+    );
+    check(
+        !event_join(read event) && event_error(read event).code == 17u32,
+        "dependency failure reason"
+    );
+    check(probe_count(read probe) == 0i32, "failed dependency callback ran");
+    var state: CountWork = task_take!(CountWork)(mut task);
+    var end: Event = scope_finish(mut scope);
+    check(!event_join(read end), "scope failure");
+}
+fn test_cancel_waiting() -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, 2u32), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var probe: Probe = probe_new();
+    var pair: ExternalPair = external_begin(read context);
+    var external: Event = external_event(read pair);
+    var deps: Dependencies = deps_new();
+    deps_add(mut deps, event_clone(read external));
+    var task: Task!(CountWork) = spawn!(CountWork)(
+        read context,
+        count_work(read probe),
+        count_step,
+        move deps
+    );
+    var event: Event = task_event!(CountWork)(read task);
+    scope_cancel(read scope);
+    check(
+        !event_join(read event) && event_error(read event).code == 2u32,
+        "cancel suspended task"
+    );
+    check(event_status(read external) == 0u32, "cancel retired external early");
+    var end: Event = scope_finish(mut scope);
+    check(event_status(read end) == 0u32, "scope ignored pending external");
+    complete(external_completion(move pair));
+    check(!event_join(read end), "cancel scope result");
+    check(probe_count(read probe) == 0i32, "cancelled callback ran");
+}
+fn test_closed_and_reuse() -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, 2u32), "open");
+    var before: u64 = 0u64;
+    var iteration: u32 = 0u32;
+    while iteration < 20u32 {
+        {
+            var scope: Scope = scope_new();
+            check(scope_open(mut scope, read scheduler), "scope");
+            var context: Context = scope_context(read scope);
+            var probe: Probe = probe_new();
+            var pair: ExternalPair = external_begin(read context);
+            var ready: Event = external_event(read pair);
+            complete(external_completion(move pair));
+            var deps: Dependencies = deps_new();
+            deps_add(mut deps, move ready);
+            var task: Task!(CountWork) = spawn!(CountWork)(
+                read context,
+                count_work(read probe),
+                count_step,
+                move deps
+            );
+            var event: Event = task_event!(CountWork)(read task);
+            check(event_join(read event), "reuse task");
+            var end: Event = scope_finish(mut scope);
+            check(event_join(read end), "reuse finish");
+            var rejected: Task!(CountWork) = spawn!(CountWork)(
+                read context,
+                count_work(read probe),
+                count_step,
+                deps_new()
+            );
+            var error: Event = task_event!(CountWork)(read rejected);
+            check(
+                !event_join(read error) && event_error(read error).code == 3u32,
+                "closed scope accepted root"
+            );
+            var denied: ExternalPair = external_begin(read context);
+            check(!external_admitted(read denied), "closed scope external");
+        }
+        if iteration == 2u32 {
+            before = scheduler_test_slots(read scheduler);
+        }
+        if iteration > 2u32 {
+            check(scheduler_test_slots(read scheduler) == before, "steady task storage grew");
+        }
+        iteration = iteration + 1u32;
+    }
+}
+resource WaitWork {
+    event: Event;
+    probe: Probe;
+    phase: u32;
+    hold: bool;
+}
+drop wait_work_drop;
+fn wait_work_drop(work: mut WaitWork) -> unit {
+    probe_dropped(read work.probe);
+}
+fn wait_step(work: mut WaitWork, context: read Context) -> Step {
+    if work.phase == 0u32 {
+        work.phase = 1u32;
+        probe_enter(read work.probe);
+        if work.hold {
+            probe_wait(read work.probe);
+        }
+        var deps: Dependencies = deps_new();
+        deps_add(mut deps, event_clone(read work.event));
+        return await_tasks(move deps);
+    }
+    probe_add(read work.probe);
+    return done();
+}
+fn test_callback_race(hold: bool) -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, 1u32), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var probe: Probe = probe_new();
+    var pair: ExternalPair = external_begin(read context);
+    var task: Task!(WaitWork) = spawn!(WaitWork)(
+        read context,
+        make WaitWork {
+            event: external_event(read pair),
+            probe: probe_clone(read probe),
+            phase: 0u32,
+            hold: hold
+        },
+        wait_step,
+        deps_new()
+    );
+    probe_entered(read probe);
+    if !hold {
+        var sentinel: Task!(Sum) = spawn!(Sum)(
+            read context,
+            make Sum {
+                next: 0u64,
+                end: 1u64,
+                result: 0u64
+            },
+            sum_step,
+            deps_new()
+        );
+        var event: Event = task_event!(Sum)(read sentinel);
+        check(event_join(read event), "suspended task occupied worker");
+    }
+    complete(external_completion(move pair));
+    if hold {
+        probe_release(read probe);
+    }
+    var finish: Event = scope_finish(mut scope);
+    check(event_join(read finish), "resume race");
+    check(probe_count(read probe) == 1i32, "continuation ran twice");
+}
+fn steal_child(work: mut CountWork, context: read Context) -> Step {
+    probe_add(read work.probe);
+    probe_enter(read work.probe);
+    return done();
+}
+fn steal_parent(work: mut CountWork, context: read Context) -> Step {
+    if work.phase != 0u32 {
+        return done();
+    }
+    work.phase = 1u32;
+    var deps: Dependencies = deps_new();
+    var i: u32 = 0u32;
+    while i < 16u32 {
+        var child: Task!(CountWork) = spawn!(CountWork)(
+            read context,
+            count_work(read work.probe),
+            steal_child,
+            deps_new()
+        );
+        deps_add(mut deps, task_event!(CountWork)(read child));
+        i = i + 1u32;
+    }
+    probe_enter(read work.probe);
+    probe_wait(read work.probe);
+    return await_tasks(move deps);
+}
+fn test_stealing() -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, 4u32), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var probe: Probe = probe_new();
+    var parent: Task!(CountWork) = spawn!(CountWork)(
+        read context,
+        count_work(read probe),
+        steal_parent,
+        deps_new()
+    );
+    var i: u32 = 0u32;
+    while i < 17u32 {
+        probe_entered(read probe);
+        i = i + 1u32;
+    }
+    check(probe_count(read probe) == 16i32, "children did not progress independently");
+    probe_release(read probe);
+    var finish: Event = scope_finish(mut scope);
+    check(event_join(read finish), "steal parent completion");
+}
+fn test_cancel_running() -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, 1u32), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var probe: Probe = probe_new();
+    var work: CountWork = count_work(read probe);
+    work.gate = true;
+    var running: Task!(CountWork) = spawn!(CountWork)(
+        read context,
+        move work,
+        count_step,
+        deps_new()
+    );
+    probe_entered(read probe);
+    var queued: Task!(CountWork) = spawn!(CountWork)(
+        read context,
+        count_work(read probe),
+        count_step,
+        deps_new()
+    );
+    scope_cancel(read scope);
+    probe_release(read probe);
+    var finish: Event = scope_finish(mut scope);
+    check(!event_join(read finish), "cancel running scope");
+    check(probe_count(read probe) == 1i32, "queued task ran after cancellation");
+}
+fn detached_result() -> Task!(Sum) {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, 2u32), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var task: Task!(Sum) = spawn!(Sum)(
+        read context,
+        make Sum {
+            next: 0u64,
+            end: 10u64,
+            result: 0u64
+        },
+        sum_step,
+        deps_new()
+    );
+    var finish: Event = scope_finish(mut scope);
+    check(event_join(read finish), "retained result finish");
+    return move task;
+}
+fn test_retained_result() -> unit {
+    var task: Task!(Sum) = detached_result();
+    var event: Event = task_event!(Sum)(read task);
+    check(event_join(read event), "event after shutdown");
+    var result: Sum = task_take!(Sum)(mut task);
+    check(result.result == 45u64, "result after shutdown");
+}
+fn test_capacity() -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open_capacity(mut scheduler, 1u32, 2048usize), "small open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "small scope");
+    var context: Context = scope_context(read scope);
+    var probe: Probe = probe_new();
+    var events: Dependencies = deps_new();
+    var pair: ExternalPair = external_begin(read context);
+    check(external_admitted(read pair), "small external");
+    var rejected: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < 32u32 {
+        var deps: Dependencies = deps_new();
+        deps_add(mut deps, external_event(read pair));
+        var task: Task!(CountWork) = spawn!(CountWork)(
+            read context,
+            count_work(read probe),
+            count_step,
+            move deps
+        );
+        var event: Event = task_event!(CountWork)(read task);
+        if event_status(read event) > 1u32 {
+            rejected = rejected + 1u32;
+        }
+        i = i + 1u32;
+    }
+    check(rejected > 0u32, "capacity not enforced");
+    complete(external_completion(move pair));
+    var finish: Event = scope_finish(mut scope);
+    event_join(read finish);
+    drop context;
+    drop scope;
+    check(scheduler_reserve(read scheduler, 8192usize), "explicit growth");
+}
+fn test_external_thread() -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, 4u32), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var probe: Probe = probe_new();
+    var pair: ExternalPair = external_begin(read context);
+    var task: Task!(WaitWork) = spawn!(WaitWork)(
+        read context,
+        make WaitWork {
+            event: external_event(read pair),
+            probe: probe_clone(read probe),
+            phase: 0u32,
+            hold: false
+        },
+        wait_step,
+        deps_new()
+    );
+    var producer: CompletionThread = completion_thread(
+        external_completion(move pair),
+        read probe
+    );
+    probe_entered(read probe);
+    probe_release(read probe);
+    var end: Event = scope_finish(mut scope);
+    check(event_join(read end), "external producer wake");
+    check(probe_count(read probe) == 1i32, "external producer continuation");
+}
+fn empty_await_step(state: mut CountWork, context: read Context) -> Step {
+    probe_add(read state.probe);
+    state.phase = state.phase + 1u32;
+    if state.phase < 32u32 {
+        return await_tasks(deps_new());
+    }
+    return done();
+}
+fn test_empty_await() -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, 1u32), "open");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "scope");
+    var context: Context = scope_context(read scope);
+    var probe: Probe = probe_new();
+    var task: Task!(CountWork) = spawn!(CountWork)(
+        read context,
+        count_work(read probe),
+        empty_await_step,
+        deps_new()
+    );
+    var end: Event = scope_finish(mut scope);
+    check(event_join(read end), "empty await completion");
+    check(probe_count(read probe) == 32i32, "empty await repeated resume");
+}

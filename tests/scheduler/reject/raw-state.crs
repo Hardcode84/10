@@ -1,0 +1,9 @@
+record Raw {
+    value: *u8;
+}
+fn reject_callback(state: mut Raw, context: read Context) -> Step {
+    return done();
+}
+fn bad(context: read Context, state: Raw) -> unit {
+    var task: Task!(Raw) = spawn!(Raw)(read context, state, reject_callback, deps_new());
+}

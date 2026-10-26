@@ -2,11 +2,13 @@
 
 ## Status
 
-Proposed replacement for the runtime in [task-graph.md](task-graph.md).
-The API below is a specification, not an installed library. Examples use Crust
-syntax and named application helpers. Compile these examples as API tests when
-the library is implemented. Add required generic ownership support to Crust;
-keep raw callback payloads inside runtime providers.
+The independent native library is in [src/runtime/scheduler](../../src/runtime/scheduler/).
+Run its checked API, concurrency, rejection, and fatal-contract tests with
+`crust tests.crs scheduler`; add `--sanitize` for AddressSanitizer and
+UndefinedBehaviorSanitizer. Use `--thread-sanitize` for ThreadSanitizer.
+The game still uses [task-graph.md](task-graph.md).
+The room and GPU examples below specify the consumer integration. That integration
+must pass the delivery gate before the game changes executors.
 
 ## Public types and operations
 
@@ -22,7 +24,7 @@ keep raw callback payloads inside runtime providers.
 | `Step` | Complete, fail, yield, or await dependencies. |
 
 ```crust
-// Proposed signatures. Failed opens leave an empty, droppable owner.
+// Public signatures. Failed opens leave an empty, droppable owner.
 fn scheduler_new() -> Scheduler;
 fn scheduler_open(scheduler: mut Scheduler, workers: u32) -> bool;
 fn scope_new() -> Scope;
@@ -40,7 +42,8 @@ fn spawn!(State)(
 
 fn task_empty!(State)() -> Task!(State);
 fn task_event!(State)(task: read Task!(State)) -> Event;
-fn task_take!(State)(task: Task!(State)) -> State;
+fn task_take!(State)(task: mut Task!(State)) -> State;
+fn task_replace!(State)(target: mut Task!(State), replacement: Task!(State)) -> unit;
 fn deps_new() -> Dependencies;
 fn deps_add(deps: mut Dependencies, event: Event) -> unit;
 fn event_clone(event: read Event) -> Event;
@@ -56,7 +59,7 @@ fn cancelled(context: read Context) -> bool;
 
 - `spawn` transfers state. Admission failure returns its state inline in a failed
   handle; its terminal event requires no allocation. `task_take` requires terminal
-  completion and returns state after success or failure. Inspect its event first.
+  completion, empties the handle, and returns state after success or failure. Inspect its event first.
   Taking a pending or empty task, or requesting an empty task event, traps.
 - Dependencies must succeed before a callback runs. The first unsuccessful
   dependency observed supplies the terminal outcome and cause. Concurrent failures
@@ -64,8 +67,8 @@ fn cancelled(context: read Context) -> bool;
 - `fail(task_cancelled())` cancels the task. Other errors fail it. `event_error`
   requires unsuccessful terminal completion. Empty `Await` acts as `Yield`.
 - `event_join` is a blocking boundary for non-worker threads. It reports success;
-  `event_error` returns the failure or cancellation reason. Joining on a worker
-  traps; workers use `Await`.
+  `event_error` returns the failure or cancellation reason. Workers must use `Await`. A join from a worker of the event's scheduler traps.
+  This check does not enforce the non-worker precondition across separate pools.
 - `scope_finish` closes root submission. Accepted callbacks can still submit
   children. Its event includes all children and external completions.
 - Dropping a task handle releases ownership; it does not cancel accepted work.
@@ -120,7 +123,7 @@ fn example() -> i32 {
         // Scope cleanup cancels and drains before scheduler cleanup.
         return 1i32;
     }
-    var result: Sum = task_take!(Sum)(move task);
+    var result: Sum = task_take!(Sum)(mut task);
     print_u64(result.result);
     if !event_join(read scope_complete) {
         report_task_error(event_error(read scope_complete));
@@ -168,15 +171,14 @@ resource ForecastWork {
 
 fn forecast_step(state: mut ForecastWork, context: read Context) -> Step {
     if state.phase == 0u32 {
-        state.room = spawn!(RoomBuild)(read context,
-            room_build_input(read state.input), room_build_step, deps_new());
+        task_replace!(RoomBuild)(mut state.room, spawn!(RoomBuild)(read context,
+            room_build_input(read state.input), room_build_step, deps_new()));
         var after: Dependencies = deps_new();
         deps_add(mut after, task_event!(RoomBuild)(read state.room));
         state.phase = 1u32;
         return await_tasks(move after);
     }
-    var room: RoomBuild = task_take!(RoomBuild)(move state.room);
-    state.room = task_empty!(RoomBuild)();
+    var room: RoomBuild = task_take!(RoomBuild)(mut state.room);
     state.result = forecast_in_room(read state.input, read room);
     return done();
 }
@@ -187,10 +189,9 @@ without a second callback invocation. Its state is still destroyed correctly.
 Production room requests deduplicate work in the room manager and return an
 `Event` plus a result owner; the scheduler does not cache rooms.
 
-A dependency must not lead back to its waiter. Awaiting the current scope finish
-event fails registration with `task_cycle()`. Other cycles are programmer errors;
-debug dependency tracking detects them. Production scheduling requires no global
-graph scan or cycle-check lock.
+Dependencies must be acyclic. A task must not await its own scope finish event.
+These are caller preconditions. Submission and continuation registration examine
+only the supplied dependencies; they perform no graph traversal or cycle checks.
 
 ## Await an external GPU operation
 
@@ -297,10 +298,10 @@ flowchart LR
 | --- | --- |
 | Pool size | Any positive worker count supported by platform resources; automatic sizing at startup. |
 | Local work | Push/pop newest work on the owner end of a work-stealing deque. |
-| Stealing | Take older work from another worker; use an established deque algorithm. |
+| Stealing | Take older work under that deque's mutex. Each worker owns a separate deque. |
 | External work | Injection queue, serviced periodically even while local work exists. |
 | Yield | Queue for a later turn; service other eligible work before repeatedly choosing it. |
-| Idle | Register as sleeping, recheck readiness, then park; enqueue wakes sleepers without lost wakeups. |
+| Idle | Search the queues, then wait on a semaphore. Each enqueue posts a retained wake token. |
 | Completion | Completing thread publishes results and queues successors directly. |
 | Dependency registration | Atomically subscribe or observe terminal completion. |
 | Multiple dependencies | Pending count with a registration guard; exactly one enqueue at zero. |
@@ -328,7 +329,7 @@ bounded callbacks through the browser event loop; it provides no CPU parallelism
 - Dropping a retired task destroys its state on the caller. Dropping a live task
   handle leaves state owned by execution; retirement destroys it on a worker.
 - Results and events have independent retained lifetimes. Slot reuse requires
-  retirement of all references; internal handles carry generation numbers.
+  retirement of all references. References keep their slots allocated.
 - Scopes retain runtime storage. Contexts retain scope control; root submission
   after close or cancellation fails admission. Callback contexts are valid only
   for the invocation and cannot be retained as new child submission authority.
@@ -346,6 +347,14 @@ bounded callbacks through the browser event loop; it provides no CPU parallelism
 - Cancelled state stays owned by a retained task handle; without a handle, a worker
   destroys it. Scope completion still waits for child tasks and external tokens.
 - No completion path runs user callbacks inline under a scheduler lock.
+
+## Storage admission
+
+`scheduler_open_capacity(mut scheduler, workers, bytes)` reserves the initial
+pool. `scheduler_reserve(read scheduler, bytes)` adds storage while no scopes
+are live. Task admission uses that storage. Exhaustion produces a failed task
+that retains its input state. Ordinary completion returns slots to the pool.
+`scheduler_open_auto` uses the platform logical CPU count.
 
 ## Delivery gate
 

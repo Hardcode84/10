@@ -49,7 +49,10 @@ jobs:
           build/pre-commit/bin/pip install pre-commit==4.5.1
           build/pre-commit/bin/pre-commit run --all-files
       - name: Check task synchronization
-        run: crust tests.crs runtime
+        run: |
+          crust tests.crs runtime
+          crust tests.crs scheduler
+          crust tests.crs scheduler --sanitize
       - name: Check collision with sanitizers
         run: crust tests.crs collision --sanitize
       - name: Check generated assets

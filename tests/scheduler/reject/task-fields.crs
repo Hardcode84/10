@@ -1,0 +1,3 @@
+fn bad(task: read Task!(u32)) -> u32 {
+    return task.mode;
+}

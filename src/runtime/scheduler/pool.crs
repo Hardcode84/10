@@ -1,0 +1,151 @@
+fn scheduler_thread(data: *u8) -> i32 {
+    var worker: *SchedulerWorker = data as *SchedulerWorker;
+    var runtime: *SchedulerRuntime = worker -> runtime;
+    if !scheduler_tls_set(&runtime -> tls, data, null(fn(*u8) -> unit)) {
+        scheduler_panic("scheduler TLS failed");
+    }
+    while true {
+        var node: *SchedulerNode = scheduler_find(worker);
+        if node != null(*SchedulerNode) {
+            scheduler_run(node);
+        } else {
+            service_lock(runtime -> gate);
+            var stop: bool = runtime -> stopping;
+            service_unlock(runtime -> gate);
+            if stop {
+                return 0i32;
+            }
+            service_wait(runtime -> wake);
+        }
+    }
+}
+fn scheduler_new() -> Scheduler {
+    return make Scheduler {
+        runtime: null(*SchedulerRuntime)
+    };
+}
+fn scheduler_open(scheduler: mut Scheduler, workers: u32) -> bool {
+    if workers == 0u32 {
+        return false;
+    }
+    return scheduler_open_capacity(mut scheduler, workers, 4194304usize);
+}
+fn scheduler_open_auto(scheduler: mut Scheduler) -> bool {
+    var count: i32 = scheduler_cpu_count();
+    if count < 1i32 {
+        count = 1i32;
+    }
+    return scheduler_open(mut scheduler, count as u32);
+}
+fn scheduler_open_capacity(scheduler: mut Scheduler, workers: u32, bytes: usize) -> bool {
+    if scheduler.runtime != null(*SchedulerRuntime) {
+        scheduler_panic("scheduler_open requires empty owner");
+    }
+    if workers == 0u32 || workers as u64 * sizeof(SchedulerWorker) as u64 > (~0usize) as u64 {
+        return false;
+    }
+    service_sdl_error();
+    var runtime: *SchedulerRuntime = service_allocate(1usize, sizeof(SchedulerRuntime)) as *SchedulerRuntime;
+    if runtime == null(*SchedulerRuntime) {
+        return false;
+    }
+    runtime -> references = 1i32;
+    runtime -> gate = service_mutex_create();
+    runtime -> memory = service_mutex_create();
+    runtime -> wake = service_sem_create(0u32);
+    runtime -> changed = scheduler_condition_new();
+    runtime -> injection = scheduler_deque_new();
+    runtime -> width = workers;
+    runtime -> workers = service_allocate(workers as usize, sizeof(SchedulerWorker)) as *SchedulerWorker;
+    scheduler.runtime = runtime;
+    if !scheduler_storage_ready(runtime) {
+        scheduler_drop(mut scheduler);
+        scheduler.runtime = null(*SchedulerRuntime);
+        return false;
+    }
+    if !scheduler_reserve(read scheduler, bytes) || !scheduler_start(runtime) {
+        scheduler_drop(mut scheduler);
+        scheduler.runtime = null(*SchedulerRuntime);
+        return false;
+    }
+    return true;
+}
+fn scheduler_storage_ready(runtime: *SchedulerRuntime) -> bool {
+    return runtime -> gate != null(*u8) && runtime -> memory != null(*u8) && runtime -> wake != null(
+        *u8
+    ) && runtime -> changed != null(*u8) && runtime -> injection.mutex != null(*u8) && runtime -> workers != null(
+        *SchedulerWorker
+    );
+}
+fn scheduler_start(runtime: *SchedulerRuntime) -> bool {
+    var i: u32 = 0u32;
+    while i < runtime -> width {
+        runtime -> workers[i as usize] = make SchedulerWorker {
+            runtime: runtime,
+            queue: scheduler_deque_new(),
+            thread: null(*u8),
+            index: i,
+            turns: 0u32
+        };
+        if runtime -> workers[i as usize].queue.mutex == null(*u8) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    while runtime -> started < runtime -> width {
+        var worker: *SchedulerWorker = &runtime -> workers[runtime -> started as usize];
+        worker -> thread = service_thread_create(scheduler_thread, "scheduler", worker as *u8);
+        if worker -> thread == null(*u8) {
+            return false;
+        }
+        runtime -> started = runtime -> started + 1u32;
+    }
+    return true;
+}
+fn scheduler_drop(scheduler: mut Scheduler) -> unit {
+    var runtime: *SchedulerRuntime = scheduler.runtime;
+    if runtime == null(*SchedulerRuntime) {
+        return;
+    }
+    scheduler_require_caller(runtime);
+    if runtime -> scopes != 0u32 {
+        scheduler_panic("scheduler dropped with live scopes");
+    }
+    if runtime -> gate != null(*u8) {
+        service_lock(runtime -> gate);
+    }
+    runtime -> stopping = true;
+    if runtime -> gate != null(*u8) {
+        service_unlock(runtime -> gate);
+    }
+    var i: u32 = 0u32;
+    while i < runtime -> started {
+        service_post(runtime -> wake);
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < runtime -> started {
+        service_thread_join(runtime -> workers[i as usize].thread, null(*i32));
+        i = i + 1u32;
+    }
+    scheduler_pool_storage_drop(runtime);
+    scheduler_runtime_release(runtime);
+}
+fn scheduler_pool_storage_drop(runtime: *SchedulerRuntime) -> unit {
+    if runtime -> workers != null(*SchedulerWorker) {
+        var i: u32 = 0u32;
+        while i < runtime -> width {
+            if runtime -> workers[i as usize].queue.mutex != null(*u8) {
+                service_mutex_destroy(runtime -> workers[i as usize].queue.mutex);
+            }
+            i = i + 1u32;
+        }
+        service_free(runtime -> workers as *u8);
+    }
+    if runtime -> injection.mutex != null(*u8) {
+        service_mutex_destroy(runtime -> injection.mutex);
+    }
+    if runtime -> wake != null(*u8) {
+        service_sem_destroy(runtime -> wake);
+    }
+}

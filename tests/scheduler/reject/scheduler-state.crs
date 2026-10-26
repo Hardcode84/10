@@ -1,0 +1,11 @@
+fn reject_callback(state: mut Scheduler, context: read Context) -> Step {
+    return done();
+}
+fn bad(context: read Context, state: Scheduler) -> unit {
+    var task: Task!(Scheduler) = spawn!(Scheduler)(
+        read context,
+        move state,
+        reject_callback,
+        deps_new()
+    );
+}

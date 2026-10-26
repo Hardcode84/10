@@ -1,0 +1,75 @@
+fn external_begin(context: read Context) -> ExternalPair {
+    scheduler_context_valid(read context);
+    var event: *SchedulerEvent = scheduler_event_new(context.scope -> runtime);
+    if event == null(*SchedulerEvent) {
+        return external_rejected(SCHED_CAPACITY);
+    }
+    service_lock(context.scope -> runtime -> gate);
+    var error: u32 = scheduler_admit(read context);
+    service_unlock(context.scope -> runtime -> gate);
+    if error != 0u32 {
+        scheduler_event_release(event);
+        return external_rejected(error);
+    }
+    return make ExternalPair {
+        event: scheduler_event_handle(event),
+        completion: make Completion {
+            state: event,
+            scope: context.scope
+        }
+    };
+}
+fn external_rejected(error: u32) -> ExternalPair {
+    return make ExternalPair {
+        event: event_failed(error),
+        completion: make Completion {
+            state: null(*SchedulerEvent),
+            scope: null(*SchedulerScope)
+        }
+    };
+}
+fn external_admitted(pair: read ExternalPair) -> bool {
+    return pair.completion.state != null(*SchedulerEvent);
+}
+fn external_event(pair: read ExternalPair) -> Event {
+    return event_clone(read pair.event);
+}
+fn external_completion(pair: ExternalPair) -> Completion {
+    if !external_admitted(read pair) {
+        scheduler_panic("completion from rejected operation");
+    }
+    var result: Completion = make Completion {
+        state: pair.completion.state,
+        scope: pair.completion.scope
+    };
+    pair.completion.state = null(*SchedulerEvent);
+    pair.completion.scope = null(*SchedulerScope);
+    return move result;
+}
+fn completion_drop(token: mut Completion) -> unit {
+    if token.state != null(*SchedulerEvent) {
+        scheduler_panic("unresolved external completion dropped");
+    }
+}
+fn external_pair_drop(pair: mut ExternalPair) -> unit {}
+fn complete(token: Completion) -> unit {
+    scheduler_complete(move token, SCHED_OK);
+}
+fn complete_failed(token: Completion, error: TaskError) -> unit {
+    if error.code < SCHED_CANCELLED {
+        scheduler_panic("invalid external error");
+    }
+    scheduler_complete(move token, error.code);
+}
+fn scheduler_complete(token: Completion, outcome: u32) -> unit {
+    if token.state == null(*SchedulerEvent) {
+        scheduler_panic("empty completion");
+    }
+    var event: *SchedulerEvent = token.state;
+    var scope: *SchedulerScope = token.scope;
+    token.state = null(*SchedulerEvent);
+    token.scope = null(*SchedulerScope);
+    scheduler_resolve(event, outcome);
+    scheduler_event_release(event);
+    scheduler_scope_done(scope, outcome);
+}

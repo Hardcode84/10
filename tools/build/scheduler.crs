@@ -1,0 +1,171 @@
+fn run_scheduler_checks(
+    root: *CrustRun,
+    stages: *StageSession,
+    backend: *ApplicationBackend
+) -> i32 {
+    if !sdl_build(root) {
+        return 1i32;
+    }
+    if !application_load(stages, backend, "stages/generics/ownership/package.crs") {
+        return 1i32;
+    }
+    var paths: [*u8; 14] = make [*u8; 14] {
+        "src/runtime/platform/native-service.crs",
+        "src/runtime/platform/reference-count.crs",
+        "src/runtime/scheduler/types.crs",
+        "src/runtime/scheduler/platform.crs",
+        "src/runtime/scheduler/memory.crs",
+        "src/runtime/scheduler/deque.crs",
+        "src/runtime/scheduler/event.crs",
+        "src/runtime/scheduler/scope.crs",
+        "src/runtime/scheduler/node.crs",
+        "src/runtime/scheduler/pool.crs",
+        "src/runtime/scheduler/task.crs",
+        "src/runtime/scheduler/external.crs",
+        "tests/scheduler/probe.crs",
+        "tests/scheduler/driver.crs"
+    };
+    var providers: [CrustSource; 14] = uninit;
+    var i: usize = 0usize;
+    while i < 14usize {
+        var source: *CrustSource = host_input(root, paths[i], 100u64 + i as u64);
+        if source == null(*CrustSource) {
+            return 1i32;
+        }
+        providers[i] = *source;
+        i = i + 1usize;
+    }
+    if !scheduler_check_rejections(root, &providers[0usize], 13usize, backend -> emit) {
+        return 1i32;
+    }
+    var args: [*u8; 16] = make [*u8; 16] {
+        "-o",
+        host_path(root, "build/tests-scheduler"),
+        host_path(root, "tests/scheduler/entry.crs"),
+        host_path(root, "tests/scheduler/behaviour.crs"),
+        host_path(root, "tests/scheduler/contracts.crs"),
+        "--cflag",
+        "-O2",
+        "--ldflag",
+        sdl_link(root),
+        "--cflag",
+        "-g",
+        "--cflag",
+        "-fsanitize=address,undefined",
+        "--ldflag",
+        "-fsanitize=address,undefined",
+        "--emit"
+    };
+    var count: i32 = 9i32;
+    if root -> argc > 1i32 {
+        if cache_strcmp(root -> argv[1usize], "--sanitize") == 0i32 {
+            count = 15i32;
+        } else if cache_strcmp(root -> argv[1usize], "--thread-sanitize") == 0i32 {
+            count = 15i32;
+            args[12usize] = "-fsanitize=thread";
+            args[14usize] = "-fsanitize=thread";
+        } else if cache_strcmp(root -> argv[1usize], "--emit") != 0i32 {
+            native_error(
+                root -> context,
+                "scheduler accepts --sanitize, --thread-sanitize, or --emit"
+            );
+            return 1i32;
+        }
+    }
+    if root -> argc > 2i32 {
+        native_error(root -> context, "too many scheduler arguments");
+        return 1i32;
+    }
+    if root -> argc > 1i32 && cache_strcmp(root -> argv[1usize], "--emit") == 0i32 {
+        count = 16i32;
+        args[1usize] = host_path(root, "build/scheduler-emitted.c");
+    }
+    if ownership_generics_build(
+        null(*CrustSource),
+        0usize,
+        count,
+        &args[0usize],
+        &providers[0usize],
+        14usize,
+        backend -> emit
+    ) != 0i32 {
+        return 1i32;
+    }
+    if count == 16i32 {
+        return 0i32;
+    }
+    root -> argc = 0i32;
+    root -> argv = root -> argv + 1isize;
+    return launch_application(root, "build/tests-scheduler");
+}
+extern fn scheduler_check_message(text: *u8, pattern: *u8) -> *u8 = "strstr";
+fn scheduler_check_rejection(
+    root: *CrustRun,
+    providers: *CrustSource,
+    count: usize,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32,
+    path: *u8,
+    diagnostic: *u8
+) -> bool {
+    var args: [*u8; 3] = make [*u8; 3] {
+        "--library",
+        "--check",
+        host_path(root, path)
+    };
+    var context: CrustContext = uninit;
+    crust_context_init(&context, null(*CrustAllocator));
+    var request: CrustBuild = make CrustBuild {
+        context: &context,
+        source: null(*CrustSource),
+        target_begin: 0usize,
+        argc: 3i32,
+        argv: &args[0usize]
+    };
+    var status: i32 = ownership_generics_program(&request, providers, count, emit);
+    var good: bool = status != 0i32 && context.error_count != 0usize && scheduler_check_message(
+        &context.error[0usize],
+        diagnostic
+    ) != null(*u8);
+    if !good {
+        crust_run_diagnostic(&context);
+        native_error(root -> context, "scheduler rejection diagnostic mismatch");
+    }
+    crust_context_destroy(&context);
+    return good;
+}
+fn scheduler_check_rejections(
+    root: *CrustRun,
+    providers: *CrustSource,
+    count: usize,
+    emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
+) -> bool {
+    var paths: [*u8; 6] = make [*u8; 6] {
+        "scheduler-state",
+        "scope-state",
+        "raw-state",
+        "completion-twice",
+        "task-fields",
+        "borrowed-state"
+    };
+    var messages: [*u8; 6] = make [*u8; 6] {
+        "transfer",
+        "transfer",
+        "persistent pointers",
+        "moved",
+        "opaque",
+        "borrow"
+    };
+    var i: usize = 0usize;
+    while i < 6usize {
+        var path: *u8 = native_join(
+            root -> context,
+            "tests/scheduler/reject/",
+            native_join(root -> context, paths[i], ".crs")
+        );
+        if !scheduler_check_rejection(root, providers, count, emit, path, messages[i]) {
+            return false;
+        }
+        i = i + 1usize;
+    }
+    return true;
+}

@@ -1,0 +1,169 @@
+record SchedulerWork!(State) {
+    references: i32;
+    event: *SchedulerEvent;
+    callback: fn(mut State, read Context) -> Step;
+    taken: bool;
+    state: State;
+}
+opaque;
+resource Task!(State) {
+    work: *SchedulerWork!(State);
+    mode: u32;
+    error: u32;
+    rejected: State;
+}
+opaque send manual drop task_drop!(State);
+fn task_empty!(State)() -> Task!(State) {
+    var task: Task!(State) = uninit;
+    scheduler_task_init!(State)(&task);
+    return move task;
+}
+fn scheduler_work_release!(State)(data: *u8) -> unit {
+    var work: *SchedulerWork!(State) = data as *SchedulerWork!(State);
+    if !reference_release(&work -> references) {
+        return;
+    }
+    var event: *SchedulerEvent = work -> event;
+    if !work -> taken {
+        drop work -> state;
+    }
+    scheduler_release(data);
+    scheduler_event_release(event);
+}
+fn task_drop!(State)(task: mut Task!(State)) -> unit {
+    if task.mode == 1u32 {
+        scheduler_work_release!(State)(task.work as *u8);
+    } else if task.mode == 2u32 {
+        drop task.rejected;
+    }
+}
+fn task_event!(State)(task: read Task!(State)) -> Event {
+    if task.mode == 0u32 {
+        scheduler_panic("empty task event");
+    }
+    if task.mode == 2u32 {
+        return event_failed(task.error);
+    }
+    return scheduler_event_handle(task.work -> event);
+}
+fn task_take!(State)(task: mut Task!(State)) -> State {
+    if task.mode == 0u32 {
+        scheduler_panic("taking empty task");
+    }
+    if task.mode == 2u32 {
+        task.mode = 0u32;
+        var value: *State = &task.rejected;
+        return move * value;
+    }
+    var event: Event = task_event!(State)(read task);
+    if event_status(read event) == 0u32 {
+        scheduler_panic("taking pending task");
+    }
+    var work: *SchedulerWork!(State) = task.work;
+    task.mode = 0u32;
+    task.work = null(*SchedulerWork!(State));
+    work -> taken = true;
+    var value: State = move work -> state;
+    scheduler_work_release!(State)(work as *u8);
+    return move value;
+}
+fn scheduler_callback!(State)(data: *u8, context: read Context) -> Step {
+    var work: *SchedulerWork!(State) = data as *SchedulerWork!(State);
+    return work -> callback(mut work -> state, read context);
+}
+fn scheduler_task_rejected!(State)(state: State, error: u32) -> Task!(State) {
+    return make Task!(State) {
+        work: null(*SchedulerWork!(State)),
+        mode: 2u32,
+        error: error,
+        rejected: move state
+    };
+}
+fn spawn!(State)(
+    context: read Context,
+    state: State,
+    callback: fn(mut State, read Context) -> Step,
+    after: Dependencies
+) -> Task!(State) transfers(state) {
+    scheduler_context_valid(read context);
+    var runtime: *SchedulerRuntime = context.scope -> runtime;
+    var event: *SchedulerEvent = scheduler_event_new(runtime);
+    var node: *SchedulerNode = scheduler_allocate(runtime, sizeof(SchedulerNode)) as *SchedulerNode;
+    var work: *SchedulerWork!(State) = scheduler_allocate(
+        runtime,
+        sizeof(SchedulerWork!(State))
+    ) as *SchedulerWork!(State);
+    if event == null(*SchedulerEvent) || node == null(*SchedulerNode) || work == null(
+        *SchedulerWork!(State)
+    ) {
+        scheduler_release(node as *u8);
+        scheduler_release(work as *u8);
+        scheduler_event_release(event);
+        return scheduler_task_rejected!(State)(move state, SCHED_CAPACITY);
+    }
+    service_lock(runtime -> gate);
+    var error: u32 = scheduler_admit(read context);
+    if error == 0u32 {
+        scheduler_node_init(node, context.scope, event);
+    }
+    service_unlock(runtime -> gate);
+    if error != 0u32 {
+        scheduler_release(node as *u8);
+        scheduler_release(work as *u8);
+        scheduler_event_release(event);
+        return scheduler_task_rejected!(State)(move state, error);
+    }
+    * work = make SchedulerWork!(State) {
+        references: 2i32,
+        event: event,
+        callback: callback,
+        taken: false,
+        state: move state
+    };
+    node -> execute = scheduler_callback!(State);
+    node -> release = scheduler_work_release!(State);
+    node -> payload = work as *u8;
+    var task: Task!(State) = task_empty!(State)();
+    task.mode = 1u32;
+    task.work = work;
+    scheduler_register(node, move after);
+    return move task;
+}
+fn scheduler_node_init(
+    node: *SchedulerNode,
+    scope: *SchedulerScope,
+    event: *SchedulerEvent
+) -> unit {
+    reference_retain(&scope -> references);
+    reference_retain(&event -> references);
+    *node = make SchedulerNode {
+        references: 1i32,
+        scope: scope,
+        event: event,
+        execute: null(fn(*u8, read Context) -> Step),
+        release: null(fn(*u8) -> unit),
+        payload: null(*u8),
+        pending: 0u32,
+        outcome: 0u32,
+        state: 4u32,
+        next: null(*SchedulerNode),
+        prev: null(*SchedulerNode),
+        scope_next: scope -> tasks,
+        scope_prev: null(*SchedulerNode)
+    };
+    if scope -> tasks != null(*SchedulerNode) {
+        scope -> tasks -> scope_prev = node;
+    }
+    scope -> tasks = node;
+}
+fn scheduler_task_init!(State)(task: *Task!(State)) -> unit initializes(task) {
+    task -> work = null(*SchedulerWork!(State));
+    task -> mode = 0u32;
+    task -> error = 0u32;
+}
+// Replaces a handle; an accepted task continues if its old handle is released.
+fn task_replace!(State)(target: mut Task!(State), replacement: Task!(State)) -> unit {
+    var address: *Task!(State) = &target;
+    var old: Task!(State) = move * address;
+    *address = move replacement;
+}

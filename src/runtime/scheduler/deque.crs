@@ -1,0 +1,71 @@
+fn scheduler_deque_new() -> SchedulerDeque {
+    return make SchedulerDeque {
+        mutex: service_mutex_create(),
+        first: null(*SchedulerNode),
+        last: null(*SchedulerNode)
+    };
+}
+fn scheduler_push(queue: *SchedulerDeque, node: *SchedulerNode) -> unit {
+    service_lock(queue -> mutex);
+    node -> next = null(*SchedulerNode);
+    node -> prev = queue -> last;
+    if queue -> last == null(*SchedulerNode) {
+        queue -> first = node;
+    } else {
+        queue -> last -> next = node;
+    }
+    queue -> last = node;
+    service_unlock(queue -> mutex);
+}
+fn scheduler_pop(queue: *SchedulerDeque, oldest: bool) -> *SchedulerNode {
+    service_lock(queue -> mutex);
+    var node: *SchedulerNode = queue -> last;
+    if oldest {
+        node = queue -> first;
+    }
+    if node != null(*SchedulerNode) {
+        if node -> prev == null(*SchedulerNode) {
+            queue -> first = node -> next;
+        } else {
+            node -> prev -> next = node -> next;
+        }
+        if node -> next == null(*SchedulerNode) {
+            queue -> last = node -> prev;
+        } else {
+            node -> next -> prev = node -> prev;
+        }
+    }
+    service_unlock(queue -> mutex);
+    return node;
+}
+fn scheduler_enqueue(node: *SchedulerNode, yield: bool) -> unit {
+    var runtime: *SchedulerRuntime = node -> scope -> runtime;
+    var worker: *SchedulerWorker = scheduler_worker_on(runtime);
+    if yield || worker == null(*SchedulerWorker) {
+        scheduler_push(&runtime -> injection, node);
+    } else {
+        scheduler_push(&worker -> queue, node);
+    }
+    service_post(runtime -> wake);
+}
+fn scheduler_find(worker: *SchedulerWorker) -> *SchedulerNode {
+    var runtime: *SchedulerRuntime = worker -> runtime;
+    worker -> turns = worker -> turns + 1u32;
+    var node: *SchedulerNode = null(*SchedulerNode);
+    if worker -> turns % 8u32 == 0u32 {
+        node = scheduler_pop(&runtime -> injection, true);
+    }
+    if node == null(*SchedulerNode) {
+        node = scheduler_pop(&worker -> queue, false);
+    }
+    if node == null(*SchedulerNode) {
+        node = scheduler_pop(&runtime -> injection, true);
+    }
+    var offset: u32 = 1u32;
+    while node == null(*SchedulerNode) && offset < runtime -> width {
+        var victim: u32 = (worker -> index + offset) % runtime -> width;
+        node = scheduler_pop(&runtime -> workers[victim as usize].queue, true);
+        offset = offset + 1u32;
+    }
+    return node;
+}

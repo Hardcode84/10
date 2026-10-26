@@ -1,0 +1,107 @@
+fn scheduler_bin(bytes: usize) -> u32 {
+    var size: usize = 64usize;
+    var bin: u32 = 0u32;
+    while size < bytes && bin < 31u32 {
+        size = size * 2usize;
+        bin = bin + 1u32;
+    }
+    return bin;
+}
+fn scheduler_allocate(runtime: *SchedulerRuntime, bytes: usize) -> *u8 {
+    if bytes > (~0usize) - sizeof(SchedulerBlock) {
+        return null(*u8);
+    }
+    var bin: u32 = scheduler_bin(bytes + sizeof(SchedulerBlock));
+    var size: usize = 64usize << bin as usize;
+    if size < bytes + sizeof(SchedulerBlock) {
+        return null(*u8);
+    }
+    service_lock(runtime -> memory);
+    var block: *SchedulerBlock = runtime -> free[bin as usize];
+    if block != null(*SchedulerBlock) {
+        runtime -> free[bin as usize] = block -> next;
+    } else {
+        block = scheduler_bump(runtime, size);
+    }
+    if block != null(*SchedulerBlock) {
+        block -> runtime = runtime;
+        block -> bin = bin;
+    }
+    service_unlock(runtime -> memory);
+    if block == null(*SchedulerBlock) {
+        return null(*u8);
+    }
+    return (block + 1isize) as *u8;
+}
+fn scheduler_bump(runtime: *SchedulerRuntime, bytes: usize) -> *SchedulerBlock {
+    var chunk: *SchedulerChunk = runtime -> chunks;
+    while chunk != null(*SchedulerChunk) {
+        if bytes <= chunk -> bytes - chunk -> used {
+            var block: *SchedulerBlock = ((chunk as *u8) + chunk -> used as isize) as *SchedulerBlock;
+            chunk -> used = chunk -> used + bytes;
+            return block;
+        }
+        chunk = chunk -> next;
+    }
+    return null(*SchedulerBlock);
+}
+fn scheduler_release(data: *u8) -> unit {
+    if data == null(*u8) {
+        return;
+    }
+    var block: *SchedulerBlock = (data as *SchedulerBlock) - 1isize;
+    var runtime: *SchedulerRuntime = block -> runtime;
+    service_lock(runtime -> memory);
+    block -> next = runtime -> free[block -> bin as usize];
+    runtime -> free[block -> bin as usize] = block;
+    service_unlock(runtime -> memory);
+}
+// Requires no live scopes. Adds reusable storage without moving existing handles.
+fn scheduler_reserve(scheduler: read Scheduler, bytes: usize) -> bool {
+    var runtime: *SchedulerRuntime = scheduler.runtime;
+    scheduler_require_caller(runtime);
+    service_lock(runtime -> gate);
+    var good: bool = runtime -> scopes == 0u32;
+    service_unlock(runtime -> gate);
+    if !good {
+        scheduler_panic("scheduler reserve requires no live scopes");
+    }
+    if bytes > (~0usize) - 64usize {
+        return false;
+    }
+    var chunk: *SchedulerChunk = service_allocate(1usize, bytes + 64usize) as *SchedulerChunk;
+    if chunk == null(*SchedulerChunk) {
+        return false;
+    }
+    chunk -> bytes = bytes + 64usize;
+    chunk -> used = 64usize;
+    service_lock(runtime -> memory);
+    chunk -> next = runtime -> chunks;
+    runtime -> chunks = chunk;
+    service_unlock(runtime -> memory);
+    return true;
+}
+fn scheduler_retain(runtime: *SchedulerRuntime) -> unit {
+    reference_retain(&runtime -> references);
+}
+fn scheduler_runtime_release(runtime: *SchedulerRuntime) -> unit {
+    if !reference_release(&runtime -> references) {
+        return;
+    }
+    var chunk: *SchedulerChunk = runtime -> chunks;
+    while chunk != null(*SchedulerChunk) {
+        var next: *SchedulerChunk = chunk -> next;
+        service_free(chunk as *u8);
+        chunk = next;
+    }
+    if runtime -> changed != null(*u8) {
+        scheduler_condition_drop(runtime -> changed);
+    }
+    if runtime -> memory != null(*u8) {
+        service_mutex_destroy(runtime -> memory);
+    }
+    if runtime -> gate != null(*u8) {
+        service_mutex_destroy(runtime -> gate);
+    }
+    service_free(runtime as *u8);
+}

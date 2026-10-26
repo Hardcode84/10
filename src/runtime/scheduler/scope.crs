@@ -1,0 +1,143 @@
+fn scope_new() -> Scope {
+    return make Scope {
+        state: null(*SchedulerScope)
+    };
+}
+fn scope_open(scope: mut Scope, scheduler: read Scheduler) -> bool {
+    if scope.state != null(*SchedulerScope) {
+        scheduler_panic("scope_open requires empty scope");
+    }
+    var runtime: *SchedulerRuntime = scheduler.runtime;
+    scheduler_require_caller(runtime);
+    var state: *SchedulerScope = scheduler_allocate(runtime, sizeof(SchedulerScope)) as *SchedulerScope;
+    if state == null(*SchedulerScope) {
+        return false;
+    }
+    var finish: *SchedulerEvent = scheduler_event_new(runtime);
+    if finish == null(*SchedulerEvent) {
+        scheduler_release(state as *u8);
+        return false;
+    }
+    scheduler_retain(runtime);
+    *state = make SchedulerScope {
+        references: 1i32,
+        runtime: runtime,
+        closed: false,
+        cancelled: false,
+        outstanding: 0u32,
+        outcome: SCHED_OK,
+        finish: finish,
+        tasks: null(*SchedulerNode)
+    };
+    scope.state = state;
+    service_lock(runtime -> gate);
+    runtime -> scopes = runtime -> scopes + 1u32;
+    service_unlock(runtime -> gate);
+    return true;
+}
+fn scheduler_scope_release(scope: *SchedulerScope) -> unit {
+    if !reference_release(&scope -> references) {
+        return;
+    }
+    var runtime: *SchedulerRuntime = scope -> runtime;
+    scheduler_event_release(scope -> finish);
+    scheduler_release(scope as *u8);
+    scheduler_runtime_release(runtime);
+}
+fn scope_context(scope: read Scope) -> Context {
+    reference_retain(&scope.state -> references);
+    return make Context {
+        scope: scope.state,
+        child: false,
+        thread: 0u64
+    };
+}
+fn context_drop(context: mut Context) -> unit {
+    scheduler_scope_release(context.scope);
+}
+fn scheduler_context_valid(context: read Context) -> unit {
+    if context.child && context.thread != scheduler_thread_id() {
+        scheduler_panic("child context escaped callback");
+    }
+}
+fn scheduler_admit(context: read Context) -> u32 {
+    scheduler_context_valid(read context);
+    var scope: *SchedulerScope = context.scope;
+    if scope -> cancelled {
+        return SCHED_CANCELLED;
+    }
+    if scope -> closed && !context.child {
+        return SCHED_CLOSED;
+    }
+    scope -> outstanding = scope -> outstanding + 1u32;
+    reference_retain(&scope -> references);
+    return 0u32;
+}
+fn scheduler_scope_done(scope: *SchedulerScope, outcome: u32) -> unit {
+    var runtime: *SchedulerRuntime = scope -> runtime;
+    service_lock(runtime -> gate);
+    scope -> outstanding = scope -> outstanding - 1u32;
+    if outcome != SCHED_OK && scope -> outcome == SCHED_OK {
+        scope -> outcome = outcome;
+    }
+    var finish: bool = scope -> closed && scope -> outstanding == 0u32;
+    var result: u32 = scope -> outcome;
+    var event: *SchedulerEvent = scope -> finish;
+    service_unlock(runtime -> gate);
+    scheduler_scope_release(scope);
+    if finish {
+        scheduler_resolve(event, result);
+    }
+}
+fn scope_finish(scope: mut Scope) -> Event {
+    var state: *SchedulerScope = scope.state;
+    service_lock(state -> runtime -> gate);
+    var finish: bool = !state -> closed && state -> outstanding == 0u32;
+    state -> closed = true;
+    var outcome: u32 = state -> outcome;
+    service_unlock(state -> runtime -> gate);
+    if finish {
+        scheduler_resolve(state -> finish, outcome);
+    }
+    return scheduler_event_handle(state -> finish);
+}
+fn cancelled(context: read Context) -> bool {
+    scheduler_context_valid(read context);
+    service_lock(context.scope -> runtime -> gate);
+    var value: bool = context.scope -> cancelled;
+    service_unlock(context.scope -> runtime -> gate);
+    return value;
+}
+fn scope_cancel(scope: read Scope) -> unit {
+    var runtime: *SchedulerRuntime = scope.state -> runtime;
+    service_lock(runtime -> gate);
+    scope.state -> cancelled = true;
+    if scope.state -> outcome == SCHED_OK {
+        scope.state -> outcome = SCHED_CANCELLED;
+    }
+    var node: *SchedulerNode = scope.state -> tasks;
+    while node != null(*SchedulerNode) {
+        if node -> state == 0u32 {
+            node -> state = 1u32;
+            scheduler_enqueue(node, true);
+        }
+        node = node -> scope_next;
+    }
+    service_unlock(runtime -> gate);
+}
+fn scope_drop(scope: mut Scope) -> unit {
+    if scope.state == null(*SchedulerScope) {
+        return;
+    }
+    scheduler_require_caller(scope.state -> runtime);
+    var event: Event = scheduler_event_handle(scope.state -> finish);
+    if event_status(read event) == 0u32 {
+        scope_cancel(read scope);
+    }
+    var finish: Event = scope_finish(mut scope);
+    event_join(read finish);
+    service_lock(scope.state -> runtime -> gate);
+    scope.state -> runtime -> scopes = scope.state -> runtime -> scopes - 1u32;
+    service_unlock(scope.state -> runtime -> gate);
+    scheduler_scope_release(scope.state);
+}

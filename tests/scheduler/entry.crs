@@ -1,0 +1,68 @@
+record Sum {
+    next: u64;
+    end: u64;
+    result: u64;
+}
+fn sum_step(state: mut Sum, context: read Context) -> Step {
+    var stop: u64 = state.next + 64u64;
+    if stop > state.end {
+        stop = state.end;
+    }
+    while state.next < stop {
+        state.result = state.result + state.next;
+        state.next = state.next + 1u64;
+    }
+    if state.next < state.end {
+        return yield_task();
+    }
+    return done();
+}
+fn run_scheduler_suite() -> i32 {
+    test_child(1u32);
+    test_child(4u32);
+    test_external(1u32);
+    test_external(4u32);
+    test_fanin(1u32);
+    test_fanin(4u32);
+    test_failed_dependency();
+    test_cancel_waiting();
+    test_closed_and_reuse();
+    test_callback_race(false);
+    test_callback_race(true);
+    test_stealing();
+    test_cancel_running();
+    test_retained_result();
+    test_capacity();
+    test_external_thread();
+    test_empty_await();
+    test_child(8u32);
+    var scheduler: Scheduler = scheduler_new();
+    if !scheduler_open(mut scheduler, 2u32) {
+        return 1i32;
+    }
+    var scope: Scope = scope_new();
+    if !scope_open(mut scope, read scheduler) {
+        return 2i32;
+    }
+    var context: Context = scope_context(read scope);
+    var task: Task!(Sum) = spawn!(Sum)(
+        read context,
+        make Sum {
+            next: 0u64,
+            end: 1000u64,
+            result: 0u64
+        },
+        sum_step,
+        deps_new()
+    );
+    var event: Event = task_event!(Sum)(read task);
+    var finish: Event = scope_finish(mut scope);
+    if !event_join(read event) {
+        return 3i32;
+    }
+    var value: Sum = task_take!(Sum)(mut task);
+    if value.result != 499500u64 {
+        return 4i32;
+    }
+    return (!event_join(read finish)) as i32;
+}

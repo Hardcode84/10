@@ -20,6 +20,12 @@ host_source(run, "tools/build/ratios.crs");
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "ratios") == 0i32 {
     return run_ratio_checks(run, backend.emit);
 };
+host_source(run, "crust/stages/generics/ownership/api.crs");
+host_source(run, "crust/stages/generics/ownership/build.crs");
+host_source(run, "tools/build/scheduler.crs");
+if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "scheduler") == 0i32 {
+    return run_scheduler_checks(run, stages, &backend);
+};
 host_source(run, "tools/build/runtime.crs");
 if run -> argc > 0i32 && cache_strcmp(run -> argv[0usize], "runtime") == 0i32 {
     return run_runtime_checks(run, backend.emit);
