@@ -140,7 +140,6 @@ jobs:
           make test-tools
           python3 tests/c_body.py --build build --wasm-clang ../build/toolchain/wasm/bin/clang
           make check-ownership-generics
-          python3 tests/ownership_generics.py --build build --wasm-clang ../build/toolchain/wasm/bin/clang
       - name: Prepare the Pages site
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
