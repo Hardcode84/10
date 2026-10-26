@@ -1,5 +1,6 @@
-fn invalid_worker_pool_drop(pool: TaskPool, collision: read CollisionScene) -> unit {
+fn retained_worker_pool(pool: TaskPool, collision: read CollisionScene) -> bool {
     var doors: DoorSet = doors_new();
     var context: PredictionContext = prediction_context(read pool, read collision, read doors);
     drop pool;
+    return prediction_context_ready(read context);
 }

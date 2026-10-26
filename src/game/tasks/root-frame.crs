@@ -95,7 +95,9 @@ fn game_root_frame(
     if !task_succeeded(read graph) {
         return false;
     }
-    game_presented(mut session);
+    if !game_residency_incomplete(read session.control) {
+        game_presented(mut session);
+    }
     return true;
 }
 

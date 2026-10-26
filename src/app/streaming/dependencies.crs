@@ -1,40 +1,3 @@
-// Particle motion is speculative until every collision query is admitted.
-fn game_residency_sparks(
-    scene: mut CollisionScene,
-    control: mut GameControl,
-    loop: mut GameLoop,
-    time: f32
-) -> bool {
-    var i: u32 = 0u32;
-    while i < spark_count(read loop.sparks.storage) {
-        var item: Spark = spark_get(read loop.sparks.storage, i);
-        if item.age < item.lifetime {
-            while true {
-                var result: SparkStep = spark_step_admitted(
-                    read scene,
-                    item,
-                    loop.trial.full_spin,
-                    time
-                );
-                if result.admission.status == 0u32 {
-                    spark_set(mut loop.sparks.storage, i, result.item);
-                    break;
-                }
-                if result.admission.status != COLLISION_UNRESOLVED || !game_residency_require(
-                    mut control,
-                    mut scene,
-                    mut loop.input,
-                    result.admission.space
-                ) {
-                    return false;
-                }
-            }
-        }
-        i = i + 1u32;
-    }
-    return true;
-}
-
 fn residency_pin(state: mut RoomResidency, room: u32) -> unit {
     generation_word_set(mut state.wanted, room, 1u32);
     generation_word_set(mut state.keep, room, 1u32);
@@ -44,6 +7,17 @@ fn residency_dependents(
     scene: read CollisionScene,
     loop: read GameLoop
 ) -> unit {
+    residency_pin(mut state, loop.trial.drone.world);
+    var visible: u32 = 0u32;
+    while visible < state.count {
+        if generation_word(read state.visible, visible) != 0u32 || schedule_demanded(
+            read state.schedule,
+            visible
+        ) {
+            residency_pin(mut state, visible);
+        }
+        visible = visible + 1u32;
+    }
     if state.predicted != 0xffffffffu32 {
         residency_pin(mut state, state.predicted);
     }
@@ -68,4 +42,54 @@ fn residency_dependents(
         }
         i = i + 1u32;
     }
+}
+fn game_residency_portals(control: read GameControl, inputs: mut FrameInput) -> unit {
+    if control.residency.count == 0u32 {
+        return;
+    }
+    var i: u32 = 0u32;
+    while i < graph_ports(read control.graph) {
+        var socket: GraphSocket = graph_socket(read control.graph, i);
+        var room: u32 = graph_socket(read control.graph, socket.peer).room;
+        var ready: bool = control.residency.rooms[room as usize].active;
+        var meta: usize = (input_word(read inputs, PORTAL_META as usize) + i * 4u32 + 3u32) as usize;
+        input_set_word(mut inputs, meta, (!ready) as u32);
+        i = i + 1u32;
+    }
+}
+fn game_residency_missing(control: mut GameControl, portal: u32) -> unit {
+    var socket: GraphSocket = graph_socket(read control.graph, portal);
+    control.residency.missing = graph_socket(read control.graph, socket.peer).room;
+    residency_pin(mut control.residency, control.residency.missing);
+    generation_word_set(mut control.residency.visible, control.residency.missing, 1u32);
+    schedule_request(read control.residency.schedule, control.residency.missing);
+}
+fn game_residency_incomplete(control: read GameControl) -> bool {
+    return control.residency.missing != TASK_NONE;
+}
+fn game_residency_visible(
+    scene: mut CollisionScene,
+    control: mut GameControl,
+    input: mut InputState
+) -> bool {
+    var room: u32 = control.residency.missing;
+    if room == TASK_NONE {
+        return true;
+    }
+    if !game_residency_require(mut control, mut scene, mut input, room) {
+        return false;
+    }
+    control.residency.missing = TASK_NONE;
+    return true;
+}
+fn game_task_pool(session: read GameSession, workers: u32) -> TaskPool {
+    if session.control.residency.count != 0u32 {
+        return task_pool_clone(read session.control.residency.schedule.state -> pool);
+    }
+    var pool: TaskPool = task_pool_new();
+    task_pool_open(mut pool, workers, 2u32);
+    return move pool;
+}
+fn game_task_pool_ready(pool: read TaskPool) -> bool {
+    return pool.state != null(*PoolState);
 }

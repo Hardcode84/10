@@ -1,4 +1,4 @@
-const TASK_DEFAULT_WORKERS: u32 = 1u32;
+const TASK_DEFAULT_WORKERS: u32 = 2u32;
 record PoolEntry {
     execute: fn(*u8) -> bool;
     payload: *u8;
@@ -9,6 +9,7 @@ record PoolEntry {
 }
 opaque;
 record PoolState {
+    references: i32;
     mutex: *u8;
     wake: *u8;
     complete: *u8;
@@ -75,6 +76,7 @@ fn pool_open(workers: u32, capacity: u32) -> *PoolState {
     }
     pool -> first = TASK_NONE;
     pool -> last = TASK_NONE;
+    pool -> references = 1i32;
     pool -> capacity = capacity;
     pool -> clock = task_no_clock;
     pool -> mutex = service_mutex_create();
@@ -115,6 +117,9 @@ fn pool_storage_ready(pool: *PoolState) -> bool {
 }
 fn pool_close(pool: *PoolState) -> unit {
     if pool == null(*PoolState) {
+        return;
+    }
+    if !reference_release(&pool -> references) {
         return;
     }
     if pool -> live != 0u32 {
@@ -217,4 +222,7 @@ fn pool_release(pool: *PoolState, id: u32, generation: u64) -> unit {
     pool -> free = id;
     pool -> live = pool -> live - 1u32;
     service_unlock(pool -> mutex);
+}
+fn pool_width(pool: *PoolState) -> u32 {
+    return pool -> workers;
 }

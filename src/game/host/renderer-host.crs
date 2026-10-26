@@ -69,8 +69,8 @@ fn game_presented(session: mut GameSession) -> unit {
 
 fn game_task_mode(workers: u32) -> unit {
     if workers == 0u32 {
-        puts("Task execution: application thread with asynchronous GPU services (experiment)");
+        puts("Task execution: caller-lane tasks with asynchronous GPU services");
     } else {
-        puts("Task execution: worker prediction with asynchronous GPU services (experiment)");
+        puts("Task execution: worker pool with asynchronous GPU services");
     }
 }

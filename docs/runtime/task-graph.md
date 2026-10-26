@@ -4,10 +4,32 @@
 
 This document defines the target architecture and the current implementation.
 The default game loop runs next-frame prediction in parallel with rendering and asynchronous render
-and presentation operations. Run it with `crust labyrinth.crs`. Use `--serial`
-to select the synchronous loop for comparisons.
+and presentation operations. Normal play uses this graph in both worker and
+caller-lane execution. `--serial` selects caller-lane execution. Test entry points
+also retain their synchronous reference loop for comparisons.
 The [rendering storage and ownership contract](../render/rendering.md#storage-and-capacity) describes current resource use.
 Keep that contract until each replacement passes the delivery gates below.
+
+### Room dependencies
+
+`TaskSchedule` in `src/runtime/executor/continuation.crs` runs resumable operations
+through the common pool. A step can complete, fail, or await another operation.
+Waiting releases the worker. The scheduler queues the continuation after its
+dependency succeeds and propagates dependency failure. Result slots remain stable
+until consumers retire. Schedule operations run on the owning application lane;
+worker callbacks receive their exclusive payload. Shared pool owners retain the
+pool until the last owner releases it.
+
+Background expansion has lower priority than frame dependencies. When the pool
+has multiple workers, background work leaves worker capacity for foreground work.
+A required dependency inherits its consumer priority. Pool width and queued task
+count are separate limits.
+
+Simulation, particles, prediction, and sound preparation can await room geometry.
+Their joins service the scheduler and window events. Visibility expansion also
+runs as a background operation. A visible unfinished portal returns a render
+dependency instead of an image. Rendering retries after generation without a
+second simulation step. See [room streaming](../content/streaming.md).
 
 ### Current implementation
 
@@ -19,8 +41,9 @@ reused after drain. Optional spans record ready, start, submission, and finish
 times for the most recent execution. Completion spans record executor observation
 time, not the device timestamp. Read spans before starting the next execution.
 
-After simulation, prediction, sound preparation, and scene preparation are
-independent tasks. Sound preparation reads copied contact facts and its collision snapshot. It produces an owned numeric batch for the sound mixer.
+After simulation, a residency task publishes completed geometry and prepares
+its GPU upload. Prediction, sound preparation, and scene preparation then run
+as independent tasks. Sound preparation reads copied contact facts and its collision snapshot. It produces an owned numeric batch for the sound mixer.
 Scene preparation reads the completed prediction from the preceding frame.
 A pool worker reads a copied trial and its collision snapshot to produce
 markers and all door trigger requests for the next frame. Ship prediction runs for the full
@@ -32,9 +55,10 @@ coordinates remain valid across player portal crossings.
 
 ```mermaid
 flowchart LR
-    S[Current simulation] --> P[Prediction for next frame]
-    S --> A[Scene with previous prediction]
-    S --> U[Sound preparation]
+    S[Current simulation] --> G[Publish residency and prepare upload]
+    G --> P[Prediction for next frame]
+    G --> A[Scene with previous prediction]
+    G --> U[Sound preparation]
     U --> B[Publish sound batch]
     B --> J
     A --> R[Full GPU render]
@@ -60,17 +84,17 @@ and query trees are shared through reference-counted chunks. Each context owns
 its metadata and motion records; frame updates allocate no snapshot storage.
 An idle prediction context can select its required collision rooms with
 `prediction_select`. Its exclusive task loan prevents selection during a job.
-A forecast that reaches missing geometry reports the room ID and clears its
-markers and door requests. Task completion still succeeds: the result records
-incomplete coverage. The caller must admit the room and start a new forecast
-from the original trial. Normal game contexts currently retain all rooms.
+A streamed forecast that reaches missing geometry awaits its room task. It then
+restores the completed collision chunk and repeats the forecast from the original
+trial. Only the complete result is published. Standalone prediction queries
+report incomplete coverage to their caller.
 See [room lifetime](../collision/spatial-index.md#room-lifetime).
 Crust checks structural transfer and sharing capabilities at `transfers` capture
 boundaries. Shared collision storage has a trusted `share` contract. Ordinary
 computation needs no execution annotation. The typed game adapter contains
 the provider callback; checked frame code contains no raw callback or pointer.
 
-Native builds use one worker and two admitted job slots by default. Sound is
+Native builds use the pool width defined by `TASK_DEFAULT_WORKERS`. Sound is
 submitted before prediction. The audio callback runs independently of this pool. `--workers 0` uses the
 calling thread and starts prediction after full GPU submission. Browser builds
 use this zero-worker schedule and reject nonzero worker counts. Prediction then
@@ -525,7 +549,7 @@ at 30.4 ms synchronously and 28.5 ms with the split. These are application
 request times, not display scanout times. The split task loop is now the default.
 Native interactive latency remains unmeasured:
 the test window received no keyboard focus, so the fixture rejected the run.
-The synchronous loop remains available with `--serial` for controlled comparisons.
+Test entry points retain a synchronous reference loop with `--serial` for controlled comparisons. Normal play retains task dependencies in caller-lane mode.
 
 The large shadow-build time also needs a separate cost check. That shader uses
 one active lane per tree. It can rebuild retained trees and builds dynamic

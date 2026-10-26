@@ -45,6 +45,11 @@ fn allocate_key_word(word: u32, mask: u32, views: u32) -> u32 {
                 return next;
             }
             var key: u32 = word * 32u32 + bit;
+            var portal: u32 = key % words_load(PORTAL_CAPACITY);
+            if words_load(words_load(PORTAL_META) + portal * 4u32 + 3u32) != 0u32 {
+                words_store(5u32, RENDER_ROOM_PENDING | portal);
+                return next;
+            }
             words_store(words_load(VIEW_MAP) + key, next);
             if !child_view(
                 key / words_load(PORTAL_CAPACITY),
@@ -66,7 +71,7 @@ fn allocate_views(views: u32) -> u32 {
     var end: u32 = (
         (words_load(9u32) + words_load(10u32)) * words_load(PORTAL_CAPACITY) + 31u32
     ) / 32u32;
-    while word < end && words_load(TRAVERSAL_STOPPED) == 0u32 {
+    while word < end && words_load(TRAVERSAL_STOPPED) == 0u32 && words_load(5u32) == 0u32 {
         var mask: u32 = words_load(words_load(VIEW_KEYS) + word);
         next = allocate_key_word(word, mask, next);
         word = word + 1u32;
@@ -115,6 +120,9 @@ fn advance() -> unit {
     }
     var oldviews: u32 = words_load(11u32);
     var views: u32 = allocate_views(oldviews);
+    if words_load(5u32) != 0u32 {
+        return;
+    }
     if words_load(TRAVERSAL_STOPPED) != 0u32 {
         return;
     }

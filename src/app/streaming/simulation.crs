@@ -1,0 +1,161 @@
+record ResidentSimulation {
+    scene: CollisionScene;
+    before: Trial;
+    after: Trial;
+    command: Command;
+    rooms: *ResidentBuild;
+    waiting: u32;
+    sparks: *Spark;
+    spark_count: u32;
+    spark_index: u32;
+    time: f32;
+    spin: bool;
+}
+opaque;
+fn residency_simulation_open(state: mut RoomResidency, scene: read CollisionScene) -> bool {
+    state.simulation = malloc(sizeof(ResidentSimulation)) as *ResidentSimulation;
+    if state.simulation == null(*ResidentSimulation) {
+        return error("simulation task allocation failed");
+    }
+    * state.simulation = make ResidentSimulation {
+        scene: collision_new(),
+        before: new_trial(),
+        after: new_trial(),
+        command: idle_command(),
+        rooms: state.builds,
+        waiting: TASK_NONE,
+        sparks: null(*Spark),
+        spark_count: 0u32,
+        spark_index: 0u32,
+        time: 0f32,
+        spin: false
+    };
+    return collision_snapshot(read scene, mut state.simulation -> scene);
+}
+fn residency_simulation_restore(work: *ResidentSimulation) -> unit {
+    if work -> waiting != TASK_NONE {
+        if !collision_room_resident(read work -> scene, work -> waiting) {
+            collision_room_restore(
+                mut work -> scene,
+                read work -> rooms[work -> waiting as usize].collision
+            );
+        }
+        work -> waiting = TASK_NONE;
+    }
+}
+fn residency_simulation_execute(data: *u8) -> TaskStep {
+    var work: *ResidentSimulation = data as *ResidentSimulation;
+    residency_simulation_restore(work);
+    assign_trial(mut work -> after, read work -> before);
+    var result: CollisionAdmission = trial_step_admitted(
+        read work -> scene,
+        mut work -> after,
+        work -> command
+    );
+    if result.status == COLLISION_UNRESOLVED {
+        work -> waiting = result.space;
+        return task_await(result.space);
+    }
+    return task_done(result.status == 0u32);
+}
+fn residency_sparks_execute(data: *u8) -> TaskStep {
+    var work: *ResidentSimulation = data as *ResidentSimulation;
+    residency_simulation_restore(work);
+    while work -> spark_index < work -> spark_count {
+        var item: Spark = work -> sparks[work -> spark_index as usize];
+        if item.age < item.lifetime {
+            var result: SparkStep = spark_step_admitted(
+                read work -> scene,
+                item,
+                work -> spin,
+                work -> time
+            );
+            if result.admission.status == COLLISION_UNRESOLVED {
+                work -> waiting = result.admission.space;
+                return task_await(result.admission.space);
+            }
+            if result.admission.status != 0u32 {
+                return task_done(false);
+            }
+            work -> sparks[work -> spark_index as usize] = result.item;
+        }
+        work -> spark_index = work -> spark_index + 1u32;
+    }
+    return task_done(true);
+}
+// Joins an application dependency while servicing the scheduler and window events.
+fn game_schedule_wait(control: mut GameControl, input: mut InputState, slot: u32) -> bool {
+    var good: bool = true;
+    schedule_request(read control.residency.schedule, slot);
+    while schedule_status(read control.residency.schedule, slot) == 0i32 {
+        schedule_poll(read control.residency.schedule);
+        if !game_poll(mut control, mut input) {
+            good = false;
+        }
+        if schedule_status(read control.residency.schedule, slot) == 0i32 {
+            schedule_idle(read control.residency.schedule);
+        }
+    }
+    return good && schedule_status(read control.residency.schedule, slot) > 0i32;
+}
+fn game_residency_trial(
+    scene: mut CollisionScene,
+    control: mut GameControl,
+    loop: mut GameLoop,
+    command: Command
+) -> bool {
+    if control.residency.count == 0u32 {
+        trial_step(read scene, mut loop.trial, command);
+        return true;
+    }
+    var work: *ResidentSimulation = control.residency.simulation;
+    collision_snapshot_residency(read scene, mut work -> scene);
+    collision_snapshot_motion(read scene, mut work -> scene);
+    assign_trial(mut work -> before, read loop.trial);
+    work -> command = command;
+    work -> waiting = TASK_NONE;
+    var slot: u32 = control.residency.count + 3u32;
+    schedule_reset(read control.residency.schedule, slot);
+    schedule_define(
+        read control.residency.schedule,
+        slot,
+        residency_simulation_execute,
+        work as *u8
+    );
+    if !game_schedule_wait(mut control, mut loop.input, slot) {
+        return false;
+    }
+    assign_trial(mut loop.trial, read work -> after);
+    return residency_poll(mut control.residency, mut scene);
+}
+fn game_residency_sparks(
+    scene: mut CollisionScene,
+    control: mut GameControl,
+    loop: mut GameLoop,
+    time: f32
+) -> bool {
+    if control.residency.count == 0u32 {
+        sparks_step(read scene, mut loop.sparks, loop.trial.full_spin, time);
+        return true;
+    }
+    var work: *ResidentSimulation = control.residency.simulation;
+    work -> sparks = loop.sparks.storage.data;
+    work -> spark_count = loop.sparks.storage.count;
+    work -> spark_index = 0u32;
+    work -> spin = loop.trial.full_spin;
+    work -> time = time;
+    work -> waiting = TASK_NONE;
+    var slot: u32 = control.residency.count + 3u32;
+    schedule_reset(read control.residency.schedule, slot);
+    schedule_define(
+        read control.residency.schedule,
+        slot,
+        residency_sparks_execute,
+        work as *u8
+    );
+    if !game_schedule_wait(mut control, mut loop.input, slot) {
+        return false;
+    }
+    work -> sparks = null(*Spark);
+    return residency_poll(mut control.residency, mut scene);
+}

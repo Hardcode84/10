@@ -288,3 +288,20 @@ fn retained_dirty(v: *RenderState, begin: u32, end: u32) -> unit {
     }
     v -> mesh_dirty = true;
 }
+// Admits a fixed retained-storage budget before frame submission.
+fn retained_admit(v: *RenderState, meshes: u32, instances: u32) -> bool {
+    if meshes <= v -> mesh_capacity && instances <= v -> instance_capacity {
+        return true;
+    }
+    var next: RenderState = *v;
+    if meshes > next.mesh_capacity {
+        next.mesh_capacity = meshes;
+    }
+    if instances > next.instance_capacity {
+        next.instance_capacity = instances;
+    }
+    if !geometry_layout(&next, next.triangle_capacity) {
+        return false;
+    }
+    return storage_replace(v, &next);
+}

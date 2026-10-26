@@ -1,4 +1,8 @@
-fn residency_visibility_cached(state: mut RoomResidency, graph: read RoomGraph, room: u32) -> bool {
+fn residency_visibility_cached(
+    state: mut ResidencySelection,
+    graph: read RoomGraph,
+    room: u32
+) -> bool {
     if state.visibility[room as usize].count != 0u32 {
         return true;
     }
@@ -15,7 +19,7 @@ fn residency_visibility_cached(state: mut RoomResidency, graph: read RoomGraph, 
     return true;
 }
 fn residency_expand(
-    state: mut RoomResidency,
+    state: mut ResidencySelection,
     graph: read RoomGraph,
     source: read GenerationWords,
     target: mut GenerationWords
@@ -40,8 +44,8 @@ fn residency_expand(
     return true;
 }
 // Wave zero is mandatory, wave one is prefetched, and wave two retains cache entries.
-fn residency_select(
-    state: mut RoomResidency,
+fn residency_selection_compute(
+    state: mut ResidencySelection,
     graph: read RoomGraph,
     room: u32,
     audio: bool
@@ -91,16 +95,21 @@ fn residency_select(
     return true;
 }
 // Sound obstruction can visit any path above the transmission threshold.
-fn residency_audio(state: mut RoomResidency, graph: read RoomGraph, room: u32) -> unit {
+fn residency_audio(state: mut ResidencySelection, graph: read RoomGraph, room: u32) -> unit {
     generation_words_fill(mut state.distance, 0xffffffffu32);
     generation_word_set(mut state.distance, room, 0u32);
     var depth: u32 = 0u32;
     var gain: f32 = 1f32;
-    while gain >= ACOUSTIC_THRESHOLD {
+    while gain >= ACOUSTIC_THRESHOLD * ACOUSTIC_TRANSMISSION * ACOUSTIC_TRANSMISSION {
         var i: u32 = 0u32;
         while i < state.count {
             if generation_word(read state.distance, i) == depth {
-                generation_word_set(mut state.wanted, i, 1u32);
+                if gain >= ACOUSTIC_THRESHOLD {
+                    generation_word_set(mut state.wanted, i, 1u32);
+                }
+                if gain >= ACOUSTIC_THRESHOLD * ACOUSTIC_TRANSMISSION {
+                    generation_word_set(mut state.ahead, i, 1u32);
+                }
                 generation_word_set(mut state.keep, i, 1u32);
                 var node: GraphNode = graph_node(read graph, i);
                 var p: u32 = 0u32;

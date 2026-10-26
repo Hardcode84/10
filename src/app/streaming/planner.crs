@@ -1,0 +1,231 @@
+resource ResidencySelection {
+    visibility: *GenerationWords;
+    count: u32;
+    wanted: GenerationWords;
+    keep: GenerationWords;
+    ahead: GenerationWords;
+    base: GenerationWords;
+    retained: GenerationWords;
+    distance: GenerationWords;
+    home: u32;
+}
+opaque drop residency_selection_drop;
+record ResidentPlan {
+    wanted: GenerationWords;
+    keep: GenerationWords;
+    ahead: GenerationWords;
+}
+opaque;
+record ResidentPlanner {
+    graph: RoomGraph;
+    selection: ResidencySelection;
+    room: u32;
+    audio: bool;
+}
+opaque;
+fn residency_selection_new() -> ResidencySelection {
+    return make ResidencySelection {
+        visibility: null(*GenerationWords),
+        count: 0u32,
+        home: TASK_NONE,
+        wanted: generation_words_new(),
+        keep: generation_words_new(),
+        ahead: generation_words_new(),
+        base: generation_words_new(),
+        retained: generation_words_new(),
+        distance: generation_words_new()
+    };
+}
+fn residency_selection_drop(state: mut ResidencySelection) -> unit {
+    var i: u32 = 0u32;
+    while i < state.count {
+        drop state.visibility[i as usize];
+        i = i + 1u32;
+    }
+    free(state.visibility as *u8);
+}
+fn residency_topology(target: mut RoomGraph, source: read RoomGraph) -> bool {
+    if !graph_allocate(mut target, source.count, source.random) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < source.count {
+        target.recipes[i as usize] = room_recipe_new();
+        target.nodes[i as usize] = source.nodes[i as usize];
+        target.count = target.count + 1u32;
+        i = i + 1u32;
+    }
+    target.port_count = source.port_count;
+    memcpy(
+        target.sockets as *u8,
+        source.sockets as *u8,
+        source.port_count as usize * sizeof(GraphSocket)
+    );
+    return true;
+}
+fn residency_planner_open(state: mut RoomResidency, graph: read RoomGraph, audio: bool) -> bool {
+    state.planner = malloc(sizeof(ResidentPlanner)) as *ResidentPlanner;
+    if state.planner == null(*ResidentPlanner) {
+        return error("visibility task allocation failed");
+    }
+    * state.planner = make ResidentPlanner {
+        graph: graph_new(),
+        selection: residency_selection_new(),
+        room: 0u32,
+        audio: audio
+    };
+    var next: *ResidencySelection = &state.planner -> selection;
+    if !residency_topology(mut state.planner -> graph, read graph) {
+        return false;
+    }
+    next -> visibility = malloc(state.count as usize * sizeof(GenerationWords)) as *GenerationWords;
+    if next -> visibility == null(*GenerationWords) {
+        return error("visibility rows allocation failed");
+    }
+    var i: u32 = 0u32;
+    while i < state.count {
+        next -> visibility[i as usize] = generation_words_new();
+        next -> count = next -> count + 1u32;
+        i = i + 1u32;
+    }
+    schedule_define(
+        read state.schedule,
+        state.count + 2u32,
+        residency_plan_execute,
+        state.planner as *u8
+    );
+    return generation_words_allocate(mut next -> wanted, state.count) && generation_words_allocate(
+        mut next -> keep,
+        state.count
+    ) && generation_words_allocate(mut next -> ahead, state.count) && generation_words_allocate(
+        mut next -> base,
+        state.count
+    ) && generation_words_allocate(mut next -> retained, state.count) && generation_words_allocate(
+        mut next -> distance,
+        state.count
+    );
+}
+fn residency_plan_execute(data: *u8) -> TaskStep {
+    var work: *ResidentPlanner = data as *ResidentPlanner;
+    return task_done(
+        residency_selection_compute(
+            mut work -> selection,
+            read work -> graph,
+            work -> room,
+            work -> audio
+        )
+    );
+}
+fn residency_plan_collect(state: mut RoomResidency) -> bool {
+    if !state.planning {
+        return true;
+    }
+    var status: i32 = schedule_status(read state.schedule, state.count + 2u32);
+    if status == 0i32 {
+        return true;
+    }
+    if status < 0i32 {
+        return error("visibility task failed");
+    }
+    var cache: *ResidentPlan = &state.plans[state.planner -> room as usize];
+    var result: *ResidencySelection = &state.planner -> selection;
+    if !generation_words_allocate(mut cache -> wanted, state.count) || !generation_words_allocate(
+        mut cache -> keep,
+        state.count
+    ) || !generation_words_allocate(mut cache -> ahead, state.count) {
+        return false;
+    }
+    memcpy(
+        cache -> wanted.data as *u8,
+        result -> wanted.data as *u8,
+        state.count as usize * 4usize
+    );
+    memcpy(
+        cache -> keep.data as *u8,
+        result -> keep.data as *u8,
+        state.count as usize * 4usize
+    );
+    memcpy(
+        cache -> ahead.data as *u8,
+        result -> ahead.data as *u8,
+        state.count as usize * 4usize
+    );
+    state.planning = false;
+    return true;
+}
+fn residency_plan_request(state: mut RoomResidency, room: u32) -> unit {
+    if state.planning || state.plans[room as usize].wanted.count != 0u32 {
+        return;
+    }
+    state.planner -> room = room;
+    schedule_reset(read state.schedule, state.count + 2u32);
+    schedule_background(read state.schedule, state.count + 2u32);
+    state.planning = true;
+}
+fn residency_select(
+    state: mut RoomResidency,
+    graph: read RoomGraph,
+    room: u32,
+    audio: bool
+) -> bool {
+    if !residency_plan_collect(mut state) {
+        return false;
+    }
+    var plan: *ResidentPlan = &state.plans[room as usize];
+    if plan -> wanted.count == 0u32 {
+        residency_plan_request(mut state, room);
+        return true;
+    }
+    memcpy(
+        state.wanted.data as *u8,
+        plan -> wanted.data as *u8,
+        state.count as usize * 4usize
+    );
+    memcpy(
+        state.keep.data as *u8,
+        plan -> keep.data as *u8,
+        state.count as usize * 4usize
+    );
+    memcpy(
+        state.ahead.data as *u8,
+        plan -> ahead.data as *u8,
+        state.count as usize * 4usize
+    );
+    if state.home != room {
+        generation_words_fill(mut state.visible, 0u32);
+        var released: u32 = 0u32;
+        while released < state.count {
+            schedule_release_demand(read state.schedule, released);
+            released = released + 1u32;
+        }
+    }
+    state.home = room;
+    var node: GraphNode = graph_node(read graph, room);
+    var i: u32 = 0u32;
+    while i < node.count && !state.planning {
+        var next: u32 = graph_socket(
+            read graph,
+            graph_socket(read graph, node.first + i).peer
+        ).room;
+        residency_plan_request(mut state, next);
+        i = i + 1u32;
+    }
+    return true;
+}
+// Startup waits before the first playable frame. Runtime expansion uses task completion.
+fn residency_plan_initial(
+    state: mut RoomResidency,
+    graph: read RoomGraph,
+    room: u32,
+    audio: bool
+) -> bool {
+    if !residency_planner_open(mut state, read graph, audio) {
+        return false;
+    }
+    residency_plan_request(mut state, room);
+    while schedule_status(read state.schedule, state.count + 2u32) == 0i32 {
+        schedule_poll(read state.schedule);
+        schedule_idle(read state.schedule);
+    }
+    return residency_select(mut state, read graph, room, audio);
+}

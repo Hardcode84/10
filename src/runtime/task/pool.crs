@@ -69,3 +69,11 @@ fn pool_job_drop(job: mut PoolJob) -> unit {
     }
     pool_release(job.pool.state, job.slot, job.generation);
 }
+fn task_pool_clone(pool: read TaskPool) -> TaskPool {
+    if pool.state != null(*PoolState) {
+        reference_retain(&pool.state -> references);
+    }
+    return make TaskPool {
+        state: pool.state
+    };
+}

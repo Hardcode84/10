@@ -54,7 +54,15 @@ fn residency_test(reference: GameSession, streamed: GameSession, config: GameCon
                 return false;
             }
             assign_trial(mut after.trial, read before.trial);
-            if !game_residency_frame(mut scene, mut streamed, mut after) || !residency_test_motion(
+            if step == 0usize && !residency_test_dependencies(
+                read full,
+                mut scene,
+                mut streamed,
+                mut after
+            ) {
+                return false;
+            }
+            if !residency_test_service(mut scene, mut streamed, mut after) || !residency_test_motion(
                 mut full,
                 mut scene,
                 mut reference,
@@ -82,7 +90,7 @@ fn residency_test(reference: GameSession, streamed: GameSession, config: GameCon
     print_number(streamed.control.residency.arena_count as i64);
     puts("visits with portal crossings");
     print_number(crossings as i64);
-    if visits != 4u32 || live == count || crossings == 0u32 {
+    if !residency_test_coverage(visits, live, count, crossings) {
         return error(
             "residency check needs four valid visits, portal traversal, and evicted rooms"
         );
@@ -110,7 +118,7 @@ fn residency_test_motion(
         }
         tick = tick + 1u32;
     }
-    if !game_residency_frame(mut scene, mut streamed, mut after) || !stream_draw(
+    if !residency_test_service(mut scene, mut streamed, mut after) || !stream_draw(
         read full,
         mut reference,
         read before,
@@ -124,7 +132,7 @@ fn residency_test_motion(
         config.width * config.height,
         true
     );
-    if !stream_draw(read scene, mut streamed, read after, config) {
+    if !residency_test_render(mut scene, mut streamed, mut after, config) {
         return false;
     }
     var changed: u32 = stream_pixels(
@@ -136,4 +144,196 @@ fn residency_test_motion(
     puts("resident image differences");
     print_number(changed as i64);
     return changed == 0u32 || error("streamed frame differs from full residency");
+}
+fn residency_test_render(
+    scene: mut CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop,
+    config: GameConfig
+) -> bool {
+    while true {
+        if !residency_test_service(mut scene, mut session, mut loop) {
+            return false;
+        }
+        var prediction: Prediction = prediction_new();
+        game_prepare(read scene, mut session, read loop, config, read prediction);
+        var missing: u32 = TASK_NONE;
+        {
+            var frame: SubmittedFrame = frame_submit(mut session.renderer);
+            var status: i32 = frame_poll(mut frame);
+            while status == 0i32 {
+                frame_idle(mut frame);
+                status = frame_poll(mut frame);
+            }
+            if status < 0i32 {
+                return false;
+            }
+            missing = frame_missing_portal(read frame);
+        }
+        if missing == TASK_NONE {
+            return true;
+        }
+        game_residency_missing(mut session.control, missing);
+        if !game_residency_visible(mut scene, mut session.control, mut loop.input) {
+            return false;
+        }
+    }
+}
+fn residency_test_prediction(
+    full: read CollisionScene,
+    scene: mut CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop
+) -> bool {
+    var socket: GraphSocket = graph_socket(
+        read session.control.graph,
+        graph_node(read session.control.graph, loop.trial.drone.world).first
+    );
+    var target: u32 = graph_socket(read session.control.graph, socket.peer).room;
+    if !game_schedule_wait(mut session.control, mut loop.input, target) || !residency_poll(
+        mut session.control.residency,
+        mut scene
+    ) {
+        return false;
+    }
+    residency_forget(mut session.control.residency, target);
+    collision_room_unload(mut scene, target);
+    var trial: Trial = clone_trial(read loop.trial);
+    trial.drone.velocity = scale(trial.drone.basis.forward, 10f32);
+    hook_disconnect(mut trial.drone);
+    hook_launch(mut trial.drone);
+    var scratch: Drone = new_drone();
+    var doors: DoorSet = doors_new();
+    if !doors_copy(graph_doors(read session.control.graph), mut doors) {
+        return false;
+    }
+    var expected: Prediction = predict_scene(read full, read trial, mut scratch, mut doors);
+    var context: PredictionContext = prediction_context(
+        read session.control.residency.schedule.state -> pool,
+        read scene,
+        graph_doors(read session.control.graph)
+    );
+    if !prediction_context_ready(read context) {
+        return false;
+    }
+    prediction_streaming(mut context, read session.control.residency);
+    var work: PredictionTask = prediction_start(mut context, read scene, read trial);
+    while prediction_task_poll(read work) == 0i32 {
+        prediction_task_idle(read work);
+    }
+    if prediction_task_poll(read work) != 1i32 {
+        return error("prediction dependency failed");
+    }
+    var actual: Prediction = prediction_task_result(mut work);
+    if !stream_prediction_equal(read expected, read actual) {
+        return error("resumed prediction differs from full geometry");
+    }
+    var waits: u32 = schedule_wait_count(
+        read session.control.residency.schedule,
+        session.control.residency.count
+    );
+    puts("prediction geometry dependencies");
+    print_number(waits as i64);
+    return waits != 0u32 || error("prediction did not suspend on missing geometry");
+}
+fn residency_test_coverage(visits: u32, live: u32, count: u32, crossings: u32) -> bool {
+    return visits == 4u32 && live < count && crossings != 0u32;
+}
+fn residency_test_service(
+    scene: mut CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop
+) -> bool {
+    var start: u64 = now();
+    var good: bool = game_residency_frame(mut scene, mut session, mut loop);
+    var elapsed: u64 = now() - start;
+    puts("residency frame CPU ns");
+    print_number(elapsed as i64);
+    return good;
+}
+fn residency_test_dependencies(
+    full: read CollisionScene,
+    scene: mut CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop
+) -> bool {
+    return residency_test_prediction(read full, mut scene, mut session, mut loop) && residency_test_visible(
+        mut scene,
+        mut session,
+        mut loop
+    );
+}
+fn residency_test_visible(
+    scene: mut CollisionScene,
+    session: mut GameSession,
+    loop: mut GameLoop
+) -> bool {
+    var config: GameConfig = session.control.launch.config;
+    if !residency_test_render(mut scene, mut session, mut loop, config) {
+        return false;
+    }
+    var pixels: GenerationWords = generation_words_new();
+    if !generation_words_allocate(mut pixels, config.width * config.height) {
+        return false;
+    }
+    stream_pixels(
+        &session.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        true
+    );
+    var socket: GraphSocket = graph_socket(
+        read session.control.graph,
+        graph_node(read session.control.graph, loop.trial.drone.world).first
+    );
+    var target: u32 = graph_socket(read session.control.graph, socket.peer).room;
+    residency_forget(mut session.control.residency, target);
+    collision_room_unload(mut scene, target);
+    {
+        var input: FrameInput = renderer_inputs(mut session.renderer);
+        residency_gpu_release(mut session.control.residency, mut input, target);
+        if !residency_gpu_world(
+            mut session.control.residency,
+            mut input,
+            mut session.world
+        ) {
+            return false;
+        }
+    }
+    var prediction: Prediction = prediction_new();
+    game_prepare(read scene, mut session, read loop, config, read prediction);
+    var portal: u32 = TASK_NONE;
+    {
+        var frame: SubmittedFrame = frame_submit(mut session.renderer);
+        var status: i32 = frame_poll(mut frame);
+        while status == 0i32 {
+            frame_idle(mut frame);
+            status = frame_poll(mut frame);
+        }
+        if status != 2i32 {
+            return error("visible unfinished portal was not reported");
+        }
+        portal = frame_missing_portal(read frame);
+    }
+    game_residency_missing(mut session.control, portal);
+    if session.control.residency.missing != target {
+        return error("renderer reported the wrong unfinished room");
+    }
+    if !game_residency_visible(mut scene, mut session.control, mut loop.input) || !residency_test_render(
+        mut scene,
+        mut session,
+        mut loop,
+        config
+    ) {
+        return false;
+    }
+    var changed: u32 = stream_pixels(
+        &session.renderer.state,
+        mut pixels,
+        config.width * config.height,
+        false
+    );
+    puts("visible dependency image differences");
+    print_number(changed as i64);
+    return changed == 0u32 || error("visible room task changed the rendered image");
 }

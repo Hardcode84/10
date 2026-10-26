@@ -147,6 +147,7 @@ fn game_flag(o: *Launch, key: *u8) -> bool {
     }
     if strcmp(key, "--serial") == 0i32 {
         o -> config.tasks = false;
+        o -> config.workers = 0u32;
         return true;
     }
     if strcmp(key, "--fullscreen") == 0i32 {

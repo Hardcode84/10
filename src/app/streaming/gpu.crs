@@ -118,7 +118,7 @@ fn residency_gpu_world(
     var room: u32 = 0u32;
     while room < state.count {
         var item: *ResidentRoom = &state.rooms[room as usize];
-        if generation_word(read state.wanted, room) != 0u32 || item -> pinned {
+        if (generation_word(read state.keep, room) != 0u32 || item -> pinned) && item -> ready {
             if !residency_gpu_load(mut state, mut input, room) {
                 return false;
             }
@@ -141,9 +141,9 @@ fn residency_gpu_world(
     instances_swap(mut world, mut state.next);
     room = 0u32;
     while room < state.count {
-        state.rooms[room as usize].active = generation_word(read state.wanted, room) != 0u32 || state.rooms[
-            room as usize
-        ].pinned;
+        state.rooms[room as usize].active = (
+            generation_word(read state.keep, room) != 0u32 || state.rooms[room as usize].pinned
+        ) && state.rooms[room as usize].ready;
         room = room + 1u32;
     }
     return true;
@@ -156,13 +156,13 @@ fn residency_gpu_collect(
     var room: u32 = 0u32;
     while room < state.count {
         var item: *ResidentRoom = &state.rooms[room as usize];
-        if !item -> pinned && generation_word(read state.keep, room) == 0u32 {
+        if item -> ready && !item -> pinned && generation_word(read state.keep, room) == 0u32 {
             if item -> uploaded {
                 residency_gpu_release(mut state, mut input, room);
             }
             item -> mesh = mesh_new();
             collision_room_unload(mut scene, room);
-            item -> ready = false;
+            residency_forget(mut state, room);
         }
         room = room + 1u32;
     }
@@ -196,4 +196,47 @@ fn residency_gpu_trim(state: mut RoomResidency, input: mut FrameInput) -> unit {
         }
         room = room + 1u32;
     }
+}
+fn residency_gpu_admit(state: read RoomResidency, input: mut FrameInput) -> bool {
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < state.count {
+        count = count + state.rooms[i as usize].piece_count;
+        i = i + 1u32;
+    }
+    return retained_admit(
+        &input.storage,
+        input.storage.mesh_count + state.arena_limit * RESIDENT_ARENA_TRIANGLES,
+        count + input.storage.instance_capacity
+    );
+}
+record ResidentUpload {
+    state: *RoomResidency;
+    renderer: *Renderer;
+    world: *InstanceList;
+}
+opaque;
+fn residency_upload_execute(data: *u8) -> TaskStep {
+    var work: *ResidentUpload = data as *ResidentUpload;
+    var input: FrameInput = renderer_inputs(mut * work -> renderer);
+    return task_done(
+        residency_gpu_world(mut * work -> state, mut input, mut * work -> world)
+    );
+}
+// Requires a retired renderer. Returns after the upload preparation task retires.
+fn game_residency_upload(session: mut GameSession, input: mut InputState) -> bool {
+    var work: ResidentUpload = make ResidentUpload {
+        state: &session.control.residency,
+        renderer: &session.renderer,
+        world: &session.world
+    };
+    var slot: u32 = session.control.residency.count + 4u32;
+    schedule_reset(read session.control.residency.schedule, slot);
+    schedule_define(
+        read session.control.residency.schedule,
+        slot,
+        residency_upload_execute,
+        &work as *u8
+    );
+    return game_schedule_wait(mut session.control, mut input, slot);
 }

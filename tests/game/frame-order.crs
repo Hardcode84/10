@@ -11,6 +11,10 @@ fn check_frame_order() -> unit {
             trap;
         }
         task_complete(mut graph, 1u32, true);
+        if task_next(mut graph) != 6u32 {
+            trap;
+        }
+        task_complete(mut graph, 6u32, true);
         if !check_frame_ready(mut graph) {
             trap;
         }

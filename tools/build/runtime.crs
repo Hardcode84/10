@@ -14,7 +14,7 @@ fn run_runtime_checks(
         "--ldflag",
         sdl_link(root)
     };
-    var providers: [*u8; 8] = make [*u8; 8] {
+    var providers: [*u8; 11] = make [*u8; 11] {
         host_path(root, "src/runtime/task/pool.crs"),
         host_path(root, "src/runtime/platform/native-pool.crs"),
         host_path(root, "tests/runtime/pool.crs"),
@@ -22,7 +22,10 @@ fn run_runtime_checks(
         host_path(root, "src/runtime/executor/serial.crs"),
         host_path(root, "src/runtime/trace/frame.crs"),
         host_path(root, "src/runtime/platform/native-service.crs"),
-        host_path(root, "tests/runtime/service.crs")
+        host_path(root, "tests/runtime/service.crs"),
+        host_path(root, "src/runtime/platform/reference-count.crs"),
+        host_path(root, "src/runtime/executor/continuation.crs"),
+        host_path(root, "tests/runtime/continuation.crs")
     };
     if ownership_sources(
         root,
@@ -30,7 +33,7 @@ fn run_runtime_checks(
         7i32,
         &args[0usize],
         &providers[0usize],
-        8usize,
+        11usize,
         null(*u8)
     ) != 0i32 {
         return 1i32;

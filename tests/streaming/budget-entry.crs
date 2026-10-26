@@ -37,25 +37,26 @@ fn residency_budget_test(session: GameSession, config: GameConfig) -> bool {
     );
     var instances: *MeshInstance = session.world.values;
     var count: u32 = session.world.count;
-    var node: GraphNode = graph_node(
-        read session.control.graph,
-        graph_count(read session.control.graph) - 1u32
-    );
-    // Portal placement needs metadata only. Query the complete room before selecting its view.
-    if !game_residency_require(
-        mut session.control,
-        mut scene,
-        mut loop.input,
-        graph_count(read session.control.graph) - 1u32
-    ) || !stream_camera(
-        read scene,
-        read session.control.graph,
-        node.first,
-        mut loop.trial.drone
-    ) {
-        return false;
+    var room: u32 = 0u32;
+    var exhausted: bool = false;
+    while room < graph_count(read session.control.graph) {
+        if !game_residency_require(mut session.control, mut scene, mut loop.input, room) {
+            return false;
+        }
+        instances = session.world.values;
+        count = session.world.count;
+        var input: FrameInput = renderer_inputs(mut session.renderer);
+        if !residency_gpu_world(
+            mut session.control.residency,
+            mut input,
+            mut session.world
+        ) {
+            exhausted = true;
+            break;
+        }
+        room = room + 1u32;
     }
-    if game_residency_frame(mut scene, mut session, mut loop) {
+    if !exhausted {
         return error("budget fixture did not exhaust its configured arena budget");
     }
     if session.world.values != instances || session.world.count != count {

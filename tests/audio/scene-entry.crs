@@ -164,10 +164,10 @@ fn audio_scene_worker(
         read scene,
         game_sound_snapshot(mut session.control, read loop, config)
     );
-    while pool_job_poll(read task.job) == 0i32 {
-        pool_job_idle(read task.job);
+    while sound_task_poll(read task) == 0i32 {
+        schedule_idle(read task.context.schedule);
     }
-    if pool_job_poll(read task.job) != 1i32 {
+    if sound_task_poll(read task) != 1i32 {
         return false;
     }
     var frame: read GameSoundFrame = read task.context.payload -> frame;

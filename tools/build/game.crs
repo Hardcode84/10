@@ -203,7 +203,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 65] = make [*u8; 65] {
+    var files: [*u8; 68] = make [*u8; 68] {
         "src/runtime/channel/spsc.crs",
         "src/audio/platform/bank.crs",
         "src/audio/platform/mixer.crs",
@@ -214,6 +214,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/audio/task.crs",
         "src/game/effects/storage.crs",
         "src/runtime/task/pool.crs",
+        "src/runtime/executor/continuation.crs",
         "src/runtime/platform/native-pool.crs",
         "src/game/tasks/prediction-work.crs",
         "src/assets/geometry/storage.crs",
@@ -229,6 +230,8 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/app/streaming/gpu.crs",
         "src/app/streaming/start.crs",
         "src/app/streaming/selection.crs",
+        "src/app/streaming/planner.crs",
+        "src/app/streaming/simulation.crs",
         "src/app/streaming/dependencies.crs",
         "src/assets/light-storage.crs",
         "src/assets/connections/storage.crs",
@@ -271,10 +274,10 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/runtime/trace/frame.crs"
     };
     if args == null(**u8) {
-        return 65usize;
+        return 68usize;
     }
     var i: usize = 0usize;
-    while i < 65usize {
+    while i < 68usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

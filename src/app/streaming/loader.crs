@@ -1,4 +1,4 @@
-fn residency_execute(data: *u8) -> bool {
+fn residency_execute(data: *u8) -> TaskStep {
     var work: *ResidentBuild = data as *ResidentBuild;
     var replay: RoomReplay = room_replay_new();
     var builder: CollisionBuilder = collision_builder_new();
@@ -9,36 +9,55 @@ fn residency_execute(data: *u8) -> bool {
         mut builder,
         mut replay
     ) {
-        return false;
+        return task_done(false);
     }
     if !collision_rebuild_finish(read work -> plan, move builder, mut work -> collision) {
-        return false;
+        return task_done(false);
     }
     mesh_swap(mut work -> mesh, mut replay.mesh);
+    return task_done(true);
+}
+fn residency_jobs(
+    state: mut RoomResidency,
+    scene: read CollisionScene,
+    graph: read RoomGraph
+) -> bool {
+    var i: u32 = 0u32;
+    while i < state.count {
+        var work: *ResidentBuild = &state.builds[i as usize];
+        work -> portal = graph_node(read graph, i).first;
+        if !room_recipe_copy(mut work -> recipe, graph_recipe(read graph, i)) || !collision_rebuild_plan(
+            read scene,
+            i,
+            mut work -> plan
+        ) {
+            return false;
+        }
+        schedule_define(read state.schedule, i, residency_execute, work as *u8);
+        i = i + 1u32;
+    }
     return true;
 }
-// Consume completions only between admitted frames, after readers have joined.
+// Publish completed immutable room chunks between readers.
 fn residency_poll(state: mut RoomResidency, scene: mut CollisionScene) -> bool {
-    if state.job == TASK_NONE {
-        return true;
-    }
-    var status: i32 = pool_status(state.pool.state, state.job, state.generation);
-    if status == 0i32 {
-        return true;
-    }
-    pool_release(state.pool.state, state.job, state.generation);
-    state.job = TASK_NONE;
-    var work: *ResidentBuild = state.build;
-    if status > 0i32 && generation_word(read state.keep, work -> room) != 0u32 {
-        if !collision_room_resident(read scene, work -> room) {
-            collision_room_restore(mut scene, read work -> collision);
+    schedule_poll(read state.schedule);
+    var i: u32 = 0u32;
+    while i < state.count {
+        var status: i32 = schedule_status(read state.schedule, i);
+        if status < 0i32 {
+            return error("room generation task failed");
         }
-        state.rooms[work -> room as usize].ready = true;
-        mesh_swap(mut state.rooms[work -> room as usize].mesh, mut work -> mesh);
+        if status > 0i32 && !state.rooms[i as usize].ready {
+            var work: *ResidentBuild = &state.builds[i as usize];
+            if !collision_room_resident(read scene, i) {
+                collision_room_restore(mut scene, read work -> collision);
+            }
+            state.rooms[i as usize].ready = true;
+            mesh_swap(mut state.rooms[i as usize].mesh, mut work -> mesh);
+        }
+        i = i + 1u32;
     }
-    residency_build_drop(work);
-    state.build = null(*ResidentBuild);
-    return status > 0i32 || error("room generation task failed");
+    return true;
 }
 fn residency_request(
     state: mut RoomResidency,
@@ -46,34 +65,10 @@ fn residency_request(
     graph: read RoomGraph,
     room: u32
 ) -> bool {
-    var work: *ResidentBuild = malloc(sizeof(ResidentBuild)) as *ResidentBuild;
-    if work == null(*ResidentBuild) {
-        return error("room request allocation failed");
+    if state.rooms[room as usize].ready && !residency_asset_ready(read state, room) {
+        residency_forget(mut state, room);
     }
-    * work = make ResidentBuild {
-        recipe: room_recipe_new(),
-        plan: collision_rebuild_new(),
-        mesh: mesh_new(),
-        collision: collision_room_new(),
-        room: room,
-        portal: graph_node(read graph, room).first
-    };
-    if !room_recipe_copy(mut work -> recipe, graph_recipe(read graph, room)) || !collision_rebuild_plan(
-        read scene,
-        room,
-        mut work -> plan
-    ) {
-        residency_build_drop(work);
-        return false;
-    }
-    state.build = work;
-    state.job = pool_admit(state.pool.state, residency_execute, work as *u8);
-    if state.job == TASK_NONE {
-        residency_build_drop(work);
-        state.build = null(*ResidentBuild);
-        return error("room task admission failed");
-    }
-    state.generation = pool_generation(state.pool.state, state.job);
+    schedule_background(read state.schedule, room);
     return true;
 }
 fn residency_prefetch(
@@ -81,98 +76,49 @@ fn residency_prefetch(
     scene: read CollisionScene,
     graph: read RoomGraph
 ) -> bool {
-    if state.job != TASK_NONE {
-        return true;
-    }
+    var bytes: u64 = residency_prefetch_bytes(read state);
     var room: u32 = 0u32;
     while room < state.count {
-        if generation_word(read state.ahead, room) != 0u32 && !state.rooms[room as usize].ready {
-            if residency_cpu_bytes(read state) + state.rooms[room as usize].cost > state.cpu_budget {
-                return true;
+        if (
+            generation_word(read state.ahead, room) != 0u32 || generation_word(
+                read state.wanted,
+                room
+            ) != 0u32
+        ) && !schedule_requested(read state.schedule, room) {
+            if bytes + state.rooms[room as usize].cost <= state.cpu_budget {
+                schedule_background(read state.schedule, room);
+                bytes = bytes + state.rooms[room as usize].cost;
             }
-            return residency_request(mut state, read scene, read graph, room);
         }
         room = room + 1u32;
     }
+    schedule_poll(read state.schedule);
     return true;
 }
-// Admission pauses simulation. Requests own their inputs until the pool retires them.
 fn game_residency_require(
     control: mut GameControl,
     scene: mut CollisionScene,
     input: mut InputState,
     room: u32
 ) -> bool {
-    if !control.residency.enabled || control.residency.count == 0u32 {
-        return true;
-    }
-    generation_word_set(mut control.residency.keep, room, 1u32);
-    generation_word_set(mut control.residency.wanted, room, 1u32);
-    if residency_asset_ready(read control.residency, room) {
-        return true;
-    }
+    residency_pin(mut control.residency, room);
     if !window_loading(control.window.handle, true) {
         return false;
     }
     var start: u64 = now();
-    while !residency_asset_ready(read control.residency, room) {
-        if !residency_poll(mut control.residency, mut scene) {
-            return false;
-        }
-        if residency_asset_ready(read control.residency, room) {
-            break;
-        }
-        if control.residency.job == TASK_NONE {
-            if !residency_cpu_admit(mut control.residency, mut scene, room) || !residency_request(
-                mut control.residency,
-                read scene,
-                read control.graph,
-                room
-            ) {
-                return false;
-            }
-        }
-        pool_pause(control.residency.pool.state);
-        if !game_poll(mut control, mut input) {
-            return false;
-        }
-        if input.quit {
-            return false;
-        }
+    if !residency_request(mut control.residency, read scene, read control.graph, room) || !game_schedule_wait(
+        mut control,
+        mut input,
+        room
+    ) {
+        return false;
     }
     control.residency.paused_ns = control.residency.paused_ns + now() - start;
-    return window_loading(control.window.handle, false);
+    return residency_poll(mut control.residency, mut scene) && window_loading(
+        control.window.handle,
+        false
+    );
 }
-fn game_residency_trial(
-    scene: mut CollisionScene,
-    control: mut GameControl,
-    loop: mut GameLoop,
-    command: Command
-) -> bool {
-    if !control.residency.enabled || control.residency.count == 0u32 {
-        trial_step(read scene, mut loop.trial, command);
-        return true;
-    }
-    while true {
-        assign_trial(mut control.residency.trial, read loop.trial);
-        var admission: CollisionAdmission = trial_step_admitted(
-            read scene,
-            mut control.residency.trial,
-            command
-        );
-        if admission.status == 0u32 {
-            assign_trial(mut loop.trial, read control.residency.trial);
-            return true;
-        }
-        if admission.status != COLLISION_UNRESOLVED {
-            return error("flight admission failed");
-        }
-        if !game_residency_require(mut control, mut scene, mut loop.input, admission.space) {
-            return false;
-        }
-    }
-}
-
 fn game_residency_elapsed(control: mut GameControl, elapsed: u64) -> u64 {
     var paused: u64 = control.residency.paused_ns;
     control.residency.paused_ns = 0u64;
@@ -199,36 +145,51 @@ fn residency_cpu_bytes(state: read RoomResidency) -> u64 {
     }
     return bytes;
 }
-fn residency_cpu_admit(state: mut RoomResidency, scene: mut CollisionScene, room: u32) -> bool {
-    if state.rooms[room as usize].ready {
-        return true;
-    }
-    var used: u64 = residency_cpu_bytes(read state);
-    var needed: u64 = state.rooms[room as usize].cost;
-    var i: u32 = 0u32;
-    while used + needed > state.cpu_budget && i < state.count {
-        var item: *ResidentRoom = &state.rooms[i as usize];
-        if item -> ready && !item -> pinned && generation_word(read state.wanted, i) == 0u32 {
-            used = used - item -> cost;
-            item -> ready = false;
-            item -> mesh = mesh_new();
-            collision_room_unload(mut scene, i);
-        }
-        i = i + 1u32;
-    }
-    if used + needed <= state.cpu_budget {
-        return true;
-    }
-    puts("room CPU cache: live / requested / budget bytes");
-    print_number(used as i64);
-    print_number(needed as i64);
-    print_number(state.cpu_budget as i64);
-    return error("mandatory room assets exceed CPU cache budget");
-}
-
 fn residency_asset_ready(state: read RoomResidency, room: u32) -> bool {
     var item: *ResidentRoom = &state.rooms[room as usize];
     return item -> ready && (
         item -> uploaded || item -> mesh.count != 0u32 || item -> piece_count == 0u32
     );
+}
+fn residency_forget(state: mut RoomResidency, room: u32) -> unit {
+    var work: *ResidentBuild = &state.builds[room as usize];
+    work -> mesh = mesh_new();
+    work -> collision = collision_room_new();
+    schedule_reset(read state.schedule, room);
+    state.rooms[room as usize].ready = false;
+}
+fn residency_cache_limit(state: mut RoomResidency, scene: mut CollisionScene) -> bool {
+    var bytes: u64 = residency_cpu_bytes(read state);
+    var room: u32 = 0u32;
+    while bytes > state.cpu_budget && room < state.count {
+        var item: *ResidentRoom = &state.rooms[room as usize];
+        if item -> ready && !item -> pinned && !schedule_demanded(read state.schedule, room) && generation_word(
+            read state.wanted,
+            room
+        ) == 0u32 {
+            bytes = bytes - item -> cost;
+            item -> mesh = mesh_new();
+            collision_room_unload(mut scene, room);
+            residency_forget(mut state, room);
+        }
+        room = room + 1u32;
+    }
+    if bytes <= state.cpu_budget {
+        return true;
+    }
+    puts("room CPU cache: required / budget bytes");
+    print_number(bytes as i64);
+    print_number(state.cpu_budget as i64);
+    return error("required room assets exceed CPU cache budget");
+}
+fn residency_prefetch_bytes(state: read RoomResidency) -> u64 {
+    var bytes: u64 = residency_cpu_bytes(read state);
+    var room: u32 = 0u32;
+    while room < state.count {
+        if !state.rooms[room as usize].ready && schedule_requested(read state.schedule, room) {
+            bytes = bytes + state.rooms[room as usize].cost;
+        }
+        room = room + 1u32;
+    }
+    return bytes;
 }

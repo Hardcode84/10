@@ -500,6 +500,10 @@ fn course_task_frame(
         trap;
     }
     task_complete(mut graph, 1u32, true);
+    if task_next(mut graph) != 6u32 {
+        trap;
+    }
+    task_complete(mut graph, 6u32, true);
     if task_next(mut graph) != 2u32 {
         trap;
     }

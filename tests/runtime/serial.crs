@@ -116,9 +116,9 @@ fn check_cycle() -> bool {
 fn main(argc: i32, argv: **u8) -> i32 {
     return (
         !(
-            check_worker_pool() && check_native_service() && check_external_order(false) && check_external_order(
-                true
-            ) && check_cancel_drain() && check_ready_fanout() && check_rejection() && check_cycle()
+            check_continuation_failure() && check_foreground_capacity() && check_continuations() && check_worker_pool() && check_native_service() && check_external_order(
+                false
+            ) && check_external_order(true) && check_cancel_drain() && check_ready_fanout() && check_rejection() && check_cycle()
         )
     ) as i32;
 }

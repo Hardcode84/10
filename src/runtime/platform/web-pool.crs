@@ -6,6 +6,7 @@ record PoolEntry {
     times: TaskRunTimes;
 }
 record PoolState {
+    references: i32;
     entries: *PoolEntry;
     capacity: u32;
     free: u32;
@@ -35,6 +36,7 @@ fn pool_open(workers: u32, capacity: u32) -> *PoolState {
         task_error("task pool allocation failed");
         return null(*PoolState);
     }
+    pool -> references = 1i32;
     pool -> capacity = capacity;
     pool -> free = 0u32;
     pool -> live = 0u32;
@@ -57,6 +59,9 @@ fn pool_open(workers: u32, capacity: u32) -> *PoolState {
 }
 fn pool_close(pool: *PoolState) -> unit {
     if pool == null(*PoolState) {
+        return;
+    }
+    if !reference_release(&pool -> references) {
         return;
     }
     if pool -> live != 0u32 {
@@ -112,4 +117,7 @@ fn pool_release(pool: *PoolState, id: u32, generation: u64) -> unit {
     pool -> entries[id as usize].next = pool -> free;
     pool -> free = id;
     pool -> live = pool -> live - 1u32;
+}
+fn pool_width(pool: *PoolState) -> u32 {
+    return 0u32;
 }

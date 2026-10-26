@@ -2,7 +2,9 @@ fn main(argc: i32, argv: **u8) -> i32 {
     if argc == 2i32 && strcmp(argv[1usize], "--help") == 0i32 {
         puts("SPINWARD | Labyrinth demo: There and Back");
         puts("--fullscreen: borderless desktop window; width/height set render resolution");
-        puts("--tasks: parallel next-frame prediction (default); --serial: synchronous loop");
+        puts(
+            "--tasks: parallel next-frame prediction (default); --serial: caller-lane task execution"
+        );
         puts("--workers N: prediction workers (native default 1; browser requires 0)");
         puts("--width N --height N --fov 70..110 --slow --bindings FILE");
         puts("--scaling: reciprocal size-change rooms with moving contacts");

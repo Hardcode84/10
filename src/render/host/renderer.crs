@@ -153,6 +153,9 @@ fn renderer_begin(v: *RenderState) -> bool {
     return true;
 }
 fn renderer_complete(v: *RenderState) -> bool {
+    if ((v -> mapped as *u32)[5usize] & RENDER_ROOM_PENDING) != 0u32 {
+        return error("frame needs unfinished portal geometry");
+    }
     if !frame_valid(v) {
         return false;
     }

@@ -1,112 +1,116 @@
 # Room streaming
 
-Normal play uses room residency on desktop and in the browser. The loader lives
-in `src/app/streaming/`. It uses the shared task pool, collision snapshots, and
-renderer inputs. Game code does not use platform synchronization objects.
+Normal play uses room residency. The loader is in `src/app/streaming/`.
+The common task runtime owns execution and dependency waits. Game code does
+not use platform thread or synchronization objects.
 
-## Construction and persistent state
+## Persistent state
 
-Level construction records asset builders, owned parameter values, added parts,
+Level construction records asset builders, owned parameters, added parts,
 and material edits. It assigns room, portal, and collider identities. Graph
-connections, room frames, controller state, lights, and collision instance records
-stay resident. Door motion survives room eviction and regeneration.
+connections, room frames, lights, controllers, and collision instance records
+stay resident. Door state survives geometry eviction.
 
-Construction currently builds geometry once to establish collider identities and
-layouts. After startup admission, the combined render mesh is released. A missing
-room is rebuilt from its recorded inputs. The worker returns a render mesh and
-an immutable collision chunk. It does not replace live door or object state.
-Assets supplied without a replay recipe are explicitly pinned for the lifetime
-of the level. This includes the older labyrinth and direct room fixtures.
+Construction still builds geometry once to establish collider layouts. After
+startup admission, the combined mesh is released. A geometry task reconstructs
+a room from its recorded inputs and produces a mesh and immutable collision
+chunk. Assets without a replay recipe remain pinned for the level lifetime.
+This includes the older labyrinth and direct room fixtures.
 
-A loader owns its jobs and copied recipe inputs. Shutdown joins its last job
-before releasing storage. Results cannot cross a level replacement. Within a
-construction, a result outside the retention set is discarded. Changes to a
-room recipe require a new construction; immutable visibility and collider layouts
-belong to that construction.
+Each task owns its inputs until retirement. A level retains its task schedule,
+recipes, topology snapshot, and result slots. Shutdown drains the schedule before
+it releases those slots. Results cannot cross a level replacement. A recipe
+change requires a new construction.
 
-## Visibility and loading
+## Visibility and requests
 
-Room visibility uses convex portal polygons and the actual connection transforms,
-including rotation and scale. Traversal retains distinct recursive path states.
-Only the result merges room identities. Logical global room positions do not
-determine visibility. Doors are treated as open for visibility.
+Visibility uses convex portal polygons and connection transforms, including
+rotation and scale. Recursive paths retain distinct traversal states. Only the
+result merges room identities. Logical global positions do not determine
+visibility. Visibility treats doors as open.
 
-Visibility rows are cached on demand. A row includes rooms potentially visible
-from anywhere in its source room. Polygon or traversal work exhaustion keeps all
-room candidates. An incomplete geometric calculation cannot hide a room.
+A task computes visibility rows and loading waves from an immutable topology
+snapshot. Rows and completed plans remain cached for the construction. The
+application consumes completed plans. It does not expand visibility at a room
+crossing. Polygon or traversal exhaustion conservatively includes all candidates.
 
-The current row is mandatory. The next visibility wave is prefetched. A further
-wave retains cached assets. One asset construction job runs at a time. Required
-rooms take priority when the current job retires. Optional prefetch stops at the
-CPU cache budget. Loading does not advance simulation time.
+The current visibility row and further waves provide generation and retention
+hints. They do not require a frame to wait. Audio range, prediction, the hook,
+and particles can also request geometry. Background requests have lower priority
+than frame dependencies. The scheduler reserves foreground worker capacity when
+its pool has more than one worker. Default pool width is defined in
+`src/runtime/platform/native-pool.crs`.
 
-The required set also includes the hook, tether path, live particles, and an
-unresolved prediction frontier. Audio retains all rooms that its portal search
-can visit above the transmission threshold. These dependencies are independent
-of renderer visibility.
+A room request shares one generation task with all consumers. A consumer that
+finds missing collision geometry returns a dependency on that task. The worker
+is released. The scheduler resumes the consumer after successful generation.
+A failed dependency fails its consumers. An incomplete prediction does not
+publish markers or door requests.
 
-## Admission and publication
+The application can wait when it needs a simulation, prediction, or audio task
+result. These are task joins. There is no application loading loop for every room
+in a visibility set. Required room results remain retained until the visibility
+plan changes and consumers have retired.
+
+## Rendering and publication
 
 ```mermaid
 flowchart LR
-    Graph[Persistent graph and recipes] --> Visibility[Cached portal visibility]
-    Visibility --> Required[Required and retained rooms]
-    Required --> Build[Room construction task]
-    Build --> Cache[CPU mesh and collision cache]
-    Cache --> Stage[Stage mesh in unused arena space]
-    Stage --> Publish[Publish instance list at frame boundary]
-    Cache --> Physics[Admit simulation and snapshot readers]
-    Physics --> Prediction[Prediction and audio tasks]
-    Publish --> GPU[Upload and compute rendering]
-    GPU --> Retire[GPU retirement]
-    Prediction --> Retire
-    Retire --> Reuse[Release chunks and reuse empty arenas]
+    Graph[Topology snapshot] --> Visibility[Visibility task]
+    Visibility --> Hints[Generation and retention hints]
+    Hints --> Geometry[Room geometry task]
+    Physics[Simulation task] -->|missing geometry| Geometry
+    Prediction[Prediction task] -->|missing geometry| Geometry
+    Sound[Sound preparation task] -->|missing geometry| Geometry
+    Geometry --> Resume[Resume suspended consumers]
+    Geometry --> Stage[Stage completed meshes]
+    Stage --> GPU[Upload and render task]
+    GPU -->|visible unfinished portal| Geometry
+    GPU -->|complete image| Present[Presentation task]
+    Present --> Retire[Retirement and cache reuse]
 ```
 
-A simulation step runs against reusable speculative state. If collision is
-missing, the loader requests that room and retries the same command. Only a
-complete step changes the player's state or clock. Particle motion uses the
-same retry rule. Input events continue to be processed during admission waits. The window title
-shows loading status. Escape cancels the run.
+Completed meshes enter unused GPU arena ranges before rendering needs them.
+The next instance list is built separately. Capacity checks finish before it
+replaces the published list. Failed staging preserves that list. Transfers and
+rendering use the existing asynchronous GPU operation path.
 
-Prediction and audio refresh their snapshot membership only between jobs. Their
-immutable chunks remain alive until readers release them. An incomplete
-prediction suppresses its markers and requests its unresolved room. Loading time
-is removed from the next frame's simulation credit.
+Portal metadata states whether each destination is ready. The renderer reports
+an unfinished destination only when portal pixels survive rasterization. It
+returns a dependency result instead of a valid image. The application joins the
+room task, stages its result, and retries rendering with the same simulation
+state. It does not present an incomplete image or advance simulation on retry.
+The dependency uses the existing renderer completion status readback.
 
-GPU meshes are written into unused arena ranges. The next instance list is built
-separately. Capacity checks finish before it replaces the current list. Failed
-staging leaves the published list intact. Transfers precede rendering in the same
-GPU submission. A GPU submission failure is reported and ends the run.
+Prediction and audio use immutable collision snapshots. They add a generated
+chunk when their task resumes. Snapshot references keep chunks alive through
+reader retirement. Residency changes and GPU range reuse occur between retired
+frames. Texture banks and door render assets remain resident.
 
-The application changes residency between frames, after prediction, audio, and
-GPU work has retired. It then releases excluded collision chunks and mesh ranges.
-Other collision snapshots retain their own references. Texture banks and door
-render assets remain shared and resident.
+## Memory and execution modes
 
-## Memory
+`--room-memory N` sets the geometry arena budget in MiB. Arena size and the
+default budget are defined in `src/app/streaming/storage.crs`. The CPU cache uses
+a budget derived from that value. Persistent topology, visibility plans, worker
+scratch, snapshot references, and other renderer storage are separate costs.
 
-`--room-memory N` sets the room geometry arena budget in MiB. Defaults and arena
-size are defined in `src/app/streaming/storage.crs`. The CPU asset cache uses a
-budget derived from that value. Persistent topology, visibility rows, controllers,
-worker construction scratch, snapshot pins, and other renderer storage are
-separate costs.
+Meshes use fixed-size arena pieces. Multiple meshes can share an arena. Empty
+arenas reuse their extent. The renderer admits the bounded backing storage at
+startup, so a new room does not replace the renderer buffers during a crossing.
+Device binding limits still apply. Cache or arena exhaustion produces an error.
+GPU diagnostics report live, trapped, requested, and budget bytes.
 
-A mesh is split into fixed-size arena pieces. Multiple meshes can share an arena.
-An empty arena reuses its reserved extent. Allocation occupancy is separate from
-the published instance list. The renderer uses bounded retained storage and
-partial dirty-range uploads on both backends; its device binding limits still
-apply to the backing store.
-
-Under pressure, inactive GPU cache entries and optional CPU entries are released
-first. A mandatory set that exceeds the available capacity produces an explicit
-error. GPU diagnostics report live, trapped, requested, and budget bytes. CPU
-cache diagnostics report live, requested, and budget bytes. The loader does not
-retry an impossible allocation indefinitely.
+Desktop background work uses the common worker pool. The browser uses the same
+continuation scheduler with its application-lane pool provider. That provider
+has no background CPU workers; task execution itself occupies the application
+lane. Moving browser computation to workers requires a worker-capable WebAssembly
+pool and the corresponding browser memory and deployment contract. Dependency
+waits themselves occupy no pool worker on either provider.
 
 ## Checks
 
 ```sh
+crust tests.crs runtime
 crust tests.crs residency levels/shafts.crs --width 640 --height 480
 crust tests.crs residency levels/service.crs --width 640 --height 480
 crust tests.crs residency-budget levels/shafts.crs --width 640 --height 480 --room-memory 9
@@ -115,12 +119,11 @@ crust tests.crs collision --sanitize
 crust main.crs --web
 ```
 
-The residency check uses production loading and rendering. It compares flight
-state and images with full residency across remote visits and a return visit,
-with an attached hook. Recipe checks compare regenerated triangles, UVs,
-collision, portals, lights, and door identities. The collision suite checks
-snapshot retention, missing-room admission, and retry. Test output belongs in
-ignored build storage.
-
-The budget check fills the production arenas, rejects the next required set,
-and compares the retained frame with its previous image.
+Runtime checks use one worker to complete a consumer through a generated
+dependency. They also check foreground progress while background work is busy.
+The residency check removes destination geometry, resumes prediction through
+real generation, and compares its output with full residency. It compares
+physics and rendered pixels across portal crossings and return visits. The
+budget check rejects staging and verifies the retained image. Recipe checks
+compare reconstructed geometry, materials, portals, lights, and door identities. Test output stays
+in ignored build storage.

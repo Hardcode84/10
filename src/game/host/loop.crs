@@ -115,6 +115,7 @@ fn game_prepare_finish(
     {
         var renderer: mut Renderer = game_renderer(mut session);
         var inputs: FrameInput = renderer_inputs(mut renderer);
+        game_residency_portals(read session.control, mut inputs);
         game_hud(mut inputs, read loop.trial, loop.input.paused);
         if !config.headless {
             hud_fps(mut inputs, fps, loop.input.paused);
@@ -194,50 +195,7 @@ fn game_run_active(
     loop: mut GameLoop,
     config: GameConfig
 ) -> i32 {
-    if config.tasks {
-        return game_run_tasks(mut collision, mut session, mut loop, config);
-    }
-    var previous: u64 = now();
-    while loop.running {
-        var current: u64 = now();
-        var elapsed: u64 = current - previous;
-        previous = current;
-        if !game_advance(mut collision, mut session.control, mut loop, config, elapsed) {
-            return 1i32;
-        }
-        if !game_residency_frame(mut collision, mut session, mut loop) {
-            if loop.input.quit {
-                loop.running = false;
-                break;
-            }
-            return 1i32;
-        }
-        var prediction: Prediction = predict_scene(
-            read collision,
-            read loop.trial,
-            mut session.forecast,
-            game_doors_mut(mut session.control)
-        );
-        game_residency_prediction(mut session.control, read prediction);
-        if !game_sound_serial(read collision, mut session.control, read loop, config) {
-            return 1i32;
-        }
-        if !config.headless {
-            prediction = prediction_visible(prediction, read loop.trial);
-            game_prepare(read collision, mut session, read loop, config, read prediction);
-            if !game_draw(mut session) || !game_present(mut session) {
-                return 1i32;
-            }
-        }
-        if !config.headless {
-            game_wait();
-        }
-    }
-    if config.headless && !game_render(read collision, mut session, read loop, config) {
-        return 1i32;
-    }
-    game_summary(read loop.trial);
-    return (!game_finish(mut session)) as i32;
+    return game_run_tasks(mut collision, mut session, mut loop, config);
 }
 
 fn game_materials_open(session: mut GameSession, config: GameConfig) -> bool {

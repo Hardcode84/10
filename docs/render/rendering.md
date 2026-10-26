@@ -1248,3 +1248,13 @@ Shader compiler details remain in [the compiler contract](../build/crust-spirv.m
 Runtime scheduling policy remains in the task-graph document. Room construction
 and physics belong to their component documents. This reference owns rendering
 behaviour and the boundary between those components.
+
+### Unfinished portal destinations
+
+Portal metadata includes destination readiness. When rasterized portal pixels
+need an unfinished destination, frame completion reports that portal instead of
+providing a valid image. The application awaits the room geometry task, stages
+the completed mesh, and retries the same simulation snapshot. Presentation must
+consume only a valid image. This result uses the existing completion status
+readback on both GPU backends. Visibility planning alone does not make a frame
+wait. See [room streaming](../content/streaming.md).
