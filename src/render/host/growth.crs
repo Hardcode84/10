@@ -182,6 +182,10 @@ fn storage_prefetch(v: *RenderState) -> bool {
     next.shadow_capacity = storage_headroom(shadow_dynamic_required(v), v -> shadow_capacity);
     next.light_capacity = storage_headroom(w[LIGHT_COUNT as usize], v -> light_capacity);
     next.asset_capacity = storage_headroom(w[ASSET_WORDS as usize], v -> asset_capacity);
+    var asset_limit: u32 = (v -> storage_limit / 256u32) * 64u32 - 1u32;
+    if next.asset_capacity > asset_limit {
+        next.asset_capacity = asset_limit;
+    }
     if storage_same(v, &next) || geometry_limit(&next) < next.triangle_capacity {
         return true;
     }

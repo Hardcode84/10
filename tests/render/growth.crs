@@ -142,3 +142,32 @@ fn transfer_growth_wait(renderer: mut Renderer) -> u32 {
     }
     return frames;
 }
+
+fn transfer_binding_limits() -> bool {
+    var state: RenderState = uninit;
+    zero(&state as *u8, sizeof(RenderState));
+    state.width = 64u32;
+    state.height = 48u32;
+    state.output_width = state.width;
+    state.output_height = state.height;
+    state.storage_limit = 1048576u32;
+    state.mesh_capacity = 4096u32;
+    state.asset_capacity = 196608u32;
+    state.projection_capacity = 1u32;
+    state.view_capacity = 1u32;
+    state.task_capacity = 1u32;
+    state.light_capacity = 1u32;
+    state.shadow_capacity = 1u32;
+    if !geometry_layout(&state, 1u32) {
+        return false;
+    }
+    return (state.words as u64 + 1u64) * 4u64 > state.storage_limit as u64 && (
+        state.data_words as u64 + 1u64
+    ) * 4u64 <= state.storage_limit as u64 && (state.asset_capacity as u64 + 1u64) * 4u64 <= state.storage_limit as u64 && (
+        state.floats as u64 + 1u64
+    ) * 4u64 <= state.storage_limit as u64 && (state.data_words + 1u32) % 64u32 == 0u32 && (
+        state.words + 1u32
+    ) % 64u32 == 0u32 && geometry_limit(&state) >= 1u32 || error(
+        "independent asset and geometry bindings share a range limit"
+    );
+}

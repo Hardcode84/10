@@ -127,14 +127,14 @@ fn compute() -> unit {
 fn shade_color(tri: u32, view: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
     var mat: u32 = scene_meta(tri, 1u32);
     if (scene_meta(tri, 3u32) & TRIANGLE_SPRITE) != 0u32 {
-        return words_load(
+        return assets_load(
             material_palette(mat) + material_texel(mat, u, v) * LIGHT_STATES + LIGHT_STATES - 1u32
         );
     }
     if SHADE_DISTANCE {
         return light_color(mat, u, v, z, x, y);
     }
-    return words_load(
+    return assets_load(
         material_palette(mat) + material_texel(mat, u, v) * LIGHT_STATES + lit_state(
             tri,
             view,

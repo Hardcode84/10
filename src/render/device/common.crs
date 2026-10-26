@@ -54,7 +54,7 @@ fn light_color(mat: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
     if (light - level as f32) * 16f32 > threshold(x, y, words_load(2u32)) as f32 && level < 63u32 {
         level = level + 1u32;
     }
-    return words_load(material_palette(mat) + color * LIGHT_STATES + level);
+    return assets_load(material_palette(mat) + color * LIGHT_STATES + level);
 }
 
 fn light_normal(tri: u32, axis: u32) -> f32 {
@@ -327,10 +327,10 @@ fn light_quantize(value: f32) -> u32 {
     return (value * 7f32 + 0.5f32) as u32;
 }
 fn material_field(mat: u32, field: u32) -> u32 {
-    return words_load(words_load(ASSET_OFFSET) + mat * MATERIAL_WORDS + field);
+    return assets_load(mat * MATERIAL_WORDS + field);
 }
 fn material_palette(mat: u32) -> u32 {
-    return words_load(ASSET_OFFSET) + material_field(mat, 4u32);
+    return material_field(mat, 4u32);
 }
 fn texture_axis(uv: f32, size: u32, mode: u32) -> u32 {
     if mode == ADDRESS_CLAMP {
@@ -360,9 +360,7 @@ fn texture_axis(uv: f32, size: u32, mode: u32) -> u32 {
 fn material_texel(mat: u32, u: f32, v: f32) -> u32 {
     var x: u32 = texture_axis(u, material_field(mat, 1u32), material_field(mat, 7u32));
     var y: u32 = texture_axis(v, material_field(mat, 2u32), material_field(mat, 8u32));
-    return words_load(
-        words_load(ASSET_OFFSET) + material_field(mat, 0u32) + x + y * material_field(mat, 3u32)
-    );
+    return assets_load(material_field(mat, 0u32) + x + y * material_field(mat, 3u32));
 }
 fn portal_facing(view: u32, portal: u32) -> bool {
     if portal == 0u32 {

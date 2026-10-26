@@ -14,6 +14,7 @@ fn storage_layout_take(v: *RenderState, allocated: *RenderState) -> unit {
     v -> portal_capacity = allocated -> portal_capacity;
     v -> task_capacity = allocated -> task_capacity;
     v -> words = allocated -> words;
+    v -> data_words = allocated -> data_words;
     v -> floats = allocated -> floats;
     v -> tile_words = allocated -> tile_words;
     v -> buffer = allocated -> buffer;

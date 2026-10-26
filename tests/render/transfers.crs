@@ -1,4 +1,7 @@
 fn transfer_test(base: *Options) -> bool {
+    if !transfer_binding_limits() {
+        return false;
+    }
     var o: Options = *base;
     o.width = 320u32;
     o.height = 180u32;

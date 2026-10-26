@@ -207,6 +207,7 @@ fn input_word_dirty(input: mut FrameInput, index: u32) -> unit {
     }
 }
 fn persistent_upload(v: *RenderState) -> unit {
+    copy_region(v, v -> staging, v -> buffer, (v -> data_words as u64 + 1u64) * 4u64, 4u64);
     if v -> asset_dirty_end > v -> asset_dirty_begin {
         var offset: u64 = (v -> mapped as *u32)[ASSET_OFFSET as usize] as u64 + v -> asset_dirty_begin as u64 + 1u64;
         v -> asset_upload_bytes = (v -> asset_dirty_end - v -> asset_dirty_begin) as u64 * 4u64;

@@ -547,9 +547,17 @@ change collision or camera visibility.
 ### Shared layout and uploads
 
 [The interface](../../src/render/interface.crs) defines offsets into counted
-four-byte word and float bindings. Host native record layout is not the shader
+four-byte word, float, tile, and asset bindings. Host native record layout is not the shader
 ABI. [The layout planner](../../src/render/host/geometry.crs) calculates sizes
-with wide arithmetic and checks each range against device storage limits.
+with wide arithmetic and checks each binding range against device storage limits.
+
+The backing buffer has separate aligned regions for scene words, assets, floats,
+and tiles. Bindings 0, 1, 2, and 3 select scene words, floats, tiles, and assets.
+Checked shaders use binding 4 for status. Asset bytes do not consume the scene-word
+binding limit. Each region has its own count header. Host asset offsets remain
+relative to the mapped word address space; device asset offsets are relative to
+the asset binding. A shared backing allocation can exceed one binding's range
+limit when each bound region fits.
 
 The Vulkan provider owns a device buffer and coherent, cached staging memory.
 WebGPU uses WebAssembly staging memory and explicit transfers. Staging reserves
@@ -817,7 +825,7 @@ Shutdown also waits for presentation use before releasing its resources.
 
 The native renderer consumes compute Shader SPIR-V validated for Vulkan 1.2.
 The current device profile requires `shaderInt8`, Float32 round-to-nearest-even
-and signed-zero/Inf/NaN preservation, at least four storage bindings, storage
+and signed-zero/Inf/NaN preservation, four storage bindings (five with shader checks), storage
 offset alignment no greater than 256 bytes, 64-lane workgroups, sufficient X
 dispatch capacity, and at least 2 KiB of shared memory for the application raster
 pass. Optional experiment kernels can require more shared storage. No path

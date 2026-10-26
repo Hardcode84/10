@@ -14,6 +14,7 @@ extern fn web_bindings(
     id: u32,
     buffer: u32,
     words: u32,
+    data_words: u32,
     floats: u32,
     tiles: u32,
     status: u32
@@ -117,6 +118,7 @@ fn descriptors_update(v: *RenderState) -> unit {
         v -> gpu.id,
         v -> buffer as usize as u32,
         v -> words,
+        v -> data_words,
         v -> floats,
         v -> tile_words,
         v -> shader_checks as u32 * MAX_INVOCATIONS

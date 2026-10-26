@@ -83,7 +83,7 @@ fn build_shader(
     checked: bool,
     web: bool
 ) -> bool {
-    var resources: [ShaderResource; 5] = make [ShaderResource; 5] {
+    var resources: [ShaderResource; 6] = make [ShaderResource; 6] {
         make ShaderResource {
             name: "words",
             kind: SHADER_BUFFER_U32,
@@ -112,6 +112,15 @@ fn build_shader(
             height: 0u32
         },
         make ShaderResource {
+            name: "assets",
+            kind: SHADER_BUFFER_U32,
+            layout: SHADER_COUNTED,
+            set: 0u32,
+            binding: 3u32,
+            length: 0u32,
+            height: 0u32
+        },
+        make ShaderResource {
             name: "shared",
             kind: shared_kind,
             layout: SHADER_FIXED,
@@ -125,7 +134,7 @@ fn build_shader(
             kind: SHADER_BUFFER_U32,
             layout: SHADER_FIXED,
             set: 0u32,
-            binding: 3u32,
+            binding: 4u32,
             length: MAX_INVOCATIONS,
             height: 0u32
         }
@@ -134,9 +143,9 @@ fn build_shader(
     if shader_atomic_tiles(name) {
         resources[2usize].kind = SHADER_BUFFER_ATOMIC_U32;
     }
-    var resource_count: usize = 3usize;
+    var resource_count: usize = 4usize;
     if shared_length != 0u32 {
-        resource_count = 4usize;
+        resource_count = 5usize;
     }
     var config: ShaderConfig = make ShaderConfig {
         interfaces: null(*ShaderInterface),
@@ -151,7 +160,7 @@ fn build_shader(
         invocations: MAX_INVOCATIONS,
         local_size: LOCAL_SIZE,
         status_set: 0u32,
-        status_binding: 3u32,
+        status_binding: 4u32,
         preserve_denorms: false
     };
     if !checked {
@@ -159,7 +168,7 @@ fn build_shader(
     }
     if report {
         config.execution = SHADER_RAW;
-        config.resource_count = 5usize;
+        config.resource_count = 6usize;
     }
     var source: CrustSource = uninit;
     if !shader_source(root, name, &source, report, checked) {
