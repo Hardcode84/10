@@ -1,5 +1,5 @@
 extern fn SDL_Init(flags: u32) -> bool = "SDL_Init";
-extern fn SDL_Quit() -> unit = "SDL_Quit";
+extern fn SDL_QuitSubSystem(flags: u32) -> unit = "SDL_QuitSubSystem";
 extern fn SDL_GetError() -> *u8 = "SDL_GetError";
 extern fn SDL_CreateWindow(title: *u8, width: i32, height: i32, flags: u64) -> *u8 = "SDL_CreateWindow";
 extern fn SDL_DestroyWindow(window: *u8) -> unit = "SDL_DestroyWindow";
@@ -8,7 +8,6 @@ extern fn SDL_WaitEvent(event: *u8) -> bool = "SDL_WaitEvent";
 fn window_open(window: **u8, width: u32, height: u32) -> bool {
     if !SDL_Init(32u32) {
         error(SDL_GetError());
-        SDL_Quit();
         return false;
     }
     * window = SDL_CreateWindow(
@@ -19,7 +18,7 @@ fn window_open(window: **u8, width: u32, height: u32) -> bool {
     );
     if *window == null(*u8) {
         error(SDL_GetError());
-        SDL_Quit();
+        SDL_QuitSubSystem(32u32);
         return false;
     }
     return true;
@@ -27,7 +26,7 @@ fn window_open(window: **u8, width: u32, height: u32) -> bool {
 fn window_close(window: *u8) -> unit {
     if window != null(*u8) {
         SDL_DestroyWindow(window);
-        SDL_Quit();
+        SDL_QuitSubSystem(32u32);
     }
 }
 

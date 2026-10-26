@@ -2,6 +2,7 @@ resource GameWindow {
     handle: *u8;
     controller: *u8;
     focused: bool;
+    input_ready: bool;
     audio: AudioSession;
 }
 opaque drop game_window_drop;
@@ -32,6 +33,9 @@ fn game_window_drop(window: mut GameWindow) -> unit {
     if window.controller != null(*u8) {
         app_pad_close(window.controller);
     }
+    if window.input_ready {
+        app_input_close();
+    }
     window_close(window.handle);
 }
 fn game_session(o: *Launch) -> GameSession {
@@ -46,6 +50,7 @@ fn game_session(o: *Launch) -> GameSession {
                 handle: null(*u8),
                 controller: null(*u8),
                 focused: false,
+                input_ready: false,
                 audio: audio_new()
             },
             launch: *o,
@@ -87,7 +92,10 @@ fn game_open(session: mut GameSession, input: mut InputState) -> bool {
         if o -> config.fullscreen && !window_fullscreen(session.control.window.handle) {
             return false;
         }
-        if !app_input_open() || !app_pad_update(&session.control.window.controller) {
+        session.control.window.input_ready = app_input_open();
+        if !session.control.window.input_ready || !app_pad_update(
+            &session.control.window.controller
+        ) {
             return false;
         }
         app_title(session.control.window.handle, "SPINWARD | There and Back");

@@ -166,6 +166,9 @@ fn app_keyboard_active() -> bool {
 fn app_input_open() -> bool {
     return SDL_Init(8192u32) || error(SDL_GetError());
 }
+fn app_input_close() -> unit {
+    SDL_QuitSubSystem(8192u32);
+}
 fn app_relative_mouse(window: *u8, enabled: bool) -> bool {
     return SDL_SetWindowRelativeMouseMode(window, enabled) || error(SDL_GetError());
 }

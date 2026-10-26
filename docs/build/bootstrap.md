@@ -55,6 +55,11 @@ SDL event layouts and calls stay in `src/app/`. Gameplay, demo, and viewer code
 use application events and window operations. Task synchronization stays in
 `src/runtime/platform/`; game tasks do not use SDL synchronization objects.
 
+Each platform owner releases only the SDL subsystems that it initialized. Window
+close releases video; input close releases gamepad support. Global SDL shutdown
+must occur after all worker threads have joined. It invalidates thread handles,
+so it must not run from window close while a scheduler is alive.
+
 ## Shared application setup
 
 All application and test roots use Crust's `application_setup` helper.

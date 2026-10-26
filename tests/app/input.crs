@@ -53,3 +53,45 @@ fn input_platform_checks() -> bool {
     while app_event(&event, false) == 1i32 {}
     return input_pointer_checks() && input_pad_checks();
 }
+
+extern fn input_set_hint(name: *u8, value: *u8) -> bool = "SDL_SetHint";
+extern fn input_thread_state(thread: *u8) -> i32 = "SDL_GetThreadState";
+extern fn input_initialized(flags: u32) -> u32 = "SDL_WasInit";
+fn input_shutdown_worker(data: *u8) -> i32 {
+    service_wait(data);
+    return 73i32;
+}
+fn input_window_shutdown_checks() -> bool {
+    if !input_set_hint("SDL_VIDEO_DRIVER", "dummy") || !SDL_Init(32u32) {
+        return error(SDL_GetError());
+    }
+    var window: *u8 = SDL_CreateWindow("shutdown test", 16i32, 16i32, 0u64);
+    if window == null(*u8) {
+        SDL_QuitSubSystem(32u32);
+        return error(SDL_GetError());
+    }
+    var gate: *u8 = service_sem_create(0u32);
+    if gate == null(*u8) {
+        window_close(window);
+        return error(SDL_GetError());
+    }
+    var worker: *u8 = service_thread_create(input_shutdown_worker, "shutdown test", gate);
+    if worker == null(*u8) {
+        service_sem_destroy(gate);
+        window_close(window);
+        return error(SDL_GetError());
+    }
+    window_close(window);
+    // A live worker must remain joinable after the window releases video.
+    if input_thread_state(worker) == 0i32 {
+        error("window shutdown invalidated a live worker thread");
+        exit(1i32);
+    }
+    service_post(gate);
+    var result: i32 = 0i32;
+    service_thread_join(worker, &result);
+    service_sem_destroy(gate);
+    return (
+        result == 73i32 && input_initialized(32u32) == 0u32 && input_initialized(16384u32) != 0u32
+    ) || error("window shutdown broke worker joining or subsystem ownership");
+}

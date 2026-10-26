@@ -86,8 +86,8 @@ fn playback_test() -> bool {
     if !SDL_Init(16384u32) {
         return error(SDL_GetError());
     }
-    var good: bool = input_platform_checks() && playback_checks();
-    SDL_Quit();
+    var good: bool = input_platform_checks() && playback_checks() && input_window_shutdown_checks();
+    SDL_QuitSubSystem(16384u32);
     if good {
         puts("playback event checks passed");
     }
