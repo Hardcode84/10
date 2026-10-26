@@ -8,7 +8,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -194,6 +194,11 @@ s_words_store(132u, 2u);
 return s_next;
 }
 var s_key: u32 = ((s_word * 32u) + s_bit);
+var s_portal: u32 = checked_rem_u32(s_key, s_words_load(71u));
+if ((s_words_load(((s_words_load(64u) + (s_portal * 4u)) + 3u)) != 0u)) {
+s_words_store(5u, (2147483648u | s_portal));
+return s_next;
+}
 s_words_store((s_words_load(62u) + s_key), s_next);
 if ((!s_child_view(checked_div_u32(s_key, s_words_load(71u)), checked_rem_u32(s_key, s_words_load(71u)), s_next))) {
 s_words_store(132u, 4u);
@@ -212,7 +217,7 @@ var s_views = p_views;
 var s_next: u32 = s_views;
 var s_word: u32 = checked_div_u32((s_words_load(9u) * s_words_load(71u)), 32u);
 var s_end: u32 = checked_div_u32((((s_words_load(9u) + s_words_load(10u)) * s_words_load(71u)) + 31u), 32u);
-while (((s_word < s_end) && (s_words_load(132u) == 0u))) {
+while ((((s_word < s_end) && (s_words_load(132u) == 0u)) && (s_words_load(5u) == 0u))) {
 var s_mask: u32 = s_words_load((s_words_load(76u) + s_word));
 s_next = s_allocate_key_word(s_word, s_mask, s_next);
 s_word = (s_word + 1u);
@@ -264,6 +269,9 @@ return;
 }
 var s_oldviews: u32 = s_words_load(11u);
 var s_views: u32 = s_allocate_views(s_oldviews);
+if ((s_words_load(5u) != 0u)) {
+return;
+}
 if ((s_words_load(132u) != 0u)) {
 return;
 }
@@ -550,6 +558,11 @@ s_words_store(132u, 2u);
 return s_next;
 }
 var s_key: u32 = ((s_word * 32u) + s_bit);
+var s_portal: u32 = (s_key % s_words_load(71u));
+if ((s_words_load(((s_words_load(64u) + (s_portal * 4u)) + 3u)) != 0u)) {
+s_words_store(5u, (2147483648u | s_portal));
+return s_next;
+}
 s_words_store((s_words_load(62u) + s_key), s_next);
 if ((!s_child_view((s_key / s_words_load(71u)), (s_key % s_words_load(71u)), s_next))) {
 s_words_store(132u, 4u);
@@ -568,7 +581,7 @@ var s_views = p_views;
 var s_next: u32 = s_views;
 var s_word: u32 = ((s_words_load(9u) * s_words_load(71u)) / 32u);
 var s_end: u32 = ((((s_words_load(9u) + s_words_load(10u)) * s_words_load(71u)) + 31u) / 32u);
-while (((s_word < s_end) && (s_words_load(132u) == 0u))) {
+while ((((s_word < s_end) && (s_words_load(132u) == 0u)) && (s_words_load(5u) == 0u))) {
 var s_mask: u32 = s_words_load((s_words_load(76u) + s_word));
 s_next = s_allocate_key_word(s_word, s_mask, s_next);
 s_word = (s_word + 1u);
@@ -620,6 +633,9 @@ return;
 }
 var s_oldviews: u32 = s_words_load(11u);
 var s_views: u32 = s_allocate_views(s_oldviews);
+if ((s_words_load(5u) != 0u)) {
+return;
+}
 if ((s_words_load(132u) != 0u)) {
 return;
 }
@@ -732,7 +748,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -1816,7 +1832,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -2036,7 +2052,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -2164,7 +2180,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -2637,7 +2653,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -2797,7 +2813,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -2827,6 +2843,13 @@ data: array<u32>,
 @group(0) @binding(2) var<storage, read_write> r_tiles: B_tiles;
 fn s_tiles_load(index: u32) -> u32 { let bad = index >= r_tiles.count; failed = failed || bad; if (failed) { return u32(0); } return r_tiles.data[index]; }
 fn s_tiles_store(index: u32, value: u32) { let bad = index >= r_tiles.count; failed = failed || bad; if (failed) { return; } r_tiles.data[index] = value; }
+struct B_assets {
+count: u32,
+data: array<u32>,
+}
+@group(0) @binding(3) var<storage, read_write> r_assets: B_assets;
+fn s_assets_load(index: u32) -> u32 { let bad = index >= r_assets.count; failed = failed || bad; if (failed) { return u32(0); } return r_assets.data[index]; }
+fn s_assets_store(index: u32, value: u32) { let bad = index >= r_assets.count; failed = failed || bad; if (failed) { return; } r_assets.data[index] = value; }
 fn s_task_base() -> u32 {
 {
 if ((s_words_load(8u) == 0u)) {
@@ -2889,7 +2912,7 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_words_load(((s_words_load(48u) + (s_mat * 10u)) + s_field));
+return s_assets_load(((s_mat * 10u) + s_field));
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -2929,7 +2952,7 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_words_load((((s_words_load(48u) + s_material_field(s_mat, 0u)) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_tile_bit_stride() -> u32 {
@@ -3313,6 +3336,13 @@ data: array<u32>,
 @group(0) @binding(2) var<storage, read_write> r_tiles: B_tiles;
 fn s_tiles_load(index: u32) -> u32 { return r_tiles.data[index]; }
 fn s_tiles_store(index: u32, value: u32) { r_tiles.data[index] = value; }
+struct B_assets {
+count: u32,
+data: array<u32>,
+}
+@group(0) @binding(3) var<storage, read_write> r_assets: B_assets;
+fn s_assets_load(index: u32) -> u32 { return r_assets.data[index]; }
+fn s_assets_store(index: u32, value: u32) { r_assets.data[index] = value; }
 fn s_task_base() -> u32 {
 {
 if ((s_words_load(8u) == 0u)) {
@@ -3375,7 +3405,7 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_words_load(((s_words_load(48u) + (s_mat * 10u)) + s_field));
+return s_assets_load(((s_mat * 10u) + s_field));
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -3415,7 +3445,7 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_words_load((((s_words_load(48u) + s_material_field(s_mat, 0u)) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_tile_bit_stride() -> u32 {
@@ -3781,7 +3811,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -3971,7 +4001,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -3994,6 +4024,13 @@ data: array<f32>,
 @group(0) @binding(1) var<storage, read_write> r_floats: B_floats;
 fn s_floats_load(index: u32) -> f32 { let bad = index >= r_floats.count; failed = failed || bad; if (failed) { return f32(0); } return r_floats.data[index]; }
 fn s_floats_store(index: u32, value: f32) { let bad = index >= r_floats.count; failed = failed || bad; if (failed) { return; } r_floats.data[index] = value; }
+struct B_assets {
+count: u32,
+data: array<u32>,
+}
+@group(0) @binding(3) var<storage, read_write> r_assets: B_assets;
+fn s_assets_load(index: u32) -> u32 { let bad = index >= r_assets.count; failed = failed || bad; if (failed) { return u32(0); } return r_assets.data[index]; }
+fn s_assets_store(index: u32, value: u32) { let bad = index >= r_assets.count; failed = failed || bad; if (failed) { return; } r_assets.data[index] = value; }
 var<workgroup> r_shared: array<u32, 512>;
 fn s_shared_load(index: u32) -> u32 { let bad = index >= 512u; failed = failed || bad; if (failed) { return u32(0); } return r_shared[index]; }
 fn s_shared_store(index: u32, value: u32) { let bad = index >= 512u; failed = failed || bad; if (bad) { return; } if (failed) { r_shared[index] = u32(0); return; } r_shared[index] = value; }
@@ -4036,7 +4073,7 @@ var s_level: u32 = u32(s_light);
 if (((((s_light - f32(s_level)) * bitcast<f32>(1098907648u)) > f32(s_threshold(s_x, s_y, s_words_load(2u)))) && (s_level < 63u))) {
 s_level = (s_level + 1u);
 }
-return s_words_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
+return s_assets_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
 }
 }
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
@@ -4280,13 +4317,13 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_words_load(((s_words_load(48u) + (s_mat * 10u)) + s_field));
+return s_assets_load(((s_mat * 10u) + s_field));
 }
 }
 fn s_material_palette(p_mat: u32) -> u32 {
 var s_mat = p_mat;
 {
-return (s_words_load(48u) + s_material_field(s_mat, 4u));
+return s_material_field(s_mat, 4u);
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -4326,7 +4363,7 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_words_load((((s_words_load(48u) + s_material_field(s_mat, 0u)) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_light_position(p_light: u32, p_view: u32, p_axis: u32) -> f32 {
@@ -5011,12 +5048,12 @@ var s_y = p_y;
 {
 var s_mat: u32 = s_scene_meta(s_tri, 1u);
 if (((s_scene_meta(s_tri, 3u) & 32u) != 0u)) {
-return s_words_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
+return s_assets_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
 }
 if (true) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
-return s_words_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+return s_assets_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
 }
 }
 fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
@@ -5056,6 +5093,13 @@ data: array<f32>,
 @group(0) @binding(1) var<storage, read_write> r_floats: B_floats;
 fn s_floats_load(index: u32) -> f32 { return r_floats.data[index]; }
 fn s_floats_store(index: u32, value: f32) { r_floats.data[index] = value; }
+struct B_assets {
+count: u32,
+data: array<u32>,
+}
+@group(0) @binding(3) var<storage, read_write> r_assets: B_assets;
+fn s_assets_load(index: u32) -> u32 { return r_assets.data[index]; }
+fn s_assets_store(index: u32, value: u32) { r_assets.data[index] = value; }
 var<workgroup> r_shared: array<u32, 512>;
 fn s_shared_load(index: u32) -> u32 { return r_shared[index]; }
 fn s_shared_store(index: u32, value: u32) { r_shared[index] = value; }
@@ -5098,7 +5142,7 @@ var s_level: u32 = u32(s_light);
 if (((((s_light - f32(s_level)) * bitcast<f32>(1098907648u)) > f32(s_threshold(s_x, s_y, s_words_load(2u)))) && (s_level < 63u))) {
 s_level = (s_level + 1u);
 }
-return s_words_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
+return s_assets_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
 }
 }
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
@@ -5342,13 +5386,13 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_words_load(((s_words_load(48u) + (s_mat * 10u)) + s_field));
+return s_assets_load(((s_mat * 10u) + s_field));
 }
 }
 fn s_material_palette(p_mat: u32) -> u32 {
 var s_mat = p_mat;
 {
-return (s_words_load(48u) + s_material_field(s_mat, 4u));
+return s_material_field(s_mat, 4u);
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -5388,7 +5432,7 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_words_load((((s_words_load(48u) + s_material_field(s_mat, 0u)) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_light_position(p_light: u32, p_view: u32, p_axis: u32) -> f32 {
@@ -6073,12 +6117,12 @@ var s_y = p_y;
 {
 var s_mat: u32 = s_scene_meta(s_tri, 1u);
 if (((s_scene_meta(s_tri, 3u) & 32u) != 0u)) {
-return s_words_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
+return s_assets_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
 }
 if (true) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
-return s_words_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+return s_assets_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
 }
 }
 fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
@@ -6107,7 +6151,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -6130,6 +6174,13 @@ data: array<f32>,
 @group(0) @binding(1) var<storage, read_write> r_floats: B_floats;
 fn s_floats_load(index: u32) -> f32 { let bad = index >= r_floats.count; failed = failed || bad; if (failed) { return f32(0); } return r_floats.data[index]; }
 fn s_floats_store(index: u32, value: f32) { let bad = index >= r_floats.count; failed = failed || bad; if (failed) { return; } r_floats.data[index] = value; }
+struct B_assets {
+count: u32,
+data: array<u32>,
+}
+@group(0) @binding(3) var<storage, read_write> r_assets: B_assets;
+fn s_assets_load(index: u32) -> u32 { let bad = index >= r_assets.count; failed = failed || bad; if (failed) { return u32(0); } return r_assets.data[index]; }
+fn s_assets_store(index: u32, value: u32) { let bad = index >= r_assets.count; failed = failed || bad; if (failed) { return; } r_assets.data[index] = value; }
 var<workgroup> r_shared: array<u32, 512>;
 fn s_shared_load(index: u32) -> u32 { let bad = index >= 512u; failed = failed || bad; if (failed) { return u32(0); } return r_shared[index]; }
 fn s_shared_store(index: u32, value: u32) { let bad = index >= 512u; failed = failed || bad; if (bad) { return; } if (failed) { r_shared[index] = u32(0); return; } r_shared[index] = value; }
@@ -6172,7 +6223,7 @@ var s_level: u32 = u32(s_light);
 if (((((s_light - f32(s_level)) * bitcast<f32>(1098907648u)) > f32(s_threshold(s_x, s_y, s_words_load(2u)))) && (s_level < 63u))) {
 s_level = (s_level + 1u);
 }
-return s_words_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
+return s_assets_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
 }
 }
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
@@ -6416,13 +6467,13 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_words_load(((s_words_load(48u) + (s_mat * 10u)) + s_field));
+return s_assets_load(((s_mat * 10u) + s_field));
 }
 }
 fn s_material_palette(p_mat: u32) -> u32 {
 var s_mat = p_mat;
 {
-return (s_words_load(48u) + s_material_field(s_mat, 4u));
+return s_material_field(s_mat, 4u);
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -6462,7 +6513,7 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_words_load((((s_words_load(48u) + s_material_field(s_mat, 0u)) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_light_position(p_light: u32, p_view: u32, p_axis: u32) -> f32 {
@@ -7147,12 +7198,12 @@ var s_y = p_y;
 {
 var s_mat: u32 = s_scene_meta(s_tri, 1u);
 if (((s_scene_meta(s_tri, 3u) & 32u) != 0u)) {
-return s_words_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
+return s_assets_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
 }
 if (false) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
-return s_words_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+return s_assets_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
 }
 }
 fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
@@ -7192,6 +7243,13 @@ data: array<f32>,
 @group(0) @binding(1) var<storage, read_write> r_floats: B_floats;
 fn s_floats_load(index: u32) -> f32 { return r_floats.data[index]; }
 fn s_floats_store(index: u32, value: f32) { r_floats.data[index] = value; }
+struct B_assets {
+count: u32,
+data: array<u32>,
+}
+@group(0) @binding(3) var<storage, read_write> r_assets: B_assets;
+fn s_assets_load(index: u32) -> u32 { return r_assets.data[index]; }
+fn s_assets_store(index: u32, value: u32) { r_assets.data[index] = value; }
 var<workgroup> r_shared: array<u32, 512>;
 fn s_shared_load(index: u32) -> u32 { return r_shared[index]; }
 fn s_shared_store(index: u32, value: u32) { r_shared[index] = value; }
@@ -7234,7 +7292,7 @@ var s_level: u32 = u32(s_light);
 if (((((s_light - f32(s_level)) * bitcast<f32>(1098907648u)) > f32(s_threshold(s_x, s_y, s_words_load(2u)))) && (s_level < 63u))) {
 s_level = (s_level + 1u);
 }
-return s_words_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
+return s_assets_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
 }
 }
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
@@ -7478,13 +7536,13 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_words_load(((s_words_load(48u) + (s_mat * 10u)) + s_field));
+return s_assets_load(((s_mat * 10u) + s_field));
 }
 }
 fn s_material_palette(p_mat: u32) -> u32 {
 var s_mat = p_mat;
 {
-return (s_words_load(48u) + s_material_field(s_mat, 4u));
+return s_material_field(s_mat, 4u);
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -7524,7 +7582,7 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_words_load((((s_words_load(48u) + s_material_field(s_mat, 0u)) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_light_position(p_light: u32, p_view: u32, p_axis: u32) -> f32 {
@@ -8209,12 +8267,12 @@ var s_y = p_y;
 {
 var s_mat: u32 = s_scene_meta(s_tri, 1u);
 if (((s_scene_meta(s_tri, 3u) & 32u) != 0u)) {
-return s_words_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
+return s_assets_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
 }
 if (false) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
-return s_words_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+return s_assets_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
 }
 }
 fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
@@ -8243,7 +8301,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -8463,7 +8521,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -8936,7 +8994,7 @@ fn s_shared_uniform_load(index: u32) -> u32 { return workgroupUniformLoad(&r_sha
 struct B_status {
 data: array<u32, 2097152>,
 }
-@group(0) @binding(3) var<storage, read_write> r_status: B_status;
+@group(0) @binding(4) var<storage, read_write> r_status: B_status;
 fn s_status_load(index: u32) -> u32 { return r_status.data[index]; }
 fn s_status_store(index: u32, value: u32) { r_status.data[index] = value; }
 fn s_compute() {
@@ -8998,7 +9056,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -9172,7 +9230,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -9774,7 +9832,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -9898,7 +9956,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -10030,7 +10088,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -10632,7 +10690,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -10728,7 +10786,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
@@ -10751,6 +10809,13 @@ data: array<f32>,
 @group(0) @binding(1) var<storage, read_write> r_floats: B_floats;
 fn s_floats_load(index: u32) -> f32 { let bad = index >= r_floats.count; failed = failed || bad; if (failed) { return f32(0); } return r_floats.data[index]; }
 fn s_floats_store(index: u32, value: f32) { let bad = index >= r_floats.count; failed = failed || bad; if (failed) { return; } r_floats.data[index] = value; }
+struct B_assets {
+count: u32,
+data: array<u32>,
+}
+@group(0) @binding(3) var<storage, read_write> r_assets: B_assets;
+fn s_assets_load(index: u32) -> u32 { let bad = index >= r_assets.count; failed = failed || bad; if (failed) { return u32(0); } return r_assets.data[index]; }
+fn s_assets_store(index: u32, value: u32) { let bad = index >= r_assets.count; failed = failed || bad; if (failed) { return; } r_assets.data[index] = value; }
 fn s_edge(p_ax: f32, p_ay: f32, p_bx: f32, p_by: f32, p_x: f32, p_y: f32) -> f32 {
 var s_ax = p_ax;
 var s_ay = p_ay;
@@ -10791,7 +10856,7 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_words_load(((s_words_load(48u) + (s_mat * 10u)) + s_field));
+return s_assets_load(((s_mat * 10u) + s_field));
 }
 }
 fn s_portal_facing(p_view: u32, p_portal: u32) -> bool {
@@ -11254,6 +11319,13 @@ data: array<f32>,
 @group(0) @binding(1) var<storage, read_write> r_floats: B_floats;
 fn s_floats_load(index: u32) -> f32 { return r_floats.data[index]; }
 fn s_floats_store(index: u32, value: f32) { r_floats.data[index] = value; }
+struct B_assets {
+count: u32,
+data: array<u32>,
+}
+@group(0) @binding(3) var<storage, read_write> r_assets: B_assets;
+fn s_assets_load(index: u32) -> u32 { return r_assets.data[index]; }
+fn s_assets_store(index: u32, value: u32) { r_assets.data[index] = value; }
 fn s_edge(p_ax: f32, p_ay: f32, p_bx: f32, p_by: f32, p_x: f32, p_y: f32) -> f32 {
 var s_ax = p_ax;
 var s_ay = p_ay;
@@ -11294,7 +11366,7 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_words_load(((s_words_load(48u) + (s_mat * 10u)) + s_field));
+return s_assets_load(((s_mat * 10u) + s_field));
 }
 }
 fn s_portal_facing(p_view: u32, p_portal: u32) -> bool {
@@ -11745,7 +11817,7 @@ fn s_shader_all_memory_barrier() { workgroupBarrier(); storageBarrier(); texture
 var<private> failed: bool;
 fn s_shader_require(ok: bool) { failed = failed || !ok; }
 fn s_shader_failed() -> bool { return failed; }
-@group(0) @binding(3) var<storage, read_write> status: array<u32>;
+@group(0) @binding(4) var<storage, read_write> status: array<u32>;
 fn checked_div_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a / b; }
 fn checked_rem_u32(a: u32, b: u32) -> u32 { if (b == 0) { failed = true; return u32(0); } return a % b; }
 fn checked_shl_u32(a: u32, b: u32) -> u32 { if (u32(b) >= 32u) { failed = true; return u32(0); } return a << u32(b); }
