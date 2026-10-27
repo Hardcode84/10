@@ -243,3 +243,50 @@ fn asset_test_helix(orbit: f32) -> bool {
         0.05f32
     ) || error("helical solid lost caps, curved interior, or exterior clearance");
 }
+
+fn asset_test_broken_box() -> bool {
+    var mesh: Mesh = mesh_new();
+    var shape: BrokenBox = make BrokenBox {
+        length: 6f32,
+        depth: 2f32,
+        width: 3f32,
+        tear: 0.2f32,
+        wall: 0.2f32,
+        recess: 1f32,
+        seed: 7u32,
+        shell: 0u32,
+        fracture: 1u32
+    };
+    if !broken_box_mesh(mut mesh, shape) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_append_solid(
+        mut builder,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var hit: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        vec(8f32, 0f32, 0f32),
+        vec(-5f32, 0f32, 0f32),
+        0f32
+    );
+    return absf(hit.point.x - (shape.length - shape.recess)) < 0.00001f32 && collision_position_valid(
+        read scene,
+        0u32,
+        vec(5.5f32, 0f32, 0f32),
+        0.1f32
+    ) && !collision_position_valid(read scene, 0u32, vec(3f32, 0f32, 0f32), 0.1f32) || error(
+        "torn box must have a closed solid back and an open recessed end"
+    );
+}

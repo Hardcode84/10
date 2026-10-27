@@ -1,3 +1,5 @@
+// broken-beam: 0 keeps all supports intact; 1 through 4 select one broken support.
+// Broken supports have a collision-clear central gap, torn steel ends, and no lamps.
 // Powered tubes apply the shared room-local radial attraction field.
 // Powered debris emits paired lightning from rebar tips to the cable and wall.
 // Both strikes appear together and keep their room-space position while fading.

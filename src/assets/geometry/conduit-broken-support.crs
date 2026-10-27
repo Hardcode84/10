@@ -1,0 +1,136 @@
+fn conduit_break_material() -> PanelMaterial {
+    var material: PanelMaterial = conduit_support_material();
+    material.finish = METAL_PLAIN;
+    material.colour = 0x364557u32;
+    material.accent = 0x152436u32;
+    material.tile_metres = 2f32;
+    material.tile_height = 2f32;
+    return material;
+}
+fn conduit_support_stub(
+    asset: mut RoomAsset,
+    centre: Vec3,
+    basis: Basis,
+    dimensions: Vec3,
+    origin: f32,
+    direction: f32,
+    exposed_start: f32,
+    exposed_end: f32,
+    seed: u32
+) -> bool {
+    var source: Mesh = mesh_new();
+    var section: f32 = mask_min(dimensions.y, dimensions.z);
+    if !broken_box_mesh(
+        mut source,
+        make BrokenBox {
+            length: dimensions.x,
+            depth: dimensions.y,
+            width: dimensions.z,
+            tear: section * 0.16f32,
+            wall: section * 0.08f32,
+            recess: mask_min(section * 0.6f32, dimensions.x * 0.5f32),
+            seed: seed,
+            shell: CONDUIT_SUPPORT_MATERIAL,
+            fracture: CONDUIT_BREAK_MATERIAL
+        }
+    ) {
+        return false;
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var span: f32 = exposed_end - exposed_start;
+    var tiles: f32 = panel_pixel_extent(span / conduit_support_material().tile_metres, 1u32) as f32;
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read source) {
+        var primitive: MeshTriangle = mesh_triangle(read source, i);
+        var a: Vec3 = collision_point(primitive.vertices[0usize]);
+        var normal: Vec3 = cross(
+            sub(collision_point(primitive.vertices[1usize]), a),
+            sub(collision_point(primitive.vertices[2usize]), a)
+        );
+        var j: usize = 0usize;
+        while j < 3usize {
+            var vertex: MeshVertex = primitive.vertices[j];
+            if primitive.material == CONDUIT_SUPPORT_MATERIAL {
+                vertex.u = (origin + direction * vertex.x - exposed_start) * tiles / span;
+                vertex.v = (vertex.y + dimensions.y * 0.5f32) / dimensions.y;
+                if absf(normal.y) > absf(normal.z) {
+                    vertex.v = (direction * vertex.z + dimensions.z * 0.5f32) / dimensions.z;
+                }
+            }
+            primitive.vertices[j] = vertex;
+            j = j + 1usize;
+        }
+        var placement: Basis = basis;
+        placement.right = scale(basis.right, direction);
+        placement.forward = scale(basis.forward, direction);
+        if !mesh_append(
+            mut asset.geometry,
+            placed_triangle(
+                primitive,
+                add(centre, scale(basis.right, origin)),
+                placement
+            )
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("core-support"),
+        vec(0f32, 0f32, 0f32)
+    );
+}
+fn conduit_support_beam(
+    asset: mut RoomAsset,
+    centre: Vec3,
+    basis: Basis,
+    dimensions: Vec3,
+    start: f32,
+    collar: f32,
+    wall: f32,
+    foot: f32,
+    broken: bool
+) -> bool {
+    var middle: f32 = (collar + wall - foot) * 0.5f32;
+    if broken {
+        var gap: f32 = (wall - foot - collar) * 0.28f32;
+        return conduit_support_stub(
+            mut asset,
+            centre,
+            basis,
+            vec(middle - gap * 0.5f32 - start, dimensions.y, dimensions.z),
+            start,
+            1f32,
+            collar,
+            wall - foot,
+            31u32
+        ) && conduit_support_stub(
+            mut asset,
+            centre,
+            basis,
+            vec(start + dimensions.x - middle - gap * 0.5f32, dimensions.y, dimensions.z),
+            start + dimensions.x,
+            -1f32,
+            collar,
+            wall - foot,
+            73u32
+        );
+    }
+    return conduit_support_box(
+        mut asset,
+        dimensions,
+        add(centre, scale(basis.right, start + dimensions.x * 0.5f32)),
+        basis,
+        collar - (start + dimensions.x * 0.5f32),
+        wall - foot - (start + dimensions.x * 0.5f32),
+        asset_name("core-support")
+    ) && conduit_support_lights(
+        mut asset,
+        add(centre, scale(basis.right, middle)),
+        basis.right,
+        dimensions.y,
+        dimensions.z
+    );
+}

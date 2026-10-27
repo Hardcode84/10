@@ -1,0 +1,91 @@
+// A closed box stub along +X, with a torn, recessed opening at its far end.
+// Length exceeds recess plus tear. Wall is smaller than half width and depth.
+record BrokenBox {
+    length: f32;
+    depth: f32;
+    width: f32;
+    tear: f32;
+    wall: f32;
+    recess: f32;
+    seed: u32;
+    shell: u32;
+    fracture: u32;
+}
+fn broken_box_vertex(shape: BrokenBox, ring: u32, corner: u32) -> MeshVertex {
+    var points: [Vec3; 8] = make [Vec3; 8] {
+        vec(0f32, 1f32, 1f32),
+        vec(0f32, 0f32, 1f32),
+        vec(0f32, -1f32, 1f32),
+        vec(0f32, -1f32, 0f32),
+        vec(0f32, -1f32, -1f32),
+        vec(0f32, 0f32, -1f32),
+        vec(0f32, 1f32, -1f32),
+        vec(0f32, 1f32, 0f32)
+    };
+    var point: Vec3 = points[(corner % 8u32) as usize];
+    var inset: f32 = (ring >= 2u32) as u32 as f32 * shape.wall;
+    point.y = point.y * (shape.depth * 0.5f32 - inset);
+    point.z = point.z * (shape.width * 0.5f32 - inset);
+    if ring == 1u32 || ring == 2u32 {
+        var random: f32 = (metal_hash(corner % 8u32, 0u32, shape.seed) >> 8u32) as f32 / 16777216f32;
+        point.x = shape.length + shape.tear * (random * 2f32 - 1f32);
+    }
+    if ring == 3u32 {
+        point.x = shape.length - shape.recess;
+    }
+    return make MeshVertex {
+        x: point.x,
+        y: point.y,
+        z: point.z,
+        u: point.y,
+        v: point.z
+    };
+}
+fn broken_box_mesh(mesh: mut Mesh, shape: BrokenBox) -> bool {
+    var i: u32 = 0u32;
+    while i < 8u32 {
+        var a: MeshVertex = broken_box_vertex(shape, 0u32, i);
+        var b: MeshVertex = broken_box_vertex(shape, 0u32, i + 1u32);
+        var c: MeshVertex = broken_box_vertex(shape, 1u32, i + 1u32);
+        var d: MeshVertex = broken_box_vertex(shape, 1u32, i);
+        if !solid_mesh_quad(mut mesh, a, b, c, d, shape.shell) || !solid_mesh_quad(
+            mut mesh,
+            d,
+            c,
+            broken_box_vertex(shape, 2u32, i + 1u32),
+            broken_box_vertex(shape, 2u32, i),
+            shape.fracture
+        ) || !solid_mesh_quad(
+            mut mesh,
+            broken_box_vertex(shape, 2u32, i),
+            broken_box_vertex(shape, 2u32, i + 1u32),
+            broken_box_vertex(shape, 3u32, i + 1u32),
+            broken_box_vertex(shape, 3u32, i),
+            shape.fracture
+        ) {
+            return false;
+        }
+        var centre: MeshVertex = make MeshVertex {
+            x: 0f32,
+            y: 0f32,
+            z: 0f32,
+            u: 0f32,
+            v: 0f32
+        };
+        if !tube_triangle(mut mesh, centre, b, a, shape.shell) {
+            return false;
+        }
+        centre.x = shape.length - shape.recess;
+        if !tube_triangle(
+            mut mesh,
+            centre,
+            broken_box_vertex(shape, 3u32, i),
+            broken_box_vertex(shape, 3u32, i + 1u32),
+            shape.fracture
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

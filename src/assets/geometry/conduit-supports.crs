@@ -90,7 +90,8 @@ fn conduit_supports(
     radius: f32,
     core: f32,
     height: f32,
-    relief: f32
+    relief: f32,
+    broken: u32
 ) -> bool {
     var centre: Vec3 = vec(0f32, height * 0.5f32, 0f32);
     var collar: f32 = core * 1.08f32;
@@ -130,14 +131,16 @@ fn conduit_supports(
             up: up,
             forward: cross(radial, up)
         };
-        if !conduit_support_box(
+        if !conduit_support_beam(
             mut asset,
-            vec(span, depth, width),
-            add(centre, scale(radial, start + span * 0.5f32)),
+            centre,
             basis,
-            collar - (start + span * 0.5f32),
-            wall - foot - (start + span * 0.5f32),
-            asset_name("core-support")
+            vec(span, depth, width),
+            start,
+            collar,
+            wall,
+            foot,
+            broken == i + 1u32
         ) || !conduit_support_box(
             mut asset,
             vec(foot, depth * 1.3f32, width * 1.3f32),
@@ -146,12 +149,6 @@ fn conduit_supports(
             -foot * 0.5f32,
             foot * 0.5f32,
             asset_name("support-foot")
-        ) || !conduit_support_lights(
-            mut asset,
-            add(centre, scale(radial, (collar + wall - foot) * 0.5f32)),
-            radial,
-            depth,
-            width
         ) {
             return false;
         }

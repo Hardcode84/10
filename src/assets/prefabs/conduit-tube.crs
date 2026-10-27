@@ -6,9 +6,13 @@ const CONDUIT_FRACTURE_MATERIAL: u32 = 7u32;
 const CONDUIT_REBAR_MATERIAL: u32 = 8u32;
 const CONDUIT_ARC_MATERIAL: u32 = 9u32;
 const CONDUIT_ARC_SPARK_MATERIAL: u32 = 10u32;
-const CONDUIT_MATERIAL_COUNT: u32 = 11u32;
+const CONDUIT_BREAK_MATERIAL: u32 = 11u32;
+const CONDUIT_MATERIAL_COUNT: u32 = 12u32;
 const CONDUIT_CAST_LENGTH: f32 = 25f32;
 fn prefab_conduit_parameter_count() -> u32 {
+    return conduit_broken_beam_parameter() + 1u32;
+}
+fn conduit_broken_beam_parameter() -> u32 {
     return conduit_orbit_parameter() + 1u32;
 }
 fn conduit_orbit_parameter() -> u32 {
@@ -18,6 +22,9 @@ fn conduit_powered_parameter() -> u32 {
     return conduit_hazard_seed_parameter() + 1u32;
 }
 fn prefab_conduit_parameter_name(index: u32) -> AssetName {
+    if index == conduit_broken_beam_parameter() {
+        return asset_name("broken-beam");
+    }
     if index == conduit_orbit_parameter() {
         return asset_name("orbit-period");
     }
@@ -42,6 +49,14 @@ fn prefab_conduit_parameter_name(index: u32) -> AssetName {
     return asset_name("turns");
 }
 fn prefab_conduit_parameter(index: u32) -> AssetParameter {
+    if index == conduit_broken_beam_parameter() {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 4f32,
+            initial: 0f32,
+            step: 1f32
+        };
+    }
     if index == conduit_orbit_parameter() {
         return make AssetParameter {
             minimum: 20f32,
@@ -221,12 +236,17 @@ fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) ->
         }
         i = i + 1u32;
     }
+    var broken: f32 = asset_value(read parameters, conduit_broken_beam_parameter());
+    if broken != broken as u32 as f32 {
+        return error("broken-beam must be an integer from zero to four");
+    }
     if !conduit_supports(
         mut asset,
         radius,
         core,
         height,
-        asset_value(read parameters, 6u32)
+        asset_value(read parameters, 6u32),
+        broken as u32
     ) {
         return false;
     }
@@ -246,6 +266,9 @@ fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) ->
     return true;
 }
 fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == CONDUIT_BREAK_MATERIAL {
+        return conduit_break_material();
+    }
     if region == CONDUIT_ARC_MATERIAL || region == CONDUIT_ARC_SPARK_MATERIAL {
         return conduit_arc_material(region == CONDUIT_ARC_SPARK_MATERIAL);
     }
