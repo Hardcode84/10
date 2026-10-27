@@ -245,6 +245,9 @@ fn asset_test_helix(orbit: f32) -> bool {
 }
 
 fn asset_test_broken_box() -> bool {
+    return asset_test_broken_box_case(false) && asset_test_broken_box_case(true);
+}
+fn asset_test_broken_box_case(chunk: bool) -> bool {
     var mesh: Mesh = mesh_new();
     var shape: BrokenBox = make BrokenBox {
         length: 6f32,
@@ -257,7 +260,13 @@ fn asset_test_broken_box() -> bool {
         shell: 0u32,
         fracture: 1u32
     };
-    if !broken_box_mesh(mut mesh, shape) {
+    var built: bool = false;
+    if chunk {
+        built = broken_box_chunk_mesh(mut mesh, shape);
+    } else {
+        built = broken_box_mesh(mut mesh, shape);
+    }
+    if !built {
         return false;
     }
     var builder: CollisionBuilder = collision_builder_new();
@@ -281,6 +290,23 @@ fn asset_test_broken_box() -> bool {
         vec(-5f32, 0f32, 0f32),
         0f32
     );
+    if chunk {
+        var other: CollisionContact = collision_sweep(
+            read scene,
+            0u32,
+            vec(-8f32, 0f32, 0f32),
+            vec(5f32, 0f32, 0f32),
+            0f32
+        );
+        if absf(other.point.x + shape.length - shape.recess) > 0.00001f32 || collision_position_valid(
+            read scene,
+            0u32,
+            vec(0f32, 0f32, 0f32),
+            0.1f32
+        ) {
+            return error("beam chunk lost its solid middle or second recessed end");
+        }
+    }
     return absf(hit.point.x - (shape.length - shape.recess)) < 0.00001f32 && collision_position_valid(
         read scene,
         0u32,

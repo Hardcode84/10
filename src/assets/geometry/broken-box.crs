@@ -89,3 +89,37 @@ fn broken_box_mesh(mesh: mut Mesh, shape: BrokenBox) -> bool {
     }
     return true;
 }
+
+// A centred beam chunk with torn recessed ends. shape.length is its half-length.
+fn broken_box_chunk_mesh(mesh: mut Mesh, shape: BrokenBox) -> bool {
+    var half: u32 = 0u32;
+    while half < 2u32 {
+        var source: Mesh = mesh_new();
+        var end: BrokenBox = shape;
+        end.seed = metal_hash(shape.seed, half, 47u32);
+        if !broken_box_mesh(mut source, end) {
+            return false;
+        }
+        var basis: Basis = identity_basis();
+        if half == 1u32 {
+            basis.right.x = -1f32;
+            basis.forward.z = -1f32;
+        }
+        var i: u32 = 0u32;
+        while i < mesh_triangle_count(read source) {
+            var primitive: MeshTriangle = mesh_triangle(read source, i);
+            var middle: bool = primitive.vertices[0usize].x == 0f32 && primitive.vertices[1usize].x == 0f32 && primitive.vertices[
+                2usize
+            ].x == 0f32;
+            if !middle && !mesh_append(
+                mut mesh,
+                placed_triangle(primitive, vec(0f32, 0f32, 0f32), basis)
+            ) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+        half = half + 1u32;
+    }
+    return true;
+}

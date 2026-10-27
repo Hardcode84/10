@@ -106,13 +106,7 @@ fn conduit_debris_chunk(
         i = i + 1u32;
     }
     var first: u32 = mesh_triangle_count(read asset.geometry);
-    var basis: Basis = hull_radial_basis(
-        vec(
-            conduit_debris_random(seed, 11u32) * 2f32 - 1f32,
-            0.4f32 + conduit_debris_random(seed, 12u32),
-            conduit_debris_random(seed, 13u32) * 2f32 - 1f32
-        )
-    );
+    var basis: Basis = conduit_debris_basis(seed);
     if !hull_solid_mesh(
         read hull,
         mut asset.geometry,
@@ -195,13 +189,13 @@ fn conduit_debris_section(
                 (interval[0usize] + interval[1usize]) * 0.5f32,
                 sinf(angle) * orbit
             );
-            if !conduit_debris_chunk(
+            if !conduit_debris_variant(
                 mut asset,
+                read values,
                 centre,
                 radius,
                 hash,
-                conduit_debris_speed(read values),
-                asset_value(read values, 1u32)
+                slot + seed % CONDUIT_DEBRIS_SLOTS
             ) {
                 return false;
             }
@@ -250,4 +244,14 @@ fn conduit_debris_speed(values: read AssetValues) -> f32 {
         return 0f32;
     }
     return 6.28318530718f32 / asset_value(read values, conduit_orbit_parameter());
+}
+
+fn conduit_debris_basis(seed: u32) -> Basis {
+    return hull_radial_basis(
+        vec(
+            conduit_debris_random(seed, 11u32) * 2f32 - 1f32,
+            0.4f32 + conduit_debris_random(seed, 12u32),
+            conduit_debris_random(seed, 13u32) * 2f32 - 1f32
+        )
+    );
 }

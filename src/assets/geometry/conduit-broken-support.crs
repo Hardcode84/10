@@ -19,47 +19,21 @@ fn conduit_support_stub(
     seed: u32
 ) -> bool {
     var source: Mesh = mesh_new();
-    var section: f32 = mask_min(dimensions.y, dimensions.z);
-    if !broken_box_mesh(
-        mut source,
-        make BrokenBox {
-            length: dimensions.x,
-            depth: dimensions.y,
-            width: dimensions.z,
-            tear: section * 0.16f32,
-            wall: section * 0.08f32,
-            recess: mask_min(section * 0.6f32, dimensions.x * 0.5f32),
-            seed: seed,
-            shell: CONDUIT_SUPPORT_MATERIAL,
-            fracture: CONDUIT_BREAK_MATERIAL
-        }
-    ) {
+    if !broken_box_mesh(mut source, conduit_broken_box(dimensions, seed)) {
         return false;
     }
     var first: u32 = mesh_triangle_count(read asset.geometry);
-    var span: f32 = exposed_end - exposed_start;
-    var tiles: f32 = panel_pixel_extent(span / conduit_support_material().tile_metres, 1u32) as f32;
     var i: u32 = 0u32;
     while i < mesh_triangle_count(read source) {
         var primitive: MeshTriangle = mesh_triangle(read source, i);
-        var a: Vec3 = collision_point(primitive.vertices[0usize]);
-        var normal: Vec3 = cross(
-            sub(collision_point(primitive.vertices[1usize]), a),
-            sub(collision_point(primitive.vertices[2usize]), a)
+        primitive = conduit_support_uv(
+            primitive,
+            dimensions,
+            origin,
+            direction,
+            exposed_start,
+            exposed_end
         );
-        var j: usize = 0usize;
-        while j < 3usize {
-            var vertex: MeshVertex = primitive.vertices[j];
-            if primitive.material == CONDUIT_SUPPORT_MATERIAL {
-                vertex.u = (origin + direction * vertex.x - exposed_start) * tiles / span;
-                vertex.v = (vertex.y + dimensions.y * 0.5f32) / dimensions.y;
-                if absf(normal.y) > absf(normal.z) {
-                    vertex.v = (direction * vertex.z + dimensions.z * 0.5f32) / dimensions.z;
-                }
-            }
-            primitive.vertices[j] = vertex;
-            j = j + 1usize;
-        }
         var placement: Basis = basis;
         placement.right = scale(basis.right, direction);
         placement.forward = scale(basis.forward, direction);
@@ -133,4 +107,50 @@ fn conduit_support_beam(
         dimensions.y,
         dimensions.z
     );
+}
+
+fn conduit_support_uv(
+    primitive: MeshTriangle,
+    dimensions: Vec3,
+    origin: f32,
+    direction: f32,
+    exposed_start: f32,
+    exposed_end: f32
+) -> MeshTriangle {
+    var span: f32 = exposed_end - exposed_start;
+    var tiles: f32 = panel_pixel_extent(span / conduit_support_material().tile_metres, 1u32) as f32;
+    var a: Vec3 = collision_point(primitive.vertices[0usize]);
+    var normal: Vec3 = cross(
+        sub(collision_point(primitive.vertices[1usize]), a),
+        sub(collision_point(primitive.vertices[2usize]), a)
+    );
+    var j: usize = 0usize;
+    while j < 3usize {
+        var vertex: MeshVertex = primitive.vertices[j];
+        if primitive.material == CONDUIT_SUPPORT_MATERIAL {
+            vertex.u = (origin + direction * vertex.x - exposed_start) * tiles / span;
+            vertex.v = (vertex.y + dimensions.y * 0.5f32) / dimensions.y;
+            if absf(normal.y) > absf(normal.z) {
+                vertex.v = (direction * vertex.z + dimensions.z * 0.5f32) / dimensions.z;
+            }
+        }
+        primitive.vertices[j] = vertex;
+        j = j + 1usize;
+    }
+    return primitive;
+}
+
+fn conduit_broken_box(dimensions: Vec3, seed: u32) -> BrokenBox {
+    var section: f32 = mask_min(dimensions.y, dimensions.z);
+    return make BrokenBox {
+        length: dimensions.x,
+        depth: dimensions.y,
+        width: dimensions.z,
+        tear: mask_min(section * 0.16f32, dimensions.x * 0.25f32),
+        wall: section * 0.08f32,
+        recess: mask_min(section * 0.6f32, dimensions.x * 0.5f32),
+        seed: seed,
+        shell: CONDUIT_SUPPORT_MATERIAL,
+        fracture: CONDUIT_BREAK_MATERIAL
+    };
 }

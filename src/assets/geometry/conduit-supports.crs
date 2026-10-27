@@ -79,6 +79,9 @@ fn conduit_support_box(
     }
     return asset_part_place_tail(mut asset, first, name, vec(0f32, 0f32, 0f32));
 }
+fn conduit_support_width(core: f32) -> f32 {
+    return core * 0.24f32;
+}
 fn conduit_support_depth(core: f32) -> f32 {
     return core * 0.32f32;
 }
@@ -95,7 +98,7 @@ fn conduit_supports(
 ) -> bool {
     var centre: Vec3 = vec(0f32, height * 0.5f32, 0f32);
     var collar: f32 = core * 1.08f32;
-    var width: f32 = core * 0.24f32;
+    var width: f32 = conduit_support_width(core);
     var depth: f32 = conduit_support_depth(core);
     var first: u32 = mesh_triangle_count(read asset.geometry);
     var inner: f32 = core * 0.85f32;
