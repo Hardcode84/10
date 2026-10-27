@@ -6,9 +6,15 @@ const CONDUIT_REBAR_MATERIAL: u32 = 8u32;
 const CONDUIT_MATERIAL_COUNT: u32 = 9u32;
 const CONDUIT_CAST_LENGTH: f32 = 25f32;
 fn prefab_conduit_parameter_count() -> u32 {
+    return conduit_powered_parameter() + 1u32;
+}
+fn conduit_powered_parameter() -> u32 {
     return conduit_hazard_seed_parameter() + 1u32;
 }
 fn prefab_conduit_parameter_name(index: u32) -> AssetName {
+    if index == conduit_powered_parameter() {
+        return asset_name("powered");
+    }
     if index >= CONDUIT_HAZARD_PARAMETER {
         return conduit_hazard_name(index - CONDUIT_HAZARD_PARAMETER);
     }
@@ -27,6 +33,14 @@ fn prefab_conduit_parameter_name(index: u32) -> AssetName {
     return asset_name("turns");
 }
 fn prefab_conduit_parameter(index: u32) -> AssetParameter {
+    if index == conduit_powered_parameter() {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 1f32,
+            initial: 0f32,
+            step: 1f32
+        };
+    }
     if index >= CONDUIT_HAZARD_PARAMETER {
         return conduit_hazard_parameter(index - CONDUIT_HAZARD_PARAMETER);
     }
@@ -171,6 +185,10 @@ fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) ->
     var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
     var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
     var turns: f32 = asset_value(read parameters, 3u32);
+    var powered: f32 = asset_value(read parameters, conduit_powered_parameter());
+    if powered != powered as u32 as f32 {
+        return error("conduit powered must be 0 or 1");
+    }
     if turns != turns as u32 as f32 || core >= radius * 0.6f32 {
         return error("conduit needs integer turns and clearance around the cable core");
     }
@@ -227,6 +245,8 @@ fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMa
     material.tile_height = height / panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32) as f32;
     if region != 0u32 {
         material.finish = SURFACE_CABLE;
+        material.indicator = asset_value(read parameters, conduit_powered_parameter()) == 1f32;
+        material.emission = 0xff7020u32;
         material.tile_metres = asset_value(read parameters, 2u32) / 3f32 * sinf(
             3.14159265359f32 / 8f32
         );

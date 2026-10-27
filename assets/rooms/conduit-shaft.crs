@@ -6,6 +6,7 @@
 // The connected shaft spindle continues inward as a long cone, with an amber
 // full-bright warning lamp at its tip. The lamp casts a small pool of light.
 // Both CONDUIT end ports and the twisted cable core remain continuous.
+// powered=1 adds blue full-bright cable markings; default is 0.
 // Four diagonal beams and a cable collar share the tube's central support station.
 // hazard-1 through hazard-4 select successive 250 m sections from BOTTOM:
 // 0 is clear, 1 adds static concrete debris (default). hazard-seed sets the layout.

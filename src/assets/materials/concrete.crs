@@ -35,6 +35,7 @@ fn concrete_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     return (shade + (grain % 15u32) as f32 - 7f32) as u32;
 }
 // Insulated cable with axial grooves and a sheath joint at each tile end.
+// Indicator adds full-bright strips beside the grooves, between the joints.
 fn cable_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     var end: f32 = mask_min(x, material.tile_metres - x);
     if end < 0.12f32 {
@@ -50,6 +51,9 @@ fn cable_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     }
     if groove < 0.20f32 {
         return 185u32;
+    }
+    if material.indicator && end > 0.8f32 && groove > 0.30f32 && groove < 0.65f32 {
+        return 248u32;
     }
     return (
         155f32 + 12f32 * sinf(3.14159265359f32 * groove / pitch) + metal_grain(material, x, y)

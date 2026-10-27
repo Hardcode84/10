@@ -3,7 +3,8 @@
 // Integer turns keep cable positions and roll aligned at both ends.
 // BOTTOM and TOP use full CONDUIT connections with two orientations, 180 degrees apart.
 // Each cable and debris chunk is a closed collision solid and a tether anchor.
-// The core is inert: no emission, force, debris, or damage is attached to this asset.
+// powered=1 adds blue full-bright strips to the cable sheaths; default is 0.
+// These markings do not cast light. The core applies no force or contact damage.
 // Casting joints follow hull facets and axial bays; fine formwork and aggregate
 // stay in the generated concrete texture. Cable UVs follow their helical length.
 // Raised wall panels occupy complete casting tiles. End bays and beam support
