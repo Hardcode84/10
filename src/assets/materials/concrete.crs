@@ -56,6 +56,9 @@ fn cable_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     ) as u32;
 }
 fn panel_bulk_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    if material.finish == SURFACE_FRACTURED_CONCRETE {
+        return fractured_concrete_sample(material, x, y);
+    }
     if material.finish == SURFACE_STRUCTURAL_STEEL {
         return structural_steel_sample(material, x, y);
     }

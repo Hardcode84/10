@@ -2,7 +2,7 @@
 // Six thick cable sheaths wind around one straight cable. The core is 75 m across.
 // Integer turns keep cable positions and roll aligned at both ends.
 // BOTTOM and TOP use full CONDUIT connections with two orientations, 180 degrees apart.
-// Each cable is a closed collision solid. The space around the core is clear.
+// Each cable and debris chunk is a closed collision solid and a tether anchor.
 // The core is inert: no emission, force, debris, or damage is attached to this asset.
 // Casting joints follow hull facets and axial bays; fine formwork and aggregate
 // stay in the generated concrete texture. Cable UVs follow their helical length.
@@ -18,8 +18,15 @@
 // The collar grid meets the four beam axes; face borders stay on physical edges.
 // Each beam has two red emergency fixtures at its exposed midpoint, facing +Y
 // and -Y. The lenses are full-bright and cast local red light onto the beam.
+// hazard-1 through hazard-4 select each successive 250 m section from BOTTOM:
+// 0 is clear, 1 adds static concrete debris (default). Settings beyond length
+// are inactive; a partial final section uses its available length.
+// hazard-seed controls fragment shapes and placement independently of wall tiles.
+// Fragments leave clearance at the core, walls, supports, and end portals.
+// Rusty rebar protrudes from broken sides. Bent rods are also collision solids.
 // Parameters: length, diameter, core-diameter in metres; turns is an integer.
-// Materials: concrete, dark sheath, ochre sheath, oxide sheath, support steel, red lamps.
+// Materials include concrete, cable sheaths, support steel, red lamps, and debris
+// with cast surfaces and exposed aggregate on broken faces.
 fn room_parameter_count() -> u32 {
     return prefab_conduit_parameter_count();
 }

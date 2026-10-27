@@ -82,7 +82,12 @@ fn prefab_conduit_shaft_build(values: read AssetValues, asset: mut RoomAsset) ->
             forward: vec(-1f32, 0f32, 0f32)
         }
     };
-    return conduit_tiles(mut asset, read values) && room_asset_finish(mut asset);
+    return conduit_tiles(mut asset, read values) && conduit_hazards(
+        mut asset,
+        read values,
+        centre.y,
+        shaft * 0.5f32
+    ) && room_asset_finish(mut asset);
 }
 fn prefab_conduit_shaft_material(region: u32, values: read AssetValues) -> PanelMaterial {
     if region < CONDUIT_MATERIAL_COUNT {

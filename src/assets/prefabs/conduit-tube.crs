@@ -1,11 +1,17 @@
 const CONDUIT_SUPPORT_MATERIAL: u32 = 4u32;
 const CONDUIT_LIGHT_MATERIAL: u32 = 5u32;
-const CONDUIT_MATERIAL_COUNT: u32 = 6u32;
+const CONDUIT_DEBRIS_MATERIAL: u32 = 6u32;
+const CONDUIT_FRACTURE_MATERIAL: u32 = 7u32;
+const CONDUIT_REBAR_MATERIAL: u32 = 8u32;
+const CONDUIT_MATERIAL_COUNT: u32 = 9u32;
 const CONDUIT_CAST_LENGTH: f32 = 25f32;
 fn prefab_conduit_parameter_count() -> u32 {
-    return 7u32;
+    return conduit_hazard_seed_parameter() + 1u32;
 }
 fn prefab_conduit_parameter_name(index: u32) -> AssetName {
+    if index >= CONDUIT_HAZARD_PARAMETER {
+        return conduit_hazard_name(index - CONDUIT_HAZARD_PARAMETER);
+    }
     if index >= 4u32 {
         return conduit_tiles_parameter_name(index - 4u32);
     }
@@ -21,13 +27,16 @@ fn prefab_conduit_parameter_name(index: u32) -> AssetName {
     return asset_name("turns");
 }
 fn prefab_conduit_parameter(index: u32) -> AssetParameter {
+    if index >= CONDUIT_HAZARD_PARAMETER {
+        return conduit_hazard_parameter(index - CONDUIT_HAZARD_PARAMETER);
+    }
     if index >= 4u32 {
         return conduit_tiles_parameter(index - 4u32);
     }
     if index == 0u32 {
         return make AssetParameter {
             minimum: 100f32,
-            maximum: 1000f32,
+            maximum: CONDUIT_HAZARD_LENGTH * CONDUIT_HAZARD_SECTIONS as f32,
             initial: 500f32,
             step: 25f32
         };
@@ -145,7 +154,7 @@ fn prefab_conduit_build(parameters: read AssetValues, asset: mut RoomAsset) -> b
     return prefab_conduit_prepare(read parameters, mut asset) && conduit_tiles(
         mut asset,
         read parameters
-    ) && room_asset_finish(mut asset);
+    ) && conduit_hazards(mut asset, read parameters, 0f32, 0f32) && room_asset_finish(mut asset);
 }
 fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     var i: u32 = 0u32;
@@ -195,6 +204,12 @@ fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) ->
     return true;
 }
 fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == CONDUIT_REBAR_MATERIAL {
+        return conduit_rebar_material();
+    }
+    if region == CONDUIT_DEBRIS_MATERIAL || region == CONDUIT_FRACTURE_MATERIAL {
+        return conduit_debris_material(region == CONDUIT_FRACTURE_MATERIAL);
+    }
     if region == CONDUIT_LIGHT_MATERIAL {
         return emergency_light_material();
     }

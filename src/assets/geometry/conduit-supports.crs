@@ -79,6 +79,12 @@ fn conduit_support_box(
     }
     return asset_part_place_tail(mut asset, first, name, vec(0f32, 0f32, 0f32));
 }
+fn conduit_support_depth(core: f32) -> f32 {
+    return core * 0.32f32;
+}
+fn conduit_support_axial_extent(core: f32) -> f32 {
+    return conduit_support_depth(core) * 1.4f32 * 0.5f32;
+}
 fn conduit_supports(
     asset: mut RoomAsset,
     radius: f32,
@@ -89,10 +95,10 @@ fn conduit_supports(
     var centre: Vec3 = vec(0f32, height * 0.5f32, 0f32);
     var collar: f32 = core * 1.08f32;
     var width: f32 = core * 0.24f32;
-    var depth: f32 = core * 0.32f32;
+    var depth: f32 = conduit_support_depth(core);
     var first: u32 = mesh_triangle_count(read asset.geometry);
     var inner: f32 = core * 0.85f32;
-    var collar_depth: f32 = depth * 1.4f32;
+    var collar_depth: f32 = conduit_support_axial_extent(core) * 2f32;
     var circumference: f32 = 3.14159265359f32 * (inner + collar);
     var circum_tiles: u32 = panel_pixel_extent(
         circumference / (conduit_support_material().tile_metres * 8f32),

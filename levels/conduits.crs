@@ -2,6 +2,7 @@
 // Start in a short capped shaft and enter the side of the first conduit.
 // Its TOP leads into the second tube. The second TOP returns to the first
 // BOTTOM with the opposite mating roll: one circuit turns the player 180 degrees.
+// Both tubes use the default debris hazards in each axial section.
 const CONDUIT_START_SHAFT_LENGTH: f32 = 20f32;
 fn demo_room_build(
     asset: mut RoomAsset,

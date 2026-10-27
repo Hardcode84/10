@@ -1,0 +1,29 @@
+const SURFACE_FRACTURED_CONCRETE: u32 = 20u32;
+fn conduit_debris_material(fracture: bool) -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.finish = SURFACE_CONCRETE;
+    material.colour = 0xa69e8bu32;
+    material.tile_metres = 12f32;
+    material.tile_height = 12f32;
+    material.texels_per_metre = 16u32;
+    material.indicator = false;
+    material.marking = 0u32;
+    if fracture {
+        material.finish = SURFACE_FRACTURED_CONCRETE;
+        material.colour = 0xbdb7a5u32;
+    }
+    return material;
+}
+// Broken concrete with aggregate and irregular fissures, without casting joints.
+fn fractured_concrete_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var grain: u32 = metal_hash((x * 16f32) as u32, (y * 16f32) as u32, material.seed);
+    var aggregate: u32 = metal_hash((x * 3f32) as u32, (y * 3f32) as u32, material.seed);
+    var crack: f32 = mask_repeat(x + 0.27f32 * y + 0.16f32 * sinf(y * 3f32), 3f32);
+    if crack < 0.06f32 {
+        return 65u32 + grain % 20u32;
+    }
+    if aggregate % 7u32 == 0u32 {
+        return 95u32 + grain % 35u32;
+    }
+    return 155u32 + aggregate % 25u32 + grain % 24u32;
+}
