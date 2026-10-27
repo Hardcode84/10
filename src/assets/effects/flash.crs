@@ -1,5 +1,5 @@
 // Returns a repeating flash: full intensity at cycle start, a squared fade
-// during the first half, then darkness. Period is a positive multiple of
+// with its dim tail hidden, then darkness. Period is a positive multiple of
 // PANEL_PULSE_FRAMES. Tick uses MATERIAL_ANIMATION_HZ.
 fn flash_intensity(period: u32, tick: u32) -> f32 {
     var frame: u32 = (tick % period) / (period / PANEL_PULSE_FRAMES);
@@ -8,7 +8,11 @@ fn flash_intensity(period: u32, tick: u32) -> f32 {
         0f32,
         1f32
     );
-    return value * value;
+    var intensity: f32 = value * value;
+    if intensity < 0.05f32 {
+        return 0f32;
+    }
+    return intensity;
 }
 fn fixture_light_at(light: FixtureLight, tick: u32) -> FixtureLight {
     if light.period != 0u32 {

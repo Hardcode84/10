@@ -18,8 +18,15 @@ fn conduit_debris_rebar(
     basis: Basis,
     radius: f32,
     seed: u32,
-    angular: f32
+    angular: f32,
+    reach: f32
 ) -> bool {
+    var ends: [Vec3; 4] = make [Vec3; 4] {
+        centre,
+        centre,
+        centre,
+        centre
+    };
     var i: u32 = 0u32;
     while i < 4u32 {
         var face: HullFace = asset_face(read hull, 2u32 + i / 2u32);
@@ -39,6 +46,7 @@ fn conduit_debris_rebar(
         var lean: f32 = conduit_debris_random(seed, 21u32 + i) * 2f32 - 1f32;
         var outgoing: Vec3 = unit_vector(add(normal, scale(right, lean)));
         var end: Vec3 = add(corner, scale(outgoing, radius * 0.08f32));
+        ends[i as usize] = add(end, vec(0f32, centre.y, 0f32));
         var first: u32 = mesh_triangle_count(read asset.geometry);
         var sweep: TubeSweep = tube_sweep_begin(
             start,
@@ -68,5 +76,5 @@ fn conduit_debris_rebar(
         }
         i = i + 1u32;
     }
-    return true;
+    return conduit_debris_arcs(mut asset, centre, ends, angular, reach, seed);
 }

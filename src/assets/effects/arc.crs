@@ -1,3 +1,6 @@
+fn arc_start_tick(emitter: ArcEmitter, tick: u32) -> u32 {
+    return tick - tick % emitter.period;
+}
 record ArcContact {
     active: bool;
     start: Vec3;
@@ -8,7 +11,7 @@ fn arc_active(emitter: ArcEmitter, tick: u32) -> bool {
     return flash_intensity(emitter.period, tick) > 0f32 && metal_hash(
         tick / emitter.period,
         0u32,
-        emitter.style.seed
+        emitter.cycle_seed
     ) % emitter.cycle_stride == 0u32;
 }
 fn arc_vector(emitter: ArcEmitter, vector: Vec3, tick: u32) -> Vec3 {
@@ -33,6 +36,7 @@ fn arc_contact(scene: read CollisionScene, emitter: ArcEmitter, tick: u32) -> Ar
     if !arc_active(emitter, tick) || !collision_room_resident(read scene, emitter.space) {
         return result;
     }
+    tick = arc_start_tick(emitter, tick);
     result.start = add(
         emitter.pivot,
         arc_vector(emitter, sub(emitter.position, emitter.pivot), tick)

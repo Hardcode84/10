@@ -579,12 +579,13 @@ viewer was rejected. The viewer is a required part of this workflow.
 
 A room can define `ArcEmitter` records in `RoomAsset.arcs`. Each emitter has a
 reference contact, a rotation pivot, an angular velocity, and a ray direction.
-The frame clock sets the contact pose. A static collision-tree query sets the
-other contact on the nearest surface in that room. An unloaded room emits no
+The cycle-start tick sets the contact pose. Both contacts stay fixed for that
+cycle. A shared cycle seed synchronizes emitters with different bolt shapes.
+A static collision-tree query sets the other contact on the nearest surface in that room. An unloaded room emits no
 strike. Geometry loading remains under room admission control.
 
 The seed selects active cycles and the bolt path. Bolts appear at full intensity
-and fade with their contact sparks and midpoint light. Both materials use the
-emitter period. Submit the effect surfaces before retained mesh instances.
+and fade with their contact sparks and midpoint light. The near-black tail is
+transparent. Both materials use the emitter period. Submit the effect surfaces before retained mesh instances.
 The game propagates the light through portal anchors. Effect surfaces have no
 collision and cast no shadows.

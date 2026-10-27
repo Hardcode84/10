@@ -128,14 +128,15 @@ fn conduit_debris_chunk(
         asset_name("conduit-debris"),
         vec(0f32, centre.y, 0f32),
         vec(0f32, angular, 0f32)
-    ) && conduit_debris_rebar(mut asset, read hull, centre, basis, radius, seed, angular) && conduit_debris_arcs(
+    ) && conduit_debris_rebar(
         mut asset,
         read hull,
         centre,
         basis,
+        radius,
+        seed,
         angular,
-        reach,
-        seed
+        reach
     );
 }
 fn conduit_debris_section(

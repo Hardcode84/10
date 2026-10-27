@@ -62,6 +62,7 @@ fn asset_test_arc() -> bool {
         reach: 30f32,
         period: 256u32,
         cycle_stride: 1u32,
+        cycle_seed: 19u32,
         style: make LightningStyle {
             minimum: 1f32,
             maximum: 2f32,
@@ -72,24 +73,8 @@ fn asset_test_arc() -> bool {
         },
         spark_material: 3u32
     };
-    var tick: u32 = 0u32;
-    while tick < emitter.period / 4u32 {
-        var contact: ArcContact = arc_contact(read asset.collision, emitter, tick);
-        var direction: Vec3 = arc_vector(emitter, emitter.direction, tick);
-        var expected: Vec3 = hull_radial_contact(read asset.hull, direction);
-        expected.y = 2f32;
-        if !contact.active || length(sub(contact.end, expected)) > 0.00001f32 || length(
-            sub(contact.start, add(emitter.pivot, direction))
-        ) > 0.00001f32 {
-            return error("moving arc did not hit the room surface");
-        }
-        var light: FixtureLight = arc_light(emitter, contact, tick);
-        if length(
-            sub(light.position, scale(add(contact.start, contact.end), 0.5f32))
-        ) != 0f32 {
-            return error("arc light did not follow contacts");
-        }
-        tick = tick + 7u32;
+    if !asset_test_arc_pose(read asset, emitter) {
+        return false;
     }
     if arc_contact(read asset.collision, emitter, emitter.period / 2u32).active {
         return error("arc remains visible in its dark interval");
@@ -106,8 +91,10 @@ fn asset_test_arc() -> bool {
         return error("arc room placement lost material offsets");
     }
     collision_room_unload(mut asset.collision, 0u32);
-    return !arc_contact(read asset.collision, emitter, 0u32).active || error(
-        "arc queried an unloaded room"
+    return asset_test_arc_pair(emitter) && (
+        !arc_contact(read asset.collision, emitter, 0u32).active || error(
+            "arc queried an unloaded room"
+        )
     );
 }
 
@@ -124,4 +111,61 @@ fn asset_test_flash_concrete() -> bool {
     ) == 1u32 && panel_texture_height(flash) == 1u32 || error(
         "concrete and flash material layouts overlap"
     );
+}
+
+fn asset_test_arc_pair(emitter: ArcEmitter) -> bool {
+    emitter.cycle_stride = 3u32;
+    var other: ArcEmitter = emitter;
+    other.style.seed = other.style.seed + 1u32;
+    var tick: u32 = 0u32;
+    while tick < emitter.period * 12u32 {
+        if arc_active(emitter, tick) != arc_active(other, tick) {
+            return error("paired strikes differ in timing");
+        }
+        tick = tick + 1u32;
+    }
+    return flash_intensity(emitter.period, emitter.period * 7u32 / 16u32) == 0f32 || error(
+        "near-black flash tail remains visible"
+    );
+}
+
+fn asset_test_arc_pose(asset: read RoomAsset, emitter: ArcEmitter) -> bool {
+    var tick: u32 = 0u32;
+    while tick < emitter.period * 3u32 {
+        if !arc_active(emitter, tick) {
+            tick = tick + 7u32;
+            continue;
+        }
+        var contact: ArcContact = arc_contact(read asset.collision, emitter, tick);
+        var birth: ArcContact = arc_contact(
+            read asset.collision,
+            emitter,
+            tick / emitter.period * emitter.period
+        );
+        if length(sub(contact.start, birth.start)) != 0f32 || length(
+            sub(contact.end, birth.end)
+        ) != 0f32 {
+            return error("arc moved during its fade");
+        }
+        var direction: Vec3 = arc_vector(
+            emitter,
+            emitter.direction,
+            arc_start_tick(emitter, tick)
+        );
+        var expected: Vec3 = hull_radial_contact(read asset.hull, direction);
+        expected.y = 2f32;
+        if !contact.active || length(sub(contact.end, expected)) > 0.00001f32 || length(
+            sub(contact.start, add(emitter.pivot, direction))
+        ) > 0.00001f32 {
+            return error("arc did not retain its cycle-start contact pose");
+        }
+        var light: FixtureLight = arc_light(emitter, contact, tick);
+        if length(
+            sub(light.position, scale(add(contact.start, contact.end), 0.5f32))
+        ) != 0f32 {
+            return error("arc light did not follow contacts");
+        }
+        tick = tick + 7u32;
+    }
+    return true;
 }

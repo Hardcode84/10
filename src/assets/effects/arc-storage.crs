@@ -1,6 +1,7 @@
 // A moving contact casts a room-local ray onto static collision geometry.
 // Direction is unit length; reach is positive. Period matches both flash materials.
-// One in cycle_stride cycles is active, selected by the seed.
+// cycle_seed selects active cycles; shared seeds synchronize emitters.
+// Contacts use the pose at cycle start and remain fixed during the fade.
 record ArcEmitter {
     space: u32;
     position: Vec3;
@@ -10,6 +11,7 @@ record ArcEmitter {
     reach: f32;
     period: u32;
     cycle_stride: u32;
+    cycle_seed: u32;
     style: LightningStyle;
     spark_material: u32;
 }

@@ -11,9 +11,8 @@ fn conduit_arc_material(sparks: bool) -> PanelMaterial {
 }
 fn conduit_debris_arcs(
     asset: mut RoomAsset,
-    hull: read AssetHull,
     centre: Vec3,
-    basis: Basis,
+    ends: [Vec3; 4],
     angular: f32,
     reach: f32,
     seed: u32
@@ -25,11 +24,14 @@ fn conduit_debris_arcs(
     var i: u32 = 0u32;
     while i < 2u32 {
         var direction: Vec3 = scale(outward, i as f32 * 2f32 - 1f32);
-        var local: Vec3 = collision_local(basis, direction);
-        var contact: Vec3 = add(
-            centre,
-            basis_vector(basis, hull_radial_contact(read hull, local))
-        );
+        var contact: Vec3 = ends[0usize];
+        var j: usize = 1usize;
+        while j < 4usize {
+            if dot(ends[j], direction) > dot(contact, direction) {
+                contact = ends[j];
+            }
+            j = j + 1usize;
+        }
         if !arc_emitter_append(
             mut asset.arcs,
             make ArcEmitter {
@@ -41,6 +43,7 @@ fn conduit_debris_arcs(
                 reach: reach,
                 period: CONDUIT_ARC_PERIOD,
                 cycle_stride: 3u32,
+                cycle_seed: seed,
                 style: make LightningStyle {
                     minimum: 3f32,
                     maximum: 8f32,

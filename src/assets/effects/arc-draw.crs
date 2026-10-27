@@ -101,7 +101,7 @@ fn arc_sparks_draw(
     var spark: SparkEmitter = make SparkEmitter {
         space: emitter.space,
         position: contact.start,
-        direction: arc_vector(emitter, emitter.direction, tick),
+        direction: arc_vector(emitter, emitter.direction, arc_start_tick(emitter, tick)),
         period: emitter.period,
         seed: emitter.style.seed,
         count: 16u32,
