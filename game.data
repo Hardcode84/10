@@ -284,7 +284,7 @@ s_words_store(9u, s_oldviews);
 s_words_store(10u, (s_views - s_oldviews));
 s_words_store(11u, s_views);
 s_words_store(12u, (s_words_load(12u) + 1u));
-s_words_store(98u, 3u);
+s_words_store(98u, 1u);
 s_traversal_frontier(s_count);
 s_traversal_yield();
 }
@@ -648,7 +648,7 @@ s_words_store(9u, s_oldviews);
 s_words_store(10u, (s_views - s_oldviews));
 s_words_store(11u, s_views);
 s_words_store(12u, (s_words_load(12u) + 1u));
-s_words_store(98u, 3u);
+s_words_store(98u, 1u);
 s_traversal_frontier(s_count);
 s_traversal_yield();
 }
@@ -846,13 +846,13 @@ while ((s_i < s_end)) {
 s_words_store(((s_words_load(97u) + (s_i * 4u)) + 3u), 0u);
 s_i = (s_i + 1u);
 }
-if (((s_words_load(98u) & 2u) != 0u)) {
+if ((s_words_load(98u) != 0u)) {
 s_words_store(99u, s_begin);
 s_words_store(100u, 0u);
 if ((s_begin < s_end)) {
 s_batch_view_begin(s_begin);
 }
-s_words_store(98u, (s_words_load(98u) & (~2u)));
+s_words_store(98u, 0u);
 }
 s_words_store(101u, s_words_load(99u));
 s_words_store(102u, s_words_load(99u));
@@ -1073,8 +1073,9 @@ s_batch_range_next();
 }
 }
 }
-fn s_batch_task_commands(p_active: bool) {
+fn s_batch_task_commands(p_active: bool, p_finished: bool) {
 var s_active = p_active;
+var s_finished = p_finished;
 {
 var s_base: u32 = 0u;
 var s_batch: u32 = 0u;
@@ -1091,6 +1092,15 @@ if ((s_words_load(118u) == 0u)) {
 s_count = 0u;
 }
 s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 9u), s_count);
+s_count = 0u;
+if ((s_finished && (s_words_load(6u) > s_base))) {
+s_count = (s_words_load(6u) - s_base);
+if ((s_count > checked_div_u32(2097152u, 64u))) {
+s_count = checked_div_u32(2097152u, 64u);
+}
+}
+s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 3u), checked_div_u32((s_count + 63u), 64u));
+s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 6u), 0u);
 s_base = (s_base + checked_div_u32(2097152u, 64u));
 s_batch = (s_batch + 1u);
 }
@@ -1111,23 +1121,7 @@ else {
 s_work_count_add(122u, 1u);
 }
 }
-s_batch_task_commands((s_words_load(101u) < s_words_load(102u)));
-var s_finished: bool = s_traversal_finished();
-var s_base: u32 = 0u;
-var s_batch: u32 = 0u;
-while ((s_base < s_words_load(72u))) {
-var s_count: u32 = 0u;
-if ((s_finished && (s_words_load(6u) > s_base))) {
-s_count = (s_words_load(6u) - s_base);
-if ((s_count > checked_div_u32(2097152u, 64u))) {
-s_count = checked_div_u32(2097152u, 64u);
-}
-}
-s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 3u), checked_div_u32((s_count + 63u), 64u));
-s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 6u), 0u);
-s_base = (s_base + checked_div_u32(2097152u, 64u));
-s_batch = (s_batch + 1u);
-}
+s_batch_task_commands((s_words_load(101u) < s_words_load(102u)), s_traversal_finished());
 s_traversal_command(142u, 1u);
 s_traversal_command(133u, 0u);
 s_traversal_command(136u, 0u);
@@ -1141,24 +1135,15 @@ s_fans = checked_div_u32(2097152u, 64u);
 s_words_store(126u, s_fans);
 s_words_store((126u + 1u), 1u);
 s_words_store((126u + 2u), 1u);
-if ((((s_words_load(5u) == 0u) && ((s_words_load(98u) & 4u) != 0u)) && (s_words_load(99u) != (s_words_load(9u) + s_words_load(10u))))) {
-s_words_store(5u, 3u);
-}
 }
 }
 fn s_compute() {
 {
 var s_lane: u32 = s_shader_local_x();
 if ((s_lane == 0u)) {
-if (((s_words_load(98u) & 8u) != 0u)) {
-s_batch_deferred();
-s_shared_store(255u, 0u);
-}
-else {
 s_batch_initialize();
 s_batch_step_begin();
 s_shared_store(255u, select(u32(0), u32(1), s_batch_has_tree()));
-}
 }
 s_shader_all_memory_barrier();
 var s_round: u32 = 0u;
@@ -1175,48 +1160,9 @@ s_shared_store(255u, select(u32(0), u32(1), (s_batch_has_tree() && ((s_round + 1
 s_shader_all_memory_barrier();
 s_round = (s_round + 1u);
 }
-if (((s_lane == 0u) && ((s_words_load(98u) & 8u) == 0u))) {
+if ((s_lane == 0u)) {
 s_batch_finish();
 }
-}
-}
-fn s_batch_deferred() {
-{
-s_words_store(148u, (s_words_load(148u) + 1u));
-var s_first: u32 = s_words_load(101u);
-var s_count: u32 = s_words_load(103u);
-s_work_count_add(120u, s_count);
-if ((s_count != 0u)) {
-s_work_count_add(121u, 1u);
-}
-var s_i: u32 = 0u;
-while ((s_i < s_count)) {
-var s_p: u32 = (s_words_load(108u) + (s_i * 3u));
-s_words_store(s_p, (s_i + 1u));
-s_words_store((s_p + 1u), 4294967295u);
-s_words_store((s_p + 2u), (s_first + s_i));
-s_i = (s_i + 1u);
-}
-var s_finished: u32 = select(u32(0), u32(1), ((s_words_load(98u) & 4u) != 0u));
-var s_p: u32 = s_words_load(97u);
-s_words_store(s_p, 1u);
-s_words_store((s_p + 1u), s_count);
-s_words_store((s_p + 2u), 0u);
-s_words_store((s_p + 3u), (1u | (s_finished * 2u)));
-s_words_store(101u, 0u);
-s_words_store(102u, 1u);
-s_words_store(114u, s_count);
-s_words_store(118u, s_finished);
-s_batch_task_commands(true);
-s_traversal_command(142u, s_finished);
-s_words_store(16u, s_geometry_groups(s_count));
-var s_fans: u32 = (s_count * 8u);
-if ((s_fans > checked_div_u32(2097152u, 64u))) {
-s_fans = checked_div_u32(2097152u, 64u);
-}
-s_words_store(126u, s_fans);
-s_words_store((126u + 1u), 1u);
-s_words_store((126u + 2u), 1u);
 }
 }
 fn s_work_count_add(p_field: u32, p_count: u32) {
@@ -1382,13 +1328,13 @@ while ((s_i < s_end)) {
 s_words_store(((s_words_load(97u) + (s_i * 4u)) + 3u), 0u);
 s_i = (s_i + 1u);
 }
-if (((s_words_load(98u) & 2u) != 0u)) {
+if ((s_words_load(98u) != 0u)) {
 s_words_store(99u, s_begin);
 s_words_store(100u, 0u);
 if ((s_begin < s_end)) {
 s_batch_view_begin(s_begin);
 }
-s_words_store(98u, (s_words_load(98u) & (~2u)));
+s_words_store(98u, 0u);
 }
 s_words_store(101u, s_words_load(99u));
 s_words_store(102u, s_words_load(99u));
@@ -1609,8 +1555,9 @@ s_batch_range_next();
 }
 }
 }
-fn s_batch_task_commands(p_active: bool) {
+fn s_batch_task_commands(p_active: bool, p_finished: bool) {
 var s_active = p_active;
+var s_finished = p_finished;
 {
 var s_base: u32 = 0u;
 var s_batch: u32 = 0u;
@@ -1627,6 +1574,15 @@ if ((s_words_load(118u) == 0u)) {
 s_count = 0u;
 }
 s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 9u), s_count);
+s_count = 0u;
+if ((s_finished && (s_words_load(6u) > s_base))) {
+s_count = (s_words_load(6u) - s_base);
+if ((s_count > (2097152u / 64u))) {
+s_count = (2097152u / 64u);
+}
+}
+s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 3u), ((s_count + 63u) / 64u));
+s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 6u), 0u);
 s_base = (s_base + (2097152u / 64u));
 s_batch = (s_batch + 1u);
 }
@@ -1647,23 +1603,7 @@ else {
 s_work_count_add(122u, 1u);
 }
 }
-s_batch_task_commands((s_words_load(101u) < s_words_load(102u)));
-var s_finished: bool = s_traversal_finished();
-var s_base: u32 = 0u;
-var s_batch: u32 = 0u;
-while ((s_base < s_words_load(72u))) {
-var s_count: u32 = 0u;
-if ((s_finished && (s_words_load(6u) > s_base))) {
-s_count = (s_words_load(6u) - s_base);
-if ((s_count > (2097152u / 64u))) {
-s_count = (2097152u / 64u);
-}
-}
-s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 3u), ((s_count + 63u) / 64u));
-s_words_store(((s_words_load(74u) + (s_batch * 12u)) + 6u), 0u);
-s_base = (s_base + (2097152u / 64u));
-s_batch = (s_batch + 1u);
-}
+s_batch_task_commands((s_words_load(101u) < s_words_load(102u)), s_traversal_finished());
 s_traversal_command(142u, 1u);
 s_traversal_command(133u, 0u);
 s_traversal_command(136u, 0u);
@@ -1677,24 +1617,15 @@ s_fans = (2097152u / 64u);
 s_words_store(126u, s_fans);
 s_words_store((126u + 1u), 1u);
 s_words_store((126u + 2u), 1u);
-if ((((s_words_load(5u) == 0u) && ((s_words_load(98u) & 4u) != 0u)) && (s_words_load(99u) != (s_words_load(9u) + s_words_load(10u))))) {
-s_words_store(5u, 3u);
-}
 }
 }
 fn s_compute() {
 {
 var s_lane: u32 = s_shader_local_x();
 if ((s_lane == 0u)) {
-if (((s_words_load(98u) & 8u) != 0u)) {
-s_batch_deferred();
-s_shared_store(255u, 0u);
-}
-else {
 s_batch_initialize();
 s_batch_step_begin();
 s_shared_store(255u, select(u32(0), u32(1), s_batch_has_tree()));
-}
 }
 s_shader_all_memory_barrier();
 var s_round: u32 = 0u;
@@ -1711,48 +1642,9 @@ s_shared_store(255u, select(u32(0), u32(1), (s_batch_has_tree() && ((s_round + 1
 s_shader_all_memory_barrier();
 s_round = (s_round + 1u);
 }
-if (((s_lane == 0u) && ((s_words_load(98u) & 8u) == 0u))) {
+if ((s_lane == 0u)) {
 s_batch_finish();
 }
-}
-}
-fn s_batch_deferred() {
-{
-s_words_store(148u, (s_words_load(148u) + 1u));
-var s_first: u32 = s_words_load(101u);
-var s_count: u32 = s_words_load(103u);
-s_work_count_add(120u, s_count);
-if ((s_count != 0u)) {
-s_work_count_add(121u, 1u);
-}
-var s_i: u32 = 0u;
-while ((s_i < s_count)) {
-var s_p: u32 = (s_words_load(108u) + (s_i * 3u));
-s_words_store(s_p, (s_i + 1u));
-s_words_store((s_p + 1u), 4294967295u);
-s_words_store((s_p + 2u), (s_first + s_i));
-s_i = (s_i + 1u);
-}
-var s_finished: u32 = select(u32(0), u32(1), ((s_words_load(98u) & 4u) != 0u));
-var s_p: u32 = s_words_load(97u);
-s_words_store(s_p, 1u);
-s_words_store((s_p + 1u), s_count);
-s_words_store((s_p + 2u), 0u);
-s_words_store((s_p + 3u), (1u | (s_finished * 2u)));
-s_words_store(101u, 0u);
-s_words_store(102u, 1u);
-s_words_store(114u, s_count);
-s_words_store(118u, s_finished);
-s_batch_task_commands(true);
-s_traversal_command(142u, s_finished);
-s_words_store(16u, s_geometry_groups(s_count));
-var s_fans: u32 = (s_count * 8u);
-if ((s_fans > (2097152u / 64u))) {
-s_fans = (2097152u / 64u);
-}
-s_words_store(126u, s_fans);
-s_words_store((126u + 1u), 1u);
-s_words_store((126u + 2u), 1u);
 }
 }
 fn s_work_count_add(p_field: u32, p_count: u32) {
@@ -2383,7 +2275,7 @@ s_words_store(17u, 1u);
 s_words_store(18u, 1u);
 s_view_space(0u, s_words_load(20u));
 s_words_store((s_words_load(63u) + 3u), 0u);
-s_words_store(98u, 3u);
+s_words_store(98u, 1u);
 s_traversal_frontier(s_tiles);
 s_traversal_command(142u, 0u);
 var s_j: u32 = 0u;
@@ -2614,7 +2506,7 @@ s_words_store(17u, 1u);
 s_words_store(18u, 1u);
 s_view_space(0u, s_words_load(20u));
 s_words_store((s_words_load(63u) + 3u), 0u);
-s_words_store(98u, 3u);
+s_words_store(98u, 1u);
 s_traversal_frontier(s_tiles);
 s_traversal_command(142u, 0u);
 var s_j: u32 = 0u;
@@ -2912,7 +2804,17 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_assets_load(((s_mat * 10u) + s_field));
+return s_assets_load(((s_mat * 16u) + s_field));
+}
+}
+fn s_material_animation_frame(p_mat: u32) -> u32 {
+var s_mat = p_mat;
+{
+var s_frames: u32 = s_material_field(s_mat, 10u);
+if ((s_frames == 0u)) {
+return 0u;
+}
+return checked_rem_u32(checked_div_u32(s_words_load(151u), s_material_field(s_mat, 11u)), s_frames);
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -2952,7 +2854,12 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+var s_texture: u32 = s_material_field(s_mat, 0u);
+var s_stride: u32 = s_material_field(s_mat, 12u);
+if ((s_stride != 0u)) {
+s_texture = (s_texture + (s_material_animation_frame(s_mat) * s_stride));
+}
+return s_assets_load(((s_texture + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_tile_bit_stride() -> u32 {
@@ -3405,7 +3312,17 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_assets_load(((s_mat * 10u) + s_field));
+return s_assets_load(((s_mat * 16u) + s_field));
+}
+}
+fn s_material_animation_frame(p_mat: u32) -> u32 {
+var s_mat = p_mat;
+{
+var s_frames: u32 = s_material_field(s_mat, 10u);
+if ((s_frames == 0u)) {
+return 0u;
+}
+return ((s_words_load(151u) / s_material_field(s_mat, 11u)) % s_frames);
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -3445,7 +3362,12 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+var s_texture: u32 = s_material_field(s_mat, 0u);
+var s_stride: u32 = s_material_field(s_mat, 12u);
+if ((s_stride != 0u)) {
+s_texture = (s_texture + (s_material_animation_frame(s_mat) * s_stride));
+}
+return s_assets_load(((s_texture + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_tile_bit_stride() -> u32 {
@@ -4073,7 +3995,7 @@ var s_level: u32 = u32(s_light);
 if (((((s_light - f32(s_level)) * bitcast<f32>(1098907648u)) > f32(s_threshold(s_x, s_y, s_words_load(2u)))) && (s_level < 63u))) {
 s_level = (s_level + 1u);
 }
-return s_assets_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
+return s_assets_load((s_material_colour(s_mat, s_color) + s_level));
 }
 }
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
@@ -4317,13 +4239,35 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_assets_load(((s_mat * 10u) + s_field));
+return s_assets_load(((s_mat * 16u) + s_field));
 }
 }
 fn s_material_palette(p_mat: u32) -> u32 {
 var s_mat = p_mat;
 {
 return s_material_field(s_mat, 4u);
+}
+}
+fn s_material_animation_frame(p_mat: u32) -> u32 {
+var s_mat = p_mat;
+{
+var s_frames: u32 = s_material_field(s_mat, 10u);
+if ((s_frames == 0u)) {
+return 0u;
+}
+return checked_rem_u32(checked_div_u32(s_words_load(151u), s_material_field(s_mat, 11u)), s_frames);
+}
+}
+fn s_material_colour(p_mat: u32, p_colour: u32) -> u32 {
+var s_mat = p_mat;
+var s_colour = p_colour;
+{
+var s_first: u32 = s_material_field(s_mat, 14u);
+var s_count: u32 = s_material_field(s_mat, 15u);
+if (((s_colour >= s_first) && ((s_colour - s_first) < s_count))) {
+return (s_material_field(s_mat, 13u) + ((((s_material_animation_frame(s_mat) * s_count) + s_colour) - s_first) * 512u));
+}
+return (s_material_palette(s_mat) + (s_colour * 512u));
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -4363,7 +4307,12 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+var s_texture: u32 = s_material_field(s_mat, 0u);
+var s_stride: u32 = s_material_field(s_mat, 12u);
+if ((s_stride != 0u)) {
+s_texture = (s_texture + (s_material_animation_frame(s_mat) * s_stride));
+}
+return s_assets_load(((s_texture + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_light_position(p_light: u32, p_view: u32, p_axis: u32) -> f32 {
@@ -5048,12 +4997,12 @@ var s_y = p_y;
 {
 var s_mat: u32 = s_scene_meta(s_tri, 1u);
 if (((s_scene_meta(s_tri, 3u) & 32u) != 0u)) {
-return s_assets_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
+return s_assets_load(((s_material_colour(s_mat, s_material_texel(s_mat, s_u, s_v)) + 512u) - 1u));
 }
 if (true) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
-return s_assets_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+return s_assets_load((s_material_colour(s_mat, s_material_texel(s_mat, s_u, s_v)) + s_lit_state(s_tri, s_view, s_x, s_y)));
 }
 }
 fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
@@ -5142,7 +5091,7 @@ var s_level: u32 = u32(s_light);
 if (((((s_light - f32(s_level)) * bitcast<f32>(1098907648u)) > f32(s_threshold(s_x, s_y, s_words_load(2u)))) && (s_level < 63u))) {
 s_level = (s_level + 1u);
 }
-return s_assets_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
+return s_assets_load((s_material_colour(s_mat, s_color) + s_level));
 }
 }
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
@@ -5386,13 +5335,35 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_assets_load(((s_mat * 10u) + s_field));
+return s_assets_load(((s_mat * 16u) + s_field));
 }
 }
 fn s_material_palette(p_mat: u32) -> u32 {
 var s_mat = p_mat;
 {
 return s_material_field(s_mat, 4u);
+}
+}
+fn s_material_animation_frame(p_mat: u32) -> u32 {
+var s_mat = p_mat;
+{
+var s_frames: u32 = s_material_field(s_mat, 10u);
+if ((s_frames == 0u)) {
+return 0u;
+}
+return ((s_words_load(151u) / s_material_field(s_mat, 11u)) % s_frames);
+}
+}
+fn s_material_colour(p_mat: u32, p_colour: u32) -> u32 {
+var s_mat = p_mat;
+var s_colour = p_colour;
+{
+var s_first: u32 = s_material_field(s_mat, 14u);
+var s_count: u32 = s_material_field(s_mat, 15u);
+if (((s_colour >= s_first) && ((s_colour - s_first) < s_count))) {
+return (s_material_field(s_mat, 13u) + ((((s_material_animation_frame(s_mat) * s_count) + s_colour) - s_first) * 512u));
+}
+return (s_material_palette(s_mat) + (s_colour * 512u));
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -5432,7 +5403,12 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+var s_texture: u32 = s_material_field(s_mat, 0u);
+var s_stride: u32 = s_material_field(s_mat, 12u);
+if ((s_stride != 0u)) {
+s_texture = (s_texture + (s_material_animation_frame(s_mat) * s_stride));
+}
+return s_assets_load(((s_texture + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_light_position(p_light: u32, p_view: u32, p_axis: u32) -> f32 {
@@ -6117,12 +6093,12 @@ var s_y = p_y;
 {
 var s_mat: u32 = s_scene_meta(s_tri, 1u);
 if (((s_scene_meta(s_tri, 3u) & 32u) != 0u)) {
-return s_assets_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
+return s_assets_load(((s_material_colour(s_mat, s_material_texel(s_mat, s_u, s_v)) + 512u) - 1u));
 }
 if (true) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
-return s_assets_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+return s_assets_load((s_material_colour(s_mat, s_material_texel(s_mat, s_u, s_v)) + s_lit_state(s_tri, s_view, s_x, s_y)));
 }
 }
 fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
@@ -6223,7 +6199,7 @@ var s_level: u32 = u32(s_light);
 if (((((s_light - f32(s_level)) * bitcast<f32>(1098907648u)) > f32(s_threshold(s_x, s_y, s_words_load(2u)))) && (s_level < 63u))) {
 s_level = (s_level + 1u);
 }
-return s_assets_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
+return s_assets_load((s_material_colour(s_mat, s_color) + s_level));
 }
 }
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
@@ -6467,13 +6443,35 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_assets_load(((s_mat * 10u) + s_field));
+return s_assets_load(((s_mat * 16u) + s_field));
 }
 }
 fn s_material_palette(p_mat: u32) -> u32 {
 var s_mat = p_mat;
 {
 return s_material_field(s_mat, 4u);
+}
+}
+fn s_material_animation_frame(p_mat: u32) -> u32 {
+var s_mat = p_mat;
+{
+var s_frames: u32 = s_material_field(s_mat, 10u);
+if ((s_frames == 0u)) {
+return 0u;
+}
+return checked_rem_u32(checked_div_u32(s_words_load(151u), s_material_field(s_mat, 11u)), s_frames);
+}
+}
+fn s_material_colour(p_mat: u32, p_colour: u32) -> u32 {
+var s_mat = p_mat;
+var s_colour = p_colour;
+{
+var s_first: u32 = s_material_field(s_mat, 14u);
+var s_count: u32 = s_material_field(s_mat, 15u);
+if (((s_colour >= s_first) && ((s_colour - s_first) < s_count))) {
+return (s_material_field(s_mat, 13u) + ((((s_material_animation_frame(s_mat) * s_count) + s_colour) - s_first) * 512u));
+}
+return (s_material_palette(s_mat) + (s_colour * 512u));
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -6513,7 +6511,12 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+var s_texture: u32 = s_material_field(s_mat, 0u);
+var s_stride: u32 = s_material_field(s_mat, 12u);
+if ((s_stride != 0u)) {
+s_texture = (s_texture + (s_material_animation_frame(s_mat) * s_stride));
+}
+return s_assets_load(((s_texture + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_light_position(p_light: u32, p_view: u32, p_axis: u32) -> f32 {
@@ -7198,12 +7201,12 @@ var s_y = p_y;
 {
 var s_mat: u32 = s_scene_meta(s_tri, 1u);
 if (((s_scene_meta(s_tri, 3u) & 32u) != 0u)) {
-return s_assets_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
+return s_assets_load(((s_material_colour(s_mat, s_material_texel(s_mat, s_u, s_v)) + 512u) - 1u));
 }
 if (false) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
-return s_assets_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+return s_assets_load((s_material_colour(s_mat, s_material_texel(s_mat, s_u, s_v)) + s_lit_state(s_tri, s_view, s_x, s_y)));
 }
 }
 fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
@@ -7292,7 +7295,7 @@ var s_level: u32 = u32(s_light);
 if (((((s_light - f32(s_level)) * bitcast<f32>(1098907648u)) > f32(s_threshold(s_x, s_y, s_words_load(2u)))) && (s_level < 63u))) {
 s_level = (s_level + 1u);
 }
-return s_assets_load(((s_material_palette(s_mat) + (s_color * 512u)) + s_level));
+return s_assets_load((s_material_colour(s_mat, s_color) + s_level));
 }
 }
 fn s_view_position(p_view: u32, p_z: f32, p_x: u32, p_y: u32, p_axis: u32) -> f32 {
@@ -7536,13 +7539,35 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_assets_load(((s_mat * 10u) + s_field));
+return s_assets_load(((s_mat * 16u) + s_field));
 }
 }
 fn s_material_palette(p_mat: u32) -> u32 {
 var s_mat = p_mat;
 {
 return s_material_field(s_mat, 4u);
+}
+}
+fn s_material_animation_frame(p_mat: u32) -> u32 {
+var s_mat = p_mat;
+{
+var s_frames: u32 = s_material_field(s_mat, 10u);
+if ((s_frames == 0u)) {
+return 0u;
+}
+return ((s_words_load(151u) / s_material_field(s_mat, 11u)) % s_frames);
+}
+}
+fn s_material_colour(p_mat: u32, p_colour: u32) -> u32 {
+var s_mat = p_mat;
+var s_colour = p_colour;
+{
+var s_first: u32 = s_material_field(s_mat, 14u);
+var s_count: u32 = s_material_field(s_mat, 15u);
+if (((s_colour >= s_first) && ((s_colour - s_first) < s_count))) {
+return (s_material_field(s_mat, 13u) + ((((s_material_animation_frame(s_mat) * s_count) + s_colour) - s_first) * 512u));
+}
+return (s_material_palette(s_mat) + (s_colour * 512u));
 }
 }
 fn s_texture_axis(p_uv: f32, p_size: u32, p_mode: u32) -> u32 {
@@ -7582,7 +7607,12 @@ var s_v = p_v;
 {
 var s_x: u32 = s_texture_axis(s_u, s_material_field(s_mat, 1u), s_material_field(s_mat, 7u));
 var s_y: u32 = s_texture_axis(s_v, s_material_field(s_mat, 2u), s_material_field(s_mat, 8u));
-return s_assets_load(((s_material_field(s_mat, 0u) + s_x) + (s_y * s_material_field(s_mat, 3u))));
+var s_texture: u32 = s_material_field(s_mat, 0u);
+var s_stride: u32 = s_material_field(s_mat, 12u);
+if ((s_stride != 0u)) {
+s_texture = (s_texture + (s_material_animation_frame(s_mat) * s_stride));
+}
+return s_assets_load(((s_texture + s_x) + (s_y * s_material_field(s_mat, 3u))));
 }
 }
 fn s_light_position(p_light: u32, p_view: u32, p_axis: u32) -> f32 {
@@ -8267,12 +8297,12 @@ var s_y = p_y;
 {
 var s_mat: u32 = s_scene_meta(s_tri, 1u);
 if (((s_scene_meta(s_tri, 3u) & 32u) != 0u)) {
-return s_assets_load((((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + 512u) - 1u));
+return s_assets_load(((s_material_colour(s_mat, s_material_texel(s_mat, s_u, s_v)) + 512u) - 1u));
 }
 if (false) {
 return s_light_color(s_mat, s_u, s_v, s_z, s_x, s_y);
 }
-return s_assets_load(((s_material_palette(s_mat) + (s_material_texel(s_mat, s_u, s_v) * 512u)) + s_lit_state(s_tri, s_view, s_x, s_y)));
+return s_assets_load((s_material_colour(s_mat, s_material_texel(s_mat, s_u, s_v)) + s_lit_state(s_tri, s_view, s_x, s_y)));
 }
 }
 fn s_view_distance_exceeded(p_z: f32, p_x: u32, p_y: u32) -> bool {
@@ -10856,7 +10886,7 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_assets_load(((s_mat * 10u) + s_field));
+return s_assets_load(((s_mat * 16u) + s_field));
 }
 }
 fn s_portal_facing(p_view: u32, p_portal: u32) -> bool {
@@ -11366,7 +11396,7 @@ fn s_material_field(p_mat: u32, p_field: u32) -> u32 {
 var s_mat = p_mat;
 var s_field = p_field;
 {
-return s_assets_load(((s_mat * 10u) + s_field));
+return s_assets_load(((s_mat * 16u) + s_field));
 }
 }
 fn s_portal_facing(p_view: u32, p_portal: u32) -> bool {
