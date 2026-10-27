@@ -66,10 +66,14 @@ infeasible. Status 2 reports that condition. The solver does not teleport a
 body through a machine or silently discard the rest of the step.
 
 The moving-instance list and the per-instance bound use no query allocation.
-Translation queries use the mesh index. A rotating mesh that passes its bound
-can require a visit to each triangle. Contact storage uses the existing inline
-planes and grows when necessary. Thus a large rotating detailed mesh has a
-triangle-dependent query cost; it does not have a triangle-count limit.
+Translation and rotation queries use the mesh index. A rotation query transforms
+the relative sphere path into the initial mesh frame. It expands each node bound
+by the sphere radius plus `min(angular_speed * duration, 2) * mesh_radius`.
+The mesh radius is measured from the pivot, including off-centre geometry.
+The added distance bounds each vertex displacement throughout the interval.
+A rejected node skips its full subtree. Only candidate leaves use conservative
+advancement. Long intervals can retain more candidates. Contact storage uses
+the existing inline planes and grows when necessary.
 
 ## Hook and energy contract
 
@@ -124,6 +128,8 @@ production flight, hook, tether, force, and collision components. Checks cover:
 
 - Relative translation time, surface point, velocity, and space isolation.
 - A rotating beam which crosses a stationary sphere between endpoint poses.
+- Indexed rotation queries compared with exhaustive triangle queries, with an
+  off-centre pivot, translation, transformed axes, and multi-turn intervals.
 - A translated and rotated local frame and its retained hook point.
 - Fast impacts on a stationary player and rotating contact response.
 - Actual projectile launch, attachment, riding, and release.

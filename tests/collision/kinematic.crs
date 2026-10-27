@@ -236,7 +236,7 @@ fn test_kinematic_fast() -> bool {
     );
 }
 fn test_collision_kinematic() -> bool {
-    return test_kinematic_translation() && test_kinematic_hook() && test_kinematic_rotation() && test_kinematic_fast() && test_kinematic_flight() && test_kinematic_rotating_response() && test_kinematic_crush();
+    return test_kinematic_rotating_tree() && test_kinematic_translation() && test_kinematic_hook() && test_kinematic_rotation() && test_kinematic_fast() && test_kinematic_flight() && test_kinematic_rotating_response() && test_kinematic_crush();
 }
 
 fn test_kinematic_flight() -> bool {
@@ -403,4 +403,118 @@ fn test_kinematic_crush() -> bool {
         motion.status == 2u32 && motion.elapsed < 0.1f32,
         "opposed machine contacts must report infeasible motion"
     );
+}
+
+fn kinematic_rotation_reference(
+    scene: read CollisionScene,
+    p: Vec3,
+    d: Vec3,
+    time: f32,
+    duration: f32
+) -> CollisionSweep {
+    var item: CollisionInstance = collision_instance(read scene, 0u32);
+    var result: CollisionSweep = collision_sweep_result(collision_miss(item.space));
+    var face: u32 = 0u32;
+    while face < item.count {
+        var next: CollisionSweep = collision_rotating_face(
+            read scene,
+            0u32,
+            face,
+            p,
+            d,
+            0.25f32,
+            time,
+            duration
+        );
+        if next.status != 0u32 {
+            return move next;
+        }
+        if collision_better(next.contact, result.contact) {
+            collision_sweep_assign(mut result, read next);
+        }
+        face = face + 1u32;
+    }
+    return move result;
+}
+fn test_kinematic_rotating_tree() -> bool {
+    var mesh: Mesh = mesh_new();
+    if !collision_test_box(
+        mut mesh,
+        vec(40f32, -1f32, -1f32),
+        vec(44f32, 1f32, 1f32)
+    ) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    var basis: Basis = collision_test_basis();
+    if !collision_append_solid(
+        mut builder,
+        read mesh,
+        17u32,
+        vec(7f32, -3f32, 11f32),
+        basis
+    ) || !collision_set_motion(
+        mut builder,
+        vec(1f32, -2f32, 3f32),
+        basis_vector(basis, vec(0f32, 0.5f32, 0f32))
+    ) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var anchors: RoomAnchors = room_anchors_new();
+    var item: CollisionInstance = collision_instance(read scene, 0u32);
+    var spans: [f32; 4] = make [f32; 4] {
+        0.01f32,
+        0.5f32,
+        3f32,
+        14f32
+    };
+    var i: u32 = 0u32;
+    while i < 64u32 {
+        var time: f32 = (i % 3u32) as f32 * 2.7f32;
+        var pose: CollisionInstance = collision_pose(item, time);
+        var angle: f32 = (i / 4u32) as f32 * 0.4f32;
+        var p: Vec3 = add(
+            pose.origin,
+            basis_vector(
+                pose.basis,
+                vec(42f32 * cosf(angle), 0f32, -42f32 * sinf(angle))
+            )
+        );
+        var duration: f32 = spans[(i % 4u32) as usize];
+        var d: Vec3 = add(
+            scale(item.linear, duration),
+            basis_vector(basis, vec(0f32, (i % 2u32) as f32, 0f32))
+        );
+        var reference: CollisionSweep = kinematic_rotation_reference(
+            read scene,
+            p,
+            d,
+            time,
+            duration
+        );
+        var indexed: CollisionSweep = collision_sweep_moving_piece(
+            read scene,
+            0u32,
+            item,
+            p,
+            d,
+            0.25f32,
+            time,
+            duration,
+            read anchors,
+            0u32
+        );
+        if reference.status != indexed.status || reference.contact.hit.time != indexed.contact.hit.time {
+            return error("rotating BVH differs from exhaustive continuous collision");
+        }
+        if reference.contact.hit.time <= 1f32 && reference.contact.surface != indexed.contact.surface {
+            return error("rotating BVH changed collision surface selection");
+        }
+        i = i + 1u32;
+    }
+    return true;
 }

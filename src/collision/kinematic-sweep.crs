@@ -109,12 +109,56 @@ fn collision_sweep_moving_piece(
         );
         return move result;
     }
-    var face: u32 = 0u32;
-    while face < item.count {
+    return collision_sweep_rotating_tree(
+        read scene,
+        index,
+        item,
+        p,
+        d,
+        radius,
+        time,
+        duration,
+        read anchors,
+        anchor_index
+    );
+}
+// Bounds contain each node throughout the interval, including off-axis rotation.
+fn collision_sweep_rotating_tree(
+    scene: read CollisionScene,
+    index: u32,
+    item: CollisionInstance,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32,
+    anchors: read RoomAnchors,
+    anchor_index: u32
+) -> CollisionSweep {
+    var pose: CollisionInstance = collision_pose(item, time);
+    var local_p: Vec3 = collision_local(pose.basis, sub(p, pose.origin));
+    var local_d: Vec3 = collision_local(
+        pose.basis,
+        sub(d, scale(item.linear, duration))
+    );
+    var angle: f32 = clamp(length(item.angular) * duration, 0f32, 2f32);
+    var padding: f32 = radius + angle * collision_reach(item);
+    var result: CollisionSweep = collision_sweep_result(collision_miss(item.space));
+    var i: u32 = item.root;
+    while i < item.end {
+        var node: CollisionNode = collision_node(read scene, item.chunk, i);
+        if !collision_aabb(local_p, local_d, padding, node.low, node.high) {
+            i = node.skip;
+            continue;
+        }
+        i = i + 1u32;
+        if node.leaf == 0xffffffffu32 {
+            continue;
+        }
         var next: CollisionSweep = collision_rotating_face(
             read scene,
             index,
-            face,
+            node.leaf,
             p,
             d,
             radius,
@@ -133,7 +177,6 @@ fn collision_sweep_moving_piece(
         ) {
             collision_sweep_assign(mut result, read next);
         }
-        face = face + 1u32;
     }
     return move result;
 }
