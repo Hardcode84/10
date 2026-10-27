@@ -1,7 +1,8 @@
 // Short conduit section with a large square side breach. Connect BOTTOM and TOP
 // to ordinary conduit sections, and BREACH to a conduit gallery.
 // The portal is behind fractured concrete and exposed rebar.
-// Displaced cast panels follow the tube wall and cover the recessed transition.
+// An irregular rounded tear hides the square connection plane.
+// Displaced cast panels cover the transition and extend into the surrounding wall.
 // through=0 closes the TOP end.
 // hazard-seed changes the break; the shared profile fixes the square clearance.
 fn room_parameter_count() -> u32 {
