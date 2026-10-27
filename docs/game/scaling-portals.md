@@ -175,11 +175,12 @@ this exact simulation path.
 Finite-precision collision cannot support every positive rational size at every
 room coordinate. The supported physical sphere radius is from 2^-12 through 2^12 room metres.
 The scale interval for each body class is this radius interval divided by its
-base radius. Plane-sweep tests cover each power of two in the interval. Content validation
-also checks that these dimensions are resolvable in each room's coordinate range.
+base radius. Plane-sweep tests cover each power of two in the interval. Portal admission
+also checks that these dimensions are resolvable across the aperture map.
 The numerical checks remain required even when scale is inside the interval.
 The coordinate bound times 5e-7 must be at most 1/256 of the sphere radius.
-Destination bounds include the aperture map and the room collision bounds.
+Destination bounds cover the mapped aperture and the map translation.
+Geometry outside the aperture does not change portal admission.
 The cable map uses its translation and mapped maximum reach. Squared scales,
 inverse squared scales, and squared reach must remain finite. These are
 admission checks; the contact solver keeps its coordinate error contract.

@@ -125,9 +125,9 @@ fn test_portal_hook(scene: read CollisionScene) -> bool {
 }
 fn test_collision_portals() -> bool {
     var scene: CollisionScene = collision_new();
-    return test_portal_scene(mut scene) && test_portal_motion(read scene) && test_portal_hook(
+    return test_portal_hook_large_room() && test_portal_scene(mut scene) && test_portal_motion(
         read scene
-    );
+    ) && test_portal_hook(read scene);
 }
 
 fn test_portal_player_first(scene: read CollisionScene) -> bool {
@@ -387,4 +387,37 @@ fn test_portal_room_index() -> bool {
             travel
         ).index == 0xffffffffu32 && portal_crossing(read scene, 10u32, start, travel).index == 0xffffffffu32
     ) || error("room portal index changed crossing identity or tie order");
+}
+
+fn test_portal_hook_large_room() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !test_portal_scene_wall(mut scene, 10000f32) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.position = vec(0f32, 0f32, -1f32);
+    hook_launch(mut drone);
+    var i: u32 = 0u32;
+    while i < 12u32 {
+        hook_step(read scene, mut drone, false);
+        drone.clock = drone.clock + 1u32;
+        i = i + 1u32;
+    }
+    if !game_check(
+        drone.cable.phase == CABLE_FLYING && drone.cable.space == 1u32,
+        "distant room geometry must not cap a supported hook crossing"
+    ) {
+        return false;
+    }
+    var anchor: Vec3 = drone.cable.anchor;
+    move_drone(read scene, mut drone, vec(0f32, 0f32, 2f32));
+    return game_check(
+        drone.world == 1u32 && drone.cable.phase == CABLE_FLYING && length(
+            sub(
+                drone.cable.anchor,
+                space_point(collision_portal(read scene, 0u32).transform, anchor)
+            )
+        ) < 0.00001f32,
+        "player crossing must preserve the flying hook in a large room"
+    );
 }

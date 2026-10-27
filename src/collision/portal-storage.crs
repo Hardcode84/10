@@ -99,14 +99,10 @@ fn collision_portal_support(scene: mut CollisionScene) -> unit {
     while i < scene.data.portal_count {
         var portal: CollisionPortal = scene.data.portals[i as usize];
         var bound: f32 = length(portal.transform.origin) + portal.radius * portal.transform.factor;
-        var room: CollisionSpace = collision_space(read scene, portal.destination);
-        if room.root < room.end {
-            var node: CollisionNode = collision_node(read scene, room.chunk, room.root);
-            bound = collision_max_scalar(
-                bound,
-                collision_max_scalar(length(node.low), length(node.high))
-            );
-        }
+        bound = collision_max_scalar(
+            bound,
+            length(space_point(portal.transform, portal.origin)) + portal.radius * portal.transform.factor
+        );
         scene.data.portals[i as usize].support_bound = bound;
         i = i + 1u32;
     }
