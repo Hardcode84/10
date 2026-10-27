@@ -1,3 +1,4 @@
+const GALLERY_CABLE_LAYERS: u32 = 4u32;
 fn conduit_gallery_point(side: u32, radial: f32, y: f32, along: f32) -> Vec3 {
     if side == 0u32 {
         return vec(radial, y, along);
@@ -14,10 +15,10 @@ fn conduit_gallery_point(side: u32, radial: f32, y: f32, along: f32) -> Vec3 {
 // perimeter rings and four longitudinal corner links.
 fn conduit_gallery_lanes(router: mut PipeRouter, length_metres: f32, layer: u32, seed: u32) -> bool {
     var base: u32 = route_nodes_count(read router);
-    var radial: f32 = CONDUIT_BREACH_WIDTH * 0.5f32 - 5f32 - layer as f32 * 6f32;
+    var radial: f32 = CONDUIT_BREACH_WIDTH * 0.5f32 - 5f32 - layer as f32 * 3f32;
     var ring: u32 = 0u32;
     while ring < 2u32 {
-        var y: f32 = length_metres * (0.16f32 + layer as f32 * 0.13f32 + ring as f32 * 0.55f32);
+        var y: f32 = length_metres * (0.12f32 + layer as f32 * 0.075f32 + ring as f32 * 0.55f32);
         var side: u32 = 0u32;
         while side < 4u32 {
             if pipe_route_point(
@@ -101,7 +102,7 @@ fn conduit_gallery_route(
 ) -> bool {
     var graph: PipeGraph = pipe_graph_new();
     var region: u32 = 1u32 + metal_hash(seed, path.source, 72u32) % 3u32;
-    if route_nodes_get(read router, path.source).exit_id == 16u32 {
+    if route_nodes_get(read router, path.source).exit_id == GALLERY_CABLE_LAYERS * 8u32 {
         region = 2u32;
     }
     var radius: f32 = 0.7f32 + conduit_debris_random(seed, path.source + 91u32) * 0.7f32;
@@ -140,13 +141,13 @@ fn conduit_gallery_crossings(router: mut PipeRouter, length_metres: f32, seed: u
             mut router,
             conduit_gallery_point(side, wall, y, a),
             vec(0f32, 1f32, 0f32),
-            16u32 + i * 2u32
+            GALLERY_CABLE_LAYERS * 8u32 + i * 2u32
         );
         var target: u32 = pipe_route_point(
             mut router,
             conduit_gallery_point((side + 2u32) % 4u32, wall, y, -b),
             vec(0f32, 1f32, 0f32),
-            17u32 + i * 2u32
+            GALLERY_CABLE_LAYERS * 8u32 + i * 2u32 + 1u32
         );
         if !pipe_route_link(mut router, source, target) {
             return false;
@@ -158,12 +159,14 @@ fn conduit_gallery_crossings(router: mut PipeRouter, length_metres: f32, seed: u
 fn conduit_gallery_services(asset: mut RoomAsset, length_metres: f32, seed: u32) -> bool {
     var router: PipeRouter = pipe_router_new(0f32, 0u32);
     var graph: PipeGraph = pipe_graph_new();
-    if !conduit_gallery_lanes(mut router, length_metres, 0u32, seed) || !conduit_gallery_lanes(
-        mut router,
-        length_metres,
-        1u32,
-        seed
-    ) || !conduit_gallery_crossings(mut router, length_metres, seed) || !pipe_route_solve(
+    var layer: u32 = 0u32;
+    while layer < GALLERY_CABLE_LAYERS {
+        if !conduit_gallery_lanes(mut router, length_metres, layer, seed) {
+            return false;
+        }
+        layer = layer + 1u32;
+    }
+    if !conduit_gallery_crossings(mut router, length_metres, seed) || !pipe_route_solve(
         mut router,
         mut graph,
         2f32,
