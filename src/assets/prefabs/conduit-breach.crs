@@ -104,6 +104,11 @@ fn prefab_conduit_breach_build(values: read AssetValues, asset: mut RoomAsset) -
         mut asset,
         centre,
         asset_value(read values, conduit_hazard_seed_parameter()) as u32
+    ) || !conduit_breach_panels(
+        mut asset,
+        read values,
+        centre,
+        asset_value(read values, conduit_hazard_seed_parameter()) as u32
     ) || !conduit_hazards(
         mut asset,
         read values,

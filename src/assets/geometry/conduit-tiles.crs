@@ -141,10 +141,10 @@ fn conduit_tile_support_overlap(
     while i < asset_part_count(read asset.parts) {
         var part: AssetPart = asset_part(read asset.parts, i);
         if (
-            asset_name_equal(part.name, "core-support") || asset_name_equal(
+            asset_name_equal(part.name, "breach-panel") || asset_name_equal(
                 part.name,
-                "support-foot"
-            )
+                "core-support"
+            ) || asset_name_equal(part.name, "support-foot")
         ) && conduit_support_projection(
             read asset,
             part,

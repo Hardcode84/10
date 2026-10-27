@@ -101,3 +101,191 @@ fn conduit_breach_rim(asset: mut RoomAsset, centre: Vec3, seed: u32) -> bool {
     }
     return true;
 }
+fn conduit_breach_panel_basis(radial: Vec3, tilt: f32, roll: f32) -> Basis {
+    var frame: Basis = conduit_catwalk_basis(radial);
+    var up: Vec3 = add(scale(frame.up, cosf(tilt)), scale(radial, sinf(tilt)));
+    var forward: Vec3 = sub(
+        scale(radial, cosf(tilt)),
+        scale(frame.up, sinf(tilt))
+    );
+    return make Basis {
+        right: add(scale(frame.right, cosf(roll)), scale(up, sinf(roll))),
+        up: sub(scale(up, cosf(roll)), scale(frame.right, sinf(roll))),
+        forward: forward
+    };
+}
+fn conduit_breach_panel(
+    asset: mut RoomAsset,
+    origin: Vec3,
+    dimensions: Vec3,
+    basis: Basis,
+    tile: f32,
+    bay: f32
+) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    if !solid_box_hull(mut hull, dimensions, 0u32) {
+        return false;
+    }
+    var side: u32 = 0u32;
+    while side < asset_face_count(read hull) {
+        conduit_tile_surface(mut hull, side, tile, bay);
+        side = side + 1u32;
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    return hull_solid_mesh(read hull, mut asset.geometry, origin, basis, tile) && asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("breach-panel"),
+        vec(0f32, 0f32, 0f32)
+    );
+}
+record BreachPanelSpan {
+    z: f32;
+    y: f32;
+    width: f32;
+    height: f32;
+}
+fn conduit_breach_panel_span(
+    z: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    centre: f32,
+    seed: u32
+) -> BreachPanelSpan {
+    var edge: f32 = CONDUIT_BREACH_WIDTH * 0.5f32 - CONDUIT_BREACH_RIM * (
+        0.15f32 + 0.3f32 * conduit_debris_random(seed, 0u32)
+    );
+    var low_z: f32 = z - width * 0.5f32;
+    var high_z: f32 = z + width * 0.5f32;
+    var low_y: f32 = y - centre - height * 0.5f32;
+    var high_y: f32 = y - centre + height * 0.5f32;
+    if absf(z) - width * 0.5f32 < edge && absf(y - centre) - height * 0.5f32 < edge {
+        if absf(z) > absf(y - centre) {
+            if z > 0f32 {
+                low_z = -mask_min(-low_z, -edge);
+            } else {
+                high_z = mask_min(high_z, -edge);
+            }
+        } else {
+            if y > centre {
+                low_y = -mask_min(-low_y, -edge);
+            } else {
+                high_y = mask_min(high_y, -edge);
+            }
+        }
+    }
+    return make BreachPanelSpan {
+        z: (low_z + high_z) * 0.5f32,
+        y: centre + (low_y + high_y) * 0.5f32,
+        width: high_z - low_z,
+        height: high_y - low_y
+    };
+}
+fn conduit_breach_panel_cell(
+    asset: mut RoomAsset,
+    span: BreachPanelSpan,
+    radius: f32,
+    tile: f32,
+    bay: f32,
+    damage: f32,
+    seed: u32
+) -> bool {
+    var radial: Vec3 = vec(
+        sqrtf(radius * radius - span.z * span.z) / radius,
+        0f32,
+        span.z / radius
+    );
+    var depth: f32 = 2f32 + damage * 3.5f32;
+    var inset: f32 = 0.5f32 + damage * (3f32 + 4f32 * conduit_debris_random(seed, 1u32));
+    var tilt: f32 = (conduit_debris_random(seed, 2u32) * 2f32 - 1f32) * (
+        0.02f32 + damage * 0.22f32
+    );
+    var roll: f32 = (conduit_debris_random(seed, 3u32) * 2f32 - 1f32) * damage * 0.06f32;
+    var origin: Vec3 = add(
+        scale(radial, radius - inset - depth * 0.5f32),
+        vec(
+            0f32,
+            span.y + (conduit_debris_random(seed, 4u32) - 0.5f32) * damage * 2f32,
+            0f32
+        )
+    );
+    origin.x = origin.x + damage * CONDUIT_BREACH_RIM;
+    return conduit_breach_panel(
+        mut asset,
+        origin,
+        vec(span.width / radial.x * 0.98f32, span.height * 0.96f32, depth),
+        conduit_breach_panel_basis(radial, tilt, roll),
+        tile,
+        bay
+    );
+}
+fn conduit_breach_panel_row(
+    asset: mut RoomAsset,
+    values: read AssetValues,
+    centre: Vec3,
+    side: u32,
+    seed: u32
+) -> bool {
+    var radius: f32 = asset_value(read values, 1u32) * 0.5f32;
+    var height: f32 = asset_value(read values, 0u32);
+    var rows: u32 = panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32);
+    var bay: f32 = height / rows as f32;
+    var width: f32 = 2f32 * radius * sinf(3.14159265359f32 / 48f32);
+    var wall: f32 = radius * cosf(3.14159265359f32 / 48f32);
+    var radial: Vec3 = conduit_catwalk_point(1f32, 0f32, side as f32 * 6.28318530718f32 / 48f32);
+    var z: f32 = radial.z * wall;
+    var reach: f32 = CONDUIT_BREACH_WIDTH * 0.5f32 + CONDUIT_BREACH_RIM * 3f32;
+    if radial.x <= 0.5f32 || absf(z) >= reach {
+        return true;
+    }
+    var row: u32 = 1u32;
+    while row + 1u32 < rows {
+        var y: f32 = (row as f32 + 0.5f32) * bay;
+        var dy: f32 = absf(y - centre.y);
+        var local_seed: u32 = metal_hash(seed, side, row);
+        var span: BreachPanelSpan = conduit_breach_panel_span(
+            z,
+            y,
+            width * radial.x,
+            bay,
+            centre.y,
+            local_seed
+        );
+        if dy < reach && span.width > 1f32 && span.height > 1f32 {
+            var distance: f32 = -mask_min(-absf(z), -dy) - CONDUIT_BREACH_WIDTH * 0.5f32;
+            var damage: f32 = 1f32 - mask_min(
+                1f32,
+                -mask_min(0f32, -distance) / (CONDUIT_BREACH_RIM * 3f32)
+            );
+            if !conduit_breach_panel_cell(
+                mut asset,
+                span,
+                wall,
+                width,
+                bay,
+                damage,
+                local_seed
+            ) {
+                return false;
+            }
+        }
+        row = row + 1u32;
+    }
+    return true;
+}
+fn conduit_breach_panels(
+    asset: mut RoomAsset,
+    values: read AssetValues,
+    centre: Vec3,
+    seed: u32
+) -> bool {
+    var side: u32 = 0u32;
+    while side < 48u32 {
+        if !conduit_breach_panel_row(mut asset, read values, centre, side, seed) {
+            return false;
+        }
+        side = side + 1u32;
+    }
+    return true;
+}
