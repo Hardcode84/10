@@ -14,7 +14,7 @@ fn room_parameter_name(index: u32) -> AssetName {
     return prefab_conduit_gallery_parameter_name(index);
 }
 fn room_material_count() -> u32 {
-    return CONDUIT_MATERIAL_COUNT;
+    return prefab_conduit_gallery_material_count();
 }
 fn room_material(region: u32, values: read AssetValues) -> PanelMaterial {
     return prefab_conduit_gallery_material(region, read values);

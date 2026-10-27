@@ -1,3 +1,15 @@
+fn conduit_cast_bay(height: f32) -> f32 {
+    return height / panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32) as f32;
+}
+fn conduit_shell_facet(diameter: f32) -> f32 {
+    return diameter * sinf(3.14159265359f32 / 48f32);
+}
+fn conduit_cable_facet(diameter: f32) -> f32 {
+    return diameter * sinf(3.14159265359f32 / 8f32);
+}
+fn prefab_conduit_tube_material_count() -> u32 {
+    return CONDUIT_MATERIAL_COUNT;
+}
 const CONDUIT_CORE_ACCELERATION: f32 = 20f32;
 const CONDUIT_SUPPORT_MATERIAL: u32 = 4u32;
 const CONDUIT_LIGHT_MATERIAL: u32 = 5u32;
@@ -140,14 +152,14 @@ fn conduit_shell(asset: mut RoomAsset, radius: f32, height: f32) -> bool {
     if !shaft_cylinder(mut asset.hull, radius, height, 0u32, 0u32) {
         return false;
     }
-    var bay: f32 = height / panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32) as f32;
+    var bay: f32 = conduit_cast_bay(height);
     shaft_track_surfaces(mut asset.hull, asset.tile_metres, bay);
     var i: u32 = 0u32;
     while i < 2u32 {
         var frame: SurfaceFrame = asset_surface(read asset.hull, 48u32 + i);
         frame.right = scale(
             frame.right,
-            asset.tile_metres / (2f32 * radius * sinf(3.14159265359f32 / 48f32))
+            asset.tile_metres / conduit_shell_facet(2f32 * radius)
         );
         frame.up = scale(frame.up, asset.tile_metres / bay);
         asset_surface_set(mut asset.hull, 48u32 + i, frame);
@@ -194,7 +206,7 @@ fn conduit_cable(asset: mut RoomAsset, radius: f32, height: f32, turns: u32, str
             style: make TubeStyle {
                 radius: radius,
                 sides: 8u32,
-                tile_metres: 2f32 * radius * sinf(3.14159265359f32 / 8f32),
+                tile_metres: conduit_cable_facet(2f32 * radius),
                 region: region
             }
         }
@@ -319,8 +331,8 @@ fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMa
     material.finish = SURFACE_CONCRETE;
     material.colour = 0xa69e8bu32;
     var height: f32 = asset_value(read parameters, 0u32);
-    material.tile_metres = asset_value(read parameters, 1u32) * sinf(3.14159265359f32 / 48f32);
-    material.tile_height = height / panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32) as f32;
+    material.tile_metres = conduit_shell_facet(asset_value(read parameters, 1u32));
+    material.tile_height = conduit_cast_bay(height);
     if region != 0u32 {
         material.finish = SURFACE_CABLE;
         material.indicator = asset_value(read parameters, conduit_powered_parameter()) == 1f32;
@@ -328,9 +340,7 @@ fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMa
         if material.indicator {
             material.emission_period = MATERIAL_ANIMATION_HZ * 4u32;
         }
-        material.tile_metres = asset_value(read parameters, 2u32) / 3f32 * sinf(
-            3.14159265359f32 / 8f32
-        );
+        material.tile_metres = conduit_cable_facet(asset_value(read parameters, 2u32) / 3f32);
         material.tile_height = material.tile_metres;
         material.colour = 0x514e45u32;
         if region == 2u32 {

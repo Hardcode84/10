@@ -6,6 +6,7 @@ const CABLE_FLYING: u32 = 1u32;
 const CABLE_ATTACHED: u32 = 2u32;
 const CABLE_SNAPPED: u32 = 3u32;
 record Cable {
+    attachment: CollisionAttachment;
     path: PortalPath;
     size: Rational;
     frame: SpaceTransform;
@@ -23,6 +24,7 @@ record Cable {
 }
 fn empty_cable() -> Cable {
     return make Cable {
+        attachment: collision_attachment_new(),
         path: portal_path_new(),
         size: rational_new(1u64, 1u64),
         frame: space_identity(),
@@ -100,6 +102,7 @@ fn hook_radius(drone: read Drone) -> f32 {
 
 fn clone_cable(value: read Cable) -> Cable {
     return make Cable {
+        attachment: collision_attachment_new(),
         path: portal_path_clone(read value.path),
         size: rational_clone(read value.size),
         frame: value.frame,

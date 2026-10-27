@@ -145,7 +145,7 @@ fn scheduler_node_init(
         payload: null(*u8),
         pending: 0u32,
         outcome: 0u32,
-        state: 4u32,
+        parked: false,
         next: null(*SchedulerNode),
         prev: null(*SchedulerNode),
         scope_next: scope -> tasks,
@@ -166,4 +166,8 @@ fn task_replace!(State)(target: mut Task!(State), replacement: Task!(State)) -> 
     var address: *Task!(State) = &target;
     var old: Task!(State) = move * address;
     *address = move replacement;
+}
+
+fn task_is_empty!(State)(task: read Task!(State)) -> bool {
+    return task.mode == 0u32;
 }

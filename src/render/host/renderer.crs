@@ -33,9 +33,6 @@ fn frame_valid(v: *RenderState) -> bool {
     if failure == 1u32 {
         return error("root tiles exceed task capacity or total tile-work budget; output rejected");
     }
-    if failure == 3u32 {
-        return error("geometry batch queue exceeds its admitted work bound");
-    }
     return true;
 }
 record RenderConfig {
@@ -71,7 +68,7 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
     v -> portal_capacity = config -> portal_budget;
     v -> task_capacity = config -> task_budget;
     v -> work_rounds = config -> work_rounds;
-    v -> query_count = 8u32;
+    v -> query_count = 5u32;
     if !device_open(v) || !traversal_valid(v) || !buffer_create(v) || !layout_create(v) {
         return false;
     }
@@ -103,7 +100,7 @@ fn renderer_open(v: *RenderState, config: *RenderConfig, shaders: *ShaderCode) -
 // Consumes the caller's camera, geometry, portals, textures, and lighting in the input buffer.
 // Returns after GPU completion and the selected readback. A failed frame must not be presented.
 // Requires no input borrow. Frame storage addresses can change when room geometry grows.
-fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
+fn renderer_prepare(v: *RenderState) -> bool {
     v -> frame_chunks = 0u32;
     v -> frame_submit_ns = 0u64;
     v -> frame_present_ns = 0u64;
@@ -123,7 +120,7 @@ fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
     if w[INSTANCE_COUNT as usize] == 0u32 {
         w[DYNAMIC_COUNT as usize] = w[3usize];
     }
-    if !shadow_reserve(v, shadow_dynamic_required(v)) || !projection_admit(v, extra) {
+    if !shadow_reserve(v, shadow_dynamic_required(v)) || !projection_admit(v) {
         return false;
     }
     if !storage_prefetch(v) {
@@ -148,9 +145,9 @@ fn renderer_prepare(v: *RenderState, extra: u32) -> bool {
     return true;
 }
 fn renderer_begin(v: *RenderState) -> bool {
-    if !storage_boundary(v) || !renderer_prepare(v, 0u32) || !command_reset(v) || !commands_record(
+    if !storage_boundary(v) || !renderer_prepare(v) || !command_reset(v) || !commands_record(v) || !renderer_submit(
         v
-    ) || !renderer_submit(v) {
+    ) {
         return false;
     }
     return true;

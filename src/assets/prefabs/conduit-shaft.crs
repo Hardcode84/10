@@ -1,3 +1,6 @@
+fn prefab_conduit_shaft_material_count() -> u32 {
+    return CONDUIT_MATERIAL_COUNT + 4u32;
+}
 fn prefab_conduit_shaft_parameter_count() -> u32 {
     return prefab_conduit_parameter_count() + 4u32;
 }

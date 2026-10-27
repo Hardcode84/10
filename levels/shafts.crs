@@ -18,8 +18,8 @@ fn demo_room_build(
 fn demo_room_ambient() -> Vec3 {
     return vec(0.08f32, 0.09f32, 0.11f32);
 }
-fn demo_palette(input: mut FrameInput) -> bool {
-    return shaft_region_palette(mut input);
+fn demo_palette(input: mut FrameInput, selection: read GenerationWords) -> bool {
+    return shaft_region_palette(mut input, read selection);
 }
 fn demo_room_lighting(
     scene: read CollisionScene,

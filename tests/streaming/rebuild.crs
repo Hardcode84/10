@@ -94,6 +94,7 @@ fn stream_rebuild_upload(session: mut GameSession, target: u32, mesh: read Mesh)
     return graph_doors_upload(mut session.control.graph, mut input);
 }
 fn stream_rebuild_hook(scene: read CollisionScene, drone: mut Drone) -> bool {
+    var attachment: CollisionAttachment = collision_attachment_new();
     var axis: u32 = 0u32;
     while axis < 6u32 {
         var direction: Vec3 = axis_vector(axis / 2u32);
@@ -110,7 +111,7 @@ fn stream_rebuild_hook(scene: read CollisionScene, drone: mut Drone) -> bool {
             STEP
         );
         if hit.status == 0u32 && hit.contact.hit.time <= 1f32 {
-            hook_attach(read scene, mut drone, read hit, 0f32, 0f32);
+            hook_attach(read scene, mut drone, read hit, read attachment, 0f32, 0f32);
             return true;
         }
         axis = axis + 1u32;

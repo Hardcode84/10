@@ -66,7 +66,7 @@ fn compute() -> unit {
         words_store(18u32, 1u32);
         view_space(0u32, words_load(20u32));
         words_store(words_load(VIEW_META) + 3u32, 0u32);
-        words_store(BATCH_MODE, 3u32);
+        words_store(BATCH_BEGIN_RANGE, 1u32);
         traversal_frontier(tiles);
         traversal_command(ADVANCE_COMMAND, 0u32);
         var j: u32 = 0u32;

@@ -93,14 +93,8 @@ fn residency_new() -> RoomResidency {
     };
 }
 fn residency_shutdown(state: mut RoomResidency) -> unit {
-    if state.scope.state != null(*SchedulerScope) {
-        var end: Event = scope_finish(mut state.scope);
-        event_join(read end);
-    }
-    if state.jobs.state != null(*RoomJobsState) {
-        var end: Event = scope_finish(mut state.jobs.state -> scope);
-        event_join(read end);
-    }
+    scope_drain(mut state.scope);
+    room_jobs_shutdown(read state.jobs);
     scheduler_shutdown(mut state.scheduler);
 }
 fn residency_drop(state: mut RoomResidency) -> unit {
@@ -108,12 +102,6 @@ fn residency_drop(state: mut RoomResidency) -> unit {
     var i: u32 = 0u32;
     while i < state.count {
         drop state.rooms[i as usize].mesh;
-        if state.jobs.state == null(*RoomJobsState) {
-            drop state.builds[i as usize].recipe;
-            drop state.builds[i as usize].plan;
-            drop state.builds[i as usize].mesh;
-            drop state.builds[i as usize].collision;
-        }
         drop state.plans[i as usize].wanted;
         drop state.plans[i as usize].keep;
         drop state.plans[i as usize].ahead;
@@ -121,9 +109,6 @@ fn residency_drop(state: mut RoomResidency) -> unit {
         i = i + 1u32;
     }
     free(state.rooms as *u8);
-    if state.jobs.state == null(*RoomJobsState) {
-        free(state.builds as *u8);
-    }
     free(state.plans as *u8);
     if state.planner != null(*ResidentPlanner) {
         drop state.planner -> graph;
@@ -142,6 +127,10 @@ fn residency_allocate(state: mut RoomResidency, count: u32, workers: u32, memory
     if !residency_runtime_open(mut state, workers) {
         return false;
     }
+    if !room_jobs_open(mut state.jobs, read state.scheduler, count) {
+        return false;
+    }
+    state.builds = room_jobs_builds(read state.jobs);
     state.rooms = malloc(count as usize * sizeof(ResidentRoom)) as *ResidentRoom;
     if state.rooms == null(*ResidentRoom) {
         return error("room residency allocation failed");
@@ -150,20 +139,8 @@ fn residency_allocate(state: mut RoomResidency, count: u32, workers: u32, memory
     if state.plans == null(*ResidentPlan) {
         return error("visibility cache allocation failed");
     }
-    state.builds = malloc(count as usize * sizeof(ResidentBuild)) as *ResidentBuild;
-    if state.builds == null(*ResidentBuild) {
-        return error("room tasks allocation failed");
-    }
     var i: u32 = 0u32;
     while i < count {
-        state.builds[i as usize] = make ResidentBuild {
-            recipe: room_recipe_new(),
-            plan: collision_rebuild_new(),
-            mesh: mesh_new(),
-            collision: collision_room_new(),
-            room: i,
-            portal: 0u32
-        };
         state.plans[i as usize] = make ResidentPlan {
             wanted: generation_words_new(),
             keep: generation_words_new(),
@@ -196,7 +173,7 @@ fn residency_allocate(state: mut RoomResidency, count: u32, workers: u32, memory
     ) && generation_words_allocate(mut state.keep, count) && generation_words_allocate(
         mut state.ahead,
         count
-    ) && room_jobs_open(mut state.jobs, read state.scheduler, state.builds, count);
+    );
 }
 
 fn residency_polygon_new() -> ResidencyPolygon {

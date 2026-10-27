@@ -129,6 +129,5 @@ fn room_anchor_link(anchors: mut RoomAnchors, anchor: RoomAnchor, portal: Collis
         room_anchor_ratio(read anchors, anchor.parent),
         read link
     );
-    anchor.transform.factor = rational_float(read ratio);
     return room_anchor_take(mut anchors, anchor, move ratio);
 }

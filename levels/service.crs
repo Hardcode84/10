@@ -569,24 +569,26 @@ fn service_material(style: u32) -> PanelMaterial {
     }
     return service_branch_material(style);
 }
-fn demo_palette(input: mut FrameInput) -> bool {
+fn demo_palette(input: mut FrameInput, selection: read GenerationWords) -> bool {
     var configuration: AssetValues = asset_values_new();
     var words: u32 = 0u32;
+    var offset: u32 = 0u32;
     var style: u32 = 1u32;
     while style <= SERVICE_BRANCH_OUTER {
         var panel: PanelMaterial = service_material(style);
-        words = words + panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
+        words = words + panel_payload(panel);
         style = style + 1u32;
     }
     if !course_material_defaults(mut configuration) || !shaft_region_materials(mut configuration) || !course_palette_reserved(
         mut input,
         read configuration,
+        read selection,
         SERVICE_BRANCH_OUTER,
-        words
+        words,
+        mut offset
     ) {
         return false;
     }
-    var offset: u32 = course_extra_offset(read configuration, SERVICE_BRANCH_OUTER);
     style = 1u32;
     while style <= SERVICE_BRANCH_OUTER {
         var panel: PanelMaterial = service_material(style);
@@ -599,7 +601,7 @@ fn demo_palette(input: mut FrameInput) -> bool {
         ) {
             return false;
         }
-        offset = offset + panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
+        offset = offset + panel_payload(panel);
         style = style + 1u32;
     }
     return true;

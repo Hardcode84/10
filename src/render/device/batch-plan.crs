@@ -26,13 +26,13 @@ fn batch_initialize() -> unit {
         words_store(words_load(BATCH_META) + i * 4u32 + 3u32, 0u32);
         i = i + 1u32;
     }
-    if (words_load(BATCH_MODE) & 2u32) != 0u32 {
+    if words_load(BATCH_BEGIN_RANGE) != 0u32 {
         words_store(BATCH_VIEW, begin);
         words_store(BATCH_TRIANGLE, 0u32);
         if begin < end {
             batch_view_begin(begin);
         }
-        words_store(BATCH_MODE, words_load(BATCH_MODE) & ~2u32);
+        words_store(BATCH_BEGIN_RANGE, 0u32);
     }
     words_store(BATCH_FIRST, words_load(BATCH_VIEW));
     words_store(BATCH_END, words_load(BATCH_VIEW));
@@ -219,7 +219,7 @@ fn batch_workers_finish() -> unit {
         batch_range_next();
     }
 }
-fn batch_task_commands(active: bool) -> unit {
+fn batch_task_commands(active: bool, finished: bool) -> unit {
     var base: u32 = 0u32;
     var batch: u32 = 0u32;
     while base < words_load(TASK_CAPACITY) {
@@ -235,6 +235,18 @@ fn batch_task_commands(active: bool) -> unit {
             count = 0u32;
         }
         words_store(words_load(TASK_COMMANDS) + batch * 12u32 + 9u32, count);
+        count = 0u32;
+        if finished && words_load(6u32) > base {
+            count = words_load(6u32) - base;
+            if count > MAX_INVOCATIONS / LOCAL_SIZE {
+                count = MAX_INVOCATIONS / LOCAL_SIZE;
+            }
+        }
+        words_store(
+            words_load(TASK_COMMANDS) + batch * 12u32 + 3u32,
+            (count + 63u32) / 64u32
+        );
+        words_store(words_load(TASK_COMMANDS) + batch * 12u32 + 6u32, 0u32);
         base = base + MAX_INVOCATIONS / LOCAL_SIZE;
         batch = batch + 1u32;
     }
@@ -251,26 +263,10 @@ fn batch_finish() -> unit {
             work_count_add(WORK_EMPTY_IDLE, 1u32);
         }
     }
-    batch_task_commands(words_load(BATCH_FIRST) < words_load(BATCH_END));
-    var finished: bool = traversal_finished();
-    var base: u32 = 0u32;
-    var batch: u32 = 0u32;
-    while base < words_load(TASK_CAPACITY) {
-        var count: u32 = 0u32;
-        if finished && words_load(6u32) > base {
-            count = words_load(6u32) - base;
-            if count > MAX_INVOCATIONS / LOCAL_SIZE {
-                count = MAX_INVOCATIONS / LOCAL_SIZE;
-            }
-        }
-        words_store(
-            words_load(TASK_COMMANDS) + batch * 12u32 + 3u32,
-            (count + 63u32) / 64u32
-        );
-        words_store(words_load(TASK_COMMANDS) + batch * 12u32 + 6u32, 0u32);
-        base = base + MAX_INVOCATIONS / LOCAL_SIZE;
-        batch = batch + 1u32;
-    }
+    batch_task_commands(
+        words_load(BATCH_FIRST) < words_load(BATCH_END),
+        traversal_finished()
+    );
     traversal_command(ADVANCE_COMMAND, 1u32);
     traversal_command(FRONTIER_COMMAND, 0u32);
     traversal_command(VIEW_COMMAND, 0u32);
@@ -284,23 +280,14 @@ fn batch_finish() -> unit {
     words_store(LIST_COMMAND, fans);
     words_store(LIST_COMMAND + 1u32, 1u32);
     words_store(LIST_COMMAND + 2u32, 1u32);
-    if words_load(5u32) == 0u32 && (words_load(BATCH_MODE) & 4u32) != 0u32 && words_load(
-        BATCH_VIEW
-    ) != words_load(9u32) + words_load(10u32) {
-        words_store(5u32, 3u32);
-    }
+
 }
 fn compute() -> unit {
     var lane: u32 = shader_local_x();
     if lane == 0u32 {
-        if (words_load(BATCH_MODE) & 8u32) != 0u32 {
-            batch_deferred();
-            shared_store(255u32, 0u32);
-        } else {
-            batch_initialize();
-            batch_step_begin();
-            shared_store(255u32, batch_has_tree() as u32);
-        }
+        batch_initialize();
+        batch_step_begin();
+        shared_store(255u32, batch_has_tree() as u32);
     }
     shader_all_memory_barrier();
     var round: u32 = 0u32;
@@ -320,47 +307,9 @@ fn compute() -> unit {
         shader_all_memory_barrier();
         round = round + 1u32;
     }
-    if lane == 0u32 && (words_load(BATCH_MODE) & 8u32) == 0u32 {
+    if lane == 0u32 {
         batch_finish();
     }
-}
-
-fn batch_deferred() -> unit {
-    words_store(TRAVERSAL_ROUNDS, words_load(TRAVERSAL_ROUNDS) + 1u32);
-    var first: u32 = words_load(BATCH_FIRST);
-    var count: u32 = words_load(BATCH_COUNT);
-    work_count_add(WORK_TRIANGLES, count);
-    if count != 0u32 {
-        work_count_add(WORK_BATCHES, 1u32);
-    }
-    var i: u32 = 0u32;
-    while i < count {
-        var p: u32 = words_load(BATCH_IDS) + i * 3u32;
-        words_store(p, i + 1u32);
-        words_store(p + 1u32, 0xffffffffu32);
-        words_store(p + 2u32, first + i);
-        i = i + 1u32;
-    }
-    var finished: u32 = ((words_load(BATCH_MODE) & 4u32) != 0u32) as u32;
-    var p: u32 = words_load(BATCH_META);
-    words_store(p, 1u32);
-    words_store(p + 1u32, count);
-    words_store(p + 2u32, 0u32);
-    words_store(p + 3u32, 1u32 | (finished * 2u32));
-    words_store(BATCH_FIRST, 0u32);
-    words_store(BATCH_END, 1u32);
-    words_store(BATCH_CLUSTERS, count);
-    words_store(BATCH_SHADE, finished);
-    batch_task_commands(true);
-    traversal_command(ADVANCE_COMMAND, finished);
-    words_store(16u32, geometry_groups(count));
-    var fans: u32 = count * MAX_FAN;
-    if fans > MAX_INVOCATIONS / LOCAL_SIZE {
-        fans = MAX_INVOCATIONS / LOCAL_SIZE;
-    }
-    words_store(LIST_COMMAND, fans);
-    words_store(LIST_COMMAND + 1u32, 1u32);
-    words_store(LIST_COMMAND + 2u32, 1u32);
 }
 
 fn work_count_add(field: u32, count: u32) -> unit {

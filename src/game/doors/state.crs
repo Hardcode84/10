@@ -50,13 +50,15 @@ fn doors_step(scene: mut CollisionScene, doors: mut DoorSet, trial: mut Trial) -
     {
         var anchors: mut RoomAnchors = doors_occupants_mut(mut doors);
         room_anchors_clear(mut anchors);
-        if !collision_body_anchors(
+        var body: CollisionBody = flight_body(read trial.drone);
+        if !collision_scaled_anchors(
             read scene,
             mut anchors,
             trial.drone.world,
             trial.drone.position,
             vec(0f32, 0f32, 0f32),
-            drone_radius(read trial.drone)
+            read body,
+            false
         ) {
             scene_motion_failure();
         }

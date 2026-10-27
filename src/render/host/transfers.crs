@@ -151,33 +151,6 @@ fn readback(v: *RenderState) -> unit {
     command_barrier(v, BARRIER_HOST);
 }
 
-fn upload_deferred(v: *RenderState, first: u32, count: u32) -> unit {
-    var w: *u32 = v -> mapped as *u32;
-    copy_region(
-        v,
-        v -> staging,
-        v -> buffer,
-        (1u64 + w[META as usize] as u64 + first as u64 * 4u64) * 4u64,
-        count as u64 * 16u64
-    );
-    copy_region(
-        v,
-        v -> staging,
-        v -> buffer,
-        (v -> words as u64 + 2u64 + GEOMETRY as u64 + first as u64 * 15u64) * 4u64,
-        count as u64 * 60u64
-    );
-    retained_transfer(
-        v,
-        SPACE_TRIANGLES,
-        w[SPACE_RANGE_COUNT as usize] * 4u32,
-        false,
-        true
-    );
-    retained_transfer(v, SPACE_META, w[SPACE_COUNT as usize] * 4u32, false, true);
-    command_word(v, SPACE_COUNT + 1u32, w[SPACE_COUNT as usize]);
-}
-
 fn input_word_dirty(input: mut FrameInput, index: u32) -> unit {
     var first: u32 = input_word(read input, ASSET_OFFSET as usize);
     if index >= first && index - first < input.storage.asset_capacity {

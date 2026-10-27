@@ -25,12 +25,35 @@ fn move_drone_interval_admitted(
     var speeds: CollisionPlanes = collision_planes_new();
     var finished: bool = false;
     while !finished {
-        if drone_portal_step(read collision, mut drone, mut motion, time, duration) {
-            continue;
+        if motion.status != 0u32 {
+            break;
+        }
+        if motion.contacts == 1024u32 {
+            motion.status = 3u32;
+            break;
         }
         var body: CollisionBody = flight_body(read drone);
+        var query: CollisionSweep = collision_sweep_interval_body(
+            read collision,
+            drone.world,
+            motion.position,
+            motion.remaining,
+            read body,
+            time + motion.elapsed,
+            duration - motion.elapsed
+        );
+        if query.status == 0u32 && query.crossing.time <= 1f32 && query.contact.hit.time > query.crossing.time {
+            drone_portal_step(
+                read collision,
+                mut drone,
+                mut motion,
+                duration,
+                query.crossing
+            );
+            continue;
+        }
         var incoming: Vec3 = motion.velocity;
-        finished = collision_interval_step_body(
+        finished = collision_interval_advance(
             read collision,
             drone.world,
             read body,
@@ -38,7 +61,8 @@ fn move_drone_interval_admitted(
             duration,
             mut planes,
             mut speeds,
-            mut motion
+            mut motion,
+            query
         );
         var contact: FlightContact = flight_contact(
             read collision,
@@ -105,34 +129,9 @@ fn drone_portal_step(
     collision: read CollisionScene,
     drone: mut Drone,
     motion: mut CollisionMotion,
-    time: f32,
-    duration: f32
-) -> bool {
-    if motion.status != 0u32 {
-        return false;
-    }
-    var crossing: PortalCrossing = portal_crossing(
-        read collision,
-        drone.world,
-        motion.position,
-        motion.remaining
-    );
-    if crossing.time > 1f32 {
-        return false;
-    }
-    var body: CollisionBody = flight_body(read drone);
-    var query: CollisionSweep = collision_sweep_interval_body(
-        read collision,
-        drone.world,
-        motion.position,
-        motion.remaining,
-        read body,
-        time + motion.elapsed,
-        duration - motion.elapsed
-    );
-    if query.status != 0u32 || query.contact.hit.time <= crossing.time {
-        return false;
-    }
+    duration: f32,
+    crossing: PortalCrossing
+) -> unit {
     var portal: CollisionPortal = collision_portal(read collision, crossing.index);
     var position: Vec3 = add(motion.position, scale(motion.remaining, crossing.time));
     var velocity: Vec3 = scale(motion.velocity, 1f32 / drone_size(read drone));
@@ -152,7 +151,6 @@ fn drone_portal_step(
         motion.status = 3u32;
         game_collision_failure(motion);
     }
-    return true;
 }
 
 // Requires all rooms touched by this motion to be resident.

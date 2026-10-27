@@ -135,7 +135,7 @@ fn advance() -> unit {
     words_store(10u32, views - oldviews);
     words_store(11u32, views);
     words_store(12u32, words_load(12u32) + 1u32);
-    words_store(BATCH_MODE, 3u32);
+    words_store(BATCH_BEGIN_RANGE, 1u32);
     traversal_frontier(count);
     traversal_yield();
 }

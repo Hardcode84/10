@@ -41,7 +41,13 @@ fn build_demo_target_providers(
     extra: **u8,
     extra_count: usize
 ) -> bool {
-    var sources: [*u8; 256] = uninit;
+    var sources: **u8 = build_source_storage(
+        root,
+        demo_level_sources(root, null(**u8), recipe) + (check != null(*u8)) as usize
+    );
+    if sources == null(**u8) {
+        return false;
+    }
     var capacity: usize = render_providers(root, null(**u8)) + game_providers(
         root,
         null(**u8)
@@ -92,7 +98,10 @@ fn build_demo_target_providers(
 }
 
 fn demo_level_sources(root: *CrustRun, sources: **u8, recipe: *u8) -> usize {
-    var source_count: usize = game_sources(root, &sources[0usize]);
+    if sources == null(**u8) {
+        return game_sources(root, null(**u8)) + 21usize;
+    }
+    var source_count: usize = game_sources(root, sources);
     sources[source_count] = recipe;
     sources[source_count + 1usize] = host_path(root, "src/demo/room/tunnels.crs");
     sources[source_count + 2usize] = host_path(root, "src/demo/course/catalogue.crs");

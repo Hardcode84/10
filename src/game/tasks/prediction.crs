@@ -179,25 +179,6 @@ fn predict_drone(
     }
     return trail.markers;
 }
-fn predict_portal(
-    collision: read CollisionScene,
-    prediction: mut Prediction,
-    trail: mut PreviewTrail,
-    before: Vec3,
-    after: Vec3,
-    eye: PredictionEye
-) -> unit {
-    var doors: DoorSet = doors_new();
-    predict_door_portal(
-        read collision,
-        mut doors,
-        mut prediction,
-        mut trail,
-        before,
-        after,
-        eye
-    );
-}
 fn predict_door_portal(
     collision: read CollisionScene,
     doors: mut DoorSet,
@@ -244,6 +225,7 @@ fn predict_hook(
     command.tether = true;
     var trail: PreviewTrail = preview_trail(limit, HOOK_PREVIEW_MATERIAL, 0f32);
     var eye: PredictionEye = prediction_eye(read trial.drone);
+    var doors: DoorSet = doors_new();
     var i: u32 = 0u32;
     while i < PREDICTION_TICKS && trail.markers < trail.limit {
         var before: Vec3 = drone.position;
@@ -269,8 +251,9 @@ fn predict_hook(
             return;
         }
         var inverse: SpaceTransform = space_inverse(frame);
-        predict_portal(
+        predict_door_portal(
             read collision,
+            mut doors,
             mut prediction,
             mut trail,
             space_point(inverse, before),

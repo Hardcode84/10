@@ -63,7 +63,7 @@ fn storage_allocate_step(work: mut StorageAllocation, context: read Context) -> 
         ) {
             return fail(
                 make TaskError {
-                    code: 16u32
+                    code: SCHED_EXTERNAL_FAILED
                 }
             );
         }

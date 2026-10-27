@@ -189,6 +189,8 @@ fn test_cancel_waiting() -> unit {
     check(probe_count(read probe) == 0i32, "cancelled callback ran");
 }
 fn test_closed_and_reuse() -> unit {
+    var empty: Scope = scope_new();
+    scope_drain(mut empty);
     var scheduler: Scheduler = scheduler_new();
     check(scheduler_open(mut scheduler, 2u32), "open");
     var before: u64 = 0u64;
@@ -526,6 +528,7 @@ fn test_shutdown(width: u32) -> unit {
     check(event_status(read event) == SCHED_OK, "shutdown drains child continuations");
     var result: ChildWork = task_take!(ChildWork)(mut task);
     check(result.value == 499500u64, "result survives worker join");
+    check(task_is_empty!(ChildWork)(read task), "taken task is empty");
     var rejected: Task!(Sum) = spawn!(Sum)(
         read context,
         make Sum {
@@ -549,4 +552,65 @@ fn test_shutdown(width: u32) -> unit {
     scheduler_shutdown(mut scheduler);
     var finish: Event = scope_finish(mut scope);
     check(event_join(read finish), "scope and results survive shutdown");
+}
+resource SchedulerBenchmark {
+    event: Event;
+    remaining: u32;
+    fanin: bool;
+}
+drop scheduler_benchmark_drop;
+fn scheduler_benchmark_drop(state: mut SchedulerBenchmark) -> unit {}
+fn scheduler_benchmark_step(state: mut SchedulerBenchmark, context: read Context) -> Step {
+    if state.remaining == 0u32 {
+        return done();
+    }
+    state.remaining = state.remaining - 1u32;
+    if !state.fanin {
+        return yield_task();
+    }
+    var deps: Dependencies = deps_new();
+    var i: u32 = 0u32;
+    while i < 8u32 {
+        deps_add(mut deps, event_clone(read state.event));
+        i = i + 1u32;
+    }
+    return await_tasks(move deps);
+}
+fn scheduler_benchmark_case(width: u32, fanin: bool) -> unit {
+    var scheduler: Scheduler = scheduler_new();
+    check(scheduler_open(mut scheduler, width), "benchmark scheduler");
+    var scope: Scope = scope_new();
+    check(scope_open(mut scope, read scheduler), "benchmark scope");
+    var context: Context = scope_context(read scope);
+    var external: ExternalPair = external_begin(read context);
+    check(external_admitted(read external), "benchmark event");
+    var event: Event = external_event(read external);
+    complete(external_completion(move external));
+    var start: u64 = scheduler_benchmark_clock();
+    var task: Task!(SchedulerBenchmark) = spawn!(SchedulerBenchmark)(
+        read context,
+        make SchedulerBenchmark {
+            event: move event,
+            remaining: 10000u32,
+            fanin: fanin
+        },
+        scheduler_benchmark_step,
+        deps_new()
+    );
+    var finish: Event = scope_finish(mut scope);
+    check(event_join(read finish), "benchmark completion");
+    var result: SchedulerBenchmark = task_take!(SchedulerBenchmark)(mut task);
+    check(result.remaining == 0u32, "benchmark iterations");
+    if fanin {
+        scheduler_benchmark_report("scheduler fan-in ns", start);
+    } else {
+        scheduler_benchmark_report("scheduler yield ns", start);
+    }
+}
+fn run_scheduler_benchmark() -> i32 {
+    scheduler_benchmark_case(1u32, false);
+    scheduler_benchmark_case(1u32, true);
+    scheduler_benchmark_case(4u32, false);
+    scheduler_benchmark_case(4u32, true);
+    return 0i32;
 }

@@ -42,7 +42,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     return prefab_conduit_shaft_build(read parameters, mut asset);
 }
 fn room_material_count() -> u32 {
-    return CONDUIT_MATERIAL_COUNT + 4u32;
+    return prefab_conduit_shaft_material_count();
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     return prefab_conduit_shaft_material(region, read parameters);

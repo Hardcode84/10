@@ -25,7 +25,7 @@ fn game_world_ambient() -> Vec3 {
     return vec(0f32, 0f32, 0f32);
 }
 
-fn game_world_palette(input: mut FrameInput) -> bool {
+fn game_world_palette(input: mut FrameInput, selection: read GenerationWords) -> bool {
     return game_room_palette(mut input);
 }
 
@@ -34,3 +34,7 @@ fn game_world_lighting(
     input: mut FrameInput,
     anchors: mut RoomAnchors
 ) -> unit {}
+
+fn game_world_material_selection(selection: mut GenerationWords, graph: read RoomGraph) -> bool {
+    return true;
+}

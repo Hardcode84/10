@@ -100,8 +100,8 @@ fn door_chain_roll(graph: mut RoomGraph, first: u32, second: u32) -> unit {
 fn demo_room_ambient() -> Vec3 {
     return vec(0.08f32, 0.09f32, 0.11f32);
 }
-fn demo_palette(input: mut FrameInput) -> bool {
-    return course_palette(mut input);
+fn demo_palette(input: mut FrameInput, selection: read GenerationWords) -> bool {
+    return course_palette(mut input, read selection);
 }
 fn demo_room_lighting(
     scene: read CollisionScene,

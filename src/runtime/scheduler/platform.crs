@@ -1,3 +1,5 @@
+extern fn scheduler_stop_load(flag: *i32) -> i32 = "SDL_GetAtomicInt";
+extern fn scheduler_stop_store(flag: *i32, value: i32) -> i32 = "SDL_SetAtomicInt";
 extern fn scheduler_tls_get(id: *i32) -> *u8 = "SDL_GetTLS";
 extern fn scheduler_tls_set(id: *i32, value: *u8, destroy: fn(*u8) -> unit) -> bool = "SDL_SetTLS";
 extern fn scheduler_thread_id() -> u64 = "SDL_GetCurrentThreadID";
@@ -38,10 +40,7 @@ fn scheduler_thread(data: *u8) -> i32 {
         if node != null(*SchedulerNode) {
             scheduler_run(node);
         } else {
-            service_lock(runtime -> gate);
-            var stop: bool = runtime -> stopping;
-            service_unlock(runtime -> gate);
-            if stop {
+            if scheduler_stop_load(&runtime -> stopping) != 0i32 {
                 return 0i32;
             }
             service_wait(runtime -> wake);

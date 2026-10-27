@@ -8,7 +8,7 @@ fn test_doors() -> bool {
     if !test_door_fixture(move hex) {
         return false;
     }
-    return test_door_fixture(move oct);
+    return test_door_fixture(move oct) && test_door_blocked_occupancy();
 }
 fn test_door_fixture(asset: RoomAsset) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
@@ -18,7 +18,7 @@ fn test_door_fixture(asset: RoomAsset) -> bool {
     if !doors_asset(mut doors, read asset, mut builder, 0u32, 0u32) {
         return false;
     }
-    if !test_door_portals(mut builder) {
+    if !test_door_portals(mut builder, scale_identity()) {
         return false;
     }
     if !collision_finish(move builder, mut scene) || !collision_snapshot(
@@ -69,6 +69,7 @@ fn test_door_opening(
     doors: mut DoorSet,
     closed: read CollisionSweep
 ) -> bool {
+    var attachment: CollisionAttachment = collision_attachment_new();
     var door: DoorInstance = door_get(read doors, 0u32);
     var trial: Trial = new_trial();
     trial.drone.cable.phase = CABLE_ATTACHED;
@@ -108,7 +109,7 @@ fn test_door_opening(
     ) {
         return false;
     }
-    hook_attach(read scene, mut trial.drone, read closed, STEP, STEP);
+    hook_attach(read scene, mut trial.drone, read closed, read attachment, STEP, STEP);
     if !game_check(
         trial.drone.cable.phase == CABLE_SNAPPED,
         "hook attached to a moving leaf"
@@ -195,9 +196,9 @@ fn test_door_motion_boundaries(scene: mut CollisionScene, door: DoorInstance) ->
     );
 }
 
-fn test_door_portals(builder: mut CollisionBuilder) -> bool {
+fn test_door_portals(builder: mut CollisionBuilder, ratio: ScaleRatio) -> bool {
     var transform: SpaceTransform = make SpaceTransform {
-        factor: 1f32,
+        factor: scale_float(ratio),
         origin: vec(0f32, -1f32, 0f32),
         basis: make Basis {
             right: vec(1f32, 0f32, 0f32),
@@ -208,7 +209,7 @@ fn test_door_portals(builder: mut CollisionBuilder) -> bool {
     var portal: CollisionPortal = make CollisionPortal {
         support_bound: 0f32,
         source_scale: scale_identity(),
-        target_scale: scale_identity(),
+        target_scale: ratio,
         reverse: 1u32,
         space: 1u32,
         destination: 0u32,
@@ -222,6 +223,9 @@ fn test_door_portals(builder: mut CollisionBuilder) -> bool {
     if !collision_portal_append(mut builder, portal) {
         return false;
     }
+    portal.source_scale = ratio;
+    portal.target_scale = scale_identity();
+    portal.radius = portal.radius * transform.factor;
     portal.reverse = 0u32;
     portal.space = 0u32;
     portal.destination = 1u32;
@@ -493,4 +497,34 @@ fn test_door_trigger_shape(door: DoorInstance) -> bool {
         side = side + 1u32;
     }
     return true;
+}
+
+fn test_door_blocked_occupancy() -> bool {
+    var asset: RoomAsset = room_asset_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    var doors: DoorSet = doors_new();
+    if !hex_door_leaves(1f32, mut asset) || !doors_asset(
+        mut doors,
+        read asset,
+        mut builder,
+        0u32,
+        0u32
+    ) || !test_door_portals(mut builder, scale_ratio(1u64, 4096u64)) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var trial: Trial = new_trial();
+    var door: DoorInstance = door_get(read doors, 0u32);
+    door_move(mut scene, read doors, door, mut trial, true);
+    trial.drone.clock = ((DOOR_OPEN_SECONDS + DOOR_CLOSE_DELAY) / STEP) as u32 + 1u32;
+    trial.drone.world = 1u32;
+    trial.drone.position = vec(0f32, 0f32, -0.1f32);
+    doors_step(mut scene, mut doors, mut trial);
+    return game_check(
+        door_state(read scene, door, trial.drone.clock as f32 * STEP) == DOOR_CLOSING,
+        "blocked portal placement held a remote door open"
+    );
 }

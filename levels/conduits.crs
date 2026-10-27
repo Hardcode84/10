@@ -83,7 +83,7 @@ fn demo_room_build(
 fn demo_room_ambient() -> Vec3 {
     return vec(0.18f32, 0.20f32, 0.24f32);
 }
-fn demo_palette(input: mut FrameInput) -> bool {
+fn demo_palette(input: mut FrameInput, selection: read GenerationWords) -> bool {
     var configuration: AssetValues = asset_values_new();
     if !course_material_defaults(mut configuration) {
         return false;
@@ -113,7 +113,7 @@ fn demo_palette(input: mut FrameInput) -> bool {
         course_material_parameter_offset(PREFAB_CONDUIT_GALLERY) + conduit_gallery_powered_parameter(),
         CONDUIT_DEMO_POWERED
     );
-    return course_palette_configured(mut input, read configuration);
+    return course_palette_configured(mut input, read configuration, read selection);
 }
 fn demo_room_lighting(
     scene: read CollisionScene,

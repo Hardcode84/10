@@ -1,3 +1,11 @@
+fn scheduler_stop_load(flag: *i32) -> i32 {
+    return *flag;
+}
+fn scheduler_stop_store(flag: *i32, value: i32) -> i32 {
+    var old: i32 = *flag;
+    *flag = value;
+    return old;
+}
 extern fn scheduler_async(callback: fn(*u8) -> unit, data: *u8, ms: i32) -> unit = "emscripten_async_call";
 extern fn scheduler_sleep(ms: u32) -> unit = "emscripten_sleep";
 extern fn scheduler_abort() -> unit = "abort";
@@ -60,7 +68,7 @@ fn scheduler_stop_workers(runtime: *SchedulerRuntime) -> unit {
 }
 fn scheduler_browser_turn(data: *u8) -> unit {
     var runtime: *SchedulerRuntime = data as *SchedulerRuntime;
-    if !runtime -> stopping {
+    if scheduler_stop_load(&runtime -> stopping) == 0i32 {
         var node: *SchedulerNode = scheduler_find(runtime -> workers);
         if node != null(*SchedulerNode) {
             runtime -> tls = 1i32;

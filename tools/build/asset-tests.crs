@@ -11,8 +11,20 @@ fn run_asset_checks(
     if !sdl_build(root) {
         return 1i32;
     }
-    var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 27] = uninit;
+    var sources: **u8 = build_source_storage(
+        root,
+        asset_sources(root, null(**u8)) + asset_collision_sources(root, null(**u8)) + 18usize
+    );
+    if sources == null(**u8) {
+        return 1i32;
+    }
+    var providers: **u8 = build_source_storage(
+        root,
+        asset_providers(root, null(**u8)) + asset_collision_providers(root, null(**u8)) + 4usize
+    );
+    if providers == null(**u8) {
+        return 1i32;
+    }
     var count: usize = asset_sources(root, &sources[0usize]);
     count = count + asset_collision_sources(root, &sources[count]);
     sources[count] = host_path(root, "assets/rooms/radial-start.crs");

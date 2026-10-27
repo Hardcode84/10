@@ -56,7 +56,7 @@ fn door_occupied(door: DoorInstance, anchors: read RoomAnchors, drone: read Dron
     var i: u32 = 0u32;
     while i < room_anchor_count(read anchors) {
         var anchor: RoomAnchor = room_anchor(read anchors, i);
-        if anchor.space == door.space {
+        if anchor.cap == 0xffffffffu32 && anchor.space == door.space {
             var center: Vec3 = space_point(anchor.transform, drone.position);
             if door_approach(
                 door,

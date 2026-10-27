@@ -66,6 +66,25 @@ fn hook_interval_admitted(
     left: f32,
     admission: mut CollisionAdmission
 ) -> f32 {
+    var attachment: CollisionAttachment = collision_attachment_new();
+    collision_attachment_swap(mut attachment, mut drone.cable.attachment);
+    var remaining: f32 = hook_interval_query(
+        read collision,
+        mut drone,
+        left,
+        mut admission,
+        mut attachment
+    );
+    collision_attachment_swap(mut attachment, mut drone.cable.attachment);
+    return remaining;
+}
+fn hook_interval_query(
+    collision: read CollisionScene,
+    drone: mut Drone,
+    left: f32,
+    admission: mut CollisionAdmission,
+    attachment: mut CollisionAttachment
+) -> f32 {
     var inverse: SpaceTransform = space_inverse(drone.cable.frame);
     var position: Vec3 = space_point(inverse, drone.cable.anchor);
     var travel: Vec3 = scale(drone.cable.velocity, left * drone_size(read drone));
@@ -78,22 +97,18 @@ fn hook_interval_admitted(
         scale(travel, 1f32 / drone_size(read drone)),
         vec(0f32, 0f32, 0f32)
     );
-    var portal: PortalCrossing = portal_crossing(
-        read collision,
-        drone.cable.space,
-        position,
-        local_travel
-    );
     var body: CollisionBody = flight_hook_body(read drone);
-    var query: CollisionSweep = collision_sweep_interval_body(
+    var query: CollisionSweep = collision_sweep_attachment_body(
         read collision,
         drone.cable.space,
         position,
         local_travel,
         read body,
         drone.clock as f32 * STEP + STEP - left,
-        left
+        left,
+        mut attachment
     );
+    var portal: PortalCrossing = query.crossing;
     if query.status == COLLISION_UNRESOLVED {
         admission = collision_required(query.contact.space);
         return 0f32;
@@ -142,6 +157,7 @@ fn hook_interval_admitted(
             read collision,
             mut drone,
             read query,
+            read attachment,
             end_time - left + left * query.contact.hit.time,
             end_time
         );

@@ -216,3 +216,17 @@ fn shutdown_completion(scheduler: read Scheduler, token: Completion) -> Completi
         thread: thread
     };
 }
+extern fn scheduler_benchmark_env(name: *u8) -> *u8 = "getenv";
+extern fn scheduler_benchmark_native_clock() -> u64 = "SDL_GetTicksNS";
+extern fn scheduler_benchmark_print(format: *u8, value: u64) -> i32 = "printf";
+fn scheduler_benchmark_enabled() -> bool {
+    return scheduler_benchmark_env("SPINWARD_SCHEDULER_BENCHMARK") != null(*u8);
+}
+fn scheduler_benchmark_report(heading: *u8, start: u64) -> unit {
+    service_print(heading);
+    scheduler_benchmark_print("%llu\n", scheduler_benchmark_clock() - start);
+}
+
+fn scheduler_benchmark_clock() -> u64 {
+    return scheduler_benchmark_native_clock();
+}

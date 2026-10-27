@@ -46,13 +46,6 @@ fn commands_create(v: *RenderState) -> bool {
     );
 }
 
-fn dispatch(v: *RenderState) -> bool {
-    if !dispatch_submit(v) {
-        return false;
-    }
-    retirement_wait(v);
-    return true;
-}
 fn dispatch_submit(v: *RenderState) -> bool {
     retirement_wait(v);
     var submit: VkSubmitInfo = uninit;
@@ -297,7 +290,11 @@ fn command_resume(v: *RenderState) -> bool {
     if !command_continue(v) {
         return false;
     }
-    vkCmdResetQueryPool(v -> gpu.commands, v -> gpu.query_pool, 2u32, 2u32);
-    vkCmdResetQueryPool(v -> gpu.commands, v -> gpu.query_pool, 6u32, 2u32);
+    vkCmdResetQueryPool(
+        v -> gpu.commands,
+        v -> gpu.query_pool,
+        2u32,
+        v -> query_count - 2u32
+    );
     return true;
 }

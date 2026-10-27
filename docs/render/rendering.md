@@ -732,7 +732,7 @@ with a minimum of one for an empty root. Significant storage terms are:
 | Retained source pool | 176 bytes per triangle for vertices, metadata, spatial index, and tree. |
 | Instance records | 92 bytes each. |
 | Shadow storage | `84 * L * (D + I)` bytes. Retained triangle capacity does not enter this term. |
-| Timestamp queries | Eight entries for setup, traversal, composition, readback, and the deferred-input gap. |
+| Timestamp queries | Five entries for setup, traversal, composition, and readback. |
 
 The game uploads the drone mesh once. Body anchors submit scaled retained
 instances, including multiple placements in the same room. Portal overlap adds
@@ -818,29 +818,10 @@ fence covers the previous copy before its command buffer and acquire semaphore
 are reused. Storage replacement and shutdown wait before freeing native buffers.
 WebGPU keeps submitted buffer uses alive after buffer destruction.
 
-The optional split-frame API remains available for controlled renderer tests.
-The game uses the full-frame operation above.
-
-`input_defer` reserves inactive, non-shadow-casting dynamic slots before retained
-instances. Setup admits the reservation before submission. `DeferredInput`
-permits one bounded write after setup retirement, for non-portal,
-non-shadow-casting triangles. It cannot grow storage. Scope exit restores the
-complete scene count. The first submission writes root depth and hit data but
-leaves root shading pending. The second submission uploads the reserved range
-and the updated space index. It preserves traversal headers and root hits.
-Late triangles use the same projection, tile-list and raster passes as other
-geometry. Their stable source IDs resolve equal-depth ties. The last late batch
-shades the root and emits its portal masks. Root setup and late geometry must
-fit the frame round budget. Setup rejects a reservation whose conservative
-round count exceeds that budget. Child views then consume the complete
-scene, including late geometry in other rooms and recursive copies.
-
-The second submission reuses staging and commands only after setup retires.
-Both submissions retain the same resource loan. A zero-sized reservation still
-completes root shading. A reservation larger than the projection batch uses
-multiple late batches. The renderer admits all storage before the first submit.
-GPU timestamps preserve both submissions and mark the gap between them. Timing
-reports exclude that gap from GPU execution time.
+All scene geometry is ready before frame submission. Prediction uses the
+previous frame's result and runs independently. The renderer admits the complete
+scene before submission. Each geometry batch uses the same projection, tile-list,
+and raster passes, including geometry in scaled and recursive views.
 
 `SubmittedFrame` holds the exclusive renderer loan until retirement and
 validation. `frame_poll` returns pending, success, or failure. `frame_image`
@@ -1054,7 +1035,7 @@ use the same complete images, and preserve continuation when geometry exceeds
 the batch capacity. These measurements do not reject tile ownership or shared
 memory in general. They reject this fusion of the current batch pipeline.
 
-### Batch scheduling and root raster overlap
+### Batch scheduling
 
 A further hub-corner probe found 35 recorded geometry rounds and six rounds
 with triangles. Detailed GPU timestamps measured planning plus projection at
@@ -1064,27 +1045,7 @@ costs but are excluded from the performance comparison below.
 
 Skipping unchanged dispatch-base writes and increasing the traversal quantum
 from eight to 64 steps reduced the recorded rounds to 18. Five contained
-triangles. The same corner's GPU median fell from 8.96 ms to 7.38 ms before the
-submission split. The host retains the conservative completion bound and the
-last-round failure check.
-
-The earlier task path overlapped prediction with root geometry rasterization.
-It adds one late-geometry round for the reserved markers. At 1920 by 1080 on
-the Intel Arc Pro B60, 128 measured frames at each of eight hub corners gave:
-
-| Measurement | Before this change | Root raster overlap |
-| --- | ---: | ---: |
-| Frame median across corners | 13.61–14.59 ms | 9.80–10.80 ms |
-| Worst corner frame p99 | 15.42 ms | 11.64 ms |
-| GPU median across corners | 8.76–9.41 ms | 7.98–8.63 ms |
-| Worst corner GPU p99 | 9.57 ms | 8.85 ms |
-
-The before column uses the preceding lighting-optimization sweep. A fresh run
-of corner 118 before the batch changes measured 14.18 ms frame median and
-8.96 ms GPU median. All eight final captures match their preceding captures
-byte for byte. The split adds GPU work for late geometry but reduces elapsed
-frame time by overlapping prediction. Warm mesh uploads remain zero. The split
-uploads approximately 58 KiB per frame and retains the same buffer capacities.
+triangles. The same corner's GPU median fell from 8.96 ms to 7.38 ms in that experiment. The host retains a conservative completion bound.
 
 ### Prediction as an independent task
 
@@ -1111,9 +1072,8 @@ prediction join at each fixed pose. Moving-flight checks below verify the
 one-frame prediction delay separately.
 
 The tests compare 80 moving task frames with synchronous output, including
-hook launch and reeling. Targeted checks compare late markers through scaled
-recursive views, a late wall in a newly populated destination space, three-
-triangle batches, and an empty reservation. Native AMD and web production
+hook launch and reeling. Targeted checks compare markers and walls through scaled recursive views
+with three-triangle batches. Native AMD and web production
 captures match exactly for the ordinary and scaled game fixtures. These checks
 establish image behaviour. The stationary timing sweep excludes presentation;
 it does not establish the long-route display-latency gate below.
@@ -1197,14 +1157,9 @@ Poses 100 and above select hull face `pose - 100`. The camera moves two
 metres inward and two metres sideways from its centre, then faces the room
 origin. Hub corner poses are 118 through 125. The report separates prediction,
 scene preparation, and submission plus GPU time. It also reports GPU timestamps.
-The default probe is synchronous and excludes presentation. Set
-`SPINWARD_OVERLAP=1` to use the same root raster and late-geometry submission
-boundary from the earlier game schedule. Both modes use the current prediction snapshot.
+The default probe is synchronous and excludes presentation.
 Use `SPINWARD_TASKS=1` for the current game task graph with previous-frame markers
 and a pool worker. `--workers 0` measures its calling-thread schedule.
-The overlap report measures elapsed frame time; its CPU prediction and remaining
-submission times include simultaneous GPU execution and must not be added to
-GPU time.
 
 Set `SPINWARD_BATCH_PROFILE=1` for per-round timestamps. The report separates
 planning plus projection, tile lists, raster, and shading. It also reports the
@@ -1319,7 +1274,7 @@ dumps to pipeline creation order. Driver cycle estimates are not GPU timings.
 | --- | --- |
 | [Shared interface](../../src/render/interface.crs) | Header fields, flags and shader constants. |
 | [Renderer owner](../../src/render/host/owner.crs) | Checked renderer and input ownership. |
-| [Frame API](../../src/render/api/frame.crs), [split setup](../../src/render/api/setup.crs) | Submitted frames, validated images, presentation and deferred input. |
+| [Frame API](../../src/render/api/frame.crs) | Submitted frames, validated images, and presentation. |
 | [Geometry layout](../../src/render/host/geometry.crs), [image storage](../../src/render/host/image.crs) | Capacity planning and replacement. |
 | [Retained storage](../../src/render/host/retained.crs), [mesh trees](../../src/render/host/mesh-tree.crs) | Mesh and instance lifetime, local spatial data. |
 | [Projection scheduling](../../src/render/host/projection.crs), [command schedule](../../src/render/host/schedule.crs) | Space membership, conservative work bounds and ordered passes. |

@@ -39,11 +39,14 @@ fn light_anchor_children(
         room_anchor_ratio(read anchors, parent)
     );
     var radius: f32 = light_object_reach(light) * rational_float(read placement);
-    var i: u32 = 0u32;
-    while i < collision_portal_count(read scene) && room_anchor_count(read anchors) < budget {
+    var cursor: u32 = collision_portal_begin(read scene, anchor.space);
+    while collision_portal_at_space(read scene, cursor, anchor.space) && room_anchor_count(
+        read anchors
+    ) < budget {
+        var i: u32 = collision_portal_id(read scene, cursor);
         var portal: CollisionPortal = collision_portal(read scene, i);
         var distance: f32 = dot(portal.basis.forward, sub(point, portal.origin));
-        if portal.space == anchor.space && i != anchor.incoming && distance <= 0f32 && portal_reaches(
+        if i != anchor.incoming && distance <= 0f32 && portal_reaches(
             portal,
             point,
             vec(0f32, 0f32, 0f32),
@@ -67,7 +70,7 @@ fn light_anchor_children(
                 return false;
             }
         }
-        i = i + 1u32;
+        cursor = cursor + 1u32;
     }
     return true;
 }

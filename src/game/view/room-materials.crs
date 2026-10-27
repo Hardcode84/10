@@ -20,7 +20,7 @@ fn game_room_palette(input: mut FrameInput) -> bool {
     input_set_float(mut input, SPACE_LIGHT as usize, 0f32);
     input_set_float(mut input, (SPACE_LIGHT + 1u32) as usize, 0f32);
     input_set_float(mut input, (SPACE_LIGHT + 2u32) as usize, 0f32);
-    var offset: u32 = count * MATERIAL_WORDS + GAME_MATERIALS * 64u32 + PALETTE_COLORS * LIGHT_STATES;
+    var offset: u32 = app_assets_payload_start(GAME_MATERIALS, count - GAME_MATERIALS);
     if !room_materials_at(mut input, offset, GAME_MATERIALS, read values) {
         return false;
     }

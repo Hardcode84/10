@@ -179,13 +179,6 @@ fn dispatch_submit(v: *RenderState) -> bool {
     v -> frame_submit_ns = render_now();
     return v -> submitted;
 }
-fn dispatch(v: *RenderState) -> bool {
-    if !dispatch_submit(v) {
-        return false;
-    }
-    retirement_wait(v);
-    return true;
-}
 fn retirement_poll(v: *RenderState) -> i32 {
     if !v -> submitted {
         return 1i32;

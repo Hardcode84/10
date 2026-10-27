@@ -28,7 +28,7 @@ fn game_step(good: bool) -> Step {
     }
     return fail(
         make TaskError {
-            code: 16u32
+            code: SCHED_EXTERNAL_FAILED
         }
     );
 }

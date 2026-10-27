@@ -37,6 +37,7 @@ fn scope_new() -> Scope;
 fn scope_open(scope: mut Scope, scheduler: read Scheduler) -> bool;
 fn scope_context(scope: read Scope) -> Context;
 fn scope_finish(scope: mut Scope) -> Event;
+fn scope_drain(scope: mut Scope) -> unit;
 fn scope_cancel(scope: read Scope) -> unit;
 
 fn spawn!(State)(
@@ -47,6 +48,7 @@ fn spawn!(State)(
 ) -> Task!(State) transfers(state);
 
 fn task_empty!(State)() -> Task!(State);
+fn task_is_empty!(State)(task: read Task!(State)) -> bool;
 fn task_event!(State)(task: read Task!(State)) -> Event;
 fn task_take!(State)(task: mut Task!(State)) -> State;
 fn task_replace!(State)(target: mut Task!(State), replacement: Task!(State)) -> unit;
@@ -72,6 +74,9 @@ fn cancelled(context: read Context) -> bool;
   have no fixed order. Cancellation propagates as cancellation.
 - `fail(task_cancelled())` cancels the task. Other errors fail it. `event_error`
   requires unsuccessful terminal completion. Empty `Await` acts as `Yield`.
+- `scope_drain` closes admission and waits for accepted work, including failed
+  work. It accepts an empty scope. Use it only from a non-worker thread.
+  Read the scope event to inspect its result.
 - `event_join` is a blocking boundary for non-worker threads. It reports success;
   `event_error` returns the failure or cancellation reason. Workers must use `Await`. A join from a worker of the event's scheduler traps.
   This check does not enforce the non-worker precondition across separate pools.
@@ -457,6 +462,12 @@ For timing, run `crust tests.crs tasks` with output redirected to a build log,
 then pass that log to `bun tests/game/task-timings.mjs`. The report separates
 prediction duration, submission delay, and whole-frame duration. It does not
 infer CPU execution time from a root wait.
+
+For an isolated scheduler cost check, run
+`SPINWARD_SCHEDULER_BENCHMARK=1 crust tests.crs scheduler`. It measures yield and
+completed-event fan-in with one and four workers. Run paired samples against
+the same machine and build settings. This optional check is separate from the
+correctness suite.
 
 ## References
 

@@ -32,7 +32,13 @@ fn build_render_tests(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    var sources: [*u8; 256] = uninit;
+    var sources: **u8 = build_source_storage(
+        root,
+        demo_sources(root, null(**u8)) + 7usize
+    );
+    if sources == null(**u8) {
+        return false;
+    }
     var providers: **u8 = crust_try_alloc(
         root -> context,
         (
@@ -178,7 +184,13 @@ fn build_viewer_tests(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    var sources: [*u8; 256] = uninit;
+    var sources: **u8 = build_source_storage(
+        root,
+        game_sources(root, null(**u8)) + 1usize
+    );
+    if sources == null(**u8) {
+        return false;
+    }
     var providers: **u8 = crust_try_alloc(
         root -> context,
         (

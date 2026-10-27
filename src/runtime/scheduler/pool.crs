@@ -78,7 +78,7 @@ fn scheduler_drop(scheduler: mut Scheduler) -> unit {
 // Resources and completed task results remain valid until their owners drop them.
 fn scheduler_shutdown(scheduler: mut Scheduler) -> unit {
     var runtime: *SchedulerRuntime = scheduler.runtime;
-    if runtime == null(*SchedulerRuntime) || runtime -> stopping {
+    if runtime == null(*SchedulerRuntime) || scheduler_stop_load(&runtime -> stopping) != 0i32 {
         return;
     }
     scheduler_require_caller(runtime);
@@ -90,7 +90,7 @@ fn scheduler_shutdown(scheduler: mut Scheduler) -> unit {
             scheduler_condition_wait(runtime -> changed, runtime -> gate);
         }
     }
-    runtime -> stopping = true;
+    scheduler_stop_store(&runtime -> stopping, 1i32);
     if runtime -> gate != null(*u8) {
         service_unlock(runtime -> gate);
     }

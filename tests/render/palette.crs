@@ -1,3 +1,10 @@
+fn dispatch(v: *RenderState) -> bool {
+    if !dispatch_submit(v) {
+        return false;
+    }
+    retirement_wait(v);
+    return true;
+}
 const PALETTE: u32 = 256u32;
 const TEXTURE: u32 = 128u32;
 fn palette_pixels(v: *RenderState, mode: u32) -> bool {

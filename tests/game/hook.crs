@@ -126,15 +126,17 @@ fn test_hook(collision: read CollisionScene) -> bool {
 }
 
 fn test_attach_surface(scene: read CollisionScene, drone: mut Drone, travel: Vec3) -> bool {
+    var attachment: CollisionAttachment = collision_attachment_new();
     var time: f32 = drone.clock as f32 * STEP;
-    var hit: CollisionSweep = collision_sweep_interval(
+    var hit: CollisionSweep = collision_sweep_attachment_interval(
         read scene,
         drone.world,
         drone.position,
         travel,
         HOOK_RADIUS,
         time,
-        0f32
+        0f32,
+        mut attachment
     );
     if !game_check(
         hit.status == 0u32 && hit.contact.hit.time <= 1f32,
@@ -142,6 +144,6 @@ fn test_attach_surface(scene: read CollisionScene, drone: mut Drone, travel: Vec
     ) {
         return false;
     }
-    hook_attach(read scene, mut drone, read hit, time, time);
+    hook_attach(read scene, mut drone, read hit, read attachment, time, time);
     return true;
 }

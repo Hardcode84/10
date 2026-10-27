@@ -35,13 +35,20 @@ fn room_jobs_clone(jobs: read RoomJobs) -> RoomJobs {
         state: jobs.state
     };
 }
+fn room_jobs_shutdown(jobs: read RoomJobs) -> unit {
+    if jobs.state != null(*RoomJobsState) {
+        scope_drain(mut jobs.state -> scope);
+    }
+}
+fn room_jobs_builds(jobs: read RoomJobs) -> *ResidentBuild {
+    return jobs.state -> builds;
+}
 fn room_jobs_drop(jobs: mut RoomJobs) -> unit {
     var state: *RoomJobsState = jobs.state;
     if state == null(*RoomJobsState) || !reference_release(&state -> references) {
         return;
     }
-    var end: Event = scope_finish(mut state -> scope);
-    event_join(read end);
+    scope_drain(mut state -> scope);
     var i: u32 = 0u32;
     while i < state -> count {
         drop state -> jobs[i as usize].task;
@@ -58,12 +65,7 @@ fn room_jobs_drop(jobs: mut RoomJobs) -> unit {
     service_mutex_destroy(state -> mutex);
     free(state as *u8);
 }
-fn room_jobs_open(
-    jobs: mut RoomJobs,
-    scheduler: read Scheduler,
-    builds: *ResidentBuild,
-    count: u32
-) -> bool {
+fn room_jobs_open(jobs: mut RoomJobs, scheduler: read Scheduler, count: u32) -> bool {
     var state: *RoomJobsState = malloc(sizeof(RoomJobsState)) as *RoomJobsState;
     if state == null(*RoomJobsState) {
         return error("room task owner allocation failed");
@@ -73,16 +75,26 @@ fn room_jobs_open(
         free(state as *u8);
         return false;
     }
+    var builds: *ResidentBuild = malloc(count as usize * sizeof(ResidentBuild)) as *ResidentBuild;
     var entries: *RoomJob = malloc(count as usize * sizeof(RoomJob)) as *RoomJob;
     var mutex: *u8 = service_mutex_create();
-    if entries == null(*RoomJob) || mutex == null(*u8) {
+    if builds == null(*ResidentBuild) || entries == null(*RoomJob) || mutex == null(*u8) {
         free(entries as *u8);
+        free(builds as *u8);
         service_mutex_destroy(mutex);
         free(state as *u8);
         return error("room job table allocation failed");
     }
     var i: u32 = 0u32;
     while i < count {
+        builds[i as usize] = make ResidentBuild {
+            recipe: room_recipe_new(),
+            plan: collision_rebuild_new(),
+            mesh: mesh_new(),
+            collision: collision_room_new(),
+            room: i,
+            portal: 0u32
+        };
         entries[i as usize] = make RoomJob {
             task: task_empty!(RoomBuildWork)(),
             seeded: false,
@@ -116,7 +128,7 @@ fn room_request(jobs: read RoomJobs, room: u32, demanded: bool) -> Event {
         service_unlock(state -> mutex);
         return event_failed(SCHED_OK);
     }
-    if entry -> task.mode == 0u32 {
+    if task_is_empty!(RoomBuildWork)(read entry -> task) {
         task_replace!(RoomBuildWork)(
             mut entry -> task,
             spawn!(RoomBuildWork)(
@@ -140,7 +152,7 @@ fn room_status(jobs: read RoomJobs, room: u32) -> i32 {
     var result: i32 = 0i32;
     if entry -> seeded {
         result = 1i32;
-    } else if entry -> task.mode != 0u32 {
+    } else if !task_is_empty!(RoomBuildWork)(read entry -> task) {
         var event: Event = task_event!(RoomBuildWork)(read entry -> task);
         result = game_event_status(read event);
     }
@@ -149,9 +161,9 @@ fn room_status(jobs: read RoomJobs, room: u32) -> i32 {
 }
 fn room_requested(jobs: read RoomJobs, room: u32) -> bool {
     service_lock(jobs.state -> mutex);
-    var result: bool = jobs.state -> jobs[room as usize].seeded || jobs.state -> jobs[
-        room as usize
-    ].task.mode != 0u32;
+    var result: bool = jobs.state -> jobs[room as usize].seeded || !task_is_empty!(RoomBuildWork)(
+        read jobs.state -> jobs[room as usize].task
+    );
     service_unlock(jobs.state -> mutex);
     return result;
 }
@@ -170,7 +182,7 @@ fn room_release_demand(jobs: read RoomJobs, room: u32) -> unit {
 fn room_reset(jobs: read RoomJobs, room: u32) -> unit {
     service_lock(jobs.state -> mutex);
     var entry: *RoomJob = &jobs.state -> jobs[room as usize];
-    if entry -> task.mode != 0u32 {
+    if !task_is_empty!(RoomBuildWork)(read entry -> task) {
         var event: Event = task_event!(RoomBuildWork)(read entry -> task);
         if event_status(read event) == 0u32 {
             scheduler_panic("reset of pending room");

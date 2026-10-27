@@ -111,7 +111,6 @@ fn collision_interval_step_body(
     speeds: mut CollisionPlanes,
     result: mut CollisionMotion
 ) -> bool {
-    var radius: f32 = collision_body_radius(read body);
     if result.status != 0u32 {
         return true;
     }
@@ -128,6 +127,29 @@ fn collision_interval_step_body(
         time + result.elapsed,
         duration - result.elapsed
     );
+    return collision_interval_advance(
+        read scene,
+        space,
+        read body,
+        time,
+        duration,
+        mut separate,
+        mut speeds,
+        mut result,
+        query
+    );
+}
+fn collision_interval_advance(
+    scene: read CollisionScene,
+    space: u32,
+    body: read CollisionBody,
+    time: f32,
+    duration: f32,
+    separate: mut CollisionPlanes,
+    speeds: mut CollisionPlanes,
+    result: mut CollisionMotion,
+    query: CollisionSweep
+) -> bool {
     result.contact = query.contact;
     if query.status != 0u32 {
         result.status = query.status;

@@ -201,9 +201,13 @@ fn game_run_active(
 }
 
 fn game_materials_open(session: mut GameSession, config: GameConfig) -> bool {
+    var selection: GenerationWords = generation_words_new();
+    if !game_material_selection(read session, mut selection) {
+        return false;
+    }
     var renderer: mut Renderer = game_renderer(mut session);
     var inputs: FrameInput = renderer_inputs(mut renderer);
-    if !game_world_palette(mut inputs) {
+    if !game_world_palette(mut inputs, read selection) {
         return false;
     }
     var ambient: Vec3 = game_world_ambient();

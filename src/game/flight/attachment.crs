@@ -3,6 +3,7 @@ fn hook_attach(
     scene: read CollisionScene,
     drone: mut Drone,
     query: read CollisionSweep,
+    attachment: read CollisionAttachment,
     contact_time: f32,
     time: f32
 ) -> unit {
@@ -22,10 +23,10 @@ fn hook_attach(
         hook_disconnect(mut drone);
         return;
     }
-    var size: Rational = rational_product(read drone.cable.size, read query.ratio);
+    var size: Rational = rational_product(read drone.cable.size, read attachment.ratio);
     var i: u32 = 0u32;
-    while i < portal_path_count(read query.path) {
-        var index: u32 = portal_path_at(read query.path, i);
+    while i < portal_path_count(read attachment.path) {
+        var index: u32 = portal_path_at(read attachment.path, i);
         var link: CollisionPortal = collision_portal(read scene, index);
         portal_path_append(mut drone.cable.path, index, link.reverse);
         i = i + 1u32;

@@ -77,6 +77,9 @@ fn game_session(o: *Launch) -> GameSession {
         world: instances_new()
     };
 }
+fn game_material_selection(session: read GameSession, selection: mut GenerationWords) -> bool {
+    return game_world_material_selection(mut selection, read session.control.graph);
+}
 fn game_renderer(session: mut GameSession) -> mut Renderer from session.renderer {
     return mut session.renderer;
 }

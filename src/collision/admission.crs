@@ -16,15 +16,24 @@ fn collision_portal_admitted(
 ) -> bool {
     var link: Rational = portal_ratio(portal);
     var path: Rational = rational_product(room_anchor_ratio(read anchors, parent), read link);
+    return collision_placement_admitted(
+        read body,
+        read path,
+        space_compose(portal.transform, room_anchor(read anchors, parent).transform),
+        portal.support_bound
+    );
+}
+fn collision_placement_admitted(
+    body: read CollisionBody,
+    path: read Rational,
+    transform: SpaceTransform,
+    bound: f32
+) -> bool {
     var size: Rational = rational_product(read body.size, read path);
     var radius: f32 = body.radius * rational_float(read size);
-    if !collision_size_supported(radius, portal.support_bound) {
+    if !collision_size_supported(radius, bound) {
         return false;
     }
-    var transform: SpaceTransform = space_compose(
-        portal.transform,
-        room_anchor(read anchors, parent).transform
-    );
     transform.factor = rational_float(read path);
     if !collision_link_supported(transform, collision_body_radius(read body), radius) {
         return false;
@@ -47,7 +56,10 @@ fn collision_scaled_child(
 ) -> bool {
     var anchor: RoomAnchor = room_anchor(read anchors, parent);
     var portal: CollisionPortal = collision_portal(read scene, index);
-    if !collision_portal_admitted(read body, read anchors, parent, portal) {
+    var link: Rational = portal_ratio(portal);
+    var path: Rational = rational_product(room_anchor_ratio(read anchors, parent), read link);
+    var transform: SpaceTransform = space_compose(portal.transform, anchor.transform);
+    if !collision_placement_admitted(read body, read path, transform, portal.support_bound) {
         anchor.cap = index;
         var ratio: Rational = rational_clone(room_anchor_ratio(read anchors, parent));
         return room_anchor_take(mut anchors, anchor, move ratio);
@@ -59,13 +71,13 @@ fn collision_scaled_child(
         cap: 0xffffffffu32,
         object: anchor.object,
         space: portal.destination,
-        transform: space_compose(portal.transform, anchor.transform),
+        transform: transform,
         parent: parent,
         portal: index,
         incoming: portal.reverse,
         depth: anchor.depth + 1u32
     };
-    return room_anchor_link(mut anchors, child, portal);
+    return room_anchor_take(mut anchors, child, move path);
 }
 fn collision_scaled_children(
     scene: read CollisionScene,

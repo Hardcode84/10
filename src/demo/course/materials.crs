@@ -1,3 +1,15 @@
+fn course_material_select(selection: mut GenerationWords, graph: read RoomGraph) -> bool {
+    if !generation_words_allocate(mut selection, PREFAB_COUNT) {
+        return false;
+    }
+    generation_words_fill(mut selection, 0u32);
+    var room: u32 = 0u32;
+    while room < graph_count(read graph) {
+        generation_word_set(mut selection, graph_node(read graph, room).kind, 1u32);
+        room = room + 1u32;
+    }
+    return true;
+}
 fn course_material_base(kind: u32) -> u32 {
     var offset: u32 = GAME_MATERIALS;
     var i: u32 = 0u32;
@@ -7,13 +19,21 @@ fn course_material_base(kind: u32) -> u32 {
     }
     return offset;
 }
-fn course_material_words(configuration: read AssetValues) -> u32 {
-    var words: u32 = 0u32;
+fn course_material_words(
+    configuration: read AssetValues,
+    selection: read GenerationWords,
+    words: mut u32
+) -> bool {
+    words = 0u32;
     var kind: u32 = 0u32;
     while kind < PREFAB_COUNT {
+        if generation_word(read selection, kind) == 0u32 {
+            kind = kind + 1u32;
+            continue;
+        }
         var values: AssetValues = asset_values_new();
         if !course_material_values(kind, read configuration, mut values) {
-            return 0u32;
+            return false;
         }
         var region: u32 = 0u32;
         while region < course_material_count(kind) {
@@ -23,28 +43,43 @@ fn course_material_words(configuration: read AssetValues) -> u32 {
         }
         kind = kind + 1u32;
     }
-    return words;
+    return true;
 }
-fn course_palette(input: mut FrameInput) -> bool {
+fn course_palette(input: mut FrameInput, selection: read GenerationWords) -> bool {
     var configuration: AssetValues = asset_values_new();
     return course_material_defaults(mut configuration) && course_palette_configured(
         mut input,
-        read configuration
+        read configuration,
+        read selection
     );
 }
 // Configure each prefab's material dimensions to match its generated geometry.
-fn course_palette_configured(input: mut FrameInput, configuration: read AssetValues) -> bool {
-    return course_palette_reserved(mut input, read configuration, 0u32, 0u32);
+fn course_palette_configured(
+    input: mut FrameInput,
+    configuration: read AssetValues,
+    selection: read GenerationWords
+) -> bool {
+    var end: u32 = 0u32;
+    return course_palette_reserved(
+        mut input,
+        read configuration,
+        read selection,
+        0u32,
+        0u32,
+        mut end
+    );
 }
 // Reserve extra material records and payload words. The caller must fill them before use.
 fn course_palette_reserved(
     input: mut FrameInput,
     configuration: read AssetValues,
+    selection: read GenerationWords,
     extra_count: u32,
-    extra_words: u32
+    extra_words: u32,
+    end: mut u32
 ) -> bool {
-    var words: u32 = course_material_words(read configuration);
-    if words == 0u32 {
+    var words: u32 = 0u32;
+    if !course_material_words(read configuration, read selection, mut words) {
         return false;
     }
     var count: u32 = course_material_base(PREFAB_COUNT) + extra_count;
@@ -52,9 +87,13 @@ fn course_palette_reserved(
     game_palette_fill(mut input);
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
     input_set_float(mut input, CAMERA_LIGHT as usize, 36f32);
-    var offset: u32 = count * MATERIAL_WORDS + GAME_MATERIALS * 64u32 + PALETTE_COLORS * LIGHT_STATES;
+    var offset: u32 = app_assets_payload_start(GAME_MATERIALS, count - GAME_MATERIALS);
     var kind: u32 = 0u32;
     while kind < PREFAB_COUNT {
+        if generation_word(read selection, kind) == 0u32 {
+            kind = kind + 1u32;
+            continue;
+        }
         var values: AssetValues = asset_values_new();
         if !course_material_values(kind, read configuration, mut values) {
             return false;
@@ -76,6 +115,7 @@ fn course_palette_reserved(
         }
         kind = kind + 1u32;
     }
+    end = offset;
     return true;
 }
 
@@ -128,11 +168,4 @@ fn course_material_values(
         i = i + 1u32;
     }
     return true;
-}
-
-// Offset of the payload reserved after the standard course materials.
-fn course_extra_offset(configuration: read AssetValues, extra_count: u32) -> u32 {
-    return (course_material_base(PREFAB_COUNT) + extra_count) * MATERIAL_WORDS + GAME_MATERIALS * 64u32 + PALETTE_COLORS * LIGHT_STATES + course_material_words(
-        read configuration
-    );
 }

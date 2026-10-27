@@ -12,6 +12,7 @@ if !project_render(run, stages, &backend) {
     return 1i32;
 };
 
+host_source(run, "tools/build/assets.crs");
 host_source(run, "tools/build/game.crs");
 host_source(run, "tools/build/demo-level.crs");
 host_source(run, "tools/build/web.crs");

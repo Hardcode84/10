@@ -1,3 +1,25 @@
+fn conduit_wall_port(id: AssetName, profile: ConnectionProfile, centre: Vec3, face: u32) -> RoomPort {
+    return make RoomPort {
+        id: id,
+        profile: profile,
+        face: face,
+        position: centre,
+        basis: make Basis {
+            right: vec(0f32, 1f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(1f32, 0f32, 0f32)
+        }
+    };
+}
+fn conduit_end_faces_refresh(asset: mut RoomAsset, height: f32) -> unit {
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var end: RoomPort = asset_port(read asset.ports, i);
+        end.face = shaft_collar_end_face(read asset.hull, height * i as f32);
+        asset_port_set(mut asset.ports, i, end);
+        i = i + 1u32;
+    }
+}
 fn conduit_shaft_wall_u(hull: read AssetHull, vertex: u32) -> f32 {
     if vertex < 96u32 {
         var index: i32 = (vertex % 48u32) as i32 + 1i32;
@@ -74,7 +96,7 @@ fn conduit_shaft_panel(asset: mut RoomAsset, centre: Vec3, half: f32, height: f3
                 read asset.hull,
                 asset_face(read asset.hull, i),
                 asset.tile_metres,
-                height / panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32) as f32
+                conduit_cast_bay(height)
             );
             asset_surface_set(mut asset.hull, i, frame);
         }
@@ -86,17 +108,12 @@ fn conduit_shaft_opening(asset: mut RoomAsset, centre: Vec3, diameter: f32, heig
     if !conduit_shaft_panel(mut asset, centre, diameter, height) {
         return false;
     }
-    var port: RoomPort = make RoomPort {
-        id: asset_name("SHAFT"),
-        profile: shaft_profile(diameter),
-        face: asset_face_count(read asset.hull) - 1u32,
-        position: centre,
-        basis: make Basis {
-            right: vec(0f32, 1f32, 0f32),
-            up: vec(0f32, 0f32, 1f32),
-            forward: vec(1f32, 0f32, 0f32)
-        }
-    };
+    var port: RoomPort = conduit_wall_port(
+        asset_name("SHAFT"),
+        shaft_profile(diameter),
+        centre,
+        asset_face_count(read asset.hull) - 1u32
+    );
     var next: AssetHull = asset_hull_new();
     if !hull_bordered_port(
         mut asset.hull,
@@ -109,13 +126,7 @@ fn conduit_shaft_opening(asset: mut RoomAsset, centre: Vec3, diameter: f32, heig
     ) {
         return false;
     }
-    var i: u32 = 0u32;
-    while i < 2u32 {
-        var end: RoomPort = asset_port(read asset.ports, i);
-        end.face = shaft_collar_end_face(read asset.hull, height * i as f32);
-        asset_port_set(mut asset.ports, i, end);
-        i = i + 1u32;
-    }
+    conduit_end_faces_refresh(mut asset, height);
     return asset_port_append(mut asset.ports, port);
 }
 fn conduit_shaft_axis() -> Basis {

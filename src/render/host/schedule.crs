@@ -32,8 +32,6 @@ fn commands_setup_body(v: *RenderState) -> unit {
 }
 fn commands_raster_body(v: *RenderState) -> unit {
     commands_root_begin(v);
-    command_stamp(v, v -> query_count - 4u32);
-    command_stamp(v, v -> query_count - 3u32);
     commands_traversal(v, 0u32);
 }
 fn commands_root_begin(v: *RenderState) -> unit {
@@ -85,7 +83,6 @@ fn commands_traversal(v: *RenderState, round: u32) -> unit {
         round = round + 1u32;
     }
     command_stamp(v, 2u32);
-    command_stamp(v, 3u32);
     retained_dispatch(
         v,
         PIPELINE_COMPOSE as usize,
@@ -161,48 +158,6 @@ fn commands_shadow_build(v: *RenderState) -> unit {
     }
 }
 
-fn commands_root_geometry(v: *RenderState, rounds: u32) -> unit {
-    var round: u32 = 0u32;
-    while round < rounds {
-        command_batch_stamp(v);
-        var mode: u32 = 1u32;
-        if round == 0u32 {
-            mode = mode | 2u32;
-        }
-        if round + 1u32 == rounds {
-            mode = mode | 4u32;
-        }
-        if round == 0u32 || round + 1u32 == rounds {
-            command_barrier(v, BARRIER_BEFORE_UPDATE);
-            command_word(v, BATCH_MODE + 1u32, mode);
-            command_barrier(v, BARRIER_UPDATED_COMPUTE);
-        }
-        command_bind(v, 11usize);
-        command_direct(v, 1u32);
-        command_barrier(v, BARRIER_INDIRECT);
-        commands_batch_geometry(v);
-        command_batch_stamp(v);
-        round = round + 1u32;
-    }
-}
-
-fn commands_list_phase(v: *RenderState, phase: u32) -> unit {
-    var pipeline: usize = 12usize;
-    if phase != LIST_CLEAR_HEADS {
-        pipeline = (14u32 + phase) as usize;
-    }
-    if phase == LIST_CLEAR_HEADS {
-        var tiles: u32 = ((v -> width + 7u32) / 8u32) * ((v -> height + 7u32) / 8u32);
-        retained_dispatch(v, pipeline, (tiles + 63u32) / 64u32);
-    } else if phase == LIST_COUNT_REFERENCES || phase == LIST_WRITE_REFERENCES {
-        command_bind(v, pipeline);
-        command_indirect(v, (LIST_COMMAND as u64 + 1u64) * 4u64);
-    } else {
-        task_dispatch(v, pipeline, 0u32);
-    }
-    command_barrier(v, BARRIER_COMPUTE);
-}
-
 fn shade_pipeline(v: *RenderState) -> usize {
     if (v -> mapped as *u32)[LIGHT_MODEL as usize] == 0u32 {
         return 14usize;
@@ -210,45 +165,21 @@ fn shade_pipeline(v: *RenderState) -> usize {
     return 10usize;
 }
 
-fn commands_deferred(v: *RenderState, first: u32, count: u32) -> unit {
-    var capacity: u32 = (v -> mapped as *u32)[PROJECTION_CAPACITY as usize];
-    var left: u32 = count;
-    while true {
-        command_batch_stamp(v);
-        var size: u32 = left;
-        if size > capacity {
-            size = capacity;
-        }
-        command_barrier(v, BARRIER_BEFORE_UPDATE);
-        command_word(v, BATCH_MODE + 1u32, 8u32 | ((size == left) as u32 * 4u32));
-        command_word(v, BATCH_FIRST + 1u32, first);
-        command_word(v, BATCH_COUNT + 1u32, size);
-        command_barrier(v, BARRIER_UPDATED_COMPUTE);
-        command_bind(v, 11usize);
-        command_direct(v, 1u32);
-        command_barrier(v, BARRIER_INDIRECT);
-        commands_batch_geometry(v);
-        if size == left {
-            task_dispatch(v, shade_pipeline(v), 9u32);
-            command_barrier(v, BARRIER_COMPUTE);
-            command_batch_stamp(v);
-            return;
-        }
-        command_batch_stamp(v);
-        first = first + size;
-        left = left - size;
-    }
-}
-
 fn commands_batch_geometry(v: *RenderState) -> unit {
     command_bind(v, 1usize);
     command_indirect(v, 68u64);
     command_barrier(v, BARRIER_COMPUTE);
     command_batch_stamp(v);
-    commands_list_phase(v, LIST_RESET_COUNTS);
-    commands_list_phase(v, LIST_COUNT_REFERENCES);
-    commands_list_phase(v, LIST_CLEAR_BITMAPS);
-    commands_list_phase(v, LIST_WRITE_REFERENCES);
+    task_dispatch(v, 16usize, 0u32);
+    command_barrier(v, BARRIER_COMPUTE);
+    command_bind(v, 17usize);
+    command_indirect(v, (LIST_COMMAND as u64 + 1u64) * 4u64);
+    command_barrier(v, BARRIER_COMPUTE);
+    task_dispatch(v, 18usize, 0u32);
+    command_barrier(v, BARRIER_COMPUTE);
+    command_bind(v, 19usize);
+    command_indirect(v, (LIST_COMMAND as u64 + 1u64) * 4u64);
+    command_barrier(v, BARRIER_COMPUTE);
     command_batch_stamp(v);
     task_dispatch(v, 13usize, 0u32);
     command_barrier(v, BARRIER_COMPUTE);

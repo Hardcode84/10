@@ -130,13 +130,22 @@ fn scope_cancel(scope: read Scope) -> unit {
     }
     var node: *SchedulerNode = scope.state -> tasks;
     while node != null(*SchedulerNode) {
-        if node -> state == 0u32 {
-            node -> state = 1u32;
+        if node -> parked {
+            node -> parked = false;
             scheduler_enqueue(node, true);
         }
         node = node -> scope_next;
     }
     service_unlock(runtime -> gate);
+}
+// Closes admission and waits for all accepted work, including failed tasks.
+// Requires a non-worker caller. An empty scope needs no action.
+fn scope_drain(scope: mut Scope) -> unit {
+    if scope.state == null(*SchedulerScope) {
+        return;
+    }
+    var finish: Event = scope_finish(mut scope);
+    event_join(read finish);
 }
 fn scope_drop(scope: mut Scope) -> unit {
     if scope.state == null(*SchedulerScope) {
@@ -147,8 +156,7 @@ fn scope_drop(scope: mut Scope) -> unit {
     if event_status(read event) == 0u32 {
         scope_cancel(read scope);
     }
-    var finish: Event = scope_finish(mut scope);
-    event_join(read finish);
+    scope_drain(mut scope);
     service_lock(scope.state -> runtime -> gate);
     scope.state -> runtime -> scopes = scope.state -> runtime -> scopes - 1u32;
     service_unlock(scope.state -> runtime -> gate);

@@ -75,12 +75,9 @@ fn projection_spaces(v: *RenderState) -> u32 {
     w[SPACE_COUNT as usize] = count;
     return largest;
 }
-fn projection_prepare(v: *RenderState) -> bool {
-    return projection_admit(v, 0u32);
-}
-fn projection_admit(v: *RenderState, extra: u32) -> bool {
+fn projection_admit(v: *RenderState) -> bool {
     projection_members(v);
-    var size: u64 = projection_spaces(v) as u64 + extra as u64;
+    var size: u64 = projection_spaces(v) as u64;
     if size > 0xffffffffu64 {
         return error("projection reservation exceeds address range");
     }

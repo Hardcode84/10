@@ -4,7 +4,13 @@ fn build_viewer(
     recipe: *u8,
     checks: bool
 ) -> bool {
-    var sources: [*u8; 256] = uninit;
+    var sources: **u8 = build_source_storage(
+        root,
+        asset_sources(root, null(**u8)) + asset_collision_sources(root, null(**u8)) + 16usize + checks as usize * 2usize
+    );
+    if sources == null(**u8) {
+        return false;
+    }
     var capacity: usize = render_providers(root, null(**u8)) + asset_collision_providers(
         root,
         null(**u8)

@@ -1,4 +1,7 @@
 fn demo_sources(root: *CrustRun, args: **u8) -> usize {
+    if args == null(**u8) {
+        return 8usize;
+    }
     var files: [*u8; 8] = make [*u8; 8] {
         "src/demo/host/main.crs",
         "src/demo/host/config.crs",
@@ -44,7 +47,10 @@ fn build_demo(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    var sources: [*u8; 64] = uninit;
+    var sources: **u8 = build_source_storage(root, demo_sources(root, null(**u8)));
+    if sources == null(**u8) {
+        return false;
+    }
     var capacity: usize = render_providers(root, null(**u8)) + demo_providers(
         root,
         null(**u8)

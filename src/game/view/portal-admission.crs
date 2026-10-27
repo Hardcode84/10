@@ -26,15 +26,13 @@ fn draw_portal_admission(
         scene_overflow();
     }
     var body: CollisionBody = flight_body(read drone);
-    var i: u32 = 0u32;
-    while i < collision_portal_count(read scene) {
-        var portal: CollisionPortal = collision_portal(read scene, i);
-        if portal.space == drone.world && !collision_portal_admitted(
-            read body,
-            read anchors,
-            0u32,
-            portal
-        ) {
+    var cursor: u32 = collision_portal_begin(read scene, drone.world);
+    while collision_portal_at_space(read scene, cursor, drone.world) {
+        var portal: CollisionPortal = collision_portal(
+            read scene,
+            collision_portal_id(read scene, cursor)
+        );
+        if !collision_portal_admitted(read body, read anchors, 0u32, portal) {
             draw_portal_cap(
                 mut input,
                 portal,
@@ -42,6 +40,6 @@ fn draw_portal_admission(
                 0.025f32 * drone_size(read drone)
             );
         }
-        i = i + 1u32;
+        cursor = cursor + 1u32;
     }
 }

@@ -1,13 +1,5 @@
-fn batch_profile_open(v: *RenderState, deferred: u32) -> bool {
-    var capacity: u64 = (v -> mapped as *u32)[PROJECTION_CAPACITY as usize] as u64;
-    var count: u64 = 0u64;
-    if benchmark_environment("SPINWARD_OVERLAP") != null(*u8) {
-        count = 5u64 * ((deferred as u64 + capacity - 1u64) / capacity);
-        if deferred == 0u32 {
-            count = 5u64;
-        }
-    }
-    count = count + 5u64 * v -> work_rounds as u64;
+fn batch_profile_open(v: *RenderState) -> bool {
+    var count: u64 = 5u64 * v -> work_rounds as u64;
     if count > 0xffffffffu64 {
         return error("batch profile query count exceeds Vulkan range");
     }

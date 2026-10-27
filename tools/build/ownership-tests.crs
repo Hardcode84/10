@@ -1,9 +1,5 @@
 fn check_host_ownership(root: *CrustRun) -> bool {
-    var files: [*u8; 17] = make [*u8; 17] {
-        "deferred-bounds.crs",
-        "setup-reuse.crs",
-        "setup-edit.crs",
-        "setup-valid.crs",
+    var files: [*u8; 13] = make [*u8; 13] {
         "valid.crs",
         "copy.crs",
         "use-after-drop.crs",
@@ -18,11 +14,7 @@ fn check_host_ownership(root: *CrustRun) -> bool {
         "pending-valid.crs",
         "presentation-reuse.crs"
     };
-    var errors: [*u8; 17] = make [*u8; 17] {
-        "opaque fields are private to the trusted implementation",
-        "access conflicts with an active payload loan",
-        "access conflicts with an active payload loan",
-        null(*u8),
+    var errors: [*u8; 13] = make [*u8; 13] {
         null(*u8),
         "copy of a resource requires an explicit move",
         "value is uninitialized or has been moved",
@@ -50,7 +42,7 @@ fn check_host_ownership(root: *CrustRun) -> bool {
     var count: usize = render_providers(root, &providers[0usize]);
     var good: bool = true;
     var i: usize = 0usize;
-    while i < 17usize {
+    while i < 13usize {
         var args: [*u8; 4] = make [*u8; 4] {
             "--check",
             "--library",
@@ -107,7 +99,10 @@ fn check_collision_ownership(root: *CrustRun) -> bool {
     }
     var count: usize = render_providers(root, &providers[0usize]);
     count = count + game_providers(root, &providers[count]);
-    var args: [*u8; 256] = uninit;
+    var args: **u8 = build_source_storage(root, game_sources(root, null(**u8)) + 4usize);
+    if args == null(**u8) {
+        return false;
+    }
     args[0usize] = "--check";
     args[1usize] = "--library";
     args[2usize] = host_path(root, "src/render/interface.crs");

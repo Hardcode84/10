@@ -27,8 +27,8 @@ fn game_world_ambient() -> Vec3 {
     return demo_room_ambient();
 }
 
-fn game_world_palette(input: mut FrameInput) -> bool {
-    return demo_palette(mut input);
+fn game_world_palette(input: mut FrameInput, selection: read GenerationWords) -> bool {
+    return demo_palette(mut input, read selection);
 }
 
 fn game_world_lighting(
@@ -37,4 +37,8 @@ fn game_world_lighting(
     anchors: mut RoomAnchors
 ) -> unit {
     demo_room_lighting(read scene, mut input, mut anchors);
+}
+
+fn game_world_material_selection(selection: mut GenerationWords, graph: read RoomGraph) -> bool {
+    return course_material_select(mut selection, read graph);
 }

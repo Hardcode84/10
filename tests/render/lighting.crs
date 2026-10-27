@@ -679,9 +679,10 @@ fn lighting_noncasters_growth(renderer: mut Renderer) -> bool {
             i = i + 1u32;
         }
     }
-    // Reserve projection work independently before checking the shadow admission.
-    var submitted: u32 = (renderer.state.mapped as *u32)[3usize];
-    if !projection_admit(&renderer.state, submitted) {
+    // Admit the dynamic-only scene before checking shadow admission.
+    var words: *u32 = renderer.state.mapped as *u32;
+    words[DYNAMIC_COUNT as usize] = words[3usize];
+    if !projection_admit(&renderer.state) {
         return false;
     }
     var allocation: *u8 = renderer.state.mapped;

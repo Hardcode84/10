@@ -166,6 +166,7 @@ fn test_armed_winch(collision: read CollisionScene) -> bool {
 }
 
 fn test_reel_contact_case(frame: SpaceTransform) -> bool {
+    var attachment: CollisionAttachment = collision_attachment_new();
     var scene: CollisionScene = collision_new();
     var mesh: Mesh = mesh_new();
     var builder: CollisionBuilder = collision_builder_new();
@@ -192,7 +193,7 @@ fn test_reel_contact_case(frame: SpaceTransform) -> bool {
         return false;
     }
     var query: CollisionSweep = collision_sweep_result(contact);
-    hook_attach(read scene, mut drone, read query, 0f32, 0f32);
+    hook_attach(read scene, mut drone, read query, read attachment, 0f32, 0f32);
     // A cable through a wall can request an unreachable position. Collision
     // must finish without feeding the rejected pull back into the slide.
     drone.position = space_point(frame, vec(0f32, 0f32, 0.3501f32));

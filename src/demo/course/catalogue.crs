@@ -71,46 +71,46 @@ fn course_parameter_count(kind: u32) -> u32 {
     if kind == PREFAB_SHAFT_FAN {
         return prefab_shaft_fan_parameter_count();
     }
-    if kind < 9u32 {
+    if kind < PREFAB_HEX_STOPPER_OPEN {
         return course_hex_parameter_count(kind);
     }
     return course_service_parameter_count(kind);
 }
 fn course_hex_parameter_count(kind: u32) -> u32 {
-    if kind == 0u32 {
+    if kind == PREFAB_RADIAL_START {
         return room_parameter_count();
     }
-    if kind == 1u32 {
+    if kind == PREFAB_HEX_TUNNEL {
         return prefab_hex_tunnel_parameter_count();
     }
-    if kind == 2u32 {
+    if kind == PREFAB_HEX_TUNNEL_10M {
         return prefab_hex_tunnel_10m_parameter_count();
     }
-    if kind == 3u32 {
+    if kind == PREFAB_HEX_ELBOW {
         return prefab_hex_elbow_parameter_count();
     }
-    if kind == 4u32 {
+    if kind == PREFAB_HEX_T_JUNCTION {
         return prefab_hex_t_junction_parameter_count();
     }
-    if kind == 5u32 {
+    if kind == PREFAB_HEX_X_JUNCTION {
         return prefab_hex_x_junction_parameter_count();
     }
-    if kind == 6u32 {
+    if kind == PREFAB_HEX_DEAD_END {
         return prefab_hex_dead_end_parameter_count();
     }
-    if kind == 7u32 {
+    if kind == PREFAB_HEX_ENDING {
         return prefab_hex_ending_parameter_count();
     }
-    if kind == 8u32 {
+    if kind == PREFAB_HEX_STOPPER {
         return prefab_hex_stopper_parameter_count();
     }
     trap;
 }
 fn course_service_parameter_count(kind: u32) -> u32 {
-    if kind == 9u32 {
+    if kind == PREFAB_HEX_STOPPER_OPEN {
         return prefab_hex_stopper_open_parameter_count();
     }
-    if kind == 10u32 {
+    if kind == PREFAB_SHAFT_ROTOR {
         return prefab_shaft_rotor_parameter_count();
     }
     if kind == PREFAB_SHAFT_PIPES {
@@ -125,25 +125,25 @@ fn course_service_parameter_count(kind: u32) -> u32 {
     if kind == PREFAB_SHAFT_HEX_ADAPTER {
         return prefab_shaft_hex_adapter_parameter_count();
     }
-    if kind == 11u32 {
+    if kind == PREFAB_SHAFT_HUB {
         return prefab_shaft_hub_parameter_count();
     }
-    if kind == 12u32 {
+    if kind == PREFAB_OCT_TUNNEL_10M {
         return prefab_oct_tunnel_10m_parameter_count();
     }
-    if kind == 13u32 {
+    if kind == PREFAB_OCT_ELBOW {
         return prefab_oct_elbow_parameter_count();
     }
-    if kind == 14u32 {
+    if kind == PREFAB_OCT_T_JUNCTION {
         return prefab_oct_t_junction_parameter_count();
     }
-    if kind == 15u32 {
+    if kind == PREFAB_OCT_X_JUNCTION {
         return prefab_oct_x_junction_parameter_count();
     }
-    if kind == 16u32 {
+    if kind == PREFAB_OCT_STOPPER {
         return prefab_oct_stopper_parameter_count();
     }
-    if kind == 17u32 {
+    if kind == PREFAB_OCT_STOPPER_OPEN {
         return prefab_oct_stopper_open_parameter_count();
     }
     trap;
@@ -185,46 +185,46 @@ fn course_parameter(kind: u32, index: u32) -> AssetParameter {
     if kind == PREFAB_SHAFT_FAN {
         return prefab_shaft_fan_parameter(index);
     }
-    if kind < 9u32 {
+    if kind < PREFAB_HEX_STOPPER_OPEN {
         return course_hex_parameter(kind, index);
     }
     return course_service_parameter(kind, index);
 }
 fn course_hex_parameter(kind: u32, index: u32) -> AssetParameter {
-    if kind == 0u32 {
+    if kind == PREFAB_RADIAL_START {
         return room_parameter(index);
     }
-    if kind == 1u32 {
+    if kind == PREFAB_HEX_TUNNEL {
         return prefab_hex_tunnel_parameter(index);
     }
-    if kind == 2u32 {
+    if kind == PREFAB_HEX_TUNNEL_10M {
         return prefab_hex_tunnel_10m_parameter(index);
     }
-    if kind == 3u32 {
+    if kind == PREFAB_HEX_ELBOW {
         return prefab_hex_elbow_parameter(index);
     }
-    if kind == 4u32 {
+    if kind == PREFAB_HEX_T_JUNCTION {
         return prefab_hex_t_junction_parameter(index);
     }
-    if kind == 5u32 {
+    if kind == PREFAB_HEX_X_JUNCTION {
         return prefab_hex_x_junction_parameter(index);
     }
-    if kind == 6u32 {
+    if kind == PREFAB_HEX_DEAD_END {
         return prefab_hex_dead_end_parameter(index);
     }
-    if kind == 7u32 {
+    if kind == PREFAB_HEX_ENDING {
         return prefab_hex_ending_parameter(index);
     }
-    if kind == 8u32 {
+    if kind == PREFAB_HEX_STOPPER {
         return prefab_hex_stopper_parameter(index);
     }
     trap;
 }
 fn course_service_parameter(kind: u32, index: u32) -> AssetParameter {
-    if kind == 9u32 {
+    if kind == PREFAB_HEX_STOPPER_OPEN {
         return prefab_hex_stopper_open_parameter(index);
     }
-    if kind == 10u32 {
+    if kind == PREFAB_SHAFT_ROTOR {
         return prefab_shaft_rotor_parameter(index);
     }
     if kind == PREFAB_SHAFT_PIPES {
@@ -239,25 +239,25 @@ fn course_service_parameter(kind: u32, index: u32) -> AssetParameter {
     if kind == PREFAB_SHAFT_HEX_ADAPTER {
         return prefab_shaft_hex_adapter_parameter(index);
     }
-    if kind == 11u32 {
+    if kind == PREFAB_SHAFT_HUB {
         return prefab_shaft_hub_parameter(index);
     }
-    if kind == 12u32 {
+    if kind == PREFAB_OCT_TUNNEL_10M {
         return prefab_oct_tunnel_10m_parameter(index);
     }
-    if kind == 13u32 {
+    if kind == PREFAB_OCT_ELBOW {
         return prefab_oct_elbow_parameter(index);
     }
-    if kind == 14u32 {
+    if kind == PREFAB_OCT_T_JUNCTION {
         return prefab_oct_t_junction_parameter(index);
     }
-    if kind == 15u32 {
+    if kind == PREFAB_OCT_X_JUNCTION {
         return prefab_oct_x_junction_parameter(index);
     }
-    if kind == 16u32 {
+    if kind == PREFAB_OCT_STOPPER {
         return prefab_oct_stopper_parameter(index);
     }
-    if kind == 17u32 {
+    if kind == PREFAB_OCT_STOPPER_OPEN {
         return prefab_oct_stopper_open_parameter(index);
     }
     trap;
@@ -299,46 +299,46 @@ fn course_build(kind: u32, parameters: read AssetValues, asset: mut RoomAsset) -
     if kind == PREFAB_SHAFT_FAN {
         return asset_generate(prefab_shaft_fan_build, read parameters, mut asset);
     }
-    if kind < 9u32 {
+    if kind < PREFAB_HEX_STOPPER_OPEN {
         return course_hex_build(kind, read parameters, mut asset);
     }
     return course_service_build(kind, read parameters, mut asset);
 }
 fn course_hex_build(kind: u32, parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    if kind == 0u32 {
+    if kind == PREFAB_RADIAL_START {
         return asset_generate(room_build, read parameters, mut asset);
     }
-    if kind == 1u32 {
+    if kind == PREFAB_HEX_TUNNEL {
         return asset_generate(prefab_hex_tunnel_build, read parameters, mut asset);
     }
-    if kind == 2u32 {
+    if kind == PREFAB_HEX_TUNNEL_10M {
         return asset_generate(prefab_hex_tunnel_10m_build, read parameters, mut asset);
     }
-    if kind == 3u32 {
+    if kind == PREFAB_HEX_ELBOW {
         return asset_generate(prefab_hex_elbow_build, read parameters, mut asset);
     }
-    if kind == 4u32 {
+    if kind == PREFAB_HEX_T_JUNCTION {
         return asset_generate(prefab_hex_t_junction_build, read parameters, mut asset);
     }
-    if kind == 5u32 {
+    if kind == PREFAB_HEX_X_JUNCTION {
         return asset_generate(prefab_hex_x_junction_build, read parameters, mut asset);
     }
-    if kind == 6u32 {
+    if kind == PREFAB_HEX_DEAD_END {
         return asset_generate(prefab_hex_dead_end_build, read parameters, mut asset);
     }
-    if kind == 7u32 {
+    if kind == PREFAB_HEX_ENDING {
         return asset_generate(prefab_hex_ending_build, read parameters, mut asset);
     }
-    if kind == 8u32 {
+    if kind == PREFAB_HEX_STOPPER {
         return asset_generate(prefab_hex_stopper_build, read parameters, mut asset);
     }
     trap;
 }
 fn course_service_build(kind: u32, parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    if kind == 9u32 {
+    if kind == PREFAB_HEX_STOPPER_OPEN {
         return asset_generate(prefab_hex_stopper_open_build, read parameters, mut asset);
     }
-    if kind == 10u32 {
+    if kind == PREFAB_SHAFT_ROTOR {
         return asset_generate(prefab_shaft_rotor_build, read parameters, mut asset);
     }
     if kind == PREFAB_SHAFT_PIPES {
@@ -353,41 +353,41 @@ fn course_service_build(kind: u32, parameters: read AssetValues, asset: mut Room
     if kind == PREFAB_SHAFT_HEX_ADAPTER {
         return asset_generate(prefab_shaft_hex_adapter_build, read parameters, mut asset);
     }
-    if kind == 11u32 {
+    if kind == PREFAB_SHAFT_HUB {
         return asset_generate(prefab_shaft_hub_build, read parameters, mut asset);
     }
-    if kind == 12u32 {
+    if kind == PREFAB_OCT_TUNNEL_10M {
         return asset_generate(prefab_oct_tunnel_10m_build, read parameters, mut asset);
     }
-    if kind == 13u32 {
+    if kind == PREFAB_OCT_ELBOW {
         return asset_generate(prefab_oct_elbow_build, read parameters, mut asset);
     }
-    if kind == 14u32 {
+    if kind == PREFAB_OCT_T_JUNCTION {
         return asset_generate(prefab_oct_t_junction_build, read parameters, mut asset);
     }
-    if kind == 15u32 {
+    if kind == PREFAB_OCT_X_JUNCTION {
         return asset_generate(prefab_oct_x_junction_build, read parameters, mut asset);
     }
-    if kind == 16u32 {
+    if kind == PREFAB_OCT_STOPPER {
         return asset_generate(prefab_oct_stopper_build, read parameters, mut asset);
     }
-    if kind == 17u32 {
+    if kind == PREFAB_OCT_STOPPER_OPEN {
         return asset_generate(prefab_oct_stopper_open_build, read parameters, mut asset);
     }
     trap;
 }
 fn course_material_count(kind: u32) -> u32 {
     if kind == PREFAB_CONDUIT_BREACH {
-        return CONDUIT_MATERIAL_COUNT + 1u32;
+        return prefab_conduit_breach_material_count();
     }
     if kind == PREFAB_CONDUIT_GALLERY {
-        return CONDUIT_MATERIAL_COUNT;
+        return prefab_conduit_gallery_material_count();
     }
     if kind == PREFAB_CONDUIT_TUBE {
-        return CONDUIT_MATERIAL_COUNT;
+        return prefab_conduit_tube_material_count();
     }
     if kind == PREFAB_CONDUIT_SHAFT {
-        return CONDUIT_MATERIAL_COUNT + 4u32;
+        return prefab_conduit_shaft_material_count();
     }
     if kind == PREFAB_SHAFT_CLEAR {
         return prefab_shaft_clear_material_count();
@@ -413,46 +413,46 @@ fn course_material_count(kind: u32) -> u32 {
     if kind == PREFAB_SHAFT_FAN {
         return prefab_shaft_fan_material_count();
     }
-    if kind < 9u32 {
+    if kind < PREFAB_HEX_STOPPER_OPEN {
         return course_hex_material_count(kind);
     }
     return course_service_material_count(kind);
 }
 fn course_hex_material_count(kind: u32) -> u32 {
-    if kind == 0u32 {
+    if kind == PREFAB_RADIAL_START {
         return room_material_count();
     }
-    if kind == 1u32 {
+    if kind == PREFAB_HEX_TUNNEL {
         return prefab_hex_tunnel_material_count();
     }
-    if kind == 2u32 {
+    if kind == PREFAB_HEX_TUNNEL_10M {
         return prefab_hex_tunnel_10m_material_count();
     }
-    if kind == 3u32 {
+    if kind == PREFAB_HEX_ELBOW {
         return prefab_hex_elbow_material_count();
     }
-    if kind == 4u32 {
+    if kind == PREFAB_HEX_T_JUNCTION {
         return prefab_hex_t_junction_material_count();
     }
-    if kind == 5u32 {
+    if kind == PREFAB_HEX_X_JUNCTION {
         return prefab_hex_x_junction_material_count();
     }
-    if kind == 6u32 {
+    if kind == PREFAB_HEX_DEAD_END {
         return prefab_hex_dead_end_material_count();
     }
-    if kind == 7u32 {
+    if kind == PREFAB_HEX_ENDING {
         return prefab_hex_ending_material_count();
     }
-    if kind == 8u32 {
+    if kind == PREFAB_HEX_STOPPER {
         return prefab_hex_stopper_material_count();
     }
     trap;
 }
 fn course_service_material_count(kind: u32) -> u32 {
-    if kind == 9u32 {
+    if kind == PREFAB_HEX_STOPPER_OPEN {
         return prefab_hex_stopper_open_material_count();
     }
-    if kind == 10u32 {
+    if kind == PREFAB_SHAFT_ROTOR {
         return prefab_shaft_rotor_material_count();
     }
     if kind == PREFAB_SHAFT_PIPES {
@@ -467,25 +467,25 @@ fn course_service_material_count(kind: u32) -> u32 {
     if kind == PREFAB_SHAFT_HEX_ADAPTER {
         return prefab_shaft_hex_adapter_material_count();
     }
-    if kind == 11u32 {
+    if kind == PREFAB_SHAFT_HUB {
         return prefab_shaft_hub_material_count();
     }
-    if kind == 12u32 {
+    if kind == PREFAB_OCT_TUNNEL_10M {
         return prefab_oct_tunnel_10m_material_count();
     }
-    if kind == 13u32 {
+    if kind == PREFAB_OCT_ELBOW {
         return prefab_oct_elbow_material_count();
     }
-    if kind == 14u32 {
+    if kind == PREFAB_OCT_T_JUNCTION {
         return prefab_oct_t_junction_material_count();
     }
-    if kind == 15u32 {
+    if kind == PREFAB_OCT_X_JUNCTION {
         return prefab_oct_x_junction_material_count();
     }
-    if kind == 16u32 {
+    if kind == PREFAB_OCT_STOPPER {
         return prefab_oct_stopper_material_count();
     }
-    if kind == 17u32 {
+    if kind == PREFAB_OCT_STOPPER_OPEN {
         return prefab_oct_stopper_open_material_count();
     }
     trap;
@@ -527,46 +527,46 @@ fn course_material(kind: u32, region: u32, parameters: read AssetValues) -> Pane
     if kind == PREFAB_SHAFT_FAN {
         return prefab_shaft_fan_material(region, read parameters);
     }
-    if kind < 9u32 {
+    if kind < PREFAB_HEX_STOPPER_OPEN {
         return course_hex_material(kind, region, read parameters);
     }
     return course_service_material(kind, region, read parameters);
 }
 fn course_hex_material(kind: u32, region: u32, parameters: read AssetValues) -> PanelMaterial {
-    if kind == 0u32 {
+    if kind == PREFAB_RADIAL_START {
         return room_material(region, read parameters);
     }
-    if kind == 1u32 {
+    if kind == PREFAB_HEX_TUNNEL {
         return prefab_hex_tunnel_material(region, read parameters);
     }
-    if kind == 2u32 {
+    if kind == PREFAB_HEX_TUNNEL_10M {
         return prefab_hex_tunnel_10m_material(region, read parameters);
     }
-    if kind == 3u32 {
+    if kind == PREFAB_HEX_ELBOW {
         return prefab_hex_elbow_material(region, read parameters);
     }
-    if kind == 4u32 {
+    if kind == PREFAB_HEX_T_JUNCTION {
         return prefab_hex_t_junction_material(region, read parameters);
     }
-    if kind == 5u32 {
+    if kind == PREFAB_HEX_X_JUNCTION {
         return prefab_hex_x_junction_material(region, read parameters);
     }
-    if kind == 6u32 {
+    if kind == PREFAB_HEX_DEAD_END {
         return prefab_hex_dead_end_material(region, read parameters);
     }
-    if kind == 7u32 {
+    if kind == PREFAB_HEX_ENDING {
         return prefab_hex_ending_material(region, read parameters);
     }
-    if kind == 8u32 {
+    if kind == PREFAB_HEX_STOPPER {
         return prefab_hex_stopper_material(region, read parameters);
     }
     trap;
 }
 fn course_service_material(kind: u32, region: u32, parameters: read AssetValues) -> PanelMaterial {
-    if kind == 9u32 {
+    if kind == PREFAB_HEX_STOPPER_OPEN {
         return prefab_hex_stopper_open_material(region, read parameters);
     }
-    if kind == 10u32 {
+    if kind == PREFAB_SHAFT_ROTOR {
         return prefab_shaft_rotor_material(region, read parameters);
     }
     if kind == PREFAB_SHAFT_PIPES {
@@ -581,25 +581,25 @@ fn course_service_material(kind: u32, region: u32, parameters: read AssetValues)
     if kind == PREFAB_SHAFT_HEX_ADAPTER {
         return prefab_shaft_hex_adapter_material(region, read parameters);
     }
-    if kind == 11u32 {
+    if kind == PREFAB_SHAFT_HUB {
         return prefab_shaft_hub_material(region, read parameters);
     }
-    if kind == 12u32 {
+    if kind == PREFAB_OCT_TUNNEL_10M {
         return prefab_oct_tunnel_10m_material(region, read parameters);
     }
-    if kind == 13u32 {
+    if kind == PREFAB_OCT_ELBOW {
         return prefab_oct_elbow_material(region, read parameters);
     }
-    if kind == 14u32 {
+    if kind == PREFAB_OCT_T_JUNCTION {
         return prefab_oct_t_junction_material(region, read parameters);
     }
-    if kind == 15u32 {
+    if kind == PREFAB_OCT_X_JUNCTION {
         return prefab_oct_x_junction_material(region, read parameters);
     }
-    if kind == 16u32 {
+    if kind == PREFAB_OCT_STOPPER {
         return prefab_oct_stopper_material(region, read parameters);
     }
-    if kind == 17u32 {
+    if kind == PREFAB_OCT_STOPPER_OPEN {
         return prefab_oct_stopper_open_material(region, read parameters);
     }
     trap;

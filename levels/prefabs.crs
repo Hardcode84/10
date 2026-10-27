@@ -328,8 +328,8 @@ fn course_oct_route(
 fn demo_room_ambient() -> Vec3 {
     return vec(0.08f32, 0.09f32, 0.11f32);
 }
-fn demo_palette(input: mut FrameInput) -> bool {
-    return course_palette(mut input);
+fn demo_palette(input: mut FrameInput, selection: read GenerationWords) -> bool {
+    return course_palette(mut input, read selection);
 }
 
 fn demo_room_lighting(

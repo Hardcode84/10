@@ -6,8 +6,15 @@ fn retained_dispatch(v: *RenderState, pipeline: usize, groups: u32) -> unit {
     command_bind(v, pipeline);
     command_direct(v, count);
 }
-fn retained_transfer(v: *RenderState, slot: u32, count: u32, floats: bool, upload: bool) -> unit {
-    var offset: u64 = (v -> mapped as *u32)[slot as usize] as u64 + 1u64;
+fn retained_span(
+    v: *RenderState,
+    slot: u32,
+    first: u32,
+    count: u32,
+    floats: bool,
+    upload: bool
+) -> unit {
+    var offset: u64 = (v -> mapped as *u32)[slot as usize] as u64 + first as u64 + 1u64;
     if floats {
         offset = offset + v -> words as u64 + 1u64;
     }
@@ -70,9 +77,8 @@ fn retained_upload_span(
     count: u32,
     floats: bool
 ) -> unit {
-    var offset: u64 = (v -> mapped as *u32)[slot as usize] as u64 + first as u64 + 1u64;
-    if floats {
-        offset = offset + v -> words as u64 + 1u64;
-    }
-    copy_region(v, v -> staging, v -> buffer, offset * 4u64, count as u64 * 4u64);
+    retained_span(v, slot, first, count, floats, true);
+}
+fn retained_transfer(v: *RenderState, slot: u32, count: u32, floats: bool, upload: bool) -> unit {
+    retained_span(v, slot, 0u32, count, floats, upload);
 }

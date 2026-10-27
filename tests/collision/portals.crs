@@ -304,14 +304,16 @@ fn test_portal_anchor_cycles() -> bool {
     var scene: CollisionScene = collision_new();
     var anchors: RoomAnchors = room_anchors_new();
     var still: Vec3 = vec(0f32, 0f32, 0f32);
-    if !test_portal_loop_scene(mut scene) || !collision_anchors(
+    var size: Rational = rational_new(1u64, 1u64);
+    var body: CollisionBody = collision_body(3f32, read size);
+    if !test_portal_loop_scene(mut scene) || !collision_scaled_anchors(
         read scene,
         mut anchors,
-        primary_anchor(42u32, 0u32),
+        0u32,
         still,
         still,
-        3f32,
-        8u32
+        read body,
+        false
     ) {
         return false;
     }
@@ -322,7 +324,7 @@ fn test_portal_anchor_cycles() -> bool {
     var i: u32 = 0u32;
     while i < room_anchor_count(read anchors) {
         var anchor: RoomAnchor = room_anchor(read anchors, i);
-        if anchor.object != 42u32 || anchor.space != 0u32 {
+        if anchor.object != 0u32 || anchor.space != 0u32 {
             return error("anchor changed its object or room identity");
         }
         positions = positions | (

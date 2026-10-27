@@ -2,6 +2,7 @@ const SCHED_OK: u32 = 1u32;
 const SCHED_CANCELLED: u32 = 2u32;
 const SCHED_CLOSED: u32 = 3u32;
 const SCHED_CAPACITY: u32 = 4u32;
+const SCHED_EXTERNAL_FAILED: u32 = 16u32;
 record TaskError {
     code: u32;
 }
@@ -20,7 +21,7 @@ record SchedulerRuntime {
     width: u32;
     started: u32;
     callbacks: u32;
-    stopping: bool;
+    stopping: i32;
     closing: bool;
     outstanding: u64;
     scopes: u32;
@@ -90,7 +91,7 @@ record SchedulerNode {
     payload: *u8;
     pending: u32;
     outcome: u32;
-    state: u32;
+    parked: bool;
     next: *SchedulerNode;
     prev: *SchedulerNode;
     scope_next: *SchedulerNode;

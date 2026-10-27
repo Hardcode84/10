@@ -175,7 +175,7 @@ fn collision_sweep_rotating_tree(
             add(p, scale(d, next.contact.hit.time)),
             next.contact.point
         ) {
-            collision_sweep_assign(mut result, read next);
+            result = next;
         }
     }
     return move result;

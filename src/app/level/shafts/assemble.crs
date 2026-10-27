@@ -350,14 +350,15 @@ fn shaft_region_append(
     return true;
 }
 
-fn shaft_region_palette(input: mut FrameInput) -> bool {
+fn shaft_region_palette(input: mut FrameInput, selection: read GenerationWords) -> bool {
     var configuration: AssetValues = asset_values_new();
     if !course_material_defaults(mut configuration) {
         return false;
     }
     return shaft_region_materials(mut configuration) && course_palette_configured(
         mut input,
-        read configuration
+        read configuration,
+        read selection
     );
 }
 fn shaft_region_materials(configuration: mut AssetValues) -> bool {

@@ -1,3 +1,6 @@
+fn build_source_storage(root: *CrustRun, count: usize) -> **u8 {
+    return crust_try_alloc(root -> context, count * sizeof(*u8), alignof(*u8)) as **u8;
+}
 extern fn build_getenv(name: *u8) -> *u8 = "getenv";
 extern fn build_chdir(path: *u8) -> i32 = "chdir";
 extern fn build_execv(path: *u8, args: **u8) -> i32 = "execv";

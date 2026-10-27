@@ -27,25 +27,14 @@ fn queries_report(v: *RenderState) -> bool {
     puts(
         "last frame GPU intervals in microseconds: upload/init; geometry+lighting+portal traversal; compose; readback"
     );
-    var gap: u64 = (
-        values[(v -> query_count - 3u32) as usize] - values[(v -> query_count - 4u32) as usize]
-    ) & v -> timestamp_mask;
     var previous: u64 = values[0usize];
     var i: usize = 1usize;
     while i < v -> query_count as usize {
-        if i == (v -> query_count - 4u32) as usize {
-            i = i + 2usize;
-        }
         var ticks: u64 = (values[i] - previous) & v -> timestamp_mask;
-        if i == 2usize {
-            ticks = ticks - gap;
-        }
         print_number((ticks as f32 * v -> timestamp_period / 1000f32) as i64);
         previous = values[i];
         i = i + 1usize;
     }
-    puts("GPU submission gap in microseconds:");
-    print_number((gap as f32 * v -> timestamp_period / 1000f32) as i64);
     free(values as *u8);
     return true;
 }

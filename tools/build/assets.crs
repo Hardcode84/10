@@ -1,4 +1,7 @@
 fn asset_sources(root: *CrustRun, args: **u8) -> usize {
+    if args == null(**u8) {
+        return 127usize;
+    }
     var files: [*u8; 127] = make [*u8; 127] {
         "src/assets/prefabs/oct-stopper.crs",
         "src/assets/prefabs/hex-t-junction.crs",
@@ -152,6 +155,9 @@ fn asset_providers(root: *CrustRun, args: **u8) -> usize {
     return 10usize;
 }
 fn asset_collision_sources(root: *CrustRun, args: **u8) -> usize {
+    if args == null(**u8) {
+        return 22usize;
+    }
     var files: [*u8; 22] = make [*u8; 22] {
         "src/collision/primitives.crs",
         "src/collision/body.crs",

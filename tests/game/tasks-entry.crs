@@ -27,7 +27,6 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
     if !game_run_setup(mut session, mut collision, mut loop, config) {
         return 1i32;
     }
-    task_check_stale_reservation(mut session.renderer);
     check_frame_order();
     var prediction: Prediction = prediction_new();
     var context: PredictionContext = game_prediction_context(read session, read collision);
@@ -71,7 +70,7 @@ fn task_frame_check(session: GameSession, config: GameConfig) -> i32 {
         timings[frame as usize].finish = now();
         samples[frame as usize] = now() - start;
         task_check_prediction(read collision, read loop.trial, read prediction);
-        if !task_check_split_pixels(
+        if !task_check_frame_pixels(
             read collision,
             mut session,
             read loop,
@@ -114,7 +113,7 @@ fn task_print_samples(samples: read[u64; 80]) -> unit {
     }
 }
 
-fn task_check_split_pixels(
+fn task_check_frame_pixels(
     collision: read CollisionScene,
     session: mut GameSession,
     loop: read GameLoop,
@@ -147,21 +146,6 @@ fn task_check_split_pixels(
     }
     free(expected);
     return good;
-}
-
-fn task_stale_reservation(renderer: mut Renderer) -> DeferredGeometry {
-    var input: FrameInput = renderer_inputs(mut renderer);
-    input_frame(mut input);
-    var range: DeferredGeometry = input_defer(mut input, 1u32);
-    input_frame(mut input);
-    return range;
-}
-fn task_check_stale_reservation(renderer: mut Renderer) -> unit {
-    var range: DeferredGeometry = task_stale_reservation(mut renderer);
-    var setup: FrameSetup = frame_setup(mut renderer, range);
-    if frame_setup_accepted(read setup) {
-        trap;
-    }
 }
 
 fn task_check_prediction(

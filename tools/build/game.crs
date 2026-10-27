@@ -1,8 +1,14 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
+    var count: usize = asset_sources(root, null(**u8)) + asset_collision_sources(
+        root,
+        null(**u8)
+    );
     if args == null(**u8) {
-        return 228usize;
+        return count + 79usize;
     }
-    var files: [*u8; 228] = make [*u8; 228] {
+    count = asset_sources(root, args);
+    count = count + asset_collision_sources(root, &args[count]);
+    var files: [*u8; 79] = make [*u8; 79] {
         "src/app/generation/random.crs",
         "src/app/level/parts.crs",
         "src/app/level/recipe.crs",
@@ -16,120 +22,12 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/audio/scene/search.crs",
         "assets/sounds/hook.crs",
         "src/game/audio/cues.crs",
-        "src/assets/prefabs/oct-stopper.crs",
-        "src/assets/prefabs/hex-t-junction.crs",
-        "src/assets/prefabs/hex-junction-common.crs",
-        "src/assets/prefabs/shaft-hub.crs",
-        "src/assets/prefabs/hex-tunnel-10m.crs",
-        "src/assets/prefabs/hex-x-junction.crs",
-        "src/assets/prefabs/hex-elbow.crs",
-        "src/assets/prefabs/hex-dead-end.crs",
-        "src/assets/prefabs/hex-ending.crs",
-        "src/assets/prefabs/oct-x-junction.crs",
-        "src/assets/prefabs/shaft-rotor.crs",
-        "src/assets/prefabs/shaft-fan.crs",
-        "src/assets/prefabs/shaft-clear.crs",
-        "src/assets/prefabs/conduit-tube.crs",
-        "src/assets/prefabs/conduit-shaft.crs",
-        "src/assets/prefabs/conduit-breach.crs",
-        "src/assets/prefabs/conduit-gallery.crs",
-        "src/assets/geometry/conduit-breach.crs",
-        "src/assets/geometry/conduit-gallery.crs",
-        "src/assets/geometry/conduit-shaft.crs",
-        "src/assets/geometry/conduit-tiles.crs",
-        "src/assets/geometry/conduit-debris.crs",
-        "src/assets/geometry/conduit-catwalk.crs",
-        "src/assets/geometry/conduit-catwalk-access.crs",
-        "src/assets/geometry/conduit-hazards.crs",
-        "src/assets/geometry/conduit-beam-debris.crs",
-        "src/assets/geometry/conduit-rebar.crs",
-        "src/assets/materials/fractured-concrete.crs",
-        "src/assets/geometry/conduit-supports.crs",
-        "src/assets/geometry/broken-box.crs",
-        "src/assets/geometry/conduit-broken-support.crs",
-        "src/assets/geometry/helix.crs",
-        "src/assets/materials/concrete.crs",
-        "src/assets/materials/structural-steel.crs",
-        "src/assets/prefabs/shaft-cap-outlet.crs",
-        "src/assets/geometry/shaft-cap-outlet.crs",
-        "src/assets/geometry/outlet-pipes.crs",
-        "src/assets/prefabs/shaft-cap-filter.crs",
-        "src/assets/geometry/shaft-cap-filter.crs",
-        "src/assets/geometry/filter-duct.crs",
-        "src/assets/materials/filter.crs",
-        "src/assets/prefabs/shaft-cap-collector.crs",
-        "src/assets/geometry/shaft-cap-collector.crs",
-        "src/assets/prefabs/shaft-cap-bearing.crs",
-        "src/assets/geometry/shaft-cap-bearing.crs",
-        "src/assets/prefabs/shaft-grate.crs",
-        "src/assets/geometry/shaft-grate.crs",
-        "src/assets/geometry/annular-band.crs",
-        "src/assets/materials/grate.crs",
-        "src/assets/geometry/axial-fan.crs",
-        "src/assets/prefabs/shaft-common.crs",
-        "src/assets/prefabs/shaft-pipes.crs",
-        "src/assets/prefabs/shaft-girders.crs",
-        "src/assets/geometry/shaft-girders.crs",
-        "src/assets/materials/girder.crs",
-        "src/assets/geometry/shaft-spokes.crs",
-        "src/assets/prefabs/shaft-hex-adapter.crs",
-        "src/assets/prefabs/shaft-station.crs",
-        "src/assets/prefabs/shaft-collar.crs",
-        "src/assets/geometry/convex-expand.crs",
-        "src/assets/geometry/convex-panel.crs",
-        "src/assets/prefabs/hex-stopper-open.crs",
-        "src/assets/prefabs/oct-t-junction.crs",
-        "src/assets/prefabs/oct-tunnel-10m.crs",
-        "src/assets/prefabs/hex-tunnel.crs",
-        "src/assets/prefabs/oct-elbow.crs",
-        "src/assets/prefabs/oct-stopper-open.crs",
-        "src/assets/prefabs/hex-stopper.crs",
-        "src/assets/geometry/loft.crs",
-        "src/assets/geometry/truncated-cube.crs",
-        "src/assets/geometry/rhombicuboctahedron.crs",
-        "src/assets/geometry/truncate.crs",
-        "src/assets/geometry/solid-loft.crs",
-        "src/assets/geometry/tube-bend.crs",
-        "src/assets/geometry/tube-sweep.crs",
-        "src/assets/geometry/lightning.crs",
-        "src/assets/effects/flash.crs",
-        "src/assets/effects/arc.crs",
         "src/assets/effects/arc-draw.crs",
-        "src/assets/geometry/conduit-lightning.crs",
         "src/game/view/arcs.crs",
         "src/assets/effects/draw.crs",
         "src/assets/materials/flash-upload.crs",
-        "src/assets/geometry/shaft-hub-pipes.crs",
-        "src/assets/geometry/shaft-hub-structure.crs",
-        "src/assets/geometry/shaft-service-pipes.crs",
-        "src/assets/geometry/cylinder-pipe-mounts.crs",
-        "src/assets/geometry/cylinder-surface.crs",
-        "src/assets/geometry/shaft-hub-routing.crs",
-        "src/assets/geometry/shaft-station-pipes.crs",
-        "src/assets/geometry/shaft-hub-lanes.crs",
-        "src/assets/geometry/pipe-router.crs",
-        "src/assets/geometry/pipe-route-clearance.crs",
-        "src/assets/geometry/pipe-route-match.crs",
-        "src/assets/geometry/pipe-graph.crs",
-        "src/assets/geometry/pipe-graph-mesh.crs",
-        "src/assets/geometry/oct-service.crs",
-        "src/assets/geometry/oct-stopper.crs",
-        "src/assets/geometry/stopper.crs",
-        "src/assets/geometry/oct-elbow.crs",
-        "src/assets/geometry/oct-junction.crs",
-        "src/assets/geometry/oct-junction-pipes.crs",
         "assets/objects/player-drone.crs",
         "src/game/view/drone.crs",
-        "src/assets/geometry/hex-tunnel.crs",
-        "src/assets/geometry/hex-tunnel-pipes.crs",
-        "src/assets/geometry/hex-elbow-pipes.crs",
-        "src/assets/geometry/hex-emergency.crs",
-        "src/assets/geometry/emergency-light.crs",
-        "src/assets/geometry/hex-door.crs",
-        "src/assets/geometry/oct-door.crs",
-        "src/assets/geometry/door.crs",
-        "src/assets/lights.crs",
-        "src/assets/geometry/hex-ending.crs",
         "src/demo/labyrinth/graph/generate.crs",
         "src/demo/labyrinth/graph/routes.crs",
         "src/demo/labyrinth/graph/styles.crs",
@@ -138,54 +36,13 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/demo/labyrinth/graph/progress.crs",
         "src/demo/labyrinth/graph/view.crs",
         "src/demo/labyrinth/graph/lighting.crs",
-        "src/assets/geometry/hex-junction.crs",
-        "src/assets/geometry/junction-seams.crs",
-        "src/assets/geometry/placement.crs",
-        "src/assets/materials/tunnel-metal.crs",
-        "src/assets/materials/markings.crs",
-        "src/assets/geometry/hex-opening.crs",
-        "src/assets/geometry/polygon-opening.crs",
-        "src/assets/geometry/convex-opening.crs",
-        "src/assets/connections/profiles.crs",
         "src/assets/connections/link.crs",
-        "src/assets/geometry/surfaces.crs",
-        "src/assets/room.crs",
-        "src/assets/parts/assemble.crs",
-        "src/assets/parts/motion.crs",
         "src/app/level/motion.crs",
-        "src/assets/parameters.crs",
-        "src/assets/materials/masks.crs",
-        "src/assets/materials/hex-metal.crs",
-        "src/assets/materials/door.crs",
-        "src/assets/materials/pipe.crs",
-        "src/assets/materials/metal.crs",
         "src/assets/materials/upload.crs",
         "assets/rooms/radial-start.crs",
         "src/game/view/room-materials.crs",
         "src/game/view/portals.crs",
-        "src/app/math.crs",
         "src/app/frame-rate.crs",
-        "src/collision/primitives.crs",
-        "src/collision/body.crs",
-        "src/collision/admission.crs",
-        "src/collision/caps.crs",
-        "src/spatial/scale.crs",
-        "src/spatial/path-transform.crs",
-        "src/collision/portals.crs",
-        "src/collision/anchors.crs",
-        "src/collision/portal-query.crs",
-        "src/collision/portal-contacts.crs",
-        "src/collision/topology.crs",
-        "src/collision/sweep.crs",
-        "src/collision/query.crs",
-        "src/collision/contact-query.crs",
-        "src/collision/contact-solve.crs",
-        "src/collision/motion.crs",
-        "src/collision/volume.crs",
-        "src/collision/kinematics.crs",
-        "src/collision/kinematic-sweep.crs",
-        "src/collision/kinematic-contacts.crs",
-        "src/collision/kinematic-motion.crs",
         "src/game/effects/contact.crs",
         "src/game/effects/sparks.crs",
         "src/game/effects/view.crs",
@@ -233,14 +90,23 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 228usize {
-        args[i] = host_path(root, files[i]);
+    while i < 79usize {
+        args[count + i] = host_path(root, files[i]);
         i = i + 1usize;
     }
-    return i;
+    return count + i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 66] = make [*u8; 66] {
+    var count: usize = asset_providers(root, null(**u8)) + asset_collision_providers(
+        root,
+        null(**u8)
+    );
+    if args == null(**u8) {
+        return count + 43usize;
+    }
+    count = asset_providers(root, args);
+    count = count + asset_collision_providers(root, &args[count]);
+    var files: [*u8; 43] = make [*u8; 43] {
         "src/runtime/channel/spsc.crs",
         "src/audio/platform/bank.crs",
         "src/audio/platform/mixer.crs",
@@ -253,12 +119,6 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/app/streaming/tasks.crs",
         "src/game/tasks/runtime.crs",
         "src/game/tasks/prediction-work.crs",
-        "src/assets/geometry/storage.crs",
-        "src/assets/parts/storage.crs",
-        "src/assets/geometry/pipe-graph-storage.crs",
-        "src/assets/geometry/pipe-router-storage.crs",
-        "src/assets/parameter-storage.crs",
-        "src/assets/recipe.crs",
         "src/app/level/recipe-storage.crs",
         "src/app/generation/words.crs",
         "src/app/streaming/storage.crs",
@@ -269,28 +129,11 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/app/streaming/planner.crs",
         "src/app/streaming/simulation.crs",
         "src/app/streaming/dependencies.crs",
-        "src/assets/light-storage.crs",
-        "src/assets/effects/storage.crs",
-        "src/assets/effects/arc-storage.crs",
-        "src/assets/connections/storage.crs",
         "src/app/window.crs",
         "src/app/input.crs",
         "src/app/window-vulkan.crs",
         "src/app/render-open.crs",
-        "src/collision/storage.crs",
-        "src/collision/rooms.crs",
-        "src/collision/residency.crs",
-        "src/collision/rebuild.crs",
         "src/collision/snapshot.crs",
-        "src/spatial/room-frame.crs",
-        "src/collision/portal-storage.crs",
-        "src/spatial/anchors.crs",
-        "src/numeric/natural.crs",
-        "src/numeric/rational.crs",
-        "src/spatial/portal-path.crs",
-        "src/collision/contact-storage.crs",
-        "src/collision/index-build.crs",
-        "src/collision/adjacency-build.crs",
         "src/app/clock.crs",
         "src/app/shaders.crs",
         "src/game/host/platform.crs",
@@ -308,15 +151,12 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/text.crs",
         "src/game/tasks/timing.crs"
     };
-    if args == null(**u8) {
-        return 66usize;
-    }
     var i: usize = 0usize;
-    while i < 66usize {
-        args[i] = host_path(root, files[i]);
+    while i < 43usize {
+        args[count + i] = host_path(root, files[i]);
         i = i + 1usize;
     }
-    return i;
+    return count + i;
 }
 fn build_game(
     root: *CrustRun,
@@ -339,7 +179,13 @@ fn build_game_target(
     output: *u8,
     check: *u8
 ) -> bool {
-    var sources: [*u8; 256] = uninit;
+    var sources: **u8 = build_source_storage(
+        root,
+        game_sources(root, null(**u8)) + (check != null(*u8)) as usize
+    );
+    if sources == null(**u8) {
+        return false;
+    }
     var providers: **u8 = crust_try_alloc(
         root -> context,
         (

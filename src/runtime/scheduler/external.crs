@@ -86,7 +86,7 @@ fn completion_result(token: Completion, success: bool) -> unit {
         complete_failed(
             move token,
             make TaskError {
-                code: 16u32
+                code: SCHED_EXTERNAL_FAILED
             }
         );
     }

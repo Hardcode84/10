@@ -107,7 +107,7 @@ fn demo_room_ambient() -> Vec3 {
     return vec(0.18f32, 0.20f32, 0.24f32);
 }
 
-fn demo_palette(input: mut FrameInput) -> bool {
+fn demo_palette(input: mut FrameInput, selection: read GenerationWords) -> bool {
     return game_room_palette(mut input);
 }
 

@@ -98,6 +98,7 @@ fn test_kinematic_translation() -> bool {
     );
 }
 fn test_kinematic_hook() -> bool {
+    var attachment: CollisionAttachment = collision_attachment_new();
     var scene: CollisionScene = collision_new();
     var still: Vec3 = vec(0f32, 0f32, 0f32);
     if !kinematic_fixture(
@@ -110,18 +111,26 @@ fn test_kinematic_hook() -> bool {
     ) {
         return false;
     }
-    var hit: CollisionSweep = collision_sweep_interval(
+    var hit: CollisionSweep = collision_sweep_attachment_interval(
         read scene,
         17u32,
         vec(-2f32, 0f32, 0f32),
         vec(4f32, 0f32, 0f32),
         0.06f32,
         0f32,
-        1f32
+        1f32,
+        mut attachment
     );
     var drone: Drone = new_drone();
     drone.position = vec(0f32, 0f32, 0f32);
-    hook_attach(read scene, mut drone, read hit, hit.contact.hit.time, 1f32);
+    hook_attach(
+        read scene,
+        mut drone,
+        read hit,
+        read attachment,
+        hit.contact.hit.time,
+        1f32
+    );
     hook_follow(read scene, mut drone, 1.1f32);
     drone.cable.reel_speed = -3f32;
     tether_constraint(mut drone);
@@ -145,6 +154,7 @@ fn test_kinematic_hook() -> bool {
     );
 }
 fn test_kinematic_rotation() -> bool {
+    var attachment: CollisionAttachment = collision_attachment_new();
     var scene: CollisionScene = collision_new();
     var origin: Vec3 = vec(7f32, -3f32, 11f32);
     var basis: Basis = collision_test_basis();
@@ -160,14 +170,15 @@ fn test_kinematic_rotation() -> bool {
         return false;
     }
     var p: Vec3 = add(origin, basis_vector(basis, vec(0f32, 2f32, 0f32)));
-    var hit: CollisionSweep = collision_sweep_interval(
+    var hit: CollisionSweep = collision_sweep_attachment_interval(
         read scene,
         17u32,
         p,
         vec(0f32, 0f32, 0f32),
         0.25f32,
         0f32,
-        3.14159265f32
+        3.14159265f32,
+        mut attachment
     );
     if !game_check(
         hit.status == 0u32 && hit.contact.hit.time > 0.4f32 && hit.contact.hit.time < 0.5f32,
@@ -180,6 +191,7 @@ fn test_kinematic_rotation() -> bool {
         read scene,
         mut drone,
         read hit,
+        read attachment,
         hit.contact.hit.time * 3.14159265f32,
         hit.contact.hit.time * 3.14159265f32
     );
@@ -430,7 +442,7 @@ fn kinematic_rotation_reference(
             return move next;
         }
         if collision_better(next.contact, result.contact) {
-            collision_sweep_assign(mut result, read next);
+            result = next;
         }
         face = face + 1u32;
     }

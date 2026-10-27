@@ -1,3 +1,6 @@
+fn app_assets_payload_start(count: u32, extra: u32) -> u32 {
+    return (count + extra) * MATERIAL_WORDS + count * 64u32 + PALETTE_COLORS * LIGHT_STATES;
+}
 // The current demo assets share one palette and use one 8 by 8 tile per material.
 fn app_assets(v: mut FrameInput, count: u32) -> unit {
     app_assets_extra(mut v, count, 0u32, 0u32);

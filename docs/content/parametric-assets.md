@@ -335,6 +335,11 @@ Do not repeat topology operations in a frame or collision query.
 
 ## Texture and material operations
 
+At level load, select course material kinds from the generated room graph.
+Keep catalogue material indices stable. Allocate and generate texture and
+palette payloads only for selected kinds. Fill all material records referenced
+by the level before rendering.
+
 Use reusable two-dimensional operations: rectangles, circles, polygons,
 lines, distance masks, transforms, repetition, outlines, insets, gradients,
 layer composition, and bounded seeded variation. A library operation may

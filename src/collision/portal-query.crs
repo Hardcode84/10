@@ -17,34 +17,6 @@ fn collision_anchor_accept(
         space_point(inverse, point)
     );
 }
-fn collision_body_anchors(
-    scene: read CollisionScene,
-    anchors: mut RoomAnchors,
-    space: u32,
-    p: Vec3,
-    d: Vec3,
-    radius: f32
-) -> bool {
-    if !collision_anchors(
-        read scene,
-        mut anchors,
-        primary_anchor(0u32, space),
-        p,
-        d,
-        radius,
-        1024u32
-    ) {
-        return false;
-    }
-    var i: u32 = 0u32;
-    while i < room_anchor_count(read anchors) {
-        if room_anchor(read anchors, i).depth == 1024u32 {
-            return error("body portal overlap exceeds traversal budget");
-        }
-        i = i + 1u32;
-    }
-    return true;
-}
 fn anchor_contact_visible(
     scene: read CollisionScene,
     anchors: read RoomAnchors,
@@ -84,7 +56,20 @@ fn anchor_contact(anchor: RoomAnchor, contact: CollisionContact) -> CollisionCon
     result.hit.normal = basis_vector(result.frame.basis, contact.hit.normal);
     return move result;
 }
-// Contact positions and normals use the query room. frame maps the contacted room to the query room.
+record CollisionAttachment {
+    path: PortalPath;
+    ratio: Rational;
+}
+fn collision_attachment_new() -> CollisionAttachment {
+    return make CollisionAttachment {
+        path: portal_path_new(),
+        ratio: rational_new(1u64, 1u64)
+    };
+}
+fn collision_attachment_swap(a: mut CollisionAttachment, b: mut CollisionAttachment) -> unit {
+    portal_path_swap(mut a.path, mut b.path);
+    rational_swap(mut a.ratio, mut b.ratio);
+}
 fn collision_sweep_interval_body(
     scene: read CollisionScene,
     space: u32,
@@ -94,24 +79,116 @@ fn collision_sweep_interval_body(
     time: f32,
     duration: f32
 ) -> CollisionSweep {
-    var radius: f32 = collision_body_radius(read body);
     if collision_portal_count(read scene) == 0u32 {
         return collision_local_sweep_interval(
             read scene,
             space,
             p,
             d,
-            radius,
+            collision_body_radius(read body),
             time,
             duration
         );
     }
+    var anchors: RoomAnchors = room_anchors_new();
+    var selected: u32 = 0xffffffffu32;
+    return collision_sweep_with_anchors(
+        read scene,
+        space,
+        p,
+        d,
+        read body,
+        time,
+        duration,
+        mut anchors,
+        mut selected
+    );
+}
+// Writes the exact contact placement path and scale into reusable attachment storage.
+fn collision_sweep_attachment_body(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    body: read CollisionBody,
+    time: f32,
+    duration: f32,
+    attachment: mut CollisionAttachment
+) -> CollisionSweep {
+    portal_path_clear(mut attachment.path);
+    var identity: Rational = rational_new(1u64, 1u64);
+    rational_assign(mut attachment.ratio, read identity);
+    if collision_portal_count(read scene) == 0u32 {
+        return collision_local_sweep_interval(
+            read scene,
+            space,
+            p,
+            d,
+            collision_body_radius(read body),
+            time,
+            duration
+        );
+    }
+    var anchors: RoomAnchors = room_anchors_new();
+    var selected: u32 = 0xffffffffu32;
+    var result: CollisionSweep = collision_sweep_with_anchors(
+        read scene,
+        space,
+        p,
+        d,
+        read body,
+        time,
+        duration,
+        mut anchors,
+        mut selected
+    );
+    if result.status == 0u32 && selected != 0xffffffffu32 {
+        collision_anchor_path(read scene, read anchors, selected, mut attachment.path);
+        rational_assign(mut attachment.ratio, room_anchor_ratio(read anchors, selected));
+    }
+    return result;
+}
+fn collision_sweep_attachment_interval(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    radius: f32,
+    time: f32,
+    duration: f32,
+    attachment: mut CollisionAttachment
+) -> CollisionSweep {
+    var size: Rational = rational_new(1u64, 1u64);
+    var body: CollisionBody = collision_body(radius, read size);
+    return collision_sweep_attachment_body(
+        read scene,
+        space,
+        p,
+        d,
+        read body,
+        time,
+        duration,
+        mut attachment
+    );
+}
+// Contact positions and normals use the query room. frame maps the contacted room to the query room.
+fn collision_sweep_with_anchors(
+    scene: read CollisionScene,
+    space: u32,
+    p: Vec3,
+    d: Vec3,
+    body: read CollisionBody,
+    time: f32,
+    duration: f32,
+    anchors: mut RoomAnchors,
+    selected: mut u32
+) -> CollisionSweep {
+    selected = 0xffffffffu32;
+    room_anchors_clear(mut anchors);
     var crossing: PortalCrossing = portal_crossing(read scene, space, p, d);
     var fraction: f32 = clamp(crossing.time, 0f32, 1f32);
     var travel: Vec3 = scale(d, fraction);
-    var anchors: RoomAnchors = room_anchors_new();
     var result: CollisionSweep = collision_sweep_result(collision_miss(space));
-    var selected: u32 = 0xffffffffu32;
     if !collision_scaled_anchors(
         read scene,
         mut anchors,
@@ -147,18 +224,15 @@ fn collision_sweep_interval_body(
         }
         if next.contact.hit.time <= 1f32 {
             next.contact = anchor_contact(anchor, next.contact);
-            rational_assign(mut next.ratio, room_anchor_ratio(read anchors, i));
             next.contact.hit.time = next.contact.hit.time * fraction;
             if collision_better(next.contact, result.contact) {
-                collision_sweep_assign(mut result, read next);
+                result = next;
                 selected = i;
             }
         }
         i = i + 1u32;
     }
-    if selected != 0xffffffffu32 {
-        collision_anchor_path(read scene, read anchors, selected, mut result.path);
-    }
+    result.crossing = crossing;
     return move result;
 }
 fn collision_correction_blocked_body(
