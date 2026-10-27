@@ -16,6 +16,8 @@ fn conduit_support_box(
     dimensions: Vec3,
     centre: Vec3,
     basis: Basis,
+    visible_start: f32,
+    visible_end: f32,
     name: AssetName
 ) -> bool {
     var first: u32 = mesh_triangle_count(read asset.geometry);
@@ -26,18 +28,43 @@ fn conduit_support_box(
     var side: u32 = 0u32;
     while side < asset_face_count(read hull) {
         var frame: SurfaceFrame = asset_surface(read hull, side);
-        if absf(frame.normal.x) < 0.5f32 {
-            frame.right = vec(1f32, 0f32, 0f32);
-            frame.up = vec(0f32, 1f32, 0f32);
-            if absf(frame.normal.y) > 0.5f32 {
-                frame.up = vec(0f32, 0f32, 1f32);
-            }
-        }
         frame.origin = scale(dimensions, -0.5f32);
-        frame.up = scale(
-            frame.up,
-            conduit_support_material().tile_metres / conduit_support_material().tile_height
-        );
+        if absf(frame.normal.x) < 0.5f32 {
+            var span: f32 = visible_end - visible_start;
+            var tiles: f32 = panel_pixel_extent(
+                span / conduit_support_material().tile_metres,
+                1u32
+            ) as f32;
+            frame.origin.x = visible_start;
+            frame.right = vec(
+                conduit_support_material().tile_metres * tiles / span,
+                0f32,
+                0f32
+            );
+            frame.up = vec(
+                0f32,
+                conduit_support_material().tile_metres / dimensions.y,
+                0f32
+            );
+            if absf(frame.normal.y) > 0.5f32 {
+                frame.up = vec(
+                    0f32,
+                    0f32,
+                    conduit_support_material().tile_metres / dimensions.z
+                );
+            }
+        } else {
+            frame.right = vec(
+                0f32,
+                conduit_support_material().tile_metres / dimensions.y,
+                0f32
+            );
+            frame.up = vec(
+                0f32,
+                0f32,
+                conduit_support_material().tile_metres / dimensions.z
+            );
+        }
         asset_surface_set(mut hull, side, frame);
         side = side + 1u32;
     }
@@ -64,14 +91,22 @@ fn conduit_supports(
     var width: f32 = core * 0.24f32;
     var depth: f32 = core * 0.32f32;
     var first: u32 = mesh_triangle_count(read asset.geometry);
-    if !annular_band_mesh(
+    var inner: f32 = core * 0.85f32;
+    var collar_depth: f32 = depth * 1.4f32;
+    var circumference: f32 = 3.14159265359f32 * (inner + collar);
+    var circum_tiles: u32 = panel_pixel_extent(
+        circumference / (conduit_support_material().tile_metres * 8f32),
+        1u32
+    ) * 8u32;
+    if !annular_band_mesh_uv(
         mut asset.geometry,
-        core * 0.85f32,
+        inner,
         collar,
-        depth * 1.4f32,
+        collar_depth,
         CONDUIT_SUPPORT_MATERIAL,
-        conduit_support_material().tile_metres,
-        conduit_support_material().tile_height
+        circum_tiles as f32,
+        panel_pixel_extent((collar - inner) / conduit_support_material().tile_height, 1u32) as f32,
+        panel_pixel_extent(collar_depth / conduit_support_material().tile_height, 1u32) as f32
     ) || !asset_part_place_tail(mut asset, first, asset_name("core-clamp"), centre) {
         return false;
     }
@@ -94,12 +129,16 @@ fn conduit_supports(
             vec(span, depth, width),
             add(centre, scale(radial, start + span * 0.5f32)),
             basis,
+            collar - (start + span * 0.5f32),
+            wall - foot - (start + span * 0.5f32),
             asset_name("core-support")
         ) || !conduit_support_box(
             mut asset,
             vec(foot, depth * 1.3f32, width * 1.3f32),
             add(centre, scale(radial, wall - foot * 0.5f32)),
             basis,
+            -foot * 0.5f32,
+            foot * 0.5f32,
             asset_name("support-foot")
         ) {
             return false;

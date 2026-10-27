@@ -13,6 +13,8 @@
 // Wider wall feet project past the raised panels. All supports are collision solids.
 // The thicker collar encloses beam ends. Support textures have recessed steel
 // panels, bolted splice bands, worn paint, and non-emissive ochre markings.
+// Beam panel repeats span the exposed length between collar and wall foot.
+// The collar grid meets the four beam axes; face borders stay on physical edges.
 // Parameters: length, diameter, core-diameter in metres; turns is an integer.
 // Materials: concrete, dark sheath, ochre sheath, oxide sheath, support steel.
 fn room_parameter_count() -> u32 {
