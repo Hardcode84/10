@@ -59,6 +59,9 @@ fn conduit_tile(
     row: u32,
     depth: f32
 ) -> bool {
+    if conduit_tile_support_overlap(read asset, wall, width, bay, row, depth) {
+        return true;
+    }
     var hull: AssetHull = asset_hull_new();
     if !solid_box_hull(mut hull, vec(width, bay, depth), 0u32) {
         return false;
@@ -92,6 +95,74 @@ fn conduit_tile(
         asset_name("raised-concrete"),
         vec(0f32, 0f32, 0f32)
     );
+}
+fn conduit_support_projection(
+    asset: read RoomAsset,
+    part: AssetPart,
+    axis: Vec3,
+    low: f32,
+    high: f32
+) -> bool {
+    var minimum: f32 = 3.4028234e38f32;
+    var maximum: f32 = -minimum;
+    var i: u32 = 0u32;
+    while i < part.count {
+        var primitive: MeshTriangle = placed_triangle(
+            mesh_triangle(read asset.geometry, part.first + i),
+            part.origin,
+            part.basis
+        );
+        var j: u32 = 0u32;
+        while j < 3u32 {
+            var v: MeshVertex = primitive.vertices[j as usize];
+            var position: f32 = dot(vec(v.x, v.y, v.z), axis);
+            minimum = mask_min(minimum, position);
+            maximum = -mask_min(-maximum, -position);
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return minimum <= high && maximum >= low;
+}
+// Reserves the support bounds in the tile's wall frame, including touching edges.
+fn conduit_tile_support_overlap(
+    asset: read RoomAsset,
+    wall: SurfaceFrame,
+    width: f32,
+    bay: f32,
+    row: u32,
+    depth: f32
+) -> bool {
+    var right: Vec3 = unit_vector(wall.right);
+    var u: f32 = dot(wall.origin, right);
+    var n: f32 = dot(wall.origin, wall.normal);
+    var y: f32 = wall.origin.y + bay * row as f32;
+    var i: u32 = 0u32;
+    while i < asset_part_count(read asset.parts) {
+        var part: AssetPart = asset_part(read asset.parts, i);
+        if (
+            asset_name_equal(part.name, "core-support") || asset_name_equal(
+                part.name,
+                "support-foot"
+            )
+        ) && conduit_support_projection(
+            read asset,
+            part,
+            vec(0f32, 1f32, 0f32),
+            y,
+            y + bay
+        ) && conduit_support_projection(read asset, part, right, u, u + width) && conduit_support_projection(
+            read asset,
+            part,
+            wall.normal,
+            n - depth,
+            n
+        ) {
+            return true;
+        }
+        i = i + 1u32;
+    }
+    return false;
 }
 fn conduit_tiles(asset: mut RoomAsset, values: read AssetValues) -> bool {
     var seed: f32 = asset_value(read values, 4u32);
