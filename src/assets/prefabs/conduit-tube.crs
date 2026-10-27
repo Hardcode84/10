@@ -133,6 +133,9 @@ fn conduit_cable(asset: mut RoomAsset, radius: f32, height: f32, turns: u32, str
     );
 }
 fn prefab_conduit_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_conduit_prepare(read parameters, mut asset) && room_asset_finish(mut asset);
+}
+fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     var i: u32 = 0u32;
     while i < prefab_conduit_parameter_count() {
         if !asset_parameter_valid(
@@ -168,7 +171,7 @@ fn prefab_conduit_build(parameters: read AssetValues, asset: mut RoomAsset) -> b
             forward: vec(0f32, 1f32, 0f32)
         }
     };
-    return room_asset_finish(mut asset);
+    return true;
 }
 fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     var material: PanelMaterial = hex_tunnel_material();

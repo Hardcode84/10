@@ -1,0 +1,140 @@
+fn conduit_shaft_panel(asset: mut RoomAsset, centre: Vec3, half: f32) -> bool {
+    var next: AssetHull = asset_hull_new();
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        var point: Vec3 = add(
+            centre,
+            vec(
+                0f32,
+                ((i & 1u32) as f32 * 2f32 - 1f32) * half,
+                ((i >> 1u32) as f32 * 2f32 - 1f32) * half
+            )
+        );
+        if !hull_expand_point(read asset.hull, mut next, point, 4u32) {
+            return false;
+        }
+        asset_hull_swap(mut asset.hull, mut next);
+        i = i + 1u32;
+    }
+    if !hull_merge_panel(
+        read asset.hull,
+        mut next,
+        vec(1f32, 0f32, 0f32),
+        centre.x,
+        4u32
+    ) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    i = 0u32;
+    while i < asset_face_count(read asset.hull) {
+        if asset_face(read asset.hull, i).region == 4u32 {
+            var frame: SurfaceFrame = hull_frame(
+                read asset.hull,
+                asset_face(read asset.hull, i)
+            );
+            frame.origin = vec(centre.x, 0f32, 0f32);
+            frame.right = vec(0f32, 0f32, asset.tile_metres / 8f32);
+            frame.up = vec(0f32, asset.tile_metres / 8f32, 0f32);
+            asset_surface_set(mut asset.hull, i, frame);
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn conduit_shaft_opening(asset: mut RoomAsset, centre: Vec3, diameter: f32, height: f32) -> bool {
+    if !conduit_shaft_panel(mut asset, centre, diameter) {
+        return false;
+    }
+    var port: RoomPort = make RoomPort {
+        id: asset_name("SHAFT"),
+        profile: shaft_profile(diameter),
+        face: asset_face_count(read asset.hull) - 1u32,
+        position: centre,
+        basis: make Basis {
+            right: vec(0f32, 1f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(1f32, 0f32, 0f32)
+        }
+    };
+    var next: AssetHull = asset_hull_new();
+    if !hull_bordered_port(mut asset.hull, mut next, port, 5u32, 0.18f32, 0.7f32, 5u32) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var end: RoomPort = asset_port(read asset.ports, i);
+        end.face = shaft_collar_end_face(read asset.hull, height * i as f32);
+        asset_port_set(mut asset.ports, i, end);
+        i = i + 1u32;
+    }
+    return asset_port_append(mut asset.ports, port);
+}
+fn conduit_shaft_axis() -> Basis {
+    return make Basis {
+        right: vec(0f32, 1f32, 0f32),
+        up: vec(-1f32, 0f32, 0f32),
+        forward: vec(0f32, 0f32, 1f32)
+    };
+}
+fn conduit_shaft_spindle(asset: mut RoomAsset, centre: Vec3, radius: f32, reach: f32) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    var profile: RegularProfile = shaft_profile(16f32).shape;
+    var tip: f32 = radius * 0.2f32;
+    if !loft_allocate(mut hull, profile, 3u32) {
+        return false;
+    }
+    loft_ring(mut hull, profile, 0u32, 0f32, radius);
+    loft_ring(mut hull, profile, 1u32, 2f32, radius);
+    loft_ring(mut hull, profile, 2u32, reach, tip);
+    loft_span(mut hull, profile, 0u32, 5u32);
+    loft_span(mut hull, profile, 1u32, 6u32);
+    loft_caps(mut hull, profile, 3u32, 5u32, 5u32);
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !hull_solid_mesh(
+        read hull,
+        mut asset.geometry,
+        centre,
+        conduit_shaft_axis(),
+        asset.tile_metres
+    ) || !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("shaft-spindle"),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    first = mesh_triangle_count(read asset.geometry);
+    var light: Vec3 = add(centre, vec(-reach - tip, 0f32, 0f32));
+    if !bevelled_body(
+        mut asset.geometry,
+        make BevelledBody {
+            sides: 8u32,
+            radius: tip * 1.5f32,
+            length: tip * 2f32,
+            bevel: tip * 0.25f32,
+            shell: 7u32,
+            rear: 5u32,
+            front: 7u32
+        },
+        light,
+        conduit_shaft_axis()
+    ) || !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("warning-light"),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    return fixture_light_append(
+        mut asset.lights,
+        make FixtureLight {
+            space: 0u32,
+            position: add(light, vec(-tip * 1.5f32, 0f32, 0f32)),
+            colour: vec(1.3f32, 0.45f32, 0.025f32),
+            radius: 4f32
+        }
+    );
+}

@@ -35,6 +35,10 @@ fn asset_port_count(ports: read AssetPorts) -> u32 {
 fn asset_port(ports: read AssetPorts, index: u32) -> RoomPort {
     return ports.data[index as usize];
 }
+// Replaces an existing connection. The index must be below the port count.
+fn asset_port_set(ports: mut AssetPorts, index: u32, port: RoomPort) -> unit {
+    ports.data[index as usize] = port;
+}
 fn asset_port_append(ports: mut AssetPorts, port: RoomPort) -> bool {
     if ports.count == ports.capacity {
         var capacity: u64 = ports.capacity as u64 * 2u64 + 1u64;
