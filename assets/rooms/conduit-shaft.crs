@@ -6,6 +6,7 @@
 // The connected shaft spindle continues inward as a long cone, with an amber
 // full-bright warning lamp at its tip. The lamp casts a small pool of light.
 // Both CONDUIT end ports and the twisted cable core remain continuous.
+// Four diagonal beams and a cable collar share the tube's central support station.
 // Shaft and spindle diameters must match the adjoining shaft recipe.
 // cone-length controls inward reach; entry-position is the axial fraction.
 // The start view faces into the tube from beside the spindle at the side entry.
@@ -22,7 +23,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     return prefab_conduit_shaft_build(read parameters, mut asset);
 }
 fn room_material_count() -> u32 {
-    return 8u32;
+    return CONDUIT_MATERIAL_COUNT + 4u32;
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     return prefab_conduit_shaft_material(region, read parameters);

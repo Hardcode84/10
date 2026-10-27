@@ -1,0 +1,87 @@
+fn conduit_support_material() -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.finish = METAL_RIBBED;
+    material.colour = 0x756f5fu32;
+    material.tile_metres = 4f32;
+    material.tile_height = material.tile_metres;
+    material.texels_per_metre = 16u32;
+    material.indicator = false;
+    material.marking = 0u32;
+    material.pitch = 0.8f32;
+    return material;
+}
+fn conduit_support_box(
+    asset: mut RoomAsset,
+    dimensions: Vec3,
+    centre: Vec3,
+    basis: Basis,
+    name: AssetName
+) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !solid_box(
+        mut asset.geometry,
+        dimensions,
+        CONDUIT_SUPPORT_MATERIAL,
+        centre,
+        basis,
+        conduit_support_material().tile_metres
+    ) {
+        return false;
+    }
+    return asset_part_place_tail(mut asset, first, name, vec(0f32, 0f32, 0f32));
+}
+fn conduit_supports(
+    asset: mut RoomAsset,
+    radius: f32,
+    core: f32,
+    height: f32,
+    relief: f32
+) -> bool {
+    var centre: Vec3 = vec(0f32, height * 0.5f32, 0f32);
+    var collar: f32 = core * 1.08f32;
+    var width: f32 = core * 0.24f32;
+    var depth: f32 = core * 0.32f32;
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !annular_band_mesh(
+        mut asset.geometry,
+        core * 0.85f32,
+        collar,
+        depth,
+        CONDUIT_SUPPORT_MATERIAL,
+        conduit_support_material().tile_metres
+    ) || !asset_part_place_tail(mut asset, first, asset_name("core-clamp"), centre) {
+        return false;
+    }
+    var wall: f32 = radius * cosf(3.14159265359f32 / 48f32);
+    var start: f32 = core;
+    var span: f32 = radius - start;
+    var foot: f32 = relief + width * 0.3f32;
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        var angle: f32 = (i as f32 + 0.5f32) * 1.57079632679f32;
+        var radial: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
+        var up: Vec3 = vec(0f32, 1f32, 0f32);
+        var basis: Basis = make Basis {
+            right: radial,
+            up: up,
+            forward: cross(radial, up)
+        };
+        if !conduit_support_box(
+            mut asset,
+            vec(span, depth, width),
+            add(centre, scale(radial, start + span * 0.5f32)),
+            basis,
+            asset_name("core-support")
+        ) || !conduit_support_box(
+            mut asset,
+            vec(foot, depth * 1.3f32, width * 1.3f32),
+            add(centre, scale(radial, wall - foot * 0.5f32)),
+            basis,
+            asset_name("support-foot")
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

@@ -9,8 +9,10 @@
 // Raised wall panels occupy complete casting tiles. The end bays stay clear.
 // tile-seed selects the layout; tile-density is a percentage; tile-depth is the
 // maximum inward projection in metres. Zero density or depth disables panels.
+// Four diagonal steel beams support a common cable collar halfway along the tube.
+// Wider wall feet project past the raised panels. All supports are collision solids.
 // Parameters: length, diameter, core-diameter in metres; turns is an integer.
-// Materials: concrete, dark sheath, ochre sheath, oxide sheath.
+// Materials: concrete, dark sheath, ochre sheath, oxide sheath, support steel.
 fn room_parameter_count() -> u32 {
     return prefab_conduit_parameter_count();
 }
@@ -24,7 +26,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     return prefab_conduit_build(read parameters, mut asset);
 }
 fn room_material_count() -> u32 {
-    return 4u32;
+    return CONDUIT_MATERIAL_COUNT;
 }
 fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     return prefab_conduit_material(region, read parameters);

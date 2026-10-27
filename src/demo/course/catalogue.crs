@@ -358,10 +358,10 @@ fn course_service_build(kind: u32, parameters: read AssetValues, asset: mut Room
 }
 fn course_material_count(kind: u32) -> u32 {
     if kind == PREFAB_CONDUIT_TUBE {
-        return 4u32;
+        return CONDUIT_MATERIAL_COUNT;
     }
     if kind == PREFAB_CONDUIT_SHAFT {
-        return 8u32;
+        return CONDUIT_MATERIAL_COUNT + 4u32;
     }
     if kind == PREFAB_SHAFT_CLEAR {
         return prefab_shaft_clear_material_count();

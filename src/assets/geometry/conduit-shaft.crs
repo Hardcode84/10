@@ -51,7 +51,7 @@ fn conduit_shaft_panel(asset: mut RoomAsset, centre: Vec3, half: f32, height: f3
                 ((i >> 1u32) as f32 * 2f32 - 1f32) * half
             )
         );
-        if !hull_expand_point(read asset.hull, mut next, point, 4u32) {
+        if !hull_expand_point(read asset.hull, mut next, point, CONDUIT_MATERIAL_COUNT) {
             return false;
         }
         asset_hull_swap(mut asset.hull, mut next);
@@ -62,14 +62,14 @@ fn conduit_shaft_panel(asset: mut RoomAsset, centre: Vec3, half: f32, height: f3
         mut next,
         vec(1f32, 0f32, 0f32),
         centre.x,
-        4u32
+        CONDUIT_MATERIAL_COUNT
     ) {
         return false;
     }
     asset_hull_swap(mut asset.hull, mut next);
     i = 0u32;
     while i < asset_face_count(read asset.hull) {
-        if asset_face(read asset.hull, i).region == 4u32 {
+        if asset_face(read asset.hull, i).region == CONDUIT_MATERIAL_COUNT {
             var frame: SurfaceFrame = conduit_shaft_wall_frame(
                 read asset.hull,
                 asset_face(read asset.hull, i),
@@ -98,7 +98,15 @@ fn conduit_shaft_opening(asset: mut RoomAsset, centre: Vec3, diameter: f32, heig
         }
     };
     var next: AssetHull = asset_hull_new();
-    if !hull_bordered_port(mut asset.hull, mut next, port, 5u32, 0.18f32, 0.7f32, 5u32) {
+    if !hull_bordered_port(
+        mut asset.hull,
+        mut next,
+        port,
+        CONDUIT_MATERIAL_COUNT + 1u32,
+        0.18f32,
+        0.7f32,
+        CONDUIT_MATERIAL_COUNT + 1u32
+    ) {
         return false;
     }
     var i: u32 = 0u32;
@@ -127,9 +135,15 @@ fn conduit_shaft_spindle(asset: mut RoomAsset, centre: Vec3, radius: f32, reach:
     loft_ring(mut hull, profile, 0u32, 0f32, radius);
     loft_ring(mut hull, profile, 1u32, 2f32, radius);
     loft_ring(mut hull, profile, 2u32, reach, tip);
-    loft_span(mut hull, profile, 0u32, 5u32);
-    loft_span(mut hull, profile, 1u32, 6u32);
-    loft_caps(mut hull, profile, 3u32, 5u32, 5u32);
+    loft_span(mut hull, profile, 0u32, CONDUIT_MATERIAL_COUNT + 1u32);
+    loft_span(mut hull, profile, 1u32, CONDUIT_MATERIAL_COUNT + 2u32);
+    loft_caps(
+        mut hull,
+        profile,
+        3u32,
+        CONDUIT_MATERIAL_COUNT + 1u32,
+        CONDUIT_MATERIAL_COUNT + 1u32
+    );
     var first: u32 = mesh_triangle_count(read asset.geometry);
     if !hull_solid_mesh(
         read hull,
@@ -154,9 +168,9 @@ fn conduit_shaft_spindle(asset: mut RoomAsset, centre: Vec3, radius: f32, reach:
             radius: tip * 1.5f32,
             length: tip * 2f32,
             bevel: tip * 0.25f32,
-            shell: 7u32,
-            rear: 5u32,
-            front: 7u32
+            shell: CONDUIT_MATERIAL_COUNT + 3u32,
+            rear: CONDUIT_MATERIAL_COUNT + 1u32,
+            front: CONDUIT_MATERIAL_COUNT + 3u32
         },
         light,
         conduit_shaft_axis()

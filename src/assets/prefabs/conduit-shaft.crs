@@ -85,17 +85,17 @@ fn prefab_conduit_shaft_build(values: read AssetValues, asset: mut RoomAsset) ->
     return conduit_tiles(mut asset, read values) && room_asset_finish(mut asset);
 }
 fn prefab_conduit_shaft_material(region: u32, values: read AssetValues) -> PanelMaterial {
-    if region < 4u32 {
+    if region < CONDUIT_MATERIAL_COUNT {
         return prefab_conduit_material(region, read values);
     }
-    if region == 4u32 {
+    if region == CONDUIT_MATERIAL_COUNT {
         return prefab_conduit_material(0u32, read values);
     }
     var material: PanelMaterial = hex_tunnel_material();
-    if region == 5u32 {
+    if region == CONDUIT_MATERIAL_COUNT + 1u32 {
         material.finish = METAL_PLAIN;
         material.colour = 0x292c30u32;
-    } else if region == 6u32 {
+    } else if region == CONDUIT_MATERIAL_COUNT + 2u32 {
         material.finish = METAL_RIBBED;
         material.colour = 0x929695u32;
         material.pitch = 0.5f32;
