@@ -11,6 +11,8 @@
 // maximum inward projection in metres. Zero density or depth disables panels.
 // Four diagonal steel beams support a common cable collar halfway along the tube.
 // Wider wall feet project past the raised panels. All supports are collision solids.
+// The thicker collar encloses beam ends. Support textures have recessed steel
+// panels, bolted splice bands, worn paint, and non-emissive ochre markings.
 // Parameters: length, diameter, core-diameter in metres; turns is an integer.
 // Materials: concrete, dark sheath, ochre sheath, oxide sheath, support steel.
 fn room_parameter_count() -> u32 {

@@ -165,6 +165,7 @@ fn shaft_grate_geometry(asset: mut RoomAsset, layout: ShaftGrateLayout) -> bool 
         layout.core + 0.25f32,
         SHAFT_GRATE_FRAME_DEPTH,
         7u32,
+        2f32,
         2f32
     ) || !annular_band_mesh(
         mut asset.geometry,
@@ -172,6 +173,7 @@ fn shaft_grate_geometry(asset: mut RoomAsset, layout: ShaftGrateLayout) -> bool 
         layout.radius + 0.1f32,
         SHAFT_GRATE_FRAME_DEPTH,
         7u32,
+        2f32,
         2f32
     ) {
         return false;

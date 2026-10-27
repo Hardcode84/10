@@ -67,6 +67,7 @@ fn bearing_cap_boss(asset: mut RoomAsset, core: f32, depth: f32) -> bool {
         core * 1.45f32,
         0.25f32,
         5u32,
+        2f32,
         2f32
     ) {
         return false;

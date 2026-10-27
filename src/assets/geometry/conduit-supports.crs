@@ -1,9 +1,10 @@
 fn conduit_support_material() -> PanelMaterial {
     var material: PanelMaterial = hex_tunnel_material();
-    material.finish = METAL_RIBBED;
-    material.colour = 0x756f5fu32;
-    material.tile_metres = 4f32;
-    material.tile_height = material.tile_metres;
+    material.finish = SURFACE_STRUCTURAL_STEEL;
+    material.colour = 0x8f9172u32;
+    material.accent = 0x5ba5cau32;
+    material.tile_metres = 16f32;
+    material.tile_height = 8f32;
     material.texels_per_metre = 16u32;
     material.indicator = false;
     material.marking = 0u32;
@@ -18,10 +19,31 @@ fn conduit_support_box(
     name: AssetName
 ) -> bool {
     var first: u32 = mesh_triangle_count(read asset.geometry);
-    if !solid_box(
+    var hull: AssetHull = asset_hull_new();
+    if !solid_box_hull(mut hull, dimensions, CONDUIT_SUPPORT_MATERIAL) {
+        return false;
+    }
+    var side: u32 = 0u32;
+    while side < asset_face_count(read hull) {
+        var frame: SurfaceFrame = asset_surface(read hull, side);
+        if absf(frame.normal.x) < 0.5f32 {
+            frame.right = vec(1f32, 0f32, 0f32);
+            frame.up = vec(0f32, 1f32, 0f32);
+            if absf(frame.normal.y) > 0.5f32 {
+                frame.up = vec(0f32, 0f32, 1f32);
+            }
+        }
+        frame.origin = scale(dimensions, -0.5f32);
+        frame.up = scale(
+            frame.up,
+            conduit_support_material().tile_metres / conduit_support_material().tile_height
+        );
+        asset_surface_set(mut hull, side, frame);
+        side = side + 1u32;
+    }
+    if !hull_solid_mesh(
+        read hull,
         mut asset.geometry,
-        dimensions,
-        CONDUIT_SUPPORT_MATERIAL,
         centre,
         basis,
         conduit_support_material().tile_metres
@@ -46,9 +68,10 @@ fn conduit_supports(
         mut asset.geometry,
         core * 0.85f32,
         collar,
-        depth,
+        depth * 1.4f32,
         CONDUIT_SUPPORT_MATERIAL,
-        conduit_support_material().tile_metres
+        conduit_support_material().tile_metres,
+        conduit_support_material().tile_height
     ) || !asset_part_place_tail(mut asset, first, asset_name("core-clamp"), centre) {
         return false;
     }

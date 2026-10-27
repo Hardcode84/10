@@ -1,0 +1,63 @@
+const SURFACE_STRUCTURAL_STEEL: u32 = 19u32;
+// Painted structural plates with longitudinal ribs and bolted transverse splices.
+// Tile width is the splice pitch; tile height is the panel width, in metres.
+fn structural_steel_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var end: f32 = mask_min(x, material.tile_metres - x);
+    var edge: f32 = mask_min(y, material.tile_height - y);
+    var grain: f32 = metal_grain(material, x, y);
+    if end < 0.10f32 || edge < 0.10f32 {
+        return 26u32;
+    }
+    var bolt: u32 = structural_steel_bolt(end, edge);
+    if bolt != 0u32 {
+        return bolt;
+    }
+    if end < 0.65f32 {
+        if end > 0.54f32 {
+            return 206u32;
+        }
+        return (154f32 + grain) as u32;
+    }
+    if edge < 0.34f32 {
+        var chip: u32 = metal_hash((x * 12f32) as u32, (y * 12f32) as u32, material.seed);
+        if chip % 7u32 == 0u32 {
+            return 213u32;
+        }
+        return (182f32 + grain) as u32;
+    }
+    if edge < 0.55f32 {
+        if end < 2f32 {
+            if mask_repeat(x + y, 0.7f32) < 0.35f32 {
+                return 235u32;
+            }
+            return 42u32;
+        }
+        return 58u32;
+    }
+    var rib: f32 = absf(y - material.tile_height * 0.5f32);
+    if rib < 0.12f32 {
+        return (185f32 + grain) as u32;
+    }
+    if rib < 0.22f32 {
+        return 60u32;
+    }
+    return (112f32 + 14f32 * edge / material.tile_height + grain) as u32;
+}
+fn structural_steel_bolt(end: f32, edge: f32) -> u32 {
+    var x: f32 = end - 0.33f32;
+    var y: f32 = edge - 0.75f32;
+    var square: f32 = x * x + y * y;
+    if square >= 0.04f32 {
+        return 0u32;
+    }
+    if square >= 0.0225f32 {
+        return 43u32;
+    }
+    if absf(y) < 0.035f32 {
+        return 86u32;
+    }
+    if y < 0f32 {
+        return 208u32;
+    }
+    return 158u32;
+}

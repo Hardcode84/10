@@ -175,6 +175,7 @@ fn outlet_pipe_support(asset: mut RoomAsset, layout: OutletCapLayout, route: Out
         oct_pipe_radius() + 0.12f32,
         0.16f32,
         7u32,
+        2f32,
         2f32
     ) {
         return false;

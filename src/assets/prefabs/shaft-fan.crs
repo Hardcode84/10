@@ -141,6 +141,7 @@ fn shaft_fan_geometry(asset: mut RoomAsset, parameters: read AssetValues) -> boo
         core + 0.35f32,
         depth + SHAFT_FAN_HOUSING_EXTRA,
         7u32,
+        FAN_TEXTURE_METRES,
         FAN_TEXTURE_METRES
     ) || !annular_band_mesh(
         mut asset.geometry,
@@ -148,6 +149,7 @@ fn shaft_fan_geometry(asset: mut RoomAsset, parameters: read AssetValues) -> boo
         radius + 0.1f32,
         depth + SHAFT_FAN_HOUSING_EXTRA,
         7u32,
+        FAN_TEXTURE_METRES,
         FAN_TEXTURE_METRES
     ) {
         return false;

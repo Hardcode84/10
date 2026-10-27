@@ -78,6 +78,7 @@ fn collector_cap_machine(asset: mut RoomAsset, core: f32, depth: f32) -> bool {
         core * 1.4f32,
         0.22f32,
         6u32,
+        2f32,
         2f32
     ) {
         return false;
@@ -97,6 +98,7 @@ fn collector_cap_machine(asset: mut RoomAsset, core: f32, depth: f32) -> bool {
         core * 1.8f32 + 0.5f32,
         0.6f32,
         4u32,
+        2f32,
         2f32
     ) {
         return false;
@@ -119,6 +121,7 @@ fn collector_cap_back_seal(asset: mut RoomAsset, core: f32, depth: f32) -> bool 
         core * 1.65f32 + 0.15f32,
         0.2f32,
         6u32,
+        2f32,
         2f32
     ) {
         return false;

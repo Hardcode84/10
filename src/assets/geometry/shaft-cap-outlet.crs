@@ -124,6 +124,7 @@ fn outlet_cap_bearing(asset: mut RoomAsset, layout: OutletCapLayout) -> bool {
         layout.core * 1.3f32,
         0.2f32,
         7u32,
+        2f32,
         2f32
     ) {
         return false;
@@ -143,6 +144,7 @@ fn outlet_cap_bearing(asset: mut RoomAsset, layout: OutletCapLayout) -> bool {
         layout.core * 1.6f32 + 0.15f32,
         0.2f32,
         7u32,
+        2f32,
         2f32
     ) {
         return false;
