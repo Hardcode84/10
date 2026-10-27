@@ -6,6 +6,9 @@
 // The core is inert: no emission, force, debris, or damage is attached to this asset.
 // Casting joints follow hull facets and axial bays; fine formwork and aggregate
 // stay in the generated concrete texture. Cable UVs follow their helical length.
+// Raised wall panels occupy complete casting tiles. The end bays stay clear.
+// tile-seed selects the layout; tile-density is a percentage; tile-depth is the
+// maximum inward projection in metres. Zero density or depth disables panels.
 // Parameters: length, diameter, core-diameter in metres; turns is an integer.
 // Materials: concrete, dark sheath, ochre sheath, oxide sheath.
 fn room_parameter_count() -> u32 {

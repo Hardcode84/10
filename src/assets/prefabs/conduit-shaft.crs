@@ -1,32 +1,32 @@
 fn prefab_conduit_shaft_parameter_count() -> u32 {
-    return 8u32;
+    return prefab_conduit_parameter_count() + 4u32;
 }
 fn prefab_conduit_shaft_parameter_name(index: u32) -> AssetName {
-    if index < 4u32 {
+    if index < prefab_conduit_parameter_count() {
         return prefab_conduit_parameter_name(index);
     }
-    if index == 4u32 {
+    if index == prefab_conduit_parameter_count() {
         return asset_name("shaft-diameter");
     }
-    if index == 5u32 {
+    if index == prefab_conduit_parameter_count() + 1u32 {
         return asset_name("spindle-diameter");
     }
-    if index == 6u32 {
+    if index == prefab_conduit_parameter_count() + 2u32 {
         return asset_name("cone-length");
     }
     return asset_name("entry-position");
 }
 fn prefab_conduit_shaft_parameter(index: u32) -> AssetParameter {
-    if index < 4u32 {
+    if index < prefab_conduit_parameter_count() {
         return prefab_conduit_parameter(index);
     }
-    if index == 4u32 {
+    if index == prefab_conduit_parameter_count() {
         return shaft_parameter(1u32);
     }
-    if index == 5u32 {
+    if index == prefab_conduit_parameter_count() + 1u32 {
         return shaft_parameter(2u32);
     }
-    if index == 6u32 {
+    if index == prefab_conduit_parameter_count() + 2u32 {
         return make AssetParameter {
             minimum: 8f32,
             maximum: 60f32,
@@ -42,7 +42,7 @@ fn prefab_conduit_shaft_parameter(index: u32) -> AssetParameter {
     };
 }
 fn prefab_conduit_shaft_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
-    var i: u32 = 4u32;
+    var i: u32 = prefab_conduit_parameter_count();
     while i < prefab_conduit_shaft_parameter_count() {
         if !asset_parameter_valid(
             prefab_conduit_shaft_parameter(i),
@@ -55,10 +55,14 @@ fn prefab_conduit_shaft_build(values: read AssetValues, asset: mut RoomAsset) ->
     var height: f32 = asset_value(read values, 0u32);
     var radius: f32 = asset_value(read values, 1u32) * 0.5f32;
     var core: f32 = asset_value(read values, 2u32) * 0.5f32;
-    var shaft: f32 = asset_value(read values, 4u32);
-    var spindle: f32 = asset_value(read values, 5u32) * 0.5f32;
-    var reach: f32 = asset_value(read values, 6u32);
-    var centre: Vec3 = vec(radius + 1f32, height * asset_value(read values, 7u32), 0f32);
+    var shaft: f32 = asset_value(read values, prefab_conduit_parameter_count());
+    var spindle: f32 = asset_value(read values, prefab_conduit_parameter_count() + 1u32) * 0.5f32;
+    var reach: f32 = asset_value(read values, prefab_conduit_parameter_count() + 2u32);
+    var centre: Vec3 = vec(
+        radius + 1f32,
+        height * asset_value(read values, prefab_conduit_parameter_count() + 3u32),
+        0f32
+    );
     if spindle + 2f32 >= shaft * 0.5f32 || reach + core + 5f32 >= radius || centre.y <= shaft || height - centre.y <= shaft {
         return error("shaft entry needs spindle, end-wall, and cable-core clearance");
     }
@@ -78,7 +82,7 @@ fn prefab_conduit_shaft_build(values: read AssetValues, asset: mut RoomAsset) ->
             forward: vec(-1f32, 0f32, 0f32)
         }
     };
-    return room_asset_finish(mut asset);
+    return conduit_tiles(mut asset, read values) && room_asset_finish(mut asset);
 }
 fn prefab_conduit_shaft_material(region: u32, values: read AssetValues) -> PanelMaterial {
     if region < 4u32 {

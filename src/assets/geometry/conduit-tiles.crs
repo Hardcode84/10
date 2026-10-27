@@ -1,0 +1,134 @@
+fn conduit_tiles_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("tile-seed");
+    }
+    if index == 1u32 {
+        return asset_name("tile-density");
+    }
+    return asset_name("tile-depth");
+}
+fn conduit_tiles_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 65535f32,
+            initial: 1f32,
+            step: 1f32
+        };
+    }
+    if index == 1u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 100f32,
+            initial: 20f32,
+            step: 5f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 0f32,
+        maximum: 6f32,
+        initial: 3f32,
+        step: 0.25f32
+    };
+}
+fn conduit_tile_surface(hull: mut AssetHull, index: u32, tile: f32, bay: f32) -> unit {
+    var face: HullFace = asset_face(read hull, index);
+    var frame: SurfaceFrame = asset_surface(read hull, index);
+    if absf(frame.normal.z) > 0.5f32 {
+        frame.right = vec(1f32, 0f32, 0f32);
+        frame.up = vec(0f32, 1f32, 0f32);
+    }
+    var low_u: f32 = 3.4028234e38f32;
+    var low_v: f32 = low_u;
+    var corner: u32 = 0u32;
+    while corner < face.count {
+        var point: Vec3 = hull_corner(read hull, face, corner);
+        low_u = mask_min(low_u, dot(point, frame.right));
+        low_v = mask_min(low_v, dot(point, frame.up));
+        corner = corner + 1u32;
+    }
+    frame.origin = add(scale(frame.right, low_u), scale(frame.up, low_v));
+    frame.up = scale(frame.up, tile / bay);
+    asset_surface_set(mut hull, index, frame);
+}
+fn conduit_tile(
+    asset: mut RoomAsset,
+    wall: SurfaceFrame,
+    width: f32,
+    bay: f32,
+    row: u32,
+    depth: f32
+) -> bool {
+    var hull: AssetHull = asset_hull_new();
+    if !solid_box_hull(mut hull, vec(width, bay, depth), 0u32) {
+        return false;
+    }
+    var side: u32 = 0u32;
+    while side < asset_face_count(read hull) {
+        conduit_tile_surface(mut hull, side, width, bay);
+        side = side + 1u32;
+    }
+    var right: Vec3 = unit_vector(wall.right);
+    var up: Vec3 = vec(0f32, 1f32, 0f32);
+    var basis: Basis = make Basis {
+        right: right,
+        up: up,
+        forward: cross(right, up)
+    };
+    var centre: Vec3 = sub(
+        add(
+            add(wall.origin, scale(right, width * 0.5f32)),
+            scale(up, bay * (row as f32 + 0.5f32))
+        ),
+        scale(wall.normal, depth * 0.5f32)
+    );
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !hull_solid_mesh(read hull, mut asset.geometry, centre, basis, width) {
+        return false;
+    }
+    return asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("raised-concrete"),
+        vec(0f32, 0f32, 0f32)
+    );
+}
+fn conduit_tiles(asset: mut RoomAsset, values: read AssetValues) -> bool {
+    var seed: f32 = asset_value(read values, 4u32);
+    if seed != seed as u32 as f32 {
+        return error("tile-seed must be an integer");
+    }
+    var density: f32 = asset_value(read values, 5u32);
+    var depth: f32 = asset_value(read values, 6u32);
+    if depth == 0f32 || density == 0f32 {
+        return true;
+    }
+    var height: f32 = asset_value(read values, 0u32);
+    var rows: u32 = panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32);
+    var bay: f32 = height / rows as f32;
+    var width: f32 = asset_value(read values, 1u32) * sinf(3.14159265359f32 / 48f32);
+    var side: u32 = 0u32;
+    while side < asset_face_count(read asset.hull) {
+        var face: HullFace = asset_face(read asset.hull, side);
+        var frame: SurfaceFrame = asset_surface(read asset.hull, side);
+        if face.region == 0u32 && face.count == 4u32 && absf(frame.normal.y) < 0.001f32 {
+            var row: u32 = 1u32;
+            while row + 1u32 < rows {
+                var hash: u32 = metal_hash(side, row, seed as u32);
+                if (hash % 100u32) as f32 < density && !conduit_tile(
+                    mut asset,
+                    frame,
+                    width,
+                    bay,
+                    row,
+                    depth * (0.35f32 + (hash >> 8u32) as f32 / 16777215f32 * 0.65f32)
+                ) {
+                    return false;
+                }
+                row = row + 1u32;
+            }
+        }
+        side = side + 1u32;
+    }
+    return true;
+}

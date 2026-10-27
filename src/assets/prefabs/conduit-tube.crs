@@ -1,8 +1,11 @@
 const CONDUIT_CAST_LENGTH: f32 = 25f32;
 fn prefab_conduit_parameter_count() -> u32 {
-    return 4u32;
+    return 7u32;
 }
 fn prefab_conduit_parameter_name(index: u32) -> AssetName {
+    if index >= 4u32 {
+        return conduit_tiles_parameter_name(index - 4u32);
+    }
     if index == 0u32 {
         return asset_name("length");
     }
@@ -15,6 +18,9 @@ fn prefab_conduit_parameter_name(index: u32) -> AssetName {
     return asset_name("turns");
 }
 fn prefab_conduit_parameter(index: u32) -> AssetParameter {
+    if index >= 4u32 {
+        return conduit_tiles_parameter(index - 4u32);
+    }
     if index == 0u32 {
         return make AssetParameter {
             minimum: 100f32,
@@ -133,7 +139,10 @@ fn conduit_cable(asset: mut RoomAsset, radius: f32, height: f32, turns: u32, str
     );
 }
 fn prefab_conduit_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    return prefab_conduit_prepare(read parameters, mut asset) && room_asset_finish(mut asset);
+    return prefab_conduit_prepare(read parameters, mut asset) && conduit_tiles(
+        mut asset,
+        read parameters
+    ) && room_asset_finish(mut asset);
 }
 fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     var i: u32 = 0u32;
