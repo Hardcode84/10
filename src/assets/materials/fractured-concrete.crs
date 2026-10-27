@@ -1,4 +1,3 @@
-const SURFACE_FRACTURED_CONCRETE: u32 = 20u32;
 fn conduit_debris_material(fracture: bool) -> PanelMaterial {
     var material: PanelMaterial = hex_tunnel_material();
     material.finish = SURFACE_CONCRETE;

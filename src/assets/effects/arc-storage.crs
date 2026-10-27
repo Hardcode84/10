@@ -1,0 +1,81 @@
+// A moving contact casts a room-local ray onto static collision geometry.
+// Direction is unit length; reach is positive. Period matches both flash materials.
+// One in cycle_stride cycles is active, selected by the seed.
+record ArcEmitter {
+    space: u32;
+    position: Vec3;
+    pivot: Vec3;
+    angular: Vec3;
+    direction: Vec3;
+    reach: f32;
+    period: u32;
+    cycle_stride: u32;
+    style: LightningStyle;
+    spark_material: u32;
+}
+resource ArcEmitters {
+    data: *ArcEmitter;
+    count: u32;
+    capacity: u32;
+}
+opaque drop arc_emitters_drop;
+fn arc_emitters_new() -> ArcEmitters {
+    return make ArcEmitters {
+        data: null(*ArcEmitter),
+        count: 0u32,
+        capacity: 0u32
+    };
+}
+fn arc_emitters_drop(list: mut ArcEmitters) -> unit {
+    free(list.data as *u8);
+}
+fn arc_emitter_count(list: read ArcEmitters) -> u32 {
+    return list.count;
+}
+fn arc_emitter(list: read ArcEmitters, index: u32) -> ArcEmitter {
+    return list.data[index as usize];
+}
+fn arc_emitter_append(list: mut ArcEmitters, value: ArcEmitter) -> bool {
+    if list.count == list.capacity {
+        var capacity: u64 = list.capacity as u64 * 2u64 + 1u64;
+        if capacity > 0xffffffffu64 || capacity > (~0usize) as u64 / sizeof(ArcEmitter) as u64 {
+            return error("arc emitter count exceeds address range");
+        }
+        var data: *ArcEmitter = malloc(capacity as usize * sizeof(ArcEmitter)) as *ArcEmitter;
+        if data == null(*ArcEmitter) {
+            return error("arc emitter allocation failed");
+        }
+        if list.count != 0u32 {
+            memcpy(
+                data as *u8,
+                list.data as *u8,
+                list.count as usize * sizeof(ArcEmitter)
+            );
+        }
+        free(list.data as *u8);
+        list.data = data;
+        list.capacity = capacity as u32;
+    }
+    list.data[list.count as usize] = value;
+    list.count = list.count + 1u32;
+    return true;
+}
+fn arc_emitters_place(
+    source: read ArcEmitters,
+    target: mut ArcEmitters,
+    room: u32,
+    material: u32
+) -> bool {
+    var i: u32 = 0u32;
+    while i < source.count {
+        var emitter: ArcEmitter = source.data[i as usize];
+        emitter.space = room;
+        emitter.style.region = emitter.style.region + material;
+        emitter.spark_material = emitter.spark_material + material;
+        if !arc_emitter_append(mut target, emitter) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

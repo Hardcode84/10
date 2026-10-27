@@ -1,0 +1,66 @@
+record ArcContact {
+    active: bool;
+    start: Vec3;
+    end: Vec3;
+    normal: Vec3;
+}
+fn arc_active(emitter: ArcEmitter, tick: u32) -> bool {
+    return flash_intensity(emitter.period, tick) > 0f32 && metal_hash(
+        tick / emitter.period,
+        0u32,
+        emitter.style.seed
+    ) % emitter.cycle_stride == 0u32;
+}
+fn arc_vector(emitter: ArcEmitter, vector: Vec3, tick: u32) -> Vec3 {
+    var speed: f32 = length(emitter.angular);
+    if speed == 0f32 {
+        return vector;
+    }
+    return rotate(
+        vector,
+        scale(emitter.angular, 1f32 / speed),
+        speed * (tick as f32 / MATERIAL_ANIMATION_HZ as f32)
+    );
+}
+// Unloaded rooms and rays with no static hit produce no strike.
+fn arc_contact(scene: read CollisionScene, emitter: ArcEmitter, tick: u32) -> ArcContact {
+    var result: ArcContact = make ArcContact {
+        active: false,
+        start: emitter.position,
+        end: emitter.position,
+        normal: vec(0f32, 0f32, 0f32)
+    };
+    if !arc_active(emitter, tick) || !collision_room_resident(read scene, emitter.space) {
+        return result;
+    }
+    result.start = add(
+        emitter.pivot,
+        arc_vector(emitter, sub(emitter.position, emitter.pivot), tick)
+    );
+    var direction: Vec3 = arc_vector(emitter, emitter.direction, tick);
+    var hit: CollisionContact = collision_sweep(
+        read scene,
+        emitter.space,
+        result.start,
+        scale(direction, emitter.reach),
+        0f32
+    );
+    if hit.hit.time <= 1f32 && hit.hit.time > 0f32 {
+        result.active = true;
+        result.end = hit.point;
+        result.normal = hit.hit.normal;
+    }
+    return result;
+}
+fn arc_light(emitter: ArcEmitter, contact: ArcContact, tick: u32) -> FixtureLight {
+    return fixture_light_at(
+        make FixtureLight {
+            space: emitter.space,
+            period: emitter.period,
+            position: scale(add(contact.start, contact.end), 0.5f32),
+            colour: vec(0.08f32, 0.8f32, 4f32),
+            radius: length(sub(contact.end, contact.start)) * 0.6f32
+        },
+        tick
+    );
+}

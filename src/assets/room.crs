@@ -16,6 +16,7 @@ record RoomAsset {
     door_leaves: AssetDoorLeaves;
     lights: FixtureLights;
     sparks: SparkEmitters;
+    arcs: ArcEmitters;
     routes: PipeRouter;
     collision: CollisionScene;
     spawn: AssetSpawn;
@@ -38,6 +39,7 @@ fn room_asset_new() -> RoomAsset {
         door_leaves: asset_door_leaves_new(),
         lights: fixture_lights_new(),
         sparks: spark_emitters_new(),
+        arcs: arc_emitters_new(),
         routes: pipe_router_new(-1f32, 0u32),
         collision: collision_new(),
         spawn: make AssetSpawn {

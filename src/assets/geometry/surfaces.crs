@@ -135,3 +135,18 @@ fn hull_trapezoid_frame(hull: read AssetHull, face: HullFace, axis: Vec3) -> Sur
     frame.up = cross(frame.normal, frame.right);
     return frame;
 }
+
+// The fragment hull contains its local origin. Return its boundary along direction.
+fn hull_radial_contact(hull: read AssetHull, direction: Vec3) -> Vec3 {
+    var distance: f32 = 3.4028234e38f32;
+    var i: u32 = 0u32;
+    while i < asset_face_count(read hull) {
+        var frame: SurfaceFrame = hull_frame(read hull, asset_face(read hull, i));
+        var facing: f32 = dot(frame.normal, direction);
+        if facing > 0f32 {
+            distance = mask_min(distance, dot(frame.normal, frame.origin) / facing);
+        }
+        i = i + 1u32;
+    }
+    return scale(direction, distance);
+}

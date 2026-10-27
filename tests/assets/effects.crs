@@ -47,3 +47,81 @@ fn asset_test_flash() -> bool {
         "spark burst is not repeatable at an absolute tick"
     );
 }
+
+fn asset_test_arc() -> bool {
+    var asset: RoomAsset = room_asset_new();
+    if !asset_test_part_room(mut asset) || !room_asset_finish(mut asset) {
+        return false;
+    }
+    var emitter: ArcEmitter = make ArcEmitter {
+        space: 0u32,
+        position: vec(1f32, 2f32, 0f32),
+        pivot: vec(0f32, 2f32, 0f32),
+        angular: vec(0f32, 1f32, 0f32),
+        direction: vec(1f32, 0f32, 0f32),
+        reach: 30f32,
+        period: 256u32,
+        cycle_stride: 1u32,
+        style: make LightningStyle {
+            minimum: 1f32,
+            maximum: 2f32,
+            angle: 0.4f32,
+            radius: 0.1f32,
+            seed: 17u32,
+            region: 2u32
+        },
+        spark_material: 3u32
+    };
+    var tick: u32 = 0u32;
+    while tick < emitter.period / 4u32 {
+        var contact: ArcContact = arc_contact(read asset.collision, emitter, tick);
+        var direction: Vec3 = arc_vector(emitter, emitter.direction, tick);
+        var expected: Vec3 = hull_radial_contact(read asset.hull, direction);
+        expected.y = 2f32;
+        if !contact.active || length(sub(contact.end, expected)) > 0.00001f32 || length(
+            sub(contact.start, add(emitter.pivot, direction))
+        ) > 0.00001f32 {
+            return error("moving arc did not hit the room surface");
+        }
+        var light: FixtureLight = arc_light(emitter, contact, tick);
+        if length(
+            sub(light.position, scale(add(contact.start, contact.end), 0.5f32))
+        ) != 0f32 {
+            return error("arc light did not follow contacts");
+        }
+        tick = tick + 7u32;
+    }
+    if arc_contact(read asset.collision, emitter, emitter.period / 2u32).active {
+        return error("arc remains visible in its dark interval");
+    }
+    if !arc_emitter_append(mut asset.arcs, emitter) {
+        return false;
+    }
+    var placed: ArcEmitters = arc_emitters_new();
+    if !arc_emitters_place(read asset.arcs, mut placed, 7u32, 11u32) {
+        return false;
+    }
+    var copy: ArcEmitter = arc_emitter(read placed, 0u32);
+    if copy.space != 7u32 || copy.style.region != 13u32 || copy.spark_material != 14u32 {
+        return error("arc room placement lost material offsets");
+    }
+    collision_room_unload(mut asset.collision, 0u32);
+    return !arc_contact(read asset.collision, emitter, 0u32).active || error(
+        "arc queried an unloaded room"
+    );
+}
+
+fn asset_test_flash_concrete() -> bool {
+    var concrete: PanelMaterial = hex_tunnel_material();
+    concrete.finish = SURFACE_CONCRETE;
+    concrete.tile_metres = 3f32;
+    concrete.tile_height = 4f32;
+    var flash: PanelMaterial = concrete;
+    flash.finish = METAL_FLASH;
+    flash.emission_period = 256u32;
+    return panel_texture_width(concrete) > 1u32 && panel_texture_height(concrete) > 1u32 && panel_texture_width(
+        flash
+    ) == 1u32 && panel_texture_height(flash) == 1u32 || error(
+        "concrete and flash material layouts overlap"
+    );
+}

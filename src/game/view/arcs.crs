@@ -1,0 +1,33 @@
+fn game_arcs(
+    scene: read CollisionScene,
+    emitters: read ArcEmitters,
+    input: mut FrameInput,
+    anchors: mut RoomAnchors
+) -> unit {
+    var tick: u32 = input_word(read input, MATERIAL_ANIMATION_TICK as usize);
+    var i: u32 = 0u32;
+    while i < arc_emitter_count(read emitters) {
+        var emitter: ArcEmitter = arc_emitter(read emitters, i);
+        var contact: ArcContact = arc_contact(read scene, emitter, tick);
+        if contact.active {
+            if !arc_draw(mut input, emitter, contact, tick) {
+                scene_overflow();
+            }
+            var fixture: FixtureLight = arc_light(emitter, contact, tick);
+            light_object_anchors(
+                read scene,
+                mut input,
+                make LightObject {
+                    id: i,
+                    space: fixture.space,
+                    position: fixture.position,
+                    colour: fixture.colour,
+                    radius: fixture.radius,
+                    mode: LIGHT_UNSHADOWED
+                },
+                mut anchors
+            );
+        }
+        i = i + 1u32;
+    }
+}

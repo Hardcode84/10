@@ -121,7 +121,7 @@ fn graph_recipe_add(
         read asset.recipe,
         material,
         parts
-    ) && graph_motion_add(mut graph, read asset, room, parts) && graph_sparks_add(
+    ) && graph_motion_add(mut graph, read asset, room, parts) && graph_effects_add(
         mut graph,
         read asset,
         room,

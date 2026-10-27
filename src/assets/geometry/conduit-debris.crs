@@ -62,7 +62,8 @@ fn conduit_debris_chunk(
     centre: Vec3,
     radius: f32,
     seed: u32,
-    angular: f32
+    angular: f32,
+    reach: f32
 ) -> bool {
     var hull: AssetHull = asset_hull_new();
     if !truncated_cube_hull(mut hull, 1f32, CONDUIT_DEBRIS_MATERIAL, CONDUIT_FRACTURE_MATERIAL) {
@@ -127,7 +128,15 @@ fn conduit_debris_chunk(
         asset_name("conduit-debris"),
         vec(0f32, centre.y, 0f32),
         vec(0f32, angular, 0f32)
-    ) && conduit_debris_rebar(mut asset, read hull, centre, basis, radius, seed, angular);
+    ) && conduit_debris_rebar(mut asset, read hull, centre, basis, radius, seed, angular) && conduit_debris_arcs(
+        mut asset,
+        read hull,
+        centre,
+        basis,
+        angular,
+        reach,
+        seed
+    );
 }
 fn conduit_debris_section(
     asset: mut RoomAsset,
@@ -190,7 +199,8 @@ fn conduit_debris_section(
                 centre,
                 radius,
                 hash,
-                conduit_debris_speed(read values)
+                conduit_debris_speed(read values),
+                asset_value(read values, 1u32)
             ) {
                 return false;
             }

@@ -1,0 +1,127 @@
+// Dynamic effect surfaces precede retained instances. All faces are unshadowed.
+fn arc_triangle(input: mut FrameInput, emitter: ArcEmitter, a: Vec3, b: Vec3, c: Vec3) -> bool {
+    var index: u32 = input_word(read input, 3usize);
+    if !input_reserve_triangles(mut input, index + 1u32) {
+        return false;
+    }
+    var vertices: [Vec3; 3] = make [Vec3; 3] {
+        a,
+        b,
+        c
+    };
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var point: Vec3 = vertices[i as usize];
+        var p: usize = (GEOMETRY + index * 15u32 + i * 5u32) as usize;
+        input_set_float(mut input, p, point.x);
+        input_set_float(mut input, p + 1usize, point.y);
+        input_set_float(mut input, p + 2usize, point.z);
+        input_set_float(mut input, p + 3usize, 0f32);
+        input_set_float(mut input, p + 4usize, 0f32);
+        i = i + 1u32;
+    }
+    var p: usize = (input_word(read input, META as usize) + index * 4u32) as usize;
+    input_set_word(mut input, p, emitter.space);
+    input_set_word(mut input, p + 1usize, emitter.style.region);
+    input_set_word(mut input, p + 2usize, 0u32);
+    input_set_word(mut input, p + 3usize, TRIANGLE_NO_SHADOW | 1u32);
+    input_set_word(mut input, 3usize, index + 1u32);
+    return true;
+}
+fn arc_ribbon(
+    input: mut FrameInput,
+    emitter: ArcEmitter,
+    start: Vec3,
+    end: Vec3,
+    side: Vec3
+) -> bool {
+    var a: Vec3 = sub(start, side);
+    var b: Vec3 = add(start, side);
+    var c: Vec3 = add(end, side);
+    var d: Vec3 = sub(end, side);
+    return arc_triangle(mut input, emitter, a, b, c) && arc_triangle(
+        mut input,
+        emitter,
+        a,
+        c,
+        d
+    ) && arc_triangle(mut input, emitter, c, b, a) && arc_triangle(
+        mut input,
+        emitter,
+        d,
+        c,
+        a
+    );
+}
+fn arc_body_draw(
+    input: mut FrameInput,
+    emitter: ArcEmitter,
+    contact: ArcContact,
+    tick: u32
+) -> bool {
+    var style: LightningStyle = emitter.style;
+    style.seed = metal_hash(tick / emitter.period, 1u32, style.seed);
+    var point: Vec3 = contact.start;
+    var remaining: f32 = length(sub(contact.end, point));
+    var index: u32 = 0u32;
+    while remaining > 0f32 {
+        var next: Vec3 = lightning_step(point, contact.end, style, index);
+        var distance: f32 = length(sub(contact.end, next));
+        if!(distance < remaining) {
+            return error("arc segment is too small for these coordinates");
+        }
+        var frame: Basis = hull_radial_basis(unit_vector(sub(next, point)));
+        if !arc_ribbon(
+            mut input,
+            emitter,
+            point,
+            next,
+            scale(frame.right, style.radius)
+        ) || !arc_ribbon(
+            mut input,
+            emitter,
+            point,
+            next,
+            scale(frame.up, style.radius)
+        ) {
+            return false;
+        }
+        point = next;
+        remaining = distance;
+        index = index + 1u32;
+    }
+    return true;
+}
+fn arc_sparks_draw(
+    input: mut FrameInput,
+    emitter: ArcEmitter,
+    contact: ArcContact,
+    tick: u32
+) -> bool {
+    var spark: SparkEmitter = make SparkEmitter {
+        space: emitter.space,
+        position: contact.start,
+        direction: arc_vector(emitter, emitter.direction, tick),
+        period: emitter.period,
+        seed: emitter.style.seed,
+        count: 16u32,
+        speed: 7f32,
+        size: emitter.style.radius * 2f32,
+        material: emitter.spark_material
+    };
+    if !spark_emitter_draw(mut input, spark, tick) {
+        return false;
+    }
+    spark.position = contact.end;
+    spark.direction = contact.normal;
+    spark.seed = spark.seed ^ 0x71892u32;
+    return spark_emitter_draw(mut input, spark, tick);
+}
+fn arc_draw(input: mut FrameInput, emitter: ArcEmitter, contact: ArcContact, tick: u32) -> bool {
+    return arc_body_draw(mut input, emitter, contact, tick) && arc_sparks_draw(
+        mut input,
+        emitter,
+        contact,
+        tick
+    );
+}

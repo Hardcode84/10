@@ -26,13 +26,13 @@ fn asset_scene(
         i = i + 1u32;
     }
     asset_camera(mut input, read asset, mesh, camera);
-    return spark_emitters_draw(mut input, read asset.sparks) && fixture_lights_preview(
-        read asset.lights,
-        mut input
-    ) && input_instance(mut input, mesh_identity(mesh, 0u32)) && input_instance(
+    return asset_arcs_preview(read asset, mut input, tick) && spark_emitters_draw(
         mut input,
-        mesh_identity(labels, 0u32)
-    );
+        read asset.sparks
+    ) && fixture_lights_preview(read asset.lights, mut input) && input_instance(
+        mut input,
+        mesh_identity(mesh, 0u32)
+    ) && input_instance(mut input, mesh_identity(labels, 0u32));
 }
 // Builds the selected shell and optional solid parts for inspection.
 fn asset_view_filtered_mesh(
@@ -255,16 +255,7 @@ fn fixture_lights_preview(lights: read FixtureLights, input: mut FrameInput) -> 
             fixture_light(read lights, i),
             input_word(read input, MATERIAL_ANIMATION_TICK as usize)
         );
-        var p: usize = (input_word(read input, LIGHT_DATA as usize) + (first + i) * 8u32) as usize;
-        input_set_float(mut input, p, light.position.x);
-        input_set_float(mut input, p + 1usize, light.position.y);
-        input_set_float(mut input, p + 2usize, light.position.z);
-        input_set_float(mut input, p + 3usize, light.radius * light.radius);
-        input_set_float(mut input, p + 4usize, light.colour.x);
-        input_set_float(mut input, p + 5usize, light.colour.y);
-        input_set_float(mut input, p + 6usize, light.colour.z);
-        input_set_float(mut input, p + 7usize, LIGHT_UNSHADOWED as f32);
-        input_light_space(mut input, first + i, light.space);
+        fixture_light_preview(light, mut input, first + i);
         i = i + 1u32;
     }
     return true;
@@ -292,4 +283,37 @@ fn asset_view_rotate(state: mut AssetViewState) -> unit {
 }
 fn asset_view_only_waypoints(state: read AssetViewState, asset: read RoomAsset) -> bool {
     return state.waypoints && route_nodes_count(read asset.routes) != 0u32;
+}
+
+fn fixture_light_preview(light: FixtureLight, input: mut FrameInput, index: u32) -> unit {
+    var p: usize = (input_word(read input, LIGHT_DATA as usize) + index * 8u32) as usize;
+    input_set_float(mut input, p, light.position.x);
+    input_set_float(mut input, p + 1usize, light.position.y);
+    input_set_float(mut input, p + 2usize, light.position.z);
+    input_set_float(mut input, p + 3usize, light.radius * light.radius);
+    input_set_float(mut input, p + 4usize, light.colour.x);
+    input_set_float(mut input, p + 5usize, light.colour.y);
+    input_set_float(mut input, p + 6usize, light.colour.z);
+    input_set_float(mut input, p + 7usize, LIGHT_UNSHADOWED as f32);
+    input_light_space(mut input, index, light.space);
+}
+
+fn asset_arcs_preview(asset: read RoomAsset, input: mut FrameInput, tick: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < arc_emitter_count(read asset.arcs) {
+        var emitter: ArcEmitter = arc_emitter(read asset.arcs, i);
+        var contact: ArcContact = arc_contact(read asset.collision, emitter, tick);
+        if contact.active {
+            var index: u32 = input_word(read input, LIGHT_COUNT as usize);
+            if !arc_draw(mut input, emitter, contact, tick) || !input_lights(
+                mut input,
+                index + 1u32
+            ) {
+                return false;
+            }
+            fixture_light_preview(arc_light(emitter, contact, tick), mut input, index);
+        }
+        i = i + 1u32;
+    }
+    return true;
 }

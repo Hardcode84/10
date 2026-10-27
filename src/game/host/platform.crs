@@ -191,6 +191,12 @@ fn game_scene_finish(
     if !spark_emitters_draw(mut input, graph_sparks(read session.control.graph)) {
         scene_overflow();
     }
+    game_arcs(
+        read collision,
+        graph_arcs(read session.control.graph),
+        mut input,
+        mut session.view_anchors
+    );
     draw_prediction(mut input, read prediction, config);
     draw_frame(mut input, read trial.drone, config);
     draw_portal_admission(

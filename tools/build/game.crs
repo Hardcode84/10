@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 214] = make [*u8; 214] {
+    var files: [*u8; 218] = make [*u8; 218] {
         "src/app/generation/random.crs",
         "src/app/level/parts.crs",
         "src/app/level/recipe.crs",
@@ -80,6 +80,10 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/tube-sweep.crs",
         "src/assets/geometry/lightning.crs",
         "src/assets/effects/flash.crs",
+        "src/assets/effects/arc.crs",
+        "src/assets/effects/arc-draw.crs",
+        "src/assets/geometry/conduit-lightning.crs",
+        "src/game/view/arcs.crs",
         "src/assets/effects/draw.crs",
         "src/assets/materials/flash-upload.crs",
         "src/assets/geometry/shaft-hub-pipes.crs",
@@ -216,14 +220,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 214usize {
+    while i < 218usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 65] = make [*u8; 65] {
+    var files: [*u8; 66] = make [*u8; 66] {
         "src/runtime/channel/spsc.crs",
         "src/audio/platform/bank.crs",
         "src/audio/platform/mixer.crs",
@@ -254,6 +258,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/app/streaming/dependencies.crs",
         "src/assets/light-storage.crs",
         "src/assets/effects/storage.crs",
+        "src/assets/effects/arc-storage.crs",
         "src/assets/connections/storage.crs",
         "src/app/window.crs",
         "src/app/input.crs",
@@ -291,10 +296,10 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/tasks/timing.crs"
     };
     if args == null(**u8) {
-        return 65usize;
+        return 66usize;
     }
     var i: usize = 0usize;
-    while i < 65usize {
+    while i < 66usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

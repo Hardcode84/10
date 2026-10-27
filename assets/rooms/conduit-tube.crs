@@ -1,3 +1,5 @@
+// Powered debris emits seeded lightning to the cable and wall. Strikes follow
+// the debris, appear at full intensity, then fade with blue sparks and light.
 // Powered debris and its rebar orbit the cable. orbit-period sets seconds per turn.
 // At power off, debris stays at its generated position.
 // Power conduit: a 250 m diameter concrete tube, 500 m long along local +Y.

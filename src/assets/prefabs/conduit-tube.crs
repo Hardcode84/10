@@ -3,7 +3,9 @@ const CONDUIT_LIGHT_MATERIAL: u32 = 5u32;
 const CONDUIT_DEBRIS_MATERIAL: u32 = 6u32;
 const CONDUIT_FRACTURE_MATERIAL: u32 = 7u32;
 const CONDUIT_REBAR_MATERIAL: u32 = 8u32;
-const CONDUIT_MATERIAL_COUNT: u32 = 9u32;
+const CONDUIT_ARC_MATERIAL: u32 = 9u32;
+const CONDUIT_ARC_SPARK_MATERIAL: u32 = 10u32;
+const CONDUIT_MATERIAL_COUNT: u32 = 11u32;
 const CONDUIT_CAST_LENGTH: f32 = 25f32;
 fn prefab_conduit_parameter_count() -> u32 {
     return conduit_orbit_parameter() + 1u32;
@@ -238,6 +240,9 @@ fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) ->
     return true;
 }
 fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == CONDUIT_ARC_MATERIAL || region == CONDUIT_ARC_SPARK_MATERIAL {
+        return conduit_arc_material(region == CONDUIT_ARC_SPARK_MATERIAL);
+    }
     if region == CONDUIT_REBAR_MATERIAL {
         return conduit_rebar_material();
     }

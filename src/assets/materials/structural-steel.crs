@@ -1,4 +1,3 @@
-const SURFACE_STRUCTURAL_STEEL: u32 = 19u32;
 // Painted structural plates with longitudinal ribs and bolted transverse splices.
 // Tile width is the splice pitch; tile height is the panel width, in metres.
 fn structural_steel_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {

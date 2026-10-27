@@ -574,3 +574,17 @@ These are design references, not build dependencies.
 The prior Claude design review supported shared construction proportions and
 functional detail placement. Its suggestion to postpone the interactive
 viewer was rejected. The viewer is a required part of this workflow.
+
+### Moving lightning contacts
+
+A room can define `ArcEmitter` records in `RoomAsset.arcs`. Each emitter has a
+reference contact, a rotation pivot, an angular velocity, and a ray direction.
+The frame clock sets the contact pose. A static collision-tree query sets the
+other contact on the nearest surface in that room. An unloaded room emits no
+strike. Geometry loading remains under room admission control.
+
+The seed selects active cycles and the bolt path. Bolts appear at full intensity
+and fade with their contact sparks and midpoint light. Both materials use the
+emitter period. Submit the effect surfaces before retained mesh instances.
+The game propagates the light through portal anchors. Effect surfaces have no
+collision and cast no shadows.

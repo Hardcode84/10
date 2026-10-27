@@ -1,5 +1,5 @@
 const PANEL_PULSE_FRAMES: u32 = 32u32;
-const METAL_FLASH: u32 = 17u32;
+const METAL_FLASH: u32 = 21u32;
 const MATERIAL_ANIMATION_HZ: u32 = 120u32;
 const METAL_FILTER: u32 = 16u32;
 const METAL_GRATE: u32 = 15u32;
@@ -18,6 +18,10 @@ const METAL_LEAK: u32 = 10u32;
 const METAL_PIPE_COATED: u32 = 11u32;
 const METAL_GIRDER_WEB: u32 = 12u32;
 const METAL_GIRDER_MOUNT: u32 = 13u32;
+const SURFACE_CONCRETE: u32 = 17u32;
+const SURFACE_CABLE: u32 = 18u32;
+const SURFACE_STRUCTURAL_STEEL: u32 = 19u32;
+const SURFACE_FRACTURED_CONCRETE: u32 = 20u32;
 // Dimensions are in metres. Repeated plate height must divide the tile height
 // remaining after band_width is removed.
 // Sizes and texel density must be positive.

@@ -4,29 +4,36 @@ fn spark_emitters_draw(input: mut FrameInput, emitters: read SparkEmitters) -> b
     var i: u32 = 0u32;
     while i < spark_emitter_count(read emitters) {
         var emitter: SparkEmitter = spark_emitter(read emitters, i);
-        var intensity: f32 = flash_intensity(emitter.period, tick);
-        var j: u32 = 0u32;
-        while intensity > 0f32 && j < emitter.count {
-            var point: Vec3 = spark_emitter_point(emitter, j, tick);
-            var size: f32 = emitter.size * (0.25f32 + 0.75f32 * sqrtf(intensity));
-            if !input_sprite(
-                mut input,
-                make Sprite {
-                    space: emitter.space,
-                    material: emitter.material,
-                    x: point.x,
-                    y: point.y,
-                    z: point.z,
-                    width: size,
-                    height: size,
-                    cutout: true
-                }
-            ) {
-                return false;
-            }
-            j = j + 1u32;
+        if !spark_emitter_draw(mut input, emitter, tick) {
+            return false;
         }
         i = i + 1u32;
+    }
+    return true;
+}
+
+fn spark_emitter_draw(input: mut FrameInput, emitter: SparkEmitter, tick: u32) -> bool {
+    var intensity: f32 = flash_intensity(emitter.period, tick);
+    var j: u32 = 0u32;
+    while intensity > 0f32 && j < emitter.count {
+        var point: Vec3 = spark_emitter_point(emitter, j, tick);
+        var size: f32 = emitter.size * (0.25f32 + 0.75f32 * sqrtf(intensity));
+        if !input_sprite(
+            mut input,
+            make Sprite {
+                space: emitter.space,
+                material: emitter.material,
+                x: point.x,
+                y: point.y,
+                z: point.z,
+                width: size,
+                height: size,
+                cutout: true
+            }
+        ) {
+            return false;
+        }
+        j = j + 1u32;
     }
     return true;
 }

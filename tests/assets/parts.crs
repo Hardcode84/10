@@ -60,7 +60,7 @@ fn asset_test_part_room(asset: mut RoomAsset) -> bool {
     return true;
 }
 fn asset_test_parts() -> bool {
-    return asset_test_flash() && asset_test_lightning() && asset_test_cutout_collision() && asset_test_part_assembly() && asset_test_motion();
+    return asset_test_flash_concrete() && asset_test_flash() && asset_test_arc() && asset_test_lightning() && asset_test_cutout_collision() && asset_test_part_assembly() && asset_test_motion();
 }
 fn asset_test_part_assembly() -> bool {
     var asset: RoomAsset = room_asset_new();

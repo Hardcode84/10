@@ -1,0 +1,60 @@
+const CONDUIT_ARC_PERIOD: u32 = 256u32;
+fn conduit_arc_material(sparks: bool) -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.finish = METAL_FLASH;
+    material.emission_period = CONDUIT_ARC_PERIOD;
+    material.emission = 0xffe0b0u32;
+    if sparks {
+        material.emission = 0xff8020u32;
+    }
+    return material;
+}
+fn conduit_debris_arcs(
+    asset: mut RoomAsset,
+    hull: read AssetHull,
+    centre: Vec3,
+    basis: Basis,
+    angular: f32,
+    reach: f32,
+    seed: u32
+) -> bool {
+    if angular == 0f32 {
+        return true;
+    }
+    var outward: Vec3 = unit_vector(vec(centre.x, 0f32, centre.z));
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var direction: Vec3 = scale(outward, i as f32 * 2f32 - 1f32);
+        var local: Vec3 = collision_local(basis, direction);
+        var contact: Vec3 = add(
+            centre,
+            basis_vector(basis, hull_radial_contact(read hull, local))
+        );
+        if !arc_emitter_append(
+            mut asset.arcs,
+            make ArcEmitter {
+                space: 0u32,
+                position: contact,
+                pivot: vec(0f32, centre.y, 0f32),
+                angular: vec(0f32, angular, 0f32),
+                direction: direction,
+                reach: reach,
+                period: CONDUIT_ARC_PERIOD,
+                cycle_stride: 3u32,
+                style: make LightningStyle {
+                    minimum: 3f32,
+                    maximum: 8f32,
+                    angle: 0.45f32,
+                    radius: 0.12f32,
+                    seed: metal_hash(seed, i, 721u32),
+                    region: CONDUIT_ARC_MATERIAL
+                },
+                spark_material: CONDUIT_ARC_SPARK_MATERIAL
+            }
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

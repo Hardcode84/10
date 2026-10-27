@@ -1,3 +1,5 @@
+// Powered debris emits seeded lightning to the cable and wall. Strikes follow
+// the debris, appear at full intensity, then fade with blue sparks and light.
 // Powered debris and its rebar orbit the cable. orbit-period sets seconds per turn.
 // At power off, debris stays at its generated position.
 // Conduit tube with a direct side SHAFT connection, one third along local +Y.
