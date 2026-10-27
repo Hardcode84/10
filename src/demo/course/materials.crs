@@ -18,7 +18,7 @@ fn course_material_words(configuration: read AssetValues) -> u32 {
         var region: u32 = 0u32;
         while region < course_material_count(kind) {
             var panel: PanelMaterial = course_material(kind, region, read values);
-            words = words + panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
+            words = words + panel_payload(panel);
             region = region + 1u32;
         }
         kind = kind + 1u32;
@@ -71,7 +71,7 @@ fn course_palette_reserved(
             ) {
                 return false;
             }
-            offset = offset + panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
+            offset = offset + panel_payload(panel);
             region = region + 1u32;
         }
         kind = kind + 1u32;

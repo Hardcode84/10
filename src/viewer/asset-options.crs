@@ -1,5 +1,7 @@
 record AssetViewOptions {
     frames: u32;
+    animate: bool;
+    animation_tick: u32;
     view: u32;
     open_portals: bool;
     waypoints: bool;
@@ -39,6 +41,10 @@ fn asset_view_option(
     }
     if strcmp(key, "--frames") == 0i32 {
         return viewer_number(value, &options -> frames);
+    }
+    if strcmp(key, "--animation-tick") == 0i32 {
+        options -> animate = false;
+        return viewer_number(value, &options -> animation_tick);
     }
     if strcmp(key, "--width") == 0i32 {
         return viewer_number(value, &launch -> width);
@@ -103,7 +109,7 @@ fn asset_view_options(
 fn asset_view_help() -> unit {
     puts("crust viewer.crs ROOM.crs [--set NAME VALUE] [--view inside|outside|start|fly]");
     puts(
-        "  --width N --height N --frames N --capture FILE --portals open|closed --waypoints on|off"
+        "  --width N --height N --frames N --capture FILE --animation-tick N --portals open|closed --waypoints on|off"
     );
     puts("Tab: view; arrows: look/orbit; W/S: zoom; Space: auto rotate; Esc: close");
     puts("Left/right drag: look/orbit; mouse wheel: exterior zoom; spawn view stays fixed");

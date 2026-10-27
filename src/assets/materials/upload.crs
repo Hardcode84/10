@@ -4,9 +4,7 @@ fn room_material_payload(parameters: read AssetValues) -> u32 {
     var region: u32 = 0u32;
     while region < room_material_count() {
         var material: PanelMaterial = room_material(region, read parameters);
-        var size: u32 = panel_texture_width(material);
-        var height: u32 = panel_texture_height(material);
-        payload = payload + size * height + PALETTE_COLORS * LIGHT_STATES;
+        payload = payload + panel_payload(material);
         region = region + 1u32;
     }
     return payload;
@@ -25,11 +23,10 @@ fn room_materials_at(
     while region < room_material_count() {
         var material: PanelMaterial = room_material(region, read parameters);
         var size: u32 = panel_texture_width(material);
-        var height: u32 = panel_texture_height(material);
         if !panel_upload(mut input, first + region, offset, size, material) {
             return false;
         }
-        offset = offset + size * height + PALETTE_COLORS * LIGHT_STATES;
+        offset = offset + panel_payload(material);
         region = region + 1u32;
     }
     return true;
@@ -78,7 +75,7 @@ fn panel_upload(
         input_texel(mut input, offset + index, panel_sample(panel, x, y));
         index = index + 1u32;
     }
-    return true;
+    return panel_animation(mut input, region, palette + PALETTE_COLORS * LIGHT_STATES, panel);
 }
 
 fn panel_palette(panel: PanelMaterial, index: u32, state: u32) -> u32 {
@@ -89,4 +86,53 @@ fn panel_palette(panel: PanelMaterial, index: u32, state: u32) -> u32 {
         return palette_entry(panel.accent, 160u32 + (index - 224u32) * 4u32, state, false);
     }
     return palette_entry(panel.colour, index, state, false);
+}
+
+const PANEL_PULSE_FRAMES: u32 = 32u32;
+fn panel_payload(panel: PanelMaterial) -> u32 {
+    var words: u32 = panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
+    if panel.emission_period != 0u32 {
+        words = words + PANEL_PULSE_FRAMES * LIGHT_STATES;
+    }
+    return words;
+}
+fn panel_animation(input: mut FrameInput, region: u32, offset: u32, panel: PanelMaterial) -> bool {
+    if panel.emission_period == 0u32 {
+        return true;
+    }
+    if panel.emission_period % PANEL_PULSE_FRAMES != 0u32 {
+        return error("emission period must be a multiple of the pulse frame count");
+    }
+    var frame: u32 = 0u32;
+    while frame < PANEL_PULSE_FRAMES {
+        var intensity: u32 = (
+            80f32 + 175f32 * (
+                0.5f32 + 0.5f32 * cosf(
+                    6.28318530718f32 * frame as f32 / PANEL_PULSE_FRAMES as f32
+                )
+            )
+        ) as u32;
+        var state: u32 = 0u32;
+        while state < LIGHT_STATES {
+            input_asset_set(
+                mut input,
+                offset + frame * LIGHT_STATES + state,
+                palette_entry(panel.emission, intensity, state, true)
+            );
+            state = state + 1u32;
+        }
+        frame = frame + 1u32;
+    }
+    return input_material_animation(
+        mut input,
+        region,
+        make MaterialAnimation {
+            frames: PANEL_PULSE_FRAMES,
+            ticks_per_frame: panel.emission_period / PANEL_PULSE_FRAMES,
+            texture_stride: 0u32,
+            palette: offset,
+            palette_first: 248u32,
+            palette_count: 1u32
+        }
+    );
 }

@@ -1,3 +1,4 @@
+const MATERIAL_ANIMATION_HZ: u32 = 120u32;
 const METAL_FILTER: u32 = 16u32;
 const METAL_GRATE: u32 = 15u32;
 const METAL_FULLBRIGHT: u32 = 14u32;
@@ -38,6 +39,8 @@ record PanelMaterial {
     colour: u32;
     accent: u32;
     emission: u32;
+    // Zero is steady. Otherwise full-bright colour 248 pulses over this tick period.
+    emission_period: u32;
     tile_metres: f32;
     tile_height: f32;
     panel_height: f32;

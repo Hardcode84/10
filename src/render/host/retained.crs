@@ -189,6 +189,7 @@ fn instance_bounds(input: mut FrameInput, offset: u32, instance: MeshInstance) -
 }
 // Begin a frame before writing dynamic triangles. Submit retained instances after them.
 fn input_frame(input: mut FrameInput) -> unit {
+    input_animation_tick(mut input, 0u32);
     input_set_word(mut input, 3usize, 0u32);
     input_set_word(mut input, INSTANCE_COUNT as usize, 0u32);
     input_set_word(mut input, DYNAMIC_COUNT as usize, 0u32);

@@ -130,6 +130,7 @@ fn radial_material(region: u32) -> PanelMaterial {
         tile_height = tile * 0.57735026919f32;
     }
     return make PanelMaterial {
+        emission_period: 0u32,
         colour: colour,
         accent: 0x4f97c4u32,
         emission: 0xd6ffc0u32,

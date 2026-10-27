@@ -55,7 +55,7 @@ fn upload_scene(v: *RenderState) -> unit {
         v -> staging,
         v -> buffer,
         0u64,
-        (TRAVERSAL_TILE_LIMIT as u64 + 2u64) * 4u64
+        (MATERIAL_ANIMATION_TICK as u64 + 2u64) * 4u64
     );
     if (v -> mapped as *u32)[OVERLAY_ENABLED as usize] != 0u32 {
         copy_region(
@@ -108,7 +108,7 @@ fn readback(v: *RenderState) -> unit {
             v -> buffer,
             v -> staging,
             0u64,
-            (TRAVERSAL_TILE_LIMIT as u64 + 2u64) * 4u64
+            (MATERIAL_ANIMATION_TICK as u64 + 2u64) * 4u64
         );
 
     } else {

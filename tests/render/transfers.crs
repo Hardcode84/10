@@ -34,7 +34,7 @@ fn transfer_test(base: *Options) -> bool {
     if !transfer_admission(mut renderer) {
         return false;
     }
-    return transfer_growth(mut renderer);
+    return transfer_growth(mut renderer) && transfer_animation(mut renderer);
 }
 fn transfer_measure(v: *RenderState) -> bool {
     var wait: u64 = 0u64;
@@ -309,4 +309,51 @@ fn transfer_admission_input(input: mut FrameInput) -> bool {
     return input.storage.mapped == backing && input_word(read input, 3usize) == required || error(
         "admitted instances replaced renderer storage"
     );
+}
+
+fn transfer_animation(renderer: mut Renderer) -> bool {
+    {
+        var input: FrameInput = renderer_inputs(mut renderer);
+        input_frame(mut input);
+        texture_scene(mut input, 11u32);
+    }
+    var ticks: [u32; 7] = make [u32; 7] {
+        0u32,
+        3u32,
+        4u32,
+        7u32,
+        8u32,
+        11u32,
+        12u32
+    };
+    var hashes: [u32; 3] = make [u32; 3] {
+        0u32,
+        0u32,
+        0u32
+    };
+    var i: u32 = 0u32;
+    while i < 7u32 {
+        {
+            var input: FrameInput = renderer_inputs(mut renderer);
+            input_animation_tick(mut input, ticks[i as usize]);
+        }
+        if !renderer_draw(&renderer.state) || !reference_check(renderer.state.mapped) {
+            return false;
+        }
+        if i != 0u32 && renderer.state.asset_upload_bytes != 0u64 {
+            return error("animation clock uploaded asset data");
+        }
+        var hash: u32 = transfer_hash(&renderer.state);
+        if i < 6u32 && i % 2u32 == 0u32 {
+            hashes[(i / 2u32) as usize] = hash;
+        } else if hash != hashes[((i / 2u32) % 3u32) as usize] {
+            return error("animation changed within a frame or failed to loop");
+        }
+        i = i + 1u32;
+    }
+    return (
+        hashes[0usize] != hashes[1usize] && hashes[1usize] != hashes[2usize] && hashes[2usize] != hashes[
+            0usize
+        ]
+    ) || error("animation frames did not change the image");
 }

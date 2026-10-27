@@ -391,6 +391,34 @@ Entry `c`, state `s` is at `palette + c * 512 + s`. Distance shading uses states
 Full-bright entries store the same colour at every state. No palette range is
 reserved. These texels obey depth, cutouts, and portals, and emit no light.
 
+### Material animation
+
+Call `input_material_animation` after `input_material` to attach a repeating
+sequence. Store all frames in the asset allocation before drawing. Replacing
+the material clears the sequence. Invalid descriptors leave it unchanged.
+
+`MaterialAnimation` gives the frame count and ticks per frame. A nonzero
+`texture_stride` selects successive texture frames at that word spacing. Each
+frame uses the base dimensions, row stride, and address modes. Zero keeps the
+base texture. `palette_first` and `palette_count` select a consecutive colour
+range. `palette` points to frame-major replacement tables, with `LIGHT_STATES`
+words per colour. A zero count keeps the base palette. Texture and palette
+frames can share storage across materials.
+
+Set `input_animation_tick` after `input_frame`. The default tick is zero. The
+GPU selects `(tick / ticks_per_frame) % frames` for texture sampling, cutouts,
+shadows, and palette lookup. The caller owns this unsigned clock, including
+pause, seek, and wrap. The game derives it from simulation time; the viewer
+uses elapsed time at `MATERIAL_ANIMATION_HZ`. Headless viewer frames advance
+one tick each. `--animation-tick N` freezes the viewer clock for inspection or
+capture. All portal views use the same tick. Animation changes one frame-input
+word; it requires no asset upload, allocation, readback, or extra dispatch.
+
+Generated panels can pulse full-bright colour 248 with `emission_period`.
+Its nonzero period must be a multiple of `PANEL_PULSE_FRAMES`. The generator
+stores only that colour's animated states. Other texels retain their base
+palette values. See [panel upload](../../src/assets/materials/upload.crs).
+
 ### Dithering, resolution, and overlay
 
 The image style combines accurate depth, indexed textures, discrete light

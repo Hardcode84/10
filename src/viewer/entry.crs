@@ -14,6 +14,8 @@ fn main(argc: i32, argv: **u8) -> i32 {
         return 0i32;
     }
     var options: AssetViewOptions = make AssetViewOptions {
+        animate: true,
+        animation_tick: 0u32,
         frames: 0u32,
         view: 0u32,
         open_portals: false,

@@ -146,6 +146,7 @@ fn asset_view_run(
     state.camera.flight = asset.spawn;
     state.waypoints = options.waypoints;
     var previous: u64 = now();
+    var animation_start: u64 = previous;
     var frame: u32 = 0u32;
     while state.running && (options.frames == 0u32 || frame < options.frames) {
         var current: u64 = now();
@@ -195,6 +196,10 @@ fn asset_view_run(
             if !asset_scene(mut output, read asset, visible, labels, state.camera) {
                 return 1i32;
             }
+            input_animation_tick(
+                mut output,
+                asset_animation_tick(options, headless, frame, current - animation_start)
+            );
         }
         if !asset_session_draw(mut session) {
             return 1i32;
@@ -244,4 +249,19 @@ fn fixture_lights_preview(lights: read FixtureLights, input: mut FrameInput) -> 
         i = i + 1u32;
     }
     return true;
+}
+
+fn asset_animation_tick(
+    options: AssetViewOptions,
+    headless: bool,
+    frame: u32,
+    elapsed: u64
+) -> u32 {
+    if !options.animate {
+        return options.animation_tick;
+    }
+    if headless {
+        return frame;
+    }
+    return (elapsed * MATERIAL_ANIMATION_HZ as u64 / 1000000000u64) as u32;
 }

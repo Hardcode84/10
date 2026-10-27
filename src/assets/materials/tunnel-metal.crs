@@ -3,6 +3,7 @@ fn hex_tunnel_material() -> PanelMaterial {
         colour: 0xa4a9afu32,
         accent: 0x4f97c4u32,
         emission: 0xd6ffc0u32,
+        emission_period: 0u32,
         tile_metres: 2f32,
         top_width: 0f32,
         hex_apothem: 0f32,

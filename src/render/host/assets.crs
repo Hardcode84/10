@@ -76,8 +76,12 @@ fn input_material(input: mut FrameInput, index: u32, material: Material) -> bool
         material.transparent_index
     };
     var i: u32 = 0u32;
-    while i < MATERIAL_WORDS {
+    while i < 10u32 {
         input_asset_set(mut input, index * MATERIAL_WORDS + i, values[i as usize]);
+        i = i + 1u32;
+    }
+    while i < MATERIAL_WORDS {
+        input_asset_set(mut input, index * MATERIAL_WORDS + i, 0u32);
         i = i + 1u32;
     }
     return true;

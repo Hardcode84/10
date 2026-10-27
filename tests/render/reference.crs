@@ -220,7 +220,7 @@ fn reference_color(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> u32 {
     if (level - light as f32) * 16f32 > reference_threshold(x, y, w[2usize]) as f32 {
         light = light + 1u32;
     }
-    return w[(reference_palette(w, mat) + tex * LIGHT_STATES + light) as usize];
+    return w[(reference_palette(w, mat, tex) + light) as usize];
 }
 fn trace(mapped: *u8, x: u32, y: u32, boundary: *bool, debug: bool, final: *Hit) -> u32 {
     var w: *u32 = mapped as *u32;
@@ -512,8 +512,22 @@ extern fn floorf(value: f32) -> f32 = "floorf";
 fn reference_material(w: *u32, mat: u32, field: u32) -> u32 {
     return w[(w[ASSET_OFFSET as usize] + mat * MATERIAL_WORDS + field) as usize];
 }
-fn reference_palette(w: *u32, mat: u32) -> u32 {
-    return w[ASSET_OFFSET as usize] + reference_material(w, mat, 4u32);
+fn reference_animation_frame(w: *u32, mat: u32) -> u32 {
+    var frames: u32 = reference_material(w, mat, 10u32);
+    if frames == 0u32 {
+        return 0u32;
+    }
+    return w[MATERIAL_ANIMATION_TICK as usize] / reference_material(w, mat, 11u32) % frames;
+}
+fn reference_palette(w: *u32, mat: u32, colour: u32) -> u32 {
+    var first: u32 = reference_material(w, mat, 14u32);
+    var count: u32 = reference_material(w, mat, 15u32);
+    if colour >= first && colour - first < count {
+        return w[ASSET_OFFSET as usize] + reference_material(w, mat, 13u32) + (
+            reference_animation_frame(w, mat) * count + colour - first
+        ) * LIGHT_STATES;
+    }
+    return w[ASSET_OFFSET as usize] + reference_material(w, mat, 4u32) + colour * LIGHT_STATES;
 }
 fn reference_axis(uv: f32, extent: u32, mode: u32) -> u32 {
     var value: f32 = uv;
@@ -545,11 +559,10 @@ fn reference_texel(w: *u32, mat: u32, u: f32, v: f32) -> u32 {
     );
     return w[
         (
-            w[ASSET_OFFSET as usize] + reference_material(w, mat, 0u32) + x + y * reference_material(
+            w[ASSET_OFFSET as usize] + reference_material(w, mat, 0u32) + reference_animation_frame(
                 w,
-                mat,
-                3u32
-            )
+                mat
+            ) * reference_material(w, mat, 12u32) + x + y * reference_material(w, mat, 3u32)
         ) as usize
     ];
 }
@@ -713,9 +726,7 @@ fn reference_lit(w: *u32, f: *f32, hit: Hit, x: u32, y: u32) -> u32 {
         t
     ) * 64u32;
     return w[
-        (
-            reference_palette(w, mat) + reference_texel(w, mat, hit.u, hit.v) * LIGHT_STATES + state
-        ) as usize
+        (reference_palette(w, mat, reference_texel(w, mat, hit.u, hit.v)) + state) as usize
     ];
 }
 
@@ -759,7 +770,7 @@ fn reference_intersect(
 fn reference_light_boundary(w: *u32, f: *f32, hit: Hit, x: u32, y: u32, actual: u32) -> bool {
     var light: Vec = reference_illumination(w, f, hit, x, y);
     var mat: u32 = w[(w[META as usize] + hit.triangle * 4u32 + 1u32) as usize];
-    var base: u32 = reference_palette(w, mat) + reference_texel(w, mat, hit.u, hit.v) * LIGHT_STATES;
+    var base: u32 = reference_palette(w, mat, reference_texel(w, mat, hit.u, hit.v));
     var t: f32 = reference_threshold(x, y, w[2usize]) as f32;
     var choice: u32 = 0u32;
     while choice < 8u32 {

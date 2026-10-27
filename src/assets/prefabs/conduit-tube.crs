@@ -247,6 +247,9 @@ fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMa
         material.finish = SURFACE_CABLE;
         material.indicator = asset_value(read parameters, conduit_powered_parameter()) == 1f32;
         material.emission = 0xff7020u32;
+        if material.indicator {
+            material.emission_period = MATERIAL_ANIMATION_HZ * 4u32;
+        }
         material.tile_metres = asset_value(read parameters, 2u32) / 3f32 * sinf(
             3.14159265359f32 / 8f32
         );

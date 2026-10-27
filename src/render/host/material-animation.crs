@@ -1,0 +1,51 @@
+// A repeating sequence. Frame duration uses the caller's animation ticks.
+// Texture frames share dimensions, stride and addressing. Zero texture_stride
+// keeps the base texture. Palette frames replace a consecutive colour range;
+// each colour has LIGHT_STATES entries. Zero palette_count keeps the base palette.
+record MaterialAnimation {
+    frames: u32;
+    ticks_per_frame: u32;
+    texture_stride: u32;
+    palette: u32;
+    palette_first: u32;
+    palette_count: u32;
+}
+// Sets a deterministic animation tick. Set after input_frame; pausing the clock
+// freezes animation. Callers control clock wrap and playback direction.
+fn input_animation_tick(input: mut FrameInput, tick: u32) -> unit {
+    input_set_word(mut input, MATERIAL_ANIMATION_TICK as usize, tick);
+}
+// Attaches resident animation data to a material already set by input_material.
+// Replacing the material clears its animation. Asset offsets count words.
+fn input_material_animation(input: mut FrameInput, index: u32, animation: MaterialAnimation) -> bool {
+    if index >= input_word(read input, MATERIAL_COUNT as usize) || animation.frames == 0u32 || animation.ticks_per_frame == 0u32 || animation.palette_first > PALETTE_COLORS || animation.palette_count > PALETTE_COLORS - animation.palette_first {
+        return error("invalid material animation sequence");
+    }
+    var base: u32 = index * MATERIAL_WORDS;
+    var end: u64 = input_asset_word(read input, base) as u64 + (animation.frames as u64 - 1u64) * animation.texture_stride as u64 + (
+        input_asset_word(read input, base + 2u32) as u64 - 1u64
+    ) * input_asset_word(read input, base + 3u32) as u64 + input_asset_word(
+        read input,
+        base + 1u32
+    ) as u64;
+    var words: u64 = input_word(read input, ASSET_WORDS as usize) as u64;
+    if end > words || (
+        animation.palette_count != 0u32 && animation.palette as u64 + animation.frames as u64 * animation.palette_count as u64 * LIGHT_STATES as u64 > words
+    ) {
+        return error("material animation exceeds asset storage");
+    }
+    var fields: [u32; 6] = make [u32; 6] {
+        animation.frames,
+        animation.ticks_per_frame,
+        animation.texture_stride,
+        animation.palette,
+        animation.palette_first,
+        animation.palette_count
+    };
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        input_asset_set(mut input, base + 10u32 + i, fields[i as usize]);
+        i = i + 1u32;
+    }
+    return true;
+}

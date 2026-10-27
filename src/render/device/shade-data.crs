@@ -128,19 +128,14 @@ fn shade_color(tri: u32, view: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u
     var mat: u32 = scene_meta(tri, 1u32);
     if (scene_meta(tri, 3u32) & TRIANGLE_SPRITE) != 0u32 {
         return assets_load(
-            material_palette(mat) + material_texel(mat, u, v) * LIGHT_STATES + LIGHT_STATES - 1u32
+            material_colour(mat, material_texel(mat, u, v)) + LIGHT_STATES - 1u32
         );
     }
     if SHADE_DISTANCE {
         return light_color(mat, u, v, z, x, y);
     }
     return assets_load(
-        material_palette(mat) + material_texel(mat, u, v) * LIGHT_STATES + lit_state(
-            tri,
-            view,
-            x,
-            y
-        )
+        material_colour(mat, material_texel(mat, u, v)) + lit_state(tri, view, x, y)
     );
 }
 

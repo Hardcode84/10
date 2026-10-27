@@ -6,7 +6,7 @@ fn game_room_palette(input: mut FrameInput) -> bool {
     asset_parameters_reset(mut values);
     var room_words: u32 = room_material_payload(read values);
     var panel: PanelMaterial = hex_tunnel_material();
-    var payload: u32 = panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
+    var payload: u32 = panel_payload(panel);
     var count: u32 = GAME_MATERIALS + room_material_count() + TUNNEL_STYLES + 1u32;
     app_assets_extra(
         mut input,

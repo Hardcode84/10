@@ -80,7 +80,7 @@ fn render_test(o: *Options, test: u32) -> i32 {
     }
     if test == 6u32 {
         o -> capture = "build/test-textures.ppm";
-        o -> frames = 11u32;
+        o -> frames = 20u32;
     }
     var session: DemoSession = session_new(o);
     var config: DemoConfig = config_from_options(o);

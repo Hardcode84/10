@@ -37,7 +37,15 @@ fn texture_assets(v: mut FrameInput, index: u32) -> unit {
     var stride: u32 = width + 4u32;
     var texture: u32 = 32u32 * MATERIAL_WORDS;
     var palette: u32 = texture + stride * (height + 2u32);
-    if !input_assets(mut v, 32u32, stride * (height + 2u32) + PALETTE_COLORS * LIGHT_STATES) {
+    var extra: u32 = 0u32;
+    if index >= 11u32 {
+        extra = stride * (height + 2u32) * 3u32 + 6u32 * LIGHT_STATES;
+    }
+    if !input_assets(
+        mut v,
+        32u32,
+        stride * (height + 2u32) + PALETTE_COLORS * LIGHT_STATES + extra
+    ) {
         scene_overflow();
         return;
     }
@@ -103,7 +111,11 @@ fn texture_assets(v: mut FrameInput, index: u32) -> unit {
     }
 }
 fn texture_scene(v: mut FrameInput, index: u32) -> unit {
+    input_animation_tick(mut v, 0u32);
     texture_assets(mut v, index);
+    if index >= 11u32 {
+        texture_animation_assets(mut v, index);
+    }
     if index == 7u32 && !texture_rejections(mut v) {
         trap;
     }
@@ -153,7 +165,7 @@ fn texture_scene(v: mut FrameInput, index: u32) -> unit {
         0u32,
         1u32,
         0u32,
-        0u32,
+        (index >= 11u32) as u32,
         -6f32,
         -4f32,
         3f32,
@@ -260,4 +272,95 @@ fn texture_rejections(v: mut FrameInput) -> bool {
         return false;
     }
     return input_asset_word(read v, 0u32) == texture && input_asset_word(read v, 4u32) == palette;
+}
+
+fn texture_animation_assets(v: mut FrameInput, index: u32) -> unit {
+    var width: u32 = texture_dimensions(index, 0u32);
+    var height: u32 = texture_dimensions(index, 1u32);
+    var stride: u32 = width + 4u32;
+    var plane: u32 = stride * (height + 2u32);
+    var texture: u32 = 32u32 * MATERIAL_WORDS + plane + PALETTE_COLORS * LIGHT_STATES;
+    var palette: u32 = texture + plane * 3u32;
+    var frame: u32 = 0u32;
+    while frame < 3u32 {
+        var i: u32 = 0u32;
+        while i < plane {
+            var choices: [u32; 4] = make [u32; 4] {
+                0u32,
+                248u32,
+                249u32,
+                255u32
+            };
+            input_texel(
+                mut v,
+                texture + frame * plane + i,
+                choices[((i % stride + i / stride + frame) % 4u32) as usize]
+            );
+            i = i + 1u32;
+        }
+        i = 0u32;
+        while i < 2u32 * LIGHT_STATES {
+            var colours: [u32; 3] = make [u32; 3] {
+                0xff0000ffu32,
+                0xff00ff00u32,
+                0xffff0000u32
+            };
+            input_asset_set(
+                mut v,
+                palette + frame * 2u32 * LIGHT_STATES + i,
+                colours[((frame + i / LIGHT_STATES) % 3u32) as usize]
+            );
+            i = i + 1u32;
+        }
+        frame = frame + 1u32;
+    }
+    var animation: MaterialAnimation = make MaterialAnimation {
+        frames: 3u32,
+        ticks_per_frame: 4u32,
+        texture_stride: plane,
+        palette: palette,
+        palette_first: 248u32,
+        palette_count: 2u32
+    };
+    input_asset_set(mut v, MATERIAL_WORDS, texture + stride + 2u32);
+    input_asset_set(mut v, 31u32 * MATERIAL_WORDS, texture + stride + 2u32);
+    if !input_material_animation(mut v, 1u32, animation) {
+        trap;
+    }
+    animation.palette_count = 0u32;
+    if !input_material_animation(mut v, 31u32, animation) {
+        trap;
+    }
+    var ticks: [u32; 9] = make [u32; 9] {
+        0u32,
+        3u32,
+        4u32,
+        7u32,
+        8u32,
+        11u32,
+        12u32,
+        4u32,
+        4u32
+    };
+    input_animation_tick(mut v, ticks[(index - 11u32) as usize]);
+    animation.ticks_per_frame = 0u32;
+    if input_material_animation(mut v, 1u32, animation) {
+        trap;
+    }
+    animation.ticks_per_frame = 4u32;
+    animation.texture_stride = 0xffffffffu32;
+    if input_material_animation(mut v, 1u32, animation) {
+        trap;
+    }
+    animation.texture_stride = plane;
+    animation.palette_count = 9u32;
+    if input_material_animation(mut v, 1u32, animation) {
+        trap;
+    }
+    animation.palette_first = 0u32;
+    animation.palette_count = 1u32;
+    animation.palette = 0xffffffffu32;
+    if input_material_animation(mut v, 1u32, animation) {
+        trap;
+    }
 }

@@ -54,7 +54,7 @@ fn light_color(mat: u32, u: f32, v: f32, z: f32, x: u32, y: u32) -> u32 {
     if (light - level as f32) * 16f32 > threshold(x, y, words_load(2u32)) as f32 && level < 63u32 {
         level = level + 1u32;
     }
-    return assets_load(material_palette(mat) + color * LIGHT_STATES + level);
+    return assets_load(material_colour(mat, color) + level);
 }
 
 fn light_normal(tri: u32, axis: u32) -> f32 {
@@ -332,6 +332,23 @@ fn material_field(mat: u32, field: u32) -> u32 {
 fn material_palette(mat: u32) -> u32 {
     return material_field(mat, 4u32);
 }
+fn material_animation_frame(mat: u32) -> u32 {
+    var frames: u32 = material_field(mat, 10u32);
+    if frames == 0u32 {
+        return 0u32;
+    }
+    return (words_load(MATERIAL_ANIMATION_TICK) / material_field(mat, 11u32)) % frames;
+}
+fn material_colour(mat: u32, colour: u32) -> u32 {
+    var first: u32 = material_field(mat, 14u32);
+    var count: u32 = material_field(mat, 15u32);
+    if colour >= first && colour - first < count {
+        return material_field(mat, 13u32) + (
+            material_animation_frame(mat) * count + colour - first
+        ) * LIGHT_STATES;
+    }
+    return material_palette(mat) + colour * LIGHT_STATES;
+}
 fn texture_axis(uv: f32, size: u32, mode: u32) -> u32 {
     if mode == ADDRESS_CLAMP {
         if uv <= 0f32 {
@@ -360,7 +377,12 @@ fn texture_axis(uv: f32, size: u32, mode: u32) -> u32 {
 fn material_texel(mat: u32, u: f32, v: f32) -> u32 {
     var x: u32 = texture_axis(u, material_field(mat, 1u32), material_field(mat, 7u32));
     var y: u32 = texture_axis(v, material_field(mat, 2u32), material_field(mat, 8u32));
-    return assets_load(material_field(mat, 0u32) + x + y * material_field(mat, 3u32));
+    var texture: u32 = material_field(mat, 0u32);
+    var stride: u32 = material_field(mat, 12u32);
+    if stride != 0u32 {
+        texture = texture + material_animation_frame(mat) * stride;
+    }
+    return assets_load(texture + x + y * material_field(mat, 3u32));
 }
 fn portal_facing(view: u32, portal: u32) -> bool {
     if portal == 0u32 {
