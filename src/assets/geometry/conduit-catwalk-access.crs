@@ -27,16 +27,43 @@ fn conduit_catwalk_box(
         conduit_catwalk_material().tile_metres
     ) && asset_part_place_tail(mut asset, first, name, vec(0f32, 0f32, 0f32));
 }
+fn conduit_catwalk_beacon(asset: mut RoomAsset, position: Vec3, normal: Vec3, size: f32) -> bool {
+    var basis: Basis = conduit_catwalk_basis(normal);
+    return conduit_catwalk_box(
+        mut asset,
+        scale(vec(1f32, 1f32, 0.25f32), size),
+        add(position, scale(normal, size * 0.125f32)),
+        basis,
+        CONDUIT_REBAR_MATERIAL,
+        asset_name("beacon-base")
+    ) && conduit_catwalk_box(
+        mut asset,
+        scale(vec(0.7f32, 0.7f32, 0.4f32), size),
+        add(position, scale(normal, size * 0.45f32)),
+        basis,
+        CONDUIT_LIGHT_MATERIAL,
+        asset_name("warning-beacon")
+    );
+}
 fn conduit_catwalk_rail_segment(
     asset: mut RoomAsset,
     layout: ConduitCatwalk,
     y: f32,
-    segment: u32
+    segment: u32,
+    beacon: bool
 ) -> bool {
     var angle: f32 = segment as f32 * 6.28318530718f32 / 48f32;
     var next: f32 = (segment + 1u32) as f32 * 6.28318530718f32 / 48f32;
     var thickness: f32 = layout.rail * 0.12f32;
     var start: Vec3 = conduit_catwalk_point(layout.radius + layout.rail, y, angle);
+    if beacon && segment % 8u32 == 0u32 && !conduit_catwalk_beacon(
+        mut asset,
+        conduit_catwalk_point(layout.radius + layout.rail + thickness * 0.5f32, y, angle),
+        conduit_catwalk_point(1f32, 0f32, angle),
+        layout.rail * 0.35f32
+    ) {
+        return false;
+    }
     return conduit_catwalk_bar(
         mut asset,
         start,
@@ -64,6 +91,20 @@ fn conduit_catwalk_link_rails(
         conduit_catwalk_point(radius, low, angle),
         conduit_catwalk_point(radius, high, angle),
         thickness
+    ) {
+        return false;
+    }
+    var normal: Vec3 = conduit_catwalk_point(1f32, 0f32, angle);
+    if !conduit_catwalk_beacon(
+        mut asset,
+        conduit_catwalk_point(radius + thickness * 0.5f32, low, angle),
+        normal,
+        a.rail * 0.35f32
+    ) || !conduit_catwalk_beacon(
+        mut asset,
+        conduit_catwalk_point(radius + thickness * 0.5f32, high, angle),
+        normal,
+        a.rail * 0.35f32
     ) {
         return false;
     }
@@ -159,6 +200,21 @@ fn conduit_catwalk_hatch(asset: mut RoomAsset, layout: ConduitCatwalk, radial: V
             basis,
             CONDUIT_HATCH_MATERIAL,
             asset_name("closed-hatch")
+        ) {
+            return false;
+        }
+        var marker: Vec3 = add(
+            sub(centre, scale(radial, 0.25f32)),
+            add(
+                scale(basis.right, (side as f32 * 2f32 - 1f32) * size * 0.4f32),
+                scale(basis.up, size * 0.5f32 + 0.1f32)
+            )
+        );
+        if !conduit_catwalk_beacon(
+            mut asset,
+            marker,
+            scale(radial, -1f32),
+            size * 0.15f32
         ) {
             return false;
         }

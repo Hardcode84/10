@@ -84,7 +84,13 @@ fn conduit_catwalk_rails(
             if (links & (1u32 << side)) == 0u32 || (
                 segment != lane && segment != (lane + 24u32) % 48u32
             ) {
-                if !conduit_catwalk_rail_segment(mut asset, layout, y, segment) {
+                if !conduit_catwalk_rail_segment(
+                    mut asset,
+                    layout,
+                    y,
+                    segment,
+                    (links & (1u32 << side)) == 0u32 || segment % 24u32 != (lane + 1u32) % 24u32
+                ) {
                     return false;
                 }
             }
