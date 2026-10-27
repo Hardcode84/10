@@ -39,7 +39,7 @@ fn course_parameter_count(kind: u32) -> u32 {
         return prefab_conduit_breach_parameter_count();
     }
     if kind == PREFAB_CONDUIT_GALLERY {
-        return 2u32;
+        return prefab_conduit_gallery_parameter_count();
     }
     if kind == PREFAB_CONDUIT_TUBE {
         return prefab_conduit_parameter_count();

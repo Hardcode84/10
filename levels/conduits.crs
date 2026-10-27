@@ -108,6 +108,11 @@ fn demo_palette(input: mut FrameInput) -> bool {
         course_material_parameter_offset(PREFAB_CONDUIT_BREACH) + conduit_powered_parameter(),
         CONDUIT_DEMO_POWERED
     );
+    asset_value_set(
+        mut configuration,
+        course_material_parameter_offset(PREFAB_CONDUIT_GALLERY) + conduit_gallery_powered_parameter(),
+        CONDUIT_DEMO_POWERED
+    );
     return course_palette_configured(mut input, read configuration);
 }
 fn demo_room_lighting(
@@ -132,7 +137,9 @@ fn conduit_demo_step(
     if !course_values(kind, variant, mut values) {
         return false;
     }
-    if kind != PREFAB_CONDUIT_GALLERY {
+    if kind == PREFAB_CONDUIT_GALLERY {
+        asset_value_set(mut values, conduit_gallery_powered_parameter(), CONDUIT_DEMO_POWERED);
+    } else {
         asset_value_set(mut values, conduit_powered_parameter(), CONDUIT_DEMO_POWERED);
     }
     if kind == PREFAB_CONDUIT_BREACH {

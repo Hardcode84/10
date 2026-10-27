@@ -1,8 +1,11 @@
 // Square inter-tube utility gallery. ENTRY and EXIT mate with conduit breaches.
-// Wall-mounted cable bundles and racks leave the centre open for flight.
-// utility-seed changes bundle thickness; length sets the distance between mouths.
+// Cables follow wall and corner lanes between seeded pairs of wall sockets.
+// Two cables cross the interior. Rounded routes keep clearance from each other.
+// powered enables blue full-bright strips on the blue cable family.
+// utility-seed changes endpoint positions, pairings, cable sizes and finishes.
+// The viewer waypoint overlay shows candidate lanes and selected routes.
 fn room_parameter_count() -> u32 {
-    return 2u32;
+    return prefab_conduit_gallery_parameter_count();
 }
 fn room_parameter(index: u32) -> AssetParameter {
     return prefab_conduit_gallery_parameter(index);

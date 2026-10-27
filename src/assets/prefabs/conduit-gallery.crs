@@ -1,3 +1,9 @@
+fn conduit_gallery_powered_parameter() -> u32 {
+    return 2u32;
+}
+fn prefab_conduit_gallery_parameter_count() -> u32 {
+    return conduit_gallery_powered_parameter() + 1u32;
+}
 fn prefab_conduit_gallery_parameter(index: u32) -> AssetParameter {
     if index == 0u32 {
         return make AssetParameter {
@@ -5,6 +11,14 @@ fn prefab_conduit_gallery_parameter(index: u32) -> AssetParameter {
             maximum: 200f32,
             initial: 100f32,
             step: 10f32
+        };
+    }
+    if index == conduit_gallery_powered_parameter() {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 1f32,
+            initial: 0f32,
+            step: 1f32
         };
     }
     return make AssetParameter {
@@ -18,11 +32,14 @@ fn prefab_conduit_gallery_parameter_name(index: u32) -> AssetName {
     if index == 0u32 {
         return asset_name("length");
     }
+    if index == conduit_gallery_powered_parameter() {
+        return asset_name("powered");
+    }
     return asset_name("utility-seed");
 }
 fn prefab_conduit_gallery_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
     var i: u32 = 0u32;
-    while i < 2u32 {
+    while i < prefab_conduit_gallery_parameter_count() {
         if !asset_parameter_valid(
             prefab_conduit_gallery_parameter(i),
             asset_value(read values, i)
@@ -34,6 +51,10 @@ fn prefab_conduit_gallery_build(values: read AssetValues, asset: mut RoomAsset) 
     var seed: f32 = asset_value(read values, 1u32);
     if seed != seed as u32 as f32 {
         return error("utility seed must be an integer");
+    }
+    var powered: f32 = asset_value(read values, conduit_gallery_powered_parameter());
+    if powered != powered as u32 as f32 {
+        return error("gallery powered must be 0 or 1");
     }
     var length_metres: f32 = asset_value(read values, 0u32);
     var profile: ConnectionProfile = conduit_breach_profile();
@@ -50,6 +71,15 @@ fn prefab_conduit_gallery_build(values: read AssetValues, asset: mut RoomAsset) 
         seed as u32
     ) && room_asset_finish(mut asset);
 }
+fn conduit_gallery_cable_tile(region: u32) -> f32 {
+    if region == 1u32 {
+        return 8f32;
+    }
+    if region == 2u32 {
+        return 3f32;
+    }
+    return 5f32;
+}
 fn prefab_conduit_gallery_material(region: u32, values: read AssetValues) -> PanelMaterial {
     if region == CONDUIT_LIGHT_MATERIAL {
         return emergency_light_material();
@@ -63,15 +93,20 @@ fn prefab_conduit_gallery_material(region: u32, values: read AssetValues) -> Pan
     var material: PanelMaterial = conduit_debris_material(false);
     if region >= 1u32 && region <= 3u32 {
         material.finish = SURFACE_CABLE;
-        material.colour = 0x665c39u32;
+        material.indicator = region == 2u32 && asset_value(
+            read values,
+            conduit_gallery_powered_parameter()
+        ) == 1f32;
+        material.emission = 0xff7020u32;
+        material.colour = 0x3c6d99u32;
         if region == 2u32 {
-            material.colour = 0x496e85u32;
+            material.colour = 0x746052u32;
         }
         if region == 3u32 {
-            material.colour = 0x807351u32;
+            material.colour = 0x4f5351u32;
         }
-        material.tile_metres = 2f32;
-        material.tile_height = 2f32;
+        material.tile_metres = conduit_gallery_cable_tile(region);
+        material.tile_height = material.tile_metres;
     }
     return material;
 }

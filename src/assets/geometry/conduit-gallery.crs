@@ -1,110 +1,186 @@
 fn conduit_gallery_point(side: u32, radial: f32, y: f32, along: f32) -> Vec3 {
-    var angle: f32 = side as f32 * 1.570796326795f32;
-    return add(
-        conduit_catwalk_point(radial, y, angle),
-        scale(vec(-sinf(angle), 0f32, cosf(angle)), along)
+    if side == 0u32 {
+        return vec(radial, y, along);
+    }
+    if side == 1u32 {
+        return vec(-along, y, radial);
+    }
+    if side == 2u32 {
+        return vec(-radial, y, -along);
+    }
+    return vec(along, y, -radial);
+}
+// Wall lanes stay outside the central flight corridor. Each layer has two
+// perimeter rings and four longitudinal corner links.
+fn conduit_gallery_lanes(router: mut PipeRouter, length_metres: f32, layer: u32, seed: u32) -> bool {
+    var base: u32 = route_nodes_count(read router);
+    var radial: f32 = CONDUIT_BREACH_WIDTH * 0.5f32 - 5f32 - layer as f32 * 6f32;
+    var ring: u32 = 0u32;
+    while ring < 2u32 {
+        var y: f32 = length_metres * (0.16f32 + layer as f32 * 0.13f32 + ring as f32 * 0.55f32);
+        var side: u32 = 0u32;
+        while side < 4u32 {
+            if pipe_route_point(
+                mut router,
+                conduit_gallery_point(side, radial, y, -radial),
+                vec(0f32, 1f32, 0f32),
+                PIPE_NO_EXIT
+            ) == PIPE_NO_EXIT {
+                return false;
+            }
+            side = side + 1u32;
+        }
+        ring = ring + 1u32;
+    }
+    var side: u32 = 0u32;
+    while side < 4u32 {
+        if !pipe_route_link(mut router, base + side, base + side + 4u32) {
+            return false;
+        }
+        ring = 0u32;
+        while ring < 2u32 {
+            var corner: u32 = base + ring * 4u32 + side;
+            var y: f32 = route_nodes_get(read router, corner).position.y;
+            var along: f32 = (
+                conduit_debris_random(seed, layer * 8u32 + ring * 4u32 + side) - 0.5f32
+            ) * 26f32;
+            var node: u32 = pipe_route_point(
+                mut router,
+                conduit_gallery_point(side, radial, y, along),
+                vec(0f32, 1f32, 0f32),
+                PIPE_NO_EXIT
+            );
+            var mouth: u32 = pipe_route_point(
+                mut router,
+                conduit_gallery_point(side, CONDUIT_BREACH_WIDTH * 0.5f32, y, along),
+                vec(0f32, 1f32, 0f32),
+                layer * 8u32 + ring * 4u32 + side
+            );
+            if !pipe_route_link(mut router, corner, node) || !pipe_route_link(
+                mut router,
+                node,
+                base + ring * 4u32 + (side + 1u32) % 4u32
+            ) || !pipe_route_link(mut router, node, mouth) {
+                return false;
+            }
+            ring = ring + 1u32;
+        }
+        side = side + 1u32;
+    }
+    return true;
+}
+fn conduit_gallery_mount(asset: mut RoomAsset, point: Vec3, radius: f32) -> bool {
+    var normal: Vec3 = vec(0f32, 0f32, 1f32);
+    if point.z < 0f32 {
+        normal.z = -1f32;
+    }
+    if absf(point.x) > absf(point.z) {
+        normal = vec(1f32, 0f32, 0f32);
+        if point.x < 0f32 {
+            normal.x = -1f32;
+        }
+    }
+    var wall: Vec3 = add(
+        point,
+        scale(normal, CONDUIT_BREACH_WIDTH * 0.5f32 - dot(point, normal))
+    );
+    return conduit_catwalk_box(
+        mut asset,
+        vec(radius * 4f32, radius * 4f32, 0.6f32),
+        sub(wall, scale(normal, 0.3f32)),
+        conduit_catwalk_basis(normal),
+        CONDUIT_REBAR_MATERIAL,
+        asset_name("utility-mount")
     );
 }
-fn conduit_gallery_pipe(
+fn conduit_gallery_route(
     asset: mut RoomAsset,
-    length_metres: f32,
-    side: u32,
-    lane: u32,
+    router: read PipeRouter,
+    path: RoutePath,
     seed: u32
 ) -> bool {
-    var normal: Vec3 = conduit_gallery_point(side, 1f32, 0f32, 0f32);
-    var tangent: Vec3 = conduit_gallery_point(side, 0f32, 0f32, 1f32);
-    var wall: f32 = CONDUIT_BREACH_WIDTH * 0.5f32;
-    var offset: f32 = (lane as f32 - 1.5f32) * 11f32;
-    var first: u32 = mesh_triangle_count(read asset.geometry);
-    var sweep: TubeSweep = tube_sweep_begin(
-        conduit_gallery_point(side, wall, 10f32, offset),
-        scale(normal, -1f32),
-        tangent,
+    var graph: PipeGraph = pipe_graph_new();
+    var region: u32 = 1u32 + metal_hash(seed, path.source, 72u32) % 3u32;
+    if route_nodes_get(read router, path.source).exit_id == 16u32 {
+        region = 2u32;
+    }
+    var radius: f32 = 0.7f32 + conduit_debris_random(seed, path.source + 91u32) * 0.7f32;
+    if !route_copy_path(read router, mut graph, path) || !pipe_graph_mesh(
+        mut asset,
+        read graph,
         make TubeStyle {
-            radius: 1.4f32 + conduit_debris_random(seed, side * 4u32 + lane),
+            radius: radius,
             sides: 8u32,
-            tile_metres: 2f32,
-            region: 1u32 + lane % 3u32
-        }
-    );
-    return tube_sweep_corner(
-        mut asset.geometry,
-        mut sweep,
-        conduit_gallery_point(side, wall - 7f32, 10f32, offset),
-        vec(0f32, 1f32, 0f32),
-        4f32
-    ) && tube_sweep_corner(
-        mut asset.geometry,
-        mut sweep,
-        conduit_gallery_point(side, wall - 7f32, length_metres - 10f32, offset),
-        normal,
-        4f32
-    ) && tube_sweep_finish(
-        mut asset.geometry,
-        mut sweep,
-        conduit_gallery_point(side, wall, length_metres - 10f32, offset)
-    ) && asset_part_place_tail(
-        mut asset,
-        first,
-        asset_name("utility-bundle"),
-        vec(0f32, 0f32, 0f32)
-    );
-}
-fn conduit_gallery_rack(asset: mut RoomAsset, side: u32, y: f32) -> bool {
-    var wall: f32 = CONDUIT_BREACH_WIDTH * 0.5f32;
-    var normal: Vec3 = conduit_gallery_point(side, 1f32, 0f32, 0f32);
-    var basis: Basis = conduit_catwalk_basis(normal);
-    if !conduit_catwalk_box(
-        mut asset,
-        vec(44f32, 1.2f32, 2f32),
-        conduit_gallery_point(side, wall - 10f32, y, 0f32),
-        basis,
-        CONDUIT_SUPPORT_MATERIAL,
-        asset_name("utility-rack")
+            tile_metres: conduit_gallery_cable_tile(region),
+            region: region
+        },
+        2f32
     ) {
         return false;
     }
+    return conduit_gallery_mount(
+        mut asset,
+        route_nodes_get(read router, path.source).position,
+        radius
+    ) && conduit_gallery_mount(
+        mut asset,
+        route_nodes_get(read router, path.target).position,
+        radius
+    );
+}
+fn conduit_gallery_crossings(router: mut PipeRouter, length_metres: f32, seed: u32) -> bool {
     var i: u32 = 0u32;
     while i < 2u32 {
-        var along: f32 = (i as f32 * 2f32 - 1f32) * 22f32;
-        if !conduit_catwalk_bar(
-            mut asset,
-            conduit_gallery_point(side, wall, y, along),
-            conduit_gallery_point(side, wall - 11f32, y, along),
-            1.2f32
-        ) {
+        var side: u32 = (seed + i) % 4u32;
+        var y: f32 = length_metres * (0.43f32 + i as f32 * 0.14f32);
+        var wall: f32 = CONDUIT_BREACH_WIDTH * 0.5f32;
+        var a: f32 = 8f32 + 8f32 * conduit_debris_random(seed, 121u32 + i);
+        var b: f32 = 8f32 + 8f32 * conduit_debris_random(seed, 131u32 + i);
+        var source: u32 = pipe_route_point(
+            mut router,
+            conduit_gallery_point(side, wall, y, a),
+            vec(0f32, 1f32, 0f32),
+            16u32 + i * 2u32
+        );
+        var target: u32 = pipe_route_point(
+            mut router,
+            conduit_gallery_point((side + 2u32) % 4u32, wall, y, -b),
+            vec(0f32, 1f32, 0f32),
+            17u32 + i * 2u32
+        );
+        if !pipe_route_link(mut router, source, target) {
             return false;
         }
         i = i + 1u32;
     }
-    return conduit_catwalk_beacon(
-        mut asset,
-        conduit_gallery_point(side, wall - 11f32, y, 0f32),
-        scale(normal, -1f32),
-        0.8f32
-    );
+    return true;
 }
 fn conduit_gallery_services(asset: mut RoomAsset, length_metres: f32, seed: u32) -> bool {
-    var side: u32 = 0u32;
-    while side < 4u32 {
-        var lane: u32 = 0u32;
-        while lane < 4u32 {
-            if !conduit_gallery_pipe(mut asset, length_metres, side, lane, seed) {
-                return false;
-            }
-            lane = lane + 1u32;
-        }
-        var count: u32 = panel_pixel_extent(length_metres / 25f32, 1u32);
-        var i: u32 = 0u32;
-        while i < count {
-            var y: f32 = (i as f32 + 0.5f32) * length_metres / count as f32;
-            if !conduit_gallery_rack(mut asset, side, y) {
-                return false;
-            }
-            i = i + 1u32;
-        }
-        side = side + 1u32;
+    var router: PipeRouter = pipe_router_new(0f32, 0u32);
+    var graph: PipeGraph = pipe_graph_new();
+    if !conduit_gallery_lanes(mut router, length_metres, 0u32, seed) || !conduit_gallery_lanes(
+        mut router,
+        length_metres,
+        1u32,
+        seed
+    ) || !conduit_gallery_crossings(mut router, length_metres, seed) || !pipe_route_solve(
+        mut router,
+        mut graph,
+        2f32,
+        1.4f32,
+        seed
+    ) {
+        return false;
     }
+    var i: u32 = 0u32;
+    while i < route_paths_count(read router) {
+        var path: RoutePath = route_paths_get(read router, i);
+        if path.selected && !conduit_gallery_route(mut asset, read router, path, seed) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    pipe_route_guides(mut router);
+    pipe_router_swap(mut asset.routes, mut router);
     return true;
 }
