@@ -1,0 +1,224 @@
+record ConduitCatwalk {
+    radius: f32;
+    width: f32;
+    wall: f32;
+    relief: f32;
+    y: f32;
+    deck: f32;
+    rail: f32;
+    suspension: f32;
+    phase: f32;
+}
+fn conduit_catwalk_material() -> PanelMaterial {
+    var material: PanelMaterial = conduit_support_material();
+    material.finish = METAL_TREAD;
+    material.colour = 0x61716du32;
+    material.accent = 0x405565u32;
+    material.tile_metres = 4f32;
+    material.tile_height = 4f32;
+    return material;
+}
+fn conduit_catwalk_band(
+    asset: mut RoomAsset,
+    inner: f32,
+    outer: f32,
+    depth: f32,
+    y: f32,
+    region: u32
+) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var material: PanelMaterial = conduit_rebar_material();
+    if region == CONDUIT_CATWALK_MATERIAL {
+        material = conduit_catwalk_material();
+    }
+    var repeats: f32 = panel_pixel_extent(
+        3.14159265359f32 * (inner + outer) / (material.tile_metres * 48f32),
+        1u32
+    ) as f32 * 48f32;
+    return annular_band_mesh_uv(
+        mut asset.geometry,
+        inner,
+        outer,
+        depth,
+        region,
+        repeats,
+        (outer - inner) / material.tile_height,
+        depth / material.tile_height
+    ) && asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("catwalk-ring"),
+        vec(0f32, y, 0f32)
+    );
+}
+fn conduit_catwalk_bar(asset: mut RoomAsset, start: Vec3, end: Vec3, thickness: f32) -> bool {
+    var direction: Vec3 = unit_vector(sub(end, start));
+    var frame: Basis = hull_radial_basis(direction);
+    var basis: Basis = make Basis {
+        right: direction,
+        up: frame.right,
+        forward: frame.up
+    };
+    var span: f32 = length(sub(end, start));
+    return conduit_support_box(
+        mut asset,
+        vec(span, thickness, thickness),
+        scale(add(start, end), 0.5f32),
+        basis,
+        -span * 0.5f32,
+        span * 0.5f32,
+        asset_name("catwalk-stay")
+    );
+}
+fn conduit_catwalk_rails(asset: mut RoomAsset, layout: ConduitCatwalk) -> bool {
+    var side: u32 = 0u32;
+    var thickness: f32 = layout.rail * 0.12f32;
+    while side < 2u32 {
+        var radius: f32 = layout.radius + layout.rail;
+        var y: f32 = layout.y + (side as f32 * 2f32 - 1f32) * (
+            layout.width * 0.5f32 - thickness
+        );
+        if !conduit_catwalk_band(
+            mut asset,
+            radius - thickness * 0.5f32,
+            radius + thickness * 0.5f32,
+            thickness,
+            y,
+            CONDUIT_REBAR_MATERIAL
+        ) {
+            return false;
+        }
+        var post: u32 = 0u32;
+        while post < 24u32 {
+            var angle: f32 = post as f32 * 6.28318530718f32 / 24f32;
+            var point: Vec3 = vec(
+                cosf(angle) * layout.radius,
+                y,
+                sinf(angle) * layout.radius
+            );
+            if !conduit_catwalk_bar(
+                mut asset,
+                point,
+                add(
+                    point,
+                    vec(cosf(angle) * layout.rail, 0f32, sinf(angle) * layout.rail)
+                ),
+                thickness
+            ) {
+                return false;
+            }
+            post = post + 1u32;
+        }
+        side = side + 1u32;
+    }
+    return true;
+}
+fn conduit_catwalk_anchor(
+    asset: mut RoomAsset,
+    layout: ConduitCatwalk,
+    radial: Vec3,
+    sign: f32
+) -> bool {
+    var up: Vec3 = vec(0f32, 1f32, 0f32);
+    var basis: Basis = make Basis {
+        right: radial,
+        up: up,
+        forward: cross(radial, up)
+    };
+    var thickness: f32 = layout.deck * 0.8f32;
+    var depth: f32 = layout.relief + thickness;
+    var y: f32 = layout.y + sign * layout.suspension;
+    var mount: Vec3 = add(
+        scale(radial, layout.wall - depth * 0.5f32),
+        vec(0f32, y, 0f32)
+    );
+    return conduit_support_box(
+        mut asset,
+        vec(depth, thickness * 4f32, thickness * 4f32),
+        mount,
+        basis,
+        -depth * 0.5f32,
+        depth * 0.5f32,
+        asset_name("support-foot")
+    ) && conduit_catwalk_bar(
+        mut asset,
+        add(
+            scale(radial, layout.radius - thickness * 0.25f32),
+            vec(0f32, layout.y + sign * layout.width * 0.4f32, 0f32)
+        ),
+        add(scale(radial, layout.wall - depth * 0.75f32), vec(0f32, y, 0f32)),
+        thickness
+    );
+}
+fn conduit_catwalk_build(asset: mut RoomAsset, layout: ConduitCatwalk) -> bool {
+    if !conduit_catwalk_band(
+        mut asset,
+        layout.radius - layout.deck,
+        layout.radius,
+        layout.width,
+        layout.y,
+        CONDUIT_CATWALK_MATERIAL
+    ) || !conduit_catwalk_rails(mut asset, layout) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var angle: f32 = layout.phase + i as f32 * 6.28318530718f32 / 3f32;
+        var radial: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
+        if !conduit_catwalk_anchor(mut asset, layout, radial, -1f32) || !conduit_catwalk_anchor(
+            mut asset,
+            layout,
+            radial,
+            1f32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn conduit_catwalk_section(
+    asset: mut RoomAsset,
+    values: read AssetValues,
+    section: u32,
+    entry: f32,
+    entry_extent: f32
+) -> bool {
+    var core: f32 = asset_value(read values, 2u32) * 0.5f32;
+    var wall: f32 = asset_value(read values, 1u32) * 0.5f32 * cosf(3.14159265359f32 / 48f32);
+    var relief: f32 = asset_value(read values, 6u32);
+    var gap: f32 = wall - relief - core;
+    var width: f32 = mask_min(8f32, gap * 0.15f32);
+    var seed: u32 = asset_value(read values, conduit_hazard_seed_parameter()) as u32;
+    var slot: u32 = 0u32;
+    var count: u32 = 0u32;
+    while slot < CONDUIT_HAZARD_SLOTS {
+        var interval: [f32; 2] = conduit_hazard_interval(
+            read values,
+            section,
+            slot,
+            entry,
+            entry_extent
+        );
+        var extent: f32 = (interval[1usize] - interval[0usize]) * 0.5f32;
+        if extent > 0f32 {
+            var layout: ConduitCatwalk = make ConduitCatwalk {
+                radius: core + gap * 0.3f32,
+                width: mask_min(width, extent * 0.8f32),
+                wall: wall,
+                relief: relief,
+                y: (interval[0usize] + interval[1usize]) * 0.5f32,
+                deck: mask_min(1.5f32, extent * 0.08f32),
+                rail: mask_min(2f32, extent * 0.2f32),
+                suspension: mask_min(12f32, extent * 0.65f32),
+                phase: ((seed % 16u32) + slot * 8u32) as f32 * 6.28318530718f32 / 48f32
+            };
+            if !conduit_catwalk_build(mut asset, layout) {
+                return false;
+            }
+            count = count + 1u32;
+        }
+        slot = slot + 1u32;
+    }
+    return count != 0u32 || error("catwalk section has no space outside entry and supports");
+}

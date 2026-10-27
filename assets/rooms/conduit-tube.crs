@@ -1,3 +1,6 @@
+// Per-section hazards: 0 empty, 1 debris, 2 stationary wall-supported catwalk rings.
+// Catwalk tread faces away from the core; guardrails project radially outward.
+// Inner and outer flight routes stay open.
 // debris-style: 0 mixes concrete and beam chunks; 1 is concrete; 2 is steel beams.
 // Beam debris has torn recessed ends, no lamps, and lightning contacts on torn edges.
 // broken-beam: 0 keeps all supports intact; 1 through 4 select one broken support.
@@ -31,7 +34,7 @@
 // Each beam has two red emergency fixtures at its exposed midpoint, facing +Y
 // and -Y. The lenses are full-bright and cast local red light onto the beam.
 // hazard-1 through hazard-4 select each successive 250 m section from BOTTOM:
-// 0 is clear, 1 adds the selected debris mix (default). Settings beyond length
+// 0 is empty, 1 adds debris (default), 2 adds catwalks. Settings beyond length
 // are inactive; a partial final section uses its available length.
 // hazard-seed controls fragment shapes and placement independently of wall tiles.
 // Fragments leave clearance at the core, walls, supports, and end portals.

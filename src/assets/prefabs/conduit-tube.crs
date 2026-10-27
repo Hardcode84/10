@@ -7,7 +7,8 @@ const CONDUIT_REBAR_MATERIAL: u32 = 8u32;
 const CONDUIT_ARC_MATERIAL: u32 = 9u32;
 const CONDUIT_ARC_SPARK_MATERIAL: u32 = 10u32;
 const CONDUIT_BREAK_MATERIAL: u32 = 11u32;
-const CONDUIT_MATERIAL_COUNT: u32 = 12u32;
+const CONDUIT_CATWALK_MATERIAL: u32 = 12u32;
+const CONDUIT_MATERIAL_COUNT: u32 = 13u32;
 const CONDUIT_CAST_LENGTH: f32 = 25f32;
 fn prefab_conduit_parameter_count() -> u32 {
     return conduit_debris_style_parameter() + 1u32;
@@ -213,10 +214,12 @@ fn conduit_cable(asset: mut RoomAsset, radius: f32, height: f32, turns: u32, str
     );
 }
 fn prefab_conduit_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
-    return prefab_conduit_prepare(read parameters, mut asset) && conduit_tiles(
+    return prefab_conduit_prepare(read parameters, mut asset) && conduit_hazards(
         mut asset,
-        read parameters
-    ) && conduit_hazards(mut asset, read parameters, 0f32, 0f32) && room_asset_finish(mut asset);
+        read parameters,
+        0f32,
+        0f32
+    ) && conduit_tiles(mut asset, read parameters) && room_asset_finish(mut asset);
 }
 fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     var i: u32 = 0u32;
@@ -284,6 +287,9 @@ fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) ->
     return true;
 }
 fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == CONDUIT_CATWALK_MATERIAL {
+        return conduit_catwalk_material();
+    }
     if region == CONDUIT_BREAK_MATERIAL {
         return conduit_break_material();
     }

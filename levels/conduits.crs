@@ -2,7 +2,8 @@
 // Start in a short capped shaft and enter the side of the first conduit.
 // Its TOP leads into the second tube. The second TOP returns to the first
 // BOTTOM with the opposite mating roll: one circuit turns the player 180 degrees.
-// Both tubes have powered cables and orbiting debris in each axial section.
+// Both tubes have powered cables. The first has debris; the second has catwalks
+// followed by an empty hazard section.
 // The second tube has one broken central support.
 const CONDUIT_DEMO_POWERED: f32 = 1f32;
 const CONDUIT_START_SHAFT_LENGTH: f32 = 20f32;
@@ -131,6 +132,12 @@ fn conduit_demo_step(
     asset_value_set(mut values, conduit_powered_parameter(), CONDUIT_DEMO_POWERED);
     if kind == PREFAB_CONDUIT_TUBE {
         asset_value_set(mut values, conduit_broken_beam_parameter(), 1f32);
+        asset_value_set(mut values, CONDUIT_HAZARD_PARAMETER, CONDUIT_HAZARD_CATWALKS as f32);
+        asset_value_set(
+            mut values,
+            CONDUIT_HAZARD_PARAMETER + 1u32,
+            CONDUIT_HAZARD_EMPTY as f32
+        );
     }
     cursor.room = graph_count(read graph);
     if !course_build(kind, read values, mut asset) || !course_room_mesh(

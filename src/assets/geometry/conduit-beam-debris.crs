@@ -84,7 +84,7 @@ fn conduit_debris_variant(
     selection: u32
 ) -> bool {
     var style: u32 = asset_value(read values, conduit_debris_style_parameter()) as u32;
-    if style == 2u32 || (style == 0u32 && selection % CONDUIT_DEBRIS_SLOTS == 0u32) {
+    if style == 2u32 || (style == 0u32 && selection % CONDUIT_HAZARD_SLOTS == 0u32) {
         return conduit_beam_debris(
             mut asset,
             centre,

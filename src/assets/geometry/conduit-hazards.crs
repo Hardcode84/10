@@ -1,0 +1,120 @@
+const CONDUIT_HAZARD_EMPTY: u32 = 0u32;
+const CONDUIT_HAZARD_DEBRIS: u32 = 1u32;
+const CONDUIT_HAZARD_CATWALKS: u32 = 2u32;
+const CONDUIT_HAZARD_LENGTH: f32 = 250f32;
+const CONDUIT_HAZARD_SECTIONS: u32 = 4u32;
+const CONDUIT_HAZARD_PARAMETER: u32 = 7u32;
+const CONDUIT_HAZARD_SLOTS: u32 = 3u32;
+fn conduit_hazard_seed_parameter() -> u32 {
+    return CONDUIT_HAZARD_PARAMETER + CONDUIT_HAZARD_SECTIONS;
+}
+fn conduit_hazard_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("hazard-1");
+    }
+    if index == 1u32 {
+        return asset_name("hazard-2");
+    }
+    if index == 2u32 {
+        return asset_name("hazard-3");
+    }
+    if index == 3u32 {
+        return asset_name("hazard-4");
+    }
+    return asset_name("hazard-seed");
+}
+fn conduit_hazard_parameter(index: u32) -> AssetParameter {
+    var maximum: f32 = CONDUIT_HAZARD_CATWALKS as f32;
+    if index == CONDUIT_HAZARD_SECTIONS {
+        maximum = 65535f32;
+    }
+    return make AssetParameter {
+        minimum: 0f32,
+        maximum: maximum,
+        initial: CONDUIT_HAZARD_DEBRIS as f32,
+        step: 1f32
+    };
+}
+// Keeps the largest interval outside a closed exclusion band.
+fn conduit_hazard_clip(low: f32, high: f32, centre: f32, extent: f32) -> [f32; 2] {
+    if extent == 0f32 || high <= centre - extent || low >= centre + extent {
+        return make [f32; 2] {
+            low,
+            high
+        };
+    }
+    var left: f32 = mask_min(high, centre - extent);
+    var right: f32 = -mask_min(-low, -(centre + extent));
+    if left - low > high - right {
+        return make [f32; 2] {
+            low,
+            -mask_min(-low, -left)
+        };
+    }
+    return make [f32; 2] {
+        mask_min(high, right),
+        high
+    };
+}
+fn conduit_hazards(
+    asset: mut RoomAsset,
+    values: read AssetValues,
+    entry: f32,
+    entry_extent: f32
+) -> bool {
+    var i: u32 = CONDUIT_HAZARD_PARAMETER;
+    while i <= conduit_hazard_seed_parameter() {
+        var value: f32 = asset_value(read values, i);
+        if value != value as u32 as f32 {
+            return error("conduit hazard settings must be integers");
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < CONDUIT_HAZARD_SECTIONS && i as f32 * CONDUIT_HAZARD_LENGTH < asset_value(
+        read values,
+        0u32
+    ) {
+        var kind: u32 = asset_value(read values, CONDUIT_HAZARD_PARAMETER + i) as u32;
+        if !conduit_hazard_section(mut asset, read values, kind, i, entry, entry_extent) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn conduit_hazard_section(
+    asset: mut RoomAsset,
+    values: read AssetValues,
+    kind: u32,
+    section: u32,
+    entry: f32,
+    entry_extent: f32
+) -> bool {
+    if kind == CONDUIT_HAZARD_EMPTY {
+        return true;
+    }
+    if kind == CONDUIT_HAZARD_DEBRIS {
+        return conduit_debris_section(mut asset, read values, section, entry, entry_extent);
+    }
+    return conduit_catwalk_section(mut asset, read values, section, entry, entry_extent);
+}
+fn conduit_hazard_interval(
+    values: read AssetValues,
+    section: u32,
+    slot: u32,
+    entry: f32,
+    entry_extent: f32
+) -> [f32; 2] {
+    var height: f32 = asset_value(read values, 0u32);
+    var low: f32 = section as f32 * CONDUIT_HAZARD_LENGTH;
+    var high: f32 = mask_min(height, low + CONDUIT_HAZARD_LENGTH);
+    var span: f32 = (high - low) / CONDUIT_HAZARD_SLOTS as f32;
+    var interval: [f32; 2] = conduit_hazard_clip(
+        low + slot as f32 * span,
+        low + (slot + 1u32) as f32 * span,
+        height * 0.5f32,
+        conduit_support_axial_extent(asset_value(read values, 2u32) * 0.5f32)
+    );
+    return conduit_hazard_clip(interval[0usize], interval[1usize], entry, entry_extent);
+}

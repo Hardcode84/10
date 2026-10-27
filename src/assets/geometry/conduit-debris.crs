@@ -1,60 +1,5 @@
-const CONDUIT_HAZARD_LENGTH: f32 = 250f32;
-const CONDUIT_HAZARD_SECTIONS: u32 = 4u32;
-const CONDUIT_HAZARD_PARAMETER: u32 = 7u32;
-const CONDUIT_DEBRIS_SLOTS: u32 = 3u32;
-fn conduit_hazard_seed_parameter() -> u32 {
-    return CONDUIT_HAZARD_PARAMETER + CONDUIT_HAZARD_SECTIONS;
-}
-fn conduit_hazard_name(index: u32) -> AssetName {
-    if index == 0u32 {
-        return asset_name("hazard-1");
-    }
-    if index == 1u32 {
-        return asset_name("hazard-2");
-    }
-    if index == 2u32 {
-        return asset_name("hazard-3");
-    }
-    if index == 3u32 {
-        return asset_name("hazard-4");
-    }
-    return asset_name("hazard-seed");
-}
-fn conduit_hazard_parameter(index: u32) -> AssetParameter {
-    var maximum: f32 = 1f32;
-    if index == CONDUIT_HAZARD_SECTIONS {
-        maximum = 65535f32;
-    }
-    return make AssetParameter {
-        minimum: 0f32,
-        maximum: maximum,
-        initial: 1f32,
-        step: 1f32
-    };
-}
 fn conduit_debris_random(seed: u32, index: u32) -> f32 {
     return (metal_hash(seed, index, 217u32) & 65535u32) as f32 / 65535f32;
-}
-// Keeps the largest interval outside a closed exclusion band.
-fn conduit_debris_interval(low: f32, high: f32, centre: f32, extent: f32) -> [f32; 2] {
-    if extent == 0f32 || high <= centre - extent || low >= centre + extent {
-        return make [f32; 2] {
-            low,
-            high
-        };
-    }
-    var left: f32 = mask_min(high, centre - extent);
-    var right: f32 = -mask_min(-low, -(centre + extent));
-    if left - low > high - right {
-        return make [f32; 2] {
-            low,
-            -mask_min(-low, -left)
-        };
-    }
-    return make [f32; 2] {
-        mask_min(high, right),
-        high
-    };
 }
 // A closed concrete fragment within the given radius around centre.
 fn conduit_debris_chunk(
@@ -140,15 +85,11 @@ fn conduit_debris_section(
     entry: f32,
     entry_extent: f32
 ) -> bool {
-    var height: f32 = asset_value(read values, 0u32);
     var core: f32 = asset_value(read values, 2u32) * 0.5f32;
     var wall: f32 = asset_value(read values, 1u32) * 0.5f32 * cosf(3.14159265359f32 / 48f32) - asset_value(
         read values,
         6u32
     );
-    var low: f32 = section as f32 * CONDUIT_HAZARD_LENGTH;
-    var high: f32 = mask_min(height, low + CONDUIT_HAZARD_LENGTH);
-    var span: f32 = (high - low) / CONDUIT_DEBRIS_SLOTS as f32;
     var seed: u32 = metal_hash(
         asset_value(read values, conduit_hazard_seed_parameter()) as u32,
         section,
@@ -156,16 +97,11 @@ fn conduit_debris_section(
     );
     var slot: u32 = 0u32;
     var count: u32 = 0u32;
-    while slot < CONDUIT_DEBRIS_SLOTS {
-        var interval: [f32; 2] = conduit_debris_interval(
-            low + slot as f32 * span,
-            low + (slot + 1u32) as f32 * span,
-            height * 0.5f32,
-            conduit_support_axial_extent(core)
-        );
-        interval = conduit_debris_interval(
-            interval[0usize],
-            interval[1usize],
+    while slot < CONDUIT_HAZARD_SLOTS {
+        var interval: [f32; 2] = conduit_hazard_interval(
+            read values,
+            section,
+            slot,
             entry,
             entry_extent
         );
@@ -195,7 +131,7 @@ fn conduit_debris_section(
                 centre,
                 radius,
                 hash,
-                slot + seed % CONDUIT_DEBRIS_SLOTS
+                slot + seed % CONDUIT_HAZARD_SLOTS
             ) {
                 return false;
             }
@@ -206,38 +142,6 @@ fn conduit_debris_section(
     return count != 0u32 || error(
         "conduit debris section has no space outside entry and supports"
     );
-}
-fn conduit_hazards(
-    asset: mut RoomAsset,
-    values: read AssetValues,
-    entry: f32,
-    entry_extent: f32
-) -> bool {
-    var i: u32 = CONDUIT_HAZARD_PARAMETER;
-    while i <= conduit_hazard_seed_parameter() {
-        var value: f32 = asset_value(read values, i);
-        if value != value as u32 as f32 {
-            return error("conduit hazard settings must be integers");
-        }
-        i = i + 1u32;
-    }
-    i = 0u32;
-    while i < CONDUIT_HAZARD_SECTIONS && i as f32 * CONDUIT_HAZARD_LENGTH < asset_value(
-        read values,
-        0u32
-    ) {
-        if asset_value(read values, CONDUIT_HAZARD_PARAMETER + i) == 1f32 && !conduit_debris_section(
-            mut asset,
-            read values,
-            i,
-            entry,
-            entry_extent
-        ) {
-            return false;
-        }
-        i = i + 1u32;
-    }
-    return true;
 }
 fn conduit_debris_speed(values: read AssetValues) -> f32 {
     if asset_value(read values, conduit_powered_parameter()) == 0f32 {
