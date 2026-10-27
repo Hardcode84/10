@@ -110,6 +110,7 @@ fn asset_view_edit(
     values: mut AssetValues,
     asset: RoomAsset,
     range: mut MeshRange,
+    motions: mut InstanceList,
     key: u32,
     open_portals: bool,
     good: mut bool
@@ -139,7 +140,14 @@ fn asset_view_edit(
         return move asset;
     }
     asset_build_report(read next, now() - start);
-    if !asset_view_upload(read values, mut session, read next, mut range, open_portals) {
+    if !asset_view_upload(
+        read values,
+        mut session,
+        read next,
+        mut range,
+        open_portals,
+        mut motions
+    ) {
         good = false;
         return move asset;
     }

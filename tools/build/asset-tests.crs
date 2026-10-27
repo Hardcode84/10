@@ -25,7 +25,8 @@ fn run_asset_checks(
     sources[count + 7usize] = host_path(root, "tests/assets/tube.crs");
     sources[count + 8usize] = host_path(root, "tests/assets/pipe-graph.crs");
     sources[count + 9usize] = host_path(root, "tests/assets/pipe-router.crs");
-    count = count + 10usize;
+    sources[count + 10usize] = host_path(root, "src/render/host/instance-motion.crs");
+    count = count + 11usize;
     var provider_count: usize = asset_providers(root, &providers[0usize]);
     provider_count = provider_count + asset_collision_providers(
         root,

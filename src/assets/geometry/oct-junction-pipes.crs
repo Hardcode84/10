@@ -8,6 +8,8 @@ fn oct_junction_pipe_part(
     return asset_part_append(
         mut asset.parts,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: name,
             first: first,
             count: mesh_triangle_count(read asset.geometry) - first,

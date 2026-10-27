@@ -53,11 +53,8 @@ fn asset_view_filtered_mesh(
         }
         face = face + 1u32;
     }
-    while parts && triangle < mesh_triangle_count(read asset.mesh) {
-        if !mesh_append(mut mesh, mesh_triangle(read asset.mesh, triangle)) {
-            return false;
-        }
-        triangle = triangle + 1u32;
+    if parts {
+        return asset_view_static_parts(read asset, mut mesh, triangle);
     }
     return true;
 }
@@ -67,11 +64,8 @@ fn asset_view_mesh_upload(
     range: mut MeshRange,
     open_portals: bool
 ) -> bool {
-    if !open_portals {
-        return input_mesh(mut input, read asset.mesh, mut range);
-    }
     var mesh: Mesh = mesh_new();
-    return asset_view_filtered_mesh(read asset, mut mesh, true, true) && input_mesh(
+    return asset_view_filtered_mesh(read asset, mut mesh, open_portals, true) && input_mesh(
         mut input,
         read mesh,
         mut range
@@ -82,7 +76,8 @@ fn asset_view_upload(
     session: mut AssetSession,
     asset: read RoomAsset,
     range: mut MeshRange,
-    open_portals: bool
+    open_portals: bool,
+    motions: mut InstanceList
 ) -> bool {
     var labels: Mesh = mesh_new();
     if !asset_labels_build(read asset, mut labels) {
@@ -103,14 +98,15 @@ fn asset_view_upload(
         var renderer: mut Renderer = asset_renderer(mut session);
         var input: FrameInput = renderer_inputs(mut renderer);
         input_clear_meshes(mut input);
-        if !asset_view_mesh_upload(mut input, read asset, mut range, open_portals) || !input_mesh(
+        if !asset_view_mesh_upload(mut input, read asset, mut range, open_portals) || !asset_view_motion_upload(
             mut input,
-            read labels,
-            mut label_range
-        ) || !input_mesh(mut input, read guides, mut guide_range) || !asset_view_materials(
+            read asset,
+            mut motions
+        ) || !input_mesh(mut input, read labels, mut label_range) || !input_mesh(
             mut input,
-            read values
-        ) {
+            read guides,
+            mut guide_range
+        ) || !asset_view_materials(mut input, read values) {
             return false;
         }
     }
@@ -132,12 +128,14 @@ fn asset_view_run(
     asset_build_report(read asset, now() - started);
 
     var range: MeshRange = mesh_empty_range();
+    var motions: InstanceList = instances_new();
     if !asset_session_open(mut session) || !asset_view_upload(
         read values,
         mut session,
         read asset,
         mut range,
-        options.open_portals
+        options.open_portals,
+        mut motions
     ) {
         return 1i32;
     }
@@ -171,6 +169,7 @@ fn asset_view_run(
                     mut values,
                     move asset,
                     mut range,
+                    mut motions,
                     key,
                     options.open_portals,
                     mut good
@@ -196,10 +195,21 @@ fn asset_view_run(
             if !asset_scene(mut output, read asset, visible, labels, state.camera) {
                 return 1i32;
             }
-            input_animation_tick(
-                mut output,
-                asset_animation_tick(options, headless, frame, current - animation_start)
+            var tick: u32 = asset_animation_tick(
+                options,
+                headless,
+                frame,
+                current - animation_start
             );
+            input_animation_tick(mut output, tick);
+            if !asset_view_motion_draw(
+                mut output,
+                read motions,
+                tick,
+                asset_view_only_waypoints(read state, read asset)
+            ) {
+                return 1i32;
+            }
         }
         if !asset_session_draw(mut session) {
             return 1i32;
@@ -207,9 +217,7 @@ fn asset_view_run(
         if !headless {
             asset_session_wait();
         }
-        if state.rotating {
-            state.camera.yaw = state.camera.yaw + 0.008f32;
-        }
+        asset_view_rotate(mut state);
         frame = frame + 1u32;
     }
     return (!asset_session_finish(mut session)) as i32;
@@ -264,4 +272,13 @@ fn asset_animation_tick(
         return frame;
     }
     return (elapsed * MATERIAL_ANIMATION_HZ as u64 / 1000000000u64) as u32;
+}
+
+fn asset_view_rotate(state: mut AssetViewState) -> unit {
+    if state.rotating {
+        state.camera.yaw = state.camera.yaw + 0.008f32;
+    }
+}
+fn asset_view_only_waypoints(state: read AssetViewState, asset: read RoomAsset) -> bool {
+    return state.waypoints && route_nodes_count(read asset.routes) != 0u32;
 }

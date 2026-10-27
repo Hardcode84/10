@@ -176,13 +176,26 @@ fn graph_upload(
 ) -> bool {
     var i: u32 = 0u32;
     while i < graph_count(read graph) {
-        var range: MeshRange = graph_node(read graph, i).mesh;
-        var source: MeshRange = range;
-        if !input_mesh_slice(mut input, read mesh, source.first, source.count, mut range) {
-            return false;
-        }
-        if !instances_append(mut instances, mesh_identity(range, i)) {
-            return false;
+        var source: MeshRange = graph_node(read graph, i).mesh;
+        var first: u32 = 0u32;
+        while first < source.count {
+            var instance: MeshInstance = graph_motion_segment(
+                read graph,
+                i,
+                first,
+                source.count
+            );
+            var count: u32 = instance.mesh.count;
+            if !input_mesh_slice(
+                mut input,
+                read mesh,
+                source.first + first,
+                count,
+                mut instance.mesh
+            ) || !instances_append(mut instances, instance) {
+                return false;
+            }
+            first = first + count;
         }
         i = i + 1u32;
     }

@@ -183,6 +183,8 @@ fn outlet_pipe_support(asset: mut RoomAsset, layout: OutletCapLayout, route: Out
     if !asset_part_append(
         mut asset.parts,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: asset_name("pipe-clamp"),
             first: first,
             count: mesh_triangle_count(read asset.geometry) - first,

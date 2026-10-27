@@ -1,0 +1,51 @@
+fn asset_part_moving(part: AssetPart) -> bool {
+    return dot(part.linear, part.linear) != 0f32 || dot(part.angular, part.angular) != 0f32;
+}
+fn asset_shell_triangles(asset: read RoomAsset) -> u32 {
+    var count: u32 = 0u32;
+    var i: u32 = 0u32;
+    while i < asset_face_count(read asset.hull) {
+        count = count + asset_face(read asset.hull, i).count - 2u32;
+        i = i + 1u32;
+    }
+    return count;
+}
+// Returns motion for an already placed mesh range in room coordinates.
+fn asset_part_motion(part: AssetPart, first: u32, space: u32) -> MeshInstance {
+    var range: MeshRange = mesh_empty_range();
+    range.first = first;
+    range.count = part.count;
+    var instance: MeshInstance = mesh_identity(range, space);
+    instance.motion = make [f32; 9] {
+        part.origin.x,
+        part.origin.y,
+        part.origin.z,
+        part.linear.x,
+        part.linear.y,
+        part.linear.z,
+        part.angular.x,
+        part.angular.y,
+        part.angular.z
+    };
+    return instance;
+}
+fn asset_part_place_motion_tail(
+    asset: mut RoomAsset,
+    first: u32,
+    name: AssetName,
+    origin: Vec3,
+    angular: Vec3
+) -> bool {
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: name,
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: origin,
+            basis: identity_basis(),
+            linear: vec(0f32, 0f32, 0f32),
+            angular: angular
+        }
+    );
+}

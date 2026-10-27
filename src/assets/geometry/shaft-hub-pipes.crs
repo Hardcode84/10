@@ -43,6 +43,8 @@ fn hub_pipe_part(asset: mut RoomAsset, first: u32, name: AssetName) -> bool {
     return asset_part_append(
         mut asset.parts,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: name,
             first: first,
             count: mesh_triangle_count(read asset.geometry) - first,

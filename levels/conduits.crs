@@ -2,7 +2,8 @@
 // Start in a short capped shaft and enter the side of the first conduit.
 // Its TOP leads into the second tube. The second TOP returns to the first
 // BOTTOM with the opposite mating roll: one circuit turns the player 180 degrees.
-// Both tubes use the default debris hazards in each axial section.
+// Both tubes have powered cables and orbiting debris in each axial section.
+const CONDUIT_DEMO_POWERED: f32 = 1f32;
 const CONDUIT_START_SHAFT_LENGTH: f32 = 20f32;
 fn demo_room_build(
     asset: mut RoomAsset,
@@ -37,7 +38,7 @@ fn demo_room_build(
     var cursor: CourseCursor = make CourseCursor {
         room: 0u32
     };
-    if !course_step(
+    if !conduit_demo_step(
         mut graph,
         mut builder,
         mut mesh,
@@ -46,7 +47,7 @@ fn demo_room_build(
         PREFAB_CONDUIT_SHAFT,
         asset_name("SHAFT"),
         0u32
-    ) || !course_step(
+    ) || !conduit_demo_step(
         mut graph,
         mut builder,
         mut mesh,
@@ -89,6 +90,16 @@ fn demo_palette(input: mut FrameInput) -> bool {
         course_material_parameter_offset(PREFAB_SHAFT_CLEAR),
         CONDUIT_START_SHAFT_LENGTH
     );
+    asset_value_set(
+        mut configuration,
+        course_material_parameter_offset(PREFAB_CONDUIT_TUBE) + conduit_powered_parameter(),
+        CONDUIT_DEMO_POWERED
+    );
+    asset_value_set(
+        mut configuration,
+        course_material_parameter_offset(PREFAB_CONDUIT_SHAFT) + conduit_powered_parameter(),
+        CONDUIT_DEMO_POWERED
+    );
     return course_palette_configured(mut input, read configuration);
 }
 fn demo_room_lighting(
@@ -96,3 +107,36 @@ fn demo_room_lighting(
     input: mut FrameInput,
     anchors: mut RoomAnchors
 ) -> unit {}
+
+fn conduit_demo_step(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut CourseCursor,
+    exit_name: AssetName,
+    kind: u32,
+    entry_name: AssetName,
+    variant: u32
+) -> bool {
+    var first: u32 = course_socket(read graph, cursor.room, exit_name);
+    var values: AssetValues = asset_values_new();
+    var asset: RoomAsset = room_asset_new();
+    if !course_values(kind, variant, mut values) {
+        return false;
+    }
+    asset_value_set(mut values, conduit_powered_parameter(), CONDUIT_DEMO_POWERED);
+    cursor.room = graph_count(read graph);
+    if !course_build(kind, read values, mut asset) || !course_room_mesh(
+        read asset,
+        mut graph,
+        mut builder,
+        mut mesh,
+        kind,
+        variant
+    ) {
+        return false;
+    }
+    var second: u32 = course_socket(read graph, cursor.room, entry_name);
+    course_pair(mut graph, first, second);
+    return true;
+}

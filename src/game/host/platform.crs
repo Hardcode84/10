@@ -220,7 +220,7 @@ fn game_scene_finish(
         mut input,
         trial.drone.clock as f32 * STEP
     );
-    if !input_instances(mut input, read session.world) {
+    if !input_instances_at(mut input, read session.world, trial.drone.clock as f32 * STEP) {
         scene_overflow();
     }
 }

@@ -87,7 +87,14 @@ colliders when they open the shell ports. Spawn checks include solid parts. A ro
 only a preview camera pose. Such rooms can be shallower than the player diameter.
 Game and demo entry points reject these rooms as starting locations.
 The viewer uses the spawn point when the room centre has no player clearance.
-Parts remain static until a consumer supplies motion for their pivots.
+Parts can specify constant linear and angular velocity in room coordinates.
+The pivot frame is the pose at time zero. The game and viewer compute each pose
+from absolute time. The mesh, collision solid, and attached tether anchor use
+that same pose. Zero velocities keep a part fixed. Retained meshes stay in GPU
+storage; each frame updates only their instance poses. Room reloads restore the
+source pose and apply the current clock.
+In the viewer, `--animation-tick N` fixes both part motion and material animation
+at the selected tick. The clock rate is `MATERIAL_ANIMATION_HZ`.
 
 A room can also contain fixture lights with local positions, colours, and radii.
 The viewer displays these lights. Level assembly copies them into the room graph;

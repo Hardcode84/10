@@ -7,8 +7,16 @@ fn residency_seed_room(
     var item: *ResidentRoom = &state.rooms[room as usize];
     var node: GraphNode = graph_node(read graph, room);
     item -> pinned = room_recipe_count(graph_recipe(read graph, room)) == 0u32;
-    item -> piece_count = node.mesh.count / RESIDENT_ARENA_TRIANGLES;
-    if node.mesh.count % RESIDENT_ARENA_TRIANGLES != 0u32 {
+    var first: u32 = 0u32;
+    item -> piece_count = 0u32;
+    while first < node.mesh.count {
+        var source: MeshInstance = residency_source_piece(
+            read graph,
+            room,
+            first,
+            node.mesh.count
+        );
+        first = first + source.mesh.count;
         item -> piece_count = item -> piece_count + 1u32;
     }
     if item -> piece_count != 0u32 {
@@ -18,11 +26,22 @@ fn residency_seed_room(
         }
     }
     var i: u32 = 0u32;
+    first = 0u32;
     while i < item -> piece_count {
+        var source: MeshInstance = residency_source_piece(
+            read graph,
+            room,
+            first,
+            node.mesh.count
+        );
         item -> pieces[i as usize] = make ResidentPiece {
             range: mesh_empty_range(),
-            arena: 0xffffffffu32
+            arena: 0xffffffffu32,
+            source: first,
+            count: source.mesh.count,
+            motion: source.motion
         };
+        first = first + source.mesh.count;
         i = i + 1u32;
     }
     if !item -> pinned && generation_word(read state.wanted, room) == 0u32 {
@@ -37,6 +56,13 @@ fn residency_seed_room(
         i = i + 1u32;
     }
     return true;
+}
+fn residency_source_piece(graph: read RoomGraph, room: u32, first: u32, end: u32) -> MeshInstance {
+    var instance: MeshInstance = graph_motion_segment(read graph, room, first, end);
+    if instance.mesh.count > RESIDENT_ARENA_TRIANGLES {
+        instance.mesh.count = RESIDENT_ARENA_TRIANGLES;
+    }
+    return instance;
 }
 fn game_residency_open(session: mut GameSession, scene: mut CollisionScene, world: u32) -> bool {
     if !game_residency_runtime(mut session) {

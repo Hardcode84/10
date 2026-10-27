@@ -24,7 +24,11 @@ fn asset_parts_collision(
             }
             j = j + 1u32;
         }
-        if !collision_append_solid(mut builder, read mesh, space, part.origin, part.basis) {
+        if !collision_append_solid(mut builder, read mesh, space, part.origin, part.basis) || !collision_set_motion(
+            mut builder,
+            part.linear,
+            part.angular
+        ) {
             return false;
         }
         i = i + 1u32;
@@ -64,6 +68,8 @@ fn asset_part_place_tail(asset: mut RoomAsset, first: u32, name: AssetName, orig
     return asset_part_append(
         mut asset.parts,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: name,
             first: first,
             count: mesh_triangle_count(read asset.geometry) - first,

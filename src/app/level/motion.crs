@@ -1,0 +1,44 @@
+fn graph_motion_add(graph: mut RoomGraph, asset: read RoomAsset, room: u32, parts: bool) -> bool {
+    var first: u32 = asset_shell_triangles(read asset);
+    if parts {
+        first = graph_node(read graph, room).mesh.count;
+    }
+    var i: u32 = 0u32;
+    while i < asset_part_count(read asset.parts) {
+        var part: AssetPart = asset_part(read asset.parts, i);
+        if asset_part_moving(part) && !graph_motion_append(
+            mut graph,
+            asset_part_motion(part, first, room)
+        ) {
+            return false;
+        }
+        first = first + part.count;
+        i = i + 1u32;
+    }
+    return true;
+}
+// Returns the next range with one rigid motion, bounded by end.
+fn graph_motion_segment(graph: read RoomGraph, room: u32, first: u32, end: u32) -> MeshInstance {
+    var result: MeshInstance = mesh_identity(mesh_empty_range(), room);
+    result.mesh.first = first;
+    result.mesh.count = end - first;
+    var i: u32 = 0u32;
+    while i < graph_motion_count(read graph) {
+        var motion: MeshInstance = graph_motion_get(read graph, i);
+        if motion.space == room {
+            if first >= motion.mesh.first && first - motion.mesh.first < motion.mesh.count {
+                result.motion = motion.motion;
+                var count: u32 = motion.mesh.count - (first - motion.mesh.first);
+                if count < result.mesh.count {
+                    result.mesh.count = count;
+                }
+                return result;
+            }
+            if motion.mesh.first > first && motion.mesh.first - first < result.mesh.count {
+                result.mesh.count = motion.mesh.first - first;
+            }
+        }
+        i = i + 1u32;
+    }
+    return result;
+}

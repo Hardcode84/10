@@ -52,20 +52,6 @@ fn retained_reserve(v: *RenderState, meshes: u32, instances: u32) -> bool {
     }
     return storage_replace(v, &next);
 }
-fn mesh_empty_range() -> MeshRange {
-    return make MeshRange {
-        first: 0u32,
-        count: 0u32,
-        bounds: make [f32; 6] {
-            0f32,
-            0f32,
-            0f32,
-            0f32,
-            0f32,
-            0f32
-        }
-    };
-}
 // Copies a mesh into renderer-owned storage. The returned range belongs to this renderer.
 fn input_mesh(input: mut FrameInput, mesh: read Mesh, result: mut MeshRange) -> bool {
     return input_mesh_slice(mut input, read mesh, 0u32, mesh.count, mut result);
@@ -309,4 +295,15 @@ fn retained_admit(v: *RenderState, meshes: u32, instances: u32, triangles: u32) 
         return false;
     }
     return storage_replace(v, &next);
+}
+
+fn input_instances_at(input: mut FrameInput, list: read InstanceList, time: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < instances_count(read list) {
+        if !input_instance(mut input, instance_at(instances_get(read list, i), time)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
 }

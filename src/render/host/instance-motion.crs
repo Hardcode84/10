@@ -1,0 +1,65 @@
+extern fn instance_sinf(value: f32) -> f32 foreign(scalar) = "sinf";
+extern fn instance_cosf(value: f32) -> f32 foreign(scalar) = "cosf";
+extern fn instance_sqrtf(value: f32) -> f32 foreign(scalar) = "sqrtf";
+// Pose a constant-velocity instance at an absolute time in seconds.
+// Motion stores a room-space pivot, linear velocity, and angular velocity.
+// Rotation is about the pivot, followed by translation; the source stays unchanged.
+fn instance_at(instance: MeshInstance, time: f32) -> MeshInstance {
+    var motion: [f32; 9] = instance.motion;
+    var speed: f32 = instance_sqrtf(
+        motion[6usize] * motion[6usize] + motion[7usize] * motion[7usize] + motion[8usize] * motion[
+            8usize
+        ]
+    );
+    var pose: MeshInstance = instance;
+    if speed != 0f32 {
+        var axis: [f32; 3] = make [f32; 3] {
+            motion[6usize] / speed,
+            motion[7usize] / speed,
+            motion[8usize] / speed
+        };
+        var cosine: f32 = instance_cosf(speed * time);
+        var sine: f32 = instance_sinf(speed * time);
+        var column: usize = 0usize;
+        while column < 4usize {
+            var v: [f32; 3] = make [f32; 3] {
+                instance.transform[column],
+                instance.transform[4usize + column],
+                instance.transform[8usize + column]
+            };
+            if column == 3usize {
+                var i: usize = 0usize;
+                while i < 3usize {
+                    v[i] = v[i] - motion[i];
+                    i = i + 1usize;
+                }
+            }
+            var projection: f32 = axis[0usize] * v[0usize] + axis[1usize] * v[1usize] + axis[
+                2usize
+            ] * v[2usize];
+            var row: usize = 0usize;
+            while row < 3usize {
+                var a: usize = (row + 1usize) % 3usize;
+                var b: usize = (row + 2usize) % 3usize;
+                pose.transform[row * 4usize + column] = v[row] * cosine + (
+                    axis[a] * v[b] - axis[b] * v[a]
+                ) * sine + axis[row] * projection * (1f32 - cosine);
+                if column == 3usize {
+                    pose.transform[row * 4usize + column] = pose.transform[row * 4usize + column] + motion[
+                        row
+                    ];
+                }
+                row = row + 1usize;
+            }
+            column = column + 1usize;
+        }
+    }
+    var row: usize = 0usize;
+    while row < 3usize {
+        pose.transform[row * 4usize + 3usize] = pose.transform[row * 4usize + 3usize] + motion[
+            row + 3usize
+        ] * time;
+        row = row + 1usize;
+    }
+    return pose;
+}

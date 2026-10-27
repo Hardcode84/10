@@ -14,6 +14,8 @@ fn grate_bar_instance(asset: mut RoomAsset, first: u32, count: u32, height: f32)
     if !asset_part_append(
         mut asset.colliders,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: asset_name("grate-bar"),
             first: first,
             count: count,
@@ -185,6 +187,8 @@ fn shaft_grate_geometry(asset: mut RoomAsset, layout: ShaftGrateLayout) -> bool 
         if !asset_part_append(
             mut asset.parts,
             make AssetPart {
+                linear: vec(0f32, 0f32, 0f32),
+                angular: vec(0f32, 0f32, 0f32),
                 name: asset_name("grate-frame"),
                 first: first,
                 count: count,

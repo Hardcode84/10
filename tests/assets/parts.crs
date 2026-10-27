@@ -25,6 +25,8 @@ fn asset_test_part_room(asset: mut RoomAsset) -> bool {
         if !asset_part_append(
             mut asset.parts,
             make AssetPart {
+                linear: vec(0f32, 0f32, 0f32),
+                angular: vec(0f32, 0f32, 0f32),
                 name: asset_name("beam"),
                 first: 0u32,
                 count: 12u32,
@@ -43,6 +45,8 @@ fn asset_test_part_room(asset: mut RoomAsset) -> bool {
     if !asset_part_append(
         mut asset.colliders,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: asset_name("collision-only"),
             first: 0u32,
             count: 12u32,
@@ -56,7 +60,7 @@ fn asset_test_part_room(asset: mut RoomAsset) -> bool {
     return true;
 }
 fn asset_test_parts() -> bool {
-    return asset_test_cutout_collision() && asset_test_part_assembly();
+    return asset_test_cutout_collision() && asset_test_part_assembly() && asset_test_motion();
 }
 fn asset_test_part_assembly() -> bool {
     var asset: RoomAsset = room_asset_new();
@@ -284,4 +288,91 @@ fn asset_test_cutout_collision() -> bool {
     ) == 0u32 && panel_sample(material, 0f32, layout.pitch * 0.5f32) != 0u32 || error(
         "cutout openings disagree with solid bar collision"
     );
+}
+
+fn asset_test_motion() -> bool {
+    var asset: RoomAsset = room_asset_new();
+    if !solid_box(
+        mut asset.geometry,
+        vec(1f32, 2f32, 1f32),
+        0u32,
+        vec(5f32, 0f32, 0f32),
+        identity_basis(),
+        1f32
+    ) {
+        return false;
+    }
+    var part: AssetPart = make AssetPart {
+        name: asset_name("orbit"),
+        first: 0u32,
+        count: mesh_triangle_count(read asset.geometry),
+        origin: vec(3f32, 4f32, 7f32),
+        basis: make Basis {
+            right: vec(0f32, 0f32, -1f32),
+            up: vec(0f32, 1f32, 0f32),
+            forward: vec(1f32, 0f32, 0f32)
+        },
+        linear: vec(0.1f32, -0.2f32, 0.3f32),
+        angular: vec(0.2f32, 0.5f32, -0.1f32)
+    };
+    if !asset_part_append(mut asset.parts, part) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    if !room_parts_collision(read asset, mut builder, 0u32) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var source: MeshVertex = mesh_triangle(read asset.geometry, 0u32).vertices[0usize];
+    var local: Vec3 = vec(source.x, source.y, source.z);
+    var placed: Vec3 = add(part.origin, basis_vector(part.basis, local));
+    var instance: MeshInstance = asset_part_motion(part, 0u32, 0u32);
+    var i: u32 = 0u32;
+    while i < 5u32 {
+        var time: f32 = i as f32 * 3.7f32;
+        var pose: MeshInstance = instance_at(instance, time);
+        var point: Vec3 = vec(
+            pose.transform[0usize] * placed.x + pose.transform[1usize] * placed.y + pose.transform[
+                2usize
+            ] * placed.z + pose.transform[3usize],
+            pose.transform[4usize] * placed.x + pose.transform[5usize] * placed.y + pose.transform[
+                6usize
+            ] * placed.z + pose.transform[7usize],
+            pose.transform[8usize] * placed.x + pose.transform[9usize] * placed.y + pose.transform[
+                10usize
+            ] * placed.z + pose.transform[11usize]
+        );
+        var anchor: Vec3 = collision_anchor(read scene, 0u32, local, time);
+        var velocity: Vec3 = add(
+            part.linear,
+            cross(
+                part.angular,
+                sub(anchor, add(part.origin, scale(part.linear, time)))
+            )
+        );
+        if length(sub(point, anchor)) > 0.00002f32 || length(
+            sub(velocity, collision_anchor_velocity(read scene, 0u32, local, time))
+        ) > 0.00002f32 {
+            return error("moving asset render pose or tether anchor disagrees with collision");
+        }
+        if collision_embedded_at(
+            read scene,
+            0u32,
+            add(
+                collision_pose(collision_instance(read scene, 0u32), time).origin,
+                basis_vector(
+                    collision_pose(collision_instance(read scene, 0u32), time).basis,
+                    vec(5f32, 0f32, 0f32)
+                )
+            ),
+            time
+        ) != 0u32 {
+            return error("orbital solid collision did not follow its pivot");
+        }
+        i = i + 1u32;
+    }
+    return true;
 }

@@ -6,12 +6,18 @@ const CONDUIT_REBAR_MATERIAL: u32 = 8u32;
 const CONDUIT_MATERIAL_COUNT: u32 = 9u32;
 const CONDUIT_CAST_LENGTH: f32 = 25f32;
 fn prefab_conduit_parameter_count() -> u32 {
+    return conduit_orbit_parameter() + 1u32;
+}
+fn conduit_orbit_parameter() -> u32 {
     return conduit_powered_parameter() + 1u32;
 }
 fn conduit_powered_parameter() -> u32 {
     return conduit_hazard_seed_parameter() + 1u32;
 }
 fn prefab_conduit_parameter_name(index: u32) -> AssetName {
+    if index == conduit_orbit_parameter() {
+        return asset_name("orbit-period");
+    }
     if index == conduit_powered_parameter() {
         return asset_name("powered");
     }
@@ -33,6 +39,14 @@ fn prefab_conduit_parameter_name(index: u32) -> AssetName {
     return asset_name("turns");
 }
 fn prefab_conduit_parameter(index: u32) -> AssetParameter {
+    if index == conduit_orbit_parameter() {
+        return make AssetParameter {
+            minimum: 20f32,
+            maximum: 600f32,
+            initial: 120f32,
+            step: 10f32
+        };
+    }
     if index == conduit_powered_parameter() {
         return make AssetParameter {
             minimum: 0f32,
@@ -156,6 +170,8 @@ fn conduit_cable(asset: mut RoomAsset, radius: f32, height: f32, turns: u32, str
     return asset_part_append(
         mut asset.parts,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: asset_name("cable"),
             first: first,
             count: mesh_triangle_count(read asset.geometry) - first,

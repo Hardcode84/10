@@ -85,6 +85,8 @@ fn hex_door_leaf(depth: f32, side: u32, asset: mut RoomAsset) -> bool {
         make AssetDoorLeaf {
             travel: vec(distance, 0f32, 0f32),
             part: make AssetPart {
+                linear: vec(0f32, 0f32, 0f32),
+                angular: vec(0f32, 0f32, 0f32),
                 name: asset_name("DOOR-LEAF"),
                 first: first,
                 count: mesh_triangle_count(read asset.geometry) - first,

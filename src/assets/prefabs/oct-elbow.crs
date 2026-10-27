@@ -96,6 +96,8 @@ fn prefab_oct_elbow_elbow_pipe(asset: mut RoomAsset, leg: f32, radius: f32, inde
     return asset_part_append(
         mut asset.parts,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: oct_pipe_name(index),
             first: first,
             count: mesh_triangle_count(read asset.geometry) - first,

@@ -13,6 +13,9 @@ opaque;
 record ResidentPiece {
     range: MeshRange;
     arena: u32;
+    source: u32;
+    count: u32;
+    motion: [f32; 9];
 }
 record ResidentArena {
     first: u32;

@@ -17,7 +17,8 @@ fn conduit_debris_rebar(
     centre: Vec3,
     basis: Basis,
     radius: f32,
-    seed: u32
+    seed: u32,
+    angular: f32
 ) -> bool {
     var i: u32 = 0u32;
     while i < 4u32 {
@@ -27,7 +28,10 @@ fn conduit_debris_rebar(
             scale(hull_face_centre(read hull, face), 0.65f32),
             scale(hull_corner(read hull, face, (i % 2u32) * 4u32), 0.35f32)
         );
-        var origin: Vec3 = basis_vector(basis, point);
+        var origin: Vec3 = add(
+            vec(centre.x, 0f32, centre.z),
+            basis_vector(basis, point)
+        );
         var normal: Vec3 = basis_vector(basis, frame.normal);
         var right: Vec3 = basis_vector(basis, frame.right);
         var start: Vec3 = sub(origin, scale(normal, radius * 0.018f32));
@@ -53,11 +57,12 @@ fn conduit_debris_rebar(
             corner,
             outgoing,
             radius * 0.03f32
-        ) || !tube_sweep_finish(mut asset.geometry, mut sweep, end) || !asset_part_place_tail(
+        ) || !tube_sweep_finish(mut asset.geometry, mut sweep, end) || !asset_part_place_motion_tail(
             mut asset,
             first,
             asset_name("debris-rebar"),
-            centre
+            vec(0f32, centre.y, 0f32),
+            vec(0f32, angular, 0f32)
         ) {
             return false;
         }

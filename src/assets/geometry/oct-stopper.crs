@@ -10,6 +10,8 @@ fn oct_stopper_pipes(asset: mut RoomAsset, extent: f32, period: f32) -> bool {
         if !asset_part_append(
             mut asset.parts,
             make AssetPart {
+                linear: vec(0f32, 0f32, 0f32),
+                angular: vec(0f32, 0f32, 0f32),
                 name: oct_pipe_name(i),
                 first: first,
                 count: count,
@@ -78,6 +80,8 @@ fn oct_stopper_plates(asset: mut RoomAsset, centre: f32) -> bool {
         if !asset_part_append(
             mut asset.parts,
             make AssetPart {
+                linear: vec(0f32, 0f32, 0f32),
+                angular: vec(0f32, 0f32, 0f32),
                 name: asset_name("PIPE-PLATE"),
                 first: first,
                 count: count,

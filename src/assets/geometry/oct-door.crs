@@ -62,6 +62,8 @@ fn oct_door_leaf(depth: f32, quarter: u32, asset: mut RoomAsset) -> bool {
         make AssetDoorLeaf {
             travel: oct_door_turn(vec(distance, 0f32, distance), quarter),
             part: make AssetPart {
+                linear: vec(0f32, 0f32, 0f32),
+                angular: vec(0f32, 0f32, 0f32),
                 name: asset_name("DOOR-LEAF"),
                 first: first,
                 count: mesh_triangle_count(read asset.geometry) - first,

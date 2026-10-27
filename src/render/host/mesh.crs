@@ -102,6 +102,7 @@ record MeshInstance {
     transform: [f32; 12];
     space: u32;
     material: u32;
+    motion: [f32; 9];
 }
 resource InstanceList {
     values: *MeshInstance;
@@ -155,6 +156,17 @@ fn instances_get(list: read InstanceList, index: u32) -> MeshInstance {
 }
 fn mesh_identity(mesh: MeshRange, space: u32) -> MeshInstance {
     return make MeshInstance {
+        motion: make [f32; 9] {
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32
+        },
         mesh: mesh,
         transform: make [f32; 12] {
             1f32,
@@ -243,4 +255,19 @@ fn instances_swap(a: mut InstanceList, b: mut InstanceList) -> unit {
     var capacity: u32 = a.capacity;
     a.capacity = b.capacity;
     b.capacity = capacity;
+}
+
+fn mesh_empty_range() -> MeshRange {
+    return make MeshRange {
+        first: 0u32,
+        count: 0u32,
+        bounds: make [f32; 6] {
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32,
+            0f32
+        }
+    };
 }

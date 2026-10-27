@@ -1,3 +1,5 @@
+// Powered debris and its rebar orbit the cable. orbit-period sets seconds per turn.
+// At power off, debris stays at its generated position.
 // Power conduit: a 250 m diameter concrete tube, 500 m long along local +Y.
 // Six thick cable sheaths wind around one straight cable. The core is 75 m across.
 // Integer turns keep cable positions and roll aligned at both ends.
@@ -21,7 +23,7 @@
 // Each beam has two red emergency fixtures at its exposed midpoint, facing +Y
 // and -Y. The lenses are full-bright and cast local red light onto the beam.
 // hazard-1 through hazard-4 select each successive 250 m section from BOTTOM:
-// 0 is clear, 1 adds static concrete debris (default). Settings beyond length
+// 0 is clear, 1 adds concrete debris (default). Settings beyond length
 // are inactive; a partial final section uses its available length.
 // hazard-seed controls fragment shapes and placement independently of wall tiles.
 // Fragments leave clearance at the core, walls, supports, and end portals.

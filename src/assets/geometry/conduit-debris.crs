@@ -56,8 +56,14 @@ fn conduit_debris_interval(low: f32, high: f32, centre: f32, extent: f32) -> [f3
         high
     };
 }
-// A closed, convex concrete fragment within the given radius, centred on its pivot.
-fn conduit_debris_chunk(asset: mut RoomAsset, centre: Vec3, radius: f32, seed: u32) -> bool {
+// A closed concrete fragment within the given radius around centre.
+fn conduit_debris_chunk(
+    asset: mut RoomAsset,
+    centre: Vec3,
+    radius: f32,
+    seed: u32,
+    angular: f32
+) -> bool {
     var hull: AssetHull = asset_hull_new();
     if !truncated_cube_hull(mut hull, 1f32, CONDUIT_DEBRIS_MATERIAL, CONDUIT_FRACTURE_MATERIAL) {
         return false;
@@ -109,20 +115,19 @@ fn conduit_debris_chunk(asset: mut RoomAsset, centre: Vec3, radius: f32, seed: u
     if !hull_solid_mesh(
         read hull,
         mut asset.geometry,
-        vec(0f32, 0f32, 0f32),
+        vec(centre.x, 0f32, centre.z),
         basis,
         conduit_debris_material(false).tile_metres
     ) {
         return false;
     }
-    return asset_part_place_tail(mut asset, first, asset_name("conduit-debris"), centre) && conduit_debris_rebar(
+    return asset_part_place_motion_tail(
         mut asset,
-        read hull,
-        centre,
-        basis,
-        radius,
-        seed
-    );
+        first,
+        asset_name("conduit-debris"),
+        vec(0f32, centre.y, 0f32),
+        vec(0f32, angular, 0f32)
+    ) && conduit_debris_rebar(mut asset, read hull, centre, basis, radius, seed, angular);
 }
 fn conduit_debris_section(
     asset: mut RoomAsset,
@@ -180,7 +185,13 @@ fn conduit_debris_section(
                 (interval[0usize] + interval[1usize]) * 0.5f32,
                 sinf(angle) * orbit
             );
-            if !conduit_debris_chunk(mut asset, centre, radius, hash) {
+            if !conduit_debris_chunk(
+                mut asset,
+                centre,
+                radius,
+                hash,
+                conduit_debris_speed(read values)
+            ) {
                 return false;
             }
             count = count + 1u32;
@@ -222,4 +233,10 @@ fn conduit_hazards(
         i = i + 1u32;
     }
     return true;
+}
+fn conduit_debris_speed(values: read AssetValues) -> f32 {
+    if asset_value(read values, conduit_powered_parameter()) == 0f32 {
+        return 0f32;
+    }
+    return 6.28318530718f32 / asset_value(read values, conduit_orbit_parameter());
 }

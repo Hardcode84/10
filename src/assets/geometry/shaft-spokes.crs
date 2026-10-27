@@ -49,6 +49,8 @@ fn shaft_spoke_instance(
     return asset_part_append(
         mut asset.parts,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: asset_name("spoke"),
             first: first,
             count: count,

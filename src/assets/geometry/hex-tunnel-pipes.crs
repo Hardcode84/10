@@ -218,6 +218,8 @@ fn hex_pipe_wall_collar(run: HexPipeRun, height: f32, asset: mut RoomAsset) -> b
     return asset_part_append(
         mut asset.parts,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: asset_name("COLLAR"),
             first: first,
             count: mesh_triangle_count(read asset.geometry) - first,

@@ -36,6 +36,8 @@ fn prefab_oct_tunnel_10m_oct_tunnel_pipes(asset: mut RoomAsset, extent: f32) -> 
         if !asset_part_append(
             mut asset.parts,
             make AssetPart {
+                linear: vec(0f32, 0f32, 0f32),
+                angular: vec(0f32, 0f32, 0f32),
                 name: oct_pipe_name(i),
                 first: first,
                 count: count,

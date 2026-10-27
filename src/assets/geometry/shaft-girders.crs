@@ -25,6 +25,8 @@ fn shaft_girder_rail(
     return asset_part_append(
         mut asset.parts,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: asset_name("girder-rail"),
             first: first,
             count: count,

@@ -74,6 +74,8 @@ fn shaft_fan_part(
     return asset_part_append(
         mut asset.parts,
         make AssetPart {
+            linear: vec(0f32, 0f32, 0f32),
+            angular: vec(0f32, 0f32, 0f32),
             name: name,
             first: first,
             count: count,

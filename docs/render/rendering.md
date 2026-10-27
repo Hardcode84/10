@@ -117,7 +117,11 @@ Call `input_frame` before each frame. Submit dynamic triangles before retained
 instances. Each `MeshInstance` has a mesh range, row-major 3 by 4 affine
 transform, space ID, and material override. Override `0xffffffff` selects the
 mesh materials. `InstanceList` owns a reusable list of placements;
-`input_instances` submits it. Empty meshes are permitted. Positions, UVs,
+`input_instances` submits fixed poses. `input_instances_at` applies each placement's
+room-space pivot, linear velocity, and angular velocity at a supplied time in
+seconds. The source pose stays unchanged. Room streaming splits retained ranges
+at motion boundaries and preserves the motion when it reloads a range.
+Empty meshes are permitted. Positions, UVs,
 transforms, and transformed positions must be finite.
 
 Instance transforms support finite affine maps, including singular and mirrored
@@ -152,8 +156,7 @@ transforms. An expanded triangle copy is produced for debug reference checks.
 Generated room decals use room-local cutout triangles and normally disable
 shadow casting. They are excluded from collision meshes by the asset system.
 The application currently submits the player body as dynamic geometry. It uses
-anchors for copies across room openings. Persistent moving-part instances are
-an architectural option, not a completed migration of every game object.
+anchors for copies across room openings. Generated moving parts use retained instances with time-based poses.
 
 ### Sprites
 

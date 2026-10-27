@@ -1,0 +1,64 @@
+fn asset_view_static_parts(asset: read RoomAsset, mesh: mut Mesh, first: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < asset_part_count(read asset.parts) {
+        var part: AssetPart = asset_part(read asset.parts, i);
+        var j: u32 = 0u32;
+        while !asset_part_moving(part) && j < part.count {
+            if !mesh_append(mut mesh, mesh_triangle(read asset.mesh, first + j)) {
+                return false;
+            }
+            j = j + 1u32;
+        }
+        first = first + part.count;
+        i = i + 1u32;
+    }
+    while first < mesh_triangle_count(read asset.mesh) {
+        if !mesh_append(mut mesh, mesh_triangle(read asset.mesh, first)) {
+            return false;
+        }
+        first = first + 1u32;
+    }
+    return true;
+}
+fn asset_view_motion_upload(
+    input: mut FrameInput,
+    asset: read RoomAsset,
+    motions: mut InstanceList
+) -> bool {
+    instances_clear(mut motions);
+    var first: u32 = asset_shell_triangles(read asset);
+    var i: u32 = 0u32;
+    while i < asset_part_count(read asset.parts) {
+        var part: AssetPart = asset_part(read asset.parts, i);
+        if asset_part_moving(part) {
+            var instance: MeshInstance = asset_part_motion(part, first, 0u32);
+            if !input_mesh_slice(
+                mut input,
+                read asset.mesh,
+                first,
+                part.count,
+                mut instance.mesh
+            ) || !instances_append(mut motions, instance) {
+                return false;
+            }
+        }
+        first = first + part.count;
+        i = i + 1u32;
+    }
+    return true;
+}
+fn asset_view_motion_draw(
+    input: mut FrameInput,
+    motions: read InstanceList,
+    tick: u32,
+    hidden: bool
+) -> bool {
+    if hidden {
+        return true;
+    }
+    return input_instances_at(
+        mut input,
+        read motions,
+        tick as f32 / MATERIAL_ANIMATION_HZ as f32
+    );
+}

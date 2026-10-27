@@ -19,6 +19,7 @@ resource RoomGraph {
     recipes: *RoomRecipe;
     lights: FixtureLights;
     doors: DoorSet;
+    motions: InstanceList;
     nodes: *GraphNode;
     sockets: *GraphSocket;
     capacity: u32;
@@ -33,6 +34,7 @@ fn graph_new() -> RoomGraph {
         recipes: null(*RoomRecipe),
         lights: fixture_lights_new(),
         doors: doors_new(),
+        motions: instances_new(),
         nodes: null(*GraphNode),
         sockets: null(*GraphSocket),
         capacity: 0u32,
@@ -173,4 +175,14 @@ fn graph_doors_upload(graph: mut RoomGraph, input: mut FrameInput) -> bool {
 
 fn graph_doors_mut(graph: mut RoomGraph) -> mut DoorSet from graph {
     return mut graph.doors;
+}
+
+fn graph_motion_append(graph: mut RoomGraph, instance: MeshInstance) -> bool {
+    return instances_append(mut graph.motions, instance);
+}
+fn graph_motion_count(graph: read RoomGraph) -> u32 {
+    return instances_count(read graph.motions);
+}
+fn graph_motion_get(graph: read RoomGraph, index: u32) -> MeshInstance {
+    return instances_get(read graph.motions, index);
 }

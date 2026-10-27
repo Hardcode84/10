@@ -48,6 +48,8 @@ fn prefab_shaft_rotor_rotors(
         if !asset_part_append(
             mut asset.parts,
             make AssetPart {
+                linear: vec(0f32, 0f32, 0f32),
+                angular: vec(0f32, 0f32, 0f32),
                 name: asset_name("rotor"),
                 first: first,
                 count: triangles,

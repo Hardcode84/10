@@ -73,12 +73,8 @@ fn residency_gpu_load(state: mut RoomResidency, input: mut FrameInput, room: u32
         return true;
     }
     var i: u32 = 0u32;
-    var first: u32 = 0u32;
     while i < item -> piece_count {
-        var count: u32 = item -> mesh.count - first;
-        if count > RESIDENT_ARENA_TRIANGLES {
-            count = RESIDENT_ARENA_TRIANGLES;
-        }
+        var count: u32 = item -> pieces[i as usize].count;
         var index: u32 = residency_arena(mut state, mut input, count);
         if index == 0xffffffffu32 {
             residency_gpu_release(mut state, mut input, room);
@@ -90,7 +86,7 @@ fn residency_gpu_load(state: mut RoomResidency, input: mut FrameInput, room: u32
         input_mesh_write(
             mut input,
             read item -> mesh,
-            first,
+            piece -> source,
             count,
             arena -> first + arena -> used,
             mut piece -> range
@@ -102,7 +98,6 @@ fn residency_gpu_load(state: mut RoomResidency, input: mut FrameInput, room: u32
             arena -> first + arena -> used,
             RESIDENT_ARENA_TRIANGLES - arena -> used
         );
-        first = first + count;
         i = i + 1u32;
     }
     item -> uploaded = true;
@@ -124,10 +119,12 @@ fn residency_gpu_world(
             }
             var i: u32 = 0u32;
             while i < item -> piece_count {
-                if !instances_append(
-                    mut state.next,
-                    mesh_identity(item -> pieces[i as usize].range, room)
-                ) {
+                var instance: MeshInstance = mesh_identity(
+                    item -> pieces[i as usize].range,
+                    room
+                );
+                instance.motion = item -> pieces[i as usize].motion;
+                if !instances_append(mut state.next, instance) {
                     return false;
                 }
                 i = i + 1u32;
