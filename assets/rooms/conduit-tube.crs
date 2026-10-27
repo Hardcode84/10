@@ -1,5 +1,7 @@
 // Per-section hazards: 0 empty, 1 debris, 2 stationary wall-supported catwalk rings.
 // Catwalk tread faces away from the core; guardrails project radially outward.
+// Axial bridges connect adjacent rings outside shaft entries and core supports.
+// Radial ladders lead up from each deck to closed wall hatches.
 // Inner and outer flight routes stay open.
 // debris-style: 0 mixes concrete and beam chunks; 1 is concrete; 2 is steel beams.
 // Beam debris has torn recessed ends, no lamps, and lightning contacts on torn edges.

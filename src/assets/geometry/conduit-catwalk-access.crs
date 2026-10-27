@@ -1,0 +1,241 @@
+fn conduit_catwalk_point(radius: f32, y: f32, angle: f32) -> Vec3 {
+    return vec(radius * cosf(angle), y, radius * sinf(angle));
+}
+fn conduit_catwalk_basis(radial: Vec3) -> Basis {
+    var up: Vec3 = vec(0f32, 1f32, 0f32);
+    return make Basis {
+        right: cross(up, radial),
+        up: up,
+        forward: radial
+    };
+}
+fn conduit_catwalk_box(
+    asset: mut RoomAsset,
+    dimensions: Vec3,
+    centre: Vec3,
+    basis: Basis,
+    region: u32,
+    name: AssetName
+) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var hull: AssetHull = asset_hull_new();
+    return solid_box_hull(mut hull, dimensions, region) && hull_solid_mesh(
+        read hull,
+        mut asset.geometry,
+        centre,
+        basis,
+        conduit_catwalk_material().tile_metres
+    ) && asset_part_place_tail(mut asset, first, name, vec(0f32, 0f32, 0f32));
+}
+fn conduit_catwalk_rail_segment(
+    asset: mut RoomAsset,
+    layout: ConduitCatwalk,
+    y: f32,
+    segment: u32
+) -> bool {
+    var angle: f32 = segment as f32 * 6.28318530718f32 / 48f32;
+    var next: f32 = (segment + 1u32) as f32 * 6.28318530718f32 / 48f32;
+    var thickness: f32 = layout.rail * 0.12f32;
+    var start: Vec3 = conduit_catwalk_point(layout.radius + layout.rail, y, angle);
+    return conduit_catwalk_bar(
+        mut asset,
+        start,
+        conduit_catwalk_point(layout.radius + layout.rail, y, next),
+        thickness
+    ) && conduit_catwalk_bar(
+        mut asset,
+        conduit_catwalk_point(layout.radius, y, angle),
+        start,
+        thickness
+    );
+}
+fn conduit_catwalk_link_rails(
+    asset: mut RoomAsset,
+    a: ConduitCatwalk,
+    b: ConduitCatwalk,
+    angle: f32
+) -> bool {
+    var low: f32 = a.y + a.width * 0.5f32;
+    var high: f32 = b.y - b.width * 0.5f32;
+    var thickness: f32 = a.rail * 0.12f32;
+    var radius: f32 = a.radius + a.rail;
+    if !conduit_catwalk_bar(
+        mut asset,
+        conduit_catwalk_point(radius, low, angle),
+        conduit_catwalk_point(radius, high, angle),
+        thickness
+    ) {
+        return false;
+    }
+    var spans: u32 = panel_pixel_extent((high - low) / a.width, 1u32);
+    var i: u32 = 0u32;
+    while i <= spans {
+        var y: f32 = low + (high - low) * i as f32 / spans as f32;
+        if !conduit_catwalk_bar(
+            mut asset,
+            conduit_catwalk_point(a.radius, y, angle),
+            conduit_catwalk_point(radius, y, angle),
+            thickness
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn conduit_catwalk_link(
+    asset: mut RoomAsset,
+    a: ConduitCatwalk,
+    b: ConduitCatwalk,
+    lane: u32
+) -> bool {
+    var step: f32 = 6.28318530718f32 / 48f32;
+    var angle: f32 = (lane as f32 + 0.5f32) * step;
+    var basis: Basis = conduit_catwalk_basis(conduit_catwalk_point(1f32, 0f32, angle));
+    var low: f32 = a.y + a.width * 0.5f32;
+    var high: f32 = b.y - b.width * 0.5f32;
+    var floor: f32 = a.radius * cosf(step * 0.5f32);
+    return conduit_catwalk_box(
+        mut asset,
+        vec(2f32 * a.radius * sinf(step * 0.5f32), high - low, a.deck),
+        conduit_catwalk_point(floor - a.deck * 0.5f32, (low + high) * 0.5f32, angle),
+        basis,
+        CONDUIT_CATWALK_MATERIAL,
+        asset_name("catwalk-link")
+    ) && conduit_catwalk_link_rails(mut asset, a, b, lane as f32 * step) && conduit_catwalk_link_rails(
+        mut asset,
+        a,
+        b,
+        (lane + 1u32) as f32 * step
+    );
+}
+fn conduit_catwalk_links(
+    asset: mut RoomAsset,
+    a: ConduitCatwalk,
+    b: ConduitCatwalk,
+    lane: u32
+) -> bool {
+    return conduit_catwalk_link(mut asset, a, b, lane) && conduit_catwalk_link(
+        mut asset,
+        a,
+        b,
+        (lane + 24u32) % 48u32
+    );
+}
+fn conduit_catwalk_hatch_material() -> PanelMaterial {
+    var material: PanelMaterial = conduit_catwalk_material();
+    material.finish = METAL_PLATE;
+    material.colour = 0x79633cu32;
+    material.accent = 0x403b30u32;
+    return material;
+}
+fn conduit_catwalk_hatch(asset: mut RoomAsset, layout: ConduitCatwalk, radial: Vec3) -> bool {
+    var basis: Basis = conduit_catwalk_basis(radial);
+    var size: f32 = mask_min(4f32, layout.width * 0.75f32);
+    var centre: Vec3 = add(
+        scale(radial, layout.wall - 0.25f32),
+        vec(0f32, layout.y, 0f32)
+    );
+    if !conduit_catwalk_box(
+        mut asset,
+        vec(size + 0.6f32, size + 0.6f32, 0.5f32),
+        centre,
+        basis,
+        CONDUIT_REBAR_MATERIAL,
+        asset_name("support-foot")
+    ) {
+        return false;
+    }
+    var side: u32 = 0u32;
+    while side < 2u32 {
+        var panel: Vec3 = add(
+            sub(centre, scale(radial, 0.3f32)),
+            scale(basis.right, (side as f32 * 2f32 - 1f32) * size * 0.25f32)
+        );
+        if !conduit_catwalk_box(
+            mut asset,
+            vec(size * 0.5f32 - 0.08f32, size, 0.2f32),
+            panel,
+            basis,
+            CONDUIT_HATCH_MATERIAL,
+            asset_name("closed-hatch")
+        ) {
+            return false;
+        }
+        side = side + 1u32;
+    }
+    return true;
+}
+fn conduit_catwalk_ladder(asset: mut RoomAsset, layout: ConduitCatwalk) -> bool {
+    var angle: f32 = layout.phase + 1.0471975512f32;
+    var radial: Vec3 = conduit_catwalk_point(1f32, 0f32, angle);
+    var half: f32 = mask_min(0.8f32, layout.width * 0.2f32);
+    var start: f32 = layout.radius * cosf(3.14159265359f32 / 48f32);
+    var end: f32 = layout.wall - 0.75f32;
+    var thickness: f32 = half * 0.175f32;
+    var side: u32 = 0u32;
+    while side < 2u32 {
+        var y: f32 = layout.y + (side as f32 * 2f32 - 1f32) * half;
+        if !conduit_catwalk_bar(
+            mut asset,
+            conduit_catwalk_point(start, y, angle),
+            conduit_catwalk_point(end, y, angle),
+            thickness
+        ) {
+            return false;
+        }
+        side = side + 1u32;
+    }
+    var count: u32 = panel_pixel_extent((end - start) / 0.65f32, 1u32);
+    var i: u32 = 1u32;
+    while i <= count {
+        var radius: f32 = start + (end - start) * i as f32 / count as f32;
+        if !conduit_catwalk_bar(
+            mut asset,
+            conduit_catwalk_point(radius, layout.y - half, angle),
+            conduit_catwalk_point(radius, layout.y + half, angle),
+            thickness * 0.7f32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return conduit_catwalk_ladder_cage(mut asset, layout, radial, start, end, half) && conduit_catwalk_hatch(
+        mut asset,
+        layout,
+        radial
+    );
+}
+
+fn conduit_catwalk_ladder_cage(
+    asset: mut RoomAsset,
+    layout: ConduitCatwalk,
+    radial: Vec3,
+    start: f32,
+    end: f32,
+    half: f32
+) -> bool {
+    var tangent: Vec3 = conduit_catwalk_basis(radial).right;
+    var count: u32 = panel_pixel_extent((end - start) / 6f32, 1u32);
+    var i: u32 = 1u32;
+    while i < count {
+        var centre: Vec3 = add(
+            scale(radial, start + (end - start) * i as f32 / count as f32),
+            vec(0f32, layout.y, 0f32)
+        );
+        var a: Vec3 = add(centre, vec(0f32, -half, 0f32));
+        var b: Vec3 = add(centre, vec(0f32, half, 0f32));
+        var outer_a: Vec3 = add(a, scale(tangent, half * 2f32));
+        var outer_b: Vec3 = add(b, scale(tangent, half * 2f32));
+        if !conduit_catwalk_bar(mut asset, a, outer_a, half * 0.125f32) || !conduit_catwalk_bar(
+            mut asset,
+            outer_a,
+            outer_b,
+            half * 0.125f32
+        ) || !conduit_catwalk_bar(mut asset, outer_b, b, half * 0.125f32) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

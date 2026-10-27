@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 223] = make [*u8; 223] {
+    var files: [*u8; 224] = make [*u8; 224] {
         "src/app/generation/random.crs",
         "src/app/level/parts.crs",
         "src/app/level/recipe.crs",
@@ -32,6 +32,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/conduit-tiles.crs",
         "src/assets/geometry/conduit-debris.crs",
         "src/assets/geometry/conduit-catwalk.crs",
+        "src/assets/geometry/conduit-catwalk-access.crs",
         "src/assets/geometry/conduit-hazards.crs",
         "src/assets/geometry/conduit-beam-debris.crs",
         "src/assets/geometry/conduit-rebar.crs",
@@ -225,7 +226,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 223usize {
+    while i < 224usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

@@ -70,44 +70,25 @@ fn conduit_catwalk_bar(asset: mut RoomAsset, start: Vec3, end: Vec3, thickness: 
         asset_name("catwalk-stay")
     );
 }
-fn conduit_catwalk_rails(asset: mut RoomAsset, layout: ConduitCatwalk) -> bool {
+fn conduit_catwalk_rails(
+    asset: mut RoomAsset,
+    layout: ConduitCatwalk,
+    links: u32,
+    lane: u32
+) -> bool {
     var side: u32 = 0u32;
-    var thickness: f32 = layout.rail * 0.12f32;
     while side < 2u32 {
-        var radius: f32 = layout.radius + layout.rail;
-        var y: f32 = layout.y + (side as f32 * 2f32 - 1f32) * (
-            layout.width * 0.5f32 - thickness
-        );
-        if !conduit_catwalk_band(
-            mut asset,
-            radius - thickness * 0.5f32,
-            radius + thickness * 0.5f32,
-            thickness,
-            y,
-            CONDUIT_REBAR_MATERIAL
-        ) {
-            return false;
-        }
-        var post: u32 = 0u32;
-        while post < 24u32 {
-            var angle: f32 = post as f32 * 6.28318530718f32 / 24f32;
-            var point: Vec3 = vec(
-                cosf(angle) * layout.radius,
-                y,
-                sinf(angle) * layout.radius
-            );
-            if !conduit_catwalk_bar(
-                mut asset,
-                point,
-                add(
-                    point,
-                    vec(cosf(angle) * layout.rail, 0f32, sinf(angle) * layout.rail)
-                ),
-                thickness
+        var y: f32 = layout.y + (side as f32 * 2f32 - 1f32) * layout.width * 0.5f32;
+        var segment: u32 = 0u32;
+        while segment < 48u32 {
+            if (links & (1u32 << side)) == 0u32 || (
+                segment != lane && segment != (lane + 24u32) % 48u32
             ) {
-                return false;
+                if !conduit_catwalk_rail_segment(mut asset, layout, y, segment) {
+                    return false;
+                }
             }
-            post = post + 1u32;
+            segment = segment + 1u32;
         }
         side = side + 1u32;
     }
@@ -150,7 +131,12 @@ fn conduit_catwalk_anchor(
         thickness
     );
 }
-fn conduit_catwalk_build(asset: mut RoomAsset, layout: ConduitCatwalk) -> bool {
+fn conduit_catwalk_build(
+    asset: mut RoomAsset,
+    layout: ConduitCatwalk,
+    links: u32,
+    lane: u32
+) -> bool {
     if !conduit_catwalk_band(
         mut asset,
         layout.radius - layout.deck,
@@ -158,7 +144,7 @@ fn conduit_catwalk_build(asset: mut RoomAsset, layout: ConduitCatwalk) -> bool {
         layout.width,
         layout.y,
         CONDUIT_CATWALK_MATERIAL
-    ) || !conduit_catwalk_rails(mut asset, layout) {
+    ) || !conduit_catwalk_rails(mut asset, layout, links, lane) {
         return false;
     }
     var i: u32 = 0u32;
@@ -175,7 +161,56 @@ fn conduit_catwalk_build(asset: mut RoomAsset, layout: ConduitCatwalk) -> bool {
         }
         i = i + 1u32;
     }
-    return true;
+    return conduit_catwalk_ladder(mut asset, layout);
+}
+fn conduit_catwalk_layout(
+    values: read AssetValues,
+    section: u32,
+    slot: u32,
+    entry: f32,
+    entry_extent: f32
+) -> ConduitCatwalk {
+    var core: f32 = asset_value(read values, 2u32) * 0.5f32;
+    var wall: f32 = asset_value(read values, 1u32) * 0.5f32 * cosf(3.14159265359f32 / 48f32);
+    var relief: f32 = asset_value(read values, 6u32);
+    var gap: f32 = wall - relief - core;
+    var interval: [f32; 2] = conduit_hazard_interval(
+        read values,
+        section,
+        slot,
+        entry,
+        entry_extent
+    );
+    var extent: f32 = (interval[1usize] - interval[0usize]) * 0.5f32;
+    var seed: u32 = asset_value(read values, conduit_hazard_seed_parameter()) as u32;
+    return make ConduitCatwalk {
+        radius: core + gap * 0.3f32,
+        width: mask_min(mask_min(8f32, gap * 0.15f32), extent * 0.8f32),
+        wall: wall,
+        relief: relief,
+        y: (interval[0usize] + interval[1usize]) * 0.5f32,
+        deck: mask_min(1.5f32, extent * 0.08f32),
+        rail: mask_min(2f32, extent * 0.2f32),
+        suspension: mask_min(12f32, extent * 0.65f32),
+        phase: ((seed % 16u32) + slot * 8u32) as f32 * 6.28318530718f32 / 48f32
+    };
+}
+fn conduit_catwalk_connected(
+    a: ConduitCatwalk,
+    b: ConduitCatwalk,
+    values: read AssetValues,
+    entry: f32,
+    entry_extent: f32
+) -> bool {
+    if a.width == 0f32 || b.width == 0f32 {
+        return false;
+    }
+    var centre: f32 = asset_value(read values, 0u32) * 0.5f32;
+    var extent: f32 = conduit_support_axial_extent(asset_value(read values, 2u32) * 0.5f32);
+    if a.y < centre + extent && b.y > centre - extent {
+        return false;
+    }
+    return entry_extent == 0f32 || a.y >= entry + entry_extent || b.y <= entry - entry_extent;
 }
 fn conduit_catwalk_section(
     asset: mut RoomAsset,
@@ -184,36 +219,38 @@ fn conduit_catwalk_section(
     entry: f32,
     entry_extent: f32
 ) -> bool {
-    var core: f32 = asset_value(read values, 2u32) * 0.5f32;
-    var wall: f32 = asset_value(read values, 1u32) * 0.5f32 * cosf(3.14159265359f32 / 48f32);
-    var relief: f32 = asset_value(read values, 6u32);
-    var gap: f32 = wall - relief - core;
-    var width: f32 = mask_min(8f32, gap * 0.15f32);
-    var seed: u32 = asset_value(read values, conduit_hazard_seed_parameter()) as u32;
     var slot: u32 = 0u32;
     var count: u32 = 0u32;
+    var back: u32 = 0u32;
+    var lane: u32 = (asset_value(read values, conduit_hazard_seed_parameter()) as u32) % 16u32;
     while slot < CONDUIT_HAZARD_SLOTS {
-        var interval: [f32; 2] = conduit_hazard_interval(
+        var layout: ConduitCatwalk = conduit_catwalk_layout(
             read values,
             section,
             slot,
             entry,
             entry_extent
         );
-        var extent: f32 = (interval[1usize] - interval[0usize]) * 0.5f32;
-        if extent > 0f32 {
-            var layout: ConduitCatwalk = make ConduitCatwalk {
-                radius: core + gap * 0.3f32,
-                width: mask_min(width, extent * 0.8f32),
-                wall: wall,
-                relief: relief,
-                y: (interval[0usize] + interval[1usize]) * 0.5f32,
-                deck: mask_min(1.5f32, extent * 0.08f32),
-                rail: mask_min(2f32, extent * 0.2f32),
-                suspension: mask_min(12f32, extent * 0.65f32),
-                phase: ((seed % 16u32) + slot * 8u32) as f32 * 6.28318530718f32 / 48f32
-            };
-            if !conduit_catwalk_build(mut asset, layout) {
+        var links: u32 = back;
+        back = 0u32;
+        if slot + 1u32 < CONDUIT_HAZARD_SLOTS {
+            var next: ConduitCatwalk = conduit_catwalk_layout(
+                read values,
+                section,
+                slot + 1u32,
+                entry,
+                entry_extent
+            );
+            if conduit_catwalk_connected(layout, next, read values, entry, entry_extent) {
+                if !conduit_catwalk_links(mut asset, layout, next, lane) {
+                    return false;
+                }
+                links = links | 2u32;
+                back = 1u32;
+            }
+        }
+        if layout.width > 0f32 {
+            if !conduit_catwalk_build(mut asset, layout, links, lane) {
                 return false;
             }
             count = count + 1u32;
