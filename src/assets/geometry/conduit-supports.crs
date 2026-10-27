@@ -140,10 +140,46 @@ fn conduit_supports(
             -foot * 0.5f32,
             foot * 0.5f32,
             asset_name("support-foot")
+        ) || !conduit_support_lights(
+            mut asset,
+            add(centre, scale(radial, (collar + wall - foot) * 0.5f32)),
+            radial,
+            depth,
+            width
         ) {
             return false;
         }
         i = i + 1u32;
+    }
+    return true;
+}
+fn conduit_support_lights(
+    asset: mut RoomAsset,
+    centre: Vec3,
+    radial: Vec3,
+    depth: f32,
+    width: f32
+) -> bool {
+    var side: u32 = 0u32;
+    while side < 2u32 {
+        var outward: Vec3 = vec(0f32, side as f32 * 2f32 - 1f32, 0f32);
+        var frame: SurfaceFrame = make SurfaceFrame {
+            origin: add(centre, scale(outward, depth * 0.5f32)),
+            normal: scale(outward, -1f32),
+            right: radial,
+            up: cross(outward, radial)
+        };
+        if !emergency_fixture(
+            frame,
+            mut asset,
+            CONDUIT_SUPPORT_MATERIAL,
+            CONDUIT_LIGHT_MATERIAL,
+            width * 0.75f32,
+            conduit_support_material().tile_metres
+        ) {
+            return false;
+        }
+        side = side + 1u32;
     }
     return true;
 }

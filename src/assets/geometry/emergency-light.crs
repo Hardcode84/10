@@ -1,0 +1,65 @@
+fn emergency_light_material() -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.finish = METAL_FULLBRIGHT;
+    material.emission = 0x1818ffu32;
+    material.tile_metres = 0.1f32;
+    material.tile_height = 0.1f32;
+    return material;
+}
+// Adds a solid red fixture and its light. The frame normal points into the mount.
+// Size and mounting texture width are positive.
+fn emergency_fixture(
+    frame: SurfaceFrame,
+    asset: mut RoomAsset,
+    mount: u32,
+    lens: u32,
+    size: f32,
+    tile: f32
+) -> bool {
+    var basis: Basis = make Basis {
+        right: frame.right,
+        up: frame.up,
+        forward: scale(frame.normal, -1f32)
+    };
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    if !solid_box(
+        mut asset.geometry,
+        scale(vec(0.30f32, 0.24f32, 0.04f32), size),
+        mount,
+        sub(frame.origin, scale(frame.normal, 0.015f32 * size)),
+        basis,
+        tile
+    ) || !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("emergency-fixture"),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    first = mesh_triangle_count(read asset.geometry);
+    if !solid_box(
+        mut asset.geometry,
+        scale(vec(0.22f32, 0.16f32, 0.10f32), size),
+        lens,
+        sub(frame.origin, scale(frame.normal, 0.08f32 * size)),
+        basis,
+        emergency_light_material().tile_metres
+    ) || !asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("emergency-fixture"),
+        vec(0f32, 0f32, 0f32)
+    ) {
+        return false;
+    }
+    return fixture_light_append(
+        mut asset.lights,
+        make FixtureLight {
+            space: 0u32,
+            position: sub(frame.origin, scale(frame.normal, 0.17f32 * size)),
+            colour: vec(1.2f32, 0.025f32, 0.012f32),
+            radius: 2f32 * size
+        }
+    );
+}

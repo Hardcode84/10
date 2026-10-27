@@ -1,5 +1,6 @@
 const CONDUIT_SUPPORT_MATERIAL: u32 = 4u32;
-const CONDUIT_MATERIAL_COUNT: u32 = 5u32;
+const CONDUIT_LIGHT_MATERIAL: u32 = 5u32;
+const CONDUIT_MATERIAL_COUNT: u32 = 6u32;
 const CONDUIT_CAST_LENGTH: f32 = 25f32;
 fn prefab_conduit_parameter_count() -> u32 {
     return 7u32;
@@ -194,6 +195,9 @@ fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) ->
     return true;
 }
 fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if region == CONDUIT_LIGHT_MATERIAL {
+        return emergency_light_material();
+    }
     if region == CONDUIT_SUPPORT_MATERIAL {
         return conduit_support_material();
     }

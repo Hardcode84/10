@@ -15,6 +15,8 @@
 // panels, bolted splice bands, worn paint, and non-emissive ochre markings.
 // Beam panel repeats span the exposed length between collar and wall foot.
 // The collar grid meets the four beam axes; face borders stay on physical edges.
+// Each beam has two red emergency fixtures at its exposed midpoint, facing +Y
+// and -Y. The lenses are full-bright and cast local red light onto the beam.
 // Parameters: length, diameter, core-diameter in metres; turns is an integer.
 // Materials: concrete, dark sheath, ochre sheath, oxide sheath, support steel.
 fn room_parameter_count() -> u32 {
