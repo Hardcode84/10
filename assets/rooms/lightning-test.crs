@@ -1,0 +1,125 @@
+// Static lightning study. Run with --view start; change seed to select a bolt.
+// Lengths and width are in metres. cone-angle is the half-angle in degrees.
+// Each segment aims through a new cone at the target. The final segment reaches
+// the target exactly. The bolt is full-bright, has no collision, and casts no shadow.
+fn room_parameter_count() -> u32 {
+    return 6u32;
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("span");
+    }
+    if index == 1u32 {
+        return asset_name("min-segment");
+    }
+    if index == 2u32 {
+        return asset_name("max-segment");
+    }
+    if index == 3u32 {
+        return asset_name("cone-angle");
+    }
+    if index == 4u32 {
+        return asset_name("width");
+    }
+    return asset_name("seed");
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 4f32,
+            maximum: 40f32,
+            initial: 16f32,
+            step: 1f32
+        };
+    }
+    if index == 1u32 {
+        return make AssetParameter {
+            minimum: 0.1f32,
+            maximum: 8f32,
+            initial: 0.4f32,
+            step: 0.1f32
+        };
+    }
+    if index == 2u32 {
+        return make AssetParameter {
+            minimum: 0.1f32,
+            maximum: 8f32,
+            initial: 1.5f32,
+            step: 0.1f32
+        };
+    }
+    if index == 3u32 {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 59f32,
+            initial: 45f32,
+            step: 1f32
+        };
+    }
+    if index == 4u32 {
+        return make AssetParameter {
+            minimum: 0.01f32,
+            maximum: 0.2f32,
+            initial: 0.06f32,
+            step: 0.01f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 0f32,
+        maximum: 1000000f32,
+        initial: 1f32,
+        step: 1f32
+    };
+}
+fn room_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < room_parameter_count() {
+        if !asset_parameter_valid(room_parameter(i), asset_value(read values, i)) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var seed: f32 = asset_value(read values, 5u32);
+    if seed != seed as u32 as f32 {
+        return error("lightning seed must be an integer");
+    }
+    var span: f32 = asset_value(read values, 0u32);
+    var profile: RegularProfile = make RegularProfile {
+        sides: 4u32,
+        phase: 0.78539816339f32
+    };
+    if !loft_allocate(mut asset.hull, profile, 2u32) {
+        return false;
+    }
+    loft_ring(mut asset.hull, profile, 0u32, -span, span * 3f32);
+    loft_ring(mut asset.hull, profile, 1u32, span * 3f32, span * 3f32);
+    loft_span(mut asset.hull, profile, 0u32, 0u32);
+    loft_caps(mut asset.hull, profile, 2u32, 0u32, 0u32);
+    asset.spawn.position = vec(0f32, span, -span * 0.4f32);
+    asset.spawn.basis = identity_basis();
+    var style: LightningStyle = make LightningStyle {
+        minimum: asset_value(read values, 1u32),
+        maximum: asset_value(read values, 2u32),
+        angle: asset_value(read values, 3u32) * 0.01745329252f32,
+        radius: asset_value(read values, 4u32) * 0.5f32,
+        seed: seed as u32,
+        region: 1u32
+    };
+    return lightning_mesh(
+        mut asset.decals,
+        vec(-span * 0.5f32, span, span * 0.5f32),
+        vec(span * 0.5f32, span, span * 0.5f32),
+        style
+    ) && room_asset_finish(mut asset);
+}
+fn room_material_count() -> u32 {
+    return 2u32;
+}
+fn room_material(region: u32, values: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = emergency_light_material();
+    material.emission = 0x100904u32;
+    if region == 1u32 {
+        material.emission = 0xffe0b0u32;
+    }
+    return material;
+}

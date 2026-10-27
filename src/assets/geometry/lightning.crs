@@ -1,0 +1,109 @@
+record LightningStyle {
+    minimum: f32;
+    maximum: f32;
+    angle: f32;
+    radius: f32;
+    seed: u32;
+    region: u32;
+}
+// Samples a direction uniformly in solid angle. Axis is a unit vector;
+// angle is the cone half-angle in radians.
+fn lightning_direction(axis: Vec3, angle: f32, seed: u32, index: u32) -> Vec3 {
+    var frame: Basis = hull_radial_basis(axis);
+    var u: f32 = (metal_hash(index, 1u32, seed) >> 8u32) as f32 / 16777216f32;
+    var azimuth: f32 = (metal_hash(index, 2u32, seed) >> 8u32) as f32 * (
+        6.28318530718f32 / 16777216f32
+    );
+    var cosine: f32 = 1f32 - u * (1f32 - cosf(angle));
+    var sine: f32 = sqrtf(1f32 - cosine * cosine);
+    return add(
+        scale(axis, cosine),
+        scale(
+            add(
+                scale(frame.right, cosf(azimuth)),
+                scale(frame.up, sinf(azimuth))
+            ),
+            sine
+        )
+    );
+}
+// Requires a valid style and distinct endpoints. The final step reaches end exactly.
+fn lightning_step(start: Vec3, end: Vec3, style: LightningStyle, index: u32) -> Vec3 {
+    var delta: Vec3 = sub(end, start);
+    var distance: f32 = length(delta);
+    var u: f32 = (metal_hash(index, 0u32, style.seed) >> 8u32) as f32 / 16777216f32;
+    var span: f32 = style.minimum + u * (style.maximum - style.minimum);
+    if distance <= span {
+        return end;
+    }
+    return add(
+        start,
+        scale(
+            lightning_direction(
+                scale(delta, 1f32 / distance),
+                style.angle,
+                style.seed,
+                index
+            ),
+            span
+        )
+    );
+}
+fn lightning_segment(mesh: mut Mesh, start: Vec3, end: Vec3, style: LightningStyle) -> bool {
+    var axis: Vec3 = unit_vector(sub(end, start));
+    var sweep: TubeSweep = tube_sweep_begin(
+        start,
+        axis,
+        hull_radial_basis(axis).right,
+        make TubeStyle {
+            radius: style.radius,
+            sides: 6u32,
+            tile_metres: 1f32,
+            region: style.region
+        }
+    );
+    return tube_sweep_finish(mut mesh, mut sweep, end);
+}
+// Appends a seeded bolt between distinct finite endpoints. Lengths and radius are
+// positive; maximum >= minimum; cone half-angle is in [0, pi/3).
+// The final segment can be shorter than minimum. Geometry does not cast shadows.
+fn lightning_mesh(mesh: mut Mesh, start: Vec3, end: Vec3, style: LightningStyle) -> bool {
+    if !collision_finite(start) || !collision_finite(end) || !lightning_style_valid(style) {
+        return error(
+            "lightning needs finite endpoints, positive lengths and radius, and cone below 60 degrees"
+        );
+    }
+    var distance: f32 = length(sub(end, start));
+    if!(distance > 0f32 && distance < 3.4028234e38f32) {
+        return error("lightning endpoints need finite separation");
+    }
+    var source: Mesh = mesh_new();
+    var index: u32 = 0u32;
+    while distance > 0f32 {
+        var next: Vec3 = lightning_step(start, end, style, index);
+        var remaining: f32 = length(sub(end, next));
+        if!(remaining < distance) {
+            return error("lightning segment is too small for these coordinates");
+        }
+        if !lightning_segment(mut source, start, next, style) {
+            return false;
+        }
+        start = next;
+        distance = remaining;
+        index = index + 1u32;
+    }
+    index = 0u32;
+    while index < mesh_triangle_count(read source) {
+        var primitive: MeshTriangle = mesh_triangle(read source, index);
+        primitive.flags = 4u32;
+        if !mesh_append(mut mesh, primitive) {
+            return false;
+        }
+        index = index + 1u32;
+    }
+    return true;
+}
+
+fn lightning_style_valid(style: LightningStyle) -> bool {
+    return collision_finite(vec(style.minimum, style.maximum, style.radius)) && style.minimum > 0f32 && style.maximum >= style.minimum && style.radius > 0f32 && style.angle >= 0f32 && style.angle < 1.0471975512f32;
+}

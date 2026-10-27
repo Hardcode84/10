@@ -60,7 +60,7 @@ fn asset_test_part_room(asset: mut RoomAsset) -> bool {
     return true;
 }
 fn asset_test_parts() -> bool {
-    return asset_test_cutout_collision() && asset_test_part_assembly() && asset_test_motion();
+    return asset_test_lightning() && asset_test_cutout_collision() && asset_test_part_assembly() && asset_test_motion();
 }
 fn asset_test_part_assembly() -> bool {
     var asset: RoomAsset = room_asset_new();
@@ -375,4 +375,56 @@ fn asset_test_motion() -> bool {
         i = i + 1u32;
     }
     return true;
+}
+
+fn asset_test_lightning() -> bool {
+    var style: LightningStyle = make LightningStyle {
+        minimum: 0.2f32,
+        maximum: 1.3f32,
+        angle: 0.9f32,
+        radius: 0.01f32,
+        seed: 0u32,
+        region: 3u32
+    };
+    var end: Vec3 = vec(4f32, -3f32, 8f32);
+    while style.seed < 32u32 {
+        var point: Vec3 = vec(-2f32, 1f32, -5f32);
+        var i: u32 = 0u32;
+        while length(sub(end, point)) > 0f32 {
+            var next: Vec3 = lightning_step(point, end, style, i);
+            var delta: Vec3 = sub(next, point);
+            var distance: f32 = length(sub(end, point));
+            var remaining: f32 = length(sub(end, next));
+            if i > 10000u32 || remaining >= distance || length(delta) > style.maximum + 0.00001f32 {
+                return error("lightning step failed progress or maximum length");
+            }
+            if remaining != 0f32 && (
+                length(delta) < style.minimum - 0.00001f32 || dot(
+                    unit_vector(delta),
+                    unit_vector(sub(end, point))
+                ) < cosf(style.angle) - 0.00001f32
+            ) {
+                return error("lightning step left its cone or length interval");
+            }
+            if length(sub(next, lightning_step(point, end, style, i))) != 0f32 {
+                return error("lightning seed is not repeatable");
+            }
+            point = next;
+            i = i + 1u32;
+        }
+        style.seed = style.seed + 1u32;
+    }
+    var mesh: Mesh = mesh_new();
+    if !lightning_mesh(mut mesh, vec(0f32, 0f32, 0f32), end, style) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < mesh_triangle_count(read mesh) {
+        var primitive: MeshTriangle = mesh_triangle(read mesh, i);
+        if primitive.flags != 4u32 || primitive.material != style.region {
+            return error("lightning lost its unshadowed material");
+        }
+        i = i + 1u32;
+    }
+    return mesh_triangle_count(read mesh) != 0u32;
 }
