@@ -1,5 +1,6 @@
 // Conduit tube with a direct side SHAFT connection, one third along local +Y.
 // The concrete headwall surrounds a dark metal collar on the +X wall.
+// Its concrete material and casting grid continue from the adjoining tube walls.
 // The connected shaft spindle continues inward as a long cone, with an amber
 // full-bright warning lamp at its tip. The lamp casts a small pool of light.
 // Both CONDUIT end ports and the twisted cable core remain continuous.

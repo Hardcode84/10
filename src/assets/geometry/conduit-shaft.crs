@@ -1,4 +1,45 @@
-fn conduit_shaft_panel(asset: mut RoomAsset, centre: Vec3, half: f32) -> bool {
+fn conduit_shaft_wall_u(hull: read AssetHull, vertex: u32) -> f32 {
+    if vertex < 96u32 {
+        var index: i32 = (vertex % 48u32) as i32 + 1i32;
+        if index > 24i32 {
+            index = index - 48i32;
+        }
+        return index as f32;
+    }
+    var point: Vec3 = asset_vertex(read hull, vertex);
+    return atan2f(point.z, point.x) * 48f32 / 6.28318530718f32 + 0.5f32;
+}
+fn conduit_shaft_wall_frame(hull: read AssetHull, face: HullFace, tile: f32, bay: f32) -> SurfaceFrame {
+    var a: Vec3 = hull_corner(read hull, face, 0u32);
+    var e: Vec3 = sub(hull_corner(read hull, face, 1u32), a);
+    var f: Vec3 = sub(hull_corner(read hull, face, 2u32), a);
+    var u: f32 = conduit_shaft_wall_u(read hull, asset_index(read hull, face.first));
+    var du: f32 = conduit_shaft_wall_u(
+        read hull,
+        asset_index(read hull, face.first + 1u32)
+    ) - u;
+    var dv: f32 = conduit_shaft_wall_u(
+        read hull,
+        asset_index(read hull, face.first + 2u32)
+    ) - u;
+    var normal: Vec3 = cross(e, f);
+    var right: Vec3 = scale(
+        add(scale(cross(f, normal), du), scale(cross(normal, e), dv)),
+        tile / dot(normal, normal)
+    );
+    var horizontal: Vec3 = vec(right.x, 0f32, right.z);
+    var origin: Vec3 = sub(
+        vec(a.x, 0f32, a.z),
+        scale(horizontal, (u * tile - a.y * right.y) / dot(horizontal, horizontal))
+    );
+    return make SurfaceFrame {
+        origin: origin,
+        right: right,
+        up: vec(0f32, tile / bay, 0f32),
+        normal: unit_vector(normal)
+    };
+}
+fn conduit_shaft_panel(asset: mut RoomAsset, centre: Vec3, half: f32, height: f32) -> bool {
     var next: AssetHull = asset_hull_new();
     var i: u32 = 0u32;
     while i < 4u32 {
@@ -29,13 +70,12 @@ fn conduit_shaft_panel(asset: mut RoomAsset, centre: Vec3, half: f32) -> bool {
     i = 0u32;
     while i < asset_face_count(read asset.hull) {
         if asset_face(read asset.hull, i).region == 4u32 {
-            var frame: SurfaceFrame = hull_frame(
+            var frame: SurfaceFrame = conduit_shaft_wall_frame(
                 read asset.hull,
-                asset_face(read asset.hull, i)
+                asset_face(read asset.hull, i),
+                asset.tile_metres,
+                height / panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32) as f32
             );
-            frame.origin = vec(centre.x, 0f32, 0f32);
-            frame.right = vec(0f32, 0f32, asset.tile_metres / 8f32);
-            frame.up = vec(0f32, asset.tile_metres / 8f32, 0f32);
             asset_surface_set(mut asset.hull, i, frame);
         }
         i = i + 1u32;
@@ -43,7 +83,7 @@ fn conduit_shaft_panel(asset: mut RoomAsset, centre: Vec3, half: f32) -> bool {
     return true;
 }
 fn conduit_shaft_opening(asset: mut RoomAsset, centre: Vec3, diameter: f32, height: f32) -> bool {
-    if !conduit_shaft_panel(mut asset, centre, diameter) {
+    if !conduit_shaft_panel(mut asset, centre, diameter, height) {
         return false;
     }
     var port: RoomPort = make RoomPort {

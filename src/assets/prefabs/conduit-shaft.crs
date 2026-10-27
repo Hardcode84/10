@@ -84,14 +84,11 @@ fn prefab_conduit_shaft_material(region: u32, values: read AssetValues) -> Panel
     if region < 4u32 {
         return prefab_conduit_material(region, read values);
     }
-    var material: PanelMaterial = hex_tunnel_material();
     if region == 4u32 {
-        material.finish = SURFACE_CONCRETE;
-        material.tile_metres = 8f32;
-        material.tile_height = 8f32;
-        material.texels_per_metre = 16u32;
-        material.colour = 0x8c8980u32;
-    } else if region == 5u32 {
+        return prefab_conduit_material(0u32, read values);
+    }
+    var material: PanelMaterial = hex_tunnel_material();
+    if region == 5u32 {
         material.finish = METAL_PLAIN;
         material.colour = 0x292c30u32;
     } else if region == 6u32 {
