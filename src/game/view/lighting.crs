@@ -136,7 +136,10 @@ fn game_fixture_lighting(
 ) -> unit {
     var i: u32 = 0u32;
     while i < fixture_light_count(read lights) {
-        var fixture: FixtureLight = fixture_light(read lights, i);
+        var fixture: FixtureLight = fixture_light_at(
+            fixture_light(read lights, i),
+            input_word(read input, MATERIAL_ANIMATION_TICK as usize)
+        );
         var light: LightObject = make LightObject {
             id: 4u32 + i,
             space: fixture.space,

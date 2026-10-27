@@ -1,0 +1,32 @@
+// Submit before retained mesh instances. Particles use the frame animation clock.
+fn spark_emitters_draw(input: mut FrameInput, emitters: read SparkEmitters) -> bool {
+    var tick: u32 = input_word(read input, MATERIAL_ANIMATION_TICK as usize);
+    var i: u32 = 0u32;
+    while i < spark_emitter_count(read emitters) {
+        var emitter: SparkEmitter = spark_emitter(read emitters, i);
+        var intensity: f32 = flash_intensity(emitter.period, tick);
+        var j: u32 = 0u32;
+        while intensity > 0f32 && j < emitter.count {
+            var point: Vec3 = spark_emitter_point(emitter, j, tick);
+            var size: f32 = emitter.size * (0.25f32 + 0.75f32 * sqrtf(intensity));
+            if !input_sprite(
+                mut input,
+                make Sprite {
+                    space: emitter.space,
+                    material: emitter.material,
+                    x: point.x,
+                    y: point.y,
+                    z: point.z,
+                    width: size,
+                    height: size,
+                    cutout: true
+                }
+            ) {
+                return false;
+            }
+            j = j + 1u32;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

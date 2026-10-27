@@ -1,0 +1,78 @@
+// A room-local, repeating cosmetic spark burst. Direction is a unit vector.
+// Period matches its flash material; speed and size are positive.
+record SparkEmitter {
+    space: u32;
+    position: Vec3;
+    direction: Vec3;
+    period: u32;
+    seed: u32;
+    count: u32;
+    speed: f32;
+    size: f32;
+    material: u32;
+}
+resource SparkEmitters {
+    data: *SparkEmitter;
+    count: u32;
+    capacity: u32;
+}
+opaque drop spark_emitters_drop;
+fn spark_emitters_new() -> SparkEmitters {
+    return make SparkEmitters {
+        data: null(*SparkEmitter),
+        count: 0u32,
+        capacity: 0u32
+    };
+}
+fn spark_emitters_drop(list: mut SparkEmitters) -> unit {
+    free(list.data as *u8);
+}
+fn spark_emitter_count(list: read SparkEmitters) -> u32 {
+    return list.count;
+}
+fn spark_emitter(list: read SparkEmitters, index: u32) -> SparkEmitter {
+    return list.data[index as usize];
+}
+fn spark_emitter_append(list: mut SparkEmitters, value: SparkEmitter) -> bool {
+    if list.count == list.capacity {
+        var capacity: u64 = list.capacity as u64 * 2u64 + 1u64;
+        if capacity > 0xffffffffu64 || capacity > (~0usize) as u64 / sizeof(SparkEmitter) as u64 {
+            return error("spark emitter count exceeds address range");
+        }
+        var data: *SparkEmitter = malloc(capacity as usize * sizeof(SparkEmitter)) as *SparkEmitter;
+        if data == null(*SparkEmitter) {
+            return error("spark emitter allocation failed");
+        }
+        if list.count != 0u32 {
+            memcpy(
+                data as *u8,
+                list.data as *u8,
+                list.count as usize * sizeof(SparkEmitter)
+            );
+        }
+        free(list.data as *u8);
+        list.data = data;
+        list.capacity = capacity as u32;
+    }
+    list.data[list.count as usize] = value;
+    list.count = list.count + 1u32;
+    return true;
+}
+fn spark_emitters_place(
+    source: read SparkEmitters,
+    target: mut SparkEmitters,
+    room: u32,
+    material: u32
+) -> bool {
+    var i: u32 = 0u32;
+    while i < source.count {
+        var emitter: SparkEmitter = source.data[i as usize];
+        emitter.space = room;
+        emitter.material = emitter.material + material;
+        if !spark_emitter_append(mut target, emitter) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

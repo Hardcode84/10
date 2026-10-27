@@ -88,20 +88,28 @@ fn panel_palette(panel: PanelMaterial, index: u32, state: u32) -> u32 {
     return palette_entry(panel.colour, index, state, false);
 }
 
-const PANEL_PULSE_FRAMES: u32 = 32u32;
 fn panel_payload(panel: PanelMaterial) -> u32 {
     var words: u32 = panel_texture_width(panel) * panel_texture_height(panel) + PALETTE_COLORS * LIGHT_STATES;
     if panel.emission_period != 0u32 {
         words = words + PANEL_PULSE_FRAMES * LIGHT_STATES;
     }
+    if panel.finish == METAL_FLASH {
+        words = words + PANEL_PULSE_FRAMES;
+    }
     return words;
 }
 fn panel_animation(input: mut FrameInput, region: u32, offset: u32, panel: PanelMaterial) -> bool {
     if panel.emission_period == 0u32 {
+        if panel.finish == METAL_FLASH {
+            return error("flash material needs an animation period");
+        }
         return true;
     }
     if panel.emission_period % PANEL_PULSE_FRAMES != 0u32 {
         return error("emission period must be a multiple of the pulse frame count");
+    }
+    if panel.finish == METAL_FLASH {
+        return panel_flash_animation(mut input, region, offset, panel);
     }
     var frame: u32 = 0u32;
     while frame < PANEL_PULSE_FRAMES {

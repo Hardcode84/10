@@ -1,3 +1,5 @@
+const PANEL_PULSE_FRAMES: u32 = 32u32;
+const METAL_FLASH: u32 = 17u32;
 const MATERIAL_ANIMATION_HZ: u32 = 120u32;
 const METAL_FILTER: u32 = 16u32;
 const METAL_GRATE: u32 = 15u32;
@@ -32,6 +34,8 @@ const METAL_GIRDER_MOUNT: u32 = 13u32;
 // METAL_PIPE_COATED uses exposed length, circumference, and face width as
 // tile_metres, tile_height, and panel_height. Exposed length is at least 0.5 m.
 // METAL_FULLBRIGHT fills the tile with the emission colour.
+// METAL_FLASH is a one-texel flash and fade with a transparent dark interval.
+// Use cutout geometry and a positive emission_period.
 // METAL_GRATE has a square cutout grid; border sets the bar width.
 // METAL_FILTER uses pitch for the positive fold spacing.
 // Colours use packed RGB.
@@ -214,7 +218,7 @@ fn metal_plate_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
 }
 
 fn panel_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
-    if material.finish == METAL_FULLBRIGHT {
+    if material.finish == METAL_FULLBRIGHT || material.finish == METAL_FLASH {
         return 248u32;
     }
     var local_y: f32 = y;

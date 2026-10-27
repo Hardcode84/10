@@ -185,7 +185,7 @@ fn recipe_lights_equal(source: read FixtureLights, room: u32, target: read Fixtu
                 return error("recipe light missing");
             }
             var b: FixtureLight = fixture_light(read target, index);
-            if a.space != b.space || a.radius != b.radius || length(
+            if a.space != b.space || a.radius != b.radius || a.period != b.period || length(
                 sub(a.position, b.position)
             ) != 0f32 || length(sub(a.colour, b.colour)) != 0f32 {
                 return error("recipe light changed");

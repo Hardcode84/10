@@ -3,27 +3,36 @@ fn asset_scene(
     asset: read RoomAsset,
     mesh: MeshRange,
     labels: MeshRange,
-    camera: AssetCamera
+    camera: AssetCamera,
+    tick: u32
 ) -> bool {
     input_frame(mut input);
+    input_animation_tick(mut input, tick);
     input_set_word(mut input, 20usize, 0u32);
     input_set_word(mut input, LIGHT_MODEL as usize, 1u32);
     input_set_word(mut input, LIGHT_COUNT as usize, 0u32);
     input_set_word(mut input, BACKGROUND as usize, 0xff181410u32);
     input_set_float(mut input, RENDER_STYLE as usize, 0.04f32);
     input_set_float(mut input, PROJECTION as usize, 1f32);
-    input_set_float(mut input, CAMERA_LIGHT as usize, 900f32);
+    input_set_float(mut input, CAMERA_LIGHT as usize, asset.preview_headlamp);
     var i: u32 = 0u32;
     while i < 3u32 {
-        input_set_float(mut input, (SPACE_LIGHT + i) as usize, 0.5f32);
+        input_set_float(
+            mut input,
+            (SPACE_LIGHT + i) as usize,
+            component(asset.preview_ambient, i)
+        );
         input_set_float(mut input, (CAMERA_LIGHT + 1u32 + i) as usize, 1f32);
         i = i + 1u32;
     }
     asset_camera(mut input, read asset, mesh, camera);
-    return fixture_lights_preview(read asset.lights, mut input) && input_instance(
+    return spark_emitters_draw(mut input, read asset.sparks) && fixture_lights_preview(
+        read asset.lights,
+        mut input
+    ) && input_instance(mut input, mesh_identity(mesh, 0u32)) && input_instance(
         mut input,
-        mesh_identity(mesh, 0u32)
-    ) && input_instance(mut input, mesh_identity(labels, 0u32));
+        mesh_identity(labels, 0u32)
+    );
 }
 // Builds the selected shell and optional solid parts for inspection.
 fn asset_view_filtered_mesh(
@@ -192,16 +201,15 @@ fn asset_view_run(
         {
             var renderer: mut Renderer = asset_renderer(mut session);
             var output: FrameInput = renderer_inputs(mut renderer);
-            if !asset_scene(mut output, read asset, visible, labels, state.camera) {
-                return 1i32;
-            }
             var tick: u32 = asset_animation_tick(
                 options,
                 headless,
                 frame,
                 current - animation_start
             );
-            input_animation_tick(mut output, tick);
+            if !asset_scene(mut output, read asset, visible, labels, state.camera, tick) {
+                return 1i32;
+            }
             if !asset_view_motion_draw(
                 mut output,
                 read motions,
@@ -243,7 +251,10 @@ fn fixture_lights_preview(lights: read FixtureLights, input: mut FrameInput) -> 
     }
     var i: u32 = 0u32;
     while i < fixture_light_count(read lights) {
-        var light: FixtureLight = fixture_light(read lights, i);
+        var light: FixtureLight = fixture_light_at(
+            fixture_light(read lights, i),
+            input_word(read input, MATERIAL_ANIMATION_TICK as usize)
+        );
         var p: usize = (input_word(read input, LIGHT_DATA as usize) + (first + i) * 8u32) as usize;
         input_set_float(mut input, p, light.position.x);
         input_set_float(mut input, p + 1usize, light.position.y);

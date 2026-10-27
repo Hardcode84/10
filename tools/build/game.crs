@@ -1,5 +1,5 @@
 fn game_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 211] = make [*u8; 211] {
+    var files: [*u8; 214] = make [*u8; 214] {
         "src/app/generation/random.crs",
         "src/app/level/parts.crs",
         "src/app/level/recipe.crs",
@@ -79,6 +79,9 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/tube-bend.crs",
         "src/assets/geometry/tube-sweep.crs",
         "src/assets/geometry/lightning.crs",
+        "src/assets/effects/flash.crs",
+        "src/assets/effects/draw.crs",
+        "src/assets/materials/flash-upload.crs",
         "src/assets/geometry/shaft-hub-pipes.crs",
         "src/assets/geometry/shaft-hub-structure.crs",
         "src/assets/geometry/shaft-service-pipes.crs",
@@ -213,14 +216,14 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 211usize {
+    while i < 214usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
     return i;
 }
 fn game_providers(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 64] = make [*u8; 64] {
+    var files: [*u8; 65] = make [*u8; 65] {
         "src/runtime/channel/spsc.crs",
         "src/audio/platform/bank.crs",
         "src/audio/platform/mixer.crs",
@@ -250,6 +253,7 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/app/streaming/simulation.crs",
         "src/app/streaming/dependencies.crs",
         "src/assets/light-storage.crs",
+        "src/assets/effects/storage.crs",
         "src/assets/connections/storage.crs",
         "src/app/window.crs",
         "src/app/input.crs",
@@ -287,10 +291,10 @@ fn game_providers(root: *CrustRun, args: **u8) -> usize {
         "src/game/tasks/timing.crs"
     };
     if args == null(**u8) {
-        return 64usize;
+        return 65usize;
     }
     var i: usize = 0usize;
-    while i < 64usize {
+    while i < 65usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

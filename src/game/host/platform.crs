@@ -188,6 +188,9 @@ fn game_scene_finish(
     prediction: read Prediction
 ) -> unit {
     var input: FrameInput = renderer_inputs(mut session.renderer);
+    if !spark_emitters_draw(mut input, graph_sparks(read session.control.graph)) {
+        scene_overflow();
+    }
     draw_prediction(mut input, read prediction, config);
     draw_frame(mut input, read trial.drone, config);
     draw_portal_admission(

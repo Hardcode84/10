@@ -1,0 +1,26 @@
+// Returns a repeating flash: full intensity at cycle start, a squared fade
+// during the first half, then darkness. Period is a positive multiple of
+// PANEL_PULSE_FRAMES. Tick uses MATERIAL_ANIMATION_HZ.
+fn flash_intensity(period: u32, tick: u32) -> f32 {
+    var frame: u32 = (tick % period) / (period / PANEL_PULSE_FRAMES);
+    var value: f32 = clamp(
+        1f32 - frame as f32 / (PANEL_PULSE_FRAMES / 2u32 - 1u32) as f32,
+        0f32,
+        1f32
+    );
+    return value * value;
+}
+fn fixture_light_at(light: FixtureLight, tick: u32) -> FixtureLight {
+    if light.period != 0u32 {
+        light.colour = scale(light.colour, flash_intensity(light.period, tick));
+    }
+    return light;
+}
+// Analytic cosmetic bursts can be sampled at any tick, including backwards.
+fn spark_emitter_point(emitter: SparkEmitter, particle: u32, tick: u32) -> Vec3 {
+    var age: f32 = (tick % emitter.period) as f32 / MATERIAL_ANIMATION_HZ as f32;
+    var seed: u32 = metal_hash(tick / emitter.period, particle, emitter.seed);
+    var direction: Vec3 = lightning_direction(emitter.direction, 1.3f32, seed, particle);
+    var speed: f32 = emitter.speed * (0.4f32 + (seed >> 8u32) as f32 / 16777216f32 * 0.6f32);
+    return add(emitter.position, scale(direction, speed * age / (1f32 + 2f32 * age)));
+}

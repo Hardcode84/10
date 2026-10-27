@@ -1,0 +1,49 @@
+fn asset_test_flash() -> bool {
+    var period: u32 = PANEL_PULSE_FRAMES * 4u32;
+    var previous: f32 = 1f32;
+    var tick: u32 = 0u32;
+    while tick < period {
+        var intensity: f32 = flash_intensity(period, tick);
+        if intensity > previous || intensity < 0f32 || flash_intensity(period, tick + period) != intensity {
+            return error("flash fade or cycle is inconsistent");
+        }
+        if tick >= period / 2u32 && intensity != 0f32 {
+            return error("flash dark interval is visible");
+        }
+        previous = intensity;
+        tick = tick + 1u32;
+    }
+    if flash_intensity(period, 0u32) != 1f32 {
+        return error("flash did not appear at full intensity");
+    }
+    var light: FixtureLight = make FixtureLight {
+        space: 7u32,
+        period: period,
+        position: vec(3f32, 1f32, 4f32),
+        colour: vec(0.1f32, 1f32, 4f32),
+        radius: 5f32
+    };
+    var dim: FixtureLight = fixture_light_at(light, period / 4u32);
+    if length(
+        sub(dim.colour, scale(light.colour, flash_intensity(period, period / 4u32)))
+    ) != 0f32 || length(fixture_light_at(light, period / 2u32).colour) != 0f32 {
+        return error("flash light differs from its material envelope");
+    }
+    var emitter: SparkEmitter = make SparkEmitter {
+        space: 0u32,
+        position: vec(2f32, -4f32, 3f32),
+        direction: vec(0f32, 1f32, 0f32),
+        period: period,
+        seed: 19u32,
+        count: 12u32,
+        speed: 7f32,
+        size: 0.1f32,
+        material: 2u32
+    };
+    var point: Vec3 = spark_emitter_point(emitter, 3u32, period / 4u32);
+    return length(sub(spark_emitter_point(emitter, 3u32, 0u32), emitter.position)) == 0f32 && length(
+        sub(point, emitter.position)
+    ) > 0f32 && length(sub(point, spark_emitter_point(emitter, 3u32, period / 4u32))) == 0f32 || error(
+        "spark burst is not repeatable at an absolute tick"
+    );
+}

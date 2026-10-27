@@ -1,5 +1,7 @@
 record FixtureLight {
     space: u32;
+    // Zero is steady; otherwise use the shared flash envelope.
+    period: u32;
     position: Vec3;
     colour: Vec3;
     radius: f32;

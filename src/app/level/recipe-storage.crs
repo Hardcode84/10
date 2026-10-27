@@ -121,7 +121,12 @@ fn graph_recipe_add(
         read asset.recipe,
         material,
         parts
-    ) && graph_motion_add(mut graph, read asset, room, parts);
+    ) && graph_motion_add(mut graph, read asset, room, parts) && graph_sparks_add(
+        mut graph,
+        read asset,
+        room,
+        material
+    );
 }
 fn graph_recipe_edit(
     graph: mut RoomGraph,

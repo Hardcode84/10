@@ -18,6 +18,7 @@ record GraphSocket {
 resource RoomGraph {
     recipes: *RoomRecipe;
     lights: FixtureLights;
+    sparks: SparkEmitters;
     doors: DoorSet;
     motions: InstanceList;
     nodes: *GraphNode;
@@ -33,6 +34,7 @@ fn graph_new() -> RoomGraph {
     return make RoomGraph {
         recipes: null(*RoomRecipe),
         lights: fixture_lights_new(),
+        sparks: spark_emitters_new(),
         doors: doors_new(),
         motions: instances_new(),
         nodes: null(*GraphNode),
@@ -185,4 +187,11 @@ fn graph_motion_count(graph: read RoomGraph) -> u32 {
 }
 fn graph_motion_get(graph: read RoomGraph, index: u32) -> MeshInstance {
     return instances_get(read graph.motions, index);
+}
+
+fn graph_sparks(graph: read RoomGraph) -> read SparkEmitters from graph {
+    return read graph.sparks;
+}
+fn graph_sparks_add(graph: mut RoomGraph, asset: read RoomAsset, room: u32, material: u32) -> bool {
+    return spark_emitters_place(read asset.sparks, mut graph.sparks, room, material);
 }

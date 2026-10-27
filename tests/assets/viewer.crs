@@ -9,7 +9,15 @@ fn asset_rebuild_checks(session: AssetSession) -> bool {
         return false;
     }
     var range: MeshRange = mesh_empty_range();
-    if !asset_view_upload(read values, mut session, read asset, mut range, false) {
+    var motions: InstanceList = instances_new();
+    if !asset_view_upload(
+        read values,
+        mut session,
+        read asset,
+        mut range,
+        false,
+        mut motions
+    ) {
         return false;
     }
     var original: MeshRange = range;
@@ -28,6 +36,7 @@ fn asset_rebuild_checks(session: AssetSession) -> bool {
             mut values,
             move asset,
             mut range,
+            mut motions,
             45u32,
             false,
             mut good
@@ -50,7 +59,7 @@ fn asset_rebuild_checks(session: AssetSession) -> bool {
     {
         var renderer: mut Renderer = asset_renderer(mut session);
         var input: FrameInput = renderer_inputs(mut renderer);
-        if !asset_scene(mut input, read asset, range, labels, state.camera) {
+        if !asset_scene(mut input, read asset, range, labels, state.camera, 0u32) {
             return false;
         }
     }

@@ -11,9 +11,15 @@ fn panel_pixel_extent(metres: f32, density: u32) -> u32 {
     return pixels;
 }
 fn panel_texture_width(material: PanelMaterial) -> u32 {
+    if material.finish == METAL_FLASH {
+        return 1u32;
+    }
     return panel_pixel_extent(material.tile_metres, material.texels_per_metre);
 }
 fn panel_texture_height(material: PanelMaterial) -> u32 {
+    if material.finish == METAL_FLASH {
+        return 1u32;
+    }
     return panel_pixel_extent(panel_tile_height(material), material.texels_per_metre);
 }
 fn metal_hex_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {

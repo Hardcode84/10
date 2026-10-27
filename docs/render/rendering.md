@@ -420,7 +420,11 @@ word; it requires no asset upload, allocation, readback, or extra dispatch.
 Generated panels can pulse full-bright colour 248 with `emission_period`.
 Its nonzero period must be a multiple of `PANEL_PULSE_FRAMES`. The generator
 stores only that colour's animated states. Other texels retain their base
-palette values. See [panel upload](../../src/assets/materials/upload.crs).
+palette values. `METAL_FLASH` uses the same period and frame count. It starts
+at full intensity, fades during the first half, and stays dark during the second
+half. Its one-texel texture frames select transparent index zero while dark.
+Use cutout geometry with this material. Fixture lights and cosmetic bursts can
+sample the same flash envelope. See [panel upload](../../src/assets/materials/upload.crs).
 
 ### Dithering, resolution, and overlay
 

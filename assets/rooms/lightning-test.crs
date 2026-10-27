@@ -1,4 +1,7 @@
-// Static lightning study. Run with --view start; change seed to select a bolt.
+// Repeating lightning flash. Run with --view start; change seed to select a bolt.
+// --animation-tick freezes the bolt, contact sparks, and midpoint light together.
+// The whole bolt appears at once, fades during half a cycle, then goes dark.
+const LIGHTNING_TEST_PERIOD: u32 = 256u32;
 // Lengths and width are in metres. cone-angle is the half-angle in degrees.
 // Each segment aims through a new cone at the target. The final segment reaches
 // the target exactly. The bolt is full-bright, has no collision, and casts no shadow.
@@ -93,10 +96,19 @@ fn room_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
     }
     loft_ring(mut asset.hull, profile, 0u32, -span, span * 3f32);
     loft_ring(mut asset.hull, profile, 1u32, span * 3f32, span * 3f32);
+    i = 0u32;
+    while i < asset_vertex_count(read asset.hull) {
+        var p: Vec3 = asset_vertex(read asset.hull, i);
+        p.z = p.z * 0.3f32;
+        asset_vertex_set(mut asset.hull, i, p);
+        i = i + 1u32;
+    }
     loft_span(mut asset.hull, profile, 0u32, 0u32);
     loft_caps(mut asset.hull, profile, 2u32, 0u32, 0u32);
     asset.spawn.position = vec(0f32, span, -span * 0.4f32);
     asset.spawn.basis = identity_basis();
+    asset.preview_ambient = vec(0.02f32, 0.02f32, 0.02f32);
+    asset.preview_headlamp = 0f32;
     var style: LightningStyle = make LightningStyle {
         minimum: asset_value(read values, 1u32),
         maximum: asset_value(read values, 2u32),
@@ -105,21 +117,83 @@ fn room_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
         seed: seed as u32,
         region: 1u32
     };
-    return lightning_mesh(
-        mut asset.decals,
-        vec(-span * 0.5f32, span, span * 0.5f32),
-        vec(span * 0.5f32, span, span * 0.5f32),
-        style
+    var start: Vec3 = vec(-span * 0.5f32, span, span * 0.5f32);
+    var end: Vec3 = vec(span * 0.5f32, span, span * 0.5f32);
+    var bolt: Mesh = mesh_new();
+    if !lightning_mesh(mut bolt, start, end, style) {
+        return false;
+    }
+    // Cutout removes the bolt completely in the dark part of the flash cycle.
+    i = 0u32;
+    while i < mesh_triangle_count(read bolt) {
+        var primitive: MeshTriangle = mesh_triangle(read bolt, i);
+        primitive.flags = primitive.flags | 1u32;
+        if !mesh_append(mut asset.decals, primitive) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return lightning_test_contact(mut asset, start, vec(1f32, 0f32, 0f32), seed as u32) && lightning_test_contact(
+        mut asset,
+        end,
+        vec(-1f32, 0f32, 0f32),
+        seed as u32 + 1u32
+    ) && fixture_light_append(
+        mut asset.lights,
+        make FixtureLight {
+            space: 0u32,
+            period: LIGHTNING_TEST_PERIOD,
+            position: scale(add(start, end), 0.5f32),
+            colour: vec(0.08f32, 0.8f32, 4f32),
+            radius: span
+        }
     ) && room_asset_finish(mut asset);
 }
+fn lightning_test_contact(asset: mut RoomAsset, point: Vec3, direction: Vec3, seed: u32) -> bool {
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    return solid_box(
+        mut asset.geometry,
+        vec(0.2f32, 0.6f32, 0.6f32),
+        0u32,
+        sub(point, scale(direction, 0.1f32)),
+        identity_basis(),
+        1f32
+    ) && asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("contact"),
+        vec(0f32, 0f32, 0f32)
+    ) && spark_emitter_append(
+        mut asset.sparks,
+        make SparkEmitter {
+            space: 0u32,
+            position: point,
+            direction: direction,
+            period: LIGHTNING_TEST_PERIOD,
+            seed: seed,
+            count: 16u32,
+            speed: 7f32,
+            size: 0.1f32,
+            material: 2u32
+        }
+    );
+}
+
 fn room_material_count() -> u32 {
-    return 2u32;
+    return 3u32;
 }
 fn room_material(region: u32, values: read AssetValues) -> PanelMaterial {
-    var material: PanelMaterial = emergency_light_material();
-    material.emission = 0x100904u32;
-    if region == 1u32 {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.colour = 0x707070u32;
+    material.accent = 0x302828u32;
+    material.finish = METAL_PLAIN;
+    if region != 0u32 {
+        material.finish = METAL_FLASH;
+        material.emission_period = LIGHTNING_TEST_PERIOD;
         material.emission = 0xffe0b0u32;
+        if region == 2u32 {
+            material.emission = 0xff8020u32;
+        }
     }
     return material;
 }

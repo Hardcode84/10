@@ -1,0 +1,40 @@
+// Flash materials use one texel per animation frame and one animated full-bright colour.
+fn panel_flash_animation(
+    input: mut FrameInput,
+    region: u32,
+    offset: u32,
+    panel: PanelMaterial
+) -> bool {
+    var texture: u32 = offset + PANEL_PULSE_FRAMES * LIGHT_STATES;
+    var frame: u32 = 0u32;
+    while frame < PANEL_PULSE_FRAMES {
+        var intensity: f32 = flash_intensity(
+            panel.emission_period,
+            frame * (panel.emission_period / PANEL_PULSE_FRAMES)
+        );
+        input_texel(mut input, texture + frame, (intensity > 0f32) as u32 * 248u32);
+        var state: u32 = 0u32;
+        while state < LIGHT_STATES {
+            input_asset_set(
+                mut input,
+                offset + frame * LIGHT_STATES + state,
+                palette_entry(panel.emission, (intensity * 255f32) as u32, state, true)
+            );
+            state = state + 1u32;
+        }
+        frame = frame + 1u32;
+    }
+    input_asset_set(mut input, region * MATERIAL_WORDS, texture);
+    return input_material_animation(
+        mut input,
+        region,
+        make MaterialAnimation {
+            frames: PANEL_PULSE_FRAMES,
+            ticks_per_frame: panel.emission_period / PANEL_PULSE_FRAMES,
+            texture_stride: 1u32,
+            palette: offset,
+            palette_first: 248u32,
+            palette_count: 1u32
+        }
+    );
+}

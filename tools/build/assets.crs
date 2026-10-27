@@ -1,5 +1,5 @@
 fn asset_sources(root: *CrustRun, args: **u8) -> usize {
-    var files: [*u8; 114] = make [*u8; 114] {
+    var files: [*u8; 115] = make [*u8; 115] {
         "src/assets/prefabs/oct-stopper.crs",
         "src/assets/prefabs/hex-t-junction.crs",
         "src/assets/prefabs/hex-junction-common.crs",
@@ -66,6 +66,7 @@ fn asset_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/geometry/tube-bend.crs",
         "src/assets/geometry/tube-sweep.crs",
         "src/assets/geometry/lightning.crs",
+        "src/assets/effects/flash.crs",
         "src/assets/geometry/shaft-hub-pipes.crs",
         "src/assets/geometry/shaft-hub-structure.crs",
         "src/assets/geometry/shaft-service-pipes.crs",
@@ -116,7 +117,7 @@ fn asset_sources(root: *CrustRun, args: **u8) -> usize {
         "src/assets/materials/metal.crs"
     };
     var i: usize = 0usize;
-    while i < 114usize {
+    while i < 115usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
@@ -124,7 +125,7 @@ fn asset_sources(root: *CrustRun, args: **u8) -> usize {
 }
 fn asset_providers(root: *CrustRun, args: **u8) -> usize {
     if args == null(**u8) {
-        return 8usize;
+        return 9usize;
     }
     args[0usize] = host_path(root, "src/assets/geometry/storage.crs");
     args[1usize] = host_path(root, "src/assets/parameter-storage.crs");
@@ -134,7 +135,8 @@ fn asset_providers(root: *CrustRun, args: **u8) -> usize {
     args[5usize] = host_path(root, "src/assets/geometry/pipe-router-storage.crs");
     args[6usize] = host_path(root, "src/assets/light-storage.crs");
     args[7usize] = host_path(root, "src/assets/recipe.crs");
-    return 8usize;
+    args[8usize] = host_path(root, "src/assets/effects/storage.crs");
+    return 9usize;
 }
 fn asset_collision_sources(root: *CrustRun, args: **u8) -> usize {
     var files: [*u8; 22] = make [*u8; 22] {

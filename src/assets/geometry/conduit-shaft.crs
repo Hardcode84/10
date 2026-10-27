@@ -185,6 +185,7 @@ fn conduit_shaft_spindle(asset: mut RoomAsset, centre: Vec3, radius: f32, reach:
     return fixture_light_append(
         mut asset.lights,
         make FixtureLight {
+            period: 0u32,
             space: 0u32,
             position: add(light, vec(-tip * 1.5f32, 0f32, 0f32)),
             colour: vec(1.3f32, 0.45f32, 0.025f32),

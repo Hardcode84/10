@@ -100,6 +100,12 @@ A room can also contain fixture lights with local positions, colours, and radii.
 The viewer displays these lights. Level assembly copies them into the room graph;
 the game submits them through portal anchors. These small fixture lights do not
 cast shadows. A full-bright material and a light source are separate properties.
+A fixture period of zero gives steady light. A nonzero period uses the shared
+flash envelope. Room-local cosmetic spark emitters use that same clock and
+material period. They compute positions directly from the tick and seed, so
+pause and seek need no particle replay. Author their paths within the room.
+The viewer uses the asset's inspection ambient and headlamp settings; these
+settings do not change game lighting.
 
 UV coordinates use metres in each polygon plane. Panel materials specify tile
 size, texture density, and border width. Size changes repeat the tile without

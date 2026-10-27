@@ -15,11 +15,15 @@ record RoomAsset {
     colliders: AssetParts;
     door_leaves: AssetDoorLeaves;
     lights: FixtureLights;
+    sparks: SparkEmitters;
     routes: PipeRouter;
     collision: CollisionScene;
     spawn: AssetSpawn;
     spawn_enabled: bool;
     tile_metres: f32;
+    // Default inspection lighting. Game lighting is set by the level.
+    preview_ambient: Vec3;
+    preview_headlamp: f32;
 }
 fn room_asset_new() -> RoomAsset {
     return make RoomAsset {
@@ -33,6 +37,7 @@ fn room_asset_new() -> RoomAsset {
         colliders: asset_parts_new(),
         door_leaves: asset_door_leaves_new(),
         lights: fixture_lights_new(),
+        sparks: spark_emitters_new(),
         routes: pipe_router_new(-1f32, 0u32),
         collision: collision_new(),
         spawn: make AssetSpawn {
@@ -40,7 +45,9 @@ fn room_asset_new() -> RoomAsset {
             basis: identity_basis()
         },
         spawn_enabled: true,
-        tile_metres: 2f32
+        tile_metres: 2f32,
+        preview_ambient: vec(0.5f32, 0.5f32, 0.5f32),
+        preview_headlamp: 900f32
     };
 }
 fn room_asset_finish(asset: mut RoomAsset) -> bool {

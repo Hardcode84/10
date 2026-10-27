@@ -12,7 +12,7 @@ fn run_asset_checks(
         return 1i32;
     }
     var sources: [*u8; 256] = uninit;
-    var providers: [*u8; 25] = uninit;
+    var providers: [*u8; 26] = uninit;
     var count: usize = asset_sources(root, &sources[0usize]);
     count = count + asset_collision_sources(root, &sources[count]);
     sources[count] = host_path(root, "assets/rooms/radial-start.crs");
@@ -26,7 +26,8 @@ fn run_asset_checks(
     sources[count + 8usize] = host_path(root, "tests/assets/pipe-graph.crs");
     sources[count + 9usize] = host_path(root, "tests/assets/pipe-router.crs");
     sources[count + 10usize] = host_path(root, "src/render/host/instance-motion.crs");
-    count = count + 11usize;
+    sources[count + 11usize] = host_path(root, "tests/assets/effects.crs");
+    count = count + 12usize;
     var provider_count: usize = asset_providers(root, &providers[0usize]);
     provider_count = provider_count + asset_collision_providers(
         root,
