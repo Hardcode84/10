@@ -1,3 +1,4 @@
+// Powered tubes apply the shared room-local radial attraction field.
 // Powered debris emits paired lightning from rebar tips to the cable and wall.
 // Both strikes appear together and keep their room-space position while fading.
 // Powered debris and its rebar orbit the cable. orbit-period sets seconds per turn.
@@ -9,7 +10,8 @@
 // Each cable and debris chunk is a closed collision solid and a tether anchor.
 // powered=1 adds blue full-bright strips to the cable sheaths; default is 0.
 // Powered strips pulse in intensity through a shared material animation clock.
-// These markings do not cast light. The core applies no force or contact damage.
+// These markings do not cast light. The powered core attracts the player and
+// flying hook toward its axis. It applies no contact damage.
 // Casting joints follow hull facets and axial bays; fine formwork and aggregate
 // stay in the generated concrete texture. Cable UVs follow their helical length.
 // Raised wall panels occupy complete casting tiles. End bays and beam support

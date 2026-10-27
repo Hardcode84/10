@@ -1,3 +1,4 @@
+const CONDUIT_CORE_ACCELERATION: f32 = 1.5f32;
 const CONDUIT_SUPPORT_MATERIAL: u32 = 4u32;
 const CONDUIT_LIGHT_MATERIAL: u32 = 5u32;
 const CONDUIT_DEBRIS_MATERIAL: u32 = 6u32;
@@ -228,6 +229,11 @@ fn prefab_conduit_prepare(parameters: read AssetValues, asset: mut RoomAsset) ->
         asset_value(read parameters, 6u32)
     ) {
         return false;
+    }
+    asset.attraction = axis_attraction_none();
+    if asset_value(read parameters, conduit_powered_parameter()) == 1f32 {
+        asset.attraction.core_radius = core;
+        asset.attraction.strength = CONDUIT_CORE_ACCELERATION;
     }
     asset.spawn = make AssetSpawn {
         position: vec((radius + core) * 0.5f32, 5f32, 0f32),

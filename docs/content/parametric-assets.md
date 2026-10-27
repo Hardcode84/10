@@ -589,3 +589,20 @@ and fade with their contact sparks and midpoint light. The near-black tail is
 transparent. Both materials use the emitter period. Submit the effect surfaces before retained mesh instances.
 The game propagates the light through portal anchors. Effect surfaces have no
 collision and cast no shadows.
+
+### Room-local attraction
+
+`RoomAsset.attraction` defines an optional axial field. Level assembly copies the
+field into the room graph and collision scene. Scene snapshots retain the field
+for prediction. Changes to global room placement preserve its local coordinates.
+
+Player motion, flying hooks, and trajectory prediction use the same field. The
+pull has no axial component. Its magnitude falls with inverse distance outside
+the core radius and falls linearly to zero inside that radius. A disabled field
+adds no acceleration. The field is independent of drum spin and remains local
+to its room across portals.
+
+Powered conduit recipes enable this field. See
+[the conduit recipe](../../src/assets/prefabs/conduit-tube.crs) for the strength
+and [the flight environment](../../src/game/flight/environment.crs) for the force
+law. Orbiting debris keeps its authored motion.

@@ -21,5 +21,24 @@ fn flight_acceleration(frame: RoomFrame, position: Vec3, velocity: Vec3, full_sp
         -1f32
     );
     var drag: f32 = air_density(frame, position) * (0.08f32 + 0.012f32 * length(velocity));
-    return sub(add(coriolis, gravity), scale(velocity, drag));
+    return add(
+        sub(add(coriolis, gravity), scale(velocity, drag)),
+        axis_attraction_acceleration(frame.attraction, position)
+    );
+}
+
+// Inverse-radius pull outside the core; linear inside, with zero force on the axis.
+fn axis_attraction_acceleration(field: AxisAttraction, position: Vec3) -> Vec3 {
+    if field.strength == 0f32 {
+        return vec(0f32, 0f32, 0f32);
+    }
+    var offset: Vec3 = sub(position, field.origin);
+    offset = sub(offset, scale(field.axis, dot(offset, field.axis)));
+    var squared: f32 = dot(offset, offset);
+    var denominator: f32 = clamp(
+        squared,
+        field.core_radius * field.core_radius,
+        3.4028234e38f32
+    );
+    return scale(offset, -field.strength * field.core_radius / denominator);
 }

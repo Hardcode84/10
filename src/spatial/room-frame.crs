@@ -1,4 +1,21 @@
+// Room-local attraction toward an axis. Strength is acceleration at core_radius.
+// A zero strength disables the field; active fields have a unit axis and positive radius.
+record AxisAttraction {
+    origin: Vec3;
+    axis: Vec3;
+    core_radius: f32;
+    strength: f32;
+}
+fn axis_attraction_none() -> AxisAttraction {
+    return make AxisAttraction {
+        origin: vec(0f32, 0f32, 0f32),
+        axis: vec(0f32, 1f32, 0f32),
+        core_radius: 1f32,
+        strength: 0f32
+    };
+}
 record RoomFrame {
+    attraction: AxisAttraction;
     global: SpaceTransform;
     axis_origin: Vec3;
     axis: Vec3;
@@ -12,6 +29,7 @@ fn room_frame(origin: Vec3, orientation: Basis) -> RoomFrame {
     };
     var inverse: SpaceTransform = space_inverse(placement);
     return make RoomFrame {
+        attraction: axis_attraction_none(),
         global: placement,
         axis_origin: inverse.origin,
         axis: basis_vector(inverse.basis, vec(0f32, 0f32, 1f32))
@@ -32,6 +50,16 @@ fn collision_place_room(
     if !collision_finite(frame.axis_origin) {
         return error("room placement exceeds coordinate range");
     }
+    frame.attraction = collision_room_frame(read scene, id).attraction;
+    return collision_frame_store(mut scene, id, frame);
+}
+// Sets an authored field without changing global placement or portal transforms.
+fn collision_set_room_attraction(scene: mut CollisionScene, id: u32, field: AxisAttraction) -> bool {
+    var frame: RoomFrame = collision_room_frame(read scene, id);
+    frame.attraction = field;
+    return collision_frame_store(mut scene, id, frame);
+}
+fn collision_frame_store(scene: mut CollisionScene, id: u32, frame: RoomFrame) -> bool {
     var i: u32 = collision_frame_index(read scene, id);
     if i < scene.frame_count && scene.frames[i as usize].id == id {
         scene.frames[i as usize].frame = frame;

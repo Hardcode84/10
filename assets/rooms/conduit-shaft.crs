@@ -1,3 +1,4 @@
+// Powered tubes apply the shared room-local radial attraction field.
 // Powered debris emits paired lightning from rebar tips to the cable and wall.
 // Both strikes appear together and keep their room-space position while fading.
 // Powered debris and its rebar orbit the cable. orbit-period sets seconds per turn.

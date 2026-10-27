@@ -3,6 +3,7 @@ record AssetSpawn {
     basis: Basis;
 }
 record RoomAsset {
+    attraction: AxisAttraction;
     recipe: AssetRecipe;
     hull: AssetHull;
     ports: AssetPorts;
@@ -28,6 +29,7 @@ record RoomAsset {
 }
 fn room_asset_new() -> RoomAsset {
     return make RoomAsset {
+        attraction: axis_attraction_none(),
         recipe: asset_recipe_new(),
         hull: asset_hull_new(),
         ports: asset_ports_new(),

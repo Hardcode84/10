@@ -89,7 +89,7 @@ fn game_tests() -> bool {
     if !collision_build_game(mut collision) {
         return false;
     }
-    return test_doors() && test_reference_collision() && test_forces() && test_room_frame_equivalence() && test_room_frame_bodies() && test_hook(
+    return test_doors() && test_reference_collision() && test_forces() && test_axis_attraction() && test_room_frame_equivalence() && test_room_frame_bodies() && test_hook(
         read collision
     ) && test_winch(read collision) && test_swing(read collision) && test_tether(read collision) && test_flight_pulses() && test_input() && test_short_press() && test_mouse_accumulation();
 }

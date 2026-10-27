@@ -42,6 +42,18 @@ fn test_room_frame_bodies() -> bool {
     ) {
         return false;
     }
+    if !collision_set_room_attraction(
+        mut scene,
+        1u32,
+        make AxisAttraction {
+            origin: vec(0f32, 10f32, 0f32),
+            axis: vec(0f32, 0f32, 1f32),
+            core_radius: 5f32,
+            strength: 2f32
+        }
+    ) {
+        return false;
+    }
     var hook: Drone = new_drone();
     hook.position = vec(0f32, 0f32, -0.1f32);
     hook_launch(mut hook);
@@ -122,4 +134,67 @@ fn test_room_frame_portals(scene: mut CollisionScene) -> bool {
         return false;
     }
     return collision_finish(move builder, mut scene);
+}
+
+fn test_axis_attraction() -> bool {
+    var field: AxisAttraction = make AxisAttraction {
+        origin: vec(3f32, 4f32, 5f32),
+        axis: vec(0f32, 1f32, 0f32),
+        core_radius: 10f32,
+        strength: 2f32
+    };
+    var frame: RoomFrame = room_frame(vec(0f32, 0f32, 0f32), identity_basis());
+    frame.attraction = field;
+    var point: Vec3 = add(field.origin, vec(20f32, 9f32, 0f32));
+    if !game_check(
+        length(
+            sub(
+                flight_acceleration(frame, point, vec(0f32, 0f32, 0f32), false),
+                vec(-1f32, 0f32, 0f32)
+            )
+        ) < 0.000001f32 && length(axis_attraction_acceleration(field, field.origin)) == 0f32 && near(
+            length(
+                axis_attraction_acceleration(
+                    field,
+                    add(field.origin, vec(5f32, 0f32, 0f32))
+                )
+            ),
+            1f32,
+            0.000001f32
+        ),
+        "radial field direction, falloff, axis, or spin-independent activation differs"
+    ) {
+        return false;
+    }
+    var scene: CollisionScene = collision_new();
+    if !collision_set_room_attraction(mut scene, 7u32, field) || !collision_place_room(
+        mut scene,
+        7u32,
+        vec(100f32, 200f32, 300f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    var snapshot: CollisionScene = collision_new();
+    if !collision_snapshot(read scene, mut snapshot) || !collision_set_room_attraction(
+        mut scene,
+        7u32,
+        axis_attraction_none()
+    ) {
+        return false;
+    }
+    return game_check(
+        collision_room_frame(read snapshot, 7u32).attraction.strength == field.strength && collision_room_frame(
+            read scene,
+            7u32
+        ).attraction.strength == 0f32 && length(
+            flight_acceleration(
+                collision_room_frame(read scene, 7u32),
+                point,
+                vec(0f32, 0f32, 0f32),
+                false
+            )
+        ) == 0f32,
+        "field state was lost by placement, shared across snapshots, or active when disabled"
+    );
 }

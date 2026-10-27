@@ -103,7 +103,11 @@ fn level_install(graph: read RoomGraph, scene: mut CollisionScene) -> bool {
     var i: u32 = 0u32;
     while i < graph_count(read graph) {
         var pose: SpaceTransform = graph_node(read graph, i).placement;
-        if !collision_place_room(mut scene, i, pose.origin, pose.basis) {
+        if !collision_place_room(mut scene, i, pose.origin, pose.basis) || !collision_set_room_attraction(
+            mut scene,
+            i,
+            graph_node(read graph, i).attraction
+        ) {
             return false;
         }
         i = i + 1u32;

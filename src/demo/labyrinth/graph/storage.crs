@@ -1,4 +1,5 @@
 record GraphNode {
+    attraction: AxisAttraction;
     placement: SpaceTransform;
     kind: u32;
     first: u32;
@@ -120,6 +121,7 @@ fn graph_add_ports(graph: mut RoomGraph, kind: u32, depth: u32, branch: u32, cou
     }
     graph.recipes[id as usize] = room_recipe_new();
     graph.nodes[id as usize] = make GraphNode {
+        attraction: axis_attraction_none(),
         placement: space_identity(),
         kind: kind,
         first: graph.port_count,
@@ -195,6 +197,9 @@ fn graph_sparks(graph: read RoomGraph) -> read SparkEmitters from graph {
     return read graph.sparks;
 }
 fn graph_effects_add(graph: mut RoomGraph, asset: read RoomAsset, room: u32, material: u32) -> bool {
+    if asset.attraction.strength != 0f32 {
+        graph.nodes[room as usize].attraction = asset.attraction;
+    }
     return spark_emitters_place(read asset.sparks, mut graph.sparks, room, material) && arc_emitters_place(
         read asset.arcs,
         mut graph.arcs,

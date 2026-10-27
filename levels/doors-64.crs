@@ -48,7 +48,10 @@ fn demo_room_build(
     ) || !course_links(read graph, mut builder) {
         return false;
     }
-    return collision_finish(move builder, mut collision) && flight_place_course(mut collision);
+    return collision_finish(move builder, mut collision) && flight_place_course(
+        mut collision,
+        read graph
+    );
 }
 fn door_chain_build(graph: mut RoomGraph, builder: mut CollisionBuilder, mesh: mut Mesh) -> bool {
     var values: AssetValues = asset_values_new();

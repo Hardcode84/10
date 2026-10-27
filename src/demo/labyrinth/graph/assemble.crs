@@ -166,7 +166,10 @@ fn graph_assemble(
     trial.goal_world = graph_goal(read graph);
     trial.auto_level = false;
     reset_trial(mut trial);
-    return collision_finish(move builder, mut collision) && flight_place_course(mut collision);
+    return collision_finish(move builder, mut collision) && flight_place_course(
+        mut collision,
+        read graph
+    );
 }
 fn graph_upload(
     graph: read RoomGraph,
