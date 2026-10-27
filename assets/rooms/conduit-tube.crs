@@ -1,7 +1,7 @@
 // Power conduit: a 250 m diameter concrete tube, 500 m long along local +Y.
 // Six thick cable sheaths wind around one straight cable. The core is 75 m across.
 // Integer turns keep cable positions and roll aligned at both ends.
-// BOTTOM and TOP use full CONDUIT connections with one mating orientation.
+// BOTTOM and TOP use full CONDUIT connections with two orientations, 180 degrees apart.
 // Each cable is a closed collision solid. The space around the core is clear.
 // The core is inert: no emission, force, debris, or damage is attached to this asset.
 // Casting joints follow hull facets and axial bays; fine formwork and aggregate

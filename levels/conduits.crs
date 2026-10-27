@@ -1,0 +1,97 @@
+// Run: crust demo.crs levels/conduits.crs
+// Start in a short capped shaft and enter the side of the first conduit.
+// Its TOP leads into the second tube. The second TOP returns to the first
+// BOTTOM with the opposite mating roll: one circuit turns the player 180 degrees.
+const CONDUIT_START_SHAFT_LENGTH: f32 = 20f32;
+fn demo_room_build(
+    asset: mut RoomAsset,
+    collision: mut CollisionScene,
+    mesh: mut Mesh,
+    graph: mut RoomGraph,
+    seed: u32
+) -> bool {
+    var values: AssetValues = asset_values_new();
+    if !course_values(PREFAB_SHAFT_CLEAR, 0u32, mut values) {
+        return false;
+    }
+    asset_value_set(mut values, 0u32, CONDUIT_START_SHAFT_LENGTH);
+    if !course_build(PREFAB_SHAFT_CLEAR, read values, mut asset) || !graph_allocate(
+        mut graph,
+        4u32,
+        0u32
+    ) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    if !course_room_mesh(
+        read asset,
+        mut graph,
+        mut builder,
+        mut mesh,
+        PREFAB_SHAFT_CLEAR,
+        0u32
+    ) {
+        return false;
+    }
+    var cursor: CourseCursor = make CourseCursor {
+        room: 0u32
+    };
+    if !course_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("TOP"),
+        PREFAB_CONDUIT_SHAFT,
+        asset_name("SHAFT"),
+        0u32
+    ) || !course_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("TOP"),
+        PREFAB_CONDUIT_TUBE,
+        asset_name("BOTTOM"),
+        0u32
+    ) {
+        return false;
+    }
+    var exit_socket: u32 = course_socket(read graph, cursor.room, asset_name("TOP"));
+    var entry_socket: u32 = course_socket(read graph, 1u32, asset_name("BOTTOM"));
+    course_pair_roll(mut graph, exit_socket, entry_socket, 0u32);
+    cursor.room = 0u32;
+    if !course_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("BOTTOM"),
+        PREFAB_SHAFT_CAP_BEARING,
+        asset_name("SHAFT"),
+        0u32
+    ) || !course_links(read graph, mut builder) {
+        return false;
+    }
+    return collision_finish(move builder, mut collision) && flight_place_course(mut collision);
+}
+fn demo_room_ambient() -> Vec3 {
+    return vec(0.18f32, 0.20f32, 0.24f32);
+}
+fn demo_palette(input: mut FrameInput) -> bool {
+    var configuration: AssetValues = asset_values_new();
+    if !course_material_defaults(mut configuration) {
+        return false;
+    }
+    asset_value_set(
+        mut configuration,
+        course_material_parameter_offset(PREFAB_SHAFT_CLEAR),
+        CONDUIT_START_SHAFT_LENGTH
+    );
+    return course_palette_configured(mut input, read configuration);
+}
+fn demo_room_lighting(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    anchors: mut RoomAnchors
+) -> unit {}

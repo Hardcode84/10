@@ -107,6 +107,7 @@ jobs:
           crust labyrinth.crs --build-only
           crust demo.crs levels/radial.crs --build-only
           crust demo.crs levels/cylinder.crs --build-only
+          crust demo.crs levels/conduits.crs --build-only
           crust demo.crs levels/prefabs.crs --build-only
           crust demo.crs levels/shaft-1km.crs --build-only
           crust demo.crs levels/shafts.crs --build-only

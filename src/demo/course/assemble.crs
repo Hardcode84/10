@@ -95,11 +95,21 @@ fn course_socket(graph: read RoomGraph, room: u32, name: AssetName) -> u32 {
 fn course_pair(graph: mut RoomGraph, first: u32, second: u32) -> unit {
     var a: GraphSocket = graph_socket(read graph, first);
     var b: GraphSocket = graph_socket(read graph, second);
+    course_pair_roll(
+        mut graph,
+        first,
+        second,
+        connection_rotations(a.port, b.port) / 2u32
+    );
+}
+// Connect two free sockets at an allowed mating rotation.
+fn course_pair_roll(graph: mut RoomGraph, first: u32, second: u32, roll: u32) -> unit {
+    var a: GraphSocket = graph_socket(read graph, first);
+    var b: GraphSocket = graph_socket(read graph, second);
     if a.peer != 0xffffffffu32 || b.peer != 0xffffffffu32 {
         error("course connects a port twice");
         trap;
     }
-    var roll: u32 = connection_rotations(a.port, b.port) / 2u32;
     a.peer = second;
     b.peer = first;
     a.roll = roll;

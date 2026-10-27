@@ -10,6 +10,7 @@ program with the Crust ownership stage. Device programs use the shader stage.
 | `crust labyrinth.crs --web` | Build the same demo for WebAssembly and WebGPU. |
 | `crust demo.crs levels/radial.crs` | Fly through the generated room with game controls and linked portals. |
 | `crust demo.crs levels/prefabs.crs` | Inspect all room presets in one connected flight course. |
+| `crust demo.crs levels/conduits.crs` | Start in a shaft and fly through a two-conduit loop with a 180-degree return rotation. |
 | `crust demo.crs levels/doors-64.crs` | Fly through a twisted chain of working hex doors. |
 | `crust demo.crs levels/shafts.crs --seed N` | Fly through the generated [shaft region](content/shaft-grid.md#playable-demo). |
 | `crust tests.crs shaft-grid` | Check shaft topology without geometry or a renderer. |
