@@ -1,0 +1,28 @@
+// Power conduit: a 250 m diameter concrete tube, 500 m long along local +Y.
+// Six thick cable sheaths wind around one straight cable. The core is 75 m across.
+// Integer turns keep cable positions and roll aligned at both ends.
+// BOTTOM and TOP use full CONDUIT connections with one mating orientation.
+// Each cable is a closed collision solid. The space around the core is clear.
+// The core is inert: no emission, force, debris, or damage is attached to this asset.
+// Casting joints follow hull facets and axial bays; fine formwork and aggregate
+// stay in the generated concrete texture. Cable UVs follow their helical length.
+// Parameters: length, diameter, core-diameter in metres; turns is an integer.
+// Materials: concrete, dark sheath, ochre sheath, oxide sheath.
+fn room_parameter_count() -> u32 {
+    return prefab_conduit_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_conduit_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_conduit_parameter_name(index);
+}
+fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_conduit_build(read parameters, mut asset);
+}
+fn room_material_count() -> u32 {
+    return 4u32;
+}
+fn room_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    return prefab_conduit_material(region, read parameters);
+}

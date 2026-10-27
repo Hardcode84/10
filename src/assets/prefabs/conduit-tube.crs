@@ -1,0 +1,198 @@
+const CONDUIT_CAST_LENGTH: f32 = 25f32;
+fn prefab_conduit_parameter_count() -> u32 {
+    return 4u32;
+}
+fn prefab_conduit_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("length");
+    }
+    if index == 1u32 {
+        return asset_name("diameter");
+    }
+    if index == 2u32 {
+        return asset_name("core-diameter");
+    }
+    return asset_name("turns");
+}
+fn prefab_conduit_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 100f32,
+            maximum: 1000f32,
+            initial: 500f32,
+            step: 25f32
+        };
+    }
+    if index == 1u32 {
+        return make AssetParameter {
+            minimum: 150f32,
+            maximum: 500f32,
+            initial: 250f32,
+            step: 10f32
+        };
+    }
+    if index == 2u32 {
+        return make AssetParameter {
+            minimum: 30f32,
+            maximum: 120f32,
+            initial: 75f32,
+            step: 5f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 1f32,
+        maximum: 4f32,
+        initial: 1f32,
+        step: 1f32
+    };
+}
+fn conduit_profile(diameter: f32) -> ConnectionProfile {
+    var profile: ConnectionProfile = shaft_profile(diameter);
+    profile.name = asset_name("CONDUIT");
+    profile.scale = scale_ratio(
+        profile.scale.numerator * 16u64,
+        profile.scale.denominator * 250u64
+    );
+    profile.rotations = 1u32;
+    return profile;
+}
+fn conduit_shell(asset: mut RoomAsset, radius: f32, height: f32) -> bool {
+    if !shaft_cylinder(mut asset.hull, radius, height, 0u32, 0u32) {
+        return false;
+    }
+    var bay: f32 = height / panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32) as f32;
+    shaft_track_surfaces(mut asset.hull, asset.tile_metres, bay);
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var frame: SurfaceFrame = asset_surface(read asset.hull, 48u32 + i);
+        frame.right = scale(
+            frame.right,
+            asset.tile_metres / (2f32 * radius * sinf(3.14159265359f32 / 48f32))
+        );
+        frame.up = scale(frame.up, asset.tile_metres / bay);
+        asset_surface_set(mut asset.hull, 48u32 + i, frame);
+        var id: AssetName = asset_name("BOTTOM");
+        if i == 1u32 {
+            id = asset_name("TOP");
+        }
+        if !asset_port_append(
+            mut asset.ports,
+            make RoomPort {
+                id: id,
+                profile: conduit_profile(radius * 2f32),
+                face: 48u32 + i,
+                position: vec(0f32, height * i as f32, 0f32),
+                basis: cube_face_basis(2u32 + i)
+            }
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn conduit_cable(asset: mut RoomAsset, radius: f32, height: f32, turns: u32, strand: u32) -> bool {
+    var orbit: f32 = radius * 2f32;
+    if strand == 6u32 {
+        orbit = 0f32;
+    }
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    var region: u32 = 1u32;
+    if strand == 0u32 {
+        region = 2u32;
+    }
+    if strand == 3u32 {
+        region = 3u32;
+    }
+    if !helix_tube(
+        mut asset.geometry,
+        make HelixTube {
+            orbit: orbit,
+            height: height,
+            turns: turns,
+            phase: 6.28318530718f32 * strand as f32 / 6f32,
+            style: make TubeStyle {
+                radius: radius,
+                sides: 8u32,
+                tile_metres: 2f32 * radius * sinf(3.14159265359f32 / 8f32),
+                region: region
+            }
+        }
+    ) {
+        return false;
+    }
+    return asset_part_append(
+        mut asset.parts,
+        make AssetPart {
+            name: asset_name("cable"),
+            first: first,
+            count: mesh_triangle_count(read asset.geometry) - first,
+            origin: vec(0f32, 0f32, 0f32),
+            basis: identity_basis()
+        }
+    );
+}
+fn prefab_conduit_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_conduit_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_conduit_parameter(i),
+            asset_value(read parameters, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var height: f32 = asset_value(read parameters, 0u32);
+    var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
+    var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
+    var turns: f32 = asset_value(read parameters, 3u32);
+    if turns != turns as u32 as f32 || core >= radius * 0.6f32 {
+        return error("conduit needs integer turns and clearance around the cable core");
+    }
+    if !conduit_shell(mut asset, radius, height) {
+        return false;
+    }
+    i = 0u32;
+    while i < 7u32 {
+        if !conduit_cable(mut asset, core / 3f32, height, turns as u32, i) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    asset.spawn = make AssetSpawn {
+        position: vec((radius + core) * 0.5f32, 5f32, 0f32),
+        basis: make Basis {
+            right: vec(1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, -1f32),
+            forward: vec(0f32, 1f32, 0f32)
+        }
+    };
+    return room_asset_finish(mut asset);
+}
+fn prefab_conduit_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
+    var material: PanelMaterial = hex_tunnel_material();
+    material.indicator = false;
+    material.marking = 0u32;
+    material.texels_per_metre = 16u32;
+    material.finish = SURFACE_CONCRETE;
+    material.colour = 0xa69e8bu32;
+    var height: f32 = asset_value(read parameters, 0u32);
+    material.tile_metres = asset_value(read parameters, 1u32) * sinf(3.14159265359f32 / 48f32);
+    material.tile_height = height / panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32) as f32;
+    if region != 0u32 {
+        material.finish = SURFACE_CABLE;
+        material.tile_metres = asset_value(read parameters, 2u32) / 3f32 * sinf(
+            3.14159265359f32 / 8f32
+        );
+        material.tile_height = material.tile_metres;
+        material.colour = 0x514e45u32;
+        if region == 2u32 {
+            material.colour = 0x907746u32;
+        }
+        if region == 3u32 {
+            material.colour = 0x755047u32;
+        }
+    }
+    return material;
+}

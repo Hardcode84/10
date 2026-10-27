@@ -1,0 +1,69 @@
+const SURFACE_CONCRETE: u32 = 17u32;
+const SURFACE_CABLE: u32 = 18u32;
+// Cast concrete with perimeter joints, formwork impressions, and aggregate.
+// Tile dimensions are physical casting dimensions in metres.
+fn concrete_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var edge: f32 = mask_min(
+        mask_min(x, material.tile_metres - x),
+        mask_min(y, material.tile_height - y)
+    );
+    if edge < 0.12f32 {
+        return 45u32;
+    }
+    if edge < 0.22f32 {
+        return 117u32;
+    }
+    var board_x: f32 = material.tile_metres / 8f32;
+    var board_y: f32 = material.tile_height / 10f32;
+    var u: f32 = mask_repeat(x, board_x);
+    var v: f32 = mask_repeat(y, board_y);
+    var cell: u32 = metal_hash((x / board_x) as u32, (y / board_y) as u32, material.seed);
+    var grain: u32 = metal_hash((x * 16f32) as u32, (y * 16f32) as u32, material.seed);
+    var shade: f32 = 164f32 + (cell % 17u32) as f32 - 8f32;
+    if u < 0.06f32 || v < 0.06f32 {
+        shade = shade - 23f32;
+    }
+    var hole_x: f32 = u - board_x * 0.5f32;
+    var hole_y: f32 = v - board_y * 0.5f32;
+    if hole_x * hole_x + hole_y * hole_y < 0.0144f32 {
+        return 69u32;
+    }
+    var streak: u32 = metal_hash((x * 2f32) as u32, 0u32, material.seed);
+    if streak % 19u32 == 0u32 && y < material.tile_height * 0.25f32 {
+        shade = shade - 20f32 * (1f32 - y / (material.tile_height * 0.25f32));
+    }
+    return (shade + (grain % 15u32) as f32 - 7f32) as u32;
+}
+// Insulated cable with axial grooves and a sheath joint at each tile end.
+fn cable_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    var end: f32 = mask_min(x, material.tile_metres - x);
+    if end < 0.12f32 {
+        return 45u32;
+    }
+    if end < 0.4f32 {
+        return 109u32;
+    }
+    var pitch: f32 = material.tile_height / 4f32;
+    var groove: f32 = mask_repeat(y, pitch);
+    if groove < 0.10f32 {
+        return 79u32;
+    }
+    if groove < 0.20f32 {
+        return 185u32;
+    }
+    return (
+        155f32 + 12f32 * sinf(3.14159265359f32 * groove / pitch) + metal_grain(material, x, y)
+    ) as u32;
+}
+fn panel_bulk_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
+    if material.finish == METAL_FILTER {
+        return metal_filter_sample(material, x, y);
+    }
+    if material.finish == METAL_GRATE {
+        return metal_grate_sample(material, x, y);
+    }
+    if material.finish == SURFACE_CONCRETE {
+        return concrete_sample(material, x, y);
+    }
+    return cable_sample(material, x, y);
+}

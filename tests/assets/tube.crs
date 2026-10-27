@@ -63,7 +63,9 @@ fn asset_test_tube() -> bool {
         2f32
     ) && asset_test_tube_sweep(0f32) && asset_test_tube_sweep(0.1f32) && asset_test_tube_sweep(
         1.0471975512f32
-    ) && asset_test_tube_sweep(2.3f32) && asset_test_tube_spatial();
+    ) && asset_test_tube_sweep(2.3f32) && asset_test_tube_spatial() && asset_test_helix(0f32) && asset_test_helix(
+        3f32
+    );
 }
 
 fn asset_test_sweep_closed(mesh: read Mesh, end: Vec3, direction: Vec3) -> bool {
@@ -180,4 +182,64 @@ fn asset_test_tube_spatial() -> bool {
         return false;
     }
     return asset_test_sweep_closed(read mesh, end, vec(0f32, 0f32, 1f32));
+}
+
+fn asset_test_helix(orbit: f32) -> bool {
+    var mesh: Mesh = mesh_new();
+    if !helix_tube(
+        mut mesh,
+        make HelixTube {
+            orbit: orbit,
+            height: 12f32,
+            turns: 2u32,
+            phase: 0f32,
+            style: make TubeStyle {
+                radius: 0.4f32,
+                sides: 8u32,
+                tile_metres: 1f32,
+                region: 0u32
+            }
+        }
+    ) {
+        return false;
+    }
+    var builder: CollisionBuilder = collision_builder_new();
+    var scene: CollisionScene = collision_new();
+    if !collision_append_solid(
+        mut builder,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    if !collision_finish(move builder, mut scene) {
+        return false;
+    }
+    var entry: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        vec(orbit, -1f32, 0f32),
+        vec(0f32, 2f32, 0f32),
+        0.05f32
+    );
+    var end: CollisionContact = collision_sweep(
+        read scene,
+        0u32,
+        vec(orbit, 13f32, 0f32),
+        vec(0f32, -2f32, 0f32),
+        0.05f32
+    );
+    return entry.hit.time < 1f32 && end.hit.time < 1f32 && !collision_position_valid(
+        read scene,
+        0u32,
+        vec(0f32, 1.5f32, orbit),
+        0.05f32
+    ) && collision_position_valid(
+        read scene,
+        0u32,
+        vec(orbit + 1f32, 6f32, 0f32),
+        0.05f32
+    ) || error("helical solid lost caps, curved interior, or exterior clearance");
 }

@@ -1,0 +1,51 @@
+record HelixTube {
+    orbit: f32;
+    height: f32;
+    turns: u32;
+    phase: f32;
+    style: TubeStyle;
+}
+// Appends a closed helical solid along +Y with cross-sections in XZ planes.
+// Height is positive, orbit is non-negative, and turns is positive.
+// Integer turns give matching end profiles. UV distance follows the helix.
+fn helix_tube(mesh: mut Mesh, helix: HelixTube) -> bool {
+    var steps: u32 = helix.turns * 48u32;
+    if helix.orbit == 0f32 {
+        steps = 1u32;
+    }
+    var arc: f32 = 6.28318530718f32 * helix.turns as f32 * helix.orbit;
+    var distance: f32 = sqrtf(helix.height * helix.height + arc * arc);
+    var start: Vec3 = vec(
+        helix.orbit * cosf(helix.phase),
+        0f32,
+        helix.orbit * sinf(helix.phase)
+    );
+    var sweep: TubeSweep = tube_sweep_begin(
+        start,
+        vec(0f32, 1f32, 0f32),
+        vec(cosf(helix.phase), 0f32, sinf(helix.phase)),
+        helix.style
+    );
+    var i: u32 = 1u32;
+    while i <= steps {
+        var fraction: f32 = i as f32 / steps as f32;
+        var angle: f32 = helix.phase + 6.28318530718f32 * helix.turns as f32 * fraction;
+        if i == steps {
+            angle = helix.phase;
+        }
+        var radial: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
+        var ring: TubeRing = make TubeRing {
+            centre: add(
+                scale(radial, helix.orbit),
+                vec(0f32, helix.height * fraction, 0f32)
+            ),
+            tangent: vec(0f32, 1f32, 0f32),
+            radial: radial
+        };
+        if !tube_sweep_ring(mut mesh, mut sweep, ring, distance * fraction) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return tube_sweep_close(mut mesh, read sweep);
+}

@@ -125,11 +125,8 @@ fn metal_fastener(material: PanelMaterial, x: f32, y: f32) -> u32 {
 }
 // Returns a palette index for a point within one repeated panel tile.
 fn panel_base_sample(material: PanelMaterial, x: f32, tile_y: f32) -> u32 {
-    if material.finish == METAL_FILTER {
-        return metal_filter_sample(material, x, tile_y);
-    }
-    if material.finish == METAL_GRATE {
-        return metal_grate_sample(material, x, tile_y);
+    if material.finish >= METAL_GRATE {
+        return panel_bulk_sample(material, x, tile_y);
     }
     if material.finish == METAL_GIRDER_MOUNT {
         return metal_girder_mount_sample(material, x, tile_y);

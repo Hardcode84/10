@@ -178,6 +178,10 @@ fn tube_sweep_finish(mesh: mut Mesh, sweep: mut TubeSweep, end: Vec3) -> bool {
     if !tube_sweep_straight(mut mesh, mut sweep, end) {
         return false;
     }
+    return tube_sweep_close(mut mesh, read sweep);
+}
+// Closes the first and last rings of a sweep with at least one nonzero span.
+fn tube_sweep_close(mesh: mut Mesh, sweep: read TubeSweep) -> bool {
     var i: u32 = 1u32;
     while i + 1u32 < sweep.style.sides {
         if !tube_triangle(

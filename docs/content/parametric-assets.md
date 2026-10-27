@@ -54,6 +54,7 @@ its inputs through a root Crust entry point.
 | Pipe route planner | Select random destinations, take the shortest clear lane path for each destination, reserve rounded bend clearance, enforce the recipe bend-angle limit and minimum sink count, and use additional sinks after exit routes fail; retain the lane graph for inspection |
 | Pipe waypoint graph | Join distinct exits through wall corridors and three-way joints; reject cycles and repeated exits across a connected network; emit closed pipes with rounded bends |
 | Solid cylinder | Closed solid along +Y, with axial and continuous perimeter UV coordinates |
+| Helical tube | Closed solid along +Y with planar end sections, integer turns, matching end profiles, and UV distance along the helix |
 | Caps | Close both end profiles with convex polygons |
 | Polygon inset | Insert a smaller concentric port with the same side count and phase; retain a solid ring around the opening |
 | Convex face inset | Insert a regular port inside a convex face; keep boundary vertex IDs and surface coordinates |
@@ -62,6 +63,7 @@ its inputs through a root Crust entry point.
 | Surface conversion | Triangulate convex polygons; preserve region IDs; derive planar UV coordinates at a fixed physical scale |
 | Room bundle | Own the hull, render mesh, local solid-part geometry and placements, collision index, and spawn frame |
 | Material masks | Reusable rectangle and border operations in metres |
+| Concrete and cable surfaces | Cast-panel joints, formwork marks, aggregate, and ribbed cable sheaths at physical texture scales |
 | Panel material | Repeated rectangular or hexagonal metal plates, tread, ribs, pipe coupling bands, or a closed two-leaf door with grain, recessed joints, fasteners, and full-bright indicators |
 | Viewer session | Own the window and renderer; compile no game or expedition sources |
 
