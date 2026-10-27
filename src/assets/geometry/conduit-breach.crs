@@ -1,0 +1,103 @@
+fn conduit_breach_rubble(asset: mut RoomAsset, centre: Vec3, seed: u32) -> bool {
+    var side: u32 = 0u32;
+    while side < 4u32 {
+        var i: u32 = 0u32;
+        while i < 8u32 {
+            var along: f32 = ((i as f32 + 0.5f32) / 8f32 - 0.5f32) * CONDUIT_BREACH_WIDTH;
+            var edge: f32 = CONDUIT_BREACH_WIDTH * 0.5f32;
+            var point: Vec3 = vec(-CONDUIT_BREACH_RIM * 1.3f32, along, edge);
+            if side == 1u32 {
+                point = vec(point.x, along, -edge);
+            }
+            if side == 2u32 {
+                point = vec(point.x, edge, along);
+            }
+            if side == 3u32 {
+                point = vec(point.x, -edge, along);
+            }
+            var local_seed: u32 = metal_hash(seed, side, i);
+            var size: f32 = CONDUIT_BREACH_RIM * (
+                0.8f32 + conduit_debris_random(local_seed, 0u32) * 0.35f32
+            );
+            if !conduit_debris_chunk(
+                mut asset,
+                add(centre, point),
+                size,
+                local_seed,
+                0f32,
+                0f32
+            ) {
+                return false;
+            }
+            i = i + 1u32;
+        }
+        side = side + 1u32;
+    }
+    return true;
+}
+fn conduit_breach_edge(seed: u32, index: u32, inner: bool) -> Vec3 {
+    var angle: f32 = (index % 32u32) as f32 * 6.28318530718f32 / 32f32;
+    var u: f32 = cosf(angle);
+    var v: f32 = sinf(angle);
+    var maximum: f32 = -mask_min(-absf(u), -absf(v));
+    var half: f32 = CONDUIT_BREACH_WIDTH * 0.5f32 + CONDUIT_BREACH_RIM * (
+        0.5f32 + 0.5f32 * conduit_debris_random(seed, index % 32u32 + 80u32)
+    );
+    if inner {
+        half = CONDUIT_BREACH_WIDTH * 0.5f32 - CONDUIT_BREACH_RIM * (
+            0.2f32 + 0.65f32 * conduit_debris_random(seed, index % 32u32)
+        );
+    }
+    return vec(u * half / maximum, 0f32, v * half / maximum);
+}
+fn conduit_breach_rim_piece(asset: mut RoomAsset, centre: Vec3, seed: u32, index: u32) -> bool {
+    var profile: RegularProfile = make RegularProfile {
+        sides: 4u32,
+        phase: 0f32
+    };
+    var hull: AssetHull = asset_hull_new();
+    if !loft_allocate(mut hull, profile, 2u32) {
+        return false;
+    }
+    var corners: [Vec3; 4] = make [Vec3; 4] {
+        conduit_breach_edge(seed, index, false),
+        conduit_breach_edge(seed, index + 1u32, false),
+        conduit_breach_edge(seed, index + 1u32, true),
+        conduit_breach_edge(seed, index, true)
+    };
+    var depth: f32 = CONDUIT_BREACH_RIM * (
+        0.8f32 + 0.6f32 * conduit_debris_random(seed, index + 40u32)
+    );
+    var i: u32 = 0u32;
+    while i < 8u32 {
+        var p: Vec3 = corners[(i % 4u32) as usize];
+        p.y = 0.5f32 + (i / 4u32) as f32 * depth;
+        asset_vertex_set(mut hull, i, p);
+        i = i + 1u32;
+    }
+    loft_span(mut hull, profile, 0u32, CONDUIT_FRACTURE_MATERIAL);
+    loft_caps(mut hull, profile, 2u32, CONDUIT_DEBRIS_MATERIAL, CONDUIT_FRACTURE_MATERIAL);
+    var first: u32 = mesh_triangle_count(read asset.geometry);
+    return hull_solid_mesh(
+        read hull,
+        mut asset.geometry,
+        centre,
+        conduit_shaft_axis(),
+        conduit_debris_material(true).tile_metres
+    ) && asset_part_place_tail(
+        mut asset,
+        first,
+        asset_name("fractured-rim"),
+        vec(0f32, 0f32, 0f32)
+    );
+}
+fn conduit_breach_rim(asset: mut RoomAsset, centre: Vec3, seed: u32) -> bool {
+    var i: u32 = 0u32;
+    while i < 32u32 {
+        if !conduit_breach_rim_piece(mut asset, centre, seed, i) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

@@ -1,10 +1,8 @@
 // Run: crust demo.crs levels/conduits.crs
 // Start in a short capped shaft and enter the side of the first conduit.
-// Its TOP leads into the second tube. The second TOP returns to the first
-// BOTTOM with the opposite mating roll: one circuit turns the player 180 degrees.
-// Both tubes have powered cables. The first has debris; the second has catwalks
-// followed by an empty hazard section.
-// The second tube has one broken central support.
+// Continue to a breached bay, cross the square utility gallery, and enter the
+// adjacent tube through a second broken wall. The far tube loops back to the
+// first through its end connection. The second tube has catwalks and an empty bay.
 const CONDUIT_DEMO_POWERED: f32 = 1f32;
 const CONDUIT_START_SHAFT_LENGTH: f32 = 20f32;
 fn demo_room_build(
@@ -21,7 +19,7 @@ fn demo_room_build(
     asset_value_set(mut values, 0u32, CONDUIT_START_SHAFT_LENGTH);
     if !course_build(PREFAB_SHAFT_CLEAR, read values, mut asset) || !graph_allocate(
         mut graph,
-        4u32,
+        7u32,
         0u32
     ) {
         return false;
@@ -55,13 +53,13 @@ fn demo_room_build(
         mut mesh,
         mut cursor,
         asset_name("TOP"),
-        PREFAB_CONDUIT_TUBE,
+        PREFAB_CONDUIT_BREACH,
         asset_name("BOTTOM"),
         0u32
-    ) {
+    ) || !conduit_demo_crossing(mut graph, mut builder, mut mesh, mut cursor) {
         return false;
     }
-    var exit_socket: u32 = course_socket(read graph, cursor.room, asset_name("TOP"));
+    var exit_socket: u32 = course_socket(read graph, cursor.room, asset_name("BOTTOM"));
     var entry_socket: u32 = course_socket(read graph, 1u32, asset_name("BOTTOM"));
     course_pair_roll(mut graph, exit_socket, entry_socket, 0u32);
     cursor.room = 0u32;
@@ -105,6 +103,11 @@ fn demo_palette(input: mut FrameInput) -> bool {
         course_material_parameter_offset(PREFAB_CONDUIT_SHAFT) + conduit_powered_parameter(),
         CONDUIT_DEMO_POWERED
     );
+    asset_value_set(
+        mut configuration,
+        course_material_parameter_offset(PREFAB_CONDUIT_BREACH) + conduit_powered_parameter(),
+        CONDUIT_DEMO_POWERED
+    );
     return course_palette_configured(mut input, read configuration);
 }
 fn demo_room_lighting(
@@ -129,7 +132,13 @@ fn conduit_demo_step(
     if !course_values(kind, variant, mut values) {
         return false;
     }
-    asset_value_set(mut values, conduit_powered_parameter(), CONDUIT_DEMO_POWERED);
+    if kind != PREFAB_CONDUIT_GALLERY {
+        asset_value_set(mut values, conduit_powered_parameter(), CONDUIT_DEMO_POWERED);
+    }
+    if kind == PREFAB_CONDUIT_BREACH {
+        asset_value_set(mut values, prefab_conduit_parameter_count(), 0f32);
+        asset_value_set(mut values, conduit_hazard_seed_parameter(), variant as f32 + 1f32);
+    }
     if kind == PREFAB_CONDUIT_TUBE {
         asset_value_set(mut values, conduit_broken_beam_parameter(), 1f32);
         asset_value_set(mut values, CONDUIT_HAZARD_PARAMETER, CONDUIT_HAZARD_CATWALKS as f32);
@@ -153,4 +162,40 @@ fn conduit_demo_step(
     var second: u32 = course_socket(read graph, cursor.room, entry_name);
     course_pair(mut graph, first, second);
     return true;
+}
+
+fn conduit_demo_crossing(
+    graph: mut RoomGraph,
+    builder: mut CollisionBuilder,
+    mesh: mut Mesh,
+    cursor: mut CourseCursor
+) -> bool {
+    return conduit_demo_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("BREACH"),
+        PREFAB_CONDUIT_GALLERY,
+        asset_name("ENTRY"),
+        0u32
+    ) && conduit_demo_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("EXIT"),
+        PREFAB_CONDUIT_BREACH,
+        asset_name("BREACH"),
+        1u32
+    ) && conduit_demo_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("BOTTOM"),
+        PREFAB_CONDUIT_TUBE,
+        asset_name("TOP"),
+        0u32
+    );
 }

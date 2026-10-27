@@ -31,8 +31,16 @@ const PREFAB_SHAFT_COLLAR: u32 = 28u32;
 const PREFAB_SHAFT_CLEAR: u32 = 29u32;
 const PREFAB_CONDUIT_TUBE: u32 = 30u32;
 const PREFAB_CONDUIT_SHAFT: u32 = 31u32;
-const PREFAB_COUNT: u32 = 32u32;
+const PREFAB_CONDUIT_BREACH: u32 = 32u32;
+const PREFAB_CONDUIT_GALLERY: u32 = 33u32;
+const PREFAB_COUNT: u32 = 34u32;
 fn course_parameter_count(kind: u32) -> u32 {
+    if kind == PREFAB_CONDUIT_BREACH {
+        return prefab_conduit_breach_parameter_count();
+    }
+    if kind == PREFAB_CONDUIT_GALLERY {
+        return 2u32;
+    }
     if kind == PREFAB_CONDUIT_TUBE {
         return prefab_conduit_parameter_count();
     }
@@ -141,6 +149,12 @@ fn course_service_parameter_count(kind: u32) -> u32 {
     trap;
 }
 fn course_parameter(kind: u32, index: u32) -> AssetParameter {
+    if kind == PREFAB_CONDUIT_BREACH {
+        return prefab_conduit_breach_parameter(index);
+    }
+    if kind == PREFAB_CONDUIT_GALLERY {
+        return prefab_conduit_gallery_parameter(index);
+    }
     if kind == PREFAB_CONDUIT_TUBE {
         return prefab_conduit_parameter(index);
     }
@@ -249,6 +263,12 @@ fn course_service_parameter(kind: u32, index: u32) -> AssetParameter {
     trap;
 }
 fn course_build(kind: u32, parameters: read AssetValues, asset: mut RoomAsset) -> bool {
+    if kind == PREFAB_CONDUIT_BREACH {
+        return asset_generate(prefab_conduit_breach_build, read parameters, mut asset);
+    }
+    if kind == PREFAB_CONDUIT_GALLERY {
+        return asset_generate(prefab_conduit_gallery_build, read parameters, mut asset);
+    }
     if kind == PREFAB_CONDUIT_TUBE {
         return asset_generate(prefab_conduit_build, read parameters, mut asset);
     }
@@ -357,6 +377,12 @@ fn course_service_build(kind: u32, parameters: read AssetValues, asset: mut Room
     trap;
 }
 fn course_material_count(kind: u32) -> u32 {
+    if kind == PREFAB_CONDUIT_BREACH {
+        return CONDUIT_MATERIAL_COUNT + 1u32;
+    }
+    if kind == PREFAB_CONDUIT_GALLERY {
+        return CONDUIT_MATERIAL_COUNT;
+    }
     if kind == PREFAB_CONDUIT_TUBE {
         return CONDUIT_MATERIAL_COUNT;
     }
@@ -465,6 +491,12 @@ fn course_service_material_count(kind: u32) -> u32 {
     trap;
 }
 fn course_material(kind: u32, region: u32, parameters: read AssetValues) -> PanelMaterial {
+    if kind == PREFAB_CONDUIT_BREACH {
+        return prefab_conduit_breach_material(region, read parameters);
+    }
+    if kind == PREFAB_CONDUIT_GALLERY {
+        return prefab_conduit_gallery_material(region, read parameters);
+    }
     if kind == PREFAB_CONDUIT_TUBE {
         return prefab_conduit_material(region, read parameters);
     }

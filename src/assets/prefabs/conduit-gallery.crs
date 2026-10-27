@@ -1,0 +1,77 @@
+fn prefab_conduit_gallery_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 40f32,
+            maximum: 200f32,
+            initial: 100f32,
+            step: 10f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 0f32,
+        maximum: 65535f32,
+        initial: 1f32,
+        step: 1f32
+    };
+}
+fn prefab_conduit_gallery_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("length");
+    }
+    return asset_name("utility-seed");
+}
+fn prefab_conduit_gallery_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        if !asset_parameter_valid(
+            prefab_conduit_gallery_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var seed: f32 = asset_value(read values, 1u32);
+    if seed != seed as u32 as f32 {
+        return error("utility seed must be an integer");
+    }
+    var length_metres: f32 = asset_value(read values, 0u32);
+    var profile: ConnectionProfile = conduit_breach_profile();
+    if !loft_allocate(mut asset.hull, profile.shape, 2u32) {
+        return false;
+    }
+    loft_ring(mut asset.hull, profile.shape, 0u32, 0f32, profile.radius);
+    loft_ring(mut asset.hull, profile.shape, 1u32, length_metres, profile.radius);
+    loft_span(mut asset.hull, profile.shape, 0u32, 0u32);
+    loft_caps(mut asset.hull, profile.shape, 2u32, 0u32, 0u32);
+    return passage_ports(length_metres, true, profile, 4u32, mut asset) && conduit_gallery_services(
+        mut asset,
+        length_metres,
+        seed as u32
+    ) && room_asset_finish(mut asset);
+}
+fn prefab_conduit_gallery_material(region: u32, values: read AssetValues) -> PanelMaterial {
+    if region == CONDUIT_LIGHT_MATERIAL {
+        return emergency_light_material();
+    }
+    if region == CONDUIT_SUPPORT_MATERIAL {
+        return conduit_support_material();
+    }
+    if region == CONDUIT_REBAR_MATERIAL {
+        return conduit_rebar_material();
+    }
+    var material: PanelMaterial = conduit_debris_material(false);
+    if region >= 1u32 && region <= 3u32 {
+        material.finish = SURFACE_CABLE;
+        material.colour = 0x665c39u32;
+        if region == 2u32 {
+            material.colour = 0x496e85u32;
+        }
+        if region == 3u32 {
+            material.colour = 0x807351u32;
+        }
+        material.tile_metres = 2f32;
+        material.tile_height = 2f32;
+    }
+    return material;
+}

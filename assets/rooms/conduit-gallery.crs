@@ -1,0 +1,21 @@
+// Square inter-tube utility gallery. ENTRY and EXIT mate with conduit breaches.
+// Wall-mounted cable bundles and racks leave the centre open for flight.
+// utility-seed changes bundle thickness; length sets the distance between mouths.
+fn room_parameter_count() -> u32 {
+    return 2u32;
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_conduit_gallery_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_conduit_gallery_parameter_name(index);
+}
+fn room_material_count() -> u32 {
+    return CONDUIT_MATERIAL_COUNT;
+}
+fn room_material(region: u32, values: read AssetValues) -> PanelMaterial {
+    return prefab_conduit_gallery_material(region, read values);
+}
+fn room_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_conduit_gallery_build(read values, mut asset);
+}

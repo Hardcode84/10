@@ -101,7 +101,45 @@ fn build_game_tests(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    var sources: [*u8; 256] = uninit;
+    var fixtures: [*u8; 29] = make [*u8; 29] {
+        "tests/collision/fixtures.crs",
+        "tests/fixtures/industrial/course.crs",
+        "tests/fixtures/industrial/course-route.crs",
+        "tests/fixtures/industrial/course-pipes.crs",
+        "tests/fixtures/industrial/prefab.crs",
+        "tests/fixtures/industrial/expedition-layout.crs",
+        "tests/fixtures/industrial/expedition-shell.crs",
+        "tests/fixtures/industrial/expedition-world.crs",
+        "tests/fixtures/industrial/room-content.crs",
+        "tests/fixtures/industrial/launch-cradle.crs",
+        "tests/fixtures/industrial/counterweight-riser.crs",
+        "tests/fixtures/industrial/machines.crs",
+        "tests/fixtures/industrial/geometry.crs",
+        "tests/fixtures/industrial/collision.crs",
+        "tests/fixtures/industrial/materials.crs",
+        "tests/collision/motion.crs",
+        "tests/collision/index.crs",
+        "tests/collision/scaling.crs",
+        "tests/collision/reference.crs",
+        "tests/collision/checks.crs",
+        "tests/game/flight-fixture.crs",
+        "tests/game/prediction-admission.crs",
+        "tests/game/doors.crs",
+        "tests/game/checks.crs",
+        "tests/game/room-frames.crs",
+        "tests/game/pulses.crs",
+        "tests/game/hook.crs",
+        "tests/game/tether.crs",
+        "tests/game/preview.crs"
+    };
+    var sources: **u8 = crust_try_alloc(
+        root -> context,
+        (game_sources(root, null(**u8)) + 29usize) * sizeof(*u8),
+        alignof(*u8)
+    ) as **u8;
+    if sources == null(**u8) {
+        return false;
+    }
     var providers: **u8 = crust_try_alloc(
         root -> context,
         (
@@ -113,66 +151,14 @@ fn build_game_tests(
         return false;
     }
     var source_count: usize = game_sources(root, &sources[0usize]);
+    var fixture: usize = 0usize;
+    while fixture < 29usize {
+        sources[source_count] = host_path(root, fixtures[fixture]);
+        source_count = source_count + 1usize;
+        fixture = fixture + 1usize;
+    }
     var provider_count: usize = render_providers(root, &providers[0usize]);
     provider_count = provider_count + game_providers(root, &providers[provider_count]);
-    sources[source_count] = host_path(root, "tests/collision/fixtures.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/course.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/course-route.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/course-pipes.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/prefab.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/expedition-layout.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/expedition-shell.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/expedition-world.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/room-content.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/launch-cradle.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/counterweight-riser.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/machines.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/geometry.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/collision.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/fixtures/industrial/materials.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/collision/motion.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/collision/index.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/collision/scaling.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/collision/reference.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/collision/checks.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/game/flight-fixture.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/game/prediction-admission.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/game/doors.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/game/checks.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/game/room-frames.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/game/pulses.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/game/hook.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/game/tether.crs");
-    source_count = source_count + 1usize;
-    sources[source_count] = host_path(root, "tests/game/preview.crs");
-    source_count = source_count + 1usize;
     providers[provider_count] = host_path(root, "tests/game/entry.crs");
     provider_count = provider_count + 1usize;
     providers[provider_count] = host_path(root, "tests/collision/check-host.crs");

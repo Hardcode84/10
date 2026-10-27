@@ -1,0 +1,129 @@
+const CONDUIT_BREACH_WIDTH: f32 = 80f32;
+const CONDUIT_BREACH_RIM: f32 = 10f32;
+fn conduit_breach_profile() -> ConnectionProfile {
+    return make ConnectionProfile {
+        scale: scale_identity(),
+        name: asset_name("CONDUIT-BREACH"),
+        shape: make RegularProfile {
+            sides: 4u32,
+            phase: 0.785398163397f32
+        },
+        radius: CONDUIT_BREACH_WIDTH * 0.707106781187f32,
+        rotations: 1u32,
+        clearance: CONDUIT_BREACH_WIDTH * 0.3f32
+    };
+}
+fn prefab_conduit_breach_parameter_count() -> u32 {
+    return prefab_conduit_parameter_count() + 1u32;
+}
+fn prefab_conduit_breach_parameter_name(index: u32) -> AssetName {
+    if index == prefab_conduit_parameter_count() {
+        return asset_name("through");
+    }
+    return prefab_conduit_parameter_name(index);
+}
+fn prefab_conduit_breach_parameter(index: u32) -> AssetParameter {
+    if index == prefab_conduit_parameter_count() {
+        return make AssetParameter {
+            minimum: 0f32,
+            maximum: 1f32,
+            initial: 1f32,
+            step: 1f32
+        };
+    }
+    var parameter: AssetParameter = prefab_conduit_parameter(index);
+    if index == 0u32 {
+        parameter.initial = 200f32;
+        parameter.minimum = 150f32;
+    }
+    if index >= CONDUIT_HAZARD_PARAMETER && index < conduit_hazard_seed_parameter() {
+        parameter.initial = CONDUIT_HAZARD_EMPTY as f32;
+    }
+    return parameter;
+}
+fn conduit_breach_opening(asset: mut RoomAsset, centre: Vec3, height: f32) -> bool {
+    if !conduit_shaft_panel(
+        mut asset,
+        centre,
+        CONDUIT_BREACH_WIDTH * 0.5f32 + CONDUIT_BREACH_RIM,
+        height
+    ) {
+        return false;
+    }
+    var port: RoomPort = make RoomPort {
+        id: asset_name("BREACH"),
+        profile: conduit_breach_profile(),
+        face: asset_face_count(read asset.hull) - 1u32,
+        position: centre,
+        basis: make Basis {
+            right: vec(0f32, 1f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(1f32, 0f32, 0f32)
+        }
+    };
+    var next: AssetHull = asset_hull_new();
+    if !hull_convex_partition(read asset.hull, mut next, port, CONDUIT_FRACTURE_MATERIAL) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var end: RoomPort = asset_port(read asset.ports, i);
+        end.face = shaft_collar_end_face(read asset.hull, height * i as f32);
+        asset_port_set(mut asset.ports, i, end);
+        i = i + 1u32;
+    }
+    return asset_port_append(mut asset.ports, port);
+}
+fn prefab_conduit_breach_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    var through: f32 = asset_value(read values, prefab_conduit_parameter_count());
+    if !asset_parameter_valid(
+        prefab_conduit_breach_parameter(prefab_conduit_parameter_count()),
+        through
+    ) || through != through as u32 as f32 {
+        return error("breach through must be zero or one");
+    }
+    var height: f32 = asset_value(read values, 0u32);
+    if !asset_parameter_valid(prefab_conduit_breach_parameter(0u32), height) {
+        return false;
+    }
+    var centre: Vec3 = vec(
+        asset_value(read values, 1u32) * 0.5f32 + CONDUIT_BREACH_RIM,
+        height * 0.5f32,
+        0f32
+    );
+    if !prefab_conduit_prepare(read values, mut asset) || !conduit_breach_opening(
+        mut asset,
+        centre,
+        height
+    ) || !conduit_breach_rim(
+        mut asset,
+        centre,
+        asset_value(read values, conduit_hazard_seed_parameter()) as u32
+    ) || !conduit_breach_rubble(
+        mut asset,
+        centre,
+        asset_value(read values, conduit_hazard_seed_parameter()) as u32
+    ) || !conduit_hazards(
+        mut asset,
+        read values,
+        centre.y,
+        CONDUIT_BREACH_WIDTH * 0.5f32 + CONDUIT_BREACH_RIM
+    ) || !conduit_tiles(mut asset, read values) {
+        return false;
+    }
+    if through == 0f32 {
+        asset_port_remove(mut asset.ports, 1u32);
+    }
+    var core: f32 = asset_value(read values, 2u32) * 0.5f32;
+    var wall: f32 = asset_value(read values, 1u32) * 0.5f32;
+    asset.spawn.position = vec(core + (wall - core) * 0.3f32, centre.y, 0f32);
+    asset.spawn.basis = conduit_catwalk_basis(vec(1f32, 0f32, 0f32));
+    return room_asset_finish(mut asset);
+}
+fn prefab_conduit_breach_material(region: u32, values: read AssetValues) -> PanelMaterial {
+    if region == CONDUIT_MATERIAL_COUNT {
+        return prefab_conduit_material(0u32, read values);
+    }
+    return prefab_conduit_material(region, read values);
+}

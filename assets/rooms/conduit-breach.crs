@@ -1,0 +1,23 @@
+// Short conduit section with a large square side breach. Connect BOTTOM and TOP
+// to ordinary conduit sections, and BREACH to a conduit gallery.
+// The portal is behind fractured concrete and exposed rebar.
+// through=0 closes the TOP end.
+// hazard-seed changes the break; the shared profile fixes the square clearance.
+fn room_parameter_count() -> u32 {
+    return prefab_conduit_breach_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_conduit_breach_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_conduit_breach_parameter_name(index);
+}
+fn room_material_count() -> u32 {
+    return CONDUIT_MATERIAL_COUNT + 1u32;
+}
+fn room_material(region: u32, values: read AssetValues) -> PanelMaterial {
+    return prefab_conduit_breach_material(region, read values);
+}
+fn room_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_conduit_breach_build(read values, mut asset);
+}
