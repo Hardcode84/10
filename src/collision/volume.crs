@@ -1,23 +1,60 @@
-fn collision_winding(scene: read CollisionScene, item: CollisionInstance, p: Vec3) -> f32 {
-    var sum: f32 = 0f32;
-    var compensation: f32 = 0f32;
-    var i: u32 = 0u32;
-    while i < item.count {
-        var f: CollisionFace = collision_face(read scene, item.chunk, item.first + i);
-        var a: Vec3 = collision_normal(sub(f.a, p));
-        var b: Vec3 = collision_normal(sub(f.b, p));
-        var c: Vec3 = collision_normal(sub(f.c, p));
-        var angle: f32 = 2f32 * atan2f(
-            dot(a, cross(b, c)),
-            1f32 + dot(a, b) + dot(b, c) + dot(c, a)
-        );
-        var corrected: f32 = angle - compensation;
-        var next: f32 = sum + corrected;
-        compensation = (next - sum) - corrected;
-        sum = next;
-        i = i + 1u32;
+fn collision_ray_edge(a: Vec3, b: Vec3, p: Vec3) -> f32 {
+    return (a.y - p.y) * (b.z - p.z) - (a.z - p.z) * (b.y - p.y);
+}
+fn collision_ray_edge_owned(a: Vec3, b: Vec3, edge: f32) -> bool {
+    return edge > 0f32 || (
+        edge == 0f32 && (b.z > a.z || (b.z == a.z && b.y < a.y))
+    );
+}
+fn collision_ray_crossing(f: CollisionFace, p: Vec3) -> i64 {
+    var a: Vec3 = f.a;
+    var b: Vec3 = f.b;
+    var c: Vec3 = f.c;
+    var area: f32 = collision_ray_edge(a, b, c);
+    if area == 0f32 {
+        return 0i64;
     }
-    return sum;
+    var sign: i64 = 1i64;
+    if area < 0f32 {
+        var swap: Vec3 = b;
+        b = c;
+        c = swap;
+        sign = -1i64;
+    }
+    var ab: f32 = collision_ray_edge(a, b, p);
+    var bc: f32 = collision_ray_edge(b, c, p);
+    var ca: f32 = collision_ray_edge(c, a, p);
+    if !collision_ray_edge_owned(a, b, ab) || !collision_ray_edge_owned(b, c, bc) || !collision_ray_edge_owned(
+        c,
+        a,
+        ca
+    ) {
+        return 0i64;
+    }
+    var distance: f32 = bc * (a.x - p.x) + ca * (b.x - p.x) + ab * (c.x - p.x);
+    if distance <= 0f32 {
+        return 0i64;
+    }
+    return sign;
+}
+fn collision_volume_contains(scene: read CollisionScene, item: CollisionInstance, p: Vec3) -> bool {
+    var crossings: i64 = 0i64;
+    var i: u32 = item.root;
+    while i < item.end {
+        var node: CollisionNode = collision_node(read scene, item.chunk, i);
+        if p.x > node.high.x || p.y < node.low.y || p.y > node.high.y || p.z < node.low.z || p.z > node.high.z {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 {
+                crossings = crossings + collision_ray_crossing(
+                    collision_face(read scene, item.chunk, item.first + node.leaf),
+                    p
+                );
+            }
+            i = i + 1u32;
+        }
+    }
+    return crossings != 0i64;
 }
 fn collision_inside_solid(scene: read CollisionScene, index: u32, p: Vec3) -> bool {
     var item: CollisionInstance = collision_instance(read scene, index);
@@ -31,7 +68,7 @@ fn collision_inside_pose(scene: read CollisionScene, item: CollisionInstance, p:
     if !collision_aabb(local, vec(0f32, 0f32, 0f32), 0f32, item.low, item.high) {
         return false;
     }
-    return absf(collision_winding(read scene, item, local)) > 6.283185307f32;
+    return collision_volume_contains(read scene, item, local);
 }
 // Returns an enclosing solid instance, or 0xffffffff if the centre is outside all solids.
 fn collision_embedded(scene: read CollisionScene, space: u32, p: Vec3) -> u32 {

@@ -257,7 +257,9 @@ fn test_collision_motion() -> bool {
         100f32,
         vec(10000f32, -5000f32, 3000f32),
         collision_test_basis()
-    ) && test_motion_corner(0.2f32) && test_motion_corner(0.00005f32) && test_motion_conflict() && test_motion_volume() && test_motion_elbow() && test_motion_overlap_cases();
+    ) && test_motion_corner(0.2f32) && test_motion_corner(0.00005f32) && test_motion_conflict() && test_volume_indexed_case(
+        false
+    ) && test_volume_indexed_case(true) && test_volume_indexed_elbow() && test_motion_volume() && test_motion_elbow() && test_motion_overlap_cases();
 }
 fn test_motion_three_planes() -> bool {
     var mesh: Mesh = mesh_new();
@@ -409,4 +411,97 @@ fn test_motion_concave_volume() -> bool {
         ),
         "concave solid containment must follow the mesh, not its bounds"
     );
+}
+
+fn test_volume_reference(scene: read CollisionScene, item: CollisionInstance, p: Vec3) -> bool {
+    var sum: f32 = 0f32;
+    var i: u32 = 0u32;
+    while i < item.count {
+        var f: CollisionFace = collision_face(read scene, item.chunk, item.first + i);
+        var a: Vec3 = collision_normal(sub(f.a, p));
+        var b: Vec3 = collision_normal(sub(f.b, p));
+        var c: Vec3 = collision_normal(sub(f.c, p));
+        sum = sum + 2f32 * atan2f(
+            dot(a, cross(b, c)),
+            1f32 + dot(a, b) + dot(b, c) + dot(c, a)
+        );
+        i = i + 1u32;
+    }
+    return absf(sum) > 6.283185307f32;
+}
+fn test_volume_indexed_case(cavity: bool) -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    var inner: Mesh = mesh_new();
+    if !collision_test_box(
+        mut mesh,
+        vec(-3f32, -3f32, -3f32),
+        vec(3f32, 3f32, 3f32)
+    ) || !collision_test_box(
+        mut inner,
+        vec(-1f32, -1f32, -1f32),
+        vec(1f32, 1f32, 1f32)
+    ) {
+        return false;
+    }
+    var face: u32 = 0u32;
+    while face < mesh_triangle_count(read inner) {
+        var primitive: MeshTriangle = mesh_triangle(read inner, face);
+        if cavity {
+            var swap: MeshVertex = primitive.vertices[1usize];
+            primitive.vertices[1usize] = primitive.vertices[2usize];
+            primitive.vertices[2usize] = swap;
+        }
+        if !mesh_append(mut mesh, primitive) {
+            return false;
+        }
+        face = face + 1u32;
+    }
+    if !motion_fixture(
+        read mesh,
+        mut scene,
+        identity_basis(),
+        vec(0f32, 0f32, 0f32),
+        true
+    ) {
+        return false;
+    }
+    return test_volume_indexed_grid(read scene);
+}
+fn test_volume_indexed_grid(scene: read CollisionScene) -> bool {
+    var item: CollisionInstance = collision_instance(read scene, 0u32);
+    var i: u32 = 0u32;
+    while i < 729u32 {
+        var point: Vec3 = vec(
+            (i % 9u32) as f32 - 4.25f32,
+            ((i / 9u32) % 9u32) as f32 - 4.25f32,
+            (i / 81u32) as f32 - 4.25f32
+        );
+        if !game_check(
+            collision_volume_contains(read scene, item, point) == test_volume_reference(
+                read scene,
+                item,
+                point
+            ),
+            "indexed volume must preserve signed containment across nested shells and shared edges"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn test_volume_indexed_elbow() -> bool {
+    var mesh: Mesh = mesh_new();
+    var scene: CollisionScene = collision_new();
+    return collision_test_elbow(mut mesh) && collision_test_elbow_cap(mut mesh, 0u32) && collision_test_elbow_cap(
+        mut mesh,
+        12u32
+    ) && motion_fixture(
+        read mesh,
+        mut scene,
+        identity_basis(),
+        vec(0f32, 0f32, 0f32),
+        true
+    ) && test_volume_indexed_grid(read scene);
 }

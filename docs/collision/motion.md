@@ -81,18 +81,17 @@ rejected. At finish, each geometric edge must have exactly two incident faces
 with opposite edge directions. Open, inconsistently wound, and non-manifold
 edges fail the build. A failed finish preserves the previous scene.
 
-The inside test uses the signed solid angle of the triangles, with compensated
-summation. The absolute sum above `2*pi` means inside. Surface orientation must
+The inside test counts signed ray crossings through the triangle hierarchy.
+A nonzero count means inside. Surface orientation must
 be consistent within each shell. Opposite shell orientation defines a cavity;
 equal orientation defines filled overlapping volume. Edge validation does not
 prove that separate faces have no geometric intersections. The winding rule
 still specifies the volume in that case.
 
-Space and instance bounds reject outside points before the solid-angle sum.
-The sum visits all faces of each remaining solid instance. Thus a complex solid
-whose bounds contain the player has a cost proportional to its face count per
-motion call. Room surface instances do not incur this sum. This is distinct
-from the indexed surface sweep.
+Space and instance bounds reject outside points before the ray query.
+The query skips hierarchy nodes that the ray cannot reach. Shared projected
+edges belong to one triangle, so a ray through a face diagonal counts once.
+The query uses no temporary allocation. Room surface instances skip this test.
 
 The game builds complete collision volumes for solid parts and capped pipes.
 Render face masks can omit hidden faces; they do not remove volume boundaries
