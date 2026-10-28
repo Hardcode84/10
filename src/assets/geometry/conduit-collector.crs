@@ -1,0 +1,231 @@
+const COLLECTOR_ARC_STEPS: u32 = 8u32;
+fn conduit_collector_gallery_y() -> f32 {
+    return CONDUIT_BREACH_WIDTH * 0.625f32;
+}
+fn conduit_collector_back(span: f32, x: f32) -> f32 {
+    var radius: f32 = span;
+    var half: f32 = span * 0.5f32;
+    return CONDUIT_BREACH_WIDTH * 1.375f32 + sqrtf(radius * radius - x * x) - sqrtf(
+        radius * radius - half * half
+    );
+}
+fn conduit_collector_shell(hull: mut AssetHull, span: f32) -> bool {
+    var profile: RegularProfile = make RegularProfile {
+        sides: COLLECTOR_ARC_STEPS + 3u32,
+        phase: 0f32
+    };
+    if !loft_allocate(mut hull, profile, 2u32) {
+        return false;
+    }
+    var ring: u32 = 0u32;
+    while ring < 2u32 {
+        var i: u32 = 0u32;
+        while i < profile.sides {
+            var x: f32 = (i as f32 - 0.5f32) * span;
+            var y: f32 = 0f32;
+            if i >= 2u32 {
+                x = span * (0.5f32 - (i - 2u32) as f32 / COLLECTOR_ARC_STEPS as f32);
+                y = conduit_collector_back(span, x);
+            }
+            asset_vertex_set(
+                mut hull,
+                ring * profile.sides + i,
+                vec(x, y, (0.5f32 - ring as f32) * CONDUIT_BREACH_WIDTH * 1.25f32)
+            );
+            i = i + 1u32;
+        }
+        ring = ring + 1u32;
+    }
+    loft_span(mut hull, profile, 0u32, 0u32);
+    loft_caps(mut hull, profile, 2u32, 0u32, 0u32);
+    return true;
+}
+fn conduit_collector_port(asset: mut RoomAsset, port: RoomPort) -> bool {
+    var next: AssetHull = asset_hull_new();
+    if !hull_convex_partition(read asset.hull, mut next, port, 0u32) {
+        return false;
+    }
+    asset_hull_swap(mut asset.hull, mut next);
+    return asset_port_append(mut asset.ports, port);
+}
+fn conduit_collector_ports(asset: mut RoomAsset, span: f32) -> bool {
+    var port: RoomPort = make RoomPort {
+        id: asset_name("BREACH"),
+        profile: conduit_breach_profile(),
+        face: 0u32,
+        position: vec(-span * 0.22f32, 0f32, 0f32),
+        basis: make Basis {
+            right: vec(1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(0f32, -1f32, 0f32)
+        }
+    };
+    if !conduit_collector_port(mut asset, port) {
+        return false;
+    }
+    port.id = asset_name("GALLERY");
+    port.profile = conduit_gallery_profile();
+    port.face = 1u32;
+    port.position = vec(span * 0.5f32, conduit_collector_gallery_y(), 0f32);
+    port.basis = make Basis {
+        right: vec(0f32, 1f32, 0f32),
+        up: vec(0f32, 0f32, 1f32),
+        forward: vec(1f32, 0f32, 0f32)
+    };
+    return conduit_collector_port(mut asset, port);
+}
+fn conduit_collector_bundle(asset: mut RoomAsset, span: f32, z: f32) -> bool {
+    var graph: PipeGraph = pipe_graph_new();
+    var cursor: PipeCursor = make PipeCursor {
+        node: pipe_point(
+            mut graph,
+            vec(-span * 0.5f32, conduit_collector_back(span, -span * 0.5f32) - 9f32, z),
+            vec(0f32, 0f32, 1f32),
+            PIPE_NO_EXIT
+        )
+    };
+    if cursor.node == PIPE_NO_EXIT {
+        return false;
+    }
+    var i: u32 = 1u32;
+    while i <= COLLECTOR_ARC_STEPS {
+        var x: f32 = span * (i as f32 / COLLECTOR_ARC_STEPS as f32 - 0.5f32);
+        if !pipe_waypoint(
+            mut graph,
+            mut cursor,
+            vec(x, conduit_collector_back(span, x) - 9f32, z)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return conduit_utility_pipe(mut asset, read graph, 3f32, 2u32, 8f32);
+}
+fn conduit_collector_feed(asset: mut RoomAsset, span: f32, index: u32) -> bool {
+    var mouth: Vec3 = conduit_gallery_feed_point(index);
+    var x: f32 = span * 0.5f32;
+    var y: f32 = conduit_collector_gallery_y() + mouth.x;
+    var tap_x: f32 = span * 0.12f32;
+    if mouth.x > 0f32 {
+        tap_x = span * 0.32f32;
+    }
+    var tap: Vec3 = vec(tap_x, conduit_collector_back(span, tap_x) - 9f32, mouth.z);
+    var graph: PipeGraph = pipe_graph_new();
+    var cursor: PipeCursor = make PipeCursor {
+        node: pipe_point(mut graph, tap, vec(0f32, 0f32, 1f32), PIPE_NO_EXIT)
+    };
+    if cursor.node == PIPE_NO_EXIT || !pipe_waypoint(
+        mut graph,
+        mut cursor,
+        vec(tap.x, y, mouth.z)
+    ) || !pipe_waypoint(mut graph, mut cursor, vec(x, y, mouth.z)) {
+        return false;
+    }
+    return conduit_utility_pipe(
+        mut asset,
+        read graph,
+        CONDUIT_GALLERY_FEED_RADIUS,
+        2u32,
+        7f32
+    ) && conduit_catwalk_box(
+        mut asset,
+        vec(8f32, 10f32, 5f32),
+        tap,
+        identity_basis(),
+        CONDUIT_SUPPORT_MATERIAL,
+        asset_name("collector-splice")
+    ) && conduit_catwalk_box(
+        mut asset,
+        vec(3f32, 7f32, 4f32),
+        vec(x - 6.5f32, y, mouth.z),
+        identity_basis(),
+        CONDUIT_REBAR_MATERIAL,
+        asset_name("feed-collar")
+    );
+}
+fn conduit_collector_frame(asset: mut RoomAsset, span: f32) -> bool {
+    var x: f32 = span * 0.5f32 - 2f32;
+    var y: f32 = conduit_collector_gallery_y();
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        var angle: f32 = i as f32 * 1.57079632679f32;
+        var vertical: bool = (i & 1u32) == 0u32;
+        var size: Vec3 = vec(4f32, 5f32, CONDUIT_BREACH_WIDTH + 10f32);
+        if !vertical {
+            size = vec(4f32, CONDUIT_BREACH_WIDTH, 5f32);
+        }
+        var centre: Vec3 = vec(
+            x,
+            y + cosf(angle) * (CONDUIT_BREACH_WIDTH * 0.5f32 + 2.5f32),
+            sinf(angle) * (CONDUIT_BREACH_WIDTH * 0.5f32 + 2.5f32)
+        );
+        if !conduit_catwalk_box(
+            mut asset,
+            size,
+            centre,
+            identity_basis(),
+            CONDUIT_SUPPORT_MATERIAL,
+            asset_name("gland-frame")
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < 2u32 {
+        var mouth: Vec3 = conduit_gallery_feed_point(i * 4u32);
+        if !conduit_catwalk_box(
+            mut asset,
+            vec(5f32, 9f32, CONDUIT_BREACH_WIDTH),
+            vec(x - 0.5f32, y + mouth.x, 0f32),
+            identity_basis(),
+            CONDUIT_SUPPORT_MATERIAL,
+            asset_name("feed-bank")
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+fn conduit_collector_services(asset: mut RoomAsset, span: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < 4u32 {
+        var z: f32 = 12f32 + (i & 1u32) as f32 * 20f32;
+        if i >= 2u32 {
+            z = -z;
+        }
+        if !conduit_collector_bundle(mut asset, span, z) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    i = 0u32;
+    while i < CONDUIT_GALLERY_FEEDS {
+        if !conduit_collector_feed(mut asset, span, i) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return conduit_collector_frame(mut asset, span) && conduit_collector_mounts(mut asset, span);
+}
+
+fn conduit_collector_mounts(asset: mut RoomAsset, span: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < 3u32 {
+        var x: f32 = (i as f32 - 1f32) * span * 0.35f32;
+        var y: f32 = conduit_collector_back(span, x);
+        if !conduit_catwalk_box(
+            mut asset,
+            vec(6f32, 12f32, CONDUIT_BREACH_WIDTH * 1.25f32),
+            vec(x, y - 6f32, 0f32),
+            identity_basis(),
+            CONDUIT_SUPPORT_MATERIAL,
+            asset_name("collector-rack")
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

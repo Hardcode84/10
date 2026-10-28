@@ -398,7 +398,7 @@ completion, and retry criteria when evaluating the first route.
 | Subbiome | Spaces | Flight problem | Current recipes |
 | --- | --- | --- | --- |
 | Conduit tubes | Open tubes about 250 m across, each with a central core and debris | Cross open space where Coriolis drift is visible; on the climb, resist the core's pull and use orbiting debris as moving anchors | [Concrete tube with a powered core field](../../assets/rooms/conduit-tube.crs); [side shaft entry with a warning cone](../../assets/rooms/conduit-shaft.crs) |
-| Conduit tunnels | Smaller tunnels that connect the tubes, with exposed conduits | Choose tunnels that stay clear of exposed conduits; on the climb, avoid the live ones | None |
+| Conduit tunnels | Cable collection chambers inside tube walls lead to square galleries between tubes | Follow the cable routes; on the climb, avoid the live conduits | [Wall collector](../../assets/rooms/conduit-collector.crs); [cable gallery](../../assets/rooms/conduit-gallery.crs) |
 
 ### Cooling works (stratum 3)
 

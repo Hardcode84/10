@@ -1,0 +1,23 @@
+// Thick-wall cable collection chamber. BREACH enters through the tube shell.
+// GALLERY leaves the side through a framed cable bank, at a right angle.
+// Large bundles follow the curved back wall and continue into its end walls.
+// Splice blocks feed smaller cables through matching gallery sockets.
+// span sets the tangential width; powered lights the blue cable markings.
+fn room_parameter_count() -> u32 {
+    return prefab_conduit_collector_parameter_count();
+}
+fn room_parameter(index: u32) -> AssetParameter {
+    return prefab_conduit_collector_parameter(index);
+}
+fn room_parameter_name(index: u32) -> AssetName {
+    return prefab_conduit_collector_parameter_name(index);
+}
+fn room_material_count() -> u32 {
+    return prefab_conduit_collector_material_count();
+}
+fn room_material(region: u32, values: read AssetValues) -> PanelMaterial {
+    return prefab_conduit_collector_material(region, read values);
+}
+fn room_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    return prefab_conduit_collector_build(read values, mut asset);
+}

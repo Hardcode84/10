@@ -1,4 +1,5 @@
-// Square inter-tube utility gallery. ENTRY and EXIT mate with conduit breaches.
+// Square inter-tube utility gallery. ENTRY and EXIT mate with collector GALLERY ports.
+// Fixed feeds at both ends meet the collector cable banks.
 // Cables follow wall and corner lanes between seeded pairs of wall sockets.
 // Two cables cross the interior. Rounded routes keep clearance from each other.
 // powered enables blue full-bright strips on the blue cable family.

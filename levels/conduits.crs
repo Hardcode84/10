@@ -1,6 +1,6 @@
 // Run: crust demo.crs levels/conduits.crs
 // Start in a short capped shaft and enter the side of the first conduit.
-// Continue to a breached bay, cross the square utility gallery, and enter the
+// Continue to a breached bay, cross a wall collector chamber and the square utility gallery, and enter the
 // adjacent tube through a second broken wall. The far tube loops back to the
 // first through its end connection. The second tube has catwalks and an empty bay.
 const CONDUIT_DEMO_POWERED: f32 = 1f32;
@@ -19,7 +19,7 @@ fn demo_room_build(
     asset_value_set(mut values, 0u32, CONDUIT_START_SHAFT_LENGTH);
     if !course_build(PREFAB_SHAFT_CLEAR, read values, mut asset) || !graph_allocate(
         mut graph,
-        7u32,
+        9u32,
         0u32
     ) {
         return false;
@@ -113,6 +113,11 @@ fn demo_palette(input: mut FrameInput, selection: read GenerationWords) -> bool 
         course_material_parameter_offset(PREFAB_CONDUIT_GALLERY) + conduit_gallery_powered_parameter(),
         CONDUIT_DEMO_POWERED
     );
+    asset_value_set(
+        mut configuration,
+        course_material_parameter_offset(PREFAB_CONDUIT_COLLECTOR) + 1u32,
+        CONDUIT_DEMO_POWERED
+    );
     return course_palette_configured(mut input, read configuration, read selection);
 }
 fn demo_room_lighting(
@@ -139,6 +144,8 @@ fn conduit_demo_step(
     }
     if kind == PREFAB_CONDUIT_GALLERY {
         asset_value_set(mut values, conduit_gallery_powered_parameter(), CONDUIT_DEMO_POWERED);
+    } else if kind == PREFAB_CONDUIT_COLLECTOR {
+        asset_value_set(mut values, 1u32, CONDUIT_DEMO_POWERED);
     } else {
         asset_value_set(mut values, conduit_powered_parameter(), CONDUIT_DEMO_POWERED);
     }
@@ -183,6 +190,15 @@ fn conduit_demo_crossing(
         mut mesh,
         mut cursor,
         asset_name("BREACH"),
+        PREFAB_CONDUIT_COLLECTOR,
+        asset_name("BREACH"),
+        0u32
+    ) && conduit_demo_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("GALLERY"),
         PREFAB_CONDUIT_GALLERY,
         asset_name("ENTRY"),
         0u32
@@ -192,6 +208,15 @@ fn conduit_demo_crossing(
         mut mesh,
         mut cursor,
         asset_name("EXIT"),
+        PREFAB_CONDUIT_COLLECTOR,
+        asset_name("GALLERY"),
+        0u32
+    ) && conduit_demo_step(
+        mut graph,
+        mut builder,
+        mut mesh,
+        mut cursor,
+        asset_name("BREACH"),
         PREFAB_CONDUIT_BREACH,
         asset_name("BREACH"),
         1u32

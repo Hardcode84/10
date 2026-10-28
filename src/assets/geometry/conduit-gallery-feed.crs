@@ -1,0 +1,81 @@
+fn conduit_utility_pipe(
+    asset: mut RoomAsset,
+    graph: read PipeGraph,
+    radius: f32,
+    region: u32,
+    bend: f32
+) -> bool {
+    return pipe_graph_mesh(
+        mut asset,
+        read graph,
+        make TubeStyle {
+            radius: radius,
+            sides: 8u32,
+            tile_metres: conduit_gallery_cable_tile(region),
+            region: region
+        },
+        bend
+    );
+}
+const CONDUIT_GALLERY_FEEDS: u32 = 8u32;
+const CONDUIT_GALLERY_FEED_RADIUS: f32 = 1.2f32;
+fn conduit_gallery_profile() -> ConnectionProfile {
+    var profile: ConnectionProfile = conduit_breach_profile();
+    profile.name = asset_name("CONDUIT-GALLERY");
+    return profile;
+}
+// Feed positions are symmetric under the mating connection's half turn.
+fn conduit_gallery_feed_point(index: u32) -> Vec3 {
+    var side: f32 = 1f32;
+    if index >= 4u32 {
+        side = -1f32;
+    }
+    var z: f32 = 28f32 + (index & 1u32) as f32 * 5f32;
+    if (index & 2u32) != 0u32 {
+        z = -z;
+    }
+    return vec(side * 30f32, 0f32, z);
+}
+fn conduit_gallery_feed(asset: mut RoomAsset, length_metres: f32, index: u32, end: u32) -> bool {
+    var mouth: Vec3 = conduit_gallery_feed_point(index);
+    var side: f32 = mouth.x / absf(mouth.x);
+    var direction: f32 = 1f32 - end as f32 * 2f32;
+    mouth.y = end as f32 * length_metres;
+    var graph: PipeGraph = pipe_graph_new();
+    var cursor: PipeCursor = make PipeCursor {
+        node: pipe_point(mut graph, mouth, vec(0f32, 0f32, 1f32), PIPE_NO_EXIT)
+    };
+    if cursor.node == PIPE_NO_EXIT || !pipe_waypoint(
+        mut graph,
+        mut cursor,
+        add(mouth, vec(0f32, direction * 15f32, 0f32))
+    ) || !pipe_waypoint(
+        mut graph,
+        mut cursor,
+        vec(side * CONDUIT_BREACH_WIDTH * 0.5f32, mouth.y + direction * 15f32, mouth.z)
+    ) {
+        return false;
+    }
+    return conduit_utility_pipe(
+        mut asset,
+        read graph,
+        CONDUIT_GALLERY_FEED_RADIUS,
+        2u32,
+        4f32
+    );
+}
+fn conduit_gallery_feeds(asset: mut RoomAsset, length_metres: f32) -> bool {
+    var i: u32 = 0u32;
+    while i < CONDUIT_GALLERY_FEEDS {
+        if !conduit_gallery_feed(mut asset, length_metres, i, 0u32) || !conduit_gallery_feed(
+            mut asset,
+            length_metres,
+            i,
+            1u32
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}

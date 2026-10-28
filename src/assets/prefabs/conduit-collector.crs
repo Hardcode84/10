@@ -1,0 +1,64 @@
+fn prefab_conduit_collector_parameter_count() -> u32 {
+    return 2u32;
+}
+fn prefab_conduit_collector_parameter_name(index: u32) -> AssetName {
+    if index == 0u32 {
+        return asset_name("span");
+    }
+    return asset_name("powered");
+}
+fn prefab_conduit_collector_parameter(index: u32) -> AssetParameter {
+    if index == 0u32 {
+        return make AssetParameter {
+            minimum: 200f32,
+            maximum: 320f32,
+            initial: 220f32,
+            step: 10f32
+        };
+    }
+    return make AssetParameter {
+        minimum: 0f32,
+        maximum: 1f32,
+        initial: 0f32,
+        step: 1f32
+    };
+}
+fn prefab_conduit_collector_material_count() -> u32 {
+    return CONDUIT_MATERIAL_COUNT;
+}
+fn prefab_conduit_collector_material(region: u32, values: read AssetValues) -> PanelMaterial {
+    return conduit_utility_material(region, asset_value(read values, 1u32) == 1f32);
+}
+fn prefab_conduit_collector_build(values: read AssetValues, asset: mut RoomAsset) -> bool {
+    var i: u32 = 0u32;
+    while i < prefab_conduit_collector_parameter_count() {
+        if !asset_parameter_valid(
+            prefab_conduit_collector_parameter(i),
+            asset_value(read values, i)
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    var powered: f32 = asset_value(read values, 1u32);
+    if powered != powered as u32 as f32 {
+        return error("collector powered must be 0 or 1");
+    }
+    asset.tile_metres = conduit_debris_material(false).tile_metres;
+    var span: f32 = asset_value(read values, 0u32);
+    if !conduit_collector_shell(mut asset.hull, span) || !conduit_collector_ports(
+        mut asset,
+        span
+    ) || !conduit_collector_services(mut asset, span) {
+        return false;
+    }
+    asset.spawn = make AssetSpawn {
+        position: vec(-span * 0.22f32, 12f32, 0f32),
+        basis: make Basis {
+            right: vec(-1f32, 0f32, 0f32),
+            up: vec(0f32, 0f32, 1f32),
+            forward: vec(0f32, 1f32, 0f32)
+        }
+    };
+    return room_asset_finish(mut asset);
+}
