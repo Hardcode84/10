@@ -76,7 +76,7 @@ function compareImage(a, b) {
 function checkCommands(encoded) {
   const bytes=Buffer.from(encoded,'base64');
   let flags=0,reel=false,thrust=false,look=false;
-  require(bytes.length>=68 && bytes.readUInt32LE(0)===0x53504e30 && bytes.readUInt32LE(4)===23,'Invalid flight recording header');
+  require(bytes.length>=68 && bytes.readUInt32LE(0)===0x53504e30 && bytes.readUInt32LE(4)===24,'Invalid flight recording header');
   let ticks=0,offset=24;
   while(offset+44<=bytes.length && bytes.readUInt32LE(offset)!==0xffffffff) {
     require(bytes.readUInt32LE(offset)===ticks,'Invalid flight tick sequence');

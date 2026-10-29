@@ -1,4 +1,6 @@
 const JUMPER_LAUNCH_SPEED: f32 = 15f32;
+const JUMPER_SPRING_FREQUENCY: f32 = 14f32;
+const JUMPER_SPRING_DAMPING: f32 = 0.55f32;
 fn jumper_pinned(drone: read Drone) -> bool {
     return drone.wall_anchor.mode == MOVEMENT_JUMPER && drone.wall_anchor.active;
 }
@@ -63,16 +65,30 @@ fn jumper_acquire(scene: read CollisionScene, drone: mut Drone) -> bool {
     return true;
 }
 fn jumper_velocity(scene: read CollisionScene, drone: mut Drone) -> unit {
+    var time: f32 = drone.clock as f32 * STEP;
+    var factor: f32 = drone_size(read drone);
     var target: Vec3 = collision_anchor(
         read scene,
         drone.wall_anchor.instance,
         drone.wall_anchor.local_position,
-        (drone.clock + 1u32) as f32 * STEP
+        time
     );
-    drone.velocity = scale(
-        sub(target, drone.position),
-        1f32 / (STEP * drone_size(read drone))
+    var support: Vec3 = scale(
+        collision_anchor_velocity(
+            read scene,
+            drone.wall_anchor.instance,
+            drone.wall_anchor.local_position,
+            time
+        ),
+        1f32 / factor
     );
+    var offset: Vec3 = scale(sub(target, drone.position), 1f32 / factor);
+    var relative: Vec3 = sub(drone.velocity, support);
+    var acceleration: Vec3 = sub(
+        scale(offset, JUMPER_SPRING_FREQUENCY * JUMPER_SPRING_FREQUENCY),
+        scale(relative, 2f32 * JUMPER_SPRING_DAMPING * JUMPER_SPRING_FREQUENCY)
+    );
+    drone.velocity = add(drone.velocity, scale(acceleration, STEP));
 }
 fn jumper_finish(scene: read CollisionScene, drone: mut Drone) -> unit {
     if !jumper_pinned(read drone) {
@@ -81,17 +97,7 @@ fn jumper_finish(scene: read CollisionScene, drone: mut Drone) -> unit {
     var item: CollisionInstance = collision_instance(read scene, drone.wall_anchor.instance);
     if item.space != drone.world || drone.contact.active {
         drone.wall_anchor.active = false;
-        return;
     }
-    drone.velocity = scale(
-        collision_anchor_velocity(
-            read scene,
-            drone.wall_anchor.instance,
-            drone.wall_anchor.local_position,
-            drone.clock as f32 * STEP
-        ),
-        1f32 / drone_size(read drone)
-    );
 }
 
 fn jumper_release(scene: read CollisionScene, drone: read Drone, held: bool) -> bool {

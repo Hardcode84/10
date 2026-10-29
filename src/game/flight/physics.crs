@@ -91,22 +91,22 @@ fn simulate_admitted(
     if length(thrust) > 1f32 {
         thrust = unit_vector(thrust);
     }
-    var acceleration: Vec3 = add(
-        scale(
-            flight_acceleration(
-                collision_room_frame(read collision, drone.world),
-                drone.position,
-                scale(drone.velocity, drone_size(read drone)),
-                full_spin
-            ),
-            1f32 / drone_size(read drone)
-        ),
-        wall_anchor_input(read drone, thrust)
-    );
-    drone.velocity = add(drone.velocity, scale(acceleration, STEP));
     if jumper_pinned(read drone) {
         jumper_velocity(read collision, mut drone);
     } else {
+        var acceleration: Vec3 = add(
+            scale(
+                flight_acceleration(
+                    collision_room_frame(read collision, drone.world),
+                    drone.position,
+                    scale(drone.velocity, drone_size(read drone)),
+                    full_spin
+                ),
+                1f32 / drone_size(read drone)
+            ),
+            wall_anchor_input(read drone, thrust)
+        );
+        drone.velocity = add(drone.velocity, scale(acceleration, STEP));
         wall_anchor_velocity(mut drone);
     }
     var travel: Vec3 = scale(drone.velocity, STEP * drone_size(read drone));
