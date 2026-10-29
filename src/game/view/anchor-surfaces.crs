@@ -1,6 +1,6 @@
 const ANCHOR_PREVIEW_RADIUS: f32 = 10f32;
 const ANCHOR_SURFACE_LIFT: f32 = 0.02f32;
-const ANCHOR_DOT_PERIOD: f32 = 0.25f32;
+const ANCHOR_DOT_PERIOD: f32 = 0.5f32;
 // Shows nearby resident hulls through portal placements while anchor input is held.
 fn draw_anchor_surfaces(
     scene: read CollisionScene,
