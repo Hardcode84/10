@@ -11,7 +11,7 @@ fn turn_basis_components(b: Basis, axis: Vec3, sine: f32, cosine: f32) -> Basis 
     };
 }
 fn orient(frame: RoomFrame, drone: mut Drone, look: Vec3, auto_level: bool) -> unit {
-    if drone.wall_anchor.active {
+    if drone.wall_anchor.active && drone.wall_anchor.mode == MOVEMENT_ANCHOR {
         wall_anchor_orient(mut drone, look);
         return;
     }
@@ -27,7 +27,9 @@ fn orient(frame: RoomFrame, drone: mut Drone, look: Vec3, auto_level: bool) -> u
     }
     drone.basis = turn_basis(drone.basis, drone.basis.up, delta.x);
     drone.basis = turn_basis(drone.basis, drone.basis.right, delta.y);
-    if !auto_level {
+    if !auto_level || (
+        drone.wall_anchor.active && drone.wall_anchor.mode == MOVEMENT_JUMPER
+    ) {
         drone.basis = turn_basis(drone.basis, drone.basis.forward, delta.z);
         return;
     }

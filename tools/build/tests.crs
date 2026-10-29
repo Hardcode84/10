@@ -107,7 +107,7 @@ fn build_game_tests(
     root: *CrustRun,
     emit: fn(*CrustContext, *CrustDecl, *BackendOptions) -> i32
 ) -> bool {
-    var fixtures: [*u8; 30] = make [*u8; 30] {
+    var fixtures: [*u8; 31] = make [*u8; 31] {
         "tests/collision/fixtures.crs",
         "tests/fixtures/industrial/course.crs",
         "tests/fixtures/industrial/course-route.crs",
@@ -135,13 +135,14 @@ fn build_game_tests(
         "tests/game/room-frames.crs",
         "tests/game/pulses.crs",
         "tests/game/wall-anchor.crs",
+        "tests/game/jumper.crs",
         "tests/game/hook.crs",
         "tests/game/tether.crs",
         "tests/game/preview.crs"
     };
     var sources: **u8 = crust_try_alloc(
         root -> context,
-        (game_sources(root, null(**u8)) + 30usize) * sizeof(*u8),
+        (game_sources(root, null(**u8)) + 31usize) * sizeof(*u8),
         alignof(*u8)
     ) as **u8;
     if sources == null(**u8) {
@@ -159,7 +160,7 @@ fn build_game_tests(
     }
     var source_count: usize = game_sources(root, &sources[0usize]);
     var fixture: usize = 0usize;
-    while fixture < 30usize {
+    while fixture < 31usize {
         sources[source_count] = host_path(root, fixtures[fixture]);
         source_count = source_count + 1usize;
         fixture = fixture + 1usize;

@@ -353,3 +353,20 @@ Sparks do not change drone motion, emit light, or cast shadows.
 
 Run `crust tests.crs particles` for contact and sprite checks. The check writes
 an impact image to `build/test-sparks.ppm`.
+
+## Jumper controls
+
+Use `--jumper-controls` to select jumper instead of burst or wall skating.
+Hold RMB near a hook-eligible surface to hold the current position relative to
+that surface. The camera remains free. Release RMB to launch along the current
+aim. The launch retains the velocity of the support at the held position.
+The launch speed is set in [jumper.crs](../../src/game/flight/jumper.crs).
+
+Jumper uses the anchor range, charge, and recharge rules. Empty charge detaches
+without a launch. A powered door that starts moving also detaches without a
+launch. Collision or a portal crossing releases the hold.
+
+Props and moving machinery can accept jumper attachments. Green dots show
+these eligible surfaces. Gravity, thrust, and the winch cannot move the drone
+while held. The hook can remain attached; its pull resumes after release.
+Recordings store the selected movement mode.

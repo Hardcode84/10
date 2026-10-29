@@ -33,7 +33,7 @@ export async function flight(options) {
   // The ordinary course retains odd width and height to check row addressing.
   for (const [name, value] of Object.entries({complexity: 2, width: options.symmetric ? 640 : 641, height: options.symmetric ? 360 : 359, ticks: options.controls ? 0 : 1})) form.elements[name].value = value;
   form.elements.scaling.checked = !!options.scaling;
-  form.elements['anchor-controls'].checked = !!options.anchorControls;
+  form.elements.movement.value = options.jumperControls ? 'jumper-controls' : options.anchorControls ? 'anchor-controls' : '';
   form.elements.record.checked = !options.replay;
   form.elements.capture.checked = !options.controls;
   form.elements.fullscreen.checked = !!options.fullscreen;

@@ -10,7 +10,7 @@ fn flight_pulses(drone: mut Drone, command: Command) -> bool {
         drone.brake_ticks = FLIGHT_PULSE_TICKS;
         drone.brake_rate = brake_amount(read drone) / (FLIGHT_PULSE_TICKS as f32 * STEP);
         drone.pulse_cooldown = FLIGHT_COOLDOWN_TICKS;
-    } else if !drone.wall_anchor.enabled && command.burst && drone.pulse_cooldown == 0u32 && length(
+    } else if drone.wall_anchor.mode == MOVEMENT_FLIGHT && command.burst && drone.pulse_cooldown == 0u32 && length(
         command.thrust
     ) > 0f32 {
         boosted = true;
@@ -68,6 +68,7 @@ fn simulate_admitted(
     }
     drone.contact = flight_contact_empty();
     drone.step_frame = space_identity();
+    var launch: bool = jumper_release(read collision, read drone, command.anchor);
     wall_anchor_step(read collision, mut drone, command.anchor);
     orient(
         collision_room_frame(read collision, drone.world),
@@ -75,6 +76,12 @@ fn simulate_admitted(
         command.look,
         auto_level
     );
+    if launch {
+        drone.velocity = add(
+            drone.velocity,
+            scale(drone.basis.forward, JUMPER_LAUNCH_SPEED)
+        );
+    }
     var boosted: bool = flight_pulses(mut drone, command);
     tether_input(mut drone, command);
     var thrust: Vec3 = command.thrust;
@@ -97,7 +104,11 @@ fn simulate_admitted(
         wall_anchor_input(read drone, thrust)
     );
     drone.velocity = add(drone.velocity, scale(acceleration, STEP));
-    wall_anchor_velocity(mut drone);
+    if jumper_pinned(read drone) {
+        jumper_velocity(read collision, mut drone);
+    } else {
+        wall_anchor_velocity(mut drone);
+    }
     var travel: Vec3 = scale(drone.velocity, STEP * drone_size(read drone));
     var end_time: f32 = (drone.clock + 1u32) as f32 * STEP;
     hook_follow(read collision, mut drone, end_time);
@@ -111,6 +122,7 @@ fn simulate_admitted(
     }
     drone.clock = drone.clock + 1u32;
     admission = powered_winch(read collision, mut drone);
+    jumper_finish(read collision, mut drone);
     wall_anchor_finish(mut drone);
     return admission;
 }

@@ -1,3 +1,6 @@
+const MOVEMENT_FLIGHT: u32 = 0u32;
+const MOVEMENT_ANCHOR: u32 = 1u32;
+const MOVEMENT_JUMPER: u32 = 2u32;
 const WALL_ANCHOR_RANGE: f32 = 3f32;
 const WALL_ANCHOR_HOVER: f32 = 2.5f32;
 const WALL_ANCHOR_THRUST: f32 = 10f32;
@@ -7,7 +10,9 @@ const WALL_ANCHOR_APPROACH: f32 = 6f32;
 const WALL_ANCHOR_ACTIVE_TICKS: u32 = 480u32;
 const WALL_ANCHOR_RECHARGE_TICKS: u32 = 360u32;
 record WallAnchor {
-    enabled: bool;
+    mode: u32;
+    instance: u32;
+    local_position: Vec3;
     held: bool;
     active: bool;
     recovering: bool;
@@ -21,7 +26,9 @@ fn wall_anchor_capacity() -> u32 {
 }
 fn wall_anchor_new() -> WallAnchor {
     return make WallAnchor {
-        enabled: false,
+        mode: MOVEMENT_FLIGHT,
+        instance: 0xffffffffu32,
+        local_position: vec(0f32, 0f32, 0f32),
         held: false,
         active: false,
         recovering: false,
@@ -63,7 +70,11 @@ fn wall_anchor_cable_allows(drone: read Drone, hit: BoundaryContact) -> bool {
     return absf(height) <= drone.cable.extent * drone_size(read drone);
 }
 fn wall_anchor_step(scene: read CollisionScene, drone: mut Drone, held: bool) -> unit {
-    if !drone.wall_anchor.enabled {
+    if drone.wall_anchor.mode == MOVEMENT_FLIGHT {
+        return;
+    }
+    if drone.wall_anchor.mode == MOVEMENT_JUMPER {
+        jumper_step(read scene, mut drone, held);
         return;
     }
     drone.wall_anchor.held = held;
@@ -105,11 +116,7 @@ fn wall_anchor_step(scene: read CollisionScene, drone: mut Drone, held: bool) ->
     drone.wall_anchor.active = true;
     drone.wall_anchor.normal = hit.normal;
     drone.wall_anchor.distance = hit.distance / drone_size(read drone);
-    if drone.wall_anchor.charge <= WALL_ANCHOR_RECHARGE_TICKS {
-        drone.wall_anchor.charge = 0u32;
-    } else {
-        drone.wall_anchor.charge = drone.wall_anchor.charge - WALL_ANCHOR_RECHARGE_TICKS;
-    }
+    wall_anchor_drain(mut drone.wall_anchor);
 }
 fn wall_anchor_velocity(drone: mut Drone) -> unit {
     if !drone.wall_anchor.active {
@@ -159,6 +166,9 @@ fn wall_anchor_orient(drone: mut Drone, look: Vec3) -> unit {
     drone.basis = turn_basis(drone.basis, right, pitch - next);
 }
 fn wall_anchor_input(drone: read Drone, thrust: Vec3) -> Vec3 {
+    if jumper_pinned(read drone) {
+        return vec(0f32, 0f32, 0f32);
+    }
     if !drone.wall_anchor.active {
         return scale(basis_vector(drone.basis, thrust), FLIGHT_THRUST_ACCELERATION);
     }
@@ -180,7 +190,9 @@ fn wall_anchor_finish(drone: mut Drone) -> unit {
     if !drone.wall_anchor.active {
         return;
     }
-    drone.velocity = wall_tangent(drone.velocity, drone.wall_anchor.normal);
+    if drone.wall_anchor.mode == MOVEMENT_ANCHOR {
+        drone.velocity = wall_tangent(drone.velocity, drone.wall_anchor.normal);
+    }
     if drone.wall_anchor.charge == 0u32 {
         drone.wall_anchor.active = false;
         drone.wall_anchor.recovering = true;
@@ -202,4 +214,12 @@ fn wall_anchor_clear(scene: read CollisionScene, drone: read Drone, hit: Boundar
         trap;
     }
     return query.contact.hit.time <= 1f32 && query.contact.instance == hit.instance;
+}
+
+fn wall_anchor_drain(anchor: mut WallAnchor) -> unit {
+    if anchor.charge <= WALL_ANCHOR_RECHARGE_TICKS {
+        anchor.charge = 0u32;
+    } else {
+        anchor.charge = anchor.charge - WALL_ANCHOR_RECHARGE_TICKS;
+    }
 }

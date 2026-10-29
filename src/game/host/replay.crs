@@ -88,7 +88,9 @@ fn hash_ratio(hash: u32, ratio: read Rational) -> u32 {
 }
 
 fn wall_anchor_hash(hash: u32, anchor: WallAnchor) -> u32 {
-    var h: u32 = hash_word(hash, anchor.enabled as u32);
+    var h: u32 = hash_word(hash, anchor.mode);
+    h = hash_word(h, anchor.instance);
+    h = hash_vec(h, anchor.local_position);
     h = hash_word(h, anchor.held as u32);
     h = hash_word(h, anchor.active as u32);
     h = hash_word(h, anchor.recovering as u32);

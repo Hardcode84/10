@@ -5,6 +5,8 @@ import {presentation} from './presentation.mjs';
 const endpoint = process.env.BROWSER_CDP || 'http://127.0.0.1:9227';
 const scaling = process.argv.includes('--scaling');
 const anchorControls = process.argv.includes('--anchor');
+const jumperControls = process.argv.includes('--jumper');
+if(anchorControls && jumperControls) throw Error('Select one movement mode');
 const mainGame = process.argv.includes('--main');
 if (mainGame && scaling) throw Error('The service-network game does not use the scaling fixture');
 const origin = process.env.GAME_URL || 'http://127.0.0.1:8000';
@@ -36,7 +38,7 @@ async function evaluate(fn, argument, url=origin+'/') {
   return result.result.value;
 }
 async function browser(options) {
-  const value=await evaluate(flight,{...options,scaling,anchorControls,symmetric:mainGame || scaling});
+  const value=await evaluate(flight,{...options,scaling,anchorControls,jumperControls,symmetric:mainGame || scaling});
   if(options.deviceLoss || options.allocationFailure) {
     require(value.status==='Run failed. See the log.' && value.errors.length>0,JSON.stringify(value));
   } else {
@@ -74,7 +76,7 @@ function compareImage(a, b) {
 function checkCommands(encoded) {
   const bytes=Buffer.from(encoded,'base64');
   let flags=0,reel=false,thrust=false,look=false;
-  require(bytes.length>=68 && bytes.readUInt32LE(0)===0x53504e30 && bytes.readUInt32LE(4)===22,'Invalid flight recording header');
+  require(bytes.length>=68 && bytes.readUInt32LE(0)===0x53504e30 && bytes.readUInt32LE(4)===23,'Invalid flight recording header');
   let ticks=0,offset=24;
   while(offset+44<=bytes.length && bytes.readUInt32LE(offset)!==0xffffffff) {
     require(bytes.readUInt32LE(offset)===ticks,'Invalid flight tick sequence');
@@ -89,10 +91,10 @@ function checkCommands(encoded) {
     ticks++;
   }
   require(ticks>0 && offset+44===bytes.length && bytes.readUInt32LE(offset+4)===ticks,'Flight recording has an invalid tick count');
-  const required = anchorControls ? 134 : 7;
+  const required = anchorControls || jumperControls ? 134 : 7;
   require(thrust&&look&&reel&&(flags&required)===required,'SDL did not record thrust, roll, tether, reel, movement action and brake');
-  require(!!(bytes.readUInt32LE(8)&2)===anchorControls,'Recording lost movement control mode');
-  if(anchorControls)require((flags&1)===0,'Anchor controls also triggered boost');
+  require((bytes.readUInt32LE(8)>>>1)===(jumperControls ? 2 : anchorControls ? 1 : 0),'Recording lost movement control mode');
+  if(anchorControls || jumperControls)require((flags&1)===0,'Anchor controls also triggered boost');
 }
 async function native(recording, tag) {
   const path=`build/web-check-${tag}`;

@@ -25,7 +25,7 @@ fn test_anchor_hover() -> bool {
         return false;
     }
     var drone: Drone = new_drone();
-    drone.wall_anchor.enabled = true;
+    drone.wall_anchor.mode = MOVEMENT_ANCHOR;
     drone.position = vec(0f32, WALL_ANCHOR_RANGE * 0.9f32, 0f32);
     drone.basis = make Basis {
         right: vec(1f32, 0f32, 0f32),
@@ -67,7 +67,7 @@ fn test_anchor_energy() -> bool {
         return false;
     }
     var drone: Drone = new_drone();
-    drone.wall_anchor.enabled = true;
+    drone.wall_anchor.mode = MOVEMENT_ANCHOR;
     drone.position.y = WALL_ANCHOR_HOVER;
     var command: Command = idle_command();
     command.anchor = true;
@@ -157,7 +157,7 @@ fn test_anchor_scaled_frame() -> bool {
         return false;
     }
     var drone: Drone = new_drone();
-    drone.wall_anchor.enabled = true;
+    drone.wall_anchor.mode = MOVEMENT_ANCHOR;
     var size: Rational = rational_new(2u64, 1u64);
     rational_swap(mut drone.size, mut size);
     drone.position = scale(basis.up, WALL_ANCHOR_HOVER * 2f32);
@@ -180,7 +180,7 @@ fn test_anchor_winch() -> bool {
     }
     var drone: Drone = new_drone();
     drone.position = vec(0f32, WALL_ANCHOR_HOVER, 0f32);
-    drone.wall_anchor.enabled = true;
+    drone.wall_anchor.mode = MOVEMENT_ANCHOR;
     wall_anchor_step(read scene, mut drone, true);
     drone.cable.phase = CABLE_ATTACHED;
     drone.cable.anchor = vec(10f32, 0f32, 0f32);
@@ -206,7 +206,7 @@ fn test_anchor_winch() -> bool {
     );
 }
 fn test_wall_anchor() -> bool {
-    return test_anchor_dot_patch() && test_anchor_preview_edge() && test_anchor_surface_query() && test_anchor_tunnel_tracking() && test_anchor_camera_rate() && test_anchor_hover() && test_anchor_energy() && test_anchor_boundaries() && test_anchor_scaled_frame() && test_anchor_winch() && test_anchor_forces() && test_anchor_prediction() && test_anchor_portal() && test_anchor_occlusion();
+    return test_jumper() && test_anchor_dot_patch() && test_anchor_preview_edge() && test_anchor_surface_query() && test_anchor_tunnel_tracking() && test_anchor_camera_rate() && test_anchor_hover() && test_anchor_energy() && test_anchor_boundaries() && test_anchor_scaled_frame() && test_anchor_winch() && test_anchor_forces() && test_anchor_prediction() && test_anchor_portal() && test_anchor_occlusion();
 }
 
 fn test_anchor_forces() -> bool {
@@ -220,7 +220,7 @@ fn test_anchor_forces() -> bool {
         return false;
     }
     var drone: Drone = new_drone();
-    drone.wall_anchor.enabled = true;
+    drone.wall_anchor.mode = MOVEMENT_ANCHOR;
     drone.position.y = WALL_ANCHOR_HOVER;
     drone.velocity = vec(3f32, 0f32, 4f32);
     var acceleration: Vec3 = flight_acceleration(
@@ -235,7 +235,7 @@ fn test_anchor_forces() -> bool {
     );
     var command: Command = idle_command();
     command.burst = true;
-    command = movement_command(command, true);
+    command = movement_command(command, MOVEMENT_ANCHOR);
     if !game_check(
         command.anchor && !command.burst && (command_flags(command) & 128u32) != 0u32,
         "anchor input mapping or recording flag lost"
@@ -249,12 +249,17 @@ fn test_anchor_forces() -> bool {
     );
 }
 fn test_anchor_prediction() -> bool {
+    return test_anchor_prediction_mode(MOVEMENT_ANCHOR) && test_anchor_prediction_mode(
+        MOVEMENT_JUMPER
+    );
+}
+fn test_anchor_prediction_mode(mode: u32) -> bool {
     var scene: CollisionScene = collision_new();
     if !anchor_test_floor(mut scene, identity_basis()) {
         return false;
     }
     var trial: Trial = new_trial();
-    trial.drone.wall_anchor.enabled = true;
+    trial.drone.wall_anchor.mode = mode;
     trial.drone.position.y = WALL_ANCHOR_HOVER;
     trial.drone.velocity.z = 5f32;
     wall_anchor_step(read scene, mut trial.drone, true);
@@ -293,7 +298,7 @@ fn test_anchor_portal() -> bool {
         return false;
     }
     var drone: Drone = new_drone();
-    drone.wall_anchor.enabled = true;
+    drone.wall_anchor.mode = MOVEMENT_ANCHOR;
     drone.position = vec(0f32, WALL_ANCHOR_HOVER, -0.1f32);
     drone.velocity = vec(0f32, 0f32, 8f32);
     wall_anchor_step(read scene, mut drone, true);
@@ -414,7 +419,7 @@ fn test_anchor_occlusion() -> bool {
         return false;
     }
     var drone: Drone = new_drone();
-    drone.wall_anchor.enabled = true;
+    drone.wall_anchor.mode = MOVEMENT_ANCHOR;
     drone.position.y = WALL_ANCHOR_RANGE * 0.9f32;
     var command: Command = idle_command();
     command.anchor = true;
@@ -464,7 +469,7 @@ fn test_anchor_tunnel_tracking() -> bool {
         return false;
     }
     var drone: Drone = new_drone();
-    drone.wall_anchor.enabled = true;
+    drone.wall_anchor.mode = MOVEMENT_ANCHOR;
     drone.position = vec(0.5f32, 0.2f32, 0f32);
     drone.velocity = vec(0f32, 1f32, 2f32);
     var command: Command = idle_command();

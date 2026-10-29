@@ -6,6 +6,10 @@ record BoundaryContact {
     distance: f32;
 }
 record BoundaryQuery {
+    hull_only: bool;
+    time: f32;
+    space: u32;
+    moving: u32;
     chunk: u32;
     room_cursor: u32;
     room_end: u32;
@@ -37,6 +41,10 @@ fn collision_boundary_begin(
 ) -> BoundaryQuery {
     var room: CollisionSpace = collision_space(read scene, space);
     return make BoundaryQuery {
+        hull_only: true,
+        time: 0f32,
+        space: space,
+        moving: collision_moving_head(read scene),
         chunk: room.chunk,
         room_cursor: room.root,
         room_end: room.end,
@@ -63,7 +71,7 @@ fn collision_boundary_enter(scene: read CollisionScene, query: mut BoundaryQuery
             query.room_cursor = node.skip;
         } else if node.leaf != 0xffffffffu32 {
             var item: CollisionInstance = collision_instance(read scene, node.leaf);
-            if item.boundary && !collision_moving(item) {
+            if (!query.hull_only || item.boundary) && !collision_moving(item) {
                 query.instance = node.leaf;
                 query.cursor = item.root;
                 query.end = item.end;
@@ -71,10 +79,13 @@ fn collision_boundary_enter(scene: read CollisionScene, query: mut BoundaryQuery
             }
         }
     }
-    return false;
+    return collision_boundary_enter_moving(read scene, mut query);
 }
 fn collision_boundary_project(scene: read CollisionScene, query: BoundaryQuery) -> BoundaryContact {
-    var item: CollisionInstance = collision_instance(read scene, query.instance);
+    var item: CollisionInstance = collision_pose(
+        collision_instance(read scene, query.instance),
+        query.time
+    );
     var face: CollisionFace = collision_face(read scene, item.chunk, query.face);
     var p: Vec3 = collision_local(item.basis, sub(query.position, item.origin));
     var signed: f32 = dot(sub(p, face.a), face.normal);
@@ -110,7 +121,10 @@ fn collision_boundary_leaf(scene: read CollisionScene, query: mut BoundaryQuery)
         if query.cursor == query.end && !collision_boundary_enter(read scene, mut query) {
             return false;
         }
-        var item: CollisionInstance = collision_instance(read scene, query.instance);
+        var item: CollisionInstance = collision_pose(
+            collision_instance(read scene, query.instance),
+            query.time
+        );
         var node: CollisionNode = collision_node(read scene, item.chunk, query.cursor);
         query.cursor = query.cursor + 1u32;
         var p: Vec3 = collision_local(item.basis, sub(query.position, item.origin));
@@ -181,7 +195,10 @@ fn collision_boundary_next(scene: read CollisionScene, query: mut BoundaryQuery)
 // Yields hull triangles that intersect the query sphere, including edge contact.
 fn collision_boundary_nearby(scene: read CollisionScene, query: mut BoundaryQuery) -> BoundaryContact {
     while collision_boundary_leaf(read scene, mut query) {
-        var item: CollisionInstance = collision_instance(read scene, query.instance);
+        var item: CollisionInstance = collision_pose(
+            collision_instance(read scene, query.instance),
+            query.time
+        );
         var face: CollisionFace = collision_face(read scene, item.chunk, query.face);
         var p: Vec3 = collision_local(item.basis, sub(query.position, item.origin));
         var point: Vec3 = collision_closest(face, p);
@@ -201,4 +218,22 @@ fn collision_boundary_nearby(scene: read CollisionScene, query: mut BoundaryQuer
         }
     }
     return boundary_miss(query.position, query.reach);
+}
+
+fn collision_boundary_enter_moving(scene: read CollisionScene, query: mut BoundaryQuery) -> bool {
+    if query.hull_only {
+        return false;
+    }
+    while query.moving != 0xffffffffu32 {
+        var index: u32 = query.moving;
+        var item: CollisionInstance = collision_instance(read scene, index);
+        query.moving = item.next_moving;
+        if item.space == query.space && collision_attachment_available(item, query.time) {
+            query.instance = index;
+            query.cursor = item.root;
+            query.end = item.end;
+            return true;
+        }
+    }
+    return false;
 }

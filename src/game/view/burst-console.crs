@@ -21,7 +21,7 @@ fn draw_burst_console(v: mut FrameInput, drone: read Drone, config: GameConfig) 
         CONSOLE_FACE
     );
     var charge: f32 = 1f32 - drone.pulse_cooldown as f32 / FLIGHT_COOLDOWN_TICKS as f32;
-    if drone.wall_anchor.enabled {
+    if drone.wall_anchor.mode != MOVEMENT_FLIGHT {
         charge = drone.wall_anchor.charge as f32 / wall_anchor_capacity() as f32;
     }
     var bottom: f32 = -0.138f32;
@@ -69,12 +69,12 @@ fn draw_burst_console(v: mut FrameInput, drone: read Drone, config: GameConfig) 
         CONSOLE_INK
     );
     var lamp: u32 = CONSOLE_SCALE;
-    if (drone.wall_anchor.enabled && !drone.wall_anchor.recovering) || (
-        !drone.wall_anchor.enabled && drone.pulse_cooldown == 0u32
+    if (drone.wall_anchor.mode != MOVEMENT_FLIGHT && !drone.wall_anchor.recovering) || (
+        drone.wall_anchor.mode == MOVEMENT_FLIGHT && drone.pulse_cooldown == 0u32
     ) {
         lamp = CONSOLE_READY;
     }
-    if drone.wall_anchor.enabled && drone.wall_anchor.active {
+    if drone.wall_anchor.mode != MOVEMENT_FLIGHT && drone.wall_anchor.active {
         lamp = 4u32;
     }
     console_rect(

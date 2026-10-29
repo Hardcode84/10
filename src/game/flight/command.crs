@@ -29,9 +29,9 @@ fn idle_command() -> Command {
 }
 
 // Converts the shared held action to the selected movement scheme.
-fn movement_command(command: Command, anchor_controls: bool) -> Command {
+fn movement_command(command: Command, movement_mode: u32) -> Command {
     var result: Command = command;
-    if anchor_controls {
+    if movement_mode != MOVEMENT_FLIGHT {
         result.anchor = result.burst;
         result.burst = false;
     }

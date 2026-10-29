@@ -8,7 +8,7 @@ fn draw_anchor_surfaces(
     drone: read Drone,
     anchors: mut RoomAnchors
 ) -> unit {
-    if !drone.wall_anchor.enabled || !drone.wall_anchor.held {
+    if drone.wall_anchor.mode == MOVEMENT_FLIGHT || !drone.wall_anchor.held {
         return;
     }
     room_anchors_clear(mut anchors);
@@ -38,12 +38,24 @@ fn draw_anchor_surfaces(
                 world: anchor.space,
                 factor: rational_float(read size)
             };
-            draw_anchor_room(read scene, mut input, eye);
+            draw_anchor_room(
+                read scene,
+                mut input,
+                eye,
+                drone.wall_anchor.mode,
+                drone.clock as f32 * STEP
+            );
         }
         i = i + 1u32;
     }
 }
-fn draw_anchor_room(scene: read CollisionScene, input: mut FrameInput, eye: PredictionEye) -> unit {
+fn draw_anchor_room(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    eye: PredictionEye,
+    mode: u32,
+    time: f32
+) -> unit {
     var query: BoundaryQuery = collision_boundary_begin(
         read scene,
         eye.world,
@@ -51,6 +63,8 @@ fn draw_anchor_room(scene: read CollisionScene, input: mut FrameInput, eye: Pred
         ANCHOR_PREVIEW_RADIUS * eye.factor,
         vec(0f32, 0f32, 0f32)
     );
+    query.hull_only = mode != MOVEMENT_JUMPER;
+    query.time = time;
     var first: u32 = input_word(read input, 3usize);
     while true {
         var hit: BoundaryContact = collision_boundary_nearby(read scene, mut query);
@@ -84,7 +98,10 @@ fn draw_anchor_surface(
     query: BoundaryQuery,
     hit: BoundaryContact
 ) -> unit {
-    var item: CollisionInstance = collision_instance(read scene, hit.instance);
+    var item: CollisionInstance = collision_pose(
+        collision_instance(read scene, hit.instance),
+        query.time
+    );
     var face: CollisionFace = collision_face(read scene, item.chunk, query.face);
     var patch: AnchorPatch = anchor_patch(
         add(item.origin, basis_vector(item.basis, face.a)),

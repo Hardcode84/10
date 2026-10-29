@@ -275,6 +275,6 @@ fn game_doors_mut(control: mut GameControl) -> mut DoorSet from control {
     return graph_doors_mut(mut control.graph);
 }
 
-fn game_initial_anchor_controls(session: read GameSession) -> bool {
-    return session.control.launch.config.anchor_controls;
+fn game_initial_movement_mode(session: read GameSession) -> u32 {
+    return session.control.launch.config.movement_mode;
 }

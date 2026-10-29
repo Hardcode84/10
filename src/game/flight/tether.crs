@@ -1,6 +1,6 @@
 const REEL_SPEED: f32 = 40f32;
 fn tether_winch_admitted(collision: read CollisionScene, drone: mut Drone) -> CollisionAdmission {
-    if drone.cable.phase != CABLE_ATTACHED {
+    if drone.cable.phase != CABLE_ATTACHED || jumper_pinned(read drone) {
         return collision_ready();
     }
     var body_scale: f32 = drone_size(read drone);

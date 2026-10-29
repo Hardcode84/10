@@ -198,3 +198,8 @@ fn collision_position_valid_at(
     );
     return query.status == 0u32 && query.contact.penetration <= collision_tolerance(p, radius) * 0.25f32;
 }
+
+// Powered translating surfaces accept attachments only while stationary.
+fn collision_attachment_available(item: CollisionInstance, time: f32) -> bool {
+    return !item.controlled || length(collision_pose(item, time).linear) == 0f32;
+}

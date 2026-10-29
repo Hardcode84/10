@@ -6,6 +6,7 @@ fn main(argc: i32, argv: **u8) -> i32 {
             "Hold RMB + direction: burst | Hold F: brake | LMB: hold tether | R or Space: fast reel"
         );
         puts("Backspace: reset | F4: spin | L: level | P: prediction | Tab: pause | Esc: exit");
+        puts("--jumper-controls: hold RMB near a surface to pin; release to launch along aim");
         puts("--anchor-controls: replace burst with held RMB wall anchor; F still brakes");
         puts("--fullscreen: borderless desktop window; width/height set render resolution");
         puts("--width N --height N --fov 70..110 --bindings FILE");

@@ -20,7 +20,7 @@ fn hook_attach(
         contact_time
     );
     var body: CollisionInstance = collision_instance(read scene, contact.instance);
-    if body.controlled && length(collision_pose(body, contact_time).linear) != 0f32 {
+    if !collision_attachment_available(body, contact_time) {
         hook_disconnect(mut drone);
         return;
     }
@@ -65,7 +65,7 @@ fn hook_follow(scene: read CollisionScene, drone: mut Drone, time: f32) -> unit 
         return;
     }
     var body: CollisionInstance = collision_instance(read scene, drone.cable.instance);
-    if body.controlled && length(collision_pose(body, time).linear) != 0f32 {
+    if !collision_attachment_available(body, time) {
         hook_disconnect(mut drone);
         return;
     }

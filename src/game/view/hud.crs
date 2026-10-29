@@ -65,12 +65,7 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
     hud_number(mut v, 11u32, 2u32, trial.auto_level as u32);
     hud_text(mut v, 19u32, 2u32, "PREVIEW 0 OFF 1 ON");
     hud_number(mut v, 38u32, 2u32, trial.preview_enabled as u32);
-    hud_text(
-        mut v,
-        0u32,
-        3u32,
-        "WASD SPACE CTRL MOVE | MOUSE LOOK | RMB + MOVE BURST | F BRAKE"
-    );
+    movement_help(mut v, trial.drone.wall_anchor.mode);
     hud_text(mut v, 0u32, 4u32, "LMB TETHER | R REEL | F4 SPIN | L LEVEL | P PREVIEW");
     hud_text(mut v, 0u32, 5u32, "BACKSPACE RETRY | TAB PAUSE | ESC EXIT");
 
@@ -165,4 +160,19 @@ fn hud_size(input: mut FrameInput, factor: f32) -> unit {
         (OVERLAY_CELLS + 2u32 * 80u32 + 73u32) as usize,
         48u32 + exponent as u32 % 10u32
     );
+}
+
+fn movement_help(v: mut FrameInput, mode: u32) -> unit {
+    if mode == MOVEMENT_JUMPER {
+        hud_text(
+            mut v,
+            0u32,
+            3u32,
+            "HOLD RMB PIN | RELEASE RMB JUMP | F BRAKE | LMB HOOK | R REEL"
+        );
+    } else if mode == MOVEMENT_ANCHOR {
+        hud_text(mut v, 0u32, 3u32, "HOLD RMB WALL SKATE | F BRAKE | LMB HOOK | R REEL");
+    } else {
+        hud_text(mut v, 0u32, 3u32, "RMB + MOVE BOOST | F BRAKE | LMB HOLD HOOK | R REEL");
+    }
 }

@@ -1,0 +1,172 @@
+fn jumper_test_scene(
+    scene: mut CollisionScene,
+    linear: Vec3,
+    angular: Vec3,
+    controlled: bool
+) -> bool {
+    var mesh: Mesh = mesh_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    if !collision_test_box(
+        mut mesh,
+        vec(-4f32, -1f32, -4f32),
+        vec(4f32, 0f32, 4f32)
+    ) || !collision_append_solid(
+        mut builder,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) || !collision_set_motion(mut builder, linear, angular) {
+        return false;
+    }
+    if controlled {
+        collision_controlled(mut builder);
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn test_jumper() -> bool {
+    return test_jumper_hold_release() && test_jumper_exhaustion() && test_jumper_support() && test_jumper_door_rule();
+}
+fn test_jumper_hold_release() -> bool {
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !jumper_test_scene(mut scene, still, still, false) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.wall_anchor.mode = MOVEMENT_JUMPER;
+    drone.position = vec(0f32, WALL_ANCHOR_HOVER, 0f32);
+    var start: Vec3 = drone.position;
+    drone.velocity = vec(8f32, -2f32, 3f32);
+    var command: Command = idle_command();
+    command.burst = true;
+    command = movement_command(command, MOVEMENT_JUMPER);
+    command.thrust = vec(1f32, 1f32, 1f32);
+    command.look.y = 0.5f32;
+    var i: u32 = 0u32;
+    while i < 12u32 {
+        simulate(read scene, mut drone, command, true, false);
+        i = i + 1u32;
+    }
+    if !game_check(
+        jumper_pinned(read drone) && length(sub(drone.position, start)) == 0f32 && length(
+            drone.velocity
+        ) == 0f32 && absf(drone.basis.forward.y) > 0f32,
+        "jumper failed to hold on a prop or blocked aiming"
+    ) {
+        return false;
+    }
+    command = idle_command();
+    command.look.x = 0.5f32;
+    simulate(read scene, mut drone, command, false, false);
+    if !game_check(
+        !drone.wall_anchor.active && dot(
+            unit_vector(drone.velocity),
+            drone.basis.forward
+        ) > 0.999f32 && length(drone.velocity) > JUMPER_LAUNCH_SPEED * 0.99f32,
+        "jumper release missed current aim or launch speed"
+    ) {
+        return false;
+    }
+    var speed: f32 = length(drone.velocity);
+    simulate(read scene, mut drone, command, false, false);
+    return game_check(
+        length(drone.velocity) < speed + 0.1f32,
+        "jumper repeated launch after release"
+    );
+}
+fn test_jumper_exhaustion() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !anchor_test_floor(mut scene, identity_basis()) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.wall_anchor.mode = MOVEMENT_JUMPER;
+    drone.wall_anchor.charge = WALL_ANCHOR_RECHARGE_TICKS;
+    drone.position.y = WALL_ANCHOR_HOVER;
+    var command: Command = idle_command();
+    command.anchor = true;
+    simulate(read scene, mut drone, command, false, false);
+    if !game_check(
+        !drone.wall_anchor.active && drone.wall_anchor.recovering && drone.wall_anchor.charge == 0u32 && length(
+            drone.velocity
+        ) == 0f32,
+        "jumper exhaustion launched or stayed pinned"
+    ) {
+        return false;
+    }
+    command.anchor = false;
+    simulate(read scene, mut drone, command, false, false);
+    return game_check(
+        length(drone.velocity) < JUMPER_LAUNCH_SPEED * 0.1f32,
+        "release after depletion launched"
+    );
+}
+fn test_jumper_support() -> bool {
+    var scene: CollisionScene = collision_new();
+    var linear: Vec3 = vec(2f32, 0f32, 0f32);
+    var angular: Vec3 = vec(0f32, 0.2f32, 0f32);
+    if !jumper_test_scene(mut scene, linear, angular, false) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.wall_anchor.mode = MOVEMENT_JUMPER;
+    drone.position = vec(1f32, WALL_ANCHOR_HOVER, 0f32);
+    var command: Command = idle_command();
+    command.anchor = true;
+    simulate(read scene, mut drone, command, false, false);
+    var target: Vec3 = collision_anchor(
+        read scene,
+        drone.wall_anchor.instance,
+        drone.wall_anchor.local_position,
+        STEP
+    );
+    var velocity: Vec3 = collision_anchor_velocity(
+        read scene,
+        drone.wall_anchor.instance,
+        drone.wall_anchor.local_position,
+        STEP
+    );
+    return game_check(
+        jumper_pinned(read drone) && length(sub(target, drone.position)) < 0.00001f32 && length(
+            sub(velocity, drone.velocity)
+        ) < 0.00001f32,
+        "jumper did not follow rotating support or inherit point velocity"
+    );
+}
+fn test_jumper_door_rule() -> bool {
+    var scene: CollisionScene = collision_new();
+    var still: Vec3 = vec(0f32, 0f32, 0f32);
+    if !jumper_test_scene(mut scene, still, still, true) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.wall_anchor.mode = MOVEMENT_JUMPER;
+    drone.position.y = WALL_ANCHOR_HOVER;
+    var command: Command = idle_command();
+    command.anchor = true;
+    simulate(read scene, mut drone, command, false, false);
+    if !game_check(jumper_pinned(read drone), "jumper rejected stationary door") {
+        return false;
+    }
+    collision_slide(
+        mut scene,
+        0u32,
+        drone.clock as f32 * STEP,
+        1f32,
+        vec(1f32, 0f32, 0f32)
+    );
+    simulate(read scene, mut drone, command, false, false);
+    if !game_check(
+        !drone.wall_anchor.active && length(drone.velocity) < 0.1f32,
+        "moving door did not detach jumper without launch"
+    ) {
+        return false;
+    }
+    command.anchor = false;
+    simulate(read scene, mut drone, command, false, false);
+    return game_check(
+        length(drone.velocity) < 0.1f32,
+        "release after moving door detach launched"
+    );
+}
