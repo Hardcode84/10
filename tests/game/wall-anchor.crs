@@ -206,7 +206,7 @@ fn test_anchor_winch() -> bool {
     );
 }
 fn test_wall_anchor() -> bool {
-    return test_anchor_hover() && test_anchor_energy() && test_anchor_boundaries() && test_anchor_scaled_frame() && test_anchor_winch() && test_anchor_forces() && test_anchor_prediction() && test_anchor_portal() && test_anchor_occlusion();
+    return test_anchor_tunnel_tracking() && test_anchor_camera_rate() && test_anchor_hover() && test_anchor_energy() && test_anchor_boundaries() && test_anchor_scaled_frame() && test_anchor_winch() && test_anchor_forces() && test_anchor_prediction() && test_anchor_portal() && test_anchor_occlusion();
 }
 
 fn test_anchor_forces() -> bool {
@@ -297,14 +297,19 @@ fn test_anchor_portal() -> bool {
     if !game_check(drone.wall_anchor.active, "portal fixture did not acquire its floor") {
         return false;
     }
+    var frame: SpaceTransform = collision_portal(read scene, 0u32).transform;
     move_drone_interval(read scene, mut drone, vec(0f32, 0f32, 0.2f32), STEP);
+    wall_anchor_step(read scene, mut drone, true);
     return game_check(
-        drone.world == 1u32 && !drone.wall_anchor.active && drone.wall_anchor.held && near(
-            drone.velocity.z,
+        drone.world == 1u32 && drone.wall_anchor.active && drone.wall_anchor.held && dot(
+            drone.wall_anchor.normal,
+            frame.basis.up
+        ) > 0.999f32 && dot(drone.wall_anchor.up, frame.basis.up) > 0.999f32 && near(
+            length(drone.velocity),
             8f32,
             0.0001f32
         ),
-        "portal crossing retained a source-room wall constraint"
+        "portal crossing interrupted continuous wall tracking"
     );
 
 }
@@ -312,6 +317,8 @@ fn test_anchor_portal() -> bool {
 fn anchor_test_portals(scene: mut CollisionScene) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var mesh: Mesh = mesh_new();
+    var frame: SpaceTransform = space_identity();
+    frame.basis = collision_test_basis();
     if !collision_test_quad(
         mut mesh,
         vec(-100f32, 0f32, -100f32),
@@ -330,7 +337,7 @@ fn anchor_test_portals(scene: mut CollisionScene) -> bool {
         read mesh,
         1u32,
         vec(0f32, 0f32, 0f32),
-        identity_basis()
+        frame.basis
     ) {
         return false;
     }
@@ -346,7 +353,7 @@ fn anchor_test_portals(scene: mut CollisionScene) -> bool {
         radius: 6f32,
         sides: 6u32,
         phase: 0f32,
-        transform: space_identity()
+        transform: frame
     };
     if !collision_portal_append(mut builder, portal) {
         return false;
@@ -356,6 +363,9 @@ fn anchor_test_portals(scene: mut CollisionScene) -> bool {
     portal.destination = 0u32;
     portal.basis.right = vec(-1f32, 0f32, 0f32);
     portal.basis.forward = vec(0f32, 0f32, -1f32);
+    portal.origin = space_point(frame, portal.origin);
+    portal.basis = space_basis(frame, portal.basis);
+    portal.transform = space_inverse(frame);
     if !collision_portal_append(mut builder, portal) {
         return false;
     }
@@ -405,5 +415,94 @@ fn test_anchor_occlusion() -> bool {
     return game_check(
         !drone.wall_anchor.active,
         "anchor reached a hull wall through a solid prop"
+    );
+}
+
+fn anchor_test_tube(scene: mut CollisionScene) -> bool {
+    var mesh: Mesh = mesh_new();
+    var builder: CollisionBuilder = collision_builder_new();
+    var i: u32 = 0u32;
+    while i < 6u32 {
+        var a: f32 = i as f32 * PI / 3f32;
+        var b: f32 = (i + 1u32) as f32 * PI / 3f32;
+        var p: Vec3 = vec(WALL_ANCHOR_RANGE * cosf(a), WALL_ANCHOR_RANGE * sinf(a), 0f32);
+        var q: Vec3 = vec(WALL_ANCHOR_RANGE * cosf(b), WALL_ANCHOR_RANGE * sinf(b), 0f32);
+        var normal: Vec3 = unit_vector(scale(add(p, q), -1f32));
+        if !collision_test_quad(
+            mut mesh,
+            add(p, vec(0f32, 0f32, -100f32)),
+            add(q, vec(0f32, 0f32, -100f32)),
+            add(q, vec(0f32, 0f32, 100f32)),
+            add(p, vec(0f32, 0f32, 100f32)),
+            normal
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    if !collision_append_boundary(
+        mut builder,
+        read mesh,
+        0u32,
+        vec(0f32, 0f32, 0f32),
+        identity_basis()
+    ) {
+        return false;
+    }
+    return collision_finish(move builder, mut scene);
+}
+fn test_anchor_tunnel_tracking() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !anchor_test_tube(mut scene) {
+        return false;
+    }
+    var drone: Drone = new_drone();
+    drone.wall_anchor.enabled = true;
+    drone.position = vec(0.5f32, 0.2f32, 0f32);
+    drone.velocity = vec(0f32, 1f32, 2f32);
+    var command: Command = idle_command();
+    command.anchor = true;
+    var changes: u32 = 0u32;
+    var normal: Vec3 = vec(0f32, 0f32, 0f32);
+    var i: u32 = 0u32;
+    while i < 180u32 {
+        simulate(read scene, mut drone, command, false, false);
+        if !drone.wall_anchor.active {
+            return game_check(false, "anchor dropped inside a continuous tunnel");
+        }
+        if i > 0u32 && dot(normal, drone.wall_anchor.normal) < 0.9f32 {
+            changes = changes + 1u32;
+        }
+        normal = drone.wall_anchor.normal;
+        i = i + 1u32;
+    }
+    return game_check(
+        changes == 0u32,
+        "anchor switched tunnel walls while its surface remained reachable"
+    );
+}
+fn test_anchor_camera_rate() -> bool {
+    var drone: Drone = new_drone();
+    drone.wall_anchor.active = true;
+    drone.wall_anchor.normal = vec(0f32, -1f32, 0f32);
+    var before: Basis = drone.basis;
+    wall_anchor_orient(mut drone, vec(0f32, 0f32, 0f32));
+    if !game_check(
+        dot(before.up, drone.basis.up) > cosf(WALL_ANCHOR_ALIGN_RATE * STEP * 1.01f32) && dot(
+            before.up,
+            drone.basis.up
+        ) < 1f32,
+        "anchor camera snapped or did not begin to align"
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 180u32 {
+        wall_anchor_orient(mut drone, vec(0f32, 0f32, 0f32));
+        i = i + 1u32;
+    }
+    return game_check(
+        dot(drone.basis.up, drone.wall_anchor.normal) > 0.999f32,
+        "anchor camera did not converge"
     );
 }

@@ -118,7 +118,8 @@ fn drone_portal_at(
     rational_swap(mut drone.size, mut size);
     drone.cable.frame = frame;
     drone.step_frame = space_compose(t, drone.step_frame);
-    drone.wall_anchor.active = false;
+    drone.wall_anchor.normal = basis_vector(t.basis, drone.wall_anchor.normal);
+    drone.wall_anchor.up = basis_vector(t.basis, drone.wall_anchor.up);
     drone.world = portal.destination;
     drone.position = space_point(t, position);
     drone.velocity = basis_vector(t.basis, velocity);

@@ -28,17 +28,20 @@ Add `--anchor-controls` to the game or a room demo command. The browser has a
 
 Hold right mouse, or the gamepad burst control, to search for a nearby room
 wall. The anchor holds the drone centre at a distance below its capture range. Both
-distances scale with the drone. The camera aligns its up axis with the wall
-normal on attachment. Mouse look remains available; roll input is disabled
+distances scale with the drone. The camera turns gradually towards the wall
+normal on attachment and when the surface direction changes. Mouse look remains
+available; roll input is disabled
 while attached. WASD moves along the wall with increased thrust. Release the
 button to detach and keep momentum. F keeps the normal brake action. Burst is
 disabled in this mode.
 
 The anchor uses finite hull faces. It excludes props and portal openings. A
 solid object between the drone and the wall blocks attachment. Motion still
-uses swept collision. At a portal crossing the anchor releases; a held button
-can acquire a destination wall on the next tick. A missing room follows normal
-task admission before simulation can continue.
+uses swept collision. The anchor tracks the attached surface along its normal
+while it remains within reach. A closer wall does not replace that surface. Portal crossings
+transform the tracking direction and camera alignment; the next tick checks
+the destination surface. If the surface ends, the anchor searches for a nearby
+wall. A missing room follows normal task admission before simulation can continue.
 
 Gravity, drag, field forces, and tether forces retain their components along
 the wall. The anchor controls normal motion. Reeling stops when further cable

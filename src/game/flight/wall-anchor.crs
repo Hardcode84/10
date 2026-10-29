@@ -2,6 +2,7 @@ const WALL_ANCHOR_RANGE: f32 = 3f32;
 const WALL_ANCHOR_HOVER: f32 = 2.5f32;
 const WALL_ANCHOR_THRUST: f32 = 10f32;
 const WALL_ANCHOR_PITCH_LIMIT: f32 = 1.4f32;
+const WALL_ANCHOR_ALIGN_RATE: f32 = 3f32;
 const WALL_ANCHOR_APPROACH: f32 = 6f32;
 const WALL_ANCHOR_ACTIVE_TICKS: u32 = 480u32;
 const WALL_ANCHOR_RECHARGE_TICKS: u32 = 360u32;
@@ -12,6 +13,7 @@ record WallAnchor {
     recovering: bool;
     charge: u32;
     normal: Vec3;
+    up: Vec3;
     distance: f32;
 }
 fn wall_anchor_capacity() -> u32 {
@@ -25,6 +27,7 @@ fn wall_anchor_new() -> WallAnchor {
         recovering: false,
         charge: wall_anchor_capacity(),
         normal: vec(0f32, 0f32, 0f32),
+        up: vec(0f32, 1f32, 0f32),
         distance: 0f32
     };
 }
@@ -68,12 +71,26 @@ fn wall_anchor_step(scene: read CollisionScene, drone: mut Drone, held: bool) ->
         wall_anchor_recharge(mut drone.wall_anchor);
         return;
     }
-    var hit: BoundaryContact = collision_boundary_near(
+    var direction: Vec3 = vec(0f32, 0f32, 0f32);
+    if drone.wall_anchor.active {
+        direction = scale(drone.wall_anchor.normal, -1f32);
+    }
+    var hit: BoundaryContact = collision_boundary_probe(
         read scene,
         drone.world,
         drone.position,
-        WALL_ANCHOR_RANGE * drone_size(read drone)
+        WALL_ANCHOR_RANGE * drone_size(read drone),
+        direction
     );
+    if !hit.found && drone.wall_anchor.active {
+        hit = collision_boundary_near(
+            read scene,
+            drone.world,
+            drone.position,
+            WALL_ANCHOR_RANGE * drone_size(read drone)
+        );
+    }
+    hit.distance = dot(sub(drone.position, hit.point), hit.normal);
     if !hit.found || !wall_anchor_cable_allows(read drone, hit) || !wall_anchor_clear(
         read scene,
         read drone,
@@ -82,11 +99,9 @@ fn wall_anchor_step(scene: read CollisionScene, drone: mut Drone, held: bool) ->
         wall_anchor_recharge(mut drone.wall_anchor);
         return;
     }
-    var previous: Vec3 = drone.basis.up;
-    if drone.wall_anchor.active {
-        previous = drone.wall_anchor.normal;
+    if !drone.wall_anchor.active {
+        drone.wall_anchor.up = drone.basis.up;
     }
-    drone.basis = wall_anchor_transport(drone.basis, previous, hit.normal);
     drone.wall_anchor.active = true;
     drone.wall_anchor.normal = hit.normal;
     drone.wall_anchor.distance = hit.distance / drone_size(read drone);
@@ -111,7 +126,22 @@ fn wall_anchor_velocity(drone: mut Drone) -> unit {
     );
 }
 fn wall_anchor_orient(drone: mut Drone, look: Vec3) -> unit {
-    var normal: Vec3 = drone.wall_anchor.normal;
+    var previous: Vec3 = drone.wall_anchor.up;
+    var target: Vec3 = drone.wall_anchor.normal;
+    var cosine: f32 = clamp(dot(previous, target), -1f32, 1f32);
+    var angle: f32 = WALL_ANCHOR_ALIGN_RATE * STEP;
+    if cosine < cosf(angle) {
+        var axis: Vec3 = cross(previous, target);
+        if length(axis) == 0f32 {
+            axis = drone.basis.right;
+        }
+        target = unit_vector(
+            rotate(previous, scale(axis, 1f32 / length(axis)), angle)
+        );
+    }
+    drone.basis = wall_anchor_transport(drone.basis, previous, target);
+    drone.wall_anchor.up = target;
+    var normal: Vec3 = target;
     var delta: Vec3 = scale(vec(look.x, look.y, 0f32), STEP);
     var amount: f32 = length(delta);
     if amount > PI * STEP {
@@ -135,10 +165,11 @@ fn wall_anchor_input(drone: read Drone, thrust: Vec3) -> Vec3 {
     var forward: Vec3 = unit_vector(
         wall_tangent(drone.basis.forward, drone.wall_anchor.normal)
     );
-    var direction: Vec3 = add(
-        scale(drone.basis.right, thrust.x),
-        scale(forward, thrust.z)
-    );
+    if length(forward) == 0f32 {
+        forward = unit_vector(cross(drone.basis.right, drone.wall_anchor.normal));
+    }
+    var right: Vec3 = unit_vector(cross(drone.wall_anchor.normal, forward));
+    var direction: Vec3 = add(scale(right, thrust.x), scale(forward, thrust.z));
     if length(direction) > 1f32 {
         direction = unit_vector(direction);
     }

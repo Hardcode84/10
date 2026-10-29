@@ -9,6 +9,7 @@ fn collision_boundary_instance(
     scene: read CollisionScene,
     index: u32,
     position: Vec3,
+    direction: Vec3,
     best: mut BoundaryContact
 ) -> unit {
     var item: CollisionInstance = collision_instance(read scene, index);
@@ -16,6 +17,7 @@ fn collision_boundary_instance(
         return;
     }
     var p: Vec3 = collision_local(item.basis, sub(position, item.origin));
+    var local_direction: Vec3 = collision_local(item.basis, direction);
     var i: u32 = item.root;
     while i < item.end {
         var node: CollisionNode = collision_node(read scene, item.chunk, i);
@@ -37,7 +39,15 @@ fn collision_boundary_instance(
                 var signed: f32 = dot(sub(p, face.a), face.normal);
                 var distance: f32 = absf(signed);
                 var point: Vec3 = sub(p, scale(face.normal, signed));
-                if distance < best.distance && collision_inside(face, point) {
+                if dot(direction, direction) > 0f32 {
+                    var denominator: f32 = dot(local_direction, face.normal);
+                    distance = best.distance;
+                    if denominator != 0f32 {
+                        distance = -signed / denominator;
+                        point = add(p, scale(local_direction, distance));
+                    }
+                }
+                if distance >= 0f32 && distance < best.distance && collision_inside(face, point) {
                     var normal: Vec3 = face.normal;
                     if signed < 0f32 {
                         normal = scale(normal, -1f32);
@@ -61,6 +71,22 @@ fn collision_boundary_near(
     position: Vec3,
     reach: f32
 ) -> BoundaryContact {
+    return collision_boundary_probe(
+        read scene,
+        space,
+        position,
+        reach,
+        vec(0f32, 0f32, 0f32)
+    );
+}
+// A zero direction selects the nearest face. A unit direction casts a ray.
+fn collision_boundary_probe(
+    scene: read CollisionScene,
+    space: u32,
+    position: Vec3,
+    reach: f32,
+    direction: Vec3
+) -> BoundaryContact {
     var best: BoundaryContact = make BoundaryContact {
         found: false,
         instance: 0xffffffffu32,
@@ -82,7 +108,13 @@ fn collision_boundary_near(
             i = node.skip;
         } else {
             if node.leaf != 0xffffffffu32 {
-                collision_boundary_instance(read scene, node.leaf, position, mut best);
+                collision_boundary_instance(
+                    read scene,
+                    node.leaf,
+                    position,
+                    direction,
+                    mut best
+                );
             }
             i = i + 1u32;
         }

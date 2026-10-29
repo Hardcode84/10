@@ -94,5 +94,6 @@ fn wall_anchor_hash(hash: u32, anchor: WallAnchor) -> u32 {
     h = hash_word(h, anchor.recovering as u32);
     h = hash_word(h, anchor.charge);
     h = hash_vec(h, anchor.normal);
+    h = hash_vec(h, anchor.up);
     return hash_word(h, float_bits(anchor.distance));
 }
