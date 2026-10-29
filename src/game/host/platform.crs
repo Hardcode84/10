@@ -200,6 +200,7 @@ fn game_scene_finish(
         mut input,
         mut session.view_anchors
     );
+    draw_anchor_surfaces(read collision, mut input, read trial.drone, config);
     draw_prediction(mut input, read prediction, config);
     draw_frame(mut input, read trial.drone, config);
     draw_portal_admission(

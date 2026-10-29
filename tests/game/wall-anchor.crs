@@ -206,7 +206,7 @@ fn test_anchor_winch() -> bool {
     );
 }
 fn test_wall_anchor() -> bool {
-    return test_anchor_tunnel_tracking() && test_anchor_camera_rate() && test_anchor_hover() && test_anchor_energy() && test_anchor_boundaries() && test_anchor_scaled_frame() && test_anchor_winch() && test_anchor_forces() && test_anchor_prediction() && test_anchor_portal() && test_anchor_occlusion();
+    return test_anchor_preview_edge() && test_anchor_surface_query() && test_anchor_tunnel_tracking() && test_anchor_camera_rate() && test_anchor_hover() && test_anchor_energy() && test_anchor_boundaries() && test_anchor_scaled_frame() && test_anchor_winch() && test_anchor_forces() && test_anchor_prediction() && test_anchor_portal() && test_anchor_occlusion();
 }
 
 fn test_anchor_forces() -> bool {
@@ -505,4 +505,80 @@ fn test_anchor_camera_rate() -> bool {
         dot(drone.basis.up, drone.wall_anchor.normal) > 0.999f32,
         "anchor camera did not converge"
     );
+}
+
+fn test_anchor_surface_query() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !anchor_test_tube(mut scene) {
+        return false;
+    }
+    var position: Vec3 = vec(0.1f32, 0.2f32, 0f32);
+    var query: BoundaryQuery = collision_boundary_begin(
+        read scene,
+        0u32,
+        position,
+        WALL_ANCHOR_RANGE,
+        vec(0f32, 0f32, 0f32)
+    );
+    var closest: BoundaryContact = collision_boundary_near(
+        read scene,
+        0u32,
+        position,
+        WALL_ANCHOR_RANGE
+    );
+    var distance: f32 = WALL_ANCHOR_RANGE;
+    var count: u32 = 0u32;
+    while true {
+        var hit: BoundaryContact = collision_boundary_next(read scene, mut query);
+        if !hit.found {
+            break;
+        }
+        if !game_check(
+            hit.distance < WALL_ANCHOR_RANGE && hit.distance >= 0f32 && near(
+                length(sub(hit.point, position)),
+                hit.distance,
+                0.00001f32
+            ),
+            "boundary preview yielded an unreachable surface"
+        ) {
+            return false;
+        }
+        if hit.distance < distance {
+            distance = hit.distance;
+        }
+        count = count + 1u32;
+        if !game_check(count <= 12u32, "boundary preview failed to advance") {
+            return false;
+        }
+    }
+    return game_check(
+        count > 1u32 && closest.found && distance == closest.distance,
+        "boundary preview and anchor disagree on nearby surfaces"
+    );
+}
+
+fn test_anchor_preview_edge() -> bool {
+    var scene: CollisionScene = collision_new();
+    if !anchor_test_floor(mut scene, identity_basis()) {
+        return false;
+    }
+    var p: Vec3 = vec(100.5f32, 0.5f32, 0f32);
+    var hit: BoundaryContact = collision_boundary_near(read scene, 0u32, p, 2f32);
+    var query: BoundaryQuery = collision_boundary_begin(
+        read scene,
+        0u32,
+        p,
+        2f32,
+        vec(0f32, 0f32, 0f32)
+    );
+    var nearby: BoundaryContact = collision_boundary_nearby(read scene, mut query);
+    if !game_check(
+        !hit.found && nearby.found,
+        "preview required immediate attachment instead of sphere overlap"
+    ) {
+        return false;
+    }
+    query = collision_boundary_begin(read scene, 0u32, p, 0.25f32, vec(0f32, 0f32, 0f32));
+    nearby = collision_boundary_nearby(read scene, mut query);
+    return game_check(!nearby.found, "preview included a surface outside its radius");
 }

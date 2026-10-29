@@ -35,7 +35,10 @@ while attached. WASD moves along the wall with increased thrust. Release the
 button to detach and keep momentum. F keeps the normal brake action. Burst is
 disabled in this mode. Green lock brackets around the aim point and an
 ANCHORED label show attachment. Both remain visible in darkness and disappear
-when the anchor releases.
+when the anchor releases. While the button is held, green wireframe outlines
+show hull triangles within a radius around the drone, including surfaces beyond
+attachment range. The preview excludes props. Walls still occlude the outlines.
+The preview radius and surface offset are set in [anchor-surfaces.crs](../../src/game/view/anchor-surfaces.crs).
 
 The anchor uses finite hull faces. It excludes props and portal openings. A
 solid object between the drone and the wall blocks attachment. Motion still

@@ -4,11 +4,11 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         null(**u8)
     );
     if args == null(**u8) {
-        return count + 80usize;
+        return count + 81usize;
     }
     count = asset_sources(root, args);
     count = count + asset_collision_sources(root, &args[count]);
-    var files: [*u8; 80] = make [*u8; 80] {
+    var files: [*u8; 81] = make [*u8; 81] {
         "src/app/generation/random.crs",
         "src/app/level/parts.crs",
         "src/app/level/recipe.crs",
@@ -75,6 +75,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/game/view/palette.crs",
         "src/game/view/preview.crs",
         "src/game/view/burst-console.crs",
+        "src/game/view/anchor-surfaces.crs",
         "src/game/tasks/prediction.crs",
         "src/game/doors/state.crs",
         "src/game/doors/sensor.crs",
@@ -91,7 +92,7 @@ fn game_sources(root: *CrustRun, args: **u8) -> usize {
         "src/app/palette.crs"
     };
     var i: usize = 0usize;
-    while i < 80usize {
+    while i < 81usize {
         args[count + i] = host_path(root, files[i]);
         i = i + 1usize;
     }

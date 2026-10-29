@@ -1,0 +1,100 @@
+const ANCHOR_PREVIEW_RADIUS: f32 = 12f32;
+const ANCHOR_WIRE_LIFT: f32 = 0.02f32;
+fn draw_anchor_surface(
+    input: mut FrameInput,
+    scene: read CollisionScene,
+    drone: read Drone,
+    config: GameConfig,
+    query: BoundaryQuery,
+    hit: BoundaryContact
+) -> unit {
+    var item: CollisionInstance = collision_instance(read scene, hit.instance);
+    var face: CollisionFace = collision_face(read scene, item.chunk, query.face);
+    var lift: Vec3 = scale(hit.normal, ANCHOR_WIRE_LIFT * drone_size(read drone));
+    var edge: u32 = 0u32;
+    while edge < 3u32 {
+        var a: Vec3 = add(
+            item.origin,
+            basis_vector(item.basis, collision_corner(face, edge))
+        );
+        var b: Vec3 = add(
+            item.origin,
+            basis_vector(item.basis, collision_corner(face, (edge + 1u32) % 3u32))
+        );
+        draw_anchor_edge(mut input, read drone, config, add(a, lift), add(b, lift));
+        edge = edge + 1u32;
+    }
+}
+// Shows hull triangles within the preview radius while anchor input is held.
+// Props are excluded. The preview emits no light and casts no shadow.
+fn draw_anchor_surfaces(
+    scene: read CollisionScene,
+    input: mut FrameInput,
+    drone: read Drone,
+    config: GameConfig
+) -> unit {
+    if !drone.wall_anchor.enabled || !drone.wall_anchor.held {
+        return;
+    }
+    var query: BoundaryQuery = collision_boundary_begin(
+        read scene,
+        drone.world,
+        drone.position,
+        ANCHOR_PREVIEW_RADIUS * drone_size(read drone),
+        vec(0f32, 0f32, 0f32)
+    );
+    var first: u32 = input_word(read input, 3usize);
+    while true {
+        var hit: BoundaryContact = collision_boundary_nearby(read scene, mut query);
+        if !hit.found {
+            break;
+        }
+        draw_anchor_surface(mut input, read scene, read drone, config, query, hit);
+    }
+    game_dynamic_space(mut input, first, drone.world);
+    game_dynamic_no_shadow(mut input, first);
+}
+
+fn draw_anchor_edge(
+    input: mut FrameInput,
+    drone: read Drone,
+    config: GameConfig,
+    a: Vec3,
+    b: Vec3
+) -> unit {
+    var start: Vec3 = a;
+    var end: Vec3 = b;
+    var da: f32 = dot(sub(a, drone.position), drone.basis.forward);
+    var db: f32 = dot(sub(b, drone.position), drone.basis.forward);
+    var near: f32 = input_float(read input, RENDER_STYLE as usize);
+    if da < near && db < near {
+        return;
+    }
+    if da < near {
+        start = add(a, scale(sub(b, a), (near - da) / (db - da)));
+    }
+    if db < near {
+        end = add(b, scale(sub(a, b), (near - db) / (da - db)));
+    }
+    var eye: PredictionEye = prediction_eye(read drone);
+    var width: f32 = 0.5f32 * preview_border_pixels(config) as f32;
+    var aw: f32 = preview_pixel_size(start, eye, config) * width;
+    var bw: f32 = preview_pixel_size(end, eye, config) * width;
+    if aw <= 0f32 && bw <= 0f32 {
+        return;
+    }
+    var side: Vec3 = unit_vector(cross(sub(end, start), sub(drone.position, start)));
+    if length(side) == 0f32 {
+        return;
+    }
+    var offset_a: Vec3 = scale(side, aw);
+    var offset_b: Vec3 = scale(side, bw);
+    game_quad(
+        mut input,
+        CONSOLE_READY,
+        sub(start, offset_a),
+        add(start, offset_a),
+        add(end, offset_b),
+        sub(end, offset_b)
+    );
+}

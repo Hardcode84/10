@@ -5,66 +5,130 @@ record BoundaryContact {
     normal: Vec3;
     distance: f32;
 }
-fn collision_boundary_instance(
+record BoundaryQuery {
+    chunk: u32;
+    room_cursor: u32;
+    room_end: u32;
+    cursor: u32;
+    end: u32;
+    instance: u32;
+    face: u32;
+    position: Vec3;
+    direction: Vec3;
+    reach: f32;
+}
+fn boundary_miss(position: Vec3, reach: f32) -> BoundaryContact {
+    return make BoundaryContact {
+        found: false,
+        instance: 0xffffffffu32,
+        point: position,
+        normal: vec(0f32, 0f32, 0f32),
+        distance: reach
+    };
+}
+// Requires resident geometry. A zero direction selects finite perpendicular
+// projections; a unit direction selects ray hits. Distances use room-local units.
+fn collision_boundary_begin(
     scene: read CollisionScene,
-    index: u32,
+    space: u32,
     position: Vec3,
-    direction: Vec3,
-    best: mut BoundaryContact
-) -> unit {
-    var item: CollisionInstance = collision_instance(read scene, index);
-    if !item.boundary || collision_moving(item) {
-        return;
-    }
-    var p: Vec3 = collision_local(item.basis, sub(position, item.origin));
-    var local_direction: Vec3 = collision_local(item.basis, direction);
-    var i: u32 = item.root;
-    while i < item.end {
-        var node: CollisionNode = collision_node(read scene, item.chunk, i);
+    reach: f32,
+    direction: Vec3
+) -> BoundaryQuery {
+    var room: CollisionSpace = collision_space(read scene, space);
+    return make BoundaryQuery {
+        chunk: room.chunk,
+        room_cursor: room.root,
+        room_end: room.end,
+        cursor: 0u32,
+        end: 0u32,
+        instance: 0xffffffffu32,
+        face: 0xffffffffu32,
+        position: position,
+        direction: direction,
+        reach: reach
+    };
+}
+fn collision_boundary_enter(scene: read CollisionScene, query: mut BoundaryQuery) -> bool {
+    while query.room_cursor < query.room_end {
+        var node: CollisionNode = collision_node(read scene, query.chunk, query.room_cursor);
+        query.room_cursor = query.room_cursor + 1u32;
         if !collision_aabb(
-            p,
+            query.position,
             vec(0f32, 0f32, 0f32),
-            best.distance,
+            query.reach,
             node.low,
             node.high
         ) {
-            i = node.skip;
-        } else {
-            if node.leaf != 0xffffffffu32 {
-                var face: CollisionFace = collision_face(
-                    read scene,
-                    item.chunk,
-                    item.first + node.leaf
-                );
-                var signed: f32 = dot(sub(p, face.a), face.normal);
-                var distance: f32 = absf(signed);
-                var point: Vec3 = sub(p, scale(face.normal, signed));
-                if dot(direction, direction) > 0f32 {
-                    var denominator: f32 = dot(local_direction, face.normal);
-                    distance = best.distance;
-                    if denominator != 0f32 {
-                        distance = -signed / denominator;
-                        point = add(p, scale(local_direction, distance));
-                    }
-                }
-                if distance >= 0f32 && distance < best.distance && collision_inside(face, point) {
-                    var normal: Vec3 = face.normal;
-                    if signed < 0f32 {
-                        normal = scale(normal, -1f32);
-                    }
-                    best.found = true;
-                    best.instance = index;
-                    best.point = add(item.origin, basis_vector(item.basis, point));
-                    best.normal = basis_vector(item.basis, normal);
-                    best.distance = distance;
-                }
+            query.room_cursor = node.skip;
+        } else if node.leaf != 0xffffffffu32 {
+            var item: CollisionInstance = collision_instance(read scene, node.leaf);
+            if item.boundary && !collision_moving(item) {
+                query.instance = node.leaf;
+                query.cursor = item.root;
+                query.end = item.end;
+                return true;
             }
-            i = i + 1u32;
+        }
+    }
+    return false;
+}
+fn collision_boundary_project(scene: read CollisionScene, query: BoundaryQuery) -> BoundaryContact {
+    var item: CollisionInstance = collision_instance(read scene, query.instance);
+    var face: CollisionFace = collision_face(read scene, item.chunk, query.face);
+    var p: Vec3 = collision_local(item.basis, sub(query.position, item.origin));
+    var signed: f32 = dot(sub(p, face.a), face.normal);
+    var distance: f32 = absf(signed);
+    var point: Vec3 = sub(p, scale(face.normal, signed));
+    if dot(query.direction, query.direction) > 0f32 {
+        var direction: Vec3 = collision_local(item.basis, query.direction);
+        var denominator: f32 = dot(direction, face.normal);
+        if denominator == 0f32 {
+            return boundary_miss(query.position, query.reach);
+        }
+        distance = -signed / denominator;
+        point = add(p, scale(direction, distance));
+    }
+    if distance < 0f32 || distance >= query.reach || !collision_inside(face, point) {
+        return boundary_miss(query.position, query.reach);
+    }
+    var normal: Vec3 = face.normal;
+    if signed < 0f32 {
+        normal = scale(normal, -1f32);
+    }
+    return make BoundaryContact {
+        found: true,
+        instance: query.instance,
+        point: add(item.origin, basis_vector(item.basis, point)),
+        normal: basis_vector(item.basis, normal),
+        distance: distance
+    };
+}
+// Advances to a static hull triangle in the query bounds. No storage is allocated.
+fn collision_boundary_leaf(scene: read CollisionScene, query: mut BoundaryQuery) -> bool {
+    while true {
+        if query.cursor == query.end && !collision_boundary_enter(read scene, mut query) {
+            return false;
+        }
+        var item: CollisionInstance = collision_instance(read scene, query.instance);
+        var node: CollisionNode = collision_node(read scene, item.chunk, query.cursor);
+        query.cursor = query.cursor + 1u32;
+        var p: Vec3 = collision_local(item.basis, sub(query.position, item.origin));
+        if !collision_aabb(
+            p,
+            vec(0f32, 0f32, 0f32),
+            query.reach,
+            node.low,
+            node.high
+        ) {
+            query.cursor = node.skip;
+        } else if node.leaf != 0xffffffffu32 {
+            query.face = item.first + node.leaf;
+            return true;
         }
     }
 }
-// Requires resident room geometry. Finds a finite static room-boundary face.
-// Openings, edge extensions, and solid props are excluded. Uses room-local units.
+// Requires resident geometry. Excludes openings, edge extensions, and props.
 fn collision_boundary_near(
     scene: read CollisionScene,
     space: u32,
@@ -79,7 +143,6 @@ fn collision_boundary_near(
         vec(0f32, 0f32, 0f32)
     );
 }
-// A zero direction selects the nearest face. A unit direction casts a ray.
 fn collision_boundary_probe(
     scene: read CollisionScene,
     space: u32,
@@ -87,37 +150,55 @@ fn collision_boundary_probe(
     reach: f32,
     direction: Vec3
 ) -> BoundaryContact {
-    var best: BoundaryContact = make BoundaryContact {
-        found: false,
-        instance: 0xffffffffu32,
-        point: position,
-        normal: vec(0f32, 0f32, 0f32),
-        distance: reach
-    };
-    var range: CollisionSpace = collision_space(read scene, space);
-    var i: u32 = range.root;
-    while i < range.end {
-        var node: CollisionNode = collision_node(read scene, range.chunk, i);
-        if !collision_aabb(
-            position,
-            vec(0f32, 0f32, 0f32),
-            best.distance,
-            node.low,
-            node.high
-        ) {
-            i = node.skip;
-        } else {
-            if node.leaf != 0xffffffffu32 {
-                collision_boundary_instance(
-                    read scene,
-                    node.leaf,
-                    position,
-                    direction,
-                    mut best
-                );
-            }
-            i = i + 1u32;
+    var query: BoundaryQuery = collision_boundary_begin(
+        read scene,
+        space,
+        position,
+        reach,
+        direction
+    );
+    var best: BoundaryContact = boundary_miss(position, reach);
+    while true {
+        var hit: BoundaryContact = collision_boundary_next(read scene, mut query);
+        if !hit.found {
+            return best;
+        }
+        best = hit;
+        query.reach = hit.distance;
+    }
+}
+
+// Yields finite perpendicular projections or ray hits from the query.
+fn collision_boundary_next(scene: read CollisionScene, query: mut BoundaryQuery) -> BoundaryContact {
+    while collision_boundary_leaf(read scene, mut query) {
+        var hit: BoundaryContact = collision_boundary_project(read scene, query);
+        if hit.found {
+            return hit;
         }
     }
-    return best;
+    return boundary_miss(query.position, query.reach);
+}
+// Yields hull triangles that intersect the query sphere, including edge contact.
+fn collision_boundary_nearby(scene: read CollisionScene, query: mut BoundaryQuery) -> BoundaryContact {
+    while collision_boundary_leaf(read scene, mut query) {
+        var item: CollisionInstance = collision_instance(read scene, query.instance);
+        var face: CollisionFace = collision_face(read scene, item.chunk, query.face);
+        var p: Vec3 = collision_local(item.basis, sub(query.position, item.origin));
+        var point: Vec3 = collision_closest(face, p);
+        var distance: f32 = length(sub(point, p));
+        if distance < query.reach {
+            var normal: Vec3 = face.normal;
+            if dot(sub(p, face.a), normal) < 0f32 {
+                normal = scale(normal, -1f32);
+            }
+            return make BoundaryContact {
+                found: true,
+                instance: query.instance,
+                point: add(item.origin, basis_vector(item.basis, point)),
+                normal: basis_vector(item.basis, normal),
+                distance: distance
+            };
+        }
+    }
+    return boundary_miss(query.position, query.reach);
 }
