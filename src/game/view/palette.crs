@@ -3,7 +3,9 @@ const CONSOLE_FACE: u32 = 22u32;
 const CONSOLE_SCALE: u32 = 23u32;
 const CONSOLE_INK: u32 = 24u32;
 const CONSOLE_READY: u32 = 25u32;
-const GAME_MATERIALS: u32 = 26u32;
+const ANCHOR_DOT_MATERIAL: u32 = 26u32;
+const GAME_MATERIALS: u32 = 27u32;
+const CONSOLE_READY_COLOUR: u32 = 0x90f0a0u32;
 const PREVIEW_MATERIAL: u32 = 8u32;
 const HOOK_PREVIEW_MATERIAL: u32 = 9u32;
 fn game_palette(v: mut FrameInput) -> unit {
@@ -11,7 +13,7 @@ fn game_palette(v: mut FrameInput) -> unit {
     game_palette_fill(mut v);
 }
 fn game_palette_fill(v: mut FrameInput) -> unit {
-    var colors: [u32; 26] = make [u32; 26] {
+    var colors: [u32; 27] = make [u32; 27] {
         0x687876u32,
         0x82949du32,
         0x365d8au32,
@@ -37,7 +39,8 @@ fn game_palette_fill(v: mut FrameInput) -> unit {
         0x101716u32,
         0x42625eu32,
         0xbde6eau32,
-        0x90f0a0u32
+        CONSOLE_READY_COLOUR,
+        CONSOLE_READY_COLOUR
     };
     var palette: u32 = app_palette(read v);
     var mat: u32 = 0u32;
@@ -144,6 +147,9 @@ fn course_palette_color(base: u32, mat: u32, tex: u32, state: u32) -> u32 {
 }
 
 fn game_material_texel(material: u32, x: u32, y: u32) -> u32 {
+    if material == ANCHOR_DOT_MATERIAL {
+        return (x == 3u32 && y == 3u32) as u32;
+    }
     return course_texel(material, x, y);
 }
 fn game_material_color(base: u32, material: u32, texel: u32, state: u32) -> u32 {

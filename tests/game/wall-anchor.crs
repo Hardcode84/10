@@ -206,7 +206,7 @@ fn test_anchor_winch() -> bool {
     );
 }
 fn test_wall_anchor() -> bool {
-    return test_anchor_wire_projection() && test_anchor_preview_edge() && test_anchor_surface_query() && test_anchor_tunnel_tracking() && test_anchor_camera_rate() && test_anchor_hover() && test_anchor_energy() && test_anchor_boundaries() && test_anchor_scaled_frame() && test_anchor_winch() && test_anchor_forces() && test_anchor_prediction() && test_anchor_portal() && test_anchor_occlusion();
+    return test_anchor_dot_patch() && test_anchor_preview_edge() && test_anchor_surface_query() && test_anchor_tunnel_tracking() && test_anchor_camera_rate() && test_anchor_hover() && test_anchor_energy() && test_anchor_boundaries() && test_anchor_scaled_frame() && test_anchor_winch() && test_anchor_forces() && test_anchor_prediction() && test_anchor_portal() && test_anchor_occlusion();
 }
 
 fn test_anchor_forces() -> bool {
@@ -590,48 +590,50 @@ fn test_anchor_preview_edge() -> bool {
     return game_check(!nearby.found, "preview included a surface outside its radius");
 }
 
-fn test_anchor_wire_projection() -> bool {
-    var drone: Drone = new_drone();
-    var eye: PredictionEye = prediction_eye(read drone);
-    var a: Vec3 = add(eye.position, vec(10f32, 5f32, 0.1f32));
-    var b: Vec3 = add(eye.position, vec(-100f32, -200f32, 1000f32));
-    var side: Vec3 = anchor_wire_side(eye, a, b);
-    var line: Vec3 = vec(
-        -100f32 / 1000f32 - 10f32 / 0.1f32,
-        -200f32 / 1000f32 - 5f32 / 0.1f32,
-        0f32
-    );
-    if !game_check(
-        near(length(side), 1f32, 0.00001f32) && dot(side, eye.basis.forward) == 0f32 && absf(
-            dot(side, unit_vector(line))
-        ) < 0.00001f32,
-        "wire offset changes depth or is not perpendicular on screen"
-    ) {
+fn test_anchor_dot_patch() -> bool {
+    var normal: Vec3 = vec(0f32, 0f32, 1f32);
+    var a: Vec3 = vec(-100f32, -100f32, 0f32);
+    var b: Vec3 = vec(100f32, -100f32, 0f32);
+    var c: Vec3 = vec(0f32, 100f32, 0f32);
+    var eye: Vec3 = vec(0f32, 0f32, 1f32);
+    var patch: AnchorPatch = anchor_patch(a, b, c, normal, eye, 2f32);
+    if !game_check(patch.count >= 3usize, "large hull has no dot patch") {
         return false;
     }
-    var i: u32 = 0u32;
-    while i < 2u32 {
-        var point: Vec3 = sub(a, eye.position);
-        if i == 1u32 {
-            point = sub(b, eye.position);
-        }
-        var offset: Vec3 = scale(side, point.z * 0.01f32);
-        var left: Vec3 = sub(point, offset);
-        var right: Vec3 = add(point, offset);
-        var separation: Vec3 = vec(
-            right.x / right.z - left.x / left.z,
-            right.y / right.z - left.y / left.z,
-            0f32
-        );
+    var i: usize = 0usize;
+    while i < patch.count {
         if !game_check(
-            near(length(separation), 0.02f32, 0.00002f32),
-            "wire width depends on endpoint distance"
+            length(sub(patch.points[i], eye)) <= 2.00001f32,
+            "dot patch exceeds radius"
         ) {
             return false;
         }
-        i = i + 1u32;
+        var uv: Vec3 = anchor_dot_uv(patch.points[i], normal);
+        if !game_check(
+            near(uv.x * ANCHOR_DOT_PERIOD, patch.points[i].x, 0.00001f32) && near(
+                uv.y * ANCHOR_DOT_PERIOD,
+                patch.points[i].y,
+                0.00001f32
+            ),
+            "clipping changed room-local dot phase"
+        ) {
+            return false;
+        }
+        i = i + 1usize;
     }
-    return true;
+    var empty: AnchorPatch = anchor_patch(a, b, c, normal, eye, 0.5f32);
+    var periodic: Vec3 = anchor_dot_uv(
+        vec(ANCHOR_DOT_PERIOD, ANCHOR_DOT_PERIOD, 0f32),
+        normal
+    );
+    return game_check(
+        empty.count == 0usize && periodic.x == 1f32 && periodic.y == 1f32 && game_material_texel(
+            ANCHOR_DOT_MATERIAL,
+            3u32,
+            3u32
+        ) == 1u32 && game_material_texel(ANCHOR_DOT_MATERIAL, 0u32, 0u32) == 0u32,
+        "dot texture coverage or period incorrect"
+    );
 }
 
 fn test_anchor_preview_portals() -> bool {

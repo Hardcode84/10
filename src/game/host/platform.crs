@@ -204,7 +204,6 @@ fn game_scene_finish(
         read collision,
         mut input,
         read trial.drone,
-        config,
         mut session.view_anchors
     );
     draw_prediction(mut input, read prediction, config);

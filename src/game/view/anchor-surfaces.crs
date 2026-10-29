@@ -1,44 +1,11 @@
 const ANCHOR_PREVIEW_RADIUS: f32 = 10f32;
-const ANCHOR_WIRE_LIFT: f32 = 0.02f32;
-fn draw_anchor_surface(
-    input: mut FrameInput,
-    scene: read CollisionScene,
-    eye: PredictionEye,
-    clip_depth: f32,
-    config: GameConfig,
-    query: BoundaryQuery,
-    hit: BoundaryContact
-) -> unit {
-    var item: CollisionInstance = collision_instance(read scene, hit.instance);
-    var face: CollisionFace = collision_face(read scene, item.chunk, query.face);
-    var lift: Vec3 = scale(hit.normal, ANCHOR_WIRE_LIFT * eye.factor);
-    var edge: u32 = 0u32;
-    while edge < 3u32 {
-        var a: Vec3 = add(
-            item.origin,
-            basis_vector(item.basis, collision_corner(face, edge))
-        );
-        var b: Vec3 = add(
-            item.origin,
-            basis_vector(item.basis, collision_corner(face, (edge + 1u32) % 3u32))
-        );
-        draw_anchor_edge(
-            mut input,
-            eye,
-            clip_depth,
-            config,
-            add(a, lift),
-            add(b, lift)
-        );
-        edge = edge + 1u32;
-    }
-}
+const ANCHOR_SURFACE_LIFT: f32 = 0.02f32;
+const ANCHOR_DOT_PERIOD: f32 = 0.25f32;
 // Shows nearby resident hulls through portal placements while anchor input is held.
 fn draw_anchor_surfaces(
     scene: read CollisionScene,
     input: mut FrameInput,
     drone: read Drone,
-    config: GameConfig,
     anchors: mut RoomAnchors
 ) -> unit {
     if !drone.wall_anchor.enabled || !drone.wall_anchor.held {
@@ -71,19 +38,12 @@ fn draw_anchor_surfaces(
                 world: anchor.space,
                 factor: rational_float(read size)
             };
-            var clip_depth: f32 = input_float(read input, RENDER_STYLE as usize) * anchor.transform.factor;
-            draw_anchor_room(read scene, mut input, eye, clip_depth, config);
+            draw_anchor_room(read scene, mut input, eye);
         }
         i = i + 1u32;
     }
 }
-fn draw_anchor_room(
-    scene: read CollisionScene,
-    input: mut FrameInput,
-    eye: PredictionEye,
-    clip_depth: f32,
-    config: GameConfig
-) -> unit {
+fn draw_anchor_room(scene: read CollisionScene, input: mut FrameInput, eye: PredictionEye) -> unit {
     var query: BoundaryQuery = collision_boundary_begin(
         read scene,
         eye.world,
@@ -97,70 +57,91 @@ fn draw_anchor_room(
         if !hit.found {
             break;
         }
-        draw_anchor_surface(mut input, read scene, eye, clip_depth, config, query, hit);
+        draw_anchor_surface(mut input, read scene, eye, query, hit);
     }
     game_dynamic_space(mut input, first, eye.world);
     game_dynamic_no_shadow(mut input, first);
 }
 
-fn draw_anchor_edge(
-    input: mut FrameInput,
-    eye: PredictionEye,
-    clip_depth: f32,
-    config: GameConfig,
-    a: Vec3,
-    b: Vec3
-) -> unit {
-    var start: Vec3 = a;
-    var end: Vec3 = b;
-    var da: f32 = dot(sub(a, eye.position), eye.basis.forward);
-    var db: f32 = dot(sub(b, eye.position), eye.basis.forward);
-    if da < clip_depth && db < clip_depth {
-        return;
+fn anchor_dot_uv(point: Vec3, normal: Vec3) -> Vec3 {
+    var axis: u32 = 0u32;
+    if absf(normal.y) > absf(normal.x) {
+        axis = 1u32;
     }
-    if da < clip_depth {
-        start = add(a, scale(sub(b, a), (clip_depth - da) / (db - da)));
+    if absf(normal.z) > absf(component(normal, axis)) {
+        axis = 2u32;
     }
-    if db < clip_depth {
-        end = add(b, scale(sub(a, b), (clip_depth - db) / (da - db)));
-    }
-    var width: f32 = 0.5f32 * preview_border_pixels(config) as f32;
-    var aw: f32 = preview_pixel_size(start, eye, config) * width;
-    var bw: f32 = preview_pixel_size(end, eye, config) * width;
-    if aw <= 0f32 && bw <= 0f32 {
-        return;
-    }
-    var side: Vec3 = anchor_wire_side(eye, start, end);
-    if length(side) == 0f32 {
-        return;
-    }
-    var offset_a: Vec3 = scale(side, aw);
-    var offset_b: Vec3 = scale(side, bw);
-    game_quad(
-        mut input,
-        CONSOLE_READY,
-        sub(start, offset_a),
-        add(start, offset_a),
-        add(end, offset_b),
-        sub(end, offset_b)
+    return vec(
+        component(point, (axis + 1u32) % 3u32) / ANCHOR_DOT_PERIOD,
+        component(point, (axis + 2u32) % 3u32) / ANCHOR_DOT_PERIOD,
+        0f32
     );
 }
-
-// Requires both endpoints in front of the eye. Returns a unit screen-plane
-// vector perpendicular to the projected edge, or zero for a projected point.
-fn anchor_wire_side(eye: PredictionEye, start: Vec3, end: Vec3) -> Vec3 {
-    var a: Vec3 = sub(start, eye.position);
-    var b: Vec3 = sub(end, eye.position);
-    var az: f32 = dot(a, eye.basis.forward);
-    var bz: f32 = dot(b, eye.basis.forward);
-    var dx: f32 = dot(b, eye.basis.right) / bz - dot(a, eye.basis.right) / az;
-    var dy: f32 = dot(b, eye.basis.up) / bz - dot(a, eye.basis.up) / az;
-    var magnitude: f32 = sqrtf(dx * dx + dy * dy);
-    if magnitude == 0f32 {
-        return vec(0f32, 0f32, 0f32);
+fn draw_anchor_surface(
+    input: mut FrameInput,
+    scene: read CollisionScene,
+    eye: PredictionEye,
+    query: BoundaryQuery,
+    hit: BoundaryContact
+) -> unit {
+    var item: CollisionInstance = collision_instance(read scene, hit.instance);
+    var face: CollisionFace = collision_face(read scene, item.chunk, query.face);
+    var patch: AnchorPatch = anchor_patch(
+        add(item.origin, basis_vector(item.basis, face.a)),
+        add(item.origin, basis_vector(item.basis, face.b)),
+        add(item.origin, basis_vector(item.basis, face.c)),
+        hit.normal,
+        eye.position,
+        ANCHOR_PREVIEW_RADIUS * eye.factor
+    );
+    var i: usize = 1usize;
+    while i + 1usize < patch.count {
+        anchor_dot_triangle(
+            mut input,
+            eye.world,
+            patch.points[0usize],
+            patch.points[i],
+            patch.points[i + 1usize],
+            hit.normal
+        );
+        i = i + 1usize;
     }
-    return add(
-        scale(eye.basis.right, -dy / magnitude),
-        scale(eye.basis.up, dx / magnitude)
+}
+fn anchor_dot_triangle(
+    input: mut FrameInput,
+    space: u32,
+    a: Vec3,
+    b: Vec3,
+    c: Vec3,
+    normal: Vec3
+) -> unit {
+    var auv: Vec3 = anchor_dot_uv(a, normal);
+    var buv: Vec3 = anchor_dot_uv(b, normal);
+    var cuv: Vec3 = anchor_dot_uv(c, normal);
+    var lift: Vec3 = scale(normal, ANCHOR_SURFACE_LIFT);
+    a = add(a, lift);
+    b = add(b, lift);
+    c = add(c, lift);
+    triangle_uv(
+        mut input,
+        space,
+        ANCHOR_DOT_MATERIAL,
+        0u32,
+        1u32,
+        a.x,
+        a.y,
+        a.z,
+        b.x,
+        b.y,
+        b.z,
+        c.x,
+        c.y,
+        c.z,
+        auv.x,
+        auv.y,
+        buv.x,
+        buv.y,
+        cuv.x,
+        cuv.y
     );
 }

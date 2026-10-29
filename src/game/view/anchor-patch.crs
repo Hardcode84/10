@@ -1,0 +1,106 @@
+record AnchorPatch {
+    points: [Vec3; 36];
+    count: usize;
+}
+fn anchor_patch_clip(patch: AnchorPatch, centre: Vec3, direction: Vec3, limit: f32) -> AnchorPatch {
+    var result: AnchorPatch = anchor_patch_empty();
+    result.count = 0usize;
+    if patch.count == 0usize {
+        return result;
+    }
+    var previous: Vec3 = patch.points[patch.count - 1usize];
+    var pd: f32 = dot(sub(previous, centre), direction) - limit;
+    var i: usize = 0usize;
+    while i < patch.count {
+        var current: Vec3 = patch.points[i];
+        var cd: f32 = dot(sub(current, centre), direction) - limit;
+        if (pd < 0f32 && cd > 0f32) || (pd > 0f32 && cd < 0f32) {
+            result.points[result.count] = add(
+                previous,
+                scale(sub(current, previous), pd / (pd - cd))
+            );
+            result.count = result.count + 1usize;
+        }
+        if cd <= 0f32 {
+            result.points[result.count] = current;
+            result.count = result.count + 1usize;
+        }
+        previous = current;
+        pd = cd;
+        i = i + 1usize;
+    }
+    return result;
+}
+// Returns a surface patch within the sphere, with a polygonal circular boundary.
+fn anchor_patch(a: Vec3, b: Vec3, c: Vec3, normal: Vec3, eye: Vec3, radius: f32) -> AnchorPatch {
+    var patch: AnchorPatch = anchor_patch_empty();
+    patch.count = 0usize;
+    var distance: f32 = dot(sub(eye, a), normal);
+    var square: f32 = radius * radius - distance * distance;
+    if square <= 0f32 {
+        return patch;
+    }
+    patch.points[0usize] = a;
+    patch.points[1usize] = b;
+    patch.points[2usize] = c;
+    patch.count = 3usize;
+    var centre: Vec3 = sub(eye, scale(normal, distance));
+    var direction: Vec3 = unit_vector(sub(b, a));
+    var step: f32 = 2f32 * PI / 32f32;
+    var limit: f32 = sqrtf(square) * cosf(step * 0.5f32);
+    var i: u32 = 0u32;
+    while i < 32u32 && patch.count > 0usize {
+        patch = anchor_patch_clip(patch, centre, direction, limit);
+        direction = add(
+            scale(direction, cosf(step)),
+            scale(cross(normal, direction), sinf(step))
+        );
+        i = i + 1u32;
+    }
+    return patch;
+}
+
+fn anchor_patch_empty() -> AnchorPatch {
+    var p: Vec3 = vec(0f32, 0f32, 0f32);
+    return make AnchorPatch {
+        points: make [Vec3; 36] {
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p,
+            p
+        },
+        count: 0usize
+    };
+}
