@@ -206,7 +206,7 @@ fn test_anchor_winch() -> bool {
     );
 }
 fn test_wall_anchor() -> bool {
-    return test_anchor_preview_edge() && test_anchor_surface_query() && test_anchor_tunnel_tracking() && test_anchor_camera_rate() && test_anchor_hover() && test_anchor_energy() && test_anchor_boundaries() && test_anchor_scaled_frame() && test_anchor_winch() && test_anchor_forces() && test_anchor_prediction() && test_anchor_portal() && test_anchor_occlusion();
+    return test_anchor_wire_projection() && test_anchor_preview_edge() && test_anchor_surface_query() && test_anchor_tunnel_tracking() && test_anchor_camera_rate() && test_anchor_hover() && test_anchor_energy() && test_anchor_boundaries() && test_anchor_scaled_frame() && test_anchor_winch() && test_anchor_forces() && test_anchor_prediction() && test_anchor_portal() && test_anchor_occlusion();
 }
 
 fn test_anchor_forces() -> bool {
@@ -285,8 +285,11 @@ fn test_anchor_prediction() -> bool {
     );
 }
 fn test_anchor_portal() -> bool {
+    if !test_anchor_preview_portals() {
+        return false;
+    }
     var scene: CollisionScene = collision_new();
-    if !anchor_test_portals(mut scene) {
+    if !anchor_test_portals(mut scene, 1u64) {
         return false;
     }
     var drone: Drone = new_drone();
@@ -314,11 +317,12 @@ fn test_anchor_portal() -> bool {
 
 }
 
-fn anchor_test_portals(scene: mut CollisionScene) -> bool {
+fn anchor_test_portals(scene: mut CollisionScene, factor: u64) -> bool {
     var builder: CollisionBuilder = collision_builder_new();
     var mesh: Mesh = mesh_new();
     var frame: SpaceTransform = space_identity();
     frame.basis = collision_test_basis();
+    frame.factor = factor as f32;
     if !collision_test_quad(
         mut mesh,
         vec(-100f32, 0f32, -100f32),
@@ -344,7 +348,7 @@ fn anchor_test_portals(scene: mut CollisionScene) -> bool {
     var portal: CollisionPortal = make CollisionPortal {
         support_bound: 0f32,
         source_scale: scale_identity(),
-        target_scale: scale_identity(),
+        target_scale: scale_ratio(factor, 1u64),
         reverse: 1u32,
         space: 0u32,
         destination: 1u32,
@@ -358,6 +362,9 @@ fn anchor_test_portals(scene: mut CollisionScene) -> bool {
     if !collision_portal_append(mut builder, portal) {
         return false;
     }
+    portal.source_scale = portal.target_scale;
+    portal.target_scale = scale_identity();
+    portal.radius = portal.radius * factor as f32;
     portal.reverse = 0u32;
     portal.space = 1u32;
     portal.destination = 0u32;
@@ -581,4 +588,100 @@ fn test_anchor_preview_edge() -> bool {
     query = collision_boundary_begin(read scene, 0u32, p, 0.25f32, vec(0f32, 0f32, 0f32));
     nearby = collision_boundary_nearby(read scene, mut query);
     return game_check(!nearby.found, "preview included a surface outside its radius");
+}
+
+fn test_anchor_wire_projection() -> bool {
+    var drone: Drone = new_drone();
+    var eye: PredictionEye = prediction_eye(read drone);
+    var a: Vec3 = add(eye.position, vec(10f32, 5f32, 0.1f32));
+    var b: Vec3 = add(eye.position, vec(-100f32, -200f32, 1000f32));
+    var side: Vec3 = anchor_wire_side(eye, a, b);
+    var line: Vec3 = vec(
+        -100f32 / 1000f32 - 10f32 / 0.1f32,
+        -200f32 / 1000f32 - 5f32 / 0.1f32,
+        0f32
+    );
+    if !game_check(
+        near(length(side), 1f32, 0.00001f32) && dot(side, eye.basis.forward) == 0f32 && absf(
+            dot(side, unit_vector(line))
+        ) < 0.00001f32,
+        "wire offset changes depth or is not perpendicular on screen"
+    ) {
+        return false;
+    }
+    var i: u32 = 0u32;
+    while i < 2u32 {
+        var point: Vec3 = sub(a, eye.position);
+        if i == 1u32 {
+            point = sub(b, eye.position);
+        }
+        var offset: Vec3 = scale(side, point.z * 0.01f32);
+        var left: Vec3 = sub(point, offset);
+        var right: Vec3 = add(point, offset);
+        var separation: Vec3 = vec(
+            right.x / right.z - left.x / left.z,
+            right.y / right.z - left.y / left.z,
+            0f32
+        );
+        if !game_check(
+            near(length(separation), 0.02f32, 0.00002f32),
+            "wire width depends on endpoint distance"
+        ) {
+            return false;
+        }
+        i = i + 1u32;
+    }
+    return true;
+}
+
+fn test_anchor_preview_portals() -> bool {
+    var factor: u64 = 1u64;
+    while factor <= 2u64 {
+        var scene: CollisionScene = collision_new();
+        if !anchor_test_portals(mut scene, factor) {
+            return false;
+        }
+        var anchors: RoomAnchors = room_anchors_new();
+        var size: Rational = rational_new(1u64, 1u64);
+        var point: Vec3 = vec(0f32, WALL_ANCHOR_HOVER, -1f32);
+        if !view_sphere_anchors(
+            read scene,
+            mut anchors,
+            primary_anchor(0u32, 0u32),
+            point,
+            ANCHOR_PREVIEW_RADIUS,
+            ANCHOR_PREVIEW_RADIUS,
+            read size,
+            64u32
+        ) {
+            return false;
+        }
+        if !game_check(
+            room_anchor_count(read anchors) == 2u32,
+            "wire preview did not cross the nearby portal"
+        ) {
+            return false;
+        }
+        var anchor: RoomAnchor = room_anchor(read anchors, 1u32);
+        var query: BoundaryQuery = collision_boundary_begin(
+            read scene,
+            anchor.space,
+            space_point(anchor.transform, point),
+            ANCHOR_PREVIEW_RADIUS * anchor.transform.factor,
+            vec(0f32, 0f32, 0f32)
+        );
+        var hit: BoundaryContact = collision_boundary_nearby(read scene, mut query);
+        if !game_check(
+            anchor.space == 1u32 && anchor.transform.factor == factor as f32 && hit.found && near(
+                hit.distance,
+                WALL_ANCHOR_HOVER * factor as f32,
+                0.00001f32
+            ),
+            "wire preview lost the rotated or scaled destination surface"
+        ) {
+            return false;
+        }
+        factor = factor + 1u64;
+    }
+    return true;
 }

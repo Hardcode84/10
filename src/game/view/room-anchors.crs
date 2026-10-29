@@ -1,0 +1,94 @@
+// Requires empty anchor storage. Adds sphere placements through intersecting
+// portals within the supplied render-view budget.
+fn view_sphere_anchors(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    primary: RoomAnchor,
+    centre: Vec3,
+    reach: f32,
+    extent: f32,
+    size: read Rational,
+    budget: u32
+) -> bool {
+    if !room_anchor_add(mut anchors, primary) {
+        return false;
+    }
+    var cursor: u32 = 0u32;
+    while cursor < room_anchor_count(read anchors) {
+        if room_anchor_count(read anchors) < budget && !view_sphere_children(
+            read scene,
+            mut anchors,
+            centre,
+            reach,
+            extent,
+            read size,
+            cursor,
+            budget
+        ) {
+            return false;
+        }
+        cursor = cursor + 1u32;
+    }
+    return true;
+}
+fn view_sphere_children(
+    scene: read CollisionScene,
+    anchors: mut RoomAnchors,
+    centre: Vec3,
+    reach: f32,
+    extent: f32,
+    size: read Rational,
+    parent: u32,
+    budget: u32
+) -> bool {
+    var anchor: RoomAnchor = room_anchor(read anchors, parent);
+    var point: Vec3 = space_point(anchor.transform, centre);
+    var placement: Rational = rational_product(
+        read size,
+        room_anchor_ratio(read anchors, parent)
+    );
+    var radius: f32 = reach * rational_float(read placement);
+    var cursor: u32 = collision_portal_begin(read scene, anchor.space);
+    while collision_portal_at_space(read scene, cursor, anchor.space) && room_anchor_count(
+        read anchors
+    ) < budget {
+        var i: u32 = collision_portal_id(read scene, cursor);
+        var portal: CollisionPortal = collision_portal(read scene, i);
+        var distance: f32 = dot(portal.basis.forward, sub(point, portal.origin));
+        if i != anchor.incoming && distance <= 0f32 && portal_reaches(
+            portal,
+            point,
+            vec(0f32, 0f32, 0f32),
+            radius
+        ) {
+            var next: RoomAnchor = make RoomAnchor {
+                cap: 0xffffffffu32,
+                object: anchor.object,
+                space: portal.destination,
+                transform: space_compose(portal.transform, anchor.transform),
+                parent: parent,
+                portal: i,
+                incoming: portal.reverse,
+                depth: anchor.depth + 1u32
+            };
+            if view_anchor_numeric_valid(next, centre, extent, rational_float(read size)) && !room_anchor_link(
+                mut anchors,
+                next,
+                portal
+            ) {
+                return false;
+            }
+        }
+        cursor = cursor + 1u32;
+    }
+    return true;
+}
+
+// Stops placements before coordinates exceed renderer arithmetic.
+fn view_anchor_numeric_valid(anchor: RoomAnchor, centre: Vec3, extent: f32, size: f32) -> bool {
+    var point: Vec3 = space_point(anchor.transform, centre);
+    var bound: f32 = absf(point.x) + absf(point.y) + absf(point.z) + extent * size * anchor.transform.factor + anchor.transform.factor + 1f32 / anchor.transform.factor;
+    var square: f32 = bound * bound;
+    var envelope: f32 = square * square * RENDER_NUMERIC_MARGIN;
+    return anchor.transform.factor > 0f32 && envelope - envelope == 0f32;
+}

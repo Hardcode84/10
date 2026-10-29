@@ -37,7 +37,8 @@ disabled in this mode. Green lock brackets around the aim point and an
 ANCHORED label show attachment. Both remain visible in darkness and disappear
 when the anchor releases. While the button is held, green wireframe outlines
 show hull triangles within a radius around the drone, including surfaces beyond
-attachment range. The preview excludes props. Walls still occlude the outlines.
+attachment range. The preview excludes props. Walls still occlude the outlines. Nearby portals
+propagate the preview; their rotation and scale apply to the radius and outlines.
 The preview radius and surface offset are set in [anchor-surfaces.crs](../../src/game/view/anchor-surfaces.crs).
 
 The anchor uses finite hull faces. It excludes props and portal openings. A
