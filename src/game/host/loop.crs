@@ -13,6 +13,7 @@ fn game_tick(
     config: GameConfig
 ) -> bool {
     var command: Command = input_consume(mut loop.input);
+    command = movement_command(command, config.anchor_controls);
     var status: i32 = game_command(mut session, mut command);
     if status < 0i32 {
         return false;
@@ -231,6 +232,8 @@ fn game_run_setup(
         return false;
     }
     loop.trial.full_spin = game_initial_spin(read session);
+    loop.trial.drone.wall_anchor.enabled = game_initial_anchor_controls(read session);
+    loop.trial.spawn.wall_anchor.enabled = loop.trial.drone.wall_anchor.enabled;
     if !game_collision_spawn(read collision, read loop.trial) {
         return false;
     }

@@ -114,7 +114,7 @@ fn grate_bars(asset: mut RoomAsset, layout: ShaftGrateLayout) -> bool {
     return true;
 }
 fn grate_face_vertex(radius: f32, side: u32, height: f32, pitch: f32) -> MeshVertex {
-    var angle: f32 = (side % SHAFT_GRATE_FACE_SIDES) as f32 * 6.28318530718f32 / SHAFT_GRATE_FACE_SIDES as f32;
+    var angle: f32 = (side % SHAFT_GRATE_FACE_SIDES) as f32 * (2f32 * PI) / SHAFT_GRATE_FACE_SIDES as f32;
     var x: f32 = radius * cosf(angle);
     var z: f32 = radius * sinf(angle);
     return make MeshVertex {
@@ -126,7 +126,7 @@ fn grate_face_vertex(radius: f32, side: u32, height: f32, pitch: f32) -> MeshVer
     };
 }
 fn grate_faces(asset: mut RoomAsset, layout: ShaftGrateLayout, height: f32) -> bool {
-    var outer: f32 = layout.radius / cosf(3.14159265359f32 / SHAFT_GRATE_FACE_SIDES as f32);
+    var outer: f32 = layout.radius / cosf(PI / SHAFT_GRATE_FACE_SIDES as f32);
     var side: u32 = 0u32;
     while side < SHAFT_GRATE_FACE_SIDES {
         var layer: u32 = 0u32;

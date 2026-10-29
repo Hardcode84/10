@@ -36,7 +36,7 @@ fn conduit_breach_rubble(asset: mut RoomAsset, centre: Vec3, seed: u32) -> bool 
     return true;
 }
 fn conduit_breach_edge(seed: u32, index: u32, inner: bool) -> Vec3 {
-    var angle: f32 = (index % 32u32) as f32 * 6.28318530718f32 / 32f32;
+    var angle: f32 = (index % 32u32) as f32 * (2f32 * PI) / 32f32;
     var u: f32 = cosf(angle);
     var v: f32 = sinf(angle);
     var maximum: f32 = -mask_min(-absf(u), -absf(v));
@@ -44,7 +44,7 @@ fn conduit_breach_edge(seed: u32, index: u32, inner: bool) -> Vec3 {
         0.5f32 + 0.5f32 * conduit_debris_random(seed, index % 32u32 + 80u32)
     );
     if inner {
-        var phase: f32 = conduit_debris_random(seed, 119u32) * 6.28318530718f32;
+        var phase: f32 = conduit_debris_random(seed, 119u32) * (2f32 * PI);
         var tear: f32 = 0.9f32 + 0.06f32 * sinf(angle * 3f32 + phase) + 0.04f32 * cosf(
             angle * 5f32 - phase
         ) - 0.05f32 * conduit_debris_random(seed, index % 32u32);
@@ -270,9 +270,9 @@ fn conduit_breach_panel_row(
     var height: f32 = asset_value(read values, 0u32);
     var rows: u32 = panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32);
     var bay: f32 = height / rows as f32;
-    var width: f32 = 2f32 * radius * sinf(3.14159265359f32 / 48f32);
-    var wall: f32 = radius * cosf(3.14159265359f32 / 48f32);
-    var radial: Vec3 = conduit_catwalk_point(1f32, 0f32, side as f32 * 6.28318530718f32 / 48f32);
+    var width: f32 = 2f32 * radius * sinf(PI / 48f32);
+    var wall: f32 = radius * cosf(PI / 48f32);
+    var radial: Vec3 = conduit_catwalk_point(1f32, 0f32, side as f32 * (2f32 * PI) / 48f32);
     var z: f32 = radial.z * wall;
     var apron: f32 = CONDUIT_BREACH_RIM * 3f32 - mask_min(-width, -bay);
     var reach: f32 = CONDUIT_BREACH_WIDTH * 0.5f32 + apron;

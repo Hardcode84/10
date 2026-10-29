@@ -1,6 +1,9 @@
 fn turn_basis(b: Basis, axis: Vec3, angle: f32) -> Basis {
-    var f: Vec3 = unit_vector(rotate(b.forward, axis, angle));
-    var r: Vec3 = unit_vector(cross(rotate(b.up, axis, angle), f));
+    return turn_basis_components(b, axis, sinf(angle), cosf(angle));
+}
+fn turn_basis_components(b: Basis, axis: Vec3, sine: f32, cosine: f32) -> Basis {
+    var f: Vec3 = unit_vector(rotate_components(b.forward, axis, sine, cosine));
+    var r: Vec3 = unit_vector(cross(rotate_components(b.up, axis, sine, cosine), f));
     return make Basis {
         right: r,
         up: cross(f, r),
@@ -8,6 +11,10 @@ fn turn_basis(b: Basis, axis: Vec3, angle: f32) -> Basis {
     };
 }
 fn orient(frame: RoomFrame, drone: mut Drone, look: Vec3, auto_level: bool) -> unit {
+    if drone.wall_anchor.active {
+        wall_anchor_orient(mut drone, look);
+        return;
+    }
     var factor: f32 = 1f32;
     if !auto_level {
         factor = 1.3f32;
@@ -15,8 +22,8 @@ fn orient(frame: RoomFrame, drone: mut Drone, look: Vec3, auto_level: bool) -> u
     // Look commands are radians per second. The cap also applies while tethered.
     var delta: Vec3 = scale(look, factor * STEP);
     var amount: f32 = length(delta);
-    if amount > 3.14159265f32 * STEP {
-        delta = scale(delta, 3.14159265f32 * STEP / amount);
+    if amount > PI * STEP {
+        delta = scale(delta, PI * STEP / amount);
     }
     drone.basis = turn_basis(drone.basis, drone.basis.up, delta.x);
     drone.basis = turn_basis(drone.basis, drone.basis.right, delta.y);
@@ -40,6 +47,6 @@ fn orient(frame: RoomFrame, drone: mut Drone, look: Vec3, auto_level: bool) -> u
     drone.basis = turn_basis(
         drone.basis,
         drone.basis.forward,
-        clamp(angle, -1.57079633f32 * STEP, 1.57079633f32 * STEP)
+        clamp(angle, -(0.5f32 * PI) * STEP, (0.5f32 * PI) * STEP)
     );
 }

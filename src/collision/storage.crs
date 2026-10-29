@@ -13,6 +13,7 @@ record CollisionInstance {
     motion_offset: Vec3;
     motion_target: Vec3;
     solid: bool;
+    boundary: bool;
     linear: Vec3;
     angular: Vec3;
     next_moving: u32;
@@ -294,6 +295,7 @@ fn collision_append(
         motion_offset: vec(0f32, 0f32, 0f32),
         motion_target: vec(0f32, 0f32, 0f32),
         solid: false,
+        boundary: false,
         linear: vec(0f32, 0f32, 0f32),
         angular: vec(0f32, 0f32, 0f32),
         next_moving: 0xffffffffu32,
@@ -454,4 +456,19 @@ fn collision_retarget(
     item -> motion_start = time;
     item -> motion_duration = duration;
     item -> linear = scale(sub(target, offset), 1f32 / duration);
+}
+
+// Appends a room boundary. Its mesh must omit connected portal openings.
+fn collision_append_boundary(
+    builder: mut CollisionBuilder,
+    mesh: read Mesh,
+    space: u32,
+    origin: Vec3,
+    basis: Basis
+) -> bool {
+    if !collision_append(mut builder, read mesh, space, origin, basis) {
+        return false;
+    }
+    builder.data.instances[(builder.data.instance_count - 1u32) as usize].boundary = true;
+    return true;
 }

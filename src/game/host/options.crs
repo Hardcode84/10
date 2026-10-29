@@ -4,6 +4,7 @@ record GameConfig {
     complexity: u32;
     room_demo: bool;
     scaling: bool;
+    anchor_controls: bool;
     workers: u32;
     width: u32;
     height: u32;
@@ -131,6 +132,10 @@ fn game_numeric(o: *Launch, key: *u8, value: *u8) -> bool {
     return error("unknown option; use --help");
 }
 fn game_flag(o: *Launch, key: *u8) -> bool {
+    if strcmp(key, "--anchor-controls") == 0i32 {
+        o -> config.anchor_controls = true;
+        return true;
+    }
     if strcmp(key, "--audio-stats") == 0i32 {
         o -> audio_stats = true;
         return true;
@@ -172,6 +177,7 @@ fn game_options_scene(argc: i32, argv: **u8, o: *Launch, room_demo: bool) -> boo
             complexity: 3u32,
             room_demo: room_demo,
             scaling: false,
+            anchor_controls: false,
             workers: game_default_workers(),
             width: 960u32,
             height: 540u32,

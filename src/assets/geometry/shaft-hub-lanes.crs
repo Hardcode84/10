@@ -191,7 +191,7 @@ fn hub_corner_bridge(
     var face: u32 = axis * 2u32 + (outward.x + outward.y + outward.z > 0f32) as u32;
     if face == 2u32 {
         if layout.core - oct_pipe_radius() - 0.1f32 <= (oct_pipe_radius() + 0.02f32) / sinf(
-            0.39269908169f32
+            (0.125f32 * PI)
         ) {
             return true;
         }
@@ -203,9 +203,9 @@ fn hub_corner_bridge(
         dot(signs, port.basis.right)
     );
     if angle < 0f32 {
-        angle = angle + 6.28318530718f32;
+        angle = angle + (2f32 * PI);
     }
-    var slot: u32 = (angle / 0.78539816339f32 + 0.5f32) as u32 % 8u32;
+    var slot: u32 = (angle / (0.25f32 * PI) + 0.5f32) as u32 % 8u32;
     var from: u32 = hub_lane_corner(read lanes, corner, axis, true);
     var to: u32 = hub_lane_wall(read lanes, face, 1u32, slot);
     var fold: Vec3 = hub_pipe_fold(

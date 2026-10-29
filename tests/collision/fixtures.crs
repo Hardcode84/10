@@ -22,7 +22,7 @@ fn collision_test_basis() -> Basis {
     };
 }
 fn collision_test_aperture_vertex(i: u32, count: u32, outer: bool) -> Vec3 {
-    var angle: f32 = (i % count) as f32 * 6.283185307f32 / count as f32;
+    var angle: f32 = (i % count) as f32 * (2f32 * PI) / count as f32;
     var radius: f32 = 1.5f32 + (i % count % 2u32) as f32 * 0.6f32;
     if outer {
         radius = 5f32;
@@ -47,8 +47,8 @@ fn collision_test_aperture(mesh: mut Mesh, count: u32) -> bool {
     return true;
 }
 fn collision_test_elbow_vertex(ring: u32, side: u32) -> Vec3 {
-    var a: f32 = ring as f32 * 1.570796327f32 / 12f32;
-    var b: f32 = (side % 12u32) as f32 * 6.283185307f32 / 12f32;
+    var a: f32 = ring as f32 * (0.5f32 * PI) / 12f32;
+    var b: f32 = (side % 12u32) as f32 * (2f32 * PI) / 12f32;
     var radius: f32 = 4f32 + cosf(b);
     return vec(cosf(a) * radius, sinf(a) * radius, sinf(b));
 }
@@ -78,7 +78,7 @@ fn collision_test_elbow(mesh: mut Mesh) -> bool {
     return true;
 }
 fn collision_test_elbow_cap(mesh: mut Mesh, ring: u32) -> bool {
-    var angle: f32 = ring as f32 * 1.570796327f32 / 12f32;
+    var angle: f32 = ring as f32 * (0.5f32 * PI) / 12f32;
     var centre: Vec3 = vec(4f32 * cosf(angle), 4f32 * sinf(angle), 0f32);
     var n: Vec3 = vec(-sinf(angle), cosf(angle), 0f32);
     if ring == 0u32 {

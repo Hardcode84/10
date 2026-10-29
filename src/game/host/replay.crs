@@ -42,6 +42,7 @@ fn trial_hash(trial: read Trial) -> u32 {
     hash = hash_word(hash, float_bits(d.cable.reel_speed));
     hash = hash_word(hash, d.cable.reeling as u32);
     hash = hash_word(hash, d.cable.phase);
+    hash = wall_anchor_hash(hash, d.wall_anchor);
     hash = hash_word(hash, d.bursts);
     hash = hash_word(hash, d.boost_ticks);
     hash = hash_vec(hash, d.boost_direction);
@@ -65,7 +66,9 @@ fn trial_hash(trial: read Trial) -> u32 {
 fn command_flags(c: Command) -> u32 {
     return c.burst as u32 | ((c.brake as u32) << 1u32) | ((c.tether as u32) << 2u32) | (
         (c.restart as u32) << 3u32
-    ) | ((c.spin as u32) << 4u32) | ((c.assist as u32) << 5u32) | ((c.preview as u32) << 6u32);
+    ) | ((c.spin as u32) << 4u32) | ((c.assist as u32) << 5u32) | ((c.preview as u32) << 6u32) | (
+        (c.anchor as u32) << 7u32
+    );
 }
 
 fn hash_ratio(hash: u32, ratio: read Rational) -> u32 {
@@ -82,4 +85,14 @@ fn hash_ratio(hash: u32, ratio: read Rational) -> u32 {
         part = part + 1u32;
     }
     return hash;
+}
+
+fn wall_anchor_hash(hash: u32, anchor: WallAnchor) -> u32 {
+    var h: u32 = hash_word(hash, anchor.enabled as u32);
+    h = hash_word(h, anchor.held as u32);
+    h = hash_word(h, anchor.active as u32);
+    h = hash_word(h, anchor.recovering as u32);
+    h = hash_word(h, anchor.charge);
+    h = hash_vec(h, anchor.normal);
+    return hash_word(h, float_bits(anchor.distance));
 }

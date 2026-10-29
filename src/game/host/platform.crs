@@ -268,3 +268,7 @@ fn game_completion(ticks: u32) -> unit {
 fn game_doors_mut(control: mut GameControl) -> mut DoorSet from control {
     return graph_doors_mut(mut control.graph);
 }
+
+fn game_initial_anchor_controls(session: read GameSession) -> bool {
+    return session.control.launch.config.anchor_controls;
+}

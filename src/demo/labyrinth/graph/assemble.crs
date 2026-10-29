@@ -92,7 +92,7 @@ fn graph_assemble_room(
     if node.kind == 0u32 {
         material = GAME_MATERIALS;
     }
-    if !room_linked_mesh(read asset, mut render, mut walls, material) || !collision_append(
+    if !room_linked_mesh(read asset, mut render, mut walls, material) || !collision_append_boundary(
         mut builder,
         read walls,
         id,

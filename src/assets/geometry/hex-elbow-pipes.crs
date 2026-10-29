@@ -21,7 +21,9 @@ fn hex_elbow_pipe_start(asset: read RoomAsset, wall: u32, offset: f32) -> HexElb
 fn hex_elbow_pipe_style(pipe: HexElbowPipe) -> TubeStyle {
     var lead: f32 = HEX_PIPE_BEND * 0.5f32;
     var trim: f32 = HEX_PIPE_BEND * (sqrtf(2f32) - 1f32);
-    var distance: f32 = 2f32 * lead + sqrtf(2f32) * (pipe.distance - lead - pipe.start.x) - 4f32 * trim + HEX_PIPE_BEND * 1.57079632679f32;
+    var distance: f32 = 2f32 * lead + sqrtf(2f32) * (pipe.distance - lead - pipe.start.x) - 4f32 * trim + HEX_PIPE_BEND * (
+        0.5f32 * PI
+    );
     var tile: f32 = service_pipe_material().tile_metres;
     var repeats: u32 = (distance / tile) as u32;
     if repeats as f32 * tile < distance {

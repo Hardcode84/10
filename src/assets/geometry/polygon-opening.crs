@@ -144,7 +144,7 @@ fn hull_bordered_port(
     asset_hull_swap(mut hull, mut next);
     var surround: RoomPort = port;
     surround.profile.radius = surround.profile.radius + rim_width / cosf(
-        3.14159265359f32 / port.profile.shape.sides as f32
+        PI / port.profile.shape.sides as f32
     );
     if !hull_convex_partition(read hull, mut next, surround, seam_region) {
         return false;

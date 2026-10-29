@@ -126,7 +126,7 @@ fn filter_plenum_cassette(asset: mut RoomAsset, layout: FilterPlenumLayout, inde
         gap * 0.375f32,
         (layout.radius + bearing) * 0.35355339059f32 - filter_duct_half(layout) * 1.41421356237f32 - 0.3f32
     );
-    var basis: Basis = shaft_axis_basis(index as f32 * 1.57079632679f32);
+    var basis: Basis = shaft_axis_basis(index as f32 * (0.5f32 * PI));
     var centre: Vec3 = add(
         scale(basis.right, (layout.radius + bearing) * 0.5f32),
         vec(0f32, filter_grate_height(layout) + 2.2f32, 0f32)

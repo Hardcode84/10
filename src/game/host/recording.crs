@@ -40,8 +40,8 @@ fn recording_open(stream: *Recording, o: *Launch) -> bool {
     }
     var header: [u32; 6] = make [u32; 6] {
         0x53504e30u32,
-        20u32,
-        o -> config.full_spin as u32,
+        21u32,
+        o -> config.full_spin as u32 | ((o -> config.anchor_controls as u32) << 1u32),
         o -> config.room_demo as u32 + 2u32 * o -> config.scaling as u32,
         o -> config.seed,
         o -> config.complexity
@@ -53,7 +53,7 @@ fn recording_open(stream: *Recording, o: *Launch) -> bool {
     }
     if fread(&header as *u8, 24usize, 1usize, stream -> file) != 1usize || header[0usize] != 0x53504e30u32 || header[
         1usize
-    ] != 20u32 || header[2usize] > 1u32 || header[3usize] > 2u32 {
+    ] != 21u32 || header[2usize] > 3u32 || header[3usize] > 2u32 {
         return error("invalid recording header");
     }
     if header[3usize] != o -> config.room_demo as u32 + 2u32 * o -> config.scaling as u32 {
@@ -62,7 +62,8 @@ fn recording_open(stream: *Recording, o: *Launch) -> bool {
     if header[4usize] != o -> config.seed || header[5usize] != o -> config.complexity {
         return error("recording seed or complexity differs; use the recorded graph options");
     }
-    o -> config.full_spin = header[2usize] != 0u32;
+    o -> config.full_spin = (header[2usize] & 1u32) != 0u32;
+    o -> config.anchor_controls = (header[2usize] & 2u32) != 0u32;
     return true;
 }
 fn recording_finish(stream: *Recording) -> bool {
@@ -109,7 +110,7 @@ fn recording_read(stream: *Recording, c: *Command, doors: mut DoorSet) -> i32 {
         stream -> ended = true;
         return 0i32;
     }
-    if data[0usize] != stream -> count || data[8usize] > 127u32 || data[7usize] > 1u32 {
+    if data[0usize] != stream -> count || data[8usize] > 255u32 || data[7usize] > 1u32 {
         error("invalid recording tick or flags");
         return -1i32;
     }
@@ -141,6 +142,7 @@ fn recording_read(stream: *Recording, c: *Command, doors: mut DoorSet) -> i32 {
     c -> restart = (flags & 8u32) != 0u32;
     c -> spin = (flags & 16u32) != 0u32;
     c -> assist = (flags & 32u32) != 0u32;
+    c -> anchor = (flags & 128u32) != 0u32;
     c -> preview = (flags & 64u32) != 0u32;
     stream -> expected = data[9usize];
     if !recording_doors_read(stream -> file, mut doors, data[10usize]) {

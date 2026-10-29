@@ -2,10 +2,15 @@ fn brake_amount(drone: read Drone) -> f32 {
     return clamp(length(drone.velocity), 0f32, 30f32);
 }
 fn powered_winch(collision: read CollisionScene, drone: mut Drone) -> CollisionAdmission {
+    var old_extent: f32 = drone.cable.extent;
     var admission: CollisionAdmission = tether_winch_admitted(read collision, mut drone);
     if admission.status != 0u32 {
         return admission;
     }
-    tether_constraint(mut drone);
+    if drone.wall_anchor.active {
+        tether_anchor_constraint(mut drone, old_extent);
+    } else {
+        tether_constraint(mut drone);
+    }
     return collision_ready();
 }

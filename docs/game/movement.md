@@ -21,6 +21,41 @@ column and pale slider rise as the charge returns. The green lamp lights
 when a pulse is available. The gauge has no numeric readout. Its marks
 remain visible in dark rooms and cast no shadows.
 
+## Optional wall anchor controls
+
+Add `--anchor-controls` to the game or a room demo command. The browser has a
+**Wall anchor controls** option. The default controls stay unchanged.
+
+Hold right mouse, or the gamepad burst control, to search for a nearby room
+wall. The anchor holds the drone centre at a distance below its capture range. Both
+distances scale with the drone. The camera aligns its up axis with the wall
+normal on attachment. Mouse look remains available; roll input is disabled
+while attached. WASD moves along the wall with increased thrust. Release the
+button to detach and keep momentum. F keeps the normal brake action. Burst is
+disabled in this mode.
+
+The anchor uses finite hull faces. It excludes props and portal openings. A
+solid object between the drone and the wall blocks attachment. Motion still
+uses swept collision. At a portal crossing the anchor releases; a held button
+can acquire a destination wall on the next tick. A missing room follows normal
+task admission before simulation can continue.
+
+Gravity, drag, field forces, and tether forces retain their components along
+the wall. The anchor controls normal motion. Reeling stops when further cable
+shortening would cross the hover plane. Attachment is refused if that plane
+is already beyond the attached cable's reach.
+
+Energy drains only while attached. It recharges while detached, including
+while the button is held away from a wall. Empty energy releases the anchor
+and blocks attachment until recharge completes. A held button can then attach
+again. The console shows anchor energy in this mode; its lamp changes while
+attached. Range, clearance, thrust, approach speed, and timing are defined in
+[wall anchor tuning](../../src/game/flight/wall-anchor.crs).
+
+Anchor state belongs to the simulation snapshot. Prediction retains the held
+anchor input and simulates energy use and release. Recordings store the control
+mode and anchor input, and reject older recording versions.
+
 ## Controls
 
 | Action | Keyboard and mouse | Gamepad |

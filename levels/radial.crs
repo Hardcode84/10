@@ -20,7 +20,7 @@ fn demo_room_build(
         return false;
     }
     var builder: CollisionBuilder = collision_builder_new();
-    if !collision_append(
+    if !collision_append_boundary(
         mut builder,
         read walls,
         0u32,
@@ -47,10 +47,7 @@ fn demo_room_build(
         }
         i = i + 2u32;
     }
-    return collision_finish(move builder, mut collision) && flight_place_course(
-        mut collision,
-        read graph
-    );
+    return collision_finish(move builder, mut collision) && flight_place_rooms(mut collision);
 }
 
 // Constant room light, added to player and hook lighting.

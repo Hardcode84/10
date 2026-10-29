@@ -3,7 +3,7 @@ fn shaft_layout_cross(scene: read CollisionScene, portal: CollisionPortal) -> bo
     while i < 16u32 {
         var point: Vec3 = portal.origin;
         if portal.radius > service_oct_profile().radius {
-            var angle: f32 = 6.28318530718f32 * i as f32 / 16f32;
+            var angle: f32 = (2f32 * PI) * i as f32 / 16f32;
             point = add(
                 point,
                 add(
@@ -265,7 +265,7 @@ fn shaft_layout_grate(scene: read CollisionScene, graph: read RoomGraph, room: u
     var radius: f32 = (shaft_parameter(1u32).initial + shaft_parameter(2u32).initial) * 0.25f32;
     var i: u32 = 0u32;
     while i < 8u32 {
-        var angle: f32 = 6.28318530718f32 * i as f32 / 8f32;
+        var angle: f32 = (2f32 * PI) * i as f32 / 8f32;
         var drone: Drone = new_drone();
         drone.world = room;
         drone.position = vec(radius * cosf(angle), centre - 1f32, radius * sinf(angle));

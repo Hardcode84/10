@@ -1,0 +1,91 @@
+record BoundaryContact {
+    found: bool;
+    instance: u32;
+    point: Vec3;
+    normal: Vec3;
+    distance: f32;
+}
+fn collision_boundary_instance(
+    scene: read CollisionScene,
+    index: u32,
+    position: Vec3,
+    best: mut BoundaryContact
+) -> unit {
+    var item: CollisionInstance = collision_instance(read scene, index);
+    if !item.boundary || collision_moving(item) {
+        return;
+    }
+    var p: Vec3 = collision_local(item.basis, sub(position, item.origin));
+    var i: u32 = item.root;
+    while i < item.end {
+        var node: CollisionNode = collision_node(read scene, item.chunk, i);
+        if !collision_aabb(
+            p,
+            vec(0f32, 0f32, 0f32),
+            best.distance,
+            node.low,
+            node.high
+        ) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 {
+                var face: CollisionFace = collision_face(
+                    read scene,
+                    item.chunk,
+                    item.first + node.leaf
+                );
+                var signed: f32 = dot(sub(p, face.a), face.normal);
+                var distance: f32 = absf(signed);
+                var point: Vec3 = sub(p, scale(face.normal, signed));
+                if distance < best.distance && collision_inside(face, point) {
+                    var normal: Vec3 = face.normal;
+                    if signed < 0f32 {
+                        normal = scale(normal, -1f32);
+                    }
+                    best.found = true;
+                    best.instance = index;
+                    best.point = add(item.origin, basis_vector(item.basis, point));
+                    best.normal = basis_vector(item.basis, normal);
+                    best.distance = distance;
+                }
+            }
+            i = i + 1u32;
+        }
+    }
+}
+// Requires resident room geometry. Finds a finite static room-boundary face.
+// Openings, edge extensions, and solid props are excluded. Uses room-local units.
+fn collision_boundary_near(
+    scene: read CollisionScene,
+    space: u32,
+    position: Vec3,
+    reach: f32
+) -> BoundaryContact {
+    var best: BoundaryContact = make BoundaryContact {
+        found: false,
+        instance: 0xffffffffu32,
+        point: position,
+        normal: vec(0f32, 0f32, 0f32),
+        distance: reach
+    };
+    var range: CollisionSpace = collision_space(read scene, space);
+    var i: u32 = range.root;
+    while i < range.end {
+        var node: CollisionNode = collision_node(read scene, range.chunk, i);
+        if !collision_aabb(
+            position,
+            vec(0f32, 0f32, 0f32),
+            best.distance,
+            node.low,
+            node.high
+        ) {
+            i = node.skip;
+        } else {
+            if node.leaf != 0xffffffffu32 {
+                collision_boundary_instance(read scene, node.leaf, position, mut best);
+            }
+            i = i + 1u32;
+        }
+    }
+    return best;
+}

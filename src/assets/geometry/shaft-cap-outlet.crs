@@ -7,13 +7,13 @@ record OutletCapLayout {
     end_radius: f32;
 }
 fn outlet_pipe_target() -> f32 {
-    return service_oct_profile().radius * cosf(0.39269908169f32) + 0.75f32;
+    return service_oct_profile().radius * cosf((0.125f32 * PI)) + 0.75f32;
 }
 fn outlet_cap_layout(parameters: read AssetValues) -> OutletCapLayout {
     var core: f32 = asset_value(read parameters, 2u32) * 0.5f32;
     var radius: f32 = asset_value(read parameters, 1u32) * 0.5f32;
     var depth: f32 = asset_value(read parameters, 0u32);
-    var offset: f32 = core * 1.6f32 + service_oct_profile().radius * cosf(0.39269908169f32) + 1.5f32;
+    var offset: f32 = core * 1.6f32 + service_oct_profile().radius * cosf((0.125f32 * PI)) + 1.5f32;
     var fraction: f32 = (OUTLET_PIPE_LEG + oct_pipe_radius() + 0.15f32) / depth;
     var clearance: f32 = (offset + outlet_pipe_target() + 0.6f32 - radius * fraction) / (
         1f32 - fraction
@@ -74,13 +74,13 @@ fn outlet_cap_opening(asset: mut RoomAsset, port: RoomPort) -> bool {
     }
     asset_hull_swap(mut asset.hull, mut next);
     var rim: RoomPort = port;
-    rim.profile.radius = rim.profile.radius + 0.24f32 / cosf(0.39269908169f32);
+    rim.profile.radius = rim.profile.radius + 0.24f32 / cosf((0.125f32 * PI));
     if !hull_convex_partition(read asset.hull, mut next, rim, 7u32) {
         return false;
     }
     asset_hull_swap(mut asset.hull, mut next);
     rim = port;
-    rim.profile.radius = rim.profile.radius + 0.06f32 / cosf(0.39269908169f32);
+    rim.profile.radius = rim.profile.radius + 0.06f32 / cosf((0.125f32 * PI));
     if !hull_convex_partition(read asset.hull, mut next, rim, 6u32) {
         return false;
     }

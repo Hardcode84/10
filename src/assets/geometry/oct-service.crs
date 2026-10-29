@@ -14,13 +14,13 @@ fn oct_pipe_radius() -> f32 {
     return 0.35f32;
 }
 fn oct_pipe_distance() -> f32 {
-    return service_oct_profile().radius * cosf(0.39269908169f32) - oct_pipe_radius() - 0.08f32;
+    return service_oct_profile().radius * cosf((0.125f32 * PI)) - oct_pipe_radius() - 0.08f32;
 }
 
 // Floor and ceiling plates share the room XY grid.
 fn oct_service_cap_frame(hull: read AssetHull, id: u32) -> SurfaceFrame {
     var frame: SurfaceFrame = hull_frame(read hull, asset_face(read hull, id));
-    var narrow: f32 = service_oct_profile().radius * sinf(0.39269908169f32);
+    var narrow: f32 = service_oct_profile().radius * sinf((0.125f32 * PI));
     frame.origin = vec(-narrow, narrow, frame.origin.z);
     frame.right = vec(2f32, 0f32, 0f32);
     frame.up = vec(0f32, 1f32, 0f32);

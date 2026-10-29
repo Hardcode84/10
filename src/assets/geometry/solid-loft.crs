@@ -53,7 +53,7 @@ fn bevelled_body(mesh: mut Mesh, body: BevelledBody, origin: Vec3, basis: Basis)
     var hull: AssetHull = asset_hull_new();
     var profile: RegularProfile = make RegularProfile {
         sides: body.sides,
-        phase: 3.14159265359f32 / body.sides as f32
+        phase: PI / body.sides as f32
     };
     if !loft_allocate(mut hull, profile, 4u32) {
         return false;
@@ -110,7 +110,7 @@ fn solid_cylinder(
     var hull: AssetHull = asset_hull_new();
     var profile: RegularProfile = make RegularProfile {
         sides: sides,
-        phase: 3.14159265359f32 / sides as f32
+        phase: PI / sides as f32
     };
     if !loft_allocate(mut hull, profile, 2u32) {
         return false;
@@ -119,7 +119,7 @@ fn solid_cylinder(
     loft_ring(mut hull, profile, 1u32, extent, radius);
     loft_span(mut hull, profile, 0u32, region);
     loft_caps(mut hull, profile, 2u32, region, region);
-    var edge: f32 = 2f32 * radius * sinf(3.14159265359f32 / sides as f32);
+    var edge: f32 = 2f32 * radius * sinf(PI / sides as f32);
     var i: u32 = 0u32;
     while i < sides {
         var face: HullFace = asset_face(read hull, i);
@@ -152,7 +152,7 @@ fn solid_triangular_prism(
     var hull: AssetHull = asset_hull_new();
     var profile: RegularProfile = make RegularProfile {
         sides: 3u32,
-        phase: 3.14159265359f32
+        phase: PI
     };
     if !loft_allocate(mut hull, profile, 2u32) {
         return false;

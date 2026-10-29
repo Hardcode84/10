@@ -49,7 +49,7 @@ fn outlet_pipe_route(asset: read RoomAsset, layout: OutletCapLayout, slot: u32) 
     if slot == 2u32 {
         route.count = 3u32;
         route.normal = vec(-1f32, 0f32, 0f32);
-        route.mount = vec(layout.core * 1.6f32 * cosf(3.14159265359f32 / 16f32), y, 0f32);
+        route.mount = vec(layout.core * 1.6f32 * cosf(PI / 16f32), y, 0f32);
     } else if slot == 0u32 {
         route.points[2usize] = vec(layout.offset + outlet_pipe_target(), y, 0f32);
         route.points[3usize] = vec(layout.offset + outlet_pipe_target(), y, 2f32);

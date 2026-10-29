@@ -105,7 +105,7 @@ fn shaft_track_material_band(region: u32, parameters: read AssetValues, band_wid
     if region == 2u32 {
         diameter = asset_value(read parameters, 2u32);
     }
-    material.tile_metres = diameter * sinf(3.14159265359f32 / 48f32);
+    material.tile_metres = diameter * sinf(PI / 48f32);
     material.tile_height = asset_value(read parameters, 0u32) / (
         asset_value(read parameters, 3u32) + 1f32
     );

@@ -1,6 +1,6 @@
 // Named profiles define compatibility. Roll selects an allowed mating rotation.
 fn connection_transform(a: RoomPort, b: RoomPort, roll: u32) -> SpaceTransform {
-    var angle: f32 = 6.28318530718f32 * roll as f32 / connection_rotations(a, b) as f32;
+    var angle: f32 = (2f32 * PI) * roll as f32 / connection_rotations(a, b) as f32;
     var c: f32 = cosf(angle);
     var s: f32 = sinf(angle);
     var source_scale: Rational = rational_new(

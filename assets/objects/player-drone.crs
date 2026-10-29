@@ -21,7 +21,7 @@ fn player_drone_mesh(mesh: mut Mesh, radius: f32) -> bool {
     };
     var i: u32 = 0u32;
     while i < 2u32 {
-        var angle: f32 = 3.926990817f32 + i as f32 * 1.5707963268f32;
+        var angle: f32 = 3.926990817f32 + i as f32 * (0.5f32 * PI);
         var origin: Vec3 = scale(
             vec(cosf(angle) * 0.62f32, sinf(angle) * 0.62f32, -0.35f32),
             radius
@@ -51,7 +51,7 @@ fn player_drone_barrel(mesh: mut Mesh, radius: f32, axis: Basis) -> bool {
     var hull: AssetHull = asset_hull_new();
     var profile: RegularProfile = make RegularProfile {
         sides: 8u32,
-        phase: 0.3926990817f32
+        phase: (0.125f32 * PI)
     };
     if !loft_allocate(mut hull, profile, 6u32) {
         return false;

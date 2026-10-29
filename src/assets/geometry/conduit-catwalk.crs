@@ -32,7 +32,7 @@ fn conduit_catwalk_band(
         material = conduit_catwalk_material();
     }
     var repeats: f32 = panel_pixel_extent(
-        3.14159265359f32 * (inner + outer) / (material.tile_metres * 48f32),
+        PI * (inner + outer) / (material.tile_metres * 48f32),
         1u32
     ) as f32 * 48f32;
     return annular_band_mesh_uv(
@@ -155,7 +155,7 @@ fn conduit_catwalk_build(
     }
     var i: u32 = 0u32;
     while i < 3u32 {
-        var angle: f32 = layout.phase + i as f32 * 6.28318530718f32 / 3f32;
+        var angle: f32 = layout.phase + i as f32 * (2f32 * PI) / 3f32;
         var radial: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
         if !conduit_catwalk_anchor(mut asset, layout, radial, -1f32) || !conduit_catwalk_anchor(
             mut asset,
@@ -177,7 +177,7 @@ fn conduit_catwalk_layout(
     entry_extent: f32
 ) -> ConduitCatwalk {
     var core: f32 = asset_value(read values, 2u32) * 0.5f32;
-    var wall: f32 = asset_value(read values, 1u32) * 0.5f32 * cosf(3.14159265359f32 / 48f32);
+    var wall: f32 = asset_value(read values, 1u32) * 0.5f32 * cosf(PI / 48f32);
     var relief: f32 = asset_value(read values, 6u32);
     var gap: f32 = wall - relief - core;
     var interval: [f32; 2] = conduit_hazard_interval(
@@ -198,7 +198,7 @@ fn conduit_catwalk_layout(
         deck: mask_min(1.5f32, extent * 0.08f32),
         rail: mask_min(2f32, extent * 0.2f32),
         suspension: mask_min(12f32, extent * 0.65f32),
-        phase: ((seed % 16u32) + slot * 8u32) as f32 * 6.28318530718f32 / 48f32
+        phase: ((seed % 16u32) + slot * 8u32) as f32 * (2f32 * PI) / 48f32
     };
 }
 fn conduit_catwalk_connected(

@@ -4,6 +4,7 @@ import {presentation} from './presentation.mjs';
 // Use a separate browser profile with remote debugging enabled.
 const endpoint = process.env.BROWSER_CDP || 'http://127.0.0.1:9227';
 const scaling = process.argv.includes('--scaling');
+const anchorControls = process.argv.includes('--anchor');
 const mainGame = process.argv.includes('--main');
 if (mainGame && scaling) throw Error('The service-network game does not use the scaling fixture');
 const origin = process.env.GAME_URL || 'http://127.0.0.1:8000';
@@ -35,7 +36,7 @@ async function evaluate(fn, argument, url=origin+'/') {
   return result.result.value;
 }
 async function browser(options) {
-  const value=await evaluate(flight,{...options,scaling,symmetric:mainGame || scaling});
+  const value=await evaluate(flight,{...options,scaling,anchorControls,symmetric:mainGame || scaling});
   if(options.deviceLoss || options.allocationFailure) {
     require(value.status==='Run failed. See the log.' && value.errors.length>0,JSON.stringify(value));
   } else {
@@ -73,7 +74,7 @@ function compareImage(a, b) {
 function checkCommands(encoded) {
   const bytes=Buffer.from(encoded,'base64');
   let flags=0,reel=false,thrust=false,look=false;
-  require(bytes.length>=68 && bytes.readUInt32LE(0)===0x53504e30 && bytes.readUInt32LE(4)===20,'Invalid flight recording header');
+  require(bytes.length>=68 && bytes.readUInt32LE(0)===0x53504e30 && bytes.readUInt32LE(4)===21,'Invalid flight recording header');
   let ticks=0,offset=24;
   while(offset+44<=bytes.length && bytes.readUInt32LE(offset)!==0xffffffff) {
     require(bytes.readUInt32LE(offset)===ticks,'Invalid flight tick sequence');
@@ -88,7 +89,10 @@ function checkCommands(encoded) {
     ticks++;
   }
   require(ticks>0 && offset+44===bytes.length && bytes.readUInt32LE(offset+4)===ticks,'Flight recording has an invalid tick count');
-  require(thrust&&look&&reel&&(flags&7)===7,'SDL did not record thrust, roll, tether, reel, boost and brake');
+  const required = anchorControls ? 134 : 7;
+  require(thrust&&look&&reel&&(flags&required)===required,'SDL did not record thrust, roll, tether, reel, movement action and brake');
+  require(!!(bytes.readUInt32LE(8)&2)===anchorControls,'Recording lost movement control mode');
+  if(anchorControls)require((flags&1)===0,'Anchor controls also triggered boost');
 }
 async function native(recording, tag) {
   const path=`build/web-check-${tag}`;
@@ -106,7 +110,7 @@ try {
     try {console.log(await evaluate(presentation,180,server.url.href));}
     finally {server.stop();}
   } else {
-  require(process.argv.slice(2).every(arg => ['--scaling','--main'].includes(arg)), 'Use --main, --scaling, or --presentation');
+  require(process.argv.slice(2).every(arg => ['--scaling','--main','--anchor'].includes(arg)), 'Use --main, --scaling, --anchor, or --presentation');
   const raw=await browser({}),checked=await browser({checked:true});
   await Bun.write('build/web-check-raw.ppm',Buffer.from(raw.capture,'base64'));await Bun.write('build/web-check-checked.ppm',Buffer.from(checked.capture,'base64'));compareImage(raw.capture,checked.capture);
   const initial=await native(raw.recording,'initial');

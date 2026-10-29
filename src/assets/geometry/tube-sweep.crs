@@ -31,15 +31,13 @@ fn tube_sweep_begin(centre: Vec3, tangent: Vec3, radial: Vec3, style: TubeStyle)
     };
 }
 fn tube_sweep_vertex(ring: TubeRing, style: TubeStyle, distance: f32, corner: u32) -> MeshVertex {
-    var angle: f32 = 3.14159265359f32 / style.sides as f32 + 6.28318530718f32 * (
-        corner % style.sides
-    ) as f32 / style.sides as f32;
+    var angle: f32 = PI / style.sides as f32 + (2f32 * PI) * (corner % style.sides) as f32 / style.sides as f32;
     var offset: Vec3 = add(
         scale(ring.radial, cosf(angle)),
         scale(cross(ring.radial, ring.tangent), sinf(angle))
     );
     var p: Vec3 = add(ring.centre, scale(offset, style.radius));
-    var edge: f32 = 2f32 * style.radius * sinf(3.14159265359f32 / style.sides as f32);
+    var edge: f32 = 2f32 * style.radius * sinf(PI / style.sides as f32);
     return make MeshVertex {
         x: p.x,
         y: p.y,

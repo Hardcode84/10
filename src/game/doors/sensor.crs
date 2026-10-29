@@ -10,10 +10,10 @@ fn door_approach(door: DoorInstance, before: Vec3, after: Vec3, radius: f32) -> 
         var limit: f32 = DOOR_APPROACH_DEPTH + radius;
         if plane < door.shape.sides {
             var angle: f32 = door.shape.phase + (plane as f32 + 0.5f32) * (
-                6.28318530718f32 / door.shape.sides as f32
+                (2f32 * PI) / door.shape.sides as f32
             );
             normal = vec(cosf(angle), 0f32, sinf(angle));
-            limit = door.radius * cosf(3.14159265359f32 / door.shape.sides as f32) + radius;
+            limit = door.radius * cosf(PI / door.shape.sides as f32) + radius;
         } else if plane == door.shape.sides + 1u32 {
             normal.y = -1f32;
         }

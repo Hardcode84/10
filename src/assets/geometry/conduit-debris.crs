@@ -86,7 +86,7 @@ fn conduit_debris_section(
     entry_extent: f32
 ) -> bool {
     var core: f32 = asset_value(read values, 2u32) * 0.5f32;
-    var wall: f32 = asset_value(read values, 1u32) * 0.5f32 * cosf(3.14159265359f32 / 48f32) - asset_value(
+    var wall: f32 = asset_value(read values, 1u32) * 0.5f32 * cosf(PI / 48f32) - asset_value(
         read values,
         6u32
     );
@@ -116,7 +116,7 @@ fn conduit_debris_section(
                     hash,
                     2u32
                 ) * 0.07f32
-            ) * 6.28318530718f32;
+            ) * (2f32 * PI);
             var orbit: f32 = core + radius + (wall - core - 2f32 * radius) * (
                 0.2f32 + 0.6f32 * conduit_debris_random(hash, 3u32)
             );
@@ -147,7 +147,7 @@ fn conduit_debris_speed(values: read AssetValues) -> f32 {
     if asset_value(read values, conduit_powered_parameter()) == 0f32 {
         return 0f32;
     }
-    return 6.28318530718f32 / asset_value(read values, conduit_orbit_parameter());
+    return (2f32 * PI) / asset_value(read values, conduit_orbit_parameter());
 }
 
 fn conduit_debris_basis(seed: u32) -> Basis {

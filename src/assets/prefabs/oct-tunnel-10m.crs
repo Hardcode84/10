@@ -32,7 +32,7 @@ fn prefab_oct_tunnel_10m_oct_tunnel_pipes(asset: mut RoomAsset, extent: f32) -> 
     var distance: f32 = oct_pipe_distance();
     var i: u32 = 0u32;
     while i < 4u32 {
-        var angle: f32 = i as f32 * 1.57079632679f32;
+        var angle: f32 = i as f32 * (0.5f32 * PI);
         if !asset_part_append(
             mut asset.parts,
             make AssetPart {

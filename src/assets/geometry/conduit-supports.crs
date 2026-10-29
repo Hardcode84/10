@@ -103,7 +103,7 @@ fn conduit_supports(
     var first: u32 = mesh_triangle_count(read asset.geometry);
     var inner: f32 = core * 0.85f32;
     var collar_depth: f32 = conduit_support_axial_extent(core) * 2f32;
-    var circumference: f32 = 3.14159265359f32 * (inner + collar);
+    var circumference: f32 = PI * (inner + collar);
     var circum_tiles: u32 = panel_pixel_extent(
         circumference / (conduit_support_material().tile_metres * 8f32),
         1u32
@@ -120,13 +120,13 @@ fn conduit_supports(
     ) || !asset_part_place_tail(mut asset, first, asset_name("core-clamp"), centre) {
         return false;
     }
-    var wall: f32 = radius * cosf(3.14159265359f32 / 48f32);
+    var wall: f32 = radius * cosf(PI / 48f32);
     var start: f32 = core;
     var span: f32 = radius - start;
     var foot: f32 = relief + width * 0.3f32;
     var i: u32 = 0u32;
     while i < 4u32 {
-        var angle: f32 = (i as f32 + 0.5f32) * 1.57079632679f32;
+        var angle: f32 = (i as f32 + 0.5f32) * (0.5f32 * PI);
         var radial: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
         var up: Vec3 = vec(0f32, 1f32, 0f32);
         var basis: Basis = make Basis {

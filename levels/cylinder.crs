@@ -24,7 +24,7 @@ fn cylinder_port(shape: RegularProfile, far: bool) -> RoomPort {
         }
     };
     if far {
-        var angle: f32 = 6.28318530718f32 * (shape.sides - 1u32) as f32 / shape.sides as f32;
+        var angle: f32 = (2f32 * PI) * (shape.sides - 1u32) as f32 / shape.sides as f32;
         port.id = asset_name("SHRINK");
         port.profile.scale.numerator = 2u64;
         port.profile.radius = 4f32;
@@ -78,7 +78,7 @@ fn demo_room_build(
     var walls: Mesh = mesh_new();
     var builder: CollisionBuilder = collision_builder_new();
     if!(
-        room_linked_mesh(read asset, mut mesh, mut walls, GAME_MATERIALS) && collision_append(
+        room_linked_mesh(read asset, mut mesh, mut walls, GAME_MATERIALS) && collision_append_boundary(
             mut builder,
             read walls,
             0u32,
@@ -96,10 +96,7 @@ fn demo_room_build(
     ) {
         return false;
     }
-    return collision_finish(move builder, mut collision) && flight_place_course(
-        mut collision,
-        read graph
-    );
+    return collision_finish(move builder, mut collision) && flight_place_rooms(mut collision);
 }
 
 // Constant room light, added to player and hook lighting.

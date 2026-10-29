@@ -68,7 +68,7 @@ fn room_replay_base(
 ) -> bool {
     var render: Mesh = mesh_new();
     var walls: Mesh = mesh_new();
-    if !room_linked_mesh(read asset, mut render, mut walls, material) || !collision_append(
+    if !room_linked_mesh(read asset, mut render, mut walls, material) || !collision_append_boundary(
         mut builder,
         read walls,
         room,

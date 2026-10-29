@@ -4,6 +4,7 @@ record Command {
     reel: bool;
     // Enables a burst along thrust when the shared cooldown permits it.
     burst: bool;
+    anchor: bool;
     brake: bool;
     tether: bool;
     restart: bool;
@@ -17,6 +18,7 @@ fn idle_command() -> Command {
         look: vec(0f32, 0f32, 0f32),
         reel: false,
         burst: false,
+        anchor: false,
         brake: false,
         tether: false,
         restart: false,
@@ -24,4 +26,14 @@ fn idle_command() -> Command {
         assist: false,
         preview: false
     };
+}
+
+// Converts the shared held action to the selected movement scheme.
+fn movement_command(command: Command, anchor_controls: bool) -> Command {
+    var result: Command = command;
+    if anchor_controls {
+        result.anchor = result.burst;
+        result.burst = false;
+    }
+    return result;
 }

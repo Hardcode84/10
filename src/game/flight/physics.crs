@@ -10,7 +10,9 @@ fn flight_pulses(drone: mut Drone, command: Command) -> bool {
         drone.brake_ticks = FLIGHT_PULSE_TICKS;
         drone.brake_rate = brake_amount(read drone) / (FLIGHT_PULSE_TICKS as f32 * STEP);
         drone.pulse_cooldown = FLIGHT_COOLDOWN_TICKS;
-    } else if command.burst && drone.pulse_cooldown == 0u32 && length(command.thrust) > 0f32 {
+    } else if !drone.wall_anchor.enabled && command.burst && drone.pulse_cooldown == 0u32 && length(
+        command.thrust
+    ) > 0f32 {
         boosted = true;
         drone.boost_direction = unit_vector(command.thrust);
         drone.boost_ticks = FLIGHT_PULSE_TICKS;
@@ -66,6 +68,7 @@ fn simulate_admitted(
     }
     drone.contact = flight_contact_empty();
     drone.step_frame = space_identity();
+    wall_anchor_step(read collision, mut drone, command.anchor);
     orient(
         collision_room_frame(read collision, drone.world),
         mut drone,
@@ -91,9 +94,10 @@ fn simulate_admitted(
             ),
             1f32 / drone_size(read drone)
         ),
-        scale(basis_vector(drone.basis, thrust), FLIGHT_THRUST_ACCELERATION)
+        wall_anchor_input(read drone, thrust)
     );
     drone.velocity = add(drone.velocity, scale(acceleration, STEP));
+    wall_anchor_velocity(mut drone);
     var travel: Vec3 = scale(drone.velocity, STEP * drone_size(read drone));
     var end_time: f32 = (drone.clock + 1u32) as f32 * STEP;
     hook_follow(read collision, mut drone, end_time);
@@ -106,7 +110,9 @@ fn simulate_admitted(
         return admission;
     }
     drone.clock = drone.clock + 1u32;
-    return powered_winch(read collision, mut drone);
+    admission = powered_winch(read collision, mut drone);
+    wall_anchor_finish(mut drone);
+    return admission;
 }
 
 // Requires complete collision coverage for the tick.

@@ -54,7 +54,7 @@ fn oct_junction_bent_pipe(
 ) -> bool {
     var radius: f32 = 1.2f32;
     var lead: f32 = leg - offset.x - radius - diagonal * 0.70710678118f32;
-    var extent: f32 = lead * 2f32 + radius * 1.57079632679f32 + diagonal;
+    var extent: f32 = lead * 2f32 + radius * (0.5f32 * PI) + diagonal;
     var bands: u32 = (extent / 2f32) as u32 + 1u32;
     var first: u32 = mesh_triangle_count(read asset.geometry);
     var bend: TubeBend = make TubeBend {
@@ -64,7 +64,7 @@ fn oct_junction_bent_pipe(
         outgoing: lead,
         diagonal: diagonal,
         sides: 8u32,
-        steps: tube_sweep_steps(1.57079632679f32),
+        steps: tube_sweep_steps((0.5f32 * PI)),
         tile_metres: extent / bands as f32
     };
     if !solid_tube_bend(mut asset.geometry, bend, 1u32) {

@@ -177,7 +177,7 @@ fn conduit_tiles(asset: mut RoomAsset, values: read AssetValues) -> bool {
     var height: f32 = asset_value(read values, 0u32);
     var rows: u32 = panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32);
     var bay: f32 = height / rows as f32;
-    var width: f32 = asset_value(read values, 1u32) * sinf(3.14159265359f32 / 48f32);
+    var width: f32 = asset_value(read values, 1u32) * sinf(PI / 48f32);
     var side: u32 = 0u32;
     while side < asset_face_count(read asset.hull) {
         var face: HullFace = asset_face(read asset.hull, side);

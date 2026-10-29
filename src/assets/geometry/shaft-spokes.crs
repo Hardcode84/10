@@ -28,7 +28,9 @@ fn shaft_spoke_angle(layout: ShaftSpokeLayout, station: u32) -> f32 {
     if layout.random {
         return (metal_hash(station, 31u32, layout.seed) % 48u32) as f32 * 0.1308996939f32;
     }
-    return (layout.seed % 12u32) as f32 * 0.1308996939f32 + (station % 2u32) as f32 * 1.57079632679f32;
+    return (layout.seed % 12u32) as f32 * 0.1308996939f32 + (station % 2u32) as f32 * (
+        0.5f32 * PI
+    );
 }
 fn shaft_spoke_basis(angle: f32) -> Basis {
     var radial: Vec3 = shaft_pipe_normal(angle);
@@ -77,9 +79,9 @@ fn shaft_spoke_collars(
         step = 2u32;
     }
     while side < 4u32 {
-        var distance: f32 = core * cosf(3.14159265359f32 / 48f32);
+        var distance: f32 = core * cosf(PI / 48f32);
         if side >= 2u32 {
-            distance = radius * cosf(3.14159265359f32 / 48f32);
+            distance = radius * cosf(PI / 48f32);
         }
         var collar_first: u32 = core_first;
         if side >= 2u32 {
@@ -114,7 +116,7 @@ fn shaft_spokes(asset: mut RoomAsset, layout: ShaftSpokeLayout) -> bool {
     var collar_count: u32 = mesh_triangle_count(read asset.geometry) - collar;
     var core_collar: u32 = mesh_triangle_count(read asset.geometry);
     var collar_radius: f32 = pipe_radius * SHAFT_SPOKE_COLLAR_RATIO;
-    var apothem: f32 = layout.core * cosf(3.14159265359f32 / 48f32);
+    var apothem: f32 = layout.core * cosf(PI / 48f32);
     var inset: f32 = apothem - sqrtf(apothem * apothem - collar_radius * collar_radius);
     if !shaft_spoke_collar_mesh(mut asset.geometry, pipe_radius, inset) {
         return false;
@@ -195,11 +197,11 @@ fn shaft_spoke_collar_mesh(mesh: mut Mesh, pipe_radius: f32, inset: f32) -> bool
 fn shaft_spoke_pipe_mesh(mesh: mut Mesh, wall: f32, core: f32, extent: f32) -> bool {
     var radius: f32 = core * SHAFT_SPOKE_RADIUS_RATIO;
     var span: f32 = shaft_spoke_coating_span(wall, core);
-    var start: f32 = core * cosf(3.14159265359f32 / 48f32) + radius * SHAFT_SPOKE_COLLAR_HALF_DEPTH;
+    var start: f32 = core * cosf(PI / 48f32) + radius * SHAFT_SPOKE_COLLAR_HALF_DEPTH;
     var hull: AssetHull = asset_hull_new();
     var profile: RegularProfile = make RegularProfile {
         sides: 8u32,
-        phase: 3.14159265359f32 / 8f32
+        phase: PI / 8f32
     };
     if !loft_allocate(mut hull, profile, 2u32) {
         return false;
@@ -230,11 +232,11 @@ fn shaft_spoke_pipe_mesh(mesh: mut Mesh, wall: f32, core: f32, extent: f32) -> b
     );
 }
 fn shaft_spoke_face_width(radius: f32) -> f32 {
-    return 2f32 * radius * sinf(3.14159265359f32 / 8f32);
+    return 2f32 * radius * sinf(PI / 8f32);
 }
 
 fn shaft_spoke_coating_span(wall: f32, core: f32) -> f32 {
-    return (wall - core) * cosf(3.14159265359f32 / 48f32) - 2f32 * core * SHAFT_SPOKE_RADIUS_RATIO * SHAFT_SPOKE_COLLAR_HALF_DEPTH;
+    return (wall - core) * cosf(PI / 48f32) - 2f32 * core * SHAFT_SPOKE_RADIUS_RATIO * SHAFT_SPOKE_COLLAR_HALF_DEPTH;
 }
 fn shaft_spoke_pipe_instances(
     asset: mut RoomAsset,

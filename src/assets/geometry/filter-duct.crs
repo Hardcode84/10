@@ -125,7 +125,7 @@ fn filter_duct_louvers(asset: mut RoomAsset, duct: FilterDuct) -> bool {
 fn filter_plenum_duct(asset: mut RoomAsset, layout: FilterPlenumLayout, index: u32) -> bool {
     var bearing: f32 = filter_bearing_radius(layout);
     var radial: f32 = (layout.radius + bearing) * 0.5f32;
-    var basis: Basis = shaft_axis_basis((index as f32 + 0.5f32) * 1.57079632679f32);
+    var basis: Basis = shaft_axis_basis((index as f32 + 0.5f32) * (0.5f32 * PI));
     var y: f32 = filter_grate_height(layout) + 1.8f32;
     var half: f32 = filter_duct_half(layout);
     var duct: FilterDuct = make FilterDuct {

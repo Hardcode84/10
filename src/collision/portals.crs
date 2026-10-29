@@ -42,7 +42,7 @@ fn portal_inside(portal: CollisionPortal, point: Vec3) -> bool {
     var offset: Vec3 = sub(point, portal.origin);
     var x: f32 = dot(offset, portal.basis.right);
     var y: f32 = dot(offset, portal.basis.up);
-    var step: f32 = 6.28318530718f32 / portal.sides as f32;
+    var step: f32 = (2f32 * PI) / portal.sides as f32;
     var limit: f32 = portal.radius * cosf(step * 0.5f32);
     var i: u32 = 0u32;
     while i < portal.sides {

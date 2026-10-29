@@ -25,7 +25,7 @@ fn shaft_pipe_position(angle: f32, radius: f32, height: f32) -> Vec3 {
 }
 fn shaft_pipe_layout(bay: ShaftPipeBay, lane: u32) -> ShaftPipeRun {
     var choice: u32 = metal_hash(lane, bay.station, bay.seed);
-    var angle: f32 = 1.57079632679f32 * lane as f32 + 0.1308996939f32 * (bay.seed % 48u32) as f32;
+    var angle: f32 = (0.5f32 * PI) * lane as f32 + 0.1308996939f32 * (bay.seed % 48u32) as f32;
     var low: f32 = bay.low;
     var high: f32 = bay.high;
     if (choice & 16u32) != 0u32 {
@@ -59,9 +59,9 @@ fn shaft_pipe_turn(mesh: mut Mesh, sweep: mut TubeSweep, run: ShaftPipeRun, ente
     var middle: f32 = (run.low + run.high) * 0.5f32;
     var distance: f32 = sweep.distance;
     var i: u32 = 1u32;
-    var steps: u32 = tube_sweep_steps(1.57079632679f32);
+    var steps: u32 = tube_sweep_steps((0.5f32 * PI));
     while i <= steps {
-        var turn: f32 = 1.57079632679f32 * i as f32 / steps as f32;
+        var turn: f32 = (0.5f32 * PI) * i as f32 / steps as f32;
         var s: f32 = sinf(turn);
         var c: f32 = cosf(turn);
         if i == steps {

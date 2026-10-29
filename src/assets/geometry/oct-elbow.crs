@@ -1,7 +1,7 @@
 fn oct_elbow_vertices(hull: mut AssetHull, distance: f32) -> unit {
     var radius: f32 = service_oct_profile().radius;
-    var narrow: f32 = radius * sinf(0.39269908169f32);
-    var wide: f32 = radius * cosf(0.39269908169f32);
+    var narrow: f32 = radius * sinf((0.125f32 * PI));
+    var wide: f32 = radius * cosf((0.125f32 * PI));
     var layer: u32 = 0u32;
     while layer < 4u32 {
         var z: f32 = -wide;

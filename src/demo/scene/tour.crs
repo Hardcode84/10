@@ -258,12 +258,11 @@ fn tour_bend(z: f32) -> f32 {
     }
     return 0f32;
 }
-extern fn atan2f(y: f32, x: f32) -> f32 foreign(scalar) = "atan2f";
 fn tour_camera(v: mut FrameInput, frame: u32) -> unit {
     var phase: f32 = (frame % 1200u32) as f32 / 1200f32;
-    var journey: f32 = -3f32 + 31.5f32 * (1f32 - cosf(phase * 6.2831853f32));
+    var journey: f32 = -3f32 + 31.5f32 * (1f32 - cosf(phase * (2f32 * PI)));
     var z: f32 = journey;
-    var x: f32 = sinf(phase * 6.2831853f32) * 0.65f32;
+    var x: f32 = sinf(phase * (2f32 * PI)) * 0.65f32;
     var yaw: f32 = sinf(phase * 12.5663706f32) * 0.16f32;
     yaw = yaw + atan2f(tour_bend(journey - 6f32) - tour_bend(journey - 10f32), 4f32);
     var space: u32 = 0u32;
@@ -274,9 +273,9 @@ fn tour_camera(v: mut FrameInput, frame: u32) -> unit {
     }
     if journey >= 34f32 {
         space = 2u32;
-        z = sinf(phase * 6.2831853f32) * 0.65f32;
+        z = sinf(phase * (2f32 * PI)) * 0.65f32;
         x = 34f32 - journey;
-        yaw = yaw - 1.5707963f32 + (journey - 34f32) / 26f32 * 3.1415927f32;
+        yaw = yaw - (0.5f32 * PI) + (journey - 34f32) / 26f32 * PI;
     }
     var c: f32 = cosf(yaw);
     var s: f32 = sinf(yaw);
@@ -354,5 +353,6 @@ fn terrain_height(x: f32, z: f32) -> f32 {
     }
     return -2f32 + distance * 0.04f32 + sinf(x * 0.22f32) * cosf(z * 0.14f32) * distance * 0.05f32;
 }
+extern fn atan2f(y: f32, x: f32) -> f32 foreign(scalar) = "atan2f";
 extern fn sinf(x: f32) -> f32 foreign(scalar) = "sinf";
 extern fn cosf(x: f32) -> f32 foreign(scalar) = "cosf";

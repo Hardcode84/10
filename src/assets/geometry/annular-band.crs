@@ -18,7 +18,7 @@ fn annular_band_vertex(
     if corner % 4u32 >= 2u32 {
         height = -height;
     }
-    var angle: f32 = (section % 48u32) as f32 * 6.28318530718f32 / 48f32;
+    var angle: f32 = (section % 48u32) as f32 * (2f32 * PI) / 48f32;
     return make MeshVertex {
         x: radius * cosf(angle),
         y: height,
@@ -42,7 +42,7 @@ fn annular_band_mesh(
         outer,
         depth,
         region,
-        panel_pixel_extent(3.14159265359f32 * (inner + outer) / tile, 1u32) as f32,
+        panel_pixel_extent(PI * (inner + outer) / tile, 1u32) as f32,
         (outer - inner) / tile_height,
         depth / tile_height
     );

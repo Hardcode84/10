@@ -29,7 +29,7 @@ fn conduit_shaft_wall_u(hull: read AssetHull, vertex: u32) -> f32 {
         return index as f32;
     }
     var point: Vec3 = asset_vertex(read hull, vertex);
-    return atan2f(point.z, point.x) * 48f32 / 6.28318530718f32 + 0.5f32;
+    return atan2f(point.z, point.x) * 48f32 / (2f32 * PI) + 0.5f32;
 }
 fn conduit_shaft_wall_frame(hull: read AssetHull, face: HullFace, tile: f32, bay: f32) -> SurfaceFrame {
     var a: Vec3 = hull_corner(read hull, face, 0u32);

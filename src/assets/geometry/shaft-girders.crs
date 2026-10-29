@@ -8,7 +8,7 @@ record ShaftGirderLayout {
     rail: f32;
 }
 fn shaft_girder_web_period(layout: ShaftGirderLayout) -> f32 {
-    var span: f32 = (layout.wall - layout.core) * cosf(3.14159265359f32 / 48f32);
+    var span: f32 = (layout.wall - layout.core) * cosf(PI / 48f32);
     var pairs: u32 = panel_pixel_extent(
         span / (2f32 * (layout.depth - layout.rail)),
         1u32
@@ -42,8 +42,8 @@ fn shaft_girder_web(
     origin: Vec3,
     basis: Basis
 ) -> bool {
-    var inner: f32 = layout.core * cosf(3.14159265359f32 / 48f32);
-    var outer: f32 = layout.wall * cosf(3.14159265359f32 / 48f32);
+    var inner: f32 = layout.core * cosf(PI / 48f32);
+    var outer: f32 = layout.wall * cosf(PI / 48f32);
     var half: f32 = (layout.depth - layout.rail) * 0.5f32;
     var start: f32 = inner - layout.rail;
     var end: f32 = outer + layout.rail;
@@ -105,10 +105,12 @@ fn shaft_girder_station(
     station: u32
 ) -> bool {
     var height: f32 = layout.height * (station + 1u32) as f32 / (layout.stations + 1u32) as f32;
-    var angle: f32 = (layout.seed % 12u32) as f32 * 0.1308996939f32 + (station % 2u32) as f32 * 1.57079632679f32;
+    var angle: f32 = (layout.seed % 12u32) as f32 * 0.1308996939f32 + (station % 2u32) as f32 * (
+        0.5f32 * PI
+    );
     var side: u32 = 0u32;
     while side < 2u32 {
-        var radial: Vec3 = shaft_pipe_normal(angle + side as f32 * 3.14159265359f32);
+        var radial: Vec3 = shaft_pipe_normal(angle + side as f32 * PI);
         var basis: Basis = make Basis {
             right: radial,
             up: vec(0f32, 1f32, 0f32),
@@ -140,8 +142,8 @@ fn shaft_girder_station(
     return true;
 }
 fn shaft_girders(asset: mut RoomAsset, layout: ShaftGirderLayout) -> bool {
-    var inner: f32 = layout.core * cosf(3.14159265359f32 / 48f32) - layout.rail;
-    var outer: f32 = layout.wall * cosf(3.14159265359f32 / 48f32) + layout.rail;
+    var inner: f32 = layout.core * cosf(PI / 48f32) - layout.rail;
+    var outer: f32 = layout.wall * cosf(PI / 48f32) + layout.rail;
     var first: u32 = mesh_triangle_count(read asset.geometry);
     if !solid_box(
         mut asset.geometry,
@@ -205,7 +207,7 @@ fn shaft_girder_mounts(
         }
         var y: f32 = height + ((joint % 2u32) as f32 - 0.5f32) * (layout.depth - layout.rail);
         var centre: Vec3 = add(
-            scale(radial, radius * cosf(3.14159265359f32 / 48f32)),
+            scale(radial, radius * cosf(PI / 48f32)),
             vec(0f32, y, 0f32)
         );
         if !cylinder_surface_patch(

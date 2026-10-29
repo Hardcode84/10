@@ -6,7 +6,7 @@ fn oct_stopper_pipes(asset: mut RoomAsset, extent: f32, period: f32) -> bool {
     var count: u32 = mesh_triangle_count(read asset.geometry) - first;
     var i: u32 = 0u32;
     while i < 4u32 {
-        var angle: f32 = i as f32 * 1.57079632679f32;
+        var angle: f32 = i as f32 * (0.5f32 * PI);
         if !asset_part_append(
             mut asset.parts,
             make AssetPart {
@@ -55,7 +55,7 @@ fn oct_stopper_plates(asset: mut RoomAsset, centre: f32) -> bool {
     var count: u32 = mesh_triangle_count(read plate);
     var i: u32 = 0u32;
     while i < 4u32 {
-        var angle: f32 = i as f32 * 1.57079632679f32;
+        var angle: f32 = i as f32 * (0.5f32 * PI);
         var origin: Vec3 = vec(
             (wide - narrow) * cosf(angle),
             centre - DOOR_THICKNESS * 0.5f32,

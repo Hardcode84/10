@@ -36,7 +36,7 @@ fn demo_tunnel_pair(
         mut render,
         mut walls,
         GAME_MATERIALS + room_material_count()
-    ) || !collision_append(
+    ) || !collision_append_boundary(
         mut builder,
         read walls,
         0u32,

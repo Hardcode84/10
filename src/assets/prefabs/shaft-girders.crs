@@ -60,7 +60,7 @@ fn prefab_shaft_girders_build(parameters: read AssetValues, asset: mut RoomAsset
         return error("station-count and pipe-seed must be integers");
     }
     var layout: ShaftGirderLayout = shaft_girder_layout(read parameters);
-    if layout.wall * cosf(3.14159265359f32 / 48f32) - layout.core < 2f32 {
+    if layout.wall * cosf(PI / 48f32) - layout.core < 2f32 {
         return error("shaft needs at least 2 m between the spindle and wall");
     }
     if layout.depth <= layout.rail * 3f32 {

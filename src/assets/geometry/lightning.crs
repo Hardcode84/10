@@ -12,7 +12,7 @@ fn lightning_direction(axis: Vec3, angle: f32, seed: u32, index: u32) -> Vec3 {
     var frame: Basis = hull_radial_basis(axis);
     var u: f32 = (metal_hash(index, 1u32, seed) >> 8u32) as f32 / 16777216f32;
     var azimuth: f32 = (metal_hash(index, 2u32, seed) >> 8u32) as f32 * (
-        6.28318530718f32 / 16777216f32
+        (2f32 * PI) / 16777216f32
     );
     var cosine: f32 = 1f32 - u * (1f32 - cosf(angle));
     var sine: f32 = sqrtf(1f32 - cosine * cosine);

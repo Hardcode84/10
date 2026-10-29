@@ -63,7 +63,7 @@ fn prefab_shaft_cap_outlet_material(region: u32, parameters: read AssetValues) -
         material.finish = METAL_PLAIN;
     }
     if region == 2u32 {
-        material.tile_metres = asset_value(read parameters, 2u32) * sinf(3.14159265359f32 / 48f32);
+        material.tile_metres = asset_value(read parameters, 2u32) * sinf(PI / 48f32);
         material.tile_height = 2f32;
     }
     if region == 3u32 {

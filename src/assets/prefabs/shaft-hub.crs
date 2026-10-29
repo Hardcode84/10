@@ -167,7 +167,7 @@ fn prefab_shaft_hub_build(parameters: read AssetValues, asset: mut RoomAsset) ->
     }
     var diameter: f32 = asset_value(read parameters, 0u32);
     var core: f32 = asset_value(read parameters, 3u32) * 0.5f32;
-    if diameter * 0.5f32 * cosf(3.14159265359f32 / 48f32) - core < 2f32 {
+    if diameter * 0.5f32 * cosf(PI / 48f32) - core < 2f32 {
         return error("hub needs at least 2 m between the spindle and shaft wall");
     }
     var rim: f32 = asset_value(read parameters, 1u32);
@@ -191,7 +191,7 @@ fn prefab_shaft_hub_build(parameters: read AssetValues, asset: mut RoomAsset) ->
     if !prefab_shaft_hub_hub_connections(mut asset, diameter) {
         return false;
     }
-    var fold_trim: f32 = sinf(0.39269908169f32) / cosf(0.39269908169f32);
+    var fold_trim: f32 = sinf((0.125f32 * PI)) / cosf((0.125f32 * PI));
     var bend: f32 = mask_min(
         1.1f32,
         0.95f32 * (diagonal - oct_pipe_distance() - 0.05f32) / (1f32 + 2f32 * fold_trim)

@@ -476,7 +476,7 @@ fn test_door_leaf_contacts(scene: mut CollisionScene, doors: read DoorSet) -> bo
 
 fn test_door_trigger_shape(door: DoorInstance) -> bool {
     var side: u32 = 0u32;
-    var step: f32 = 6.28318530718f32 / door.shape.sides as f32;
+    var step: f32 = (2f32 * PI) / door.shape.sides as f32;
     var edge: f32 = door.radius * cosf(step * 0.5f32);
     while side < door.shape.sides {
         var angle: f32 = door.shape.phase + (side as f32 + 0.5f32) * step;

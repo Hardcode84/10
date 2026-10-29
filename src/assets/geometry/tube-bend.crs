@@ -25,9 +25,9 @@ fn tube_bend_vertex(bend: TubeBend, ring: u32, corner: u32) -> MeshVertex {
             arc_ring = arc_ring - 1u32;
             diagonal = bend.diagonal;
         }
-        angle = 1.57079632679f32 * arc_ring as f32 / bend.steps as f32;
+        angle = (0.5f32 * PI) * arc_ring as f32 / bend.steps as f32;
         if ring == tube_bend_end(bend) {
-            angle = 1.57079632679f32;
+            angle = (0.5f32 * PI);
         }
         centre = vec(
             bend.radius * (1f32 - cosf(angle)) + diagonal * 0.70710678118f32,
@@ -40,9 +40,7 @@ fn tube_bend_vertex(bend: TubeBend, ring: u32, corner: u32) -> MeshVertex {
             travelled = travelled + bend.outgoing;
         }
     }
-    var phase: f32 = 3.14159265359f32 / bend.sides as f32 + 6.28318530718f32 * (
-        corner % bend.sides
-    ) as f32 / bend.sides as f32;
+    var phase: f32 = PI / bend.sides as f32 + (2f32 * PI) * (corner % bend.sides) as f32 / bend.sides as f32;
     var radial: f32 = bend.tube_radius * cosf(phase);
     var p: Vec3 = add(
         centre,
@@ -52,7 +50,7 @@ fn tube_bend_vertex(bend: TubeBend, ring: u32, corner: u32) -> MeshVertex {
             bend.tube_radius * sinf(phase)
         )
     );
-    var edge: f32 = 2f32 * bend.tube_radius * sinf(3.14159265359f32 / bend.sides as f32);
+    var edge: f32 = 2f32 * bend.tube_radius * sinf(PI / bend.sides as f32);
     return make MeshVertex {
         x: p.x,
         y: p.y,

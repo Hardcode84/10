@@ -58,7 +58,7 @@ fn prefab_shaft_clear_material(region: u32, parameters: read AssetValues) -> Pan
             material.finish = METAL_PLAIN;
         }
         material.tile_metres = diameter * sinf(
-            3.14159265359f32 / shaft_profile(asset_value(read parameters, 1u32)).shape.sides as f32
+            PI / shaft_profile(asset_value(read parameters, 1u32)).shape.sides as f32
         );
         material.tile_height = asset_value(read parameters, 0u32);
         material.band_width = 0f32;

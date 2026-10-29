@@ -11,7 +11,7 @@ fn anchor_light_scene(scene: mut CollisionScene) -> bool {
         basis: identity_basis(),
         radius: 3f32,
         sides: 4u32,
-        phase: 0.78539816339f32,
+        phase: (0.25f32 * PI),
         transform: make SpaceTransform {
             factor: 1f32,
             origin: vec(0f32, 0f32, -6f32),

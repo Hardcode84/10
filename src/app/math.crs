@@ -77,9 +77,12 @@ fn axis_vector(axis: u32) -> Vec3 {
     return vec(0f32, 0f32, 1f32);
 }
 fn rotate(v: Vec3, axis: Vec3, angle: f32) -> Vec3 {
-    var c: f32 = cosf(angle);
+    return rotate_components(v, axis, sinf(angle), cosf(angle));
+}
+fn rotate_components(v: Vec3, axis: Vec3, sine: f32, cosine: f32) -> Vec3 {
+    var c: f32 = cosine;
     return add(
-        add(scale(v, c), scale(cross(axis, v), sinf(angle))),
+        add(scale(v, c), scale(cross(axis, v), sine)),
         scale(axis, dot(axis, v) * (1f32 - c))
     );
 }

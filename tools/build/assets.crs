@@ -159,9 +159,9 @@ fn asset_providers(root: *CrustRun, args: **u8) -> usize {
 }
 fn asset_collision_sources(root: *CrustRun, args: **u8) -> usize {
     if args == null(**u8) {
-        return 22usize;
+        return 24usize;
     }
-    var files: [*u8; 22] = make [*u8; 22] {
+    var files: [*u8; 24] = make [*u8; 24] {
         "src/collision/primitives.crs",
         "src/collision/body.crs",
         "src/collision/admission.crs",
@@ -177,16 +177,18 @@ fn asset_collision_sources(root: *CrustRun, args: **u8) -> usize {
         "src/collision/query.crs",
         "src/collision/volume.crs",
         "src/collision/contact-query.crs",
+        "src/collision/boundary-query.crs",
         "src/collision/contact-solve.crs",
         "src/collision/motion.crs",
         "src/collision/kinematics.crs",
         "src/collision/kinematic-sweep.crs",
         "src/collision/kinematic-contacts.crs",
         "src/collision/kinematic-motion.crs",
+        "src/app/math-constants.crs",
         "src/app/math.crs"
     };
     var i: usize = 0usize;
-    while i < 22usize {
+    while i < 24usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }

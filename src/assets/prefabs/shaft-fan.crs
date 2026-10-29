@@ -106,7 +106,7 @@ fn shaft_fan_instances(
     }
     var blade: u32 = 0u32;
     while blade < blades {
-        var angle: f32 = blade as f32 * 6.28318530718f32 / blades as f32;
+        var angle: f32 = blade as f32 * (2f32 * PI) / blades as f32;
         if !shaft_fan_part(mut asset, asset_name("fan-blade"), first, count, y, angle) {
             return false;
         }
@@ -116,7 +116,7 @@ fn shaft_fan_instances(
 }
 
 fn shaft_fan_blade(parameters: read AssetValues) -> FanBlade {
-    var sector: f32 = 6.28318530718f32 / asset_value(read parameters, 3u32);
+    var sector: f32 = (2f32 * PI) / asset_value(read parameters, 3u32);
     return make FanBlade {
         inner: asset_value(read parameters, 2u32) * 0.5f32,
         outer: asset_value(read parameters, 1u32) * 0.5f32 / cosf(sector / 24f32),
@@ -206,7 +206,7 @@ fn prefab_shaft_fan_material(region: u32, parameters: read AssetValues) -> Panel
             diameter = asset_value(read parameters, 2u32);
         }
         track.tile_metres = diameter * sinf(
-            3.14159265359f32 / shaft_profile(asset_value(read parameters, 1u32)).shape.sides as f32
+            PI / shaft_profile(asset_value(read parameters, 1u32)).shape.sides as f32
         );
         track.tile_height = asset_value(read parameters, 0u32);
         track.panel_height = track.tile_height;

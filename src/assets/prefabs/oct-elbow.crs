@@ -69,11 +69,11 @@ fn prefab_oct_elbow_elbow_mounts(mesh: mut Mesh, bend: TubeBend, direction: Vec3
     return true;
 }
 fn prefab_oct_elbow_elbow_pipe(asset: mut RoomAsset, leg: f32, radius: f32, index: u32) -> bool {
-    var angle: f32 = index as f32 * 1.57079632679f32;
+    var angle: f32 = index as f32 * (0.5f32 * PI);
     var direction: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
     var offset: Vec3 = scale(direction, oct_pipe_distance());
     var lead: f32 = leg - offset.x - radius;
-    var path_length: f32 = 2f32 * lead + radius * 1.57079632679f32;
+    var path_length: f32 = 2f32 * lead + radius * (0.5f32 * PI);
     var bands: u32 = (path_length / 2f32) as u32 + 1u32;
     var bend: TubeBend = make TubeBend {
         radius: radius,
@@ -82,7 +82,7 @@ fn prefab_oct_elbow_elbow_pipe(asset: mut RoomAsset, leg: f32, radius: f32, inde
         outgoing: lead,
         diagonal: 0f32,
         sides: 8u32,
-        steps: tube_sweep_steps(1.57079632679f32),
+        steps: tube_sweep_steps((0.5f32 * PI)),
         tile_metres: path_length / bands as f32
     };
     var first: u32 = mesh_triangle_count(read asset.geometry);

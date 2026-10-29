@@ -34,7 +34,7 @@ fn prefab_shaft_pipes_build(parameters: read AssetValues, asset: mut RoomAsset) 
     if count != count as u32 as f32 || seed != seed as u32 as f32 {
         return error("station-count and pipe-seed must be integers");
     }
-    if radius * cosf(3.14159265359f32 / 48f32) - core < 2f32 {
+    if radius * cosf(PI / 48f32) - core < 2f32 {
         return error("shaft needs at least 2 m between the spindle and wall");
     }
     if shaft_spoke_coating_span(radius, core) < 0.5f32 {

@@ -80,7 +80,7 @@ fn bearing_cap_boss(asset: mut RoomAsset, core: f32, depth: f32) -> bool {
     );
 }
 fn bearing_cap_rib(asset: mut RoomAsset, radius: f32, core: f32, depth: f32, index: u32) -> bool {
-    var angle: f32 = index as f32 * 0.785398163397f32;
+    var angle: f32 = index as f32 * (0.25f32 * PI);
     var basis: Basis = shaft_axis_basis(angle);
     var inner: f32 = core * 1.65f32;
     if !bearing_cap_rib_mounts(mut asset, radius, core, depth, basis) {
@@ -154,7 +154,7 @@ fn bearing_cap_rib_mounts(
     basis: Basis
 ) -> bool {
     var inner: f32 = core * 1.65f32;
-    var wall: f32 = radius * cosf(3.14159265359f32 / 48f32);
+    var wall: f32 = radius * cosf(PI / 48f32);
     var a: Vec3 = vec(inner, depth, 0f32);
     var b: Vec3 = vec(wall * 0.7f32, depth, 0f32);
     var c: Vec3 = vec(wall, depth * 0.65f32, 0f32);

@@ -148,7 +148,7 @@ fn conduit_collector_frame(asset: mut RoomAsset, span: f32) -> bool {
     var y: f32 = conduit_collector_gallery_y();
     var i: u32 = 0u32;
     while i < 4u32 {
-        var angle: f32 = i as f32 * 1.57079632679f32;
+        var angle: f32 = i as f32 * (0.5f32 * PI);
         var vertical: bool = (i & 1u32) == 0u32;
         var size: Vec3 = vec(4f32, 5f32, CONDUIT_BREACH_WIDTH + 10f32);
         if !vertical {

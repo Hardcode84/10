@@ -7,7 +7,7 @@ fn asset_test_tube_case(diagonal: f32) -> bool {
         outgoing: 2f32,
         diagonal: diagonal,
         sides: 8u32,
-        steps: tube_sweep_steps(1.57079632679f32),
+        steps: tube_sweep_steps((0.5f32 * PI)),
         tile_metres: 2f32
     };
     if !solid_tube_bend(mut mesh, bend, 0u32) {
@@ -28,8 +28,8 @@ fn asset_test_tube_case(diagonal: f32) -> bool {
         return false;
     }
     var middle: Vec3 = vec(
-        1f32 - cosf(0.78539816339f32) + diagonal * 0.35355339059f32,
-        2f32 + sinf(0.78539816339f32) + diagonal * 0.35355339059f32,
+        1f32 - cosf((0.25f32 * PI)) + diagonal * 0.35355339059f32,
+        2f32 + sinf((0.25f32 * PI)) + diagonal * 0.35355339059f32,
         0f32
     );
     if collision_position_valid(read scene, 0u32, middle, 0.05f32) || !collision_position_valid(

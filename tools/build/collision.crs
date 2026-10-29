@@ -7,8 +7,9 @@ fn build_collision_checks(
     if !sdl_build(root) {
         return false;
     }
-    var files: [*u8; 38] = make [*u8; 38] {
+    var files: [*u8; 41] = make [*u8; 41] {
         "src/app/math.crs",
+        "src/app/math-constants.crs",
         "src/collision/primitives.crs",
         "src/collision/body.crs",
         "src/collision/admission.crs",
@@ -23,6 +24,8 @@ fn build_collision_checks(
         "src/collision/sweep.crs",
         "src/collision/query.crs",
         "src/collision/contact-query.crs",
+        "src/collision/boundary-query.crs",
+        "src/game/flight/wall-anchor.crs",
         "src/collision/contact-solve.crs",
         "src/collision/motion.crs",
         "src/collision/volume.crs",
@@ -73,33 +76,51 @@ fn build_collision_checks(
     var args: [*u8; 64] = uninit;
     var providers: [*u8; 21] = uninit;
     var i: usize = 0usize;
-    while i < 38usize {
+    while i < 41usize {
         args[i] = host_path(root, files[i]);
         i = i + 1usize;
     }
+    var count: usize = i;
     i = 0usize;
     while i < 21usize {
         providers[i] = host_path(root, native[i]);
         i = i + 1usize;
     }
-    args[38usize] = "-o";
-    args[39usize] = host_path(root, output);
-    args[40usize] = "--cflag";
-    args[41usize] = "-O2";
-    args[42usize] = "--ldflag";
-    args[43usize] = sdl_link(root);
-    var count: usize = 44usize;
+    var optimization: *u8 = "-O2";
     if sanitize {
-        args[41usize] = "-O1";
-        args[44usize] = "--cflag";
-        args[45usize] = "-g";
-        args[46usize] = "--cflag";
-        args[47usize] = "-fsanitize=address,undefined";
-        args[48usize] = "--ldflag";
-        args[49usize] = "-fsanitize=address,undefined";
-        args[50usize] = "--cflag";
-        args[51usize] = "-fno-sanitize-recover=all";
-        count = 52usize;
+        optimization = "-O1";
+    }
+    var options: [*u8; 6] = make [*u8; 6] {
+        "-o",
+        host_path(root, output),
+        "--cflag",
+        optimization,
+        "--ldflag",
+        sdl_link(root)
+    };
+    i = 0usize;
+    while i < 6usize {
+        args[count] = options[i];
+        count = count + 1usize;
+        i = i + 1usize;
+    }
+    if sanitize {
+        var checks: [*u8; 8] = make [*u8; 8] {
+            "--cflag",
+            "-g",
+            "--cflag",
+            "-fsanitize=address,undefined",
+            "--ldflag",
+            "-fsanitize=address,undefined",
+            "--cflag",
+            "-fno-sanitize-recover=all"
+        };
+        i = 0usize;
+        while i < 8usize {
+            args[count] = checks[i];
+            count = count + 1usize;
+            i = i + 1usize;
+        }
     }
     return ownership_sources(
         root,

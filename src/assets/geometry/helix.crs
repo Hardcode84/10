@@ -13,7 +13,7 @@ fn helix_tube(mesh: mut Mesh, helix: HelixTube) -> bool {
     if helix.orbit == 0f32 {
         steps = 1u32;
     }
-    var arc: f32 = 6.28318530718f32 * helix.turns as f32 * helix.orbit;
+    var arc: f32 = (2f32 * PI) * helix.turns as f32 * helix.orbit;
     var distance: f32 = sqrtf(helix.height * helix.height + arc * arc);
     var start: Vec3 = vec(
         helix.orbit * cosf(helix.phase),
@@ -29,7 +29,7 @@ fn helix_tube(mesh: mut Mesh, helix: HelixTube) -> bool {
     var i: u32 = 1u32;
     while i <= steps {
         var fraction: f32 = i as f32 / steps as f32;
-        var angle: f32 = helix.phase + 6.28318530718f32 * helix.turns as f32 * fraction;
+        var angle: f32 = helix.phase + (2f32 * PI) * helix.turns as f32 * fraction;
         if i == steps {
             angle = helix.phase;
         }

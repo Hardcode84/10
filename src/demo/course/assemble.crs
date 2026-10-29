@@ -23,7 +23,7 @@ fn course_room_mesh(
     node.style = variant;
     var render: Mesh = mesh_new();
     var walls: Mesh = mesh_new();
-    if !room_linked_mesh(read asset, mut render, mut walls, course_material_base(kind)) || !collision_append(
+    if !room_linked_mesh(read asset, mut render, mut walls, course_material_base(kind)) || !collision_append_boundary(
         mut builder,
         read walls,
         id,

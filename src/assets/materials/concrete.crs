@@ -53,9 +53,7 @@ fn cable_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     if material.indicator && end > 0.8f32 && groove > 0.30f32 && groove < 0.65f32 {
         return 248u32;
     }
-    return (
-        155f32 + 12f32 * sinf(3.14159265359f32 * groove / pitch) + metal_grain(material, x, y)
-    ) as u32;
+    return (155f32 + 12f32 * sinf(PI * groove / pitch) + metal_grain(material, x, y)) as u32;
 }
 fn panel_bulk_sample(material: PanelMaterial, x: f32, y: f32) -> u32 {
     if material.finish == SURFACE_FRACTURED_CONCRETE {

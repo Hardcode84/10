@@ -149,6 +149,7 @@ fn predict_drone(
     assign_drone(mut drone, read trial.drone);
     var eye: PredictionEye = prediction_eye(read trial.drone);
     var command: Command = idle_command();
+    command.anchor = drone.wall_anchor.held;
     command.tether = drone.cable.phase == CABLE_ATTACHED || drone.cable.phase == CABLE_FLYING;
     var i: u32 = 0u32;
     var trail: PreviewTrail = preview_trail(limit, PREVIEW_MATERIAL, trial.preview_phase);
@@ -222,6 +223,7 @@ fn predict_hook(
 ) -> unit {
     assign_drone(mut drone, read trial.drone);
     var command: Command = idle_command();
+    command.anchor = drone.wall_anchor.held;
     command.tether = true;
     var trail: PreviewTrail = preview_trail(limit, HOOK_PREVIEW_MATERIAL, 0f32);
     var eye: PredictionEye = prediction_eye(read trial.drone);

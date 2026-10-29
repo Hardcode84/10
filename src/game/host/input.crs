@@ -246,8 +246,8 @@ fn input_consume(input: mut InputState) -> Command {
     command.brake = command.brake || input.values[7usize] > 0.5f32;
     var mouse: Vec3 = input.mouse;
     var amount: f32 = length(mouse);
-    if amount > 3.14159265f32 * STEP {
-        mouse = scale(mouse, 3.14159265f32 * STEP / amount);
+    if amount > PI * STEP {
+        mouse = scale(mouse, PI * STEP / amount);
     }
     command.look = add(command.look, scale(mouse, 1f32 / STEP));
     input.mouse = sub(input.mouse, mouse);

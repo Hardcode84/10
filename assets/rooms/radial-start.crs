@@ -72,7 +72,7 @@ fn room_build(parameters: read AssetValues, asset: mut RoomAsset) -> bool {
     }
     var profile: RegularProfile = make RegularProfile {
         sides: 8u32,
-        phase: 0.3926990817f32
+        phase: (0.125f32 * PI)
     };
     if !loft_allocate(mut asset.hull, profile, 3u32) {
         return false;

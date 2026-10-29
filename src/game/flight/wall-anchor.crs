@@ -1,0 +1,174 @@
+const WALL_ANCHOR_RANGE: f32 = 3f32;
+const WALL_ANCHOR_HOVER: f32 = 2.5f32;
+const WALL_ANCHOR_THRUST: f32 = 10f32;
+const WALL_ANCHOR_PITCH_LIMIT: f32 = 1.4f32;
+const WALL_ANCHOR_APPROACH: f32 = 6f32;
+const WALL_ANCHOR_ACTIVE_TICKS: u32 = 480u32;
+const WALL_ANCHOR_RECHARGE_TICKS: u32 = 360u32;
+record WallAnchor {
+    enabled: bool;
+    held: bool;
+    active: bool;
+    recovering: bool;
+    charge: u32;
+    normal: Vec3;
+    distance: f32;
+}
+fn wall_anchor_capacity() -> u32 {
+    return WALL_ANCHOR_ACTIVE_TICKS * WALL_ANCHOR_RECHARGE_TICKS;
+}
+fn wall_anchor_new() -> WallAnchor {
+    return make WallAnchor {
+        enabled: false,
+        held: false,
+        active: false,
+        recovering: false,
+        charge: wall_anchor_capacity(),
+        normal: vec(0f32, 0f32, 0f32),
+        distance: 0f32
+    };
+}
+fn wall_tangent(v: Vec3, normal: Vec3) -> Vec3 {
+    return sub(v, scale(normal, dot(v, normal)));
+}
+fn wall_anchor_recharge(anchor: mut WallAnchor) -> unit {
+    anchor.active = false;
+    anchor.charge = anchor.charge + WALL_ANCHOR_ACTIVE_TICKS;
+    if anchor.charge >= wall_anchor_capacity() {
+        anchor.charge = wall_anchor_capacity();
+        anchor.recovering = false;
+    }
+}
+fn wall_anchor_transport(basis: Basis, old: Vec3, normal: Vec3) -> Basis {
+    var axis: Vec3 = cross(old, normal);
+    var sine: f32 = length(axis);
+    var cosine: f32 = clamp(dot(old, normal), -1f32, 1f32);
+    if sine > 0f32 {
+        return turn_basis_components(basis, scale(axis, 1f32 / sine), sine, cosine);
+    }
+    if cosine < 0f32 {
+        return turn_basis_components(basis, basis.right, 0f32, -1f32);
+    }
+    return basis;
+}
+fn wall_anchor_cable_allows(drone: read Drone, hit: BoundaryContact) -> bool {
+    if drone.cable.phase != CABLE_ATTACHED {
+        return true;
+    }
+    var height: f32 = dot(sub(drone.position, drone.cable.anchor), hit.normal);
+    height = height + WALL_ANCHOR_HOVER * drone_size(read drone) - hit.distance;
+    return absf(height) <= drone.cable.extent * drone_size(read drone);
+}
+fn wall_anchor_step(scene: read CollisionScene, drone: mut Drone, held: bool) -> unit {
+    if !drone.wall_anchor.enabled {
+        return;
+    }
+    drone.wall_anchor.held = held;
+    if !held || drone.wall_anchor.recovering {
+        wall_anchor_recharge(mut drone.wall_anchor);
+        return;
+    }
+    var hit: BoundaryContact = collision_boundary_near(
+        read scene,
+        drone.world,
+        drone.position,
+        WALL_ANCHOR_RANGE * drone_size(read drone)
+    );
+    if !hit.found || !wall_anchor_cable_allows(read drone, hit) || !wall_anchor_clear(
+        read scene,
+        read drone,
+        hit
+    ) {
+        wall_anchor_recharge(mut drone.wall_anchor);
+        return;
+    }
+    var previous: Vec3 = drone.basis.up;
+    if drone.wall_anchor.active {
+        previous = drone.wall_anchor.normal;
+    }
+    drone.basis = wall_anchor_transport(drone.basis, previous, hit.normal);
+    drone.wall_anchor.active = true;
+    drone.wall_anchor.normal = hit.normal;
+    drone.wall_anchor.distance = hit.distance / drone_size(read drone);
+    if drone.wall_anchor.charge <= WALL_ANCHOR_RECHARGE_TICKS {
+        drone.wall_anchor.charge = 0u32;
+    } else {
+        drone.wall_anchor.charge = drone.wall_anchor.charge - WALL_ANCHOR_RECHARGE_TICKS;
+    }
+}
+fn wall_anchor_velocity(drone: mut Drone) -> unit {
+    if !drone.wall_anchor.active {
+        return;
+    }
+    var speed: f32 = clamp(
+        (WALL_ANCHOR_HOVER - drone.wall_anchor.distance) / STEP,
+        -WALL_ANCHOR_APPROACH,
+        WALL_ANCHOR_APPROACH
+    );
+    drone.velocity = add(
+        wall_tangent(drone.velocity, drone.wall_anchor.normal),
+        scale(drone.wall_anchor.normal, speed)
+    );
+}
+fn wall_anchor_orient(drone: mut Drone, look: Vec3) -> unit {
+    var normal: Vec3 = drone.wall_anchor.normal;
+    var delta: Vec3 = scale(vec(look.x, look.y, 0f32), STEP);
+    var amount: f32 = length(delta);
+    if amount > PI * STEP {
+        delta = scale(delta, PI * STEP / amount);
+    }
+    drone.basis = turn_basis(drone.basis, normal, delta.x);
+    var pitch: f32 = atan2f(
+        dot(drone.basis.forward, normal),
+        length(wall_tangent(drone.basis.forward, normal))
+    );
+    var right: Vec3 = unit_vector(cross(normal, drone.basis.forward));
+    drone.basis.right = right;
+    drone.basis.up = cross(drone.basis.forward, right);
+    var next: f32 = clamp(pitch - delta.y, -WALL_ANCHOR_PITCH_LIMIT, WALL_ANCHOR_PITCH_LIMIT);
+    drone.basis = turn_basis(drone.basis, right, pitch - next);
+}
+fn wall_anchor_input(drone: read Drone, thrust: Vec3) -> Vec3 {
+    if !drone.wall_anchor.active {
+        return scale(basis_vector(drone.basis, thrust), FLIGHT_THRUST_ACCELERATION);
+    }
+    var forward: Vec3 = unit_vector(
+        wall_tangent(drone.basis.forward, drone.wall_anchor.normal)
+    );
+    var direction: Vec3 = add(
+        scale(drone.basis.right, thrust.x),
+        scale(forward, thrust.z)
+    );
+    if length(direction) > 1f32 {
+        direction = unit_vector(direction);
+    }
+    return scale(direction, WALL_ANCHOR_THRUST);
+}
+
+fn wall_anchor_finish(drone: mut Drone) -> unit {
+    if !drone.wall_anchor.active {
+        return;
+    }
+    drone.velocity = wall_tangent(drone.velocity, drone.wall_anchor.normal);
+    if drone.wall_anchor.charge == 0u32 {
+        drone.wall_anchor.active = false;
+        drone.wall_anchor.recovering = true;
+    }
+}
+
+fn wall_anchor_clear(scene: read CollisionScene, drone: read Drone, hit: BoundaryContact) -> bool {
+    var query: CollisionSweep = collision_local_sweep_interval(
+        read scene,
+        drone.world,
+        drone.position,
+        sub(hit.point, drone.position),
+        drone_radius(read drone),
+        drone.clock as f32 * STEP,
+        0f32
+    );
+    if query.status != 0u32 {
+        error("wall anchor visibility query failed");
+        trap;
+    }
+    return query.contact.hit.time <= 1f32 && query.contact.instance == hit.instance;
+}

@@ -11,7 +11,7 @@ fn oblique_ring(
 ) -> unit {
     var i: u32 = 0u32;
     while i < profile.sides {
-        var angle: f32 = profile.phase + 6.28318530718f32 * i as f32 / profile.sides as f32;
+        var angle: f32 = profile.phase + (2f32 * PI) * i as f32 / profile.sides as f32;
         var x: f32 = offset.x + radius * cosf(angle);
         var y: f32 = x * sinf(tilt);
         if ring != 0u32 {
@@ -44,7 +44,7 @@ fn oblique_hull(
     return true;
 }
 fn oblique_oct_pipe(asset: mut RoomAsset, extent: f32, tilt: f32, index: u32) -> bool {
-    var angle: f32 = index as f32 * 1.57079632679f32;
+    var angle: f32 = index as f32 * (0.5f32 * PI);
     var offset: Vec3 = vec(
         oct_pipe_distance() * cosf(angle),
         0f32,

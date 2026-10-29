@@ -22,7 +22,7 @@ fn loft_ring(
 ) -> unit {
     var i: u32 = 0u32;
     while i < profile.sides {
-        var angle: f32 = profile.phase + 6.28318530718f32 * i as f32 / profile.sides as f32;
+        var angle: f32 = profile.phase + (2f32 * PI) * i as f32 / profile.sides as f32;
         asset_vertex_set(
             mut hull,
             ring * profile.sides + i,

@@ -334,7 +334,7 @@ fn test_motion_many_planes() -> bool {
     var still: Vec3 = vec(0f32, 0f32, 0f32);
     var i: u32 = 0u32;
     while i < 12u32 {
-        var angle: f32 = i as f32 * 6.283185307f32 / 12f32;
+        var angle: f32 = i as f32 * (2f32 * PI) / 12f32;
         var n: Vec3 = vec(cosf(angle), sinf(angle), 0f32);
         if !motion_plane(mut mesh, n, scale(n, 0.2f32), 10f32) {
             return false;
@@ -427,7 +427,7 @@ fn test_volume_reference(scene: read CollisionScene, item: CollisionInstance, p:
         );
         i = i + 1u32;
     }
-    return absf(sum) > 6.283185307f32;
+    return absf(sum) > (2f32 * PI);
 }
 fn test_volume_indexed_case(cavity: bool) -> bool {
     var mesh: Mesh = mesh_new();

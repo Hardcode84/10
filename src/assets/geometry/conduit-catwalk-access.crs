@@ -52,8 +52,8 @@ fn conduit_catwalk_rail_segment(
     segment: u32,
     beacon: bool
 ) -> bool {
-    var angle: f32 = segment as f32 * 6.28318530718f32 / 48f32;
-    var next: f32 = (segment + 1u32) as f32 * 6.28318530718f32 / 48f32;
+    var angle: f32 = segment as f32 * (2f32 * PI) / 48f32;
+    var next: f32 = (segment + 1u32) as f32 * (2f32 * PI) / 48f32;
     var thickness: f32 = layout.rail * 0.12f32;
     var start: Vec3 = conduit_catwalk_point(layout.radius + layout.rail, y, angle);
     if beacon && segment % 8u32 == 0u32 && !conduit_catwalk_beacon(
@@ -130,7 +130,7 @@ fn conduit_catwalk_link(
     b: ConduitCatwalk,
     lane: u32
 ) -> bool {
-    var step: f32 = 6.28318530718f32 / 48f32;
+    var step: f32 = (2f32 * PI) / 48f32;
     var angle: f32 = (lane as f32 + 0.5f32) * step;
     var basis: Basis = conduit_catwalk_basis(conduit_catwalk_point(1f32, 0f32, angle));
     var low: f32 = a.y + a.width * 0.5f32;
@@ -226,7 +226,7 @@ fn conduit_catwalk_ladder(asset: mut RoomAsset, layout: ConduitCatwalk) -> bool 
     var angle: f32 = layout.phase + 1.0471975512f32;
     var radial: Vec3 = conduit_catwalk_point(1f32, 0f32, angle);
     var half: f32 = mask_min(0.8f32, layout.width * 0.2f32);
-    var start: f32 = layout.radius * cosf(3.14159265359f32 / 48f32);
+    var start: f32 = layout.radius * cosf(PI / 48f32);
     var end: f32 = layout.wall - 0.75f32;
     var thickness: f32 = half * 0.175f32;
     var side: u32 = 0u32;

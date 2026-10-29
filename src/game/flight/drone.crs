@@ -42,6 +42,7 @@ fn empty_cable() -> Cable {
     };
 }
 record Drone {
+    wall_anchor: WallAnchor;
     contact: FlightContact;
     hook_contact: FlightContact;
     size: Rational;
@@ -66,6 +67,7 @@ record Drone {
 }
 fn new_drone() -> Drone {
     return make Drone {
+        wall_anchor: wall_anchor_new(),
         contact: flight_contact_empty(),
         hook_contact: flight_contact_empty(),
         size: rational_new(1u64, 1u64),
@@ -122,6 +124,7 @@ fn clone_cable(value: read Cable) -> Cable {
 
 fn clone_drone(value: read Drone) -> Drone {
     return make Drone {
+        wall_anchor: value.wall_anchor,
         contact: value.contact,
         hook_contact: value.hook_contact,
         size: rational_clone(read value.size),
@@ -177,6 +180,7 @@ fn assign_drone(target: mut Drone, value: read Drone) -> unit {
     target.velocity = value.velocity;
     target.basis = value.basis;
     assign_cable(mut target.cable, read value.cable);
+    target.wall_anchor = value.wall_anchor;
     target.bursts = value.bursts;
     target.boost_ticks = value.boost_ticks;
     target.boost_direction = value.boost_direction;

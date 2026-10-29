@@ -140,15 +140,15 @@ fn collector_cap_pipe(
     depth: f32,
     index: u32
 ) -> bool {
-    var angle: f32 = index as f32 * 0.785398163397f32;
+    var angle: f32 = index as f32 * (0.25f32 * PI);
     var normal: Vec3 = shaft_pipe_normal(angle);
-    var wall: f32 = radius * cosf(3.14159265359f32 / 48f32);
+    var wall: f32 = radius * cosf(PI / 48f32);
     var slope: f32 = (radius - collector_throat(core)) / (depth - 2f32);
     var a: Vec3 = shaft_pipe_position(angle, wall - 0.65f32, 1f32);
     var b: Vec3 = shaft_pipe_position(angle, wall - slope * 0.5f32 - 0.65f32, 2.5f32);
     var c: Vec3 = shaft_pipe_position(
         angle,
-        (collector_throat(core) + slope * 2f32) * cosf(3.14159265359f32 / 48f32) - 0.65f32,
+        (collector_throat(core) + slope * 2f32) * cosf(PI / 48f32) - 0.65f32,
         depth - 2f32
     );
     var first: u32 = mesh_triangle_count(read asset.geometry);
@@ -256,10 +256,10 @@ fn collector_cap_seam(
     depth: f32,
     index: u32
 ) -> bool {
-    var angle: f32 = (index as f32 + 0.5f32) * 0.785398163397f32;
+    var angle: f32 = (index as f32 + 0.5f32) * (0.25f32 * PI);
     var radial: Vec3 = shaft_pipe_normal(angle);
     var tangent: Vec3 = scale(vec(-radial.z, 0f32, radial.x), 0.035f32);
-    var apothem: f32 = cosf(3.14159265359f32 / 48f32);
+    var apothem: f32 = cosf(PI / 48f32);
     var slope: f32 = (radius - collector_throat(core)) * apothem / (depth - 2f32);
     var inward: Vec3 = scale(
         unit_vector(add(radial, vec(0f32, slope, 0f32))),

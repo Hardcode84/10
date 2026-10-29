@@ -61,7 +61,7 @@ fn prefab_shaft_hex_adapter_material_count() -> u32 {
 fn prefab_shaft_hex_adapter_material(region: u32, parameters: read AssetValues) -> PanelMaterial {
     var material: PanelMaterial = shaft_surface_material(region);
     if region == 2u32 {
-        material.tile_metres = asset_value(read parameters, 2u32) * sinf(3.14159265359f32 / 48f32);
+        material.tile_metres = asset_value(read parameters, 2u32) * sinf(PI / 48f32);
         material.tile_height = 2f32;
     }
     if region >= 3u32 {
@@ -91,7 +91,7 @@ fn prefab_shaft_hex_adapter_port_name(index: u32) -> AssetName {
     return asset_name("BOTTOM-2");
 }
 fn prefab_shaft_hex_adapter_port(index: u32, distance: f32) -> RoomPort {
-    var angle: f32 = 3.14159265359f32 / 48f32 + 1.04719755120f32 + index as f32 * 2.09439510239f32;
+    var angle: f32 = PI / 48f32 + 1.04719755120f32 + index as f32 * 2.09439510239f32;
     var radial: Vec3 = vec(cosf(angle), 0f32, sinf(angle));
     return make RoomPort {
         id: prefab_shaft_hex_adapter_port_name(index),

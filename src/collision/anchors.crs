@@ -1,5 +1,5 @@
 fn portal_corner(portal: CollisionPortal, index: u32) -> Vec3 {
-    var angle: f32 = portal.phase + 6.28318530718f32 * index as f32 / portal.sides as f32;
+    var angle: f32 = portal.phase + (2f32 * PI) * index as f32 / portal.sides as f32;
     return add(
         portal.origin,
         scale(

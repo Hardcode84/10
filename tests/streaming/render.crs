@@ -82,7 +82,7 @@ fn stream_camera(
     while i < 17u32 {
         var point: Vec3 = sub(port.position, scale(port.basis.forward, 1f32));
         if i != 0u32 {
-            var angle: f32 = (i - 1u32) as f32 * 6.28318530718f32 / 16f32;
+            var angle: f32 = (i - 1u32) as f32 * (2f32 * PI) / 16f32;
             point = add(
                 point,
                 scale(

@@ -66,7 +66,7 @@ fn room_asset_finish(asset: mut RoomAsset) -> bool {
         return false;
     }
     var builder: CollisionBuilder = collision_builder_new();
-    if !collision_append(
+    if !collision_append_boundary(
         mut builder,
         read asset.mesh,
         0u32,

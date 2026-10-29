@@ -115,9 +115,7 @@ fn panel_animation(input: mut FrameInput, region: u32, offset: u32, panel: Panel
     while frame < PANEL_PULSE_FRAMES {
         var intensity: u32 = (
             80f32 + 175f32 * (
-                0.5f32 + 0.5f32 * cosf(
-                    6.28318530718f32 * frame as f32 / PANEL_PULSE_FRAMES as f32
-                )
+                0.5f32 + 0.5f32 * cosf((2f32 * PI) * frame as f32 / PANEL_PULSE_FRAMES as f32)
             )
         ) as u32;
         var state: u32 = 0u32;

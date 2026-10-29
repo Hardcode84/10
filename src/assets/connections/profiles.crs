@@ -13,7 +13,7 @@ fn service_hex_profile() -> ConnectionProfile {
     };
 }
 fn connection_point(port: RoomPort, corner: u32) -> Vec3 {
-    var angle: f32 = port.profile.shape.phase + 6.28318530718f32 * corner as f32 / port.profile.shape.sides as f32;
+    var angle: f32 = port.profile.shape.phase + (2f32 * PI) * corner as f32 / port.profile.shape.sides as f32;
     return add(
         port.position,
         add(
@@ -29,7 +29,7 @@ fn service_oct_profile() -> ConnectionProfile {
         name: asset_name("OCT-8M"),
         shape: make RegularProfile {
             sides: 8u32,
-            phase: 0.39269908169f32
+            phase: (0.125f32 * PI)
         },
         radius: 4f32,
         rotations: 4u32,
@@ -51,7 +51,7 @@ fn shaft_profile(diameter: f32) -> ConnectionProfile {
         name: asset_name("SHAFT"),
         shape: make RegularProfile {
             sides: 48u32,
-            phase: 3.14159265359f32 / 48f32
+            phase: PI / 48f32
         },
         radius: diameter * 0.5f32,
         rotations: 4u32,

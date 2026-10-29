@@ -9,7 +9,7 @@ fn conduit_breach_profile() -> ConnectionProfile {
         name: asset_name("CONDUIT-BREACH"),
         shape: make RegularProfile {
             sides: 4u32,
-            phase: 0.785398163397f32
+            phase: (0.25f32 * PI)
         },
         radius: CONDUIT_BREACH_WIDTH * 0.707106781187f32,
         rotations: 1u32,

@@ -13,10 +13,17 @@ fn tether_winch_admitted(collision: read CollisionScene, drone: mut Drone) -> Co
     var offset: Vec3 = sub(drone.position, drone.cable.anchor);
     var distance: f32 = length(offset) / drone_size(read drone);
     if distance > extent {
+        var correction: Vec3 = scale(unit_vector(offset), (extent - distance) * body_scale);
+        if drone.wall_anchor.active {
+            correction = sub(
+                tether_limit_offset(read drone, offset, extent * body_scale),
+                offset
+            );
+        }
         var admission: CollisionAdmission = move_drone_interval_admitted(
             read collision,
             mut drone,
-            scale(unit_vector(offset), (extent - distance) * body_scale),
+            correction,
             0f32
         );
         if admission.status != 0u32 {
@@ -58,7 +65,11 @@ fn tether_travel(drone: read Drone, travel: Vec3) -> Vec3 {
     return sub(
         add(
             drone.cable.anchor,
-            scale(unit_vector(offset), drone.cable.extent * drone_size(read drone))
+            tether_limit_offset(
+                read drone,
+                offset,
+                drone.cable.extent * drone_size(read drone)
+            )
         ),
         drone.position
     );
@@ -70,4 +81,60 @@ fn tether_rebuild(scene: read CollisionScene, cable: mut Cable) -> unit {
 
 fn tether_winch(collision: read CollisionScene, drone: mut Drone) -> unit {
     collision_require_complete(tether_winch_admitted(read collision, mut drone));
+}
+
+// Returns the cable-limited offset, retaining the anchor plane when attached.
+fn tether_limit_offset(drone: read Drone, offset: Vec3, extent: f32) -> Vec3 {
+    if !drone.wall_anchor.active {
+        return scale(unit_vector(offset), extent);
+    }
+    var normal: Vec3 = drone.wall_anchor.normal;
+    var height: f32 = dot(offset, normal);
+    var tangent: Vec3 = wall_tangent(offset, normal);
+    var allowed: f32 = tether_anchor_radius(extent, height);
+    var distance: f32 = length(tangent);
+    if distance > allowed {
+        tangent = scale(tangent, allowed / distance);
+    }
+    return add(scale(normal, height), tangent);
+}
+
+fn tether_anchor_radius(extent: f32, height: f32) -> f32 {
+    return sqrtf(clamp(extent * extent - height * height, 0f32, 3.4028234e38f32));
+}
+fn tether_anchor_constraint(drone: mut Drone, old_extent: f32) -> unit {
+    if drone.cable.phase != CABLE_ATTACHED {
+        return;
+    }
+    var offset: Vec3 = scale(
+        sub(drone.position, drone.cable.anchor),
+        1f32 / drone_size(read drone)
+    );
+    if length(offset) < drone.cable.extent - TETHER_SLACK {
+        return;
+    }
+    var normal: Vec3 = drone.wall_anchor.normal;
+    var tangent: Vec3 = wall_tangent(offset, normal);
+    var height: f32 = dot(offset, normal);
+    var distance: f32 = length(tangent);
+    if distance == 0f32 {
+        drone.velocity = wall_tangent(drone.cable.velocity, normal);
+        return;
+    }
+    var direction: Vec3 = scale(tangent, 1f32 / distance);
+    var reel_speed: f32 = (
+        tether_anchor_radius(drone.cable.extent, height) - tether_anchor_radius(
+            old_extent,
+            height
+        )
+    ) / STEP;
+    var anchor_speed: f32 = dot(drone.cable.velocity, direction);
+    var speed: f32 = dot(drone.velocity, direction) - anchor_speed - reel_speed;
+    if speed <= 0f32 {
+        return;
+    }
+    drone.velocity = sub(drone.velocity, scale(direction, speed));
+    drone.winch_work = drone.winch_work - speed * reel_speed;
+    drone.machine_work = drone.machine_work - speed * anchor_speed;
+    drone.cable_loss = drone.cable_loss + 0.5f32 * speed * speed;
 }

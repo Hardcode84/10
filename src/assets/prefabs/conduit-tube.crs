@@ -2,10 +2,10 @@ fn conduit_cast_bay(height: f32) -> f32 {
     return height / panel_pixel_extent(height / CONDUIT_CAST_LENGTH, 1u32) as f32;
 }
 fn conduit_shell_facet(diameter: f32) -> f32 {
-    return diameter * sinf(3.14159265359f32 / 48f32);
+    return diameter * sinf(PI / 48f32);
 }
 fn conduit_cable_facet(diameter: f32) -> f32 {
-    return diameter * sinf(3.14159265359f32 / 8f32);
+    return diameter * sinf(PI / 8f32);
 }
 fn prefab_conduit_tube_material_count() -> u32 {
     return CONDUIT_MATERIAL_COUNT;
@@ -202,7 +202,7 @@ fn conduit_cable(asset: mut RoomAsset, radius: f32, height: f32, turns: u32, str
             orbit: orbit,
             height: height,
             turns: turns,
-            phase: 6.28318530718f32 * strand as f32 / 6f32,
+            phase: (2f32 * PI) * strand as f32 / 6f32,
             style: make TubeStyle {
                 radius: radius,
                 sides: 8u32,

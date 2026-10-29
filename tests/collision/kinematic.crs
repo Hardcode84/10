@@ -177,7 +177,7 @@ fn test_kinematic_rotation() -> bool {
         vec(0f32, 0f32, 0f32),
         0.25f32,
         0f32,
-        3.14159265f32,
+        PI,
         mut attachment
     );
     if !game_check(
@@ -192,8 +192,8 @@ fn test_kinematic_rotation() -> bool {
         mut drone,
         read hit,
         read attachment,
-        hit.contact.hit.time * 3.14159265f32,
-        hit.contact.hit.time * 3.14159265f32
+        hit.contact.hit.time * PI,
+        hit.contact.hit.time * PI
     );
     if !game_check(
         length(sub(drone.cable.anchor, hit.contact.point)) < 0.0001f32,

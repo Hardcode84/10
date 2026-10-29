@@ -1,3 +1,4 @@
+const TETHER_SLACK: f32 = 0.001f32;
 // The local point is on the contacted surface, not at the projectile centre.
 fn hook_attach(
     scene: read CollisionScene,
@@ -105,7 +106,7 @@ fn tether_constraint(drone: mut Drone) -> unit {
         return;
     }
     var offset: Vec3 = sub(drone.position, drone.cable.anchor);
-    if length(offset) / drone_size(read drone) < drone.cable.extent - 0.001f32 {
+    if length(offset) / drone_size(read drone) < drone.cable.extent - TETHER_SLACK {
         return;
     }
     var normal: Vec3 = unit_vector(offset);

@@ -22,7 +22,7 @@ fn hex_pipe_point(run: HexPipeRun, height: f32, depth: f32) -> Vec3 {
 }
 fn hex_pipe_style(run: HexPipeRun) -> TubeStyle {
     var distance: f32 = run.length;
-    var extra: f32 = HEX_PIPE_EMBED + HEX_PIPE_OFFSET - 3f32 * HEX_PIPE_BEND + 1.57079632679f32 * HEX_PIPE_BEND;
+    var extra: f32 = HEX_PIPE_EMBED + HEX_PIPE_OFFSET - 3f32 * HEX_PIPE_BEND + (0.5f32 * PI) * HEX_PIPE_BEND;
     if !run.entry {
         distance = distance + extra;
     }
