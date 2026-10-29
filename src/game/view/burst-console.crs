@@ -137,3 +137,50 @@ fn console_rect(
         material
     );
 }
+
+// Shows green lock brackets around the aim point while attached to a wall.
+fn draw_anchor_lock(v: mut FrameInput, drone: read Drone, config: GameConfig) -> unit {
+    if !drone.wall_anchor.active {
+        return;
+    }
+    var side: u32 = 0u32;
+    while side < 2u32 {
+        var x: f32 = -0.012f32;
+        var cap: f32 = x;
+        if side == 1u32 {
+            x = 0.0105f32;
+            cap = 0.006f32;
+        }
+        frame_rect(
+            mut v,
+            read drone,
+            config,
+            x,
+            -0.009f32,
+            0.0015f32,
+            0.018f32,
+            CONSOLE_READY
+        );
+        frame_rect(
+            mut v,
+            read drone,
+            config,
+            cap,
+            -0.009f32,
+            0.006f32,
+            0.0015f32,
+            CONSOLE_READY
+        );
+        frame_rect(
+            mut v,
+            read drone,
+            config,
+            cap,
+            0.0075f32,
+            0.006f32,
+            0.0015f32,
+            CONSOLE_READY
+        );
+        side = side + 1u32;
+    }
+}

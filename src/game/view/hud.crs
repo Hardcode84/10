@@ -21,6 +21,9 @@ fn game_hud(v: mut FrameInput, trial: read Trial, paused: bool) -> unit {
         i = i + 1u32;
     }
     hud_size(mut v, drone_size(read trial.drone));
+    if trial.drone.wall_anchor.active {
+        hud_text(mut v, 60u32, 1u32, "ANCHORED");
+    }
     if trial.graph_run {
         graph_hud(mut v, read trial, paused);
         return;

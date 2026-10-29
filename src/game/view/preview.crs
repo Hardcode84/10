@@ -114,6 +114,7 @@ fn draw_frame(v: mut FrameInput, drone: read Drone, config: GameConfig) -> unit 
         7u32
     );
     draw_burst_console(mut v, read drone, config);
+    draw_anchor_lock(mut v, read drone, config);
     frame_rect(
         mut v,
         read drone,
