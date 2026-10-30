@@ -23,6 +23,7 @@
 <label>Tick limit (0: unlimited)<input name="ticks" type="number" min="0" value="0"></label>
 <label class="check"><input name="slow" type="checkbox">Slow mode</label>
 <label class="check"><input name="scaling" type="checkbox">Scaling portal course</label>
+<label>Movement<select name="movement"><option value="">Burst</option><option value="anchor-controls">Wall skate</option><option value="jumper-controls">Jumper</option></select></label>
 <label class="check"><input name="full-spin" type="checkbox">Full spin</label>
 <label class="check"><input name="record" type="checkbox">Record flight</label>
 <label class="check"><input name="capture" type="checkbox">Render capture (no display)</label>
@@ -36,7 +37,7 @@
 <p id="status" role="status">Loading the game…</p>
 <div id="toolbar" hidden><button id="mouse">Capture mouse</button> <button id="fullscreen">Fullscreen</button> <button id="quit">End run</button> <button id="restart" hidden>New expedition</button> <button id="resume-audio" hidden>Resume sound</button> <span id="audio-status" role="status"></span></div>
 <canvas id="canvas" width="960" height="540" tabindex="0" aria-label="SPINWARD game"></canvas>
-<p>WASD · Ctrl/Space move | Mouse look | Q/E roll | RMB boost | F brake | LMB tether | R reel<br>Tab pause | L level | P preview | F4 spin | Backspace retry | Esc release mouse / exit<br>Gamepads use the same controls as the desktop game.</p>
+<p>WASD · Ctrl/Space move | Mouse look | Q/E roll | RMB boost / anchor / jumper | F brake | LMB tether | R reel<br>Tab pause | L level | P preview | F4 spin | Backspace retry | Esc release mouse / exit<br>Gamepads use the same controls as the desktop game.</p>
 <div id="downloads"></div>
 <details><summary>Run log</summary><pre id="log"></pre></details>
 </main>
